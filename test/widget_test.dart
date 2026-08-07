@@ -7,8 +7,23 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     expect(find.text('1-Click 전체 발송 승인하기'), findsOneWidget);
+    expect(find.text('오늘 발송 성공'), findsOneWidget);
+    expect(find.text('0 / 3건 · 0%'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.text('발송 대기 메시지'), findsOneWidget);
     expect(find.text('김민지'), findsOneWidget);
+  });
+
+  testWidgets('Individual send updates today success progress', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
+
+    await tester.tap(find.text('김민지'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('개별 발송'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 / 3건 · 33%'), findsOneWidget);
+    expect(find.text('김민지'), findsNothing);
   });
 
   testWidgets('Bottom navigation switches to customer list', (WidgetTester tester) async {

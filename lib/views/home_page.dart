@@ -15,6 +15,16 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   static const Color soriPurple = Color(0xFF6C5CE7);
   late List<PendingMessage> _pendingMessages;
+  final Set<String> _todaySentCustomerIds = {};
+
+  int get _todaySentCount => _todaySentCustomerIds.length;
+
+  int get _todayTotalCount => _todaySentCount + _pendingMessages.length;
+
+  double get _todaySendProgress {
+    if (_todayTotalCount == 0) return 1.0;
+    return _todaySentCount / _todayTotalCount;
+  }
 
   @override
   void initState() {
@@ -29,7 +39,18 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _loadMessages() {
-    _pendingMessages = MessageService.generatePendingMessages(widget.customers);
+    _pendingMessages = MessageService.generatePendingMessages(widget.customers)
+        .where((message) => !_todaySentCustomerIds.contains(message.customerId))
+        .toList();
+  }
+
+  void _markMessagesSent(Iterable<PendingMessage> messages) {
+    for (final message in messages) {
+      _todaySentCustomerIds.add(message.customerId);
+    }
+    _pendingMessages.removeWhere(
+      (message) => _todaySentCustomerIds.contains(message.customerId),
+    );
   }
 
   void _sendAllMessages() {
@@ -50,7 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
             onPressed: () {
               Navigator.pop(context);
               setState(() {
-                _pendingMessages.clear();
+                _markMessagesSent(List<PendingMessage>.from(_pendingMessages));
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -110,7 +131,7 @@ class _MyHomePageState extends State<MyHomePage> {
             onPressed: () {
               Navigator.pop(context);
               setState(() {
-                _pendingMessages.removeWhere((m) => m.customerId == message.customerId);
+                _markMessagesSent([message]);
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -310,7 +331,9 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
+          _buildTodaySendProgress(),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -334,6 +357,49 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTodaySendProgress() {
+    final sentCount = _todaySentCount;
+    final totalCount = _todayTotalCount;
+    final percent = (_todaySendProgress * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '오늘 발송 성공',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              '$sentCount / $totalCount건 · $percent%',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: _todaySendProgress,
+            minHeight: 8,
+            backgroundColor: Colors.white.withValues(alpha: 0.22),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      ],
     );
   }
 
