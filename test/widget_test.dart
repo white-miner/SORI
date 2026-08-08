@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sori/data/memory_sori_repository.dart';
 import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/session_user.dart';
 import 'package:sori/services/sori_store.dart';
@@ -142,5 +143,15 @@ void main() {
     expect(after.membershipUsedVisits, 9);
     expect(after.membershipRemainingVisits, 1);
     expect(after.membershipBadgeLabel, '진행 9회 / 잔여 1회');
+  });
+
+  test('repository bootstrap loads memory snapshot async', () async {
+    final store = SoriStore(repository: MemorySoriRepository());
+    expect(store.customers, isNotEmpty);
+    await store.bootstrap();
+    expect(store.bootstrapComplete, isTrue);
+    expect(store.isLoading, isFalse);
+    expect(store.isRemoteEnabled, isFalse);
+    expect(store.findCustomer('2')!.membershipRemainingVisits, 2);
   });
 }

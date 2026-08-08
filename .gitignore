@@ -33,6 +33,12 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local secrets (use .env.example as template)
+.env
+.env.local
+.env.*.local
+
+
 # Symbolication related
 app.*.symbols
 

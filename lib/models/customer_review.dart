@@ -36,6 +36,8 @@ class CustomerReview {
     this.status = ReviewStatus.draft,
     this.requestAiReply = false,
     this.acceptedAt,
+    this.naverRegistered = false,
+    this.naverRegisteredAt,
   });
 
   final String id;
@@ -48,6 +50,8 @@ class CustomerReview {
   final ReviewStatus status;
   final bool requestAiReply;
   final DateTime? acceptedAt;
+  final bool naverRegistered;
+  final DateTime? naverRegisteredAt;
 
   String get displayText =>
       (editedText != null && editedText!.trim().isNotEmpty)
@@ -65,6 +69,8 @@ class CustomerReview {
     ReviewStatus? status,
     bool? requestAiReply,
     DateTime? acceptedAt,
+    bool? naverRegistered,
+    DateTime? naverRegisteredAt,
   }) {
     return CustomerReview(
       id: id ?? this.id,
@@ -77,6 +83,8 @@ class CustomerReview {
       status: status ?? this.status,
       requestAiReply: requestAiReply ?? this.requestAiReply,
       acceptedAt: acceptedAt ?? this.acceptedAt,
+      naverRegistered: naverRegistered ?? this.naverRegistered,
+      naverRegisteredAt: naverRegisteredAt ?? this.naverRegisteredAt,
     );
   }
 
@@ -91,6 +99,8 @@ class CustomerReview {
         'status': status.dbValue,
         'request_ai_reply': requestAiReply,
         'accepted_at': acceptedAt?.toIso8601String(),
+        'naver_registered': naverRegistered,
+        'naver_registered_at': naverRegisteredAt?.toIso8601String(),
       };
 
   factory CustomerReview.fromMap(Map<String, dynamic> map) {
@@ -109,6 +119,10 @@ class CustomerReview {
       requestAiReply: map['request_ai_reply'] as bool? ?? false,
       acceptedAt: map['accepted_at'] != null
           ? DateTime.parse(map['accepted_at'] as String)
+          : null,
+      naverRegistered: map['naver_registered'] as bool? ?? false,
+      naverRegisteredAt: map['naver_registered_at'] != null
+          ? DateTime.parse(map['naver_registered_at'] as String)
           : null,
     );
   }
