@@ -410,7 +410,7 @@ class SoriStore {
     _notify();
   }
 
-  /// 차트 저장 + visit_checked 트리거 → 토큰/리뷰 초안 생성.
+  /// 차트 저장 + 방문 확인 트리거 → 토큰/리뷰 초안 생성.
   CustomerChart saveChartAndConfirmVisit({
     required String customerId,
     required int visitNumber,
@@ -424,6 +424,15 @@ class SoriStore {
     required List<String> revisitFeedbackChips,
     String? beforeImageUrl,
     String? afterImageUrl,
+    String? customerName,
+    String? customerPhone,
+    CustomerGender? gender,
+    DateTime? birthDate,
+    String? address,
+    String? occupation,
+    String? allergyNotes,
+    String? medicationHistory,
+    String? homeCareHabits,
   }) {
     final customer = findCustomer(customerId);
     if (customer == null) {
@@ -472,6 +481,19 @@ class SoriStore {
 
     final custIndex = customers.indexWhere((c) => c.id == customerId);
     customers[custIndex] = customers[custIndex].copyWith(
+      name: customerName?.trim().isNotEmpty == true
+          ? customerName!.trim()
+          : customer.name,
+      phone: customerPhone?.trim().isNotEmpty == true
+          ? customerPhone!.trim()
+          : customer.phone,
+      gender: gender,
+      birthDate: birthDate,
+      address: address ?? customer.address,
+      occupation: occupation ?? customer.occupation,
+      allergyNotes: allergyNotes ?? customer.allergyNotes,
+      medicationHistory: medicationHistory ?? customer.medicationHistory,
+      homeCareHabits: homeCareHabits ?? customer.homeCareHabits,
       lastTreatmentDate: DateTime.now(),
       treatmentType: careName.isNotEmpty ? careName : customer.treatmentType,
       membershipTotalVisits: visitNumber > 1

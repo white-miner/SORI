@@ -152,10 +152,30 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                                   ],
                                 ),
                               ),
-                              Icon(
-                                open ? Icons.chevron_right : Icons.lock_outline,
-                                color: Colors.grey.shade400,
-                              ),
+                              if (open)
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.grey.shade400,
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF4E5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    '⏳ 원장님 확인 대기 중',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFB7791F),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),

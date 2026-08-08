@@ -96,7 +96,7 @@ class _AdminChartPageState extends State<AdminChartPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            '전화번호 Unique Key: ${customer.phone}',
+            '연락처 ${customer.phone}',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 12),
