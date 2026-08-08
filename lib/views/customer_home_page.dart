@@ -1,160 +1,199 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../models/customer_chart.dart';
-import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
 
-/// 고객 홈 — 인투펫 스타일 1:1 케어 타임라인.
+/// 고객 홈 — 대시보드 (웰컴 · 리뷰 요청 · 샵 퀵액션).
 class CustomerHomePage extends StatelessWidget {
-  const CustomerHomePage({super.key, required this.store});
+  const CustomerHomePage({
+    super.key,
+    required this.store,
+    this.onSelectTab,
+  });
 
   final SoriStore store;
+  final ValueChanged<int>? onSelectTab;
 
   @override
   Widget build(BuildContext context) {
     final session = store.session!;
     final customerId = session.customerId;
-    final charts = customerId == null
-        ? <CustomerChart>[]
-        : store.chartsForCustomer(customerId);
-    final latest = charts.isEmpty ? null : charts.first;
+    final name = session.name.trim().isEmpty ? '고객' : session.name.trim();
+    final hasReviewRequest =
+        customerId != null && store.isReviewRequested(customerId);
 
     return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Text(
-                '소통하는 리뷰, SORI',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: SoriTokens.textPrimary,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        children: [
+          const Text(
+            '소통하는 리뷰, SORI',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (hasReviewRequest) ...[
+            _ReviewRequestBanner(
+              onTap: () => onSelectTab?.call(2),
+            ),
+            const SizedBox(height: 12),
+          ],
+          SoriCard(
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: SoriTokens.primarySoft,
+                  child: Text(
+                    name.characters.first,
+                    style: const TextStyle(
+                      color: SoriTokens.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: _ShopSelector(store: store),
-            ),
-          ),
-          if (customerId != null && store.findCustomer(customerId) != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: MembershipProfileCard(
-                  customer: store.findCustomer(customerId)!,
-                ),
-              ),
-            ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: _AiReportCard(
-                chart: latest,
-                onDetail: latest == null
-                    ? null
-                    : () => _openChart(context, latest),
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 22, 20, 10),
-              child: Text(
-                '시술 히스토리',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: SoriTokens.textPrimary,
-                ),
-              ),
-            ),
-          ),
-          if (charts.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SoriCard(
+                const SizedBox(width: 14),
+                Expanded(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.spa_outlined, size: 40, color: Colors.grey.shade400),
-                      const SizedBox(height: 10),
-                      const Text(
-                        '아직 케어 기록이 없어요',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 6),
                       Text(
-                        '방문 후 원장님이 차트를 열어 주시면\n여기에 1:1 케어 타임라인이 쌓여요',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+                        '$name님, 환영합니다',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '오늘도 편안한 케어 되세요',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: SoriTokens.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              sliver: SliverList.separated(
-                itemCount: charts.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final chart = charts[index];
-                  return _TimelineCard(
-                    chart: chart,
-                    onTap: () => _openChart(context, chart),
-                  );
-                },
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              '내 에스테틱 샵',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
               ),
             ),
+          ),
+          _ShopSummaryCard(store: store),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickNavChip(
+                  icon: Icons.spa_outlined,
+                  label: '내 케어',
+                  onTap: () => onSelectTab?.call(1),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickNavChip(
+                  icon: Icons.chat_bubble_outline,
+                  label: '리뷰 작성',
+                  onTap: () => onSelectTab?.call(2),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
+}
 
-  void _openChart(BuildContext context, CustomerChart chart) {
-    if (!chart.hasFeedbackLine || chart.feedbackToken == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⏳ 원장님 확인 대기 중입니다'),
-          behavior: SnackBarBehavior.floating,
+class _ReviewRequestBanner extends StatelessWidget {
+  const _ReviewRequestBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SoriTokens.radiusXl),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF5B4CDB), Color(0xFF7C6FF0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(SoriTokens.radiusXl),
+            boxShadow: [
+              BoxShadow(
+                color: SoriTokens.primary.withValues(alpha: 0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: [
+              Text('📝', style: TextStyle(fontSize: 28)),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '오늘 케어의 리뷰를 조립해 주세요!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.white),
+            ],
+          ),
         ),
-      );
-      return;
-    }
-    Navigator.of(context).pushNamed(
-      '${AppRouter.review}?token=${Uri.encodeQueryComponent(chart.feedbackToken!)}',
+      ),
     );
   }
 }
 
-/// 케어 탭 — 타임라인 전체.
-class CustomerCareTab extends StatelessWidget {
-  const CustomerCareTab({super.key, required this.store});
+class _ShopSummaryCard extends StatelessWidget {
+  const _ShopSummaryCard({required this.store});
 
   final SoriStore store;
 
-  @override
-  Widget build(BuildContext context) {
-    return CustomerHomePage(store: store);
+  Future<void> _call() async {
+    final phone = store.shop.phone?.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (phone == null || phone.isEmpty) return;
+    await launchUrl(Uri.parse('tel:$phone'));
   }
-}
 
-class _ShopSelector extends StatelessWidget {
-  const _ShopSelector({required this.store});
-
-  final SoriStore store;
+  Future<void> _openPlace() async {
+    final uri = Uri.tryParse(store.shop.naverPlaceUrl);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,155 +201,68 @@ class _ShopSelector extends StatelessWidget {
     final owner = shop.ownerName ?? '원장';
 
     return SoriCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: SoriTokens.primarySoft,
-            child: Text(
-              owner.characters.first,
-              style: const TextStyle(
-                color: SoriTokens.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  shop.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$owner 원장님과 1:1 케어',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: SoriTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          InkWell(
-            onTap: () async {
-              final uri = Uri.tryParse(shop.naverPlaceUrl);
-              if (uri != null) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F8EF),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.place, size: 14, color: SoriTokens.success),
-                  SizedBox(width: 4),
-                  Text(
-                    '네이버',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: SoriTokens.success,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AiReportCard extends StatelessWidget {
-  const _AiReportCard({required this.chart, this.onDetail});
-
-  final CustomerChart? chart;
-  final VoidCallback? onDetail;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5B4CDB), Color(0xFF7C6FF0)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(SoriTokens.radiusXl),
-        boxShadow: [
-          BoxShadow(
-            color: SoriTokens.primary.withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'AI 케어 리포트',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: SoriTokens.primarySoft,
+                child: Text(
+                  owner.characters.first,
+                  style: const TextStyle(
+                    color: SoriTokens.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      shop.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      shop.address?.isNotEmpty == true
+                          ? shop.address!
+                          : '$owner 원장님',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            chart == null
-                ? '아직 생성된 리포트가 없어요'
-                : (chart!.directorInsight.isNotEmpty
-                    ? chart!.directorInsight
-                    : chart!.treatmentSummary),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
-          ),
-          if (chart != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              '${chart!.visitNumber}회차 · ${chart!.careName.isNotEmpty ? chart!.careName : '케어'}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onDetail,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: SoriTokens.primary,
-                disabledBackgroundColor: Colors.white24,
-                disabledForegroundColor: Colors.white70,
+          Row(
+            children: [
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.phone_outlined,
+                  label: '전화 걸기',
+                  onTap: _call,
+                ),
               ),
-              child: const Text(
-                'AI 리포트 상세보기',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.place_outlined,
+                  label: '샵 위치',
+                  onTap: _openPlace,
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -318,84 +270,61 @@ class _AiReportCard extends StatelessWidget {
   }
 }
 
-class _TimelineCard extends StatelessWidget {
-  const _TimelineCard({required this.chart, required this.onTap});
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
-  final CustomerChart chart;
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final visitDate = chart.visitCheckedAt ?? DateTime.now();
-    final next = visitDate.add(const Duration(days: 28));
-    final open = chart.hasFeedbackLine;
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: SoriTokens.primary,
+        side: const BorderSide(color: SoriTokens.border),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      icon: Icon(icon, size: 18),
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+    );
+  }
+}
 
+class _QuickNavChip extends StatelessWidget {
+  const _QuickNavChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return SoriCard(
       onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: SoriTokens.primarySoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '${chart.visitNumber}회차',
-              style: const TextStyle(
-                color: SoriTokens.primary,
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
-            ),
+          Icon(icon, color: SoriTokens.primary, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  chart.careName.isNotEmpty ? chart.careName : chart.treatmentSummary,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '방문 ${_fmt(visitDate)} · 다음 권장 ${_fmt(next)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: SoriTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!open)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: SoriTokens.warningBg,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                '⏳ 확인 대기',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: SoriTokens.warningText,
-                ),
-              ),
-            )
-          else
-            const Icon(Icons.chevron_right, color: SoriTokens.textSecondary),
         ],
       ),
     );
   }
-
-  String _fmt(DateTime d) =>
-      '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 }

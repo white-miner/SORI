@@ -6,6 +6,7 @@ import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'admin_chart_writer_page.dart';
+import 'customer_care_page.dart';
 import 'customer_home_page.dart';
 import 'director_home_page.dart';
 import 'director_review_manage_page.dart';
@@ -49,6 +50,10 @@ class _AppShellPageState extends State<AppShellPage> {
     if (mounted) setState(() {});
   }
 
+  void _selectTab(int index) {
+    setState(() => _tab = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = _store.session;
@@ -62,7 +67,11 @@ class _AppShellPageState extends State<AppShellPage> {
     final pages = <Widget>[
       isDirector
           ? DirectorHomePage(key: const ValueKey('d-home'), store: _store)
-          : CustomerHomePage(key: const ValueKey('c-home'), store: _store),
+          : CustomerHomePage(
+              key: const ValueKey('c-home'),
+              store: _store,
+              onSelectTab: _selectTab,
+            ),
       isDirector
           ? DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store)
           : CustomerCareTab(key: const ValueKey('c-care'), store: _store),
@@ -76,7 +85,10 @@ class _AppShellPageState extends State<AppShellPage> {
               store: _store,
             ),
       const MessageHistoryPage(),
-      MyPage(store: _store),
+      MyPage(
+        store: _store,
+        onSelectTab: _selectTab,
+      ),
     ];
 
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';

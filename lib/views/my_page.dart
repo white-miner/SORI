@@ -6,12 +6,18 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
+import 'customer_review_history_page.dart';
 import 'shop_settings_page.dart';
 
 class MyPage extends StatelessWidget {
-  const MyPage({super.key, required this.store});
+  const MyPage({
+    super.key,
+    required this.store,
+    this.onSelectTab,
+  });
 
   final SoriStore store;
+  final ValueChanged<int>? onSelectTab;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +87,16 @@ class MyPage extends StatelessWidget {
                 child: _StatCard(
                   label: '내 소통 리뷰',
                   value: '$reviewCount',
+                  onTap: isDirector
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  CustomerReviewHistoryPage(store: store),
+                            ),
+                          );
+                        },
                 ),
               ),
               const SizedBox(width: 10),
@@ -90,6 +106,9 @@ class MyPage extends StatelessWidget {
                   value: isDirector
                       ? '${store.customers.length}'
                       : '$remain',
+                  onTap: isDirector
+                      ? null
+                      : () => onSelectTab?.call(1),
                 ),
               ),
             ],
@@ -198,14 +217,20 @@ class MyPage extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return SoriCard(
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
