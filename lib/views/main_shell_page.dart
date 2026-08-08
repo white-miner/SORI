@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/customer.dart';
+import '../services/sori_store.dart';
 import 'customer_list_page.dart';
 import 'home_page.dart';
 import 'message_history_page.dart';
@@ -15,38 +15,22 @@ class MainShellPage extends StatefulWidget {
 
 class _MainShellPageState extends State<MainShellPage> {
   int _currentIndex = 0;
+  final SoriStore _store = SoriStore();
 
-  final List<Customer> _customers = [
-    Customer(
-      id: '1',
-      name: '김민지',
-      phone: '010-1234-5678',
-      lastTreatmentDate: DateTime(2026, 8, 5),
-      treatmentType: '재생케어',
-      memo: '두피 민감, 자연 펌 선호',
-    ),
-    Customer(
-      id: '2',
-      name: '이수진',
-      phone: '010-2345-6789',
-      lastTreatmentDate: DateTime(2026, 8, 3),
-      treatmentType: '수분케어',
-      memo: '정기 예약 고객',
-    ),
-    Customer(
-      id: '3',
-      name: '박서연',
-      phone: '010-3456-7890',
-      lastTreatmentDate: DateTime(2026, 7, 28),
-      treatmentType: '재생케어',
-      memo: '트리트먼트 관심 많음',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onStoreChanged);
+  }
 
-  void _addCustomer(Customer customer) {
-    setState(() {
-      _customers.insert(0, customer);
-    });
+  @override
+  void dispose() {
+    _store.removeListener(_onStoreChanged);
+    super.dispose();
+  }
+
+  void _onStoreChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -56,11 +40,8 @@ class _MainShellPageState extends State<MainShellPage> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          MyHomePage(customers: _customers),
-          CustomerListPage(
-            customers: _customers,
-            onCustomerAdded: _addCustomer,
-          ),
+          MyHomePage(customers: _store.customers),
+          CustomerListPage(store: _store),
           const MessageHistoryPage(),
         ],
       ),

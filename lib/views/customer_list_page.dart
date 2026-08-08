@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
+import '../services/sori_store.dart';
+import 'customer_detail_page.dart';
 import 'my_app.dart';
 
 class CustomerListPage extends StatefulWidget {
   const CustomerListPage({
     super.key,
-    required this.customers,
-    required this.onCustomerAdded,
+    required this.store,
   });
 
-  final List<Customer> customers;
-  final ValueChanged<Customer> onCustomerAdded;
+  final SoriStore store;
 
   @override
   State<CustomerListPage> createState() => _CustomerListPageState();
@@ -23,15 +23,28 @@ class _CustomerListPageState extends State<CustomerListPage> {
   String _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_onStoreChanged);
+  }
+
+  @override
   void dispose() {
+    widget.store.removeListener(_onStoreChanged);
     _searchController.dispose();
     super.dispose();
   }
 
+  void _onStoreChanged() {
+    if (mounted) setState(() {});
+  }
+
+  List<Customer> get _customers => widget.store.customers;
+
   List<Customer> get _filteredCustomers {
-    if (_searchQuery.isEmpty) return widget.customers;
+    if (_searchQuery.isEmpty) return _customers;
     final query = _searchQuery.toLowerCase();
-    return widget.customers.where((customer) {
+    return _customers.where((customer) {
       return customer.name.toLowerCase().contains(query) ||
           customer.phone.contains(query);
     }).toList();
@@ -123,19 +136,32 @@ class _CustomerListPageState extends State<CustomerListPage> {
     );
 
     if (result == true) {
-      widget.onCustomerAdded(
+      widget.store.addCustomer(
         Customer(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
+          shopId: widget.store.shop.id,
           name: nameController.text.trim(),
           phone: phoneController.text.trim(),
           lastTreatmentDate: selectedDate,
           treatmentType: '재생케어',
+          membershipTotalVisits: 0,
         ),
       );
     }
 
     nameController.dispose();
     phoneController.dispose();
+  }
+
+  void _openDetail(Customer customer) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CustomerDetailPage(
+          store: widget.store,
+          customerId: customer.id,
+        ),
+      ),
+    );
   }
 
   @override
@@ -163,7 +189,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '총 ${widget.customers.length}명',
+                      '총 ${_customers.length}명 · ${widget.store.shop.name}',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade600,
@@ -216,9 +242,19 @@ class _CustomerListPageState extends State<CustomerListPage> {
                             const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final customer = customers[index];
+                          final chart =
+                              widget.store.latestChart(customer.id);
                           return _CustomerListTile(
                             customer: customer,
-                            formattedDate: _formatDate(customer.lastTreatmentDate),
+                            formattedDate:
+                                _formatDate(customer.lastTreatmentDate),
+                            visitLabel: chart == null
+                                ? null
+                                : (chart.isFirstVisit
+                                    ? '첫 방문'
+                                    : '${chart.visitNumber}회차'),
+                            visitChecked: chart?.visitChecked ?? false,
+                            onTap: () => _openDetail(customer),
                           );
                         },
                       ),
@@ -244,10 +280,16 @@ class _CustomerListTile extends StatelessWidget {
   const _CustomerListTile({
     required this.customer,
     required this.formattedDate,
+    required this.onTap,
+    this.visitLabel,
+    this.visitChecked = false,
   });
 
   final Customer customer;
   final String formattedDate;
+  final VoidCallback onTap;
+  final String? visitLabel;
+  final bool visitChecked;
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +298,7 @@ class _CustomerListTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () {},
+        onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -282,12 +324,24 @@ class _CustomerListTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        customer.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            customer.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (visitChecked) ...[
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: Colors.green.shade500,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -325,7 +379,7 @@ class _CustomerListTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        customer.treatmentType,
+                        visitLabel ?? customer.treatmentType,
                         style: const TextStyle(
                           fontSize: 11,
                           color: MyApp.soriPurple,
