@@ -128,9 +128,29 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   }
 
   /// 전화번호로 기존 고객 인적·메디컬·회원권 정보를 폼에 자동 채움.
-  void _autofillFromPhone() {
-    final matched = widget.store.findCustomerByPhone(_phoneController.text);
-    if (matched == null) return;
+  Future<void> _autofillFromPhone() async {
+    final matched =
+        await widget.store.lookupCustomerByPhone(_phoneController.text);
+    if (!mounted) return;
+    if (widget.store.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('조회 실패: ${widget.store.lastError}'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      widget.store.clearError();
+    }
+    if (matched == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('해당 번호의 기존 고객을 찾지 못했어요'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() {
       if (matched.name.isNotEmpty) _nameController.text = matched.name;
       _gender = matched.gender ?? _gender;
@@ -297,7 +317,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
 
     setState(() => _saving = true);
     try {
-      final chart = widget.store.saveChartAndConfirmVisit(
+      final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: widget.customer.id,
         visitNumber: _visitNumber,
         customChartNo: _customNoController.text.trim().isEmpty
@@ -332,6 +352,18 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       await showCustomerLinkPopup(context, chart: chart, store: widget.store);
       if (!mounted) return;
       Navigator.pop(context, chart);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '저장 실패: ${widget.store.lastError ?? e.toString()}',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      widget.store.clearError();
     } finally {
       if (mounted) setState(() => _saving = false);
     }

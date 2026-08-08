@@ -156,20 +156,32 @@ class Customer {
       };
 
   factory Customer.fromMap(Map<String, dynamic> map) {
+    DateTime parseDate(dynamic value, {DateTime? fallback}) {
+      if (value == null) return fallback ?? DateTime.now();
+      if (value is DateTime) return value;
+      return DateTime.parse(value.toString());
+    }
+
+    int parseInt(dynamic value, [int def = 0]) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse('$value') ?? def;
+    }
+
     return Customer(
       id: map['id'] as String,
       shopId: map['shop_id'] as String? ?? 'shop-demo',
       name: map['name'] as String,
       phone: map['phone'] as String,
-      lastTreatmentDate: DateTime.parse(map['last_treatment_date'] as String),
+      lastTreatmentDate: parseDate(map['last_treatment_date']),
       treatmentType: map['treatment_type'] as String? ?? '',
       memo: map['memo'] as String? ?? '',
       membershipServiceName: map['membership_service_name'] as String? ?? '',
-      membershipTotalVisits: map['membership_total_visits'] as int? ?? 0,
-      membershipUsedVisits: map['membership_used_visits'] as int? ?? 0,
+      membershipTotalVisits: parseInt(map['membership_total_visits']),
+      membershipUsedVisits: parseInt(map['membership_used_visits']),
       gender: CustomerGenderX.fromDb(map['gender'] as String?),
       birthDate: map['birth_date'] != null
-          ? DateTime.parse(map['birth_date'] as String)
+          ? parseDate(map['birth_date'])
           : null,
       address: map['address'] as String? ?? '',
       occupation: map['occupation'] as String? ?? '',

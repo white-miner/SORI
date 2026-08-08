@@ -84,6 +84,13 @@ Supabase `auth.users`와 1:1. 테이블명 `users`는 Auth와 충돌하므로 `p
 
 ## App data layer
 
-- `SoriStore` — UI Facade (ChangeNotifier 패턴)
-- `SoriRepository` — Memory(더미) | Supabase
-- Env: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (미설정 시 Memory fallback)
+- `SoriStore` — UI Facade (`isLoading` / `lastError` / `bootstrap` / `lookupCustomerByPhone` / `saveChartAndConfirmVisitAsync`)
+- `SoriRepository` — Memory | **Supabase (CRUD 실연동)**
+- Env: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (`/rest/v1` suffix auto-stripped)
+- Migrations `006_mvp_anon_policies.sql` — anon MVP policies (tighten before production)
+
+### Remote write path
+
+1. Chart save → `customer_charts` upsert + `visit_checked=true` (token trigger)
+2. Membership → `customers.membership_used_visits` +1 when first confirmed
+3. Phone autofill → `customers` select by normalized phone digits

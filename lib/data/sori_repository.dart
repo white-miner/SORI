@@ -29,9 +29,88 @@ class SoriSnapshot {
   final Set<String> reviewRequestedCustomerIds;
 }
 
+/// 차트 저장 + 방문 확인 요청 페이로드.
+class SaveChartRequest {
+  const SaveChartRequest({
+    required this.customerId,
+    required this.visitNumber,
+    required this.careName,
+    required this.treatmentSummary,
+    required this.directorInsight,
+    required this.concernChips,
+    required this.firstVisitFearChips,
+    required this.revisitFeedbackChips,
+    this.customChartNo,
+    this.chartId,
+    this.beforeImageUrl,
+    this.afterImageUrl,
+    this.customerName,
+    this.customerPhone,
+    this.gender,
+    this.birthDate,
+    this.address,
+    this.occupation,
+    this.allergyNotes,
+    this.medicationHistory,
+    this.homeCareHabits,
+    this.membershipServiceName,
+    this.membershipTotalVisits,
+    this.membershipUsedVisits,
+    this.deductMembership = true,
+  });
+
+  final String customerId;
+  final int visitNumber;
+  final String? customChartNo;
+  final String? chartId;
+  final String careName;
+  final String treatmentSummary;
+  final String directorInsight;
+  final List<String> concernChips;
+  final List<String> firstVisitFearChips;
+  final List<String> revisitFeedbackChips;
+  final String? beforeImageUrl;
+  final String? afterImageUrl;
+  final String? customerName;
+  final String? customerPhone;
+  final CustomerGender? gender;
+  final DateTime? birthDate;
+  final String? address;
+  final String? occupation;
+  final String? allergyNotes;
+  final String? medicationHistory;
+  final String? homeCareHabits;
+  final String? membershipServiceName;
+  final int? membershipTotalVisits;
+  final int? membershipUsedVisits;
+  final bool deductMembership;
+}
+
+class SaveChartResult {
+  const SaveChartResult({
+    required this.chart,
+    required this.customer,
+    this.review,
+  });
+
+  final CustomerChart chart;
+  final Customer customer;
+  final CustomerReview? review;
+}
+
 /// 데이터 소스 추상화 (Memory | Supabase).
 abstract class SoriRepository {
   bool get isRemote;
 
   Future<SoriSnapshot> loadInitialData();
+
+  Future<Customer?> findCustomerByPhone(String phone, {String? shopId});
+
+  Future<Customer> upsertCustomer(Customer customer);
+
+  Future<Shop> upsertShop(Shop shop);
+
+  Future<SaveChartResult> saveChartAndConfirmVisit(SaveChartRequest request);
+
+  Future<CustomerReview> upsertReview(CustomerReview review);
 }

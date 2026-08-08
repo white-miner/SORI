@@ -1,5 +1,6 @@
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_review.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import 'sori_repository.dart';
@@ -138,4 +139,35 @@ class MemorySoriRepository implements SoriRepository {
       gallerySlides: gallerySlides,
     );
   }
+
+  @override
+  Future<Customer?> findCustomerByPhone(String phone, {String? shopId}) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final snap = createSeedSnapshot();
+    try {
+      return snap.customers.firstWhere(
+        (c) =>
+            (shopId == null || c.shopId == shopId) &&
+            c.phone.replaceAll(RegExp(r'\D'), '') == digits,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Customer> upsertCustomer(Customer customer) async => customer;
+
+  @override
+  Future<Shop> upsertShop(Shop shop) async => shop;
+
+  @override
+  Future<SaveChartResult> saveChartAndConfirmVisit(
+    SaveChartRequest request,
+  ) async {
+    throw UnsupportedError('Use SoriStore.saveChartAndConfirmVisit for memory');
+  }
+
+  @override
+  Future<CustomerReview> upsertReview(CustomerReview review) async => review;
 }

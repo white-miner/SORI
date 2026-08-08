@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/memory_sori_repository.dart';
 import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
@@ -26,8 +28,21 @@ class SoriStore {
 
   bool isLoading = false;
   bool bootstrapComplete = false;
+  String? lastError;
 
   bool get isRemoteEnabled => _repository.isRemote;
+  bool get hasError => lastError != null && lastError!.isNotEmpty;
+
+  void clearError() {
+    if (lastError == null) return;
+    lastError = null;
+    _notify();
+  }
+
+  void _setError(Object error) {
+    lastError = error.toString().replaceFirst('Exception: ', '');
+    debugPrint('SoriStore error: $lastError');
+  }
 
   late Shop shop;
   SessionUser? session;
@@ -93,11 +108,187 @@ class SoriStore {
       _repository = repository;
     }
     isLoading = true;
+    lastError = null;
     _notify();
     try {
       final snapshot = await _repository.loadInitialData();
       _applySnapshot(snapshot);
       bootstrapComplete = true;
+    } catch (e, st) {
+      debugPrint('bootstrap failed: $e\n$st');
+      _setError(e);
+      // 원격 실패 시 Memory로 전환해 temp ID로 원격 쓰기가 이어지지 않게 함
+      if (_repository.isRemote) {
+        _repository = MemorySoriRepository();
+        _applySnapshot(MemorySoriRepository.createSeedSnapshot());
+        bootstrapComplete = true;
+      }
+    } finally {
+      isLoading = false;
+      _notify();
+    }
+  }
+
+  /// 전화번호로 고객 조회 (원격 우선 → 로컬 캐시).
+  Future<Customer?> lookupCustomerByPhone(String phone) async {
+    final local = findCustomerByPhone(phone);
+    if (!_repository.isRemote) return local;
+
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      final remote = await _repository.findCustomerByPhone(
+        phone,
+        shopId: shop.id,
+      );
+      if (remote != null) {
+        final idx = customers.indexWhere((c) => c.id == remote.id);
+        if (idx >= 0) {
+          customers[idx] = remote;
+        } else {
+          customers.insert(0, remote);
+        }
+        _notify();
+        return remote;
+      }
+      return local;
+    } catch (e, st) {
+      debugPrint('lookupCustomerByPhone failed: $e\n$st');
+      _setError(e);
+      return local;
+    } finally {
+      isLoading = false;
+      _notify();
+    }
+  }
+
+  void _mergeCustomer(Customer customer) {
+    final idx = customers.indexWhere((c) => c.id == customer.id);
+    if (idx >= 0) {
+      customers[idx] = customer;
+    } else {
+      customers.insert(0, customer);
+    }
+  }
+
+  void _mergeChart(CustomerChart chart) {
+    final idx = charts.indexWhere((c) => c.id == chart.id);
+    if (idx >= 0) {
+      charts[idx] = chart;
+    } else {
+      charts.insert(0, chart);
+    }
+  }
+
+  void _mergeReview(CustomerReview review) {
+    final idx = reviews.indexWhere((r) => r.id == review.id);
+    if (idx >= 0) {
+      reviews[idx] = review;
+    } else {
+      reviews.insert(0, review);
+    }
+  }
+
+  /// 차트 저장 + 방문 확인 (원격 연동 시 Supabase CRUD).
+  Future<CustomerChart> saveChartAndConfirmVisitAsync({
+    required String customerId,
+    required int visitNumber,
+    String? customChartNo,
+    String? chartId,
+    required String careName,
+    required String treatmentSummary,
+    required String directorInsight,
+    required List<String> concernChips,
+    required List<String> firstVisitFearChips,
+    required List<String> revisitFeedbackChips,
+    String? beforeImageUrl,
+    String? afterImageUrl,
+    String? customerName,
+    String? customerPhone,
+    CustomerGender? gender,
+    DateTime? birthDate,
+    String? address,
+    String? occupation,
+    String? allergyNotes,
+    String? medicationHistory,
+    String? homeCareHabits,
+    String? membershipServiceName,
+    int? membershipTotalVisits,
+    int? membershipUsedVisits,
+  }) async {
+    if (!_repository.isRemote) {
+      return saveChartAndConfirmVisit(
+        customerId: customerId,
+        visitNumber: visitNumber,
+        customChartNo: customChartNo,
+        chartId: chartId,
+        careName: careName,
+        treatmentSummary: treatmentSummary,
+        directorInsight: directorInsight,
+        concernChips: concernChips,
+        firstVisitFearChips: firstVisitFearChips,
+        revisitFeedbackChips: revisitFeedbackChips,
+        beforeImageUrl: beforeImageUrl,
+        afterImageUrl: afterImageUrl,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        gender: gender,
+        birthDate: birthDate,
+        address: address,
+        occupation: occupation,
+        allergyNotes: allergyNotes,
+        medicationHistory: medicationHistory,
+        homeCareHabits: homeCareHabits,
+        membershipServiceName: membershipServiceName,
+        membershipTotalVisits: membershipTotalVisits,
+        membershipUsedVisits: membershipUsedVisits,
+      );
+    }
+
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      final wasAlreadyChecked = chartId != null &&
+          charts.any((c) => c.id == chartId && c.visitChecked);
+      final result = await _repository.saveChartAndConfirmVisit(
+        SaveChartRequest(
+          customerId: customerId,
+          visitNumber: visitNumber,
+          customChartNo: customChartNo,
+          chartId: chartId,
+          careName: careName,
+          treatmentSummary: treatmentSummary,
+          directorInsight: directorInsight,
+          concernChips: concernChips,
+          firstVisitFearChips: firstVisitFearChips,
+          revisitFeedbackChips: revisitFeedbackChips,
+          beforeImageUrl: beforeImageUrl,
+          afterImageUrl: afterImageUrl,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          gender: gender,
+          birthDate: birthDate,
+          address: address,
+          occupation: occupation,
+          allergyNotes: allergyNotes,
+          medicationHistory: medicationHistory,
+          homeCareHabits: homeCareHabits,
+          membershipServiceName: membershipServiceName,
+          membershipTotalVisits: membershipTotalVisits,
+          membershipUsedVisits: membershipUsedVisits,
+          deductMembership: !wasAlreadyChecked,
+        ),
+      );
+      _mergeCustomer(result.customer);
+      _mergeChart(result.chart);
+      if (result.review != null) _mergeReview(result.review!);
+      return result.chart;
+    } catch (e, st) {
+      debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
+      _setError(e);
+      rethrow;
     } finally {
       isLoading = false;
       _notify();
@@ -438,6 +629,43 @@ class SoriStore {
   void addCustomer(Customer customer) {
     customers.insert(0, customer);
     _notify();
+    if (_repository.isRemote) {
+      // fire-and-forget remote upsert; errors surface via lastError
+      () async {
+        try {
+          final saved = await _repository.upsertCustomer(customer);
+          final idx = customers.indexWhere(
+            (c) => c.id == customer.id || c.phone == customer.phone,
+          );
+          if (idx >= 0) customers[idx] = saved;
+          _notify();
+        } catch (e) {
+          _setError(e);
+          _notify();
+        }
+      }();
+    }
+  }
+
+  Future<Customer> addCustomerAsync(Customer customer) async {
+    if (!_repository.isRemote) {
+      addCustomer(customer);
+      return customer;
+    }
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      final saved = await _repository.upsertCustomer(customer);
+      _mergeCustomer(saved);
+      return saved;
+    } catch (e) {
+      _setError(e);
+      rethrow;
+    } finally {
+      isLoading = false;
+      _notify();
+    }
   }
 
   /// 차트 저장 + 방문 확인 트리거 → 토큰/리뷰 초안 생성.

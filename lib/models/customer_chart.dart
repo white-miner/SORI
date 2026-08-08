@@ -120,16 +120,26 @@ class CustomerChart {
       return const [];
     }
 
+    int parseInt(dynamic value, [int def = 1]) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse('$value') ?? def;
+    }
+
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      return DateTime.tryParse(value.toString());
+    }
+
     return CustomerChart(
       id: map['id'] as String,
       shopId: map['shop_id'] as String,
       customerId: map['customer_id'] as String,
-      visitNumber: map['visit_number'] as int,
+      visitNumber: parseInt(map['visit_number']),
       customChartNo: map['custom_chart_no'] as String?,
       visitChecked: map['visit_checked'] as bool? ?? false,
-      visitCheckedAt: map['visit_checked_at'] != null
-          ? DateTime.parse(map['visit_checked_at'] as String)
-          : null,
+      visitCheckedAt: parseDate(map['visit_checked_at']),
       beforeImageUrl: map['before_image_url'] as String?,
       afterImageUrl: map['after_image_url'] as String?,
       careName: map['care_name'] as String? ?? '',
@@ -139,9 +149,7 @@ class CustomerChart {
       firstVisitFearChips: listOf(map['first_visit_fear_chips']),
       revisitFeedbackChips: listOf(map['revisit_feedback_chips']),
       feedbackToken: map['feedback_token'] as String?,
-      feedbackLineOpenedAt: map['feedback_line_opened_at'] != null
-          ? DateTime.parse(map['feedback_line_opened_at'] as String)
-          : null,
+      feedbackLineOpenedAt: parseDate(map['feedback_line_opened_at']),
     );
   }
 }
