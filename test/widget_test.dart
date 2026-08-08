@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sori/data/memory_sori_repository.dart';
+import 'package:sori/models/customer.dart';
 import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/session_user.dart';
+import 'package:sori/models/shop.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/services/visit_trigger_service.dart';
 import 'package:sori/views/admin_chart_page.dart';
@@ -153,5 +155,41 @@ void main() {
     expect(store.isLoading, isFalse);
     expect(store.isRemoteEnabled, isFalse);
     expect(store.findCustomer('2')!.membershipRemainingVisits, 2);
+  });
+
+  test('fromMap tolerates null updated_at and bad timestamps', () {
+    final shop = Shop.fromMap({
+      'id': 'shop-1',
+      'name': '테스트샵',
+      'naver_place_url': 'https://example.com',
+      'updated_at': null,
+      'created_at': null,
+    });
+    expect(shop.id, 'shop-1');
+
+    final customer = Customer.fromMap({
+      'id': 'c-1',
+      'shop_id': 'shop-1',
+      'name': '홍길동',
+      'phone': '01012345678',
+      'last_treatment_date': null,
+      'updated_at': null,
+      'birth_date': 'not-a-date',
+    });
+    expect(customer.name, '홍길동');
+    expect(customer.birthDate, isNull);
+
+    final chart = CustomerChart.fromMap({
+      'id': 'chart-1',
+      'shop_id': 'shop-1',
+      'customer_id': 'c-1',
+      'visit_number': '2',
+      'visit_checked': 'true',
+      'updated_at': null,
+      'visit_checked_at': '',
+    });
+    expect(chart.visitNumber, 2);
+    expect(chart.visitChecked, isTrue);
+    expect(chart.visitCheckedAt, isNull);
   });
 }

@@ -91,99 +91,158 @@ class SupabaseSoriRepository implements SoriRepository {
       id == 'shop-demo' ||
       RegExp(r'^\d+$').hasMatch(id);
 
+  List<T> _mapRowsSafely<T>(
+    List<dynamic> rows,
+    T Function(Map<String, dynamic>) fromMap, {
+    required String label,
+  }) {
+    final out = <T>[];
+    for (final raw in rows) {
+      try {
+        if (raw is! Map) continue;
+        out.add(fromMap(Map<String, dynamic>.from(raw)));
+      } catch (e, st) {
+        debugPrint('skip malformed $label row: $e\n$st');
+      }
+    }
+    return out;
+  }
+
+  Future<List<dynamic>> _selectCustomers(String shopId) async {
+    try {
+      return await _db
+          .from('customers')
+          .select()
+          .eq('shop_id', shopId)
+          .order('updated_at', ascending: false);
+    } catch (e) {
+      debugPrint('customers order by updated_at failed, fallback: $e');
+      return await _db.from('customers').select().eq('shop_id', shopId);
+    }
+  }
+
   @override
   Future<SoriSnapshot> loadInitialData() async {
+    // 행 파싱·부분 테이블 실패는 흡수하고, shops 쿼리 자체 장애만 상위로 전달한다.
+    const fallbackShop = Shop(
+      id: '',
+      name: 'SORI 에스테틱',
+      ownerName: '김원장',
+      phone: '02-1234-5678',
+      naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
+      address: '서울시 강남구',
+    );
+
+    late final Shop shop;
     try {
-      Shop shop;
       final shops = await _db
           .from('shops')
           .select()
           .order('created_at', ascending: true)
           .limit(1);
-      if ((shops as List).isNotEmpty) {
-        shop = Shop.fromMap(Map<String, dynamic>.from(shops.first as Map));
+      final parsedShops = _mapRowsSafely(
+        shops as List,
+        Shop.fromMap,
+        label: 'shops',
+      );
+      if (parsedShops.isNotEmpty) {
+        shop = parsedShops.first;
       } else {
-        shop = await upsertShop(
-          const Shop(
-            id: '',
-            name: 'SORI 에스테틱',
-            ownerName: '김원장',
-            phone: '02-1234-5678',
-            naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
-            address: '서울시 강남구',
-          ),
-        );
+        try {
+          shop = await upsertShop(fallbackShop);
+        } catch (e) {
+          debugPrint('shops upsert fallback kept local shop: $e');
+          shop = fallbackShop;
+        }
       }
+    } catch (e, st) {
+      debugPrint('SupabaseSoriRepository.loadInitialData shops failed: $e\n$st');
+      rethrow;
+    }
 
-      final customerRows = await _db
-          .from('customers')
-          .select()
-          .eq('shop_id', shop.id)
-          .order('updated_at', ascending: false);
-      final customers = (customerRows as List)
-          .map((e) => Customer.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList();
+    List<Customer> customers = const [];
+    try {
+      final customerRows = await _selectCustomers(shop.id);
+      customers = _mapRowsSafely(
+        customerRows,
+        Customer.fromMap,
+        label: 'customers',
+      );
+    } catch (e, st) {
+      debugPrint('customers load skipped: $e\n$st');
+    }
 
+    List<CustomerChart> charts = const [];
+    try {
       final chartRows = await _db
           .from('customer_charts')
           .select()
           .eq('shop_id', shop.id)
           .order('visit_number', ascending: false);
-      final charts = (chartRows as List)
-          .map((e) => CustomerChart.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList();
+      charts = _mapRowsSafely(
+        chartRows as List,
+        CustomerChart.fromMap,
+        label: 'customer_charts',
+      );
+    } catch (e, st) {
+      debugPrint('customer_charts load skipped: $e\n$st');
+    }
 
+    List<CustomerReview> reviews = const [];
+    try {
       final reviewRows = await _db
           .from('customer_reviews')
           .select()
           .eq('shop_id', shop.id)
           .order('created_at', ascending: false);
-      final reviews = (reviewRows as List)
-          .map((e) =>
-              CustomerReview.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList();
-
-      List<AiReply> aiReplies = const [];
-      try {
-        final aiRows = await _db.from('ai_replies').select().limit(100);
-        aiReplies = (aiRows as List)
-            .map((e) => AiReply.fromMap(Map<String, dynamic>.from(e as Map)))
-            .toList();
-      } catch (e) {
-        debugPrint('ai_replies load skipped: $e');
-      }
-
-      return SoriSnapshot(
-        shop: shop,
-        customers: customers,
-        charts: charts,
-        reviews: reviews,
-        aiReplies: aiReplies,
-        gallerySlides: const [
-          ShopGallerySlide(
-            id: 'g1',
-            title: '샵 대표 공간',
-            subtitle: '상담 · 케어룸 분위기',
-            kind: GalleryKind.shop,
-          ),
-          ShopGallerySlide(
-            id: 'g2',
-            title: 'Before',
-            subtitle: '방문 전 피부 컨디션',
-            kind: GalleryKind.before,
-          ),
-          ShopGallerySlide(
-            id: 'g3',
-            title: 'After',
-            subtitle: '시술 직후 개선 포인트',
-            kind: GalleryKind.after,
-          ),
-        ],
+      reviews = _mapRowsSafely(
+        reviewRows as List,
+        CustomerReview.fromMap,
+        label: 'customer_reviews',
       );
     } catch (e, st) {
-      debugPrint('SupabaseSoriRepository.loadInitialData failed: $e\n$st');
-      rethrow;
+      debugPrint('customer_reviews load skipped: $e\n$st');
     }
+
+    List<AiReply> aiReplies = const [];
+    try {
+      final aiRows = await _db.from('ai_replies').select().limit(100);
+      aiReplies = _mapRowsSafely(
+        aiRows as List,
+        AiReply.fromMap,
+        label: 'ai_replies',
+      );
+    } catch (e) {
+      debugPrint('ai_replies load skipped: $e');
+    }
+
+    return SoriSnapshot(
+      shop: shop,
+      customers: customers,
+      charts: charts,
+      reviews: reviews,
+      aiReplies: aiReplies,
+      gallerySlides: const [
+        ShopGallerySlide(
+          id: 'g1',
+          title: '샵 대표 공간',
+          subtitle: '상담 · 케어룸 분위기',
+          kind: GalleryKind.shop,
+        ),
+        ShopGallerySlide(
+          id: 'g2',
+          title: 'Before',
+          subtitle: '방문 전 피부 컨디션',
+          kind: GalleryKind.before,
+        ),
+        ShopGallerySlide(
+          id: 'g3',
+          title: 'After',
+          subtitle: '시술 직후 개선 포인트',
+          kind: GalleryKind.after,
+        ),
+      ],
+    );
   }
 
   @override
@@ -201,9 +260,11 @@ class SupabaseSoriRepository implements SoriRepository {
     } else {
       rows = await _db.from('customers').select().limit(200);
     }
-    final list = rows
-        .map((e) => Customer.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    final list = _mapRowsSafely(
+      rows,
+      Customer.fromMap,
+      label: 'customers',
+    );
     try {
       return list.firstWhere((c) => _digits(c.phone) == digits);
     } catch (_) {

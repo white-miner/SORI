@@ -1,3 +1,5 @@
+import '../utils/db_map.dart';
+
 enum CustomerGender { female, male }
 
 extension CustomerGenderX on CustomerGender {
@@ -156,38 +158,32 @@ class Customer {
       };
 
   factory Customer.fromMap(Map<String, dynamic> map) {
-    DateTime parseDate(dynamic value, {DateTime? fallback}) {
-      if (value == null) return fallback ?? DateTime.now();
-      if (value is DateTime) return value;
-      return DateTime.parse(value.toString());
-    }
-
-    int parseInt(dynamic value, [int def = 0]) {
-      if (value is int) return value;
-      if (value is num) return value.toInt();
-      return int.tryParse('$value') ?? def;
+    // updated_at / created_at null·지연 응답에도 파싱이 깨지지 않도록 안전 변환.
+    final id = DbMap.asText(map['id']);
+    final name = DbMap.asText(map['name']);
+    final phone = DbMap.asText(map['phone']);
+    if (id.isEmpty || name.isEmpty || phone.isEmpty) {
+      throw FormatException('customer row missing required fields: $map');
     }
 
     return Customer(
-      id: map['id'] as String,
-      shopId: map['shop_id'] as String? ?? 'shop-demo',
-      name: map['name'] as String,
-      phone: map['phone'] as String,
-      lastTreatmentDate: parseDate(map['last_treatment_date']),
-      treatmentType: map['treatment_type'] as String? ?? '',
-      memo: map['memo'] as String? ?? '',
-      membershipServiceName: map['membership_service_name'] as String? ?? '',
-      membershipTotalVisits: parseInt(map['membership_total_visits']),
-      membershipUsedVisits: parseInt(map['membership_used_visits']),
-      gender: CustomerGenderX.fromDb(map['gender'] as String?),
-      birthDate: map['birth_date'] != null
-          ? parseDate(map['birth_date'])
-          : null,
-      address: map['address'] as String? ?? '',
-      occupation: map['occupation'] as String? ?? '',
-      allergyNotes: map['allergy_notes'] as String? ?? '',
-      medicationHistory: map['medication_history'] as String? ?? '',
-      homeCareHabits: map['home_care_habits'] as String? ?? '',
+      id: id,
+      shopId: DbMap.asText(map['shop_id'], 'shop-demo'),
+      name: name,
+      phone: phone,
+      lastTreatmentDate: DbMap.asDateTimeOrNow(map['last_treatment_date']),
+      treatmentType: DbMap.asText(map['treatment_type']),
+      memo: DbMap.asText(map['memo']),
+      membershipServiceName: DbMap.asText(map['membership_service_name']),
+      membershipTotalVisits: DbMap.asInt(map['membership_total_visits']),
+      membershipUsedVisits: DbMap.asInt(map['membership_used_visits']),
+      gender: CustomerGenderX.fromDb(DbMap.asTextOrNull(map['gender'])),
+      birthDate: DbMap.asDateTime(map['birth_date']),
+      address: DbMap.asText(map['address']),
+      occupation: DbMap.asText(map['occupation']),
+      allergyNotes: DbMap.asText(map['allergy_notes']),
+      medicationHistory: DbMap.asText(map['medication_history']),
+      homeCareHabits: DbMap.asText(map['home_care_habits']),
     );
   }
 }

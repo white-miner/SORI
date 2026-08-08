@@ -1,3 +1,5 @@
+import '../utils/db_map.dart';
+
 class Shop {
   const Shop({
     required this.id,
@@ -54,19 +56,14 @@ class Shop {
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
-    String asText(dynamic value, [String fallback = '']) {
-      if (value == null) return fallback;
-      final text = value.toString().trim();
-      return text;
-    }
-
+    // created_at / updated_at 등은 스키마 확장에 따라 null일 수 있어 무시한다.
     return Shop(
-      id: asText(map['id']),
-      name: asText(map['name'], 'SORI 샵'),
-      ownerName: asText(map['owner_name']),
-      phone: asText(map['phone']).isEmpty ? null : asText(map['phone']),
-      naverPlaceUrl: asText(map['naver_place_url']),
-      address: asText(map['address']).isEmpty ? null : asText(map['address']),
+      id: DbMap.asText(map['id']),
+      name: DbMap.asText(map['name'], 'SORI 샵'),
+      ownerName: DbMap.asTextOrNull(map['owner_name']),
+      phone: DbMap.asTextOrNull(map['phone']),
+      naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+      address: DbMap.asTextOrNull(map['address']),
     );
   }
 }

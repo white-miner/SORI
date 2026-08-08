@@ -1,3 +1,5 @@
+import '../utils/db_map.dart';
+
 class CustomerChart {
   const CustomerChart({
     required this.id,
@@ -115,41 +117,32 @@ class CustomerChart {
       };
 
   factory CustomerChart.fromMap(Map<String, dynamic> map) {
-    List<String> listOf(dynamic value) {
-      if (value is List) return value.map((e) => e.toString()).toList();
-      return const [];
-    }
-
-    int parseInt(dynamic value, [int def = 1]) {
-      if (value is int) return value;
-      if (value is num) return value.toInt();
-      return int.tryParse('$value') ?? def;
-    }
-
-    DateTime? parseDate(dynamic value) {
-      if (value == null) return null;
-      if (value is DateTime) return value;
-      return DateTime.tryParse(value.toString());
+    // updated_at / created_at 타임스탬프는 스키마에 따라 null일 수 있어 무시한다.
+    final id = DbMap.asText(map['id']);
+    final shopId = DbMap.asText(map['shop_id']);
+    final customerId = DbMap.asText(map['customer_id']);
+    if (id.isEmpty || shopId.isEmpty || customerId.isEmpty) {
+      throw FormatException('customer_chart row missing required fields: $map');
     }
 
     return CustomerChart(
-      id: map['id'] as String,
-      shopId: map['shop_id'] as String,
-      customerId: map['customer_id'] as String,
-      visitNumber: parseInt(map['visit_number']),
-      customChartNo: map['custom_chart_no'] as String?,
-      visitChecked: map['visit_checked'] as bool? ?? false,
-      visitCheckedAt: parseDate(map['visit_checked_at']),
-      beforeImageUrl: map['before_image_url'] as String?,
-      afterImageUrl: map['after_image_url'] as String?,
-      careName: map['care_name'] as String? ?? '',
-      treatmentSummary: map['treatment_summary'] as String? ?? '',
-      directorInsight: map['director_insight'] as String? ?? '',
-      concernChips: listOf(map['concern_chips']),
-      firstVisitFearChips: listOf(map['first_visit_fear_chips']),
-      revisitFeedbackChips: listOf(map['revisit_feedback_chips']),
-      feedbackToken: map['feedback_token'] as String?,
-      feedbackLineOpenedAt: parseDate(map['feedback_line_opened_at']),
+      id: id,
+      shopId: shopId,
+      customerId: customerId,
+      visitNumber: DbMap.asInt(map['visit_number'], 1),
+      customChartNo: DbMap.asTextOrNull(map['custom_chart_no']),
+      visitChecked: DbMap.asBool(map['visit_checked']),
+      visitCheckedAt: DbMap.asDateTime(map['visit_checked_at']),
+      beforeImageUrl: DbMap.asTextOrNull(map['before_image_url']),
+      afterImageUrl: DbMap.asTextOrNull(map['after_image_url']),
+      careName: DbMap.asText(map['care_name']),
+      treatmentSummary: DbMap.asText(map['treatment_summary']),
+      directorInsight: DbMap.asText(map['director_insight']),
+      concernChips: DbMap.asStringList(map['concern_chips']),
+      firstVisitFearChips: DbMap.asStringList(map['first_visit_fear_chips']),
+      revisitFeedbackChips: DbMap.asStringList(map['revisit_feedback_chips']),
+      feedbackToken: DbMap.asTextOrNull(map['feedback_token']),
+      feedbackLineOpenedAt: DbMap.asDateTime(map['feedback_line_opened_at']),
     );
   }
 }
