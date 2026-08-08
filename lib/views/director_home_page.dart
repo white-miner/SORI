@@ -285,9 +285,9 @@ class _DirectorHomePageState extends State<DirectorHomePage> {
                     itemBuilder: (context, index) {
                       final chart = charts[index];
                       final label = switch (chart.visitNumber) {
-                        1 => '첫 방문 안정',
-                        <= 3 => '톤 개선 중',
-                        <= 6 => '장벽 회복',
+                        1 => '첫 방문 상담',
+                        <= 3 => '수분 집중 관리',
+                        <= 6 => '장벽 회복 케어',
                         _ => '유지 케어',
                       };
                       return Container(

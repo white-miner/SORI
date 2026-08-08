@@ -27,6 +27,7 @@ class SoriStore {
   final List<AiReply> aiReplies = [];
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
+  final Set<String> reviewRequestedCustomerIds = {};
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
@@ -429,6 +430,14 @@ class SoriStore {
     final encoded = Uri.encodeQueryComponent(token);
     return '$origin$path#/review?token=$encoded';
   }
+
+  void markReviewRequested(String customerId) {
+    reviewRequestedCustomerIds.add(customerId);
+    _notify();
+  }
+
+  bool isReviewRequested(String customerId) =>
+      reviewRequestedCustomerIds.contains(customerId);
 
   void updateHomecareTip(String tip) {
     todayHomecareTip = tip.trim();

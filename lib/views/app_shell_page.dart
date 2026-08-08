@@ -8,6 +8,8 @@ import '../theme/sori_tokens.dart';
 import 'admin_chart_writer_page.dart';
 import 'customer_home_page.dart';
 import 'director_home_page.dart';
+import 'director_review_manage_page.dart';
+import 'ikea_review_composer_page.dart';
 import 'message_history_page.dart';
 import 'my_page.dart';
 
@@ -64,7 +66,15 @@ class _AppShellPageState extends State<AppShellPage> {
       isDirector
           ? DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store)
           : CustomerCareTab(key: const ValueKey('c-care'), store: _store),
-      const _ComposeTabPlaceholder(),
+      isDirector
+          ? DirectorReviewManagePage(
+              key: const ValueKey('d-review'),
+              store: _store,
+            )
+          : IkeaReviewComposerPage(
+              key: const ValueKey('c-review'),
+              store: _store,
+            ),
       const MessageHistoryPage(),
       MyPage(store: _store),
     ];
@@ -72,8 +82,9 @@ class _AppShellPageState extends State<AppShellPage> {
     return Scaffold(
       backgroundColor: SoriTokens.background,
       body: IndexedStack(index: _tab, children: pages),
-      floatingActionButton: isDirector && (_tab == 0 || _tab == 1)
+      floatingActionButton: isDirector
           ? FloatingActionButton(
+              tooltip: '새 차트 작성',
               onPressed: () => _quickWrite(context),
               backgroundColor: SoriTokens.primary,
               child: const Icon(Icons.edit_note_rounded, color: Colors.white),
@@ -93,22 +104,7 @@ class _AppShellPageState extends State<AppShellPage> {
         child: SafeArea(
           child: BottomNavigationBar(
             currentIndex: _tab,
-            onTap: (i) {
-              if (i == 2) {
-                if (isDirector) {
-                  _quickWrite(context);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('원장님이 열어 둔 리뷰에서 소통할 수 있어요'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-                return;
-              }
-              setState(() => _tab = i);
-            },
+            onTap: (i) => setState(() => _tab = i),
             items: [
               const BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
@@ -116,24 +112,16 @@ class _AppShellPageState extends State<AppShellPage> {
                 label: '홈',
               ),
               BottomNavigationBarItem(
-                icon: Icon(isDirector ? Icons.people_outline : Icons.timeline_outlined),
+                icon: Icon(
+                  isDirector ? Icons.people_outline : Icons.timeline_outlined,
+                ),
                 activeIcon: Icon(isDirector ? Icons.people : Icons.timeline),
                 label: isDirector ? '고객' : '케어',
               ),
               BottomNavigationBarItem(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: SoriTokens.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isDirector ? Icons.add : Icons.chat_bubble_outline,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                label: isDirector ? '작성' : '소통',
+                icon: const Icon(Icons.chat_bubble_outline),
+                activeIcon: const Icon(Icons.chat_bubble),
+                label: isDirector ? '리뷰 관리' : '리뷰 작성',
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.notifications_none_rounded),
@@ -168,15 +156,6 @@ class _AppShellPageState extends State<AppShellPage> {
       store: _store,
       customer: customers.first,
     );
-  }
-}
-
-class _ComposeTabPlaceholder extends StatelessWidget {
-  const _ComposeTabPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox.shrink();
   }
 }
 

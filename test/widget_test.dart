@@ -37,7 +37,7 @@ void main() {
     expect(find.text('답글 피드백 요청'), findsNothing);
   });
 
-  testWidgets('Customer review requires last-4 then shows psychology CTAs',
+  testWidgets('Customer review requires last-4 then shows Ikea composer',
       (WidgetTester tester) async {
     final store = SoriStore();
     final opened = store.confirmVisit(chartId: 'chart-1');
@@ -58,10 +58,9 @@ void main() {
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
 
-    expect(find.text('후기 수락하기'), findsOneWidget);
-    expect(find.text('수정하기'), findsOneWidget);
-    expect(find.text('답글 피드백 요청'), findsOneWidget);
-    expect(find.text('차트 관리'), findsNothing);
+    expect(find.textContaining('조립하는 후기'), findsOneWidget);
+    expect(find.text('속당김 해결'), findsOneWidget);
+    expect(find.textContaining('네이버 영수증 리뷰'), findsOneWidget);
   });
 
   test('social onboarding director enables mode toggle and tutorial', () {
