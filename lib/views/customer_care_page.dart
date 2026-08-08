@@ -7,6 +7,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
 import '../widgets/sori_empty_state.dart';
+import 'ikea_review_composer_page.dart';
 
 /// 고객 케어 탭 — 회원권 현황 + 시술 기록 아코디언.
 class CustomerCareTab extends StatefulWidget {
@@ -97,6 +98,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _CareAccordionCard(
                   chart: chart,
+                  store: store,
                   expanded: expanded,
                   onToggle: () {
                     setState(() {
@@ -247,13 +249,35 @@ class _Metric extends StatelessWidget {
 class _CareAccordionCard extends StatelessWidget {
   const _CareAccordionCard({
     required this.chart,
+    required this.store,
     required this.expanded,
     required this.onToggle,
   });
 
   final CustomerChart chart;
+  final SoriStore store;
   final bool expanded;
   final VoidCallback onToggle;
+
+  void _openReviewComposer(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: SoriTokens.background,
+          appBar: AppBar(
+            title: Text('${chart.visitNumber}회차 리뷰 작성'),
+            backgroundColor: Colors.white,
+            foregroundColor: SoriTokens.textPrimary,
+            elevation: 0,
+          ),
+          body: IkeaReviewComposerPage(
+            store: store,
+            chart: chart,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -379,6 +403,25 @@ class _CareAccordionCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => _openReviewComposer(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SoriTokens.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.rate_review_outlined, size: 20),
+                      label: const Text(
+                        '리뷰 작성하기',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ),
                 ],
               ),

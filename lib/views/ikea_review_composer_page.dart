@@ -354,7 +354,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                     child: Text(
                       _copying
                           ? '처리 중…'
-                          : '📋 복사하고 네이버 플레이스에 리뷰 남기기',
+                          : '📋 복사하고 네이버에 리뷰 남기기',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
