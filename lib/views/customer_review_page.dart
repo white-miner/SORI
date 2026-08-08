@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/ai_reply.dart';
 import '../models/customer.dart';
@@ -9,8 +10,7 @@ import '../services/sori_store.dart';
 import '../widgets/psychology_action_buttons.dart';
 import 'my_app.dart';
 
-/// 고객용 독립 모바일 웹 (`/review?token=...`).
-/// 원장 어드민 메뉴(고객 목록·전체 발송 등)는 절대 노출하지 않는다.
+/// 고객용 독립 모바일 웹 (`/#/review?token=...`). 어드민 셸 미렌더링.
 class CustomerReviewPage extends StatefulWidget {
   const CustomerReviewPage({
     super.key,
@@ -27,11 +27,14 @@ class CustomerReviewPage extends StatefulWidget {
 
 class _CustomerReviewPageState extends State<CustomerReviewPage> {
   bool _generatingReply = false;
+  bool _verified = false;
+  bool _verifyPromptShown = false;
 
   @override
   void initState() {
     super.initState();
     widget.store.addListener(_onStoreChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVerified());
   }
 
   @override
@@ -58,10 +61,39 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
     return widget.store.reviewForChart(chart.id);
   }
 
-  AiReply? get _aiReply {
-    final review = _review;
-    if (review == null) return null;
-    return widget.store.aiReplyForReview(review.id);
+  Future<void> _ensureVerified() async {
+    if (_verifyPromptShown || _verified) return;
+    final customer = _customer;
+    if (customer == null) return;
+    _verifyPromptShown = true;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _PhoneLast4Dialog(
+        customerName: customer.name,
+        onSubmit: (last4) => widget.store.verifyPhoneLast4(
+          expectedPhone: customer.phone,
+          inputLast4: last4,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (ok == true) {
+      setState(() => _verified = true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('전화번호가 일치하지 않습니다. 다시 시도해 주세요.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      _verifyPromptShown = false;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (mounted) await _ensureVerified();
+    }
   }
 
   Future<void> _acceptReview() async {
@@ -87,12 +119,6 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
     final review = _review;
     if (review == null) return;
     widget.store.finishPuzzleEdit(review.id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('퍼즐 문장으로 후기를 구성했습니다.'),
-        backgroundColor: MyApp.soriPurple,
-      ),
-    );
   }
 
   Future<void> _requestReply() async {
@@ -110,37 +136,87 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
     );
   }
 
-  Future<void> _copyText(String text) async {
-    await Clipboard.setData(ClipboardData(text: text));
+  Future<void> _naverRegister(String reviewText) async {
+    await Clipboard.setData(ClipboardData(text: reviewText));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('복사되었습니다.'),
-        backgroundColor: MyApp.soriPurple,
-      ),
-    );
-  }
 
-  Future<void> _shareText(String text) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('공유용 문구를 복사했습니다. SNS에 붙여넣기 하세요.'),
-        backgroundColor: MyApp.soriPurple,
-      ),
-    );
-  }
-
-  void _openNaver() {
-    final url = widget.store.shop.naverPlaceUrl ?? '';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          url.isEmpty ? '네이버 플레이스 링크가 없습니다.' : '네이버 등록으로 이동: $url',
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('복사 완료'),
+        content: const Text(
+          '퍼즐 후기 문구가 클립보드에 복사되었습니다.\n네이버 플레이스 리뷰 작성 화면으로 이동합니다.',
         ),
-        backgroundColor: const Color(0xFF03C75A),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF03C75A)),
+            child: const Text('네이버로 이동'),
+          ),
+        ],
       ),
+    );
+
+    final uri = Uri.tryParse(widget.store.shop.naverReviewDeepLink);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _copyAndShare(String reviewText) async {
+    await Clipboard.setData(ClipboardData(text: reviewText));
+    widget.store.saveToSkinJournal(reviewText);
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '복사 · 공유 · 피부 일지',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '문구가 복사되었고 SORI 피부 일지에 저장되었습니다.',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () async {
+                    final shareText =
+                        '오늘 시술 후기예요.\n\n$reviewText\n\n#SORI';
+                    await Clipboard.setData(ClipboardData(text: shareText));
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('카카오톡에 붙여넣을 공유 문구를 복사했습니다.'),
+                        backgroundColor: MyApp.soriPurple,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('카카오톡 공유용 복사'),
+                  style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('닫기'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -150,31 +226,17 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
     final customer = _customer;
 
     if (widget.token.trim().isEmpty || chart == null || customer == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8F7FC),
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.link_off, size: 48, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '유효하지 않은 고객 링크입니다',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '원장님께 받은 QR 또는 문자 링크로 다시 접속해 주세요.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-          ),
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F7FC),
+        body: Center(child: Text('유효하지 않은 고객 링크입니다')),
+      );
+    }
+
+    if (!_verified) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F7FC),
+        body: Center(
+          child: CircularProgressIndicator(color: MyApp.soriPurple),
         ),
       );
     }
@@ -193,33 +255,35 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
           children: [
-            _CustomerBrandHeader(shopName: widget.store.shop.name),
-            const SizedBox(height: 20),
-            _DiagnosisReportCard(
-              customerName: customer.name,
-              chart: chart,
+            Text(
+              widget.store.shop.name,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              '1:1 피부 진단 리포트',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            _ReportCard(customerName: customer.name, chart: chart),
             if (review != null) ...[
               const SizedBox(height: 20),
               const Text(
                 '나의 후기',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D3436),
-                ),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
-              _CustomerReviewBody(
+              _ReviewBody(
                 review: review,
                 isEditing: isEditing,
-                onTogglePuzzle: (sentence) {
-                  widget.store.togglePuzzleSentence(
-                    reviewId: review.id,
-                    sentence: sentence,
-                  );
-                },
-                onFinishEdit: _finishEdit,
+                onToggle: (s) => widget.store.togglePuzzleSentence(
+                  reviewId: review.id,
+                  sentence: s,
+                ),
+                onFinish: _finishEdit,
               ),
               const SizedBox(height: 16),
               PsychologyActionButtons(
@@ -238,43 +302,27 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
                   child: CircularProgressIndicator(color: MyApp.soriPurple),
                 ),
               ],
-              if (aiReply != null &&
-                  aiReply.status == AiReplyStatus.ready) ...[
-                const SizedBox(height: 16),
+              if (aiReply != null && aiReply.status == AiReplyStatus.ready) ...[
+                const SizedBox(height: 12),
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: MyApp.soriPurple.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
-                    '원장님께 답글 피드백 요청이 전달되었습니다. 곧 매장에서 답글을 확인해 주세요.',
-                    style: TextStyle(
-                      color: MyApp.soriPurple,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
+                    '원장님께 답글 피드백 요청이 전달되었습니다.',
+                    style: TextStyle(color: MyApp.soriPurple, fontSize: 13),
                   ),
                 ),
               ],
               if (showMainCta) ...[
                 const SizedBox(height: 20),
-                Text(
-                  chart.isFirstVisit
-                      ? '첫 방문이시라면 네이버에 남겨 주세요'
-                      : '회원권 ${chart.visitNumber}회차 · 후기를 공유해 주세요',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 10),
                 DynamicReviewMainAction(
-                  isFirstVisit: chart.isFirstVisit,
-                  onNaverRegister: _openNaver,
-                  onCopy: () => _copyText(review.displayText),
-                  onShare: () => _shareText(review.displayText),
+                  isFirstVisit: chart.visitNumber == 1,
+                  onNaverRegister: () => _naverRegister(review.displayText),
+                  onCopy: () => _copyAndShare(review.displayText),
+                  onShare: () => _copyAndShare(review.displayText),
                 ),
               ],
             ],
@@ -283,58 +331,16 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
       ),
     );
   }
-}
 
-class _CustomerBrandHeader extends StatelessWidget {
-  const _CustomerBrandHeader({required this.shopName});
-
-  final String shopName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: MyApp.soriPurple.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Text(
-            'SORI',
-            style: TextStyle(
-              color: MyApp.soriPurple,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          shopName,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2D3436),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '오늘의 시술 리포트를 확인하고 후기를 남겨 주세요',
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-        ),
-      ],
-    );
+  AiReply? get _aiReply {
+    final review = _review;
+    if (review == null) return null;
+    return widget.store.aiReplyForReview(review.id);
   }
 }
 
-class _DiagnosisReportCard extends StatelessWidget {
-  const _DiagnosisReportCard({
-    required this.customerName,
-    required this.chart,
-  });
+class _ReportCard extends StatelessWidget {
+  const _ReportCard({required this.customerName, required this.chart});
 
   final String customerName;
   final CustomerChart chart;
@@ -353,24 +359,13 @@ class _DiagnosisReportCard extends StatelessWidget {
         children: [
           Text(
             '$customerName님 진단 리포트',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
-            '${chart.visitNumber}회차 · ${chart.treatmentSummary}',
+            '차트 ${chart.displayChartNo} · ${chart.visitNumber}회차'
+            '${chart.careName.isNotEmpty ? ' · ${chart.careName}' : ''}',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniBox(label: 'Before'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MiniBox(label: 'After'),
-              ),
-            ],
           ),
           if (chart.directorInsight.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -387,49 +382,36 @@ class _DiagnosisReportCard extends StatelessWidget {
               ),
             ),
           ],
+          if (chart.concernChips.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              children: chart.concernChips
+                  .map((c) => Chip(
+                        label: Text(c, style: const TextStyle(fontSize: 11)),
+                        visualDensity: VisualDensity.compact,
+                      ))
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _MiniBox extends StatelessWidget {
-  const _MiniBox({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 72,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F1FB),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: MyApp.soriPurple,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomerReviewBody extends StatelessWidget {
-  const _CustomerReviewBody({
+class _ReviewBody extends StatelessWidget {
+  const _ReviewBody({
     required this.review,
     required this.isEditing,
-    required this.onTogglePuzzle,
-    required this.onFinishEdit,
+    required this.onToggle,
+    required this.onFinish,
   });
 
   final CustomerReview review;
   final bool isEditing;
-  final ValueChanged<String> onTogglePuzzle;
-  final VoidCallback onFinishEdit;
+  final ValueChanged<String> onToggle;
+  final VoidCallback onFinish;
 
   @override
   Widget build(BuildContext context) {
@@ -443,70 +425,106 @@ class _CustomerReviewBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            review.displayText,
-            style: const TextStyle(height: 1.5, fontSize: 14),
-          ),
+          Text(review.displayText, style: const TextStyle(height: 1.5)),
           if (isEditing) ...[
-            const SizedBox(height: 14),
-            Text(
-              '퍼즐 문장 켜고 끄기',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
+            const SizedBox(height: 12),
+            const Text('퍼즐 문장 켜고 끄기', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: SoriStore.puzzlePool.map((sentence) {
-                final selected = review.puzzleSelections.contains(sentence);
+              children: SoriStore.puzzlePool.map((s) {
+                final selected = review.puzzleSelections.contains(s);
                 return FilterChip(
-                  label: Text(sentence, style: const TextStyle(fontSize: 12)),
+                  label: Text(s, style: const TextStyle(fontSize: 12)),
                   selected: selected,
-                  onSelected: (_) => onTogglePuzzle(sentence),
+                  onSelected: (_) => onToggle(s),
                   selectedColor: MyApp.soriPurple.withValues(alpha: 0.18),
                   checkmarkColor: MyApp.soriPurple,
-                  labelStyle: TextStyle(
-                    color: selected ? MyApp.soriPurple : Colors.grey.shade800,
-                  ),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
-                onPressed: onFinishEdit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: MyApp.soriPurple,
-                ),
+                onPressed: onFinish,
+                style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple),
                 child: const Text('수정 완료'),
               ),
-            ),
-          ] else if (review.puzzleSelections.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: review.puzzleSelections
-                  .map(
-                    (s) => Chip(
-                      label: Text(s, style: const TextStyle(fontSize: 11)),
-                      backgroundColor:
-                          MyApp.soriPurple.withValues(alpha: 0.08),
-                      side: BorderSide.none,
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  )
-                  .toList(),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _PhoneLast4Dialog extends StatefulWidget {
+  const _PhoneLast4Dialog({
+    required this.customerName,
+    required this.onSubmit,
+  });
+
+  final String customerName;
+  final bool Function(String last4) onSubmit;
+
+  @override
+  State<_PhoneLast4Dialog> createState() => _PhoneLast4DialogState();
+}
+
+class _PhoneLast4DialogState extends State<_PhoneLast4Dialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('본인 확인'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${widget.customerName}님, 등록된 전화번호 뒷자리 4자리를 입력해 주세요.',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '전화번호 뒷자리 4자리',
+                border: OutlineInputBorder(),
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context, widget.onSubmit(_controller.text));
+          },
+          style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple),
+          child: const Text('확인'),
+        ),
+      ],
     );
   }
 }

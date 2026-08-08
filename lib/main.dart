@@ -1,12 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'views/my_app.dart';
 
 void main() {
-  if (kIsWeb) {
-    usePathUrlStrategy();
-  }
+  // Hash routing 기본값 유지 → GitHub Pages `/#/review?token=...` 404 방지
   runApp(const MyApp());
 }

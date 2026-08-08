@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF8F7FC),
         useMaterial3: true,
       ),
-      initialRoute: AppRouter.admin,
+      initialRoute: AppRouter.home,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

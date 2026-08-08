@@ -2,33 +2,44 @@ class Shop {
   const Shop({
     required this.id,
     required this.name,
+    required this.naverPlaceUrl,
     this.ownerName,
     this.phone,
-    this.naverPlaceUrl,
     this.address,
   });
 
   final String id;
   final String name;
+  final String naverPlaceUrl;
   final String? ownerName;
   final String? phone;
-  final String? naverPlaceUrl;
   final String? address;
+
+  bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
+
+  /// 네이버 플레이스 리뷰 작성에 가까운 URL로 정규화.
+  String get naverReviewDeepLink {
+    final url = naverPlaceUrl.trim();
+    if (url.isEmpty) return url;
+    if (url.contains('review')) return url;
+    if (url.endsWith('/')) return '${url}review';
+    return '$url/review';
+  }
 
   Shop copyWith({
     String? id,
     String? name,
+    String? naverPlaceUrl,
     String? ownerName,
     String? phone,
-    String? naverPlaceUrl,
     String? address,
   }) {
     return Shop(
       id: id ?? this.id,
       name: name ?? this.name,
+      naverPlaceUrl: naverPlaceUrl ?? this.naverPlaceUrl,
       ownerName: ownerName ?? this.ownerName,
       phone: phone ?? this.phone,
-      naverPlaceUrl: naverPlaceUrl ?? this.naverPlaceUrl,
       address: address ?? this.address,
     );
   }
@@ -48,7 +59,7 @@ class Shop {
       name: map['name'] as String,
       ownerName: map['owner_name'] as String?,
       phone: map['phone'] as String?,
-      naverPlaceUrl: map['naver_place_url'] as String?,
+      naverPlaceUrl: map['naver_place_url'] as String? ?? '',
       address: map['address'] as String?,
     );
   }

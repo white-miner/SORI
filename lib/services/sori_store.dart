@@ -2,11 +2,11 @@ import '../models/ai_reply.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
+import '../models/session_user.dart';
 import '../models/shop.dart';
 import 'visit_trigger_service.dart';
 
-/// 로컬 인메모리 스토어 (Supabase 스키마와 동일한 도메인 모델).
-/// 원장 어드민·고객 리뷰 웹이 동일 인스턴스를 공유한다.
+/// 로컬 인메모리 스토어 (Supabase 스키마와 동일 도메인).
 class SoriStore {
   SoriStore({VisitTriggerService? visitTrigger})
       : _visitTrigger = visitTrigger ?? VisitTriggerService() {
@@ -18,12 +18,13 @@ class SoriStore {
   final VisitTriggerService _visitTrigger;
 
   late Shop shop;
+  SessionUser? session;
   final List<Customer> customers = [];
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];
+  final List<String> skinJournalEntries = [];
 
-  /// 퍼즐 후보 문장 (고객이 켜고 끄며 후기 조합).
   static const List<String> puzzlePool = [
     '피부 톤이 밝아졌어요',
     '시술 후 자극이 적었어요',
@@ -42,13 +43,22 @@ class SoriStore {
     }
   }
 
+  static String normalizePhone(String phone) =>
+      phone.replaceAll(RegExp(r'\D'), '');
+
+  static String phoneLast4(String phone) {
+    final d = normalizePhone(phone);
+    if (d.length < 4) return d;
+    return d.substring(d.length - 4);
+  }
+
   void _seed() {
     shop = const Shop(
       id: 'shop-demo',
       name: 'SORI 에스테틱',
       ownerName: '김원장',
       phone: '02-1234-5678',
-      naverPlaceUrl: 'https://naver.me/sori-demo',
+      naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
       address: '서울시 강남구',
     );
 
@@ -91,16 +101,17 @@ class SoriStore {
         shopId: shop.id,
         customerId: '1',
         visitNumber: 1,
+        careName: '재생케어',
         treatmentSummary: '첫 방문 재생케어',
         directorInsight: '두피 민감 — 저자극 제품 권장',
-        beforeImageUrl: null,
-        afterImageUrl: null,
       ),
       CustomerChart(
         id: 'chart-2',
         shopId: shop.id,
         customerId: '2',
         visitNumber: 6,
+        customChartNo: 'A-106',
+        careName: '수분케어',
         treatmentSummary: '회원권 6회차 수분케어',
         directorInsight: '보습 유지 양호, 홈케어 루틴 점검',
       ),
@@ -109,11 +120,101 @@ class SoriStore {
         shopId: shop.id,
         customerId: '3',
         visitNumber: 4,
+        careName: '재생케어',
         treatmentSummary: '회원권 4회차 재생케어',
         directorInsight: '트리트먼트 업셀 가능',
       ),
     ]);
   }
+
+  // —— Auth / matching ——
+
+  Customer? findCustomerByPhone(String phone) {
+    final key = normalizePhone(phone);
+    if (key.isEmpty) return null;
+    try {
+      return customers.firstWhere((c) => normalizePhone(c.phone) == key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 원장 간편 가입/로그인 (이름+전화 필수). 샵 네이버 URL 미설정 시 false 반환용 플래그.
+  SessionUser loginDirector({
+    required String name,
+    required String phone,
+  }) {
+    session = SessionUser(
+      role: UserRole.director,
+      name: name.trim(),
+      phone: phone.trim(),
+    );
+    shop = shop.copyWith(ownerName: name.trim(), phone: phone.trim());
+    _notify();
+    return session!;
+  }
+
+  /// 고객 간편 가입: 이름+전화로 차트 DB 매칭. 없으면 신규 고객 생성.
+  SessionUser loginCustomer({
+    required String name,
+    required String phone,
+  }) {
+    var customer = findCustomerByPhone(phone);
+    if (customer == null) {
+      customer = Customer(
+        id: 'c-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shop.id,
+        name: name.trim(),
+        phone: phone.trim(),
+        lastTreatmentDate: DateTime.now(),
+        treatmentType: '상담',
+        membershipTotalVisits: 0,
+      );
+      customers.insert(0, customer);
+    } else if (customer.name != name.trim() && name.trim().isNotEmpty) {
+      final idx = customers.indexWhere((c) => c.id == customer!.id);
+      customers[idx] = customer.copyWith(name: name.trim());
+      customer = customers[idx];
+    }
+
+    session = SessionUser(
+      role: UserRole.customer,
+      name: customer.name,
+      phone: customer.phone,
+      customerId: customer.id,
+    );
+    _notify();
+    return session!;
+  }
+
+  void logout() {
+    session = null;
+    _notify();
+  }
+
+  bool verifyPhoneLast4({
+    required String expectedPhone,
+    required String inputLast4,
+  }) {
+    return phoneLast4(expectedPhone) == inputLast4.trim();
+  }
+
+  void updateShopProfile({
+    required String name,
+    required String naverPlaceUrl,
+    String? address,
+    String? phone,
+  }) {
+    shop = shop.copyWith(
+      name: name.trim(),
+      naverPlaceUrl: naverPlaceUrl.trim(),
+      address: address?.trim(),
+      phone: phone?.trim(),
+    );
+    _notify();
+  }
+
+  // —— Lookups ——
 
   Customer? findCustomer(String id) {
     try {
@@ -143,6 +244,12 @@ class SoriStore {
     return list.isEmpty ? null : list.first;
   }
 
+  int nextVisitNumber(String customerId) {
+    final list = chartsForCustomer(customerId);
+    if (list.isEmpty) return 1;
+    return list.first.visitNumber + 1;
+  }
+
   CustomerReview? reviewForChart(String chartId) {
     try {
       return reviews.firstWhere((r) => r.chartId == chartId);
@@ -159,40 +266,103 @@ class SoriStore {
     }
   }
 
-  /// GitHub Pages(`/SORI/`) 포함 현재 origin 기준 고객 리뷰 URL.
+  /// Hash routing용 고객 딥링크: `/#/review?token=...` (GitHub Pages 404 방지)
   static String buildCustomerReviewUrl(String token) {
     final base = Uri.base;
+    final origin =
+        '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}';
     var path = base.path;
-    if (path.endsWith('.html')) {
-      path = path.substring(0, path.lastIndexOf('/') + 1);
+    final hashIndex = path.indexOf('#');
+    if (hashIndex >= 0) {
+      path = path.substring(0, hashIndex);
+    }
+    if (path.endsWith('index.html')) {
+      path = path.substring(0, path.length - 'index.html'.length);
     }
     if (!path.endsWith('/')) {
       path = '$path/';
     }
-    return base
-        .replace(
-          path: '${path}review',
-          queryParameters: {'token': token},
-        )
-        .toString();
+    final encoded = Uri.encodeQueryComponent(token);
+    return '$origin$path#/review?token=$encoded';
   }
 
   void addCustomer(Customer customer) {
     customers.insert(0, customer);
-    charts.insert(
-      0,
-      CustomerChart(
-        id: 'chart-${customer.id}',
-        shopId: customer.shopId,
-        customerId: customer.id,
-        visitNumber: 1,
-        treatmentSummary: '첫 방문 ${customer.treatmentType}',
-      ),
-    );
     _notify();
   }
 
-  /// 비결제 방문 확인 트리거: 토큰 + 1:1 피드백 라인 즉시 개설.
+  /// 차트 저장 + visit_checked 트리거 → 토큰/리뷰 초안 생성.
+  CustomerChart saveChartAndConfirmVisit({
+    required String customerId,
+    required int visitNumber,
+    String? customChartNo,
+    String? chartId,
+    required String careName,
+    required String treatmentSummary,
+    required String directorInsight,
+    required List<String> concernChips,
+    required List<String> firstVisitFearChips,
+    required List<String> revisitFeedbackChips,
+    String? beforeImageUrl,
+    String? afterImageUrl,
+  }) {
+    final customer = findCustomer(customerId);
+    if (customer == null) {
+      throw StateError('Customer not found');
+    }
+
+    CustomerChart chart;
+    if (chartId != null) {
+      final index = charts.indexWhere((c) => c.id == chartId);
+      if (index < 0) throw StateError('Chart not found');
+      chart = charts[index].copyWith(
+        visitNumber: visitNumber,
+        customChartNo: customChartNo,
+        careName: careName,
+        treatmentSummary: treatmentSummary,
+        directorInsight: directorInsight,
+        concernChips: concernChips,
+        firstVisitFearChips: firstVisitFearChips,
+        revisitFeedbackChips: revisitFeedbackChips,
+        beforeImageUrl: beforeImageUrl,
+        afterImageUrl: afterImageUrl,
+        clearCustomChartNo:
+            customChartNo == null || customChartNo.trim().isEmpty,
+      );
+      charts[index] = chart;
+    } else {
+      chart = CustomerChart(
+        id: 'chart-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shop.id,
+        customerId: customerId,
+        visitNumber: visitNumber,
+        customChartNo: customChartNo?.trim().isEmpty == true
+            ? null
+            : customChartNo?.trim(),
+        careName: careName,
+        treatmentSummary: treatmentSummary,
+        directorInsight: directorInsight,
+        concernChips: concernChips,
+        firstVisitFearChips: firstVisitFearChips,
+        revisitFeedbackChips: revisitFeedbackChips,
+        beforeImageUrl: beforeImageUrl,
+        afterImageUrl: afterImageUrl,
+      );
+      charts.insert(0, chart);
+    }
+
+    final custIndex = customers.indexWhere((c) => c.id == customerId);
+    customers[custIndex] = customers[custIndex].copyWith(
+      lastTreatmentDate: DateTime.now(),
+      treatmentType: careName.isNotEmpty ? careName : customer.treatmentType,
+      membershipTotalVisits: visitNumber > 1
+          ? visitNumber
+          : customers[custIndex].membershipTotalVisits,
+    );
+
+    return confirmVisit(chartId: chart.id);
+  }
+
   CustomerChart confirmVisit({
     required String chartId,
     List<String> puzzleSelections = const [
@@ -215,7 +385,9 @@ class SoriStore {
           chart: opened,
           puzzleSelections: puzzleSelections,
           customerName: customer?.name ?? '고객',
-          treatmentType: customer?.treatmentType ?? '케어',
+          treatmentType: opened.careName.isNotEmpty
+              ? opened.careName
+              : (customer?.treatmentType ?? '케어'),
         ),
       );
     }
@@ -243,7 +415,6 @@ class SoriStore {
     return reviews[index];
   }
 
-  /// 퍼즐 문장 켜고 끄기 → 후기 문구 재조립.
   CustomerReview togglePuzzleSentence({
     required String reviewId,
     required String sentence,
@@ -265,7 +436,9 @@ class SoriStore {
       chart: chart,
       puzzleSelections: selected,
       customerName: customer?.name ?? '고객',
-      treatmentType: customer?.treatmentType ?? '케어',
+      treatmentType: chart.careName.isNotEmpty
+          ? chart.careName
+          : (customer?.treatmentType ?? '케어'),
     );
 
     reviews[index] = review.copyWith(
@@ -289,7 +462,6 @@ class SoriStore {
     return reviews[index];
   }
 
-  /// 고객이 원장에게 답글 과제 부여 (AI 답글 pending → ready).
   Future<AiReply> requestAiReplyFeedback(String reviewId) async {
     final index = reviews.indexWhere((r) => r.id == reviewId);
     if (index < 0) throw StateError('Review not found');
@@ -328,5 +500,10 @@ class SoriStore {
     aiReplies[index] = _visitTrigger.markCopied(aiReplies[index]);
     _notify();
     return aiReplies[index];
+  }
+
+  void saveToSkinJournal(String text) {
+    skinJournalEntries.insert(0, text);
+    _notify();
   }
 }
