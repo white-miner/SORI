@@ -170,4 +170,22 @@ class MemorySoriRepository implements SoriRepository {
 
   @override
   Future<CustomerReview> upsertReview(CustomerReview review) async => review;
+
+  @override
+  Future<CustomerReview?> markNaverRegistered({
+    required String chartId,
+    String? composedText,
+  }) async {
+    return CustomerReview(
+      id: 'local-$chartId',
+      chartId: chartId,
+      customerId: 'local',
+      shopId: 'shop-demo',
+      originalText: composedText ?? '',
+      editedText: composedText,
+      status: ReviewStatus.published,
+      naverRegistered: true,
+      naverRegisteredAt: DateTime.now(),
+    );
+  }
 }

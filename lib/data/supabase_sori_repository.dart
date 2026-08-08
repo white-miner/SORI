@@ -441,4 +441,58 @@ class SupabaseSoriRepository implements SoriRepository {
         await _db.from('customer_reviews').insert(payload).select().single();
     return CustomerReview.fromMap(Map<String, dynamic>.from(row));
   }
+
+  @override
+  Future<CustomerReview?> markNaverRegistered({
+    required String chartId,
+    String? composedText,
+  }) async {
+    final existing = await _db
+        .from('customer_reviews')
+        .select()
+        .eq('chart_id', chartId)
+        .maybeSingle();
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    if (existing == null) {
+      // 차트만 있고 리뷰 행이 없으면 최소 행 생성
+      final chart = await _db
+          .from('customer_charts')
+          .select()
+          .eq('id', chartId)
+          .maybeSingle();
+      if (chart == null) return null;
+      final inserted = await _db
+          .from('customer_reviews')
+          .insert({
+            'chart_id': chartId,
+            'customer_id': chart['customer_id'],
+            'shop_id': chart['shop_id'],
+            'puzzle_selections': const <String>[],
+            'original_text': composedText ?? '',
+            'edited_text': composedText,
+            'status': 'published',
+            'naver_registered': true,
+            'naver_registered_at': now,
+          })
+          .select()
+          .single();
+      return CustomerReview.fromMap(Map<String, dynamic>.from(inserted));
+    }
+
+    final updated = await _db
+        .from('customer_reviews')
+        .update({
+          'naver_registered': true,
+          'naver_registered_at': now,
+          if (composedText != null && composedText.trim().isNotEmpty)
+            'edited_text': composedText.trim(),
+          'status': 'published',
+          'updated_at': now,
+        })
+        .eq('id', existing['id'])
+        .select()
+        .single();
+    return CustomerReview.fromMap(Map<String, dynamic>.from(updated));
+  }
 }

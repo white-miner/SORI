@@ -553,6 +553,43 @@ class SoriStore {
     }
   }
 
+  /// 네이버 플레이스 리뷰 등록 트래킹 (clipboard CTA 후).
+  Future<CustomerReview?> markNaverRegistered({
+    required String chartId,
+    String? composedText,
+  }) async {
+    // 로컬 캐시 선반영
+    final local = reviewForChart(chartId);
+    if (local != null) {
+      _mergeReview(
+        local.copyWith(
+          naverRegistered: true,
+          naverRegisteredAt: DateTime.now(),
+          editedText: composedText ?? local.editedText,
+          status: ReviewStatus.published,
+        ),
+      );
+      _notify();
+    }
+
+    try {
+      final remote = await _repository.markNaverRegistered(
+        chartId: chartId,
+        composedText: composedText,
+      );
+      if (remote != null) {
+        _mergeReview(remote);
+        _notify();
+      }
+      return remote ?? reviewForChart(chartId);
+    } catch (e, st) {
+      debugPrint('markNaverRegistered failed: $e\n$st');
+      _setError(e);
+      _notify();
+      return reviewForChart(chartId);
+    }
+  }
+
   AiReply? aiReplyForReview(String reviewId) {
     try {
       return aiReplies.firstWhere((r) => r.reviewId == reviewId);

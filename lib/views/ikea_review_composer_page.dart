@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/customer_chart.dart';
+import '../services/openai_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
@@ -13,10 +15,12 @@ class IkeaReviewComposerPage extends StatefulWidget {
     super.key,
     required this.store,
     this.chart,
+    this.openAi,
   });
 
   final SoriStore store;
   final CustomerChart? chart;
+  final OpenAiService? openAi;
 
   @override
   State<IkeaReviewComposerPage> createState() => _IkeaReviewComposerPageState();
@@ -34,7 +38,19 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
     '대기 없이 쾌적',
   ];
 
+  late final OpenAiService _openAi;
   final Set<String> _selected = {};
+  String _aiReview = '';
+  bool _generating = false;
+  String? _aiError;
+  bool _copying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _openAi = widget.openAi ?? OpenAiService();
+    _aiReview = _fallbackText();
+  }
 
   CustomerChart? get _chart {
     if (widget.chart != null) return widget.chart;
@@ -58,28 +74,103 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
     return '오늘 피부 컨디션에 맞춰 자극을 줄이고 보습 장벽을 중심으로 케어했어요. 홈에서는 미지근한 클렌징을 권해 드려요.';
   }
 
-  String get _composedReview {
-    final picks = _selected.isEmpty
-        ? '편안하게 케어받을 수 있었어요'
-        : _selected.join(', ');
-    return '오늘은 $_careName를 받았는데, 특히 $picks 점이 마음에 들었어요. '
-        '원장님 설명이 꼼꼼해서 다음에도 믿고 방문하고 싶습니다. '
-        '#${widget.store.shop.name.replaceAll(' ', '')} #소통하는리뷰';
+  String _fallbackText() => OpenAiService.localFallback(
+        selectedChips: _selected.toList(),
+        careName: _careName,
+        shopName: widget.store.shop.name,
+      );
+
+  Future<void> _generateAiReview() async {
+    if (_selected.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('만족 포인트를 2~3개 먼저 골라 주세요'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _generating = true;
+      _aiError = null;
+    });
+
+    try {
+      final text = await _openAi.composeReview(
+        selectedChips: _selected.toList(),
+        careName: _careName,
+        directorComment: _directorComment,
+        shopName: widget.store.shop.name,
+      );
+      if (!mounted) return;
+      setState(() => _aiReview = text);
+    } on OpenAiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _aiError = e.message;
+        _aiReview = _fallbackText();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _aiError = '잠시 후 다시 시도해 주세요';
+        _aiReview = _fallbackText();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AI 문장 생성에 실패했어요. 잠시 후 다시 시도해 주세요.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
   }
 
   Future<void> _copyAndOpenNaver() async {
-    await Clipboard.setData(ClipboardData(text: _composedReview));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('후기 문구를 복사했어요. 네이버로 이동합니다.'),
-        backgroundColor: SoriTokens.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    final uri = Uri.tryParse(widget.store.shop.naverReviewDeepLink);
-    if (uri != null) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final text = _aiReview.trim().isEmpty ? _fallbackText() : _aiReview.trim();
+    setState(() => _copying = true);
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      final chartId = _chart?.id;
+      if (chartId != null) {
+        await widget.store.markNaverRegistered(
+          chartId: chartId,
+          composedText: text,
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('후기를 복사했어요. 네이버 플레이스로 이동합니다.'),
+          backgroundColor: SoriTokens.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      final uri = Uri.tryParse(widget.store.shop.naverReviewDeepLink);
+      if (uri != null) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('복사/등록 중 문제가 생겼어요: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _copying = false);
     }
   }
 
@@ -104,7 +195,6 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
           ),
           const SizedBox(height: 16),
 
-          // STEP 1
           SoriCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +231,6 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
           ),
           const SizedBox(height: 12),
 
-          // STEP 2
           SoriCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,50 +273,89 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _generating ? null : _generateAiReview,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: Text(
+                      _generating ? 'AI가 문장을 조립 중…' : 'AI로 문장 조립하기',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SoriTokens.primary,
+                      side: const BorderSide(color: SoriTokens.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 12),
 
-          // STEP 3
           SoriCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _StepBadge(step: 3, label: 'AI 리뷰 결과'),
                 const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: SoriTokens.border),
-                  ),
-                  child: Text(
-                    _composedReview,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: SoriTokens.textPrimary,
+                if (_generating)
+                  const _ReviewShimmer()
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SoriTokens.border),
+                    ),
+                    child: Text(
+                      _aiReview,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: SoriTokens.textPrimary,
+                      ),
                     ),
                   ),
-                ),
+                if (_aiError != null && !_generating) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _aiError!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _copyAndOpenNaver,
+                    onPressed: (_generating || _copying)
+                        ? null
+                        : _copyAndOpenNaver,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF03C75A),
+                      disabledBackgroundColor:
+                          const Color(0xFF03C75A).withValues(alpha: 0.5),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text(
-                      '📋 복사하고 네이버 영수증 리뷰 가기',
-                      style: TextStyle(
+                    child: Text(
+                      _copying
+                          ? '처리 중…'
+                          : '📋 복사하고 네이버 플레이스에 리뷰 남기기',
+                      style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                       ),
@@ -238,6 +366,31 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReviewShimmer extends StatelessWidget {
+  const _ReviewShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE5E7EB),
+      highlightColor: const Color(0xFFF9FAFB),
+      child: Column(
+        children: List.generate(4, (i) {
+          return Container(
+            height: i == 3 ? 16 : 14,
+            margin: EdgeInsets.only(bottom: i == 3 ? 0 : 10),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          );
+        }),
       ),
     );
   }

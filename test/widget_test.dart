@@ -61,7 +61,7 @@ void main() {
 
     expect(find.textContaining('조립하는 후기'), findsOneWidget);
     expect(find.text('속당김 해결'), findsOneWidget);
-    expect(find.textContaining('네이버 영수증 리뷰'), findsOneWidget);
+    expect(find.textContaining('네이버 플레이스'), findsOneWidget);
   });
 
   test('social onboarding director enables mode toggle and tutorial', () {

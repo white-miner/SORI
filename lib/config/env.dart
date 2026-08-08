@@ -7,6 +7,8 @@ abstract final class Env {
       String.fromEnvironment('SUPABASE_URL');
   static const String _keyFromDefine =
       String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const String _openaiFromDefine =
+      String.fromEnvironment('OPENAI_API_KEY');
 
   static String get supabaseUrl =>
       _normalizeUrl(_urlFromDefine.isNotEmpty
@@ -16,8 +18,15 @@ abstract final class Env {
   static String get supabaseAnonKey =>
       _keyFromDefine.isNotEmpty ? _keyFromDefine : _dotenv('SUPABASE_ANON_KEY');
 
+  static String get openaiApiKey =>
+      _openaiFromDefine.isNotEmpty
+          ? _openaiFromDefine
+          : _dotenv('OPENAI_API_KEY');
+
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  static bool get hasOpenAiConfig => openaiApiKey.isNotEmpty;
 
   /// `...supabase.co/rest/v1/` 형태도 프로젝트 루트 URL로 정규화.
   static String _normalizeUrl(String raw) {

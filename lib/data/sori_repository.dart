@@ -113,4 +113,10 @@ abstract class SoriRepository {
   Future<SaveChartResult> saveChartAndConfirmVisit(SaveChartRequest request);
 
   Future<CustomerReview> upsertReview(CustomerReview review);
+
+  /// 네이버 리뷰 등록 트래킹.
+  Future<CustomerReview?> markNaverRegistered({
+    required String chartId,
+    String? composedText,
+  });
 }
