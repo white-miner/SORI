@@ -19,6 +19,7 @@ class SoriStore {
 
   late Shop shop;
   SessionUser? session;
+  bool shopRegisteredByUser = false;
   final List<Customer> customers = [];
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];
@@ -139,52 +140,156 @@ class SoriStore {
     }
   }
 
-  /// 원장 간편 가입/로그인 (이름+전화 필수). 샵 네이버 URL 미설정 시 false 반환용 플래그.
-  SessionUser loginDirector({
+  /// 소셜 로그인 시뮬레이터 — 이름·전화 필수 수집 후 온보딩으로 연결.
+  SessionUser beginSocialLogin({
+    required SocialProvider provider,
     required String name,
     required String phone,
   }) {
     session = SessionUser(
-      role: UserRole.director,
+      role: UserRole.guest,
       name: name.trim(),
       phone: phone.trim(),
+      provider: provider,
+      onboardingComplete: false,
+      shopSetupComplete: false,
+      activeMode: UserRole.customer,
     );
-    shop = shop.copyWith(ownerName: name.trim(), phone: phone.trim());
     _notify();
     return session!;
   }
 
-  /// 고객 간편 가입: 이름+전화로 차트 DB 매칭. 없으면 신규 고객 생성.
+  /// 역할 선택 완료. 고객이면 전화 매칭 후 바로 홈, 원장이면 샵 설정 필요.
+  SessionUser completeRoleSelection(UserRole role) {
+    if (session == null) throw StateError('No session');
+    if (role == UserRole.customer) {
+      var customer = findCustomerByPhone(session!.phone);
+      if (customer == null) {
+        customer = Customer(
+          id: 'c-${DateTime.now().millisecondsSinceEpoch}',
+          shopId: shop.id,
+          name: session!.name,
+          phone: session!.phone,
+          lastTreatmentDate: DateTime.now(),
+          treatmentType: '상담',
+          membershipTotalVisits: 0,
+        );
+        customers.insert(0, customer);
+      } else {
+        final idx = customers.indexWhere((c) => c.id == customer!.id);
+        customers[idx] = customer.copyWith(name: session!.name);
+        customer = customers[idx];
+      }
+      session = session!.copyWith(
+        role: UserRole.customer,
+        customerId: customer.id,
+        onboardingComplete: true,
+        shopSetupComplete: false,
+        activeMode: UserRole.customer,
+        showFirstChartTutorial: false,
+      );
+    } else {
+      session = session!.copyWith(
+        role: UserRole.director,
+        onboardingComplete: false,
+        shopSetupComplete: false,
+        activeMode: UserRole.director,
+      );
+    }
+    _notify();
+    return session!;
+  }
+
+  /// 원장 샵 프로필 등록 → 튜토리얼 카드 활성화 + 모드 토글 가능.
+  SessionUser completeShopSetup({
+    required String shopName,
+    required String shopPhone,
+    required String naverPlaceUrl,
+  }) {
+    if (session == null) throw StateError('No session');
+    updateShopProfile(
+      name: shopName,
+      naverPlaceUrl: naverPlaceUrl,
+      phone: shopPhone,
+    );
+    shop = shop.copyWith(ownerName: session!.name);
+    shopRegisteredByUser = true;
+    session = session!.copyWith(
+      role: UserRole.director,
+      onboardingComplete: true,
+      shopSetupComplete: true,
+      activeMode: UserRole.director,
+      showFirstChartTutorial: true,
+    );
+    _notify();
+    return session!;
+  }
+
+  void toggleActiveMode() {
+    if (session == null || !session!.canToggleMode) return;
+    final next = session!.activeMode == UserRole.director
+        ? UserRole.customer
+        : UserRole.director;
+
+    if (next == UserRole.customer) {
+      var customer = findCustomerByPhone(session!.phone);
+      if (customer == null) {
+        customer = Customer(
+          id: 'c-${DateTime.now().millisecondsSinceEpoch}',
+          shopId: shop.id,
+          name: session!.name,
+          phone: session!.phone,
+          lastTreatmentDate: DateTime.now(),
+          treatmentType: '상담',
+          membershipTotalVisits: 0,
+        );
+        customers.insert(0, customer);
+      }
+      session = session!.copyWith(
+        activeMode: UserRole.customer,
+        customerId: customer.id,
+      );
+    } else {
+      session = session!.copyWith(activeMode: UserRole.director);
+    }
+    _notify();
+  }
+
+  void dismissFirstChartTutorial() {
+    if (session == null) return;
+    session = session!.copyWith(showFirstChartTutorial: false);
+    _notify();
+  }
+
+  /// @deprecated — 소셜+온보딩 플로우 사용. 호환용 유지.
+  SessionUser loginDirector({
+    required String name,
+    required String phone,
+  }) {
+    beginSocialLogin(
+      provider: SocialProvider.kakao,
+      name: name,
+      phone: phone,
+    );
+    completeRoleSelection(UserRole.director);
+    return completeShopSetup(
+      shopName: shop.name,
+      shopPhone: phone,
+      naverPlaceUrl: shop.naverPlaceUrl,
+    );
+  }
+
+  /// @deprecated — 소셜+온보딩 플로우 사용. 호환용 유지.
   SessionUser loginCustomer({
     required String name,
     required String phone,
   }) {
-    var customer = findCustomerByPhone(phone);
-    if (customer == null) {
-      customer = Customer(
-        id: 'c-${DateTime.now().millisecondsSinceEpoch}',
-        shopId: shop.id,
-        name: name.trim(),
-        phone: phone.trim(),
-        lastTreatmentDate: DateTime.now(),
-        treatmentType: '상담',
-        membershipTotalVisits: 0,
-      );
-      customers.insert(0, customer);
-    } else if (customer.name != name.trim() && name.trim().isNotEmpty) {
-      final idx = customers.indexWhere((c) => c.id == customer!.id);
-      customers[idx] = customer.copyWith(name: name.trim());
-      customer = customers[idx];
-    }
-
-    session = SessionUser(
-      role: UserRole.customer,
-      name: customer.name,
-      phone: customer.phone,
-      customerId: customer.id,
+    beginSocialLogin(
+      provider: SocialProvider.kakao,
+      name: name,
+      phone: phone,
     );
-    _notify();
-    return session!;
+    return completeRoleSelection(UserRole.customer);
   }
 
   void logout() {
@@ -212,6 +317,20 @@ class SoriStore {
       phone: phone?.trim(),
     );
     _notify();
+  }
+
+  List<Customer> searchCustomers(String query) {
+    if (query.trim().isEmpty) return List.of(customers);
+    final q = query.trim().toLowerCase();
+    final digits = normalizePhone(query);
+    return customers.where((c) {
+      return c.name.toLowerCase().contains(q) ||
+          (digits.isNotEmpty && normalizePhone(c.phone).contains(digits));
+    }).toList();
+  }
+
+  List<CustomerChart> openFeedbackChartsForCustomer(String customerId) {
+    return chartsForCustomer(customerId).where((c) => c.hasFeedbackLine).toList();
   }
 
   // —— Lookups ——

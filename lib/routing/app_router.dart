@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../services/sori_store.dart';
+import '../views/app_shell_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/entry_home_page.dart';
-import '../views/main_shell_page.dart';
 import '../views/my_app.dart';
 
 class AppRouter {
   static const String home = '/';
-  static const String admin = '/admin';
+  static const String app = '/app';
+  static const String admin = '/admin'; // 하위 호환 → /app
   static const String review = '/review';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -17,10 +18,10 @@ class AppRouter {
     final path = _normalizePath(uri.path);
     final query = Map<String, String>.from(uri.queryParameters);
 
-    // Query-parameter fallback: /?page=review&token=...
     final page = query['page'];
     final tokenFromQuery = query['token'] ?? '';
 
+    // 고객 딥링크 — 어드민 셸 완전 미마운트
     if (path == review || page == 'review') {
       final token = tokenFromQuery.isNotEmpty
           ? tokenFromQuery
@@ -34,10 +35,10 @@ class AppRouter {
       );
     }
 
-    if (path == admin) {
+    if (path == app || path == admin) {
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => const MainShellPage(),
+        builder: (_) => const AppShellPage(),
       );
     }
 
