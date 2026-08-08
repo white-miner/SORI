@@ -25,6 +25,20 @@ class CustomerHomePage extends StatelessWidget {
     return SafeArea(
       child: CustomScrollView(
         slivers: [
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Text(
+                '소통하는 리뷰, SORI',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: SoriTokens.textPrimary,
+                ),
+              ),
+            ),
+          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

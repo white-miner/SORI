@@ -4,6 +4,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
+import '../models/shop_gallery_slide.dart';
 import 'visit_trigger_service.dart';
 
 /// 로컬 인메모리 스토어 (Supabase 스키마와 동일 도메인).
@@ -25,6 +26,9 @@ class SoriStore {
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];
   final List<String> skinJournalEntries = [];
+  final List<ShopGallerySlide> gallerySlides = [];
+  String todayHomecareTip =
+      '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
   static const List<String> puzzlePool = [
     '피부 톤이 밝아졌어요',
@@ -69,7 +73,7 @@ class SoriStore {
         shopId: shop.id,
         name: '김민지',
         phone: '010-1234-5678',
-        lastTreatmentDate: DateTime(2026, 8, 5),
+        lastTreatmentDate: DateTime(2026, 8, 8),
         treatmentType: '재생케어',
         memo: '두피 민감, 자연 펌 선호',
         membershipTotalVisits: 0,
@@ -79,7 +83,7 @@ class SoriStore {
         shopId: shop.id,
         name: '이수진',
         phone: '010-2345-6789',
-        lastTreatmentDate: DateTime(2026, 8, 3),
+        lastTreatmentDate: DateTime(2026, 8, 8),
         treatmentType: '수분케어',
         memo: '정기 예약 고객',
         membershipTotalVisits: 5,
@@ -93,6 +97,27 @@ class SoriStore {
         treatmentType: '재생케어',
         memo: '트리트먼트 관심 많음',
         membershipTotalVisits: 3,
+      ),
+    ]);
+
+    gallerySlides.addAll(const [
+      ShopGallerySlide(
+        id: 'g1',
+        title: '샵 대표 공간',
+        subtitle: '상담 · 케어룸 분위기',
+        kind: GalleryKind.shop,
+      ),
+      ShopGallerySlide(
+        id: 'g2',
+        title: 'Before',
+        subtitle: '방문 전 피부 컨디션',
+        kind: GalleryKind.before,
+      ),
+      ShopGallerySlide(
+        id: 'g3',
+        title: 'After',
+        subtitle: '시술 직후 개선 포인트',
+        kind: GalleryKind.after,
       ),
     ]);
 
@@ -403,6 +428,43 @@ class SoriStore {
     }
     final encoded = Uri.encodeQueryComponent(token);
     return '$origin$path#/review?token=$encoded';
+  }
+
+  void updateHomecareTip(String tip) {
+    todayHomecareTip = tip.trim();
+    _notify();
+  }
+
+  void upsertGallerySlide(ShopGallerySlide slide) {
+    final index = gallerySlides.indexWhere((s) => s.id == slide.id);
+    if (index >= 0) {
+      gallerySlides[index] = slide;
+    } else {
+      gallerySlides.add(slide);
+    }
+    _notify();
+  }
+
+  void replaceGallerySlideAt(int index, ShopGallerySlide slide) {
+    if (index < 0 || index >= gallerySlides.length) return;
+    gallerySlides[index] = slide;
+    _notify();
+  }
+
+  List<Customer> customersForDate(DateTime day) {
+    return customers.where((c) {
+      final d = c.lastTreatmentDate;
+      return d.year == day.year && d.month == day.month && d.day == day.day;
+    }).toList();
+  }
+
+  Set<int> visitDaysInMonth(int year, int month) {
+    return customers
+        .where((c) =>
+            c.lastTreatmentDate.year == year &&
+            c.lastTreatmentDate.month == month)
+        .map((c) => c.lastTreatmentDate.day)
+        .toSet();
   }
 
   void addCustomer(Customer customer) {
