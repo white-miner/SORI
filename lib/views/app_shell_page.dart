@@ -4,12 +4,14 @@ import '../models/customer.dart';
 import '../models/session_user.dart';
 import '../routing/app_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import 'admin_chart_writer_page.dart';
-import 'director_home_page.dart';
 import 'customer_home_page.dart';
-import 'my_app.dart';
+import 'director_home_page.dart';
+import 'message_history_page.dart';
+import 'my_page.dart';
 
-/// 로그인 후 셸 — activeMode에 따라 원장/고객 홈만 마운트.
+/// 로그인 후 5탭 앱 셸 (원장/고객 모드 공통).
 class AppShellPage extends StatefulWidget {
   const AppShellPage({super.key});
 
@@ -19,6 +21,7 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
+  int _tab = 0;
 
   @override
   void initState() {
@@ -49,148 +52,131 @@ class _AppShellPageState extends State<AppShellPage> {
     final session = _store.session;
     if (session == null || !session.onboardingComplete) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: MyApp.soriPurple)),
+        body: Center(child: CircularProgressIndicator(color: SoriTokens.primary)),
       );
     }
 
     final isDirector = session.activeMode == UserRole.director;
+    final pages = <Widget>[
+      isDirector
+          ? DirectorHomePage(key: const ValueKey('d-home'), store: _store)
+          : CustomerHomePage(key: const ValueKey('c-home'), store: _store),
+      isDirector
+          ? DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store)
+          : CustomerCareTab(key: const ValueKey('c-care'), store: _store),
+      const _ComposeTabPlaceholder(),
+      const MessageHistoryPage(),
+      MyPage(store: _store),
+    ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        child: isDirector
-            ? DirectorHomePage(key: const ValueKey('director'), store: _store)
-            : CustomerHomePage(key: const ValueKey('customer'), store: _store),
+      backgroundColor: SoriTokens.background,
+      body: IndexedStack(index: _tab, children: pages),
+      floatingActionButton: isDirector && (_tab == 0 || _tab == 1)
+          ? FloatingActionButton(
+              onPressed: () => _quickWrite(context),
+              backgroundColor: SoriTokens.primary,
+              child: const Icon(Icons.edit_note_rounded, color: Colors.white),
+            )
+          : null,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: SoriTokens.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: BottomNavigationBar(
+            currentIndex: _tab,
+            onTap: (i) {
+              if (i == 2) {
+                if (isDirector) {
+                  _quickWrite(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('원장님이 열어 둔 리뷰에서 소통할 수 있어요'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+                return;
+              }
+              setState(() => _tab = i);
+            },
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home_rounded),
+                label: '홈',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(isDirector ? Icons.people_outline : Icons.timeline_outlined),
+                activeIcon: Icon(isDirector ? Icons.people : Icons.timeline),
+                label: isDirector ? '고객' : '케어',
+              ),
+              BottomNavigationBarItem(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: SoriTokens.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isDirector ? Icons.add : Icons.chat_bubble_outline,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                label: isDirector ? '작성' : '소통',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_none_rounded),
+                activeIcon: Icon(Icons.notifications_rounded),
+                label: '알림',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline_rounded),
+                activeIcon: Icon(Icons.person_rounded),
+                label: '마이',
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Future<void> _quickWrite(BuildContext context) async {
+    final customers = _store.customers;
+    if (customers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('먼저 고객을 추가해 주세요'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    await openChartWriterForCustomer(
+      context,
+      store: _store,
+      customer: customers.first,
     );
   }
 }
 
-/// 프로필 헤더 + 원장↔고객 모드 토글 (공통).
-class ModeProfileHeader extends StatelessWidget {
-  const ModeProfileHeader({
-    super.key,
-    required this.store,
-    required this.title,
-    this.subtitle,
-  });
-
-  final SoriStore store;
-  final String title;
-  final String? subtitle;
+class _ComposeTabPlaceholder extends StatelessWidget {
+  const _ComposeTabPlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    final session = store.session!;
-    final isDirector = session.activeMode == UserRole.director;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFEEEEF0))),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: MyApp.soriPurple.withValues(alpha: 0.15),
-                child: Text(
-                  session.name.characters.first,
-                  style: const TextStyle(
-                    color: MyApp.soriPurple,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (subtitle != null)
-                      Text(
-                        subtitle!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: '로그아웃',
-                onPressed: () {
-                  store.logout();
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    AppRouter.home,
-                    (_) => false,
-                  );
-                },
-                icon: Icon(Icons.logout, color: Colors.grey.shade600, size: 20),
-              ),
-            ],
-          ),
-          if (session.canToggleMode) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F1FB),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    isDirector ? '원장 모드' : '고객 모드',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: MyApp.soriPurple,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const Spacer(),
-                  const Text('고객', style: TextStyle(fontSize: 12)),
-                  Switch.adaptive(
-                    value: isDirector,
-                    activeThumbColor: MyApp.soriPurple,
-                    onChanged: (_) {
-                      store.toggleActiveMode();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isDirector
-                                ? '고객 모드로 전환했습니다'
-                                : '원장 모드로 전환했습니다',
-                          ),
-                          backgroundColor: MyApp.soriPurple,
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                  ),
-                  const Text('원장', style: TextStyle(fontSize: 12)),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
 
@@ -205,6 +191,7 @@ Future<void> openChartWriterForCustomer(
         store: store,
         customer: customer,
       ),
+      fullscreenDialog: true,
     ),
   );
 }

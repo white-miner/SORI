@@ -257,301 +257,350 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('차트 작성'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF2D3436),
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      body: Column(
         children: [
-          _sectionTitle('고객 기본 식별 정보'),
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: '고객 성함 *',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '성별 *',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: ChoiceChip(
-                  label: const Center(child: Text('여성')),
-                  selected: _gender == CustomerGender.female,
-                  onSelected: (_) =>
-                      setState(() => _gender = CustomerGender.female),
-                  selectedColor: MyApp.soriPurple.withValues(alpha: 0.2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Center(child: Text('남성')),
-                  selected: _gender == CustomerGender.male,
-                  onSelected: (_) =>
-                      setState(() => _gender = CustomerGender.male),
-                  selectedColor: MyApp.soriPurple.withValues(alpha: 0.2),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: '전화번호 / 연락처 *',
-              hintText: '알림톡 발송용',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: _pickBirthDate,
-            borderRadius: BorderRadius.circular(4),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: '생년월일 / 년생',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
-              ),
-              child: Text(
-                _birthDate == null
-                    ? '피부 재생 주기 파악용 (선택)'
-                    : '${_birthDate!.year}.${_birthDate!.month.toString().padLeft(2, '0')}.${_birthDate!.day.toString().padLeft(2, '0')} (${_birthDate!.year}년생)',
-                style: TextStyle(
-                  color: _birthDate == null
-                      ? Colors.grey.shade500
-                      : const Color(0xFF2D3436),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _addressController,
-            decoration: const InputDecoration(
-              labelText: '거주 지역 / 주소',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _occupationController,
-            decoration: const InputDecoration(
-              labelText: '직업 / 생활 패턴',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _sectionTitle('메디컬 & 피부 이력'),
-          TextField(
-            controller: _allergyController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: '알레르기 및 민감 반응',
-              hintText: '금속, 켈로이드, 특정 성분 등',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _medicationController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: '복용 약물 및 피부과 시술 경험',
-              hintText: '이소티논, 레이저, 필러 등',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _homeCareController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: '평소 홈케어 및 클렌징 습관',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _sectionTitle('차트 번호'),
-          Row(
-            children: [
-              Expanded(
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: '자동 회차',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text('$_visitNumber회차'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _customNoController,
-                  decoration: const InputDecoration(
-                    labelText: '수동 차트 번호',
-                    hintText: '기존 프로그램 번호',
-                    border: OutlineInputBorder(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                _SegmentCard(
+                  title: '1. 고객 인적사항',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: '고객 성함 *',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '성별 *',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              label: const Center(child: Text('여성')),
+                              selected: _gender == CustomerGender.female,
+                              onSelected: (_) =>
+                                  setState(() => _gender = CustomerGender.female),
+                              selectedColor: MyApp.soriPurple.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: const Center(child: Text('남성')),
+                              selected: _gender == CustomerGender.male,
+                              onSelected: (_) =>
+                                  setState(() => _gender = CustomerGender.male),
+                              selectedColor: MyApp.soriPurple.withValues(alpha: 0.2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: '전화번호 / 연락처 *',
+                          hintText: '알림톡 발송용',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: _pickBirthDate,
+                        borderRadius: BorderRadius.circular(4),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: '생년월일 / 년생',
+                            border: OutlineInputBorder(),
+                            suffixIcon:
+                                Icon(Icons.calendar_today_outlined, size: 18),
+                          ),
+                          child: Text(
+                            _birthDate == null
+                                ? '피부 재생 주기 파악용 (선택)'
+                                : '${_birthDate!.year}.${_birthDate!.month.toString().padLeft(2, '0')}.${_birthDate!.day.toString().padLeft(2, '0')} (${_birthDate!.year}년생)',
+                            style: TextStyle(
+                              color: _birthDate == null
+                                  ? Colors.grey.shade500
+                                  : const Color(0xFF2D3436),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _addressController,
+                        decoration: const InputDecoration(
+                          labelText: '거주 지역 / 주소',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _occupationController,
+                        decoration: const InputDecoration(
+                          labelText: '직업 / 생활 패턴',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '연락처 기준으로 $_visitNumber회차 차트에 누적됩니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 20),
-          _sectionTitle(
-            _isFirstVisit
-                ? '첫 방문 심리 인터뷰 (10초)'
-                : '재방문 소소한 불편함 (말하기 미안해서 참았던 점)',
-          ),
-          if (!_isFirstVisit)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                '원장님께 말하기 미안해서 참았던 소소한 불편함이 있으셨나요?',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade700,
-                  fontStyle: FontStyle.italic,
+                const SizedBox(height: 12),
+                _SegmentCard(
+                  title: '2. 메디컬 & 피부 이력',
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _allergyController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: '알레르기 및 민감 반응',
+                          hintText: '금속, 켈로이드, 특정 성분 등',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _medicationController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: '복용 약물 및 피부과 시술 경험',
+                          hintText: '이소티논, 레이저, 필러 등',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _homeCareController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: '평소 홈케어 및 클렌징 습관',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: (_isFirstVisit
-                    ? ChartInterviewChips.firstVisitFears
-                    : ChartInterviewChips.revisitFeedbacks)
-                .map((label) {
-              final selected =
-                  _isFirstVisit ? _fears.contains(label) : _revisit.contains(label);
-              return FilterChip(
-                label: Text(label, style: const TextStyle(fontSize: 12)),
-                selected: selected,
-                onSelected: (v) {
-                  setState(() {
-                    final set = _isFirstVisit ? _fears : _revisit;
-                    if (v) {
-                      set.add(label);
-                    } else {
-                      set.remove(label);
-                    }
-                  });
-                },
-                selectedColor: MyApp.soriPurple.withValues(alpha: 0.18),
-                checkmarkColor: MyApp.soriPurple,
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-          _sectionTitle('피부/바디 진단 & 원장 인사이트'),
-          Text(
-            '주요 고민',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: ChartInterviewChips.skinConcerns.map((label) {
-              final selected = _concerns.contains(label);
-              return FilterChip(
-                label: Text(label, style: const TextStyle(fontSize: 12)),
-                selected: selected,
-                onSelected: (v) {
-                  setState(() {
-                    if (v) {
-                      _concerns.add(label);
-                    } else {
-                      _concerns.remove(label);
-                    }
-                  });
-                },
-                selectedColor: MyApp.soriPurple.withValues(alpha: 0.18),
-                checkmarkColor: MyApp.soriPurple,
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _PhotoAttachBox(
-                  title: 'Before',
-                  attached: _beforeAttached,
-                  fileLabel: _beforeLabel,
-                  onTap: () => _attachPhoto(isBefore: true),
+                const SizedBox(height: 12),
+                _SegmentCard(
+                  title: '3. 차트 번호 · 심리 인터뷰',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: '자동 회차',
+                                border: OutlineInputBorder(),
+                              ),
+                              child: Text('$_visitNumber회차'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _customNoController,
+                              decoration: const InputDecoration(
+                                labelText: '수동 차트 번호',
+                                hintText: '기존 프로그램 번호',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _isFirstVisit
+                            ? '첫 방문 심리 인터뷰 (10초)'
+                            : '재방문 소소한 불편함',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      if (!_isFirstVisit) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '원장님께 말하기 미안해서 참았던 소소한 불편함이 있으셨나요?',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: (_isFirstVisit
+                                ? ChartInterviewChips.firstVisitFears
+                                : ChartInterviewChips.revisitFeedbacks)
+                            .map((label) {
+                          final selected = _isFirstVisit
+                              ? _fears.contains(label)
+                              : _revisit.contains(label);
+                          return FilterChip(
+                            label:
+                                Text(label, style: const TextStyle(fontSize: 12)),
+                            selected: selected,
+                            onSelected: (v) {
+                              setState(() {
+                                final set = _isFirstVisit ? _fears : _revisit;
+                                if (v) {
+                                  set.add(label);
+                                } else {
+                                  set.remove(label);
+                                }
+                              });
+                            },
+                            selectedColor:
+                                MyApp.soriPurple.withValues(alpha: 0.18),
+                            checkmarkColor: MyApp.soriPurple,
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PhotoAttachBox(
-                  title: 'After',
-                  attached: _afterAttached,
-                  fileLabel: _afterLabel,
-                  onTap: () => _attachPhoto(isBefore: false),
+                const SizedBox(height: 12),
+                _SegmentCard(
+                  title: '4. 진단 · Before/After · 인사이트',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '주요 고민',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ChartInterviewChips.skinConcerns.map((label) {
+                          final selected = _concerns.contains(label);
+                          return FilterChip(
+                            label:
+                                Text(label, style: const TextStyle(fontSize: 12)),
+                            selected: selected,
+                            onSelected: (v) {
+                              setState(() {
+                                if (v) {
+                                  _concerns.add(label);
+                                } else {
+                                  _concerns.remove(label);
+                                }
+                              });
+                            },
+                            selectedColor:
+                                MyApp.soriPurple.withValues(alpha: 0.18),
+                            checkmarkColor: MyApp.soriPurple,
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _PhotoAttachBox(
+                              title: 'Before',
+                              attached: _beforeAttached,
+                              fileLabel: _beforeLabel,
+                              onTap: () => _attachPhoto(isBefore: true),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _PhotoAttachBox(
+                              title: 'After',
+                              attached: _afterAttached,
+                              fileLabel: _afterLabel,
+                              onTap: () => _attachPhoto(isBefore: false),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _careNameController,
+                        decoration: const InputDecoration(
+                          labelText: '오늘 진행된 케어 명칭 *',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _summaryController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: '원장 맞춤 조치 / 시술 요약',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _insightController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'AI 답글용 한 줄 인사이트',
+                          hintText: '예: 민감 장벽 케어 강조',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _careNameController,
-            decoration: const InputDecoration(
-              labelText: '오늘 진행된 케어 명칭 *',
-              border: OutlineInputBorder(),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _summaryController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: '원장 맞춤 조치 / 시술 요약',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _insightController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'AI 답글용 한 줄 인사이트',
-              hintText: '예: 민감 장벽 케어 강조, 홈케어 순한 제품 권장',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _saving ? null : _saveAndConfirm,
-              style: FilledButton.styleFrom(
-                backgroundColor: MyApp.soriPurple,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, -2),
                 ),
-              ),
-              child: Text(
-                _saving ? '저장 중…' : '차트 저장 및 방문 확인 완료',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, height: 1.3),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : _saveAndConfirm,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: MyApp.soriPurple,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    _saving ? '저장 중…' : '차트 저장 및 알림톡/문자 발송',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               ),
             ),
           ),
@@ -559,17 +608,43 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       ),
     );
   }
+}
 
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF2D3436),
-        ),
+class _SegmentCard extends StatelessWidget {
+  const _SegmentCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
+import '../widgets/sori_card.dart';
 import 'admin_chart_page.dart';
 import 'app_shell_page.dart';
-import 'my_app.dart';
 
-/// 원장 홈 — 카카오톡 친구 탭 스타일 샵 카드 + 고객 리스트.
+/// 원장 홈 — 주간 캘린더 + 고객 Quick Selector.
 class DirectorHomePage extends StatefulWidget {
   const DirectorHomePage({super.key, required this.store});
 
@@ -17,346 +18,375 @@ class DirectorHomePage extends StatefulWidget {
 }
 
 class _DirectorHomePageState extends State<DirectorHomePage> {
-  final _search = TextEditingController();
-  String _query = '';
+  late DateTime _selected;
 
   @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selected = DateTime(now.year, now.month, now.day);
   }
 
-  List<Customer> get _filtered => widget.store.searchCustomers(_query);
+  List<DateTime> get _weekDays {
+    final weekday = _selected.weekday; // Mon=1
+    final monday = _selected.subtract(Duration(days: weekday - 1));
+    return List.generate(7, (i) => monday.add(Duration(days: i)));
+  }
 
-  Future<void> _addQuickCustomer() async {
-    final name = TextEditingController();
-    final phone = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('고객 추가'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: const InputDecoration(
-                labelText: '이름',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: '전화번호',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple),
-            child: const Text('추가'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true &&
-        name.text.trim().isNotEmpty &&
-        SoriStore.normalizePhone(phone.text).length >= 10) {
-      widget.store.addCustomer(
-        Customer(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          shopId: widget.store.shop.id,
-          name: name.text.trim(),
-          phone: phone.text.trim(),
-          lastTreatmentDate: DateTime.now(),
-          treatmentType: '상담',
-        ),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('고객이 추가되었습니다'),
-            backgroundColor: MyApp.soriPurple,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-    name.dispose();
-    phone.dispose();
+  List<Customer> _customersForDay(DateTime day) {
+    return widget.store.customers.where((c) {
+      final d = c.lastTreatmentDate;
+      return d.year == day.year && d.month == day.month && d.day == day.day;
+    }).toList();
+  }
+
+  List<Customer> get _todayQuick {
+    final list = _customersForDay(_selected);
+    if (list.isNotEmpty) return list;
+    return widget.store.customers.take(8).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
-    final session = store.session!;
-    final customers = _filtered;
+    final dayCustomers = _customersForDay(_selected);
+    final showList = dayCustomers.isNotEmpty ? dayCustomers : store.customers;
 
-    return Column(
-      children: [
-        SafeArea(
-          bottom: false,
-          child: ModeProfileHeader(
-            store: store,
-            title: store.shop.name,
-            subtitle: '${session.name} 원장 · ${store.shop.phone ?? ''}',
-          ),
-        ),
-        Expanded(
-          child: CustomScrollView(
-            slivers: [
-              if (session.showFirstChartTutorial)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: _TutorialCard(
-                      onStart: () async {
-                        store.dismissFirstChartTutorial();
-                        if (customers.isEmpty) {
-                          await _addQuickCustomer();
-                        }
-                        final list = store.searchCustomers(_query);
-                        if (list.isNotEmpty && context.mounted) {
-                          await openChartWriterForCustomer(
-                            context,
-                            store: store,
-                            customer: list.first,
-                          );
-                        }
-                      },
-                      onDismiss: store.dismissFirstChartTutorial,
-                    ),
-                  ),
-                ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: TextField(
-                    controller: _search,
-                    onChanged: (v) => setState(() => _query = v),
-                    decoration: InputDecoration(
-                      hintText: '이름 또는 전화번호 검색',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                  child: Row(
-                    children: [
-                      Text(
-                        '고객 ${customers.length}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _addQuickCustomer,
-                        icon: const Icon(Icons.person_add_alt_1, size: 18),
-                        label: const Text('추가'),
-                        style: TextButton.styleFrom(foregroundColor: MyApp.soriPurple),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (customers.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+    return SafeArea(
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SoriCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Icon(Icons.people_outline, size: 48, color: Colors.grey.shade400),
-                        const SizedBox(height: 12),
+                        const Text(
+                          '주간 일정',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const Spacer(),
                         Text(
-                          _query.isEmpty ? '아직 등록된 고객이 없어요' : '검색 결과가 없습니다',
-                          style: TextStyle(color: Colors.grey.shade600),
+                          '${_selected.month}월 ${_selected.day}일',
+                          style: const TextStyle(
+                            color: SoriTokens.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                )
-              else
-                SliverList.separated(
-                  itemCount: customers.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
-                  itemBuilder: (context, index) {
-                    final customer = customers[index];
-                    final chart = store.latestChart(customer.id);
-                    return Material(
-                      color: Colors.white,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => AdminChartPage(
-                                store: store,
-                                customerId: customer.id,
+                    const SizedBox(height: 14),
+                    Row(
+                      children: _weekDays.map((day) {
+                        final selected = day.year == _selected.year &&
+                            day.month == _selected.month &&
+                            day.day == _selected.day;
+                        final count = _customersForDay(day).length;
+                        const labels = ['월', '화', '수', '목', '금', '토', '일'];
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selected = day),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? SoriTokens.primary
+                                    : SoriTokens.primarySoft,
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                            ),
-                          );
-                        },
-                        onLongPress: () => openChartWriterForCustomer(
-                          context,
-                          store: store,
-                          customer: customer,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor:
-                                    MyApp.soriPurple.withValues(alpha: 0.12),
-                                child: Text(
-                                  customer.name.characters.first,
-                                  style: const TextStyle(
-                                    color: MyApp.soriPurple,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      customer.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      customer.phone,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                              child: Column(
                                 children: [
                                   Text(
-                                    chart == null
-                                        ? '차트 없음'
-                                        : '차트 ${chart.displayChartNo}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: MyApp.soriPurple,
+                                    labels[day.weekday - 1],
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: selected
+                                          ? Colors.white70
+                                          : SoriTokens.textSecondary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    chart == null
-                                        ? '-'
-                                        : '${chart.visitNumber}회차',
+                                    '${day.day}',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.w800,
+                                      color: selected
+                                          ? Colors.white
+                                          : SoriTokens.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: count > 0
+                                          ? (selected
+                                              ? Colors.white
+                                              : SoriTokens.primary)
+                                          : Colors.transparent,
                                     ),
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '오늘 방문 고객',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 84,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _todayQuick.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (context, index) {
+                        final c = _todayQuick[index];
+                        return GestureDetector(
+                          onTap: () => openChartWriterForCustomer(
+                            context,
+                            store: store,
+                            customer: c,
+                          ),
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: SoriTokens.primarySoft,
+                                child: Text(
+                                  c.name.characters.first,
+                                  style: const TextStyle(
+                                    color: SoriTokens.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                width: 56,
+                                child: Text(
+                                  c.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
                             ],
                           ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: Text(
+                dayCustomers.isEmpty
+                    ? '전체 고객 ${showList.length}명'
+                    : '이 날 방문 ${dayCustomers.length}명',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
+            sliver: SliverList.separated(
+              itemCount: showList.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final c = showList[index];
+                final chart = store.latestChart(c.id);
+                return SoriCard(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => AdminChartPage(
+                          store: store,
+                          customerId: c.id,
                         ),
                       ),
                     );
                   },
-                ),
-            ],
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: SoriTokens.primarySoft,
+                        child: Text(
+                          c.name.characters.first,
+                          style: const TextStyle(
+                            color: SoriTokens.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              c.phone,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: SoriTokens.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            chart == null
+                                ? '신규'
+                                : '${chart.visitNumber}회차',
+                            style: const TextStyle(
+                              color: SoriTokens.primary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            chart?.careName ?? c.treatmentType,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: SoriTokens.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _TutorialCard extends StatelessWidget {
-  const _TutorialCard({required this.onStart, required this.onDismiss});
+/// 고객 탭 — 검색 가능한 전체 리스트.
+class DirectorCustomersTab extends StatefulWidget {
+  const DirectorCustomersTab({super.key, required this.store});
 
-  final VoidCallback onStart;
-  final VoidCallback onDismiss;
+  final SoriStore store;
+
+  @override
+  State<DirectorCustomersTab> createState() => _DirectorCustomersTabState();
+}
+
+class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6C5CE7), Color(0xFF8B7CF7)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: MyApp.soriPurple.withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    final list = widget.store.searchCustomers(_query);
+    return SafeArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '🎉 10초 만에 첫 고객 차트 작성하고\nQR/링크 생성해보기',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    height: 1.35,
-                  ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              onChanged: (v) => setState(() => _query = v),
+              decoration: InputDecoration(
+                hintText: '이름 · 전화번호 검색',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
                 ),
               ),
-              IconButton(
-                onPressed: onDismiss,
-                icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onStart,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: MyApp.soriPurple,
-              ),
-              child: const Text('지금 체험하기', style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              itemCount: list.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final c = list[index];
+                return SoriCard(
+                  onTap: () => openChartWriterForCustomer(
+                    context,
+                    store: widget.store,
+                    customer: c,
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: SoriTokens.primarySoft,
+                        child: Text(
+                          c.name.characters.first,
+                          style: const TextStyle(
+                            color: SoriTokens.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${c.name}  ·  ${c.phone}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: SoriTokens.textSecondary),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
