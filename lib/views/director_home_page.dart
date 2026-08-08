@@ -276,10 +276,11 @@ class _DirectorHomePageState extends State<DirectorHomePage> {
               ),
               if (charts.isNotEmpty)
                 SizedBox(
-                  height: 40,
+                  height: 56,
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                     scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
                     itemCount: charts.length.clamp(0, 6),
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
@@ -290,22 +291,26 @@ class _DirectorHomePageState extends State<DirectorHomePage> {
                         <= 6 => '장벽 회복 케어',
                         _ => '유지 케어',
                       };
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: SoriTokens.cardShadow,
-                        ),
-                        child: Text(
-                          '${chart.visitNumber}회차 · $label',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: SoriTokens.primary,
+                      return Align(
+                        alignment: Alignment.center,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: SoriTokens.cardShadow,
+                          ),
+                          child: Text(
+                            '${chart.visitNumber}회차 · $label',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              fontWeight: FontWeight.w700,
+                              color: SoriTokens.primary,
+                            ),
                           ),
                         ),
                       );

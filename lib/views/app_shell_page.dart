@@ -79,6 +79,8 @@ class _AppShellPageState extends State<AppShellPage> {
       MyPage(store: _store),
     ];
 
+    final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
+
     return Scaffold(
       backgroundColor: SoriTokens.background,
       body: IndexedStack(index: _tab, children: pages),
@@ -90,52 +92,12 @@ class _AppShellPageState extends State<AppShellPage> {
               child: const Icon(Icons.edit_note_rounded, color: Colors.white),
             )
           : null,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: SoriTokens.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: BottomNavigationBar(
-            currentIndex: _tab,
-            onTap: (i) => setState(() => _tab = i),
-            items: [
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home_rounded),
-                label: '홈',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(
-                  isDirector ? Icons.people_outline : Icons.timeline_outlined,
-                ),
-                activeIcon: Icon(isDirector ? Icons.people : Icons.timeline),
-                label: isDirector ? '고객' : '케어',
-              ),
-              BottomNavigationBarItem(
-                icon: const Icon(Icons.chat_bubble_outline),
-                activeIcon: const Icon(Icons.chat_bubble),
-                label: isDirector ? '리뷰 관리' : '리뷰 작성',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_none_rounded),
-                activeIcon: Icon(Icons.notifications_rounded),
-                label: '알림',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline_rounded),
-                activeIcon: Icon(Icons.person_rounded),
-                label: '마이',
-              ),
-            ],
-          ),
-        ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: _SoriBottomNav(
+        currentIndex: _tab,
+        isDirector: isDirector,
+        reviewLabel: reviewLabel,
+        onTap: (i) => setState(() => _tab = i),
       ),
     );
   }
@@ -173,4 +135,191 @@ Future<void> openChartWriterForCustomer(
       fullscreenDialog: true,
     ),
   );
+}
+
+/// 중앙 리뷰 탭이 바 위로 돌출되는 커스텀 하단 네비.
+class _SoriBottomNav extends StatelessWidget {
+  const _SoriBottomNav({
+    required this.currentIndex,
+    required this.isDirector,
+    required this.reviewLabel,
+    required this.onTap,
+  });
+
+  final int currentIndex;
+  final bool isDirector;
+  final String reviewLabel;
+  final ValueChanged<int> onTap;
+
+  static const double _barHeight = 64;
+  static const double _fabSize = 58;
+  static const double _protrude = 22;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _barHeight + _protrude + MediaQuery.paddingOf(context).bottom,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: _barHeight + MediaQuery.paddingOf(context).bottom,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+              decoration: BoxDecoration(
+                color: SoriTokens.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  _NavItem(
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home_rounded,
+                    label: '홈',
+                    selected: currentIndex == 0,
+                    onTap: () => onTap(0),
+                  ),
+                  _NavItem(
+                    icon: isDirector
+                        ? Icons.people_outline
+                        : Icons.timeline_outlined,
+                    activeIcon: isDirector ? Icons.people : Icons.timeline,
+                    label: isDirector ? '고객' : '케어',
+                    selected: currentIndex == 1,
+                    onTap: () => onTap(1),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onTap(2),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          SizedBox(height: _fabSize / 2),
+                          Text(
+                            reviewLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: currentIndex == 2
+                                  ? SoriTokens.primary
+                                  : SoriTokens.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _NavItem(
+                    icon: Icons.notifications_none_rounded,
+                    activeIcon: Icons.notifications_rounded,
+                    label: '알림',
+                    selected: currentIndex == 3,
+                    onTap: () => onTap(3),
+                  ),
+                  _NavItem(
+                    icon: Icons.person_outline_rounded,
+                    activeIcon: Icons.person_rounded,
+                    label: '마이',
+                    selected: currentIndex == 4,
+                    onTap: () => onTap(4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => onTap(2),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: _fabSize,
+                  height: _fabSize,
+                  decoration: BoxDecoration(
+                    color: SoriTokens.primary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: SoriTokens.primary.withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: currentIndex == 2
+                        ? Border.all(color: Colors.white, width: 3)
+                        : null,
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        selected ? SoriTokens.primary : SoriTokens.textSecondary;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(selected ? activeIcon : icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

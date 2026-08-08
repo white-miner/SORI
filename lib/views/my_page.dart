@@ -127,6 +127,11 @@ class MyPage extends StatelessWidget {
               ),
             ),
           ],
+          if (isDirector) ...[
+            const SizedBox(height: 20),
+            const _SectionLabel('📊 AI 샵 경영 리포트'),
+            const _AiShopReportCard(),
+          ],
           const SizedBox(height: 20),
           const _SectionLabel('설정 / 관리'),
           SoriCard(
@@ -236,6 +241,167 @@ class _SectionLabel extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: SoriTokens.textSecondary,
         ),
+      ),
+    );
+  }
+}
+
+class _AiShopReportCard extends StatelessWidget {
+  const _AiShopReportCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return SoriCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: SoriTokens.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.insights_rounded,
+                  color: SoriTokens.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI 샵 경영 리포트',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '고객 차트 · 후기 키워드를 분석했어요',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const _ReportInsight(
+            emoji: '🔥',
+            badge: '집중 투자',
+            badgeColor: Color(0xFFFF6B4A),
+            badgeBg: Color(0xFFFFF0EC),
+            title: '반응 폭발 메뉴',
+            body: '수분 장벽 케어 (리뷰 긍정 키워드 1위)',
+          ),
+          const SizedBox(height: 10),
+          const _ReportInsight(
+            emoji: '📉',
+            badge: '축소/보완',
+            badgeColor: Color(0xFF6B7280),
+            badgeBg: Color(0xFFF3F4F6),
+            title: '반응 저하 메뉴',
+            body: '기본 윤곽 관리 (재방문 전환율 하락 추세)',
+          ),
+          const SizedBox(height: 10),
+          const _ReportInsight(
+            emoji: '💡',
+            badge: 'AI 신규 제안',
+            badgeColor: SoriTokens.primary,
+            badgeBg: SoriTokens.primarySoft,
+            title: '타겟 메뉴',
+            body:
+                "최근 고객 차트에서 '모공' 고민이 급증하고 있습니다. [쿨링 모공 디톡스] 메뉴 신설을 추천합니다.",
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportInsight extends StatelessWidget {
+  const _ReportInsight({
+    required this.emoji,
+    required this.badge,
+    required this.badgeColor,
+    required this.badgeBg,
+    required this.title,
+    required this.body,
+  });
+
+  final String emoji;
+  final String badge;
+  final Color badgeColor;
+  final Color badgeBg;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SoriTokens.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SoriTokens.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }
