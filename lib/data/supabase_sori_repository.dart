@@ -229,7 +229,7 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<Shop> upsertShop(Shop shop) async {
     final payload = <String, dynamic>{
       'name': shop.name,
-      'owner_name': shop.ownerName,
+      'owner_name': shop.ownerName ?? '',
       'phone': shop.phone,
       'naver_place_url': shop.naverPlaceUrl,
       'address': shop.address,

@@ -78,6 +78,12 @@ class OpenAiService {
           )
           .timeout(const Duration(seconds: 45));
 
+      if (response.statusCode == 429) {
+        debugPrint('OpenAI HTTP 429 quota/rate limit');
+        throw OpenAiException(
+          'AI API 크레딧이 부족하거나 요청이 많습니다. OpenAI 결제 상태를 확인해 주세요.',
+        );
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         debugPrint('OpenAI HTTP ${response.statusCode}');
         throw OpenAiException(

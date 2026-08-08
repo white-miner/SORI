@@ -198,7 +198,9 @@ class _ShopSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shop = store.shop;
-    final owner = shop.ownerName ?? '원장';
+    final owner = (shop.ownerName == null || shop.ownerName!.trim().isEmpty)
+        ? '원장'
+        : shop.ownerName!.trim();
 
     return SoriCard(
       child: Column(

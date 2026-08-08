@@ -54,13 +54,19 @@ class Shop {
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
+    String asText(dynamic value, [String fallback = '']) {
+      if (value == null) return fallback;
+      final text = value.toString().trim();
+      return text;
+    }
+
     return Shop(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      ownerName: map['owner_name'] as String?,
-      phone: map['phone'] as String?,
-      naverPlaceUrl: map['naver_place_url'] as String? ?? '',
-      address: map['address'] as String?,
+      id: asText(map['id']),
+      name: asText(map['name'], 'SORI 샵'),
+      ownerName: asText(map['owner_name']),
+      phone: asText(map['phone']).isEmpty ? null : asText(map['phone']),
+      naverPlaceUrl: asText(map['naver_place_url']),
+      address: asText(map['address']).isEmpty ? null : asText(map['address']),
     );
   }
 }
