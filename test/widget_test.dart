@@ -115,4 +115,32 @@ void main() {
     expect(opened.visitChecked, isTrue);
     expect(opened.feedbackToken!.length, greaterThanOrEqualTo(16));
   });
+
+  test('membership ticket deducts on visit confirm and syncs remaining', () {
+    final store = SoriStore();
+    final before = store.findCustomer('2')!;
+    expect(before.membershipTotalVisits, 10);
+    expect(before.membershipUsedVisits, 8);
+    expect(before.membershipRemainingVisits, 2);
+    expect(before.isMembershipLow, isTrue);
+
+    store.saveChartAndConfirmVisit(
+      customerId: '2',
+      visitNumber: store.nextVisitNumber('2'),
+      careName: '수분케어',
+      treatmentSummary: '회원권 차감 테스트',
+      directorInsight: '보습 유지',
+      concernChips: const [],
+      firstVisitFearChips: const [],
+      revisitFeedbackChips: const [],
+      membershipServiceName: before.membershipServiceName,
+      membershipTotalVisits: before.membershipTotalVisits,
+      membershipUsedVisits: before.membershipUsedVisits,
+    );
+
+    final after = store.findCustomer('2')!;
+    expect(after.membershipUsedVisits, 9);
+    expect(after.membershipRemainingVisits, 1);
+    expect(after.membershipBadgeLabel, '진행 9회 / 잔여 1회');
+  });
 }

@@ -77,7 +77,13 @@ class SoriStore {
         lastTreatmentDate: DateTime(2026, 8, 8),
         treatmentType: '재생케어',
         memo: '두피 민감, 자연 펌 선호',
+        gender: CustomerGender.female,
+        birthDate: DateTime(1994, 3, 12),
+        address: '서울시 강남구',
+        allergyNotes: '향료 민감',
+        membershipServiceName: '',
         membershipTotalVisits: 0,
+        membershipUsedVisits: 0,
       ),
       Customer(
         id: '2',
@@ -87,7 +93,14 @@ class SoriStore {
         lastTreatmentDate: DateTime(2026, 8, 8),
         treatmentType: '수분케어',
         memo: '정기 예약 고객',
-        membershipTotalVisits: 5,
+        gender: CustomerGender.female,
+        birthDate: DateTime(1990, 7, 21),
+        address: '서울시 서초구',
+        allergyNotes: '없음',
+        medicationHistory: '이소티논 복용 이력(2년 전)',
+        membershipServiceName: '수분 케어 10회권',
+        membershipTotalVisits: 10,
+        membershipUsedVisits: 8,
       ),
       Customer(
         id: '3',
@@ -97,7 +110,13 @@ class SoriStore {
         lastTreatmentDate: DateTime(2026, 7, 28),
         treatmentType: '재생케어',
         memo: '트리트먼트 관심 많음',
-        membershipTotalVisits: 3,
+        gender: CustomerGender.female,
+        birthDate: DateTime(1988, 11, 5),
+        address: '서울시 송파구',
+        allergyNotes: '니켈 알레르기',
+        membershipServiceName: '재생 케어 10회권',
+        membershipTotalVisits: 10,
+        membershipUsedVisits: 4,
       ),
     ]);
 
@@ -482,6 +501,8 @@ class SoriStore {
   }
 
   /// 차트 저장 + 방문 확인 트리거 → 토큰/리뷰 초안 생성.
+  /// [membership*] 는 방문 확인 직전 회원권 설정값이며,
+  /// 아직 방문 미확인 차트인 경우 확인 시 used +1 자동 차감됩니다.
   CustomerChart saveChartAndConfirmVisit({
     required String customerId,
     required int visitNumber,
@@ -504,11 +525,17 @@ class SoriStore {
     String? allergyNotes,
     String? medicationHistory,
     String? homeCareHabits,
+    String? membershipServiceName,
+    int? membershipTotalVisits,
+    int? membershipUsedVisits,
   }) {
     final customer = findCustomer(customerId);
     if (customer == null) {
       throw StateError('Customer not found');
     }
+
+    final wasAlreadyChecked = chartId != null &&
+        charts.any((c) => c.id == chartId && c.visitChecked);
 
     CustomerChart chart;
     if (chartId != null) {
@@ -551,6 +578,12 @@ class SoriStore {
     }
 
     final custIndex = customers.indexWhere((c) => c.id == customerId);
+    final total = (membershipTotalVisits ?? customer.membershipTotalVisits)
+        .clamp(0, 999);
+    var used = (membershipUsedVisits ?? customer.membershipUsedVisits)
+        .clamp(0, 999);
+    if (total > 0 && used > total) used = total;
+
     customers[custIndex] = customers[custIndex].copyWith(
       name: customerName?.trim().isNotEmpty == true
           ? customerName!.trim()
@@ -567,12 +600,16 @@ class SoriStore {
       homeCareHabits: homeCareHabits ?? customer.homeCareHabits,
       lastTreatmentDate: DateTime.now(),
       treatmentType: careName.isNotEmpty ? careName : customer.treatmentType,
-      membershipTotalVisits: visitNumber > 1
-          ? visitNumber
-          : customers[custIndex].membershipTotalVisits,
+      membershipServiceName:
+          membershipServiceName ?? customer.membershipServiceName,
+      membershipTotalVisits: total,
+      membershipUsedVisits: used,
     );
 
-    return confirmVisit(chartId: chart.id);
+    return confirmVisit(
+      chartId: chart.id,
+      deductMembership: !wasAlreadyChecked,
+    );
   }
 
   CustomerChart confirmVisit({
@@ -581,14 +618,20 @@ class SoriStore {
       '피부 톤이 밝아졌어요',
       '시술 후 자극이 적었어요',
     ],
+    bool deductMembership = true,
   }) {
     final index = charts.indexWhere((c) => c.id == chartId);
     if (index < 0) {
       throw StateError('Chart not found: $chartId');
     }
 
+    final alreadyChecked = charts[index].visitChecked;
     final opened = _visitTrigger.markVisitChecked(charts[index]);
     charts[index] = opened;
+
+    if (deductMembership && !alreadyChecked) {
+      _deductMembershipVisit(opened.customerId);
+    }
 
     if (reviewForChart(opened.id) == null) {
       final customer = findCustomer(opened.customerId);
@@ -606,6 +649,18 @@ class SoriStore {
 
     _notify();
     return opened;
+  }
+
+  /// 방문 확인 시 회원권 차감 횟수 +1 / 잔여 -1 (양방향 동기화 소스).
+  void _deductMembershipVisit(String customerId) {
+    final custIndex = customers.indexWhere((c) => c.id == customerId);
+    if (custIndex < 0) return;
+    final c = customers[custIndex];
+    if (!c.isMembershipCustomer) return;
+    if (c.membershipUsedVisits >= c.membershipTotalVisits) return;
+    customers[custIndex] = c.copyWith(
+      membershipUsedVisits: c.membershipUsedVisits + 1,
+    );
   }
 
   CustomerReview acceptReview(String reviewId) {

@@ -27,7 +27,9 @@ class Customer {
     required this.treatmentType,
     this.shopId = 'shop-demo',
     this.memo = '',
+    this.membershipServiceName = '',
     this.membershipTotalVisits = 0,
+    this.membershipUsedVisits = 0,
     this.gender,
     this.birthDate,
     this.address = '',
@@ -44,7 +46,16 @@ class Customer {
   final String treatmentType;
   final String shopId;
   final String memo;
+
+  /// 예: "재생 케어 10회권"
+  final String membershipServiceName;
+
+  /// 총 결제 횟수 (회원권 전체 회차)
   final int membershipTotalVisits;
+
+  /// 현재까지 차감된 횟수
+  final int membershipUsedVisits;
+
   final CustomerGender? gender;
   final DateTime? birthDate;
   final String address;
@@ -54,6 +65,25 @@ class Customer {
   final String homeCareHabits;
 
   bool get isMembershipCustomer => membershipTotalVisits > 0;
+
+  int get membershipRemainingVisits {
+    if (!isMembershipCustomer) return 0;
+    return (membershipTotalVisits - membershipUsedVisits).clamp(0, 999);
+  }
+
+  double get membershipProgress {
+    if (!isMembershipCustomer) return 0;
+    return (membershipUsedVisits / membershipTotalVisits).clamp(0.0, 1.0);
+  }
+
+  /// 잔여 2회 이하 → 갱신 경고
+  bool get isMembershipLow =>
+      isMembershipCustomer && membershipRemainingVisits <= 2;
+
+  String get membershipBadgeLabel {
+    if (!isMembershipCustomer) return '회원권 미등록';
+    return '진행 $membershipUsedVisits회 / 잔여 $membershipRemainingVisits회';
+  }
 
   String? get birthYearLabel {
     if (birthDate == null) return null;
@@ -68,7 +98,9 @@ class Customer {
     String? treatmentType,
     String? shopId,
     String? memo,
+    String? membershipServiceName,
     int? membershipTotalVisits,
+    int? membershipUsedVisits,
     CustomerGender? gender,
     DateTime? birthDate,
     String? address,
@@ -87,8 +119,12 @@ class Customer {
       treatmentType: treatmentType ?? this.treatmentType,
       shopId: shopId ?? this.shopId,
       memo: memo ?? this.memo,
+      membershipServiceName:
+          membershipServiceName ?? this.membershipServiceName,
       membershipTotalVisits:
           membershipTotalVisits ?? this.membershipTotalVisits,
+      membershipUsedVisits:
+          membershipUsedVisits ?? this.membershipUsedVisits,
       gender: clearGender ? null : (gender ?? this.gender),
       birthDate: clearBirthDate ? null : (birthDate ?? this.birthDate),
       address: address ?? this.address,
@@ -107,7 +143,9 @@ class Customer {
         'last_treatment_date': lastTreatmentDate.toIso8601String(),
         'treatment_type': treatmentType,
         'memo': memo,
+        'membership_service_name': membershipServiceName,
         'membership_total_visits': membershipTotalVisits,
+        'membership_used_visits': membershipUsedVisits,
         'gender': gender?.dbValue,
         'birth_date': birthDate?.toIso8601String(),
         'address': address,
@@ -126,7 +164,9 @@ class Customer {
       lastTreatmentDate: DateTime.parse(map['last_treatment_date'] as String),
       treatmentType: map['treatment_type'] as String? ?? '',
       memo: map['memo'] as String? ?? '',
+      membershipServiceName: map['membership_service_name'] as String? ?? '',
       membershipTotalVisits: map['membership_total_visits'] as int? ?? 0,
+      membershipUsedVisits: map['membership_used_visits'] as int? ?? 0,
       gender: CustomerGenderX.fromDb(map['gender'] as String?),
       birthDate: map['birth_date'] != null
           ? DateTime.parse(map['birth_date'] as String)

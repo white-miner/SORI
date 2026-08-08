@@ -5,6 +5,7 @@ import '../models/customer_chart.dart';
 import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
 
 /// 고객 홈 — 인투펫 스타일 1:1 케어 타임라인.
@@ -45,6 +46,15 @@ class CustomerHomePage extends StatelessWidget {
               child: _ShopSelector(store: store),
             ),
           ),
+          if (customerId != null && store.findCustomer(customerId) != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: MembershipProfileCard(
+                  customer: store.findCustomer(customerId)!,
+                ),
+              ),
+            ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),

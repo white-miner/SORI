@@ -4,6 +4,7 @@ import '../models/session_user.dart';
 import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
 import 'shop_settings_page.dart';
 
@@ -22,10 +23,9 @@ class MyPage extends StatelessWidget {
     final reviewCount = charts
         .where((c) => store.reviewForChart(c.id) != null)
         .length;
-    final latest = customerId == null ? null : store.latestChart(customerId);
-    final remain = latest == null
-        ? 0
-        : (10 - latest.visitNumber).clamp(0, 99);
+    final customer =
+        customerId == null ? null : store.findCustomer(customerId);
+    final remain = customer?.membershipRemainingVisits ?? 0;
 
     final isDirector = session.activeMode == UserRole.director;
 
@@ -94,6 +94,12 @@ class MyPage extends StatelessWidget {
               ),
             ],
           ),
+          if (!isDirector && customer != null) ...[
+            const SizedBox(height: 12),
+            SoriCard(
+              child: MembershipProgressView(customer: customer),
+            ),
+          ],
           if (session.canToggleMode) ...[
             const SizedBox(height: 16),
             SoriCard(

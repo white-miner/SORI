@@ -4,6 +4,7 @@ import '../models/customer.dart';
 import '../models/shop_gallery_slide.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
 import 'admin_chart_page.dart';
 import 'app_shell_page.dart';
@@ -849,11 +850,22 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          '${c.name}  ·  ${c.phone}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${c.name}  ·  ${c.phone}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 8),
+                            MembershipProgressView(
+                              customer: c,
+                              compact: true,
+                            ),
+                          ],
                         ),
                       ),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.chevron_right,
                         color: SoriTokens.textSecondary,
