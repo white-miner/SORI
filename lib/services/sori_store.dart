@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/memory_sori_repository.dart';
+import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
 import '../models/customer.dart';
@@ -28,6 +29,7 @@ class SoriStore {
 
   bool isLoading = false;
   bool bootstrapComplete = false;
+  bool bootstrapFailed = false;
   String? lastError;
 
   bool get isRemoteEnabled => _repository.isRemote;
@@ -109,24 +111,35 @@ class SoriStore {
     }
     isLoading = true;
     lastError = null;
+    bootstrapFailed = false;
     _notify();
     try {
       final snapshot = await _repository.loadInitialData();
       _applySnapshot(snapshot);
       bootstrapComplete = true;
+      bootstrapFailed = false;
     } catch (e, st) {
       debugPrint('bootstrap failed: $e\n$st');
       _setError(e);
-      // 원격 실패 시 Memory로 전환해 temp ID로 원격 쓰기가 이어지지 않게 함
-      if (_repository.isRemote) {
-        _repository = MemorySoriRepository();
+      bootstrapFailed = true;
+      // UI가 죽지 않도록 시드 유지하되, Retry로 원격 재연결 가능
+      if (customers.isEmpty) {
         _applySnapshot(MemorySoriRepository.createSeedSnapshot());
-        bootstrapComplete = true;
       }
+      bootstrapComplete = true;
     } finally {
       isLoading = false;
       _notify();
     }
+  }
+
+  /// 네트워크 장애 후 원격 Repository로 재시도.
+  Future<void> retryBootstrap() async {
+    lastError = null;
+    bootstrapFailed = false;
+    _notify();
+    bindRepository(createSoriRepository());
+    await bootstrap();
   }
 
   /// 전화번호로 고객 조회 (원격 우선 → 로컬 캐시).
@@ -600,6 +613,14 @@ class SoriStore {
 
   /// Hash routing용 고객 딥링크: `/#/review?token=...` (GitHub Pages 404 방지)
   static String buildCustomerReviewUrl(String token) {
+    final encoded = Uri.encodeQueryComponent(token);
+    return '${_pagesBaseUrl()}#/review?token=$encoded';
+  }
+
+  /// 샵 공용 진입 URL (고객 로그인/리뷰 탭).
+  static String buildAppEntryUrl() => '${_pagesBaseUrl()}#/';
+
+  static String _pagesBaseUrl() {
     final base = Uri.base;
     final origin =
         '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}';
@@ -614,8 +635,7 @@ class SoriStore {
     if (!path.endsWith('/')) {
       path = '$path/';
     }
-    final encoded = Uri.encodeQueryComponent(token);
-    return '$origin$path#/review?token=$encoded';
+    return '$origin$path';
   }
 
   void markReviewRequested(String customerId) {

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/customer_chart.dart';
 import '../services/openai_service.dart';
+import '../services/sori_share.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
@@ -362,6 +363,34 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                     ),
                   ),
                 ),
+                if (_chart?.feedbackToken != null) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        SoriShare.shareReviewLink(
+                          url: SoriStore.buildCustomerReviewUrl(
+                            _chart!.feedbackToken!,
+                          ),
+                          customerName:
+                              widget.store.session?.name ?? '고객',
+                          careName: _careName,
+                        );
+                      },
+                      icon: const Icon(Icons.ios_share_rounded, size: 18),
+                      label: const Text(
+                        '링크 공유하기',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SoriTokens.primary,
+                        side: const BorderSide(color: SoriTokens.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

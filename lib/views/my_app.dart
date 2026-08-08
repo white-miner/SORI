@@ -115,8 +115,71 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      fit: StackFit.expand,
       children: [
         widget.child,
+        if (_store.bootstrapFailed)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Material(
+              color: const Color(0xFFFFF4E5),
+              elevation: 2,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.wifi_off_rounded,
+                        color: SoriTokens.warningText,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          '서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: SoriTokens.warningText,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _store.isLoading
+                            ? null
+                            : () async {
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
+                                await _store.retryBootstrap();
+                                if (!mounted) return;
+                                if (!_store.bootstrapFailed) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('연결이 복구되었어요'),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: SoriTokens.primary,
+                                    ),
+                                  );
+                                }
+                              },
+                        child: const Text(
+                          '다시 시도',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: SoriTokens.warningText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         if (_store.isLoading)
           const Positioned(
             left: 0,

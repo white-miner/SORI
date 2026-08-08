@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../services/sori_share.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/membership_progress.dart';
@@ -423,6 +424,34 @@ class _CareAccordionCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (chart.feedbackToken != null) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          final session = store.session;
+                          SoriShare.shareReviewLink(
+                            url: SoriStore.buildCustomerReviewUrl(
+                              chart.feedbackToken!,
+                            ),
+                            customerName: session?.name ?? '고객',
+                            careName: chart.careName,
+                          );
+                        },
+                        icon: const Icon(Icons.ios_share_rounded, size: 18),
+                        label: const Text(
+                          '링크 공유하기',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: SoriTokens.primary,
+                          side: const BorderSide(color: SoriTokens.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

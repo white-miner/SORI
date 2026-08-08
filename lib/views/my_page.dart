@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/session_user.dart';
 import '../routing/app_router.dart';
+import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/membership_progress.dart';
+import '../widgets/review_qr_modal.dart';
 import '../widgets/sori_card.dart';
 import 'customer_review_history_page.dart';
 import 'shop_settings_page.dart';
@@ -154,6 +156,39 @@ class MyPage extends StatelessWidget {
           ],
           if (isDirector) ...[
             const SizedBox(height: 20),
+            const _SectionLabel('이번 달 리뷰 대시보드'),
+            _DirectorStatsDashboard(store: store),
+            const SizedBox(height: 12),
+            SoriCard(
+              onTap: () => showShopReviewQrModal(context, store: store),
+              child: const Row(
+                children: [
+                  Icon(Icons.qr_code_2_rounded, color: SoriTokens.primary),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '고객 리뷰 QR 생성/다운로드',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '샵 전용 리뷰 작성 페이지로 바로 연결돼요',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: SoriTokens.textSecondary),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             const _SectionLabel('📊 AI 샵 경영 리포트'),
             const _AiShopReportCard(),
           ],
@@ -252,6 +287,138 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DirectorStatsDashboard extends StatelessWidget {
+  const _DirectorStatsDashboard({required this.store});
+
+  final SoriStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final stats = DirectorMonthlyStats.fromStore(store);
+    return SoriCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: '이번 달 리뷰',
+                  value: '${stats.reviewsThisMonth}',
+                ),
+              ),
+              Expanded(
+                child: _MiniMetric(
+                  label: '네이버 전환율',
+                  value: '${stats.naverConversionPercent.toStringAsFixed(0)}%',
+                ),
+              ),
+              Expanded(
+                child: _MiniMetric(
+                  label: '케어 차트',
+                  value: '${stats.chartsThisMonth}',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            '가장 많이 선택된 감성 칩 Top 3',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (stats.topChips.isEmpty)
+            Text(
+              '아직 집계할 칩 데이터가 없어요',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            )
+          else
+            ...stats.topChips.asMap().entries.map((e) {
+              final rank = e.key + 1;
+              final item = e.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: SoriTokens.primarySoft,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '$rank',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: SoriTokens.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item.chip,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Text(
+                      '${item.count}회',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: SoriTokens.primary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 11,
+            color: SoriTokens.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
