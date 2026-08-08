@@ -40,14 +40,26 @@ jobs:
         run: |
           if [ ! -f .env ]; then cp .env.example .env; fi
 
+      - name: Verify Supabase secrets present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY secrets are missing"
+            exit 1
+          fi
+          echo "Supabase secrets detected (values not printed)."
+          echo "URL host: $(echo "$SUPABASE_URL" | sed -E 's#https?://([^/]+).*#\1#')"
+
       - name: Build Web
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: >
-          flutter build web --release --base-href "/SORI/"
-          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          flutter build web --release --base-href "/SORI/" \
+            --dart-define="SUPABASE_URL=${SUPABASE_URL}" \
+            --dart-define="SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
