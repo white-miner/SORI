@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'main_shell_page.dart';
+import '../routing/app_router.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -20,7 +20,8 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF8F7FC),
         useMaterial3: true,
       ),
-      home: const MainShellPage(),
+      initialRoute: AppRouter.admin,
+      onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
 }

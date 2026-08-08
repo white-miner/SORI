@@ -6,6 +6,7 @@ import 'home_page.dart';
 import 'message_history_page.dart';
 import 'my_app.dart';
 
+/// 원장용 어드민 셸 (차트·알림·고객 관리).
 class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
 
@@ -15,7 +16,7 @@ class MainShellPage extends StatefulWidget {
 
 class _MainShellPageState extends State<MainShellPage> {
   int _currentIndex = 0;
-  final SoriStore _store = SoriStore();
+  final SoriStore _store = SoriStore.instance;
 
   @override
   void initState() {

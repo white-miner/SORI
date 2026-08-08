@@ -6,12 +6,14 @@ import '../models/shop.dart';
 import 'visit_trigger_service.dart';
 
 /// 로컬 인메모리 스토어 (Supabase 스키마와 동일한 도메인 모델).
-/// 실제 Supabase 연동 전 UI/트리거 검증용.
+/// 원장 어드민·고객 리뷰 웹이 동일 인스턴스를 공유한다.
 class SoriStore {
   SoriStore({VisitTriggerService? visitTrigger})
       : _visitTrigger = visitTrigger ?? VisitTriggerService() {
     _seed();
   }
+
+  static final SoriStore instance = SoriStore();
 
   final VisitTriggerService _visitTrigger;
 
@@ -20,6 +22,15 @@ class SoriStore {
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];
+
+  /// 퍼즐 후보 문장 (고객이 켜고 끄며 후기 조합).
+  static const List<String> puzzlePool = [
+    '피부 톤이 밝아졌어요',
+    '시술 후 자극이 적었어요',
+    '보습감이 오래가요',
+    '관리 설명이 친절했어요',
+    '다음에도 방문하고 싶어요',
+  ];
 
   final List<void Function()> _listeners = [];
 
@@ -112,6 +123,16 @@ class SoriStore {
     }
   }
 
+  CustomerChart? findChartByToken(String token) {
+    final normalized = token.trim();
+    if (normalized.isEmpty) return null;
+    try {
+      return charts.firstWhere((c) => c.feedbackToken == normalized);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<CustomerChart> chartsForCustomer(String customerId) {
     return charts.where((c) => c.customerId == customerId).toList()
       ..sort((a, b) => b.visitNumber.compareTo(a.visitNumber));
@@ -136,6 +157,24 @@ class SoriStore {
     } catch (_) {
       return null;
     }
+  }
+
+  /// GitHub Pages(`/SORI/`) 포함 현재 origin 기준 고객 리뷰 URL.
+  static String buildCustomerReviewUrl(String token) {
+    final base = Uri.base;
+    var path = base.path;
+    if (path.endsWith('.html')) {
+      path = path.substring(0, path.lastIndexOf('/') + 1);
+    }
+    if (!path.endsWith('/')) {
+      path = '$path/';
+    }
+    return base
+        .replace(
+          path: '${path}review',
+          queryParameters: {'token': token},
+        )
+        .toString();
   }
 
   void addCustomer(Customer customer) {
@@ -204,11 +243,45 @@ class SoriStore {
     return reviews[index];
   }
 
-  CustomerReview saveEditedReview(String reviewId, String editedText) {
+  /// 퍼즐 문장 켜고 끄기 → 후기 문구 재조립.
+  CustomerReview togglePuzzleSentence({
+    required String reviewId,
+    required String sentence,
+  }) {
+    final index = reviews.indexWhere((r) => r.id == reviewId);
+    if (index < 0) throw StateError('Review not found');
+
+    final review = reviews[index];
+    final chart = charts.firstWhere((c) => c.id == review.chartId);
+    final customer = findCustomer(review.customerId);
+    final selected = List<String>.from(review.puzzleSelections);
+    if (selected.contains(sentence)) {
+      selected.remove(sentence);
+    } else {
+      selected.add(sentence);
+    }
+
+    final rebuilt = _visitTrigger.createDraftReview(
+      chart: chart,
+      puzzleSelections: selected,
+      customerName: customer?.name ?? '고객',
+      treatmentType: customer?.treatmentType ?? '케어',
+    );
+
+    reviews[index] = review.copyWith(
+      puzzleSelections: selected,
+      originalText: rebuilt.originalText,
+      editedText: rebuilt.originalText,
+      status: ReviewStatus.editing,
+    );
+    _notify();
+    return reviews[index];
+  }
+
+  CustomerReview finishPuzzleEdit(String reviewId) {
     final index = reviews.indexWhere((r) => r.id == reviewId);
     if (index < 0) throw StateError('Review not found');
     reviews[index] = reviews[index].copyWith(
-      editedText: editedText,
       status: ReviewStatus.accepted,
       acceptedAt: DateTime.now(),
     );
@@ -216,6 +289,7 @@ class SoriStore {
     return reviews[index];
   }
 
+  /// 고객이 원장에게 답글 과제 부여 (AI 답글 pending → ready).
   Future<AiReply> requestAiReplyFeedback(String reviewId) async {
     final index = reviews.indexWhere((r) => r.id == reviewId);
     if (index < 0) throw StateError('Review not found');
