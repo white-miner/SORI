@@ -23,6 +23,7 @@ class CustomerChart {
     this.revisitFeedbackChips = const [],
     this.feedbackToken,
     this.feedbackLineOpenedAt,
+    this.createdAt,
   });
 
   final String id;
@@ -51,6 +52,9 @@ class CustomerChart {
   final List<String> revisitFeedbackChips;
   final String? feedbackToken;
   final DateTime? feedbackLineOpenedAt;
+
+  /// DB created_at (타임라인 날짜 표시용, 쓰기 시 서버 기본값 사용).
+  final DateTime? createdAt;
 
   bool get hasFeedbackLine =>
       feedbackToken != null && feedbackLineOpenedAt != null;
@@ -84,6 +88,7 @@ class CustomerChart {
     List<String>? revisitFeedbackChips,
     String? feedbackToken,
     DateTime? feedbackLineOpenedAt,
+    DateTime? createdAt,
     bool clearCustomChartNo = false,
   }) {
     return CustomerChart(
@@ -111,6 +116,7 @@ class CustomerChart {
       feedbackToken: feedbackToken ?? this.feedbackToken,
       feedbackLineOpenedAt:
           feedbackLineOpenedAt ?? this.feedbackLineOpenedAt,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -140,7 +146,6 @@ class CustomerChart {
       };
 
   factory CustomerChart.fromMap(Map<String, dynamic> map) {
-    // updated_at / created_at 타임스탬프는 스키마에 따라 null일 수 있어 무시한다.
     final id = DbMap.asText(map['id']);
     final shopId = DbMap.asText(map['shop_id']);
     final customerId = DbMap.asText(map['customer_id']);
@@ -170,6 +175,7 @@ class CustomerChart {
       revisitFeedbackChips: DbMap.asStringList(map['revisit_feedback_chips']),
       feedbackToken: DbMap.asTextOrNull(map['feedback_token']),
       feedbackLineOpenedAt: DbMap.asDateTime(map['feedback_line_opened_at']),
+      createdAt: DbMap.asDateTime(map['created_at']),
     );
   }
 }

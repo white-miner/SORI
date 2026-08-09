@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../routing/app_router.dart';
 import '../services/sori_store.dart';
@@ -15,6 +16,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '소통하는 리뷰, SORI',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('ko', 'KR'),
+      supportedLocales: const [
+        Locale('ko', 'KR'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       scrollBehavior: const AppScrollBehavior(),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

@@ -74,9 +74,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   final Set<String> _concerns = {};
   bool _saving = false;
 
+  /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
+  late bool _isFirstVisitMode;
+
   late List<CustomerMembership> _memberships;
 
-  bool get _isFirstVisit => _visitNumber <= 1;
+  bool get _isFirstVisit => _isFirstVisitMode;
 
   List<String> get _serviceOptions => widget.store.shop.serviceNames;
 
@@ -89,6 +92,18 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     final c = byPhone ?? widget.customer;
     _visitNumber =
         existing?.visitNumber ?? widget.store.nextVisitNumber(c.id);
+    if (existing != null) {
+      if (existing.revisitFeedbackChips.isNotEmpty &&
+          existing.firstVisitFearChips.isEmpty) {
+        _isFirstVisitMode = false;
+      } else if (existing.firstVisitFearChips.isNotEmpty) {
+        _isFirstVisitMode = true;
+      } else {
+        _isFirstVisitMode = existing.visitNumber <= 1;
+      }
+    } else {
+      _isFirstVisitMode = _visitNumber <= 1;
+    }
     final initialChartNo = existing?.customChartNo?.trim().isNotEmpty == true
         ? existing!.customChartNo!.trim()
         : widget.store.suggestNextChartNumber();
@@ -266,10 +281,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         '${d.day.toString().padLeft(2, '0')}';
   }
 
-  static String _formatBirthDisplay(DateTime d) {
-    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')} (${d.year}년생)';
-  }
-
   void _onBirthDigitsChanged(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
     if (digits != raw) {
@@ -351,12 +362,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                   ),
                 ),
                 Expanded(
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.date,
-                    initialDateTime: temp,
-                    minimumDate: DateTime(1940),
-                    maximumDate: DateTime.now(),
-                    onDateTimeChanged: (value) => temp = value,
+                  child: Localizations.override(
+                    context: ctx,
+                    locale: const Locale('ko', 'KR'),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      dateOrder: DatePickerDateOrder.ymd,
+                      initialDateTime: temp,
+                      minimumDate: DateTime(1940),
+                      maximumDate: DateTime.now(),
+                      onDateTimeChanged: (value) => temp = value,
+                    ),
                   ),
                 ),
               ],
@@ -654,6 +670,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                       TextField(
                         controller: _birthTextController,
                         keyboardType: TextInputType.number,
+                        maxLength: 8,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(8),
@@ -662,14 +679,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                         decoration: InputDecoration(
                           labelText: '생년월일 / 년생',
                           hintText: '19871204',
-                          helperText: _birthDate == null
-                              ? '8자리 숫자 입력 또는 룰렛으로 선택'
-                              : _formatBirthDisplay(_birthDate!),
+                          helperText:
+                              '주민등록번호 앞자리 방식처럼 8자리 숫자로 입력해 주세요 (예: 19871204)',
+                          counterText: '',
                           border: const OutlineInputBorder(),
                           suffixIcon: IconButton(
-                            tooltip: '룰렛으로 선택',
+                            tooltip: '캘린더로 선택',
                             onPressed: _pickBirthDateWheel,
-                            icon: const Icon(Icons.unfold_more_rounded),
+                            icon: const Icon(Icons.calendar_month_outlined),
                           ),
                         ),
                       ),
@@ -690,6 +707,40 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SegmentCard(
+                  title: '방문 유형',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment<bool>(
+                          value: true,
+                          label: Text('첫 방문'),
+                          icon: Icon(Icons.person_add_alt_1_outlined, size: 18),
+                        ),
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text('재방문'),
+                          icon: Icon(Icons.replay_outlined, size: 18),
+                        ),
+                      ],
+                      selected: {_isFirstVisitMode},
+                      onSelectionChanged: (selected) {
+                        setState(() => _isFirstVisitMode = selected.first);
+                      },
+                      style: ButtonStyle(
+                        foregroundColor:
+                            WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return MyApp.soriPurple;
+                          }
+                          return const Color(0xFF6B7280);
+                        }),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -876,7 +927,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                 ),
                 const SizedBox(height: 12),
                 _SegmentCard(
-                  title: '2. 이번 방문 메디컬 체크',
+                  title: '메디컬 체크',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
