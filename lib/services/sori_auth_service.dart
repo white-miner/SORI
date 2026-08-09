@@ -5,7 +5,7 @@ import '../config/env.dart';
 import '../models/session_user.dart';
 import 'supabase_client.dart';
 
-/// Supabase Auth — 이메일 매직 링크 + 카카오 OAuth.
+/// Supabase Auth — 카카오 OAuth 단일 로그인.
 class SoriAuthService {
   SoriAuthService._();
   static final SoriAuthService instance = SoriAuthService._();
@@ -34,36 +34,18 @@ class SoriAuthService {
     return Env.siteUrl;
   }
 
-  Future<void> signInWithEmailOtp(String email) async {
-    if (!isAvailable) {
-      throw const AuthException(
-        'Supabase가 설정되지 않았어요. 환경 변수를 확인해 주세요.',
-      );
-    }
-    final trimmed = email.trim();
-    if (trimmed.isEmpty || !trimmed.contains('@')) {
-      throw const AuthException('올바른 이메일 주소를 입력해 주세요.');
-    }
-    // 매직링크는 항상 배포 Site URL로 — localhost Site URL 사고 방지
-    await _client.auth.signInWithOtp(
-      email: trimmed,
-      emailRedirectTo: Env.siteUrl,
-    );
-  }
-
+  /// 카카오 OAuth — 이메일 스코프 없이 닉네임/프로필만 요청.
   Future<bool> signInWithKakao() async {
     if (!isAvailable) {
       throw const AuthException(
         'Supabase가 설정되지 않았어요. 환경 변수를 확인해 주세요.',
       );
     }
-    // 개인 개발자 앱: account_email 불가 → 닉네임/프로필만 요청
     return _client.auth.signInWithOAuth(
       OAuthProvider.kakao,
       redirectTo: redirectTo,
       scopes: 'profile_nickname profile_image',
       queryParams: const {
-        // 이메일 스코프 명시적 제외
         'scope': 'profile_nickname profile_image',
       },
       authScreenLaunchMode: kIsWeb
@@ -78,28 +60,26 @@ class SoriAuthService {
     await client.auth.signOut();
   }
 
+  /// 카카오 단일 로그인 — 식별은 항상 kakao로 취급.
   static SocialProvider providerFromUser(User user) {
     final identities = user.identities;
     if (identities != null) {
       for (final id in identities) {
-        final p = id.provider.toLowerCase();
-        if (p == 'kakao') return SocialProvider.kakao;
-        if (p == 'email') return SocialProvider.email;
+        if (id.provider.toLowerCase() == 'kakao') {
+          return SocialProvider.kakao;
+        }
       }
     }
     final appProvider =
         (user.appMetadata['provider'] as String?)?.toLowerCase() ?? '';
-    if (appProvider == 'kakao') return SocialProvider.kakao;
-    // 이메일 없는 카카오 유저는 provider 메타만으로 판별
-    if ((user.email == null || user.email!.trim().isEmpty) &&
-        appProvider.isNotEmpty &&
-        appProvider != 'email') {
-      if (appProvider.contains('kakao')) return SocialProvider.kakao;
+    if (appProvider.contains('kakao') || appProvider.isEmpty) {
+      return SocialProvider.kakao;
     }
-    return SocialProvider.email;
+    return SocialProvider.kakao;
   }
 
   /// 카카오 provider_id(고유 ID). 없으면 Supabase auth user id.
+  /// email이 null이어도 이 값으로 세션을 매핑합니다.
   static String providerIdFromUser(User user) {
     final identities = user.identities;
     if (identities != null) {
@@ -115,13 +95,14 @@ class SoriAuthService {
       }
     }
     final meta = user.userMetadata ?? {};
-    for (final key in ['provider_id', 'sub', 'id']) {
+    for (final key in ['provider_id', 'sub', 'id', 'kakao_id']) {
       final v = meta[key];
       if (v != null) {
         final text = '$v'.trim();
         if (text.isNotEmpty) return text;
       }
     }
+    // 최후 수단: Supabase auth uuid (email 없이도 유효)
     return user.id;
   }
 
@@ -137,14 +118,8 @@ class SoriAuthService {
       final v = meta[key];
       if (v is String && v.trim().isNotEmpty) return v.trim();
     }
-    // email은 null일 수 있음 (카카오 개인 개발자 앱)
-    final email = user.email?.trim();
-    if (email != null && email.contains('@')) {
-      return email.split('@').first;
-    }
-    final provider = providerFromUser(user);
-    if (provider == SocialProvider.kakao) return '카카오 회원';
-    return '소리 회원';
+    // email은 카카오에서 null — 절대 필수로 쓰지 않음
+    return '카카오 회원';
   }
 
   static String phoneFromUser(User user) {
@@ -154,6 +129,6 @@ class SoriAuthService {
     return '';
   }
 
-  /// null-safe email — 카카오는 빈 문자열.
+  /// 카카오는 항상 빈 문자열 가능 — 로그인 중단 금지.
   static String emailFromUser(User user) => user.email?.trim() ?? '';
 }

@@ -27,7 +27,7 @@ abstract final class Env {
           ? _openaiFromDefine
           : _dotenv('OPENAI_API_KEY');
 
-  /// Auth 매직링크·OAuth redirect용 Site URL.
+  /// Auth OAuth redirect용 Site URL.
   /// localhost / 빈 값은 배포 주소로 강제합니다.
   static String get siteUrl {
     final raw = _siteFromDefine.isNotEmpty

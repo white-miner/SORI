@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/session_user.dart';
 import '../routing/app_router.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import 'my_app.dart';
 import 'onboarding_page.dart';
 
-/// 공통 랜딩: 이메일 매직 링크 + 카카오 OAuth.
+/// 공통 랜딩: 카카오 OAuth 단일 로그인.
 class EntryHomePage extends StatefulWidget {
   const EntryHomePage({super.key, this.initialToken});
 
@@ -24,7 +24,6 @@ class _EntryHomePageState extends State<EntryHomePage>
     with SingleTickerProviderStateMixin {
   final _store = SoriStore.instance;
   final _auth = SoriAuthService.instance;
-  final _emailController = TextEditingController();
   late final AnimationController _fade;
   StreamSubscription<AuthState>? _authSub;
   bool _busy = false;
@@ -67,7 +66,6 @@ class _EntryHomePageState extends State<EntryHomePage>
   @override
   void dispose() {
     _authSub?.cancel();
-    _emailController.dispose();
     _fade.dispose();
     super.dispose();
   }
@@ -86,10 +84,11 @@ class _EntryHomePageState extends State<EntryHomePage>
     if (_handlingAuth || !mounted) return;
     _handlingAuth = true;
     try {
+      // email null이어도 provider_id 기준으로 세션 구성
       final sessionUser = await _store.hydrateSessionFromAuth(user);
       if (!mounted) return;
 
-      // 원장(shops) / 고객(customers)으로 판별된 계정 → 메인 홈
+      // 원장(shops) / 고객(customers) → 메인 홈
       if (sessionUser.onboardingComplete) {
         Navigator.of(context).pushNamedAndRemoveUntil(
           AppRouter.app,
@@ -99,14 +98,12 @@ class _EntryHomePageState extends State<EntryHomePage>
       }
 
       if (sessionUser.needsProfileCompletion) {
-        final profile = await _collectProfile(sessionUser.provider);
+        final profile = await _collectProfile();
         if (!mounted) return;
         if (profile == null) {
           if (_store.session?.name.trim().isEmpty == true) {
             _store.updateSessionProfile(
-              name: SoriAuthService.displayNameFromUser(user).isEmpty
-                  ? '소리 회원'
-                  : SoriAuthService.displayNameFromUser(user),
+              name: SoriAuthService.displayNameFromUser(user),
               phone: _store.session?.phone ?? '',
             );
           }
@@ -130,59 +127,11 @@ class _EntryHomePageState extends State<EntryHomePage>
     }
   }
 
-  Future<void> _sendMagicLink() async {
-    if (_busy) return;
-    final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('이메일 주소를 입력해 주세요'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _busy = true);
-    try {
-      await _auth.signInWithEmailOtp(email);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('입력하신 이메일로 로그인 링크를 보냈습니다.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: MyApp.soriPurple,
-        ),
-      );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('로그인 링크 발송에 실패했어요: $e'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _kakaoLogin() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
       await _auth.signInWithKakao();
-      // 웹/앱은 OAuth 리다이렉트 후 onAuthStateChange로 이어짐
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -206,7 +155,7 @@ class _EntryHomePageState extends State<EntryHomePage>
     }
   }
 
-  Future<(String, String)?> _collectProfile(SocialProvider provider) async {
+  Future<(String, String)?> _collectProfile() async {
     final nameController = TextEditingController(
       text: _store.session?.name ?? '',
     );
@@ -242,9 +191,9 @@ class _EntryHomePageState extends State<EntryHomePage>
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                '${provider == SocialProvider.kakao ? '카카오' : '이메일'} 로그인',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const Text(
+                '카카오 로그인',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               Text(
@@ -311,164 +260,106 @@ class _EntryHomePageState extends State<EntryHomePage>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFEDE9FE), Color(0xFFF8F7FC), Colors.white],
+            colors: [
+              SoriTokens.primarySoft,
+              Color(0xFFF8F7FC),
+              Colors.white,
+            ],
           ),
         ),
         child: SafeArea(
           child: FadeTransition(
             opacity: _fade,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+              padding: const EdgeInsets.fromLTRB(28, 48, 28, 32),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Spacer(flex: 2),
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: SoriTokens.primary,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: SoriTokens.primary.withValues(alpha: 0.28),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'S',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
                   const Text(
                     '소통하는 리뷰, SORI',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3436),
+                      color: SoriTokens.textPrimary,
                       height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Text(
                     '에스테틱 원장과 고객이 시술 차트와 후기로\n1:1 소통하는 CRM',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey.shade700,
                       height: 1.45,
                     ),
                   ),
-                  const SizedBox(height: 36),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMagicLink(),
-                    enabled: !_busy,
-                    decoration: InputDecoration(
-                      labelText: '이메일 주소',
-                      hintText: 'you@example.com',
-                      prefixIcon: const Icon(Icons.mail_outline_rounded),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const Spacer(flex: 3),
+                  if (_busy)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 20),
+                      child: CircularProgressIndicator(
+                        color: SoriTokens.primary,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: _busy ? null : _sendMagicLink,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: MyApp.soriPurple,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        '이메일 링크로 시작하기',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (_busy)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: 20),
-                        child: CircularProgressIndicator(
-                          color: MyApp.soriPurple,
-                        ),
-                      ),
-                    ),
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          '또는',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
+                    height: 54,
+                    child: Material(
+                      color: const Color(0xFFFEE500),
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        onTap: _busy ? null : _kakaoLogin,
+                        borderRadius: BorderRadius.circular(14),
+                        child: const Center(
+                          child: Text(
+                            '카카오로 시작하기',
+                            style: TextStyle(
+                              color: Color(0xFF191919),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                       ),
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 14),
-                  _SocialButton(
-                    label: '카카오로 시작하기',
-                    background: const Color(0xFFFEE500),
-                    foreground: const Color(0xFF191919),
-                    onTap: _busy ? () {} : _kakaoLogin,
-                  ),
-                  // 네이버 / Google / Apple — 베타에서는 비활성
-                  // _SocialButton(label: '네이버로 시작하기', ...),
-                  // _SocialButton(label: 'Google로 시작하기', ...),
-                  // _SocialButton(label: 'Apple로 시작하기', ...),
                   const SizedBox(height: 18),
-                  Center(
-                    child: Text(
-                      '로그인 시 이용약관·개인정보 처리에 동의하게 됩니다',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
+                  Text(
+                    '로그인 시 이용약관·개인정보 처리에 동의하게 됩니다',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({
-    required this.label,
-    required this.background,
-    required this.foreground,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: Material(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: foreground,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
               ),
             ),
           ),
