@@ -557,6 +557,88 @@ class SoriStore {
     return session!;
   }
 
+  /// 고객 온보딩: 이름/연락처 저장 후 customers에 등록·Auth 연결.
+  Future<SessionUser> completeCustomerOnboarding({
+    required String name,
+    required String phone,
+  }) async {
+    if (session == null) throw StateError('No session');
+    updateSessionProfile(name: name, phone: phone);
+
+    Customer saved;
+    var customer = findCustomerByPhone(phone);
+    if (customer == null) {
+      if (_repository.isRemote) {
+        try {
+          saved = await _repository.registerCustomer(
+            shopId: shop.id,
+            name: name.trim(),
+            phone: phone.trim(),
+          );
+        } catch (e) {
+          debugPrint('registerCustomer failed, local fallback: $e');
+          saved = Customer(
+            id: 'c-${DateTime.now().millisecondsSinceEpoch}',
+            shopId: shop.id,
+            name: name.trim(),
+            phone: phone.trim(),
+            lastTreatmentDate: DateTime.now(),
+            treatmentType: '상담',
+            membershipTotalVisits: 0,
+          );
+        }
+      } else {
+        saved = Customer(
+          id: 'c-${DateTime.now().millisecondsSinceEpoch}',
+          shopId: shop.id,
+          name: name.trim(),
+          phone: phone.trim(),
+          lastTreatmentDate: DateTime.now(),
+          treatmentType: '상담',
+          membershipTotalVisits: 0,
+        );
+      }
+      customers.insert(0, saved);
+    } else {
+      final updated = customer.copyWith(name: name.trim(), phone: phone.trim());
+      final idx = customers.indexWhere((c) => c.id == customer!.id);
+      if (idx >= 0) customers[idx] = updated;
+      saved = updated;
+      if (_repository.isRemote) {
+        try {
+          saved = await _repository.upsertCustomer(updated);
+          final i = customers.indexWhere((c) => c.id == saved.id);
+          if (i >= 0) customers[i] = saved;
+        } catch (e) {
+          debugPrint('upsertCustomer onboarding failed: $e');
+        }
+      }
+    }
+
+    session = session!.copyWith(
+      role: UserRole.customer,
+      customerId: saved.id,
+      name: name.trim(),
+      phone: phone.trim(),
+      onboardingComplete: true,
+      shopSetupComplete: false,
+      activeMode: UserRole.customer,
+      showFirstChartTutorial: false,
+    );
+
+    final authId = session!.authUserId;
+    if (authId != null && authId.isNotEmpty) {
+      unawaited(
+        _repository.linkCustomerUser(
+          customerId: saved.id,
+          userId: authId,
+        ),
+      );
+    }
+    _notify();
+    return session!;
+  }
+
   /// 원장 샵 프로필 등록 → 튜토리얼 카드 활성화 + 모드 토글 가능.
   SessionUser completeShopSetup({
     required String shopName,
@@ -752,6 +834,18 @@ class SoriStore {
     final list = chartsForCustomer(customerId);
     if (list.isEmpty) return 1;
     return list.first.visitNumber + 1;
+  }
+
+  /// 종이 차트와 맞출 수동 차트 번호 제안값 (기존 숫자 최대 + 1).
+  String suggestNextChartNumber() {
+    var maxNo = 0;
+    for (final chart in charts) {
+      final raw = chart.customChartNo?.trim() ?? '';
+      if (raw.isEmpty) continue;
+      final n = int.tryParse(raw.replaceAll(RegExp(r'\D'), ''));
+      if (n != null && n > maxNo) maxNo = n;
+    }
+    return '${maxNo + 1}';
   }
 
   CustomerReview? reviewForChart(String chartId) {

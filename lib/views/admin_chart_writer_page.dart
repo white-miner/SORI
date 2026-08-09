@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/chart_interview_chips.dart';
 import '../models/customer.dart';
@@ -47,6 +49,7 @@ class AdminChartWriterPage extends StatefulWidget {
 class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   late int _visitNumber;
   late final TextEditingController _customNoController;
+  late final TextEditingController _birthTextController;
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
@@ -86,8 +89,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     final c = byPhone ?? widget.customer;
     _visitNumber =
         existing?.visitNumber ?? widget.store.nextVisitNumber(c.id);
-    _customNoController =
-        TextEditingController(text: existing?.customChartNo ?? '');
+    final initialChartNo = existing?.customChartNo?.trim().isNotEmpty == true
+        ? existing!.customChartNo!.trim()
+        : widget.store.suggestNextChartNumber();
+    _customNoController = TextEditingController(text: initialChartNo);
     _nameController = TextEditingController(text: c.name);
     _phoneController = TextEditingController(text: c.phone);
     _addressController = TextEditingController(text: c.address);
@@ -110,6 +115,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     );
     _gender = c.gender;
     _birthDate = c.birthDate;
+    _birthTextController = TextEditingController(
+      text: _formatBirthDigits(_birthDate),
+    );
     final synced = c.withSyncedMembershipMirrors();
     _memberships = List<CustomerMembership>.from(synced.memberships);
     // 오늘 진행 서비스는 진입 시 항상 빈 칸 (기존 차트 수정 시에만 복원)
@@ -135,6 +143,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   @override
   void dispose() {
     _customNoController.dispose();
+    _birthTextController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
@@ -205,6 +214,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       if (matched.name.isNotEmpty) _nameController.text = matched.name;
       _gender = matched.gender ?? _gender;
       _birthDate = matched.birthDate ?? _birthDate;
+      _birthTextController.text = _formatBirthDigits(_birthDate);
       if (matched.address.isNotEmpty) {
         _addressController.text = matched.address;
       }
@@ -249,18 +259,117 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     );
   }
 
-  Future<void> _pickBirthDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _birthDate ?? DateTime(now.year - 30),
-      firstDate: DateTime(1940),
-      lastDate: now,
-      helpText: '생년월일 선택',
-    );
-    if (picked != null) {
-      setState(() => _birthDate = picked);
+  static String _formatBirthDigits(DateTime? d) {
+    if (d == null) return '';
+    return '${d.year.toString().padLeft(4, '0')}'
+        '${d.month.toString().padLeft(2, '0')}'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _formatBirthDisplay(DateTime d) {
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')} (${d.year}년생)';
+  }
+
+  void _onBirthDigitsChanged(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits != raw) {
+      _birthTextController.value = TextEditingValue(
+        text: digits.length > 8 ? digits.substring(0, 8) : digits,
+        selection: TextSelection.collapsed(
+          offset: (digits.length > 8 ? 8 : digits.length),
+        ),
+      );
+    } else if (digits.length > 8) {
+      _birthTextController.value = TextEditingValue(
+        text: digits.substring(0, 8),
+        selection: const TextSelection.collapsed(offset: 8),
+      );
     }
+
+    final d = digits.length > 8 ? digits.substring(0, 8) : digits;
+    if (d.length == 8) {
+      final y = int.tryParse(d.substring(0, 4));
+      final m = int.tryParse(d.substring(4, 6));
+      final day = int.tryParse(d.substring(6, 8));
+      if (y != null && m != null && day != null) {
+        final parsed = DateTime(y, m, day);
+        if (parsed.year == y &&
+            parsed.month == m &&
+            parsed.day == day &&
+            !parsed.isAfter(DateTime.now()) &&
+            y >= 1940) {
+          setState(() => _birthDate = parsed);
+          return;
+        }
+      }
+    }
+    if (_birthDate != null && d.length < 8) {
+      setState(() => _birthDate = null);
+    }
+  }
+
+  Future<void> _pickBirthDateWheel() async {
+    var temp = _birthDate ?? DateTime(DateTime.now().year - 30, 1, 1);
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: SizedBox(
+            height: 320,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                  child: Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('취소'),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          '생년월일',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, temp),
+                        child: const Text(
+                          '확인',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: MyApp.soriPurple,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    initialDateTime: temp,
+                    minimumDate: DateTime(1940),
+                    maximumDate: DateTime.now(),
+                    onDateTimeChanged: (value) => temp = value,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (picked == null) return;
+    setState(() {
+      _birthDate = picked;
+      _birthTextController.text = _formatBirthDigits(picked);
+    });
   }
 
   void _attachPhoto({required bool isBefore}) {
@@ -448,6 +557,42 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: [
                 _SegmentCard(
+                  title: '차트 번호',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _customNoController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: '차트 번호',
+                          hintText: '종이 차트와 맞출 번호 (예: 21)',
+                          helperText: '기본값은 마지막 번호+1이며 직접 수정할 수 있어요',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '회차 (자동)',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          '$_visitNumber회차',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SegmentCard(
                   title: '1. 고객 인적사항',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,25 +651,25 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      InkWell(
-                        onTap: _pickBirthDate,
-                        borderRadius: BorderRadius.circular(4),
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: '생년월일 / 년생',
-                            border: OutlineInputBorder(),
-                            suffixIcon:
-                                Icon(Icons.calendar_today_outlined, size: 18),
-                          ),
-                          child: Text(
-                            _birthDate == null
-                                ? '피부 재생 주기 파악용 (선택)'
-                                : '${_birthDate!.year}.${_birthDate!.month.toString().padLeft(2, '0')}.${_birthDate!.day.toString().padLeft(2, '0')} (${_birthDate!.year}년생)',
-                            style: TextStyle(
-                              color: _birthDate == null
-                                  ? Colors.grey.shade500
-                                  : const Color(0xFF2D3436),
-                            ),
+                      TextField(
+                        controller: _birthTextController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(8),
+                        ],
+                        onChanged: _onBirthDigitsChanged,
+                        decoration: InputDecoration(
+                          labelText: '생년월일 / 년생',
+                          hintText: '19871204',
+                          helperText: _birthDate == null
+                              ? '8자리 숫자 입력 또는 룰렛으로 선택'
+                              : _formatBirthDisplay(_birthDate!),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            tooltip: '룰렛으로 선택',
+                            onPressed: _pickBirthDateWheel,
+                            icon: const Icon(Icons.unfold_more_rounded),
                           ),
                         ),
                       ),
@@ -735,14 +880,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '알레르기·민감도·부작용은 고객 등록이 아니라 차트에 기록해요',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       TextField(
                         controller: _allergyController,
                         maxLines: 2,
@@ -777,35 +914,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                 ),
                 const SizedBox(height: 12),
                 _SegmentCard(
-                  title: '3. 차트 번호 · 심리 인터뷰',
+                  title: '3. 심리 인터뷰',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: '자동 회차',
-                                border: OutlineInputBorder(),
-                              ),
-                              child: Text('$_visitNumber회차'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextField(
-                              controller: _customNoController,
-                              decoration: const InputDecoration(
-                                labelText: '수동 차트 번호',
-                                hintText: '기존 프로그램 번호',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
                       Text(
                         _isFirstVisit
                             ? '첫 방문 심리 인터뷰 (10초)'

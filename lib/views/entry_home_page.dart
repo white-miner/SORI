@@ -7,7 +7,6 @@ import '../routing/app_router.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import 'my_app.dart';
 import 'onboarding_page.dart';
 
 /// 공통 랜딩: 카카오 OAuth 단일 로그인.
@@ -88,7 +87,7 @@ class _EntryHomePageState extends State<EntryHomePage>
       final sessionUser = await _store.hydrateSessionFromAuth(user);
       if (!mounted) return;
 
-      // 원장(shops) / 고객(customers) → 메인 홈
+      // 원장/고객으로 이미 연결된 계정 → 메인 홈
       if (sessionUser.onboardingComplete) {
         Navigator.of(context).pushNamedAndRemoveUntil(
           AppRouter.app,
@@ -97,23 +96,8 @@ class _EntryHomePageState extends State<EntryHomePage>
         return;
       }
 
-      if (sessionUser.needsProfileCompletion) {
-        final profile = await _collectProfile();
-        if (!mounted) return;
-        if (profile == null) {
-          if (_store.session?.name.trim().isEmpty == true) {
-            _store.updateSessionProfile(
-              name: SoriAuthService.displayNameFromUser(user),
-              phone: _store.session?.phone ?? '',
-            );
-          }
-        } else {
-          _store.updateSessionProfile(name: profile.$1, phone: profile.$2);
-        }
-      }
-
       if (!mounted) return;
-      // 신규 계정 → 원장/고객 선택 온보딩
+      // 신규: 역할 선택 화면으로 (이름/연락처 사전 입력 없음)
       await Navigator.of(context).push(
         PageRouteBuilder<void>(
           pageBuilder: (context, animation, secondaryAnimation) =>
@@ -153,102 +137,6 @@ class _EntryHomePageState extends State<EntryHomePage>
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<(String, String)?> _collectProfile() async {
-    final nameController = TextEditingController(
-      text: _store.session?.name ?? '',
-    );
-    final phoneController = TextEditingController(
-      text: _store.session?.phone.isNotEmpty == true
-          ? _store.session!.phone
-          : '',
-    );
-
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final bottom = MediaQuery.of(ctx).viewInsets.bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '카카오 로그인',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '소통하는 리뷰를 위해 이름과 전화번호를 확인해 주세요.',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: '이름 *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: '전화번호 *',
-                  hintText: '010-0000-0000',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    if (nameController.text.trim().isEmpty ||
-                        SoriStore.normalizePhone(phoneController.text).length <
-                            10) {
-                      return;
-                    }
-                    Navigator.pop(ctx, true);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: MyApp.soriPurple,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('계속하기'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    final name = nameController.text.trim();
-    final phone = phoneController.text.trim();
-    nameController.dispose();
-    phoneController.dispose();
-    if (ok == true) return (name, phone);
-    return null;
   }
 
   @override

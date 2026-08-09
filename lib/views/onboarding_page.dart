@@ -5,7 +5,7 @@ import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import 'my_app.dart';
 
-/// 소셜 로그인 직후 저마찰 온보딩 스텝 (역할 → 샵 설정).
+/// 카카오 로그인 직후 온보딩: 역할 선택 → (고객)연락처 / (원장)샵 등록.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -13,29 +13,38 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
+enum _OnboardStep { role, customerContact, shop }
+
 class _OnboardingPageState extends State<OnboardingPage> {
   final _store = SoriStore.instance;
-  final _pageController = PageController();
-  int _step = 0;
+  _OnboardStep _step = _OnboardStep.role;
 
   final _shopName = TextEditingController();
   final _shopPhone = TextEditingController();
   final _naverUrl = TextEditingController();
+  final _customerName = TextEditingController();
+  final _customerPhone = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _shopName.text = '나의 에스테틱';
-    _shopPhone.text = _store.session?.phone ?? '';
+    _shopPhone.text = '';
     _naverUrl.text = 'https://m.place.naver.com/place/';
+    // 카카오 닉네임이 있으면 고객 폼 초깃값으로만 힌트 (필수는 역할 선택 후)
+    final hintName = _store.session?.name.trim() ?? '';
+    if (hintName.isNotEmpty && hintName != '카카오 회원' && hintName != '소리 회원') {
+      _customerName.text = hintName;
+    }
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
     _shopName.dispose();
     _shopPhone.dispose();
     _naverUrl.dispose();
+    _customerName.dispose();
+    _customerPhone.dispose();
     super.dispose();
   }
 
@@ -46,22 +55,31 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  void _selectRole(UserRole role) {
-    final session = _store.completeRoleSelection(role);
-    if (role == UserRole.customer) {
-      _goApp();
+  void _selectDirector() {
+    _store.completeRoleSelection(UserRole.director);
+    setState(() => _step = _OnboardStep.shop);
+  }
+
+  void _selectCustomer() {
+    setState(() => _step = _OnboardStep.customerContact);
+  }
+
+  Future<void> _submitCustomerContact() async {
+    final name = _customerName.text.trim();
+    final phone = _customerPhone.text.trim();
+    if (name.isEmpty || SoriStore.normalizePhone(phone).length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('이름과 연락처를 정확히 입력해 주세요.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
       return;
     }
-    if (!session.shopSetupComplete) {
-      setState(() => _step = 1);
-      _pageController.animateToPage(
-        1,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _goApp();
-    }
+    _store.updateSessionProfile(name: name, phone: phone);
+    await _store.completeCustomerOnboarding(name: name, phone: phone);
+    if (!mounted) return;
+    _goApp();
   }
 
   void _submitShop() {
@@ -84,6 +102,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _goApp();
   }
 
+  String get _appBarTitle => switch (_step) {
+        _OnboardStep.role => '역할 선택',
+        _OnboardStep.customerContact => '고객 정보',
+        _OnboardStep.shop => '샵 등록',
+      };
+
   @override
   Widget build(BuildContext context) {
     final session = _store.session;
@@ -97,25 +121,37 @@ class _OnboardingPageState extends State<OnboardingPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: const Color(0xFF2D3436),
-        title: Text(_step == 0 ? '프로필 설정' : '샵 등록'),
+        title: Text(_appBarTitle),
+        leading: _step == _OnboardStep.role
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _step = _OnboardStep.role),
+              ),
       ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          _RoleStep(
-            name: session.name,
-            provider: session.providerLabel,
-            onDirector: () => _selectRole(UserRole.director),
-            onCustomer: () => _selectRole(UserRole.customer),
-          ),
-          _ShopStep(
-            shopName: _shopName,
-            shopPhone: _shopPhone,
-            naverUrl: _naverUrl,
-            onSubmit: _submitShop,
-          ),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        child: switch (_step) {
+          _OnboardStep.role => _RoleStep(
+              key: const ValueKey('role'),
+              provider: session.providerLabel,
+              onDirector: _selectDirector,
+              onCustomer: _selectCustomer,
+            ),
+          _OnboardStep.customerContact => _CustomerContactStep(
+              key: const ValueKey('customer'),
+              name: _customerName,
+              phone: _customerPhone,
+              onSubmit: _submitCustomerContact,
+            ),
+          _OnboardStep.shop => _ShopStep(
+              key: const ValueKey('shop'),
+              shopName: _shopName,
+              shopPhone: _shopPhone,
+              naverUrl: _naverUrl,
+              onSubmit: _submitShop,
+            ),
+        },
       ),
     );
   }
@@ -123,13 +159,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
 class _RoleStep extends StatelessWidget {
   const _RoleStep({
-    required this.name,
+    super.key,
     required this.provider,
     required this.onDirector,
     required this.onCustomer,
   });
 
-  final String name;
   final String provider;
   final VoidCallback onDirector;
   final VoidCallback onCustomer;
@@ -141,13 +176,13 @@ class _RoleStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$name님, 어떻게 시작할까요?',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          const Text(
+            '어떻게 시작할까요?',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            '$provider 계정으로 로그인되었습니다. 역할을 선택하면 바로 홈으로 이동합니다.',
+            '$provider 계정으로 로그인되었습니다. 역할을 먼저 선택해 주세요.',
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 28),
@@ -209,9 +244,18 @@ class _RoleCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
                   ],
                 ),
               ),
@@ -224,8 +268,73 @@ class _RoleCard extends StatelessWidget {
   }
 }
 
+class _CustomerContactStep extends StatelessWidget {
+  const _CustomerContactStep({
+    super.key,
+    required this.name,
+    required this.phone,
+    required this.onSubmit,
+  });
+
+  final TextEditingController name;
+  final TextEditingController phone;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      children: [
+        const Text(
+          '후기 차트 매칭을 위해\n이름과 연락처가 필요해요',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.35),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '샵에서 작성한 차트와 연결하려면 실제 성함·전화번호를 입력해 주세요.',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+        TextField(
+          controller: name,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: '이름 *',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: phone,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => onSubmit(),
+          decoration: const InputDecoration(
+            labelText: '연락처 *',
+            hintText: '010-0000-0000',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: onSubmit,
+          style: FilledButton.styleFrom(
+            backgroundColor: MyApp.soriPurple,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: const Text(
+            '저장하고 홈으로',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ShopStep extends StatelessWidget {
   const _ShopStep({
+    super.key,
     required this.shopName,
     required this.shopPhone,
     required this.naverUrl,
@@ -248,7 +357,7 @@ class _ShopStep extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '네이버 플레이스 URL은 첫 방문 고객의 [네이버에 등록하기] 딥링크에 사용됩니다.',
+          '원장님 개인 이름·연락처는 나중에 샵 관리에서 입력할 수 있어요.',
           style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
         ),
         const SizedBox(height: 20),
@@ -284,7 +393,10 @@ class _ShopStep extends StatelessWidget {
             backgroundColor: MyApp.soriPurple,
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          child: const Text('등록하고 홈으로', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: const Text(
+            '등록하고 홈으로',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
