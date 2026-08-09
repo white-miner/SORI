@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../models/customer.dart';
 import '../models/session_user.dart';
 import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import 'admin_chart_writer_page.dart';
+import 'chart_customer_picker_sheet.dart';
 import 'customer_care_page.dart';
 import 'customer_home_page.dart';
+import 'director_customers_tab.dart';
 import 'director_home_page.dart';
 import 'director_review_manage_page.dart';
 import 'ikea_review_composer_page.dart';
@@ -99,7 +99,10 @@ class _AppShellPageState extends State<AppShellPage> {
       floatingActionButton: isDirector
           ? FloatingActionButton(
               tooltip: '새 차트 작성',
-              onPressed: () => _quickWrite(context),
+              onPressed: () => showChartCustomerPickerSheet(
+                context,
+                store: _store,
+              ),
               backgroundColor: SoriTokens.primary,
               child: const Icon(Icons.edit_note_rounded, color: Colors.white),
             )
@@ -113,40 +116,6 @@ class _AppShellPageState extends State<AppShellPage> {
       ),
     );
   }
-
-  Future<void> _quickWrite(BuildContext context) async {
-    final customers = _store.customers;
-    if (customers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('먼저 고객을 추가해 주세요'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    await openChartWriterForCustomer(
-      context,
-      store: _store,
-      customer: customers.first,
-    );
-  }
-}
-
-Future<void> openChartWriterForCustomer(
-  BuildContext context, {
-  required SoriStore store,
-  required Customer customer,
-}) async {
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => AdminChartWriterPage(
-        store: store,
-        customer: customer,
-      ),
-      fullscreenDialog: true,
-    ),
-  );
 }
 
 /// 중앙 리뷰 탭이 바 위로 돌출되는 커스텀 하단 네비.

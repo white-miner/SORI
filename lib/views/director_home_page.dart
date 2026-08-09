@@ -4,10 +4,8 @@ import '../models/customer.dart';
 import '../models/shop_gallery_slide.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/membership_progress.dart';
 import '../widgets/sori_card.dart';
-import 'admin_chart_page.dart';
-import 'app_shell_page.dart';
+import 'admin_chart_writer_page.dart';
 
 /// 원장 홈 — 메인 사진 슬라이더 + 바텀시트 일정 + 월간 캘린더.
 class DirectorHomePage extends StatefulWidget {
@@ -783,101 +781,3 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
   }
 }
 
-/// 고객 탭 — 검색 가능한 전체 리스트.
-class DirectorCustomersTab extends StatefulWidget {
-  const DirectorCustomersTab({super.key, required this.store});
-
-  final SoriStore store;
-
-  @override
-  State<DirectorCustomersTab> createState() => _DirectorCustomersTabState();
-}
-
-class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final list = widget.store.searchCustomers(_query);
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              onChanged: (v) => setState(() => _query = v),
-              decoration: InputDecoration(
-                hintText: '이름 · 전화번호 검색',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              itemCount: list.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final c = list[index];
-                return SoriCard(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => AdminChartPage(
-                          store: widget.store,
-                          customerId: c.id,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: SoriTokens.primarySoft,
-                        child: Text(
-                          c.name.characters.first,
-                          style: const TextStyle(
-                            color: SoriTokens.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${c.name}  ·  ${c.phone}',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 8),
-                            MembershipProgressView(
-                              customer: c,
-                              compact: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

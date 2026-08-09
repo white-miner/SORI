@@ -8,6 +8,24 @@ import '../theme/sori_tokens.dart';
 import 'customer_link_popup.dart';
 import 'my_app.dart';
 
+Future<void> openChartWriterForCustomer(
+  BuildContext context, {
+  required SoriStore store,
+  required Customer customer,
+  CustomerChart? existingChart,
+}) async {
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => AdminChartWriterPage(
+        store: store,
+        customer: customer,
+        existingChart: existingChart,
+      ),
+      fullscreenDialog: true,
+    ),
+  );
+}
+
 /// 원장용 차트 작성 (고객 식별·메디컬 이력·심리 인터뷰·방문 확인).
 class AdminChartWriterPage extends StatefulWidget {
   const AdminChartWriterPage({
