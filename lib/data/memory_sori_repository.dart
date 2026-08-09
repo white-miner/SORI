@@ -159,6 +159,25 @@ class MemorySoriRepository implements SoriRepository {
   Future<Customer> upsertCustomer(Customer customer) async => customer;
 
   @override
+  Future<Customer> registerCustomer({
+    required String shopId,
+    required String name,
+    required String phone,
+    String memo = '',
+  }) async {
+    return Customer(
+      id: 'c-${DateTime.now().millisecondsSinceEpoch}',
+      shopId: shopId,
+      name: name.trim(),
+      phone: phone.trim(),
+      memo: memo.trim(),
+      lastTreatmentDate: DateTime.now(),
+      treatmentType: '',
+      membershipTotalVisits: 0,
+    );
+  }
+
+  @override
   Future<Shop> upsertShop(Shop shop) async => shop;
 
   @override

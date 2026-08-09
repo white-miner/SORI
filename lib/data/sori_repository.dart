@@ -109,6 +109,14 @@ abstract class SoriRepository {
 
   Future<Customer> upsertCustomer(Customer customer);
 
+  /// 고객 등록 전용 — customers 테이블에 name/phone/memo/shop_id 만 insert.
+  Future<Customer> registerCustomer({
+    required String shopId,
+    required String name,
+    required String phone,
+    String memo = '',
+  });
+
   Future<Shop> upsertShop(Shop shop);
 
   Future<SaveChartResult> saveChartAndConfirmVisit(SaveChartRequest request);

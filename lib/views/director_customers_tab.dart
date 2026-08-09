@@ -226,21 +226,20 @@ class _EmptyCustomersState extends StatelessWidget {
             const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
+              child: FilledButton(
                 onPressed: onAdd,
-                icon: const Icon(Icons.add_rounded, size: 22),
-                label: const Text(
-                  '+ 첫 고객 등록하기',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  '[ + 첫 고객 등록하기 ]',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),

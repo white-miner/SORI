@@ -140,13 +140,30 @@ class _DirectorHomePageState extends State<DirectorHomePage> {
         onDaySelected: (day) {
           setState(() => _selectedDay = day);
           Navigator.pop(ctx);
-          _sheetController.animateTo(
-            0.62,
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-          );
+          _expandCareSheet();
         },
       ),
+    );
+  }
+
+  /// PC 클릭·모바일 탭 공통 — 케어 일정 시트 열기/접기 토글.
+  void _toggleCareSheet() {
+    if (!_sheetController.isAttached) return;
+    final size = _sheetController.size;
+    final target = size < 0.35 ? 0.62 : 0.18;
+    _sheetController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _expandCareSheet() {
+    if (!_sheetController.isAttached) return;
+    _sheetController.animateTo(
+      0.62,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -338,37 +355,59 @@ class _DirectorHomePageState extends State<DirectorHomePage> {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                 children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(99),
+                  InkWell(
+                    onTap: _toggleCareSheet,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 42,
+                              height: 4,
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  '오늘 케어 일정',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: '일정 펼치기/접기',
+                                onPressed: _toggleCareSheet,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_up_rounded,
+                                  color: SoriTokens.primary,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: _openMonthlyCalendar,
+                                icon: const Icon(
+                                  Icons.calendar_month_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('전체 캘린더'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: SoriTokens.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          '오늘 케어 일정 ˄',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _openMonthlyCalendar,
-                        icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                        label: const Text('전체 캘린더'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: SoriTokens.primary,
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(

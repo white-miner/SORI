@@ -719,15 +719,17 @@ class SoriStore {
   }
 
   Future<Customer> addCustomerAsync(Customer customer) async {
-    if (!_repository.isRemote) {
-      addCustomer(customer);
-      return customer;
-    }
     isLoading = true;
     lastError = null;
     _notify();
     try {
-      final saved = await _repository.upsertCustomer(customer);
+      // 등록 경로: name/phone/memo/shop_id 만 DB insert
+      final saved = await _repository.registerCustomer(
+        shopId: customer.shopId.isNotEmpty ? customer.shopId : shop.id,
+        name: customer.name,
+        phone: customer.phone,
+        memo: customer.memo,
+      );
       _mergeCustomer(saved);
       return saved;
     } catch (e) {

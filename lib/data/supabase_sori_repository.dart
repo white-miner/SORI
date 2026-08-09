@@ -33,6 +33,7 @@ class SupabaseSoriRepository implements SoriRepository {
       '${d.day.toString().padLeft(2, '0')}';
 
   Map<String, dynamic> _customerWriteMap(Customer c, {bool includeId = true}) {
+    // 차트 전용 메디컬 필드(allergy/home_care 등)는 customers payload에서 제외
     final map = <String, dynamic>{
       'shop_id': c.shopId,
       'name': c.name,
@@ -47,9 +48,6 @@ class SupabaseSoriRepository implements SoriRepository {
       'birth_date': c.birthDate == null ? null : _dateOnly(c.birthDate!),
       'address': c.address,
       'occupation': c.occupation,
-      'allergy_notes': c.allergyNotes,
-      'medication_history': c.medicationHistory,
-      'home_care_habits': c.homeCareHabits,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (includeId && c.id.isNotEmpty && !_isTempId(c.id)) {
@@ -286,6 +284,24 @@ class SupabaseSoriRepository implements SoriRepository {
             .select()
             .single()
         : await _db.from('customers').insert(payload).select().single();
+    return Customer.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<Customer> registerCustomer({
+    required String shopId,
+    required String name,
+    required String phone,
+    String memo = '',
+  }) async {
+    final payload = <String, dynamic>{
+      'shop_id': shopId,
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'memo': memo.trim(),
+    };
+    final row =
+        await _db.from('customers').insert(payload).select().single();
     return Customer.fromMap(Map<String, dynamic>.from(row));
   }
 
