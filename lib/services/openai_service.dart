@@ -134,6 +134,8 @@ class OpenAiService {
 [모드 A: 메뉴/상품 소개]
 철저히 '비전문가 고객' 눈높이에서 일상의 유익함(Benefit)을 시각적으로 묘사하는 세일즈 톤.
 (예: 아침 준비 시간 단축, 화장 잘 먹음 등)
+선택된 범용 키워드 칩(시술 수단·체감 감각·기대 효과)과 자유 코멘트(특정 성분·구체 메모)를
+키워드 나열 없이 자연스럽게 믹스해 1~2문장 세일즈 카피로 완성하세요.
 
 [모드 B: CS/주의사항/Q&A]
 과도한 포장이나 마케팅을 배제하고, 다정하고 전문적인 어조로 고객을 안심시키고 정확한 대처법을 안내하는 톤.
@@ -146,10 +148,11 @@ class OpenAiService {
 따옴표·제목·불릿·해시태그·모드 표기 금지. 과장·허위·의료적 단정 금지.
 ''';
 
-  /// 서비스 메뉴 고객 안내 설명을 맥락 인지형으로 윤문.
+  /// 서비스 메뉴 설명 — 자유 코멘트 + 선택 칩 하이브리드 윤문.
   Future<String> polishServiceDescription({
     required String serviceName,
     required String roughDescription,
+    List<String> selectedChips = const [],
     String shopName = '',
   }) async {
     if (!isConfigured) {
@@ -158,20 +161,29 @@ class OpenAiService {
       );
     }
 
-    final draft = roughDescription.trim().isEmpty
-        ? serviceName.trim()
-        : roughDescription.trim();
-    if (draft.isEmpty) {
-      throw OpenAiException('다듬을 설명이나 서비스명을 먼저 입력해 주세요.');
+    final draft = roughDescription.trim();
+    final chips = selectedChips
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    final name = serviceName.trim();
+
+    if (draft.isEmpty && chips.isEmpty && name.isEmpty) {
+      throw OpenAiException('다듬을 설명, 키워드 칩, 또는 서비스명을 먼저 입력해 주세요.');
     }
+
+    final chipsLine = chips.isEmpty ? '(없음)' : chips.join(', ');
+    final memoLine = draft.isEmpty ? '(없음)' : draft;
 
     final userPrompt = '''
 [샵 이름] ${shopName.trim().isEmpty ? '뷰티 살롱' : shopName.trim()}
-[서비스명] ${serviceName.trim().isEmpty ? '(미정)' : serviceName.trim()}
-[원장 메모]
-$draft
+[서비스명] ${name.isEmpty ? '(미정)' : name}
+[선택된 키워드 칩] $chipsLine
+[자유 코멘트]
+$memoLine
 
-위 텍스트 맥락에 맞는 모드를 스스로 선택한 뒤, 최종 문장만 1~3문장으로 다듬어 주세요.
+자유 코멘트의 구체 성분·메모와 선택된 범용 칩을 완벽하게 믹스하여,
+맥락에 맞는 모드로 최종 문장만 1~3문장(메뉴 소개면 1~2문장 세일즈 카피)으로 다듬어 주세요.
 ''';
 
     try {

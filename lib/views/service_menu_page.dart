@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../models/service_menu_chips.dart';
 import '../models/shop_service_item.dart';
 import '../services/openai_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'my_app.dart';
 
-/// 서비스 메뉴 관리 — 서비스명 + 고객 안내 설명 + AI 윤문.
+/// 서비스 메뉴 관리 — 서비스명 + 키워드 칩 + 자유 코멘트 + AI 윤문.
 class ServiceMenuPage extends StatefulWidget {
   const ServiceMenuPage({super.key});
 
@@ -60,14 +61,26 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
     });
   }
 
+  void _toggleChip(int index, String chip, bool selected) {
+    setState(() {
+      final selectedChips = _items[index].selectedChips;
+      if (selected) {
+        selectedChips.add(chip);
+      } else {
+        selectedChips.remove(chip);
+      }
+    });
+  }
+
   Future<void> _polishAt(int index) async {
     final draft = _items[index];
     final name = draft.name.text.trim();
     final desc = draft.description.text.trim();
-    if (name.isEmpty && desc.isEmpty) {
+    final chips = draft.selectedChips.toList();
+    if (name.isEmpty && desc.isEmpty && chips.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('서비스명 또는 설명을 먼저 입력해 주세요'),
+          content: Text('서비스명, 키워드 칩, 또는 자유 코멘트를 입력해 주세요'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -79,6 +92,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
       final polished = await _openai.polishServiceDescription(
         serviceName: name,
         roughDescription: desc,
+        selectedChips: chips,
         shopName: _store.shop.name,
       );
       if (!mounted) return;
@@ -220,13 +234,72 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
+                      const Text(
+                        '키워드 칩 (다중 선택)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '시술 수단·체감·효과를 골라 주세요. 성분명은 아래 자유 코멘트에 적어 주세요.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: SoriTokens.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...ServiceMenuChips.categories.map((category) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                category.title,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: category.chips.map((chip) {
+                                  final selected =
+                                      item.selectedChips.contains(chip);
+                                  return FilterChip(
+                                    label: Text(chip),
+                                    selected: selected,
+                                    onSelected: (v) =>
+                                        _toggleChip(index, chip, v),
+                                    selectedColor: SoriTokens.primarySoft,
+                                    checkmarkColor: SoriTokens.primary,
+                                    labelStyle: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                      color: selected
+                                          ? SoriTokens.primary
+                                          : SoriTokens.textPrimary,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                       TextField(
                         controller: item.description,
                         maxLines: 3,
                         decoration: const InputDecoration(
-                          labelText: '고객 안내용 설명',
-                          hintText: '예: 탄력·라인 정리에 도움되는 EMS 케어',
+                          labelText: '자유 코멘트 / 고객 안내용 설명',
+                          hintText:
+                              '예: 아줄렌·비타민C 사용, 민감 피부도 OK 등 구체 메모',
                           border: OutlineInputBorder(),
                           alignLabelWithHint: true,
                         ),
@@ -301,6 +374,7 @@ class _ServiceDraft {
 
   final TextEditingController name;
   final TextEditingController description;
+  final Set<String> selectedChips = {};
   bool polishing = false;
 
   void dispose() {
