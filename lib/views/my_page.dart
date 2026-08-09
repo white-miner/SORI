@@ -201,7 +201,7 @@ class MyPage extends StatelessWidget {
                 if (session.shopSetupComplete || isDirector)
                   _MenuTile(
                     icon: Icons.storefront_outlined,
-                    title: '샵 프로필',
+                    title: '샵 관리 · 서비스 메뉴',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(

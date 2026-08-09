@@ -6,6 +6,7 @@ import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
@@ -58,6 +59,10 @@ class SoriStore {
   final Set<String> reviewRequestedCustomerIds = {};
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
+
+  /// 직전 방문 확인 시 회원권 차감 피드백 (Async 경로).
+  String? lastVisitFeedback;
+  bool? lastMembershipDeducted;
 
   static const List<String> puzzlePool = [
     '피부 톤이 밝아졌어요',
@@ -226,6 +231,8 @@ class SoriStore {
     String? allergyNotes,
     String? skinSensitivity,
     String? sideEffectHistory,
+    List<CustomerMembership>? memberships,
+    String? customerRequests,
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
@@ -253,6 +260,8 @@ class SoriStore {
         allergyNotes: allergyNotes,
         skinSensitivity: skinSensitivity,
         sideEffectHistory: sideEffectHistory,
+        memberships: memberships,
+        customerRequests: customerRequests,
         membershipServiceName: membershipServiceName,
         membershipTotalVisits: membershipTotalVisits,
         membershipUsedVisits: membershipUsedVisits,
@@ -288,6 +297,8 @@ class SoriStore {
           allergyNotes: allergyNotes,
           skinSensitivity: skinSensitivity,
           sideEffectHistory: sideEffectHistory,
+          memberships: memberships,
+          customerRequests: customerRequests,
           membershipServiceName: membershipServiceName,
           membershipTotalVisits: membershipTotalVisits,
           membershipUsedVisits: membershipUsedVisits,
@@ -297,6 +308,10 @@ class SoriStore {
       _mergeCustomer(result.customer);
       _mergeChart(result.chart);
       if (result.review != null) _mergeReview(result.review!);
+      lastVisitFeedback = result.feedbackMessage.isNotEmpty
+          ? result.feedbackMessage
+          : null;
+      lastMembershipDeducted = result.membershipDeducted;
       return result.chart;
     } catch (e, st) {
       debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
@@ -498,14 +513,27 @@ class SoriStore {
     required String naverPlaceUrl,
     String? address,
     String? phone,
+    List<String>? serviceMenu,
   }) {
     shop = shop.copyWith(
       name: name.trim(),
       naverPlaceUrl: naverPlaceUrl.trim(),
       address: address?.trim(),
       phone: phone?.trim(),
+      serviceMenu: serviceMenu,
     );
     _notify();
+    if (_repository.isRemote) {
+      () async {
+        try {
+          shop = await _repository.upsertShop(shop);
+          _notify();
+        } catch (e) {
+          _setError(e);
+          _notify();
+        }
+      }();
+    }
   }
 
   List<Customer> searchCustomers(String query) {
@@ -742,8 +770,8 @@ class SoriStore {
   }
 
   /// 차트 저장 + 방문 확인 트리거 → 토큰/리뷰 초안 생성.
-  /// [membership*] 는 방문 확인 직전 회원권 설정값이며,
-  /// 아직 방문 미확인 차트인 경우 확인 시 used +1 자동 차감됩니다.
+  /// [memberships] 는 방문 확인 직전 회원권 설정값이며,
+  /// 아직 방문 미확인 차트인 경우 확인 시 careName과 매칭되는 회원권만 차감됩니다.
   CustomerChart saveChartAndConfirmVisit({
     required String customerId,
     required int visitNumber,
@@ -766,6 +794,8 @@ class SoriStore {
     String? allergyNotes,
     String? skinSensitivity,
     String? sideEffectHistory,
+    List<CustomerMembership>? memberships,
+    String? customerRequests,
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
@@ -792,6 +822,7 @@ class SoriStore {
         skinSensitivity: skinSensitivity ?? charts[index].skinSensitivity,
         sideEffectHistory:
             sideEffectHistory ?? charts[index].sideEffectHistory,
+        customerRequests: customerRequests ?? charts[index].customerRequests,
         concernChips: concernChips,
         firstVisitFearChips: firstVisitFearChips,
         revisitFeedbackChips: revisitFeedbackChips,
@@ -816,6 +847,7 @@ class SoriStore {
         allergyNotes: allergyNotes ?? '',
         skinSensitivity: skinSensitivity ?? '',
         sideEffectHistory: sideEffectHistory ?? '',
+        customerRequests: customerRequests ?? '',
         concernChips: concernChips,
         firstVisitFearChips: firstVisitFearChips,
         revisitFeedbackChips: revisitFeedbackChips,
@@ -826,14 +858,29 @@ class SoriStore {
     }
 
     final custIndex = customers.indexWhere((c) => c.id == customerId);
-    final total = (membershipTotalVisits ?? customer.membershipTotalVisits)
-        .clamp(0, 999);
-    var used = (membershipUsedVisits ?? customer.membershipUsedVisits)
-        .clamp(0, 999);
-    if (total > 0 && used > total) used = total;
+    Customer updatedCustomer;
+    if (memberships != null) {
+      updatedCustomer = customers[custIndex]
+          .copyWith(memberships: memberships)
+          .withSyncedMembershipMirrors();
+    } else {
+      final total = (membershipTotalVisits ?? customer.membershipTotalVisits)
+          .clamp(0, 999);
+      var used = (membershipUsedVisits ?? customer.membershipUsedVisits)
+          .clamp(0, 999);
+      if (total > 0 && used > total) used = total;
+      updatedCustomer = customers[custIndex]
+          .copyWith(
+            membershipServiceName:
+                membershipServiceName ?? customer.membershipServiceName,
+            membershipTotalVisits: total,
+            membershipUsedVisits: used,
+          )
+          .withSyncedMembershipMirrors();
+    }
 
     // 고객 마스터: 인적/회원권만 갱신 (알레르기·부작용은 차트에만 저장)
-    customers[custIndex] = customers[custIndex].copyWith(
+    customers[custIndex] = updatedCustomer.copyWith(
       name: customerName?.trim().isNotEmpty == true
           ? customerName!.trim()
           : customer.name,
@@ -846,11 +893,7 @@ class SoriStore {
       occupation: occupation ?? customer.occupation,
       lastTreatmentDate: DateTime.now(),
       treatmentType: careName.isNotEmpty ? careName : customer.treatmentType,
-      membershipServiceName:
-          membershipServiceName ?? customer.membershipServiceName,
-      membershipTotalVisits: total,
-      membershipUsedVisits: used,
-    );
+    ).withSyncedMembershipMirrors();
 
     return confirmVisit(
       chartId: chart.id,
@@ -876,7 +919,10 @@ class SoriStore {
     charts[index] = opened;
 
     if (deductMembership && !alreadyChecked) {
-      _deductMembershipVisit(opened.customerId);
+      _deductMembershipVisit(opened.customerId, opened.careName);
+    } else {
+      lastMembershipDeducted = false;
+      lastVisitFeedback = null;
     }
 
     if (reviewForChart(opened.id) == null) {
@@ -897,16 +943,53 @@ class SoriStore {
     return opened;
   }
 
-  /// 방문 확인 시 회원권 차감 횟수 +1 / 잔여 -1 (양방향 동기화 소스).
-  void _deductMembershipVisit(String customerId) {
+  /// 방문 확인 시 careName과 매칭되는 회원권 1회 차감.
+  bool _deductMembershipVisit(String customerId, String careName) {
     final custIndex = customers.indexWhere((c) => c.id == customerId);
-    if (custIndex < 0) return;
-    final c = customers[custIndex];
-    if (!c.isMembershipCustomer) return;
-    if (c.membershipUsedVisits >= c.membershipTotalVisits) return;
-    customers[custIndex] = c.copyWith(
-      membershipUsedVisits: c.membershipUsedVisits + 1,
-    );
+    if (custIndex < 0) {
+      lastMembershipDeducted = false;
+      lastVisitFeedback = null;
+      return false;
+    }
+    final c = customers[custIndex].withSyncedMembershipMirrors();
+    if (!c.isMembershipCustomer) {
+      lastMembershipDeducted = false;
+      lastVisitFeedback = null;
+      return false;
+    }
+
+    if (careName.trim().isEmpty) {
+      lastMembershipDeducted = false;
+      lastVisitFeedback = '진행 서비스가 없어 회원권을 차감하지 않았습니다.';
+      return false;
+    }
+
+    for (var i = 0; i < c.memberships.length; i++) {
+      final m = c.memberships[i];
+      if (!CustomerMembership.matchesService(m.serviceName, careName)) {
+        continue;
+      }
+      if (m.remainingVisits <= 0) {
+        lastMembershipDeducted = false;
+        lastVisitFeedback = '${m.serviceName} 회원권 잔여 횟수가 없습니다.';
+        return false;
+      }
+      final updated = m.copyWith(usedVisits: m.usedVisits + 1);
+      final nextMemberships = List<CustomerMembership>.from(c.memberships)
+        ..[i] = updated;
+      customers[custIndex] = c
+          .copyWith(memberships: nextMemberships)
+          .withSyncedMembershipMirrors();
+      lastMembershipDeducted = true;
+      lastVisitFeedback =
+          '${m.serviceName} 회원권 1회 차감 (잔여 ${updated.remainingVisits}회)';
+      return true;
+    }
+
+    lastMembershipDeducted = false;
+    lastVisitFeedback =
+        '진행 서비스($careName)와 일치하는 회원권이 없어 차감하지 않았습니다.';
+    return false;
   }
 
   CustomerReview acceptReview(String reviewId) {

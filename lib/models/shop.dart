@@ -8,6 +8,7 @@ class Shop {
     this.ownerName,
     this.phone,
     this.address,
+    this.serviceMenu = const [],
   });
 
   final String id;
@@ -16,6 +17,9 @@ class Shop {
   final String? ownerName;
   final String? phone;
   final String? address;
+
+  /// 샵에서 제공하는 서비스명 목록 (드롭다운 소스).
+  final List<String> serviceMenu;
 
   bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
 
@@ -35,6 +39,7 @@ class Shop {
     String? ownerName,
     String? phone,
     String? address,
+    List<String>? serviceMenu,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -43,6 +48,7 @@ class Shop {
       ownerName: ownerName ?? this.ownerName,
       phone: phone ?? this.phone,
       address: address ?? this.address,
+      serviceMenu: serviceMenu ?? this.serviceMenu,
     );
   }
 
@@ -53,10 +59,10 @@ class Shop {
         'phone': phone,
         'naver_place_url': naverPlaceUrl,
         'address': address,
+        'service_menu': serviceMenu,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
-    // created_at / updated_at 등은 스키마 확장에 따라 null일 수 있어 무시한다.
     return Shop(
       id: DbMap.asText(map['id']),
       name: DbMap.asText(map['name'], 'SORI 샵'),
@@ -64,6 +70,10 @@ class Shop {
       phone: DbMap.asTextOrNull(map['phone']),
       naverPlaceUrl: DbMap.asText(map['naver_place_url']),
       address: DbMap.asTextOrNull(map['address']),
+      serviceMenu: DbMap.asStringList(map['service_menu'])
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     );
   }
 }

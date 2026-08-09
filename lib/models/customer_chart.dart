@@ -17,6 +17,7 @@ class CustomerChart {
     this.allergyNotes = '',
     this.skinSensitivity = '',
     this.sideEffectHistory = '',
+    this.customerRequests = '',
     this.concernChips = const [],
     this.firstVisitFearChips = const [],
     this.revisitFeedbackChips = const [],
@@ -43,6 +44,7 @@ class CustomerChart {
   final String allergyNotes;
   final String skinSensitivity;
   final String sideEffectHistory;
+  final String customerRequests;
 
   final List<String> concernChips;
   final List<String> firstVisitFearChips;
@@ -76,6 +78,7 @@ class CustomerChart {
     String? allergyNotes,
     String? skinSensitivity,
     String? sideEffectHistory,
+    String? customerRequests,
     List<String>? concernChips,
     List<String>? firstVisitFearChips,
     List<String>? revisitFeedbackChips,
@@ -100,6 +103,7 @@ class CustomerChart {
       allergyNotes: allergyNotes ?? this.allergyNotes,
       skinSensitivity: skinSensitivity ?? this.skinSensitivity,
       sideEffectHistory: sideEffectHistory ?? this.sideEffectHistory,
+      customerRequests: customerRequests ?? this.customerRequests,
       concernChips: concernChips ?? this.concernChips,
       firstVisitFearChips: firstVisitFearChips ?? this.firstVisitFearChips,
       revisitFeedbackChips:
@@ -126,6 +130,7 @@ class CustomerChart {
         'allergy_notes': allergyNotes,
         'skin_sensitivity': skinSensitivity,
         'side_effect_history': sideEffectHistory,
+        'customer_requests': customerRequests,
         'concern_chips': concernChips,
         'first_visit_fear_chips': firstVisitFearChips,
         'revisit_feedback_chips': revisitFeedbackChips,
@@ -159,6 +164,7 @@ class CustomerChart {
       allergyNotes: DbMap.asText(map['allergy_notes']),
       skinSensitivity: DbMap.asText(map['skin_sensitivity']),
       sideEffectHistory: DbMap.asText(map['side_effect_history']),
+      customerRequests: DbMap.asText(map['customer_requests']),
       concernChips: DbMap.asStringList(map['concern_chips']),
       firstVisitFearChips: DbMap.asStringList(map['first_visit_fear_chips']),
       revisitFeedbackChips: DbMap.asStringList(map['revisit_feedback_chips']),

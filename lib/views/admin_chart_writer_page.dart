@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/chart_interview_chips.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_membership.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'customer_link_popup.dart';
@@ -54,6 +55,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   late final TextEditingController _skinSensitivityController;
   late final TextEditingController _sideEffectController;
   late final TextEditingController _careNameController;
+  late final TextEditingController _requestsController;
   late final TextEditingController _summaryController;
   late final TextEditingController _insightController;
 
@@ -69,14 +71,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   final Set<String> _concerns = {};
   bool _saving = false;
 
-  late final TextEditingController _membershipNameController;
-  late int _membershipTotal;
-  late int _membershipUsed;
+  late List<CustomerMembership> _memberships;
 
   bool get _isFirstVisit => _visitNumber <= 1;
 
-  int get _membershipRemaining =>
-      (_membershipTotal - _membershipUsed).clamp(0, 999);
+  List<String> get _serviceOptions => widget.store.shop.serviceMenu;
 
   @override
   void initState() {
@@ -111,23 +110,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     );
     _gender = c.gender;
     _birthDate = c.birthDate;
-    _membershipNameController = TextEditingController(
-      text: c.membershipServiceName.isNotEmpty
-          ? c.membershipServiceName
-          : (c.treatmentType.isNotEmpty ? '${c.treatmentType} 10회권' : ''),
-    );
-    _membershipTotal =
-        c.membershipTotalVisits > 0 ? c.membershipTotalVisits : 10;
-    _membershipUsed = c.membershipUsedVisits;
-    if (c.membershipTotalVisits <= 0) {
-      _membershipTotal = 0;
-      _membershipUsed = 0;
-      _membershipNameController.text = '';
-    }
+    final synced = c.withSyncedMembershipMirrors();
+    _memberships = List<CustomerMembership>.from(synced.memberships);
     _careNameController = TextEditingController(
       text: existing?.careName.isNotEmpty == true
           ? existing!.careName
-          : c.treatmentType,
+          : (c.treatmentType.isNotEmpty
+              ? c.treatmentType
+              : (_serviceOptions.isNotEmpty ? _serviceOptions.first : '')),
+    );
+    _requestsController = TextEditingController(
+      text: existing?.customerRequests ?? '',
     );
     _summaryController =
         TextEditingController(text: existing?.treatmentSummary ?? '');
@@ -152,11 +145,40 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _allergyController.dispose();
     _skinSensitivityController.dispose();
     _sideEffectController.dispose();
-    _membershipNameController.dispose();
     _careNameController.dispose();
+    _requestsController.dispose();
     _summaryController.dispose();
     _insightController.dispose();
     super.dispose();
+  }
+
+  void _addMembership() {
+    setState(() {
+      _memberships = [
+        ..._memberships,
+        CustomerMembership(
+          id: 'm-${DateTime.now().millisecondsSinceEpoch}',
+          serviceName:
+              _serviceOptions.isNotEmpty ? _serviceOptions.first : '',
+          totalVisits: 10,
+          usedVisits: 0,
+        ),
+      ];
+    });
+  }
+
+  void _removeMembership(String id) {
+    setState(() {
+      _memberships = _memberships.where((m) => m.id != id).toList();
+    });
+  }
+
+  void _updateMembership(int index, CustomerMembership next) {
+    setState(() {
+      final list = List<CustomerMembership>.from(_memberships);
+      list[index] = next;
+      _memberships = list;
+    });
   }
 
   /// 전화번호로 기존 고객 인적·메디컬·회원권 정보를 폼에 자동 채움.
@@ -215,10 +237,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                 ? prior!.sideEffectHistory
                 : matched.homeCareHabits;
       }
-      if (matched.isMembershipCustomer) {
-        _membershipNameController.text = matched.membershipServiceName;
-        _membershipTotal = matched.membershipTotalVisits;
-        _membershipUsed = matched.membershipUsedVisits;
+      _memberships =
+          List<CustomerMembership>.from(matched.withSyncedMembershipMirrors().memberships);
+      if (prior?.customerRequests.isNotEmpty == true) {
+        _requestsController.text = prior!.customerRequests;
       }
       if (_careNameController.text.trim().isEmpty &&
           matched.treatmentType.isNotEmpty) {
@@ -232,21 +254,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         backgroundColor: MyApp.soriPurple,
       ),
     );
-  }
-
-  void _bumpTotal(int delta) {
-    setState(() {
-      _membershipTotal = (_membershipTotal + delta).clamp(0, 99);
-      if (_membershipUsed > _membershipTotal) {
-        _membershipUsed = _membershipTotal;
-      }
-    });
-  }
-
-  void _bumpUsed(int delta) {
-    setState(() {
-      _membershipUsed = (_membershipUsed + delta).clamp(0, _membershipTotal);
-    });
   }
 
   Future<void> _pickBirthDate() async {
@@ -355,15 +362,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     }
     if (_careNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('오늘 진행된 케어 명칭을 입력해 주세요.')),
+        const SnackBar(content: Text('오늘 진행 서비스를 선택하거나 입력해 주세요.')),
       );
       return;
     }
 
     setState(() => _saving = true);
-    final wasAlreadyChecked = widget.existingChart?.visitChecked == true;
-    final expectMembershipDeduct =
-        !wasAlreadyChecked && _membershipTotal > 0;
     try {
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: widget.customer.id,
@@ -373,6 +377,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
             : _customNoController.text.trim(),
         chartId: widget.existingChart?.id,
         careName: _careNameController.text.trim(),
+        customerRequests: _requestsController.text.trim(),
         treatmentSummary: _summaryController.text.trim().isEmpty
             ? '$_visitNumber회차 ${_careNameController.text.trim()}'
             : _summaryController.text.trim(),
@@ -391,24 +396,24 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         allergyNotes: _allergyController.text.trim(),
         skinSensitivity: _skinSensitivityController.text.trim(),
         sideEffectHistory: _sideEffectController.text.trim(),
-        membershipServiceName: _membershipNameController.text.trim(),
-        membershipTotalVisits: _membershipTotal,
-        membershipUsedVisits: _membershipUsed,
+        memberships: _memberships
+            .where((m) => m.serviceName.trim().isNotEmpty && m.totalVisits > 0)
+            .toList(),
       );
 
       if (!mounted) return;
-      final customer = widget.store.findCustomer(widget.customer.id);
-      final remain = customer?.membershipRemainingVisits ?? 0;
-      final deducted = expectMembershipDeduct &&
-          (customer?.isMembershipCustomer ?? false);
+      final feedback = widget.store.lastVisitFeedback?.trim();
+      final deducted = widget.store.lastMembershipDeducted == true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            deducted
-                ? '방문 확인 완료 · 회원권 1회 차감됐어요 (잔여 $remain회)'
-                : '방문 확인 완료 · 고객 리뷰 링크가 준비됐어요',
+            (feedback != null && feedback.isNotEmpty)
+                ? feedback
+                : (deducted
+                    ? '방문 확인 완료 · 회원권 1회 차감됐어요'
+                    : '방문 확인 완료 · 1회성 시술 차트로 저장했어요'),
           ),
-          backgroundColor: SoriTokens.primary,
+          backgroundColor: deducted ? SoriTokens.primary : SoriTokens.warningText,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),
@@ -551,63 +556,181 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                 ),
                 const SizedBox(height: 12),
                 _SegmentCard(
+                  title: '오늘 진행 서비스 & 고객 요청사항',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ServiceNameField(
+                        label: '오늘 진행 서비스 *',
+                        value: _careNameController.text,
+                        options: _serviceOptions,
+                        onChanged: (v) =>
+                            setState(() => _careNameController.text = v),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _requestsController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: '고객 특별 요청사항',
+                          hintText: '예: 기기 강도 약하게, 예민 피부 주의',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SegmentCard(
                   title: '🎟️ 회원권 관리',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
-                        controller: _membershipNameController,
-                        decoration: const InputDecoration(
-                          labelText: '진행 중인 서비스명',
-                          hintText: '예: 재생 케어 10회권',
-                          border: OutlineInputBorder(),
+                      const Text(
+                        '방문 확인 시 오늘 진행 서비스와 같은 회원권만 1회 차감됩니다.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _SpinnerField(
-                        label: '총 결제 횟수',
-                        value: _membershipTotal,
-                        onMinus: () => _bumpTotal(-1),
-                        onPlus: () => _bumpTotal(1),
-                        onChanged: (v) => setState(() {
-                          _membershipTotal = v.clamp(0, 99);
-                          if (_membershipUsed > _membershipTotal) {
-                            _membershipUsed = _membershipTotal;
-                          }
-                        }),
-                      ),
                       const SizedBox(height: 12),
-                      _SpinnerField(
-                        label: '현재 차감 횟수',
-                        value: _membershipUsed,
-                        onMinus: () => _bumpUsed(-1),
-                        onPlus: () => _bumpUsed(1),
-                        onChanged: (v) => setState(() {
-                          _membershipUsed = v.clamp(0, _membershipTotal);
-                        }),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
+                      if (_memberships.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '등록된 회원권이 없습니다. 1회성 시술로 저장할 수 있어요.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: SoriTokens.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ...List.generate(_memberships.length, (index) {
+                        final m = _memberships[index];
+                        final remain = m.remainingVisits;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: SoriTokens.border),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '회원권 ${index + 1}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: '삭제',
+                                    onPressed: () => _removeMembership(m.id),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              _ServiceNameField(
+                                label: '서비스명',
+                                value: m.serviceName,
+                                options: _serviceOptions,
+                                onChanged: (v) => _updateMembership(
+                                  index,
+                                  m.copyWith(serviceName: v),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              _SpinnerField(
+                                label: '총 횟수',
+                                value: m.totalVisits,
+                                onMinus: () => _updateMembership(
+                                  index,
+                                  m.copyWith(
+                                    totalVisits:
+                                        (m.totalVisits - 1).clamp(0, 99),
+                                    usedVisits: m.usedVisits.clamp(
+                                      0,
+                                      (m.totalVisits - 1).clamp(0, 99),
+                                    ),
+                                  ),
+                                ),
+                                onPlus: () => _updateMembership(
+                                  index,
+                                  m.copyWith(
+                                    totalVisits:
+                                        (m.totalVisits + 1).clamp(0, 99),
+                                  ),
+                                ),
+                                onChanged: (v) => _updateMembership(
+                                  index,
+                                  m.copyWith(
+                                    totalVisits: v.clamp(0, 99),
+                                    usedVisits:
+                                        m.usedVisits.clamp(0, v.clamp(0, 99)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _SpinnerField(
+                                label: '사용 횟수',
+                                value: m.usedVisits,
+                                onMinus: () => _updateMembership(
+                                  index,
+                                  m.copyWith(
+                                    usedVisits:
+                                        (m.usedVisits - 1).clamp(0, m.totalVisits),
+                                  ),
+                                ),
+                                onPlus: () => _updateMembership(
+                                  index,
+                                  m.copyWith(
+                                    usedVisits:
+                                        (m.usedVisits + 1).clamp(0, m.totalVisits),
+                                  ),
+                                ),
+                                onChanged: (v) => _updateMembership(
+                                  index,
+                                  m.copyWith(
+                                    usedVisits: v.clamp(0, m.totalVisits),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '잔여 $remain회',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: remain <= 2 && m.totalVisits > 0
+                                      ? const Color(0xFFB7791F)
+                                      : MyApp.soriPurple,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      SizedBox(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _membershipRemaining <= 2 &&
-                                  _membershipTotal > 0
-                              ? const Color(0xFFFFF4E5)
-                              : MyApp.soriPurple.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _membershipTotal <= 0
-                              ? '회원권을 등록하면 방문 확인 시 잔여 횟수가 자동 차감됩니다.'
-                              : '잔여 $_membershipRemaining회 · 방문 확인 시 차감 +1 자동 반영',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _membershipRemaining <= 2 &&
-                                    _membershipTotal > 0
-                                ? const Color(0xFFB7791F)
-                                : MyApp.soriPurple,
+                        child: OutlinedButton.icon(
+                          onPressed: _addMembership,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text(
+                            '+ 회원권 추가',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: SoriTokens.primary,
+                            side: const BorderSide(color: SoriTokens.primary),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
@@ -801,14 +924,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                       ),
                       const SizedBox(height: 10),
                       TextField(
-                        controller: _careNameController,
-                        decoration: const InputDecoration(
-                          labelText: '오늘 진행된 케어 명칭 *',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
                         controller: _summaryController,
                         maxLines: 2,
                         decoration: const InputDecoration(
@@ -867,6 +982,67 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ServiceNameField extends StatelessWidget {
+  const _ServiceNameField({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Autocomplete<String>(
+      initialValue: TextEditingValue(text: value),
+      optionsBuilder: (textEditingValue) {
+        final q = textEditingValue.text.trim().toLowerCase();
+        if (q.isEmpty) return options;
+        return options.where((o) => o.toLowerCase().contains(q));
+      },
+      onSelected: onChanged,
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        if (controller.text != value && value.isNotEmpty && controller.text.isEmpty) {
+          controller.text = value;
+        }
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onChanged: onChanged,
+          onSubmitted: (_) => onFieldSubmitted(),
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: options.isEmpty ? '직접 입력' : '목록에서 선택하거나 직접 입력',
+            border: const OutlineInputBorder(),
+            suffixIcon: options.isEmpty
+                ? null
+                : PopupMenuButton<String>(
+                    tooltip: '서비스 메뉴',
+                    icon: const Icon(Icons.arrow_drop_down_rounded),
+                    onSelected: (v) {
+                      controller.text = v;
+                      onChanged(v);
+                    },
+                    itemBuilder: (context) => options
+                        .map(
+                          (o) => PopupMenuItem<String>(
+                            value: o,
+                            child: Text(o),
+                          ),
+                        )
+                        .toList(),
+                  ),
+          ),
+        );
+      },
     );
   }
 }

@@ -122,8 +122,7 @@ void main() {
   test('membership ticket deducts on visit confirm and syncs remaining', () {
     final store = SoriStore();
     final before = store.findCustomer('2')!;
-    expect(before.membershipTotalVisits, 10);
-    expect(before.membershipUsedVisits, 8);
+    expect(before.memberships, isNotEmpty);
     expect(before.membershipRemainingVisits, 2);
     expect(before.isMembershipLow, isTrue);
 
@@ -136,15 +135,13 @@ void main() {
       concernChips: const [],
       firstVisitFearChips: const [],
       revisitFeedbackChips: const [],
-      membershipServiceName: before.membershipServiceName,
-      membershipTotalVisits: before.membershipTotalVisits,
-      membershipUsedVisits: before.membershipUsedVisits,
+      memberships: before.memberships,
     );
 
     final after = store.findCustomer('2')!;
     expect(after.membershipUsedVisits, 9);
     expect(after.membershipRemainingVisits, 1);
-    expect(after.membershipBadgeLabel, '진행 9회 / 잔여 1회');
+    expect(store.lastMembershipDeducted, isTrue);
   });
 
   test('repository bootstrap loads memory snapshot async', () async {

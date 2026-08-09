@@ -51,9 +51,13 @@ class MembershipProgressView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (showServiceName && customer.membershipServiceName.isNotEmpty) ...[
+        if (showServiceName &&
+            (customer.primaryMembership?.serviceName.isNotEmpty == true ||
+                customer.membershipServiceName.isNotEmpty)) ...[
           Text(
-            customer.membershipServiceName,
+            customer.primaryMembership?.serviceName.isNotEmpty == true
+                ? customer.primaryMembership!.serviceName
+                : customer.membershipServiceName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

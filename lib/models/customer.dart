@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import 'customer_membership.dart';
 
 enum CustomerGender { female, male }
 
@@ -29,6 +30,7 @@ class Customer {
     required this.treatmentType,
     this.shopId = 'shop-demo',
     this.memo = '',
+    this.memberships = const [],
     this.membershipServiceName = '',
     this.membershipTotalVisits = 0,
     this.membershipUsedVisits = 0,
@@ -49,13 +51,12 @@ class Customer {
   final String shopId;
   final String memo;
 
-  /// 예: "재생 케어 10회권"
+  /// 다중 회원권 (customers.memberships jsonb).
+  final List<CustomerMembership> memberships;
+
+  /// 레거시 단일 회원권 컬럼 (동기화용 미러).
   final String membershipServiceName;
-
-  /// 총 결제 횟수 (회원권 전체 회차)
   final int membershipTotalVisits;
-
-  /// 현재까지 차감된 횟수
   final int membershipUsedVisits;
 
   final CustomerGender? gender;
@@ -66,30 +67,83 @@ class Customer {
   final String medicationHistory;
   final String homeCareHabits;
 
-  bool get isMembershipCustomer => membershipTotalVisits > 0;
+  List<CustomerMembership> get activeMemberships =>
+      memberships.where((m) => m.totalVisits > 0).toList();
+
+  CustomerMembership? get primaryMembership {
+    final active = memberships.where((m) => m.isActive).toList();
+    if (active.isNotEmpty) return active.first;
+    if (memberships.isNotEmpty) return memberships.first;
+    return null;
+  }
+
+  bool get isMembershipCustomer =>
+      memberships.any((m) => m.totalVisits > 0) || membershipTotalVisits > 0;
 
   int get membershipRemainingVisits {
+    if (memberships.isNotEmpty) {
+      return memberships.fold<int>(0, (sum, m) => sum + m.remainingVisits);
+    }
     if (!isMembershipCustomer) return 0;
     return (membershipTotalVisits - membershipUsedVisits).clamp(0, 999);
   }
 
   double get membershipProgress {
-    if (!isMembershipCustomer) return 0;
-    return (membershipUsedVisits / membershipTotalVisits).clamp(0.0, 1.0);
+    final total = memberships.isNotEmpty
+        ? memberships.fold<int>(0, (s, m) => s + m.totalVisits)
+        : membershipTotalVisits;
+    final used = memberships.isNotEmpty
+        ? memberships.fold<int>(0, (s, m) => s + m.usedVisits)
+        : membershipUsedVisits;
+    if (total <= 0) return 0;
+    return (used / total).clamp(0.0, 1.0);
   }
 
-  /// 잔여 2회 이하 → 갱신 경고
   bool get isMembershipLow =>
-      isMembershipCustomer && membershipRemainingVisits <= 2;
+      isMembershipCustomer &&
+      (memberships.any((m) => m.isLow) ||
+          (memberships.isEmpty && membershipRemainingVisits <= 2));
 
   String get membershipBadgeLabel {
     if (!isMembershipCustomer) return '회원권 미등록';
+    if (memberships.length > 1) {
+      return '회원권 ${memberships.length}종 · 잔여 $membershipRemainingVisits회';
+    }
+    final p = primaryMembership;
+    if (p != null) {
+      return '진행 ${p.usedVisits}회 / 잔여 ${p.remainingVisits}회';
+    }
     return '진행 $membershipUsedVisits회 / 잔여 $membershipRemainingVisits회';
   }
 
   String? get birthYearLabel {
     if (birthDate == null) return null;
     return '${birthDate!.year}년생';
+  }
+
+  /// 레거시 컬럼과 memberships 리스트를 맞춘 복사본.
+  Customer withSyncedMembershipMirrors() {
+    final list = memberships.isNotEmpty
+        ? memberships
+        : (membershipTotalVisits > 0
+            ? [
+                CustomerMembership(
+                  id: 'legacy-$id',
+                  serviceName: membershipServiceName.isNotEmpty
+                      ? membershipServiceName
+                      : treatmentType,
+                  totalVisits: membershipTotalVisits,
+                  usedVisits: membershipUsedVisits,
+                ),
+              ]
+            : const <CustomerMembership>[]);
+    final primary = list.isNotEmpty ? list.first : null;
+    return copyWith(
+      memberships: list,
+      membershipServiceName: primary?.serviceName ?? '',
+      membershipTotalVisits: primary?.totalVisits ?? 0,
+      membershipUsedVisits: primary?.usedVisits ?? 0,
+    );
   }
 
   Customer copyWith({
@@ -100,6 +154,7 @@ class Customer {
     String? treatmentType,
     String? shopId,
     String? memo,
+    List<CustomerMembership>? memberships,
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
@@ -121,6 +176,7 @@ class Customer {
       treatmentType: treatmentType ?? this.treatmentType,
       shopId: shopId ?? this.shopId,
       memo: memo ?? this.memo,
+      memberships: memberships ?? this.memberships,
       membershipServiceName:
           membershipServiceName ?? this.membershipServiceName,
       membershipTotalVisits:
@@ -137,33 +193,62 @@ class Customer {
     );
   }
 
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'shop_id': shopId,
-        'name': name,
-        'phone': phone,
-        'last_treatment_date': lastTreatmentDate.toIso8601String(),
-        'treatment_type': treatmentType,
-        'memo': memo,
-        'membership_service_name': membershipServiceName,
-        'membership_total_visits': membershipTotalVisits,
-        'membership_used_visits': membershipUsedVisits,
-        'gender': gender?.dbValue,
-        'birth_date': birthDate?.toIso8601String(),
-        'address': address,
-        'occupation': occupation,
-        'allergy_notes': allergyNotes,
-        'medication_history': medicationHistory,
-        'home_care_habits': homeCareHabits,
-      };
+  Map<String, dynamic> toMap() {
+    final synced = withSyncedMembershipMirrors();
+    return {
+      'id': synced.id,
+      'shop_id': synced.shopId,
+      'name': synced.name,
+      'phone': synced.phone,
+      'last_treatment_date': synced.lastTreatmentDate.toIso8601String(),
+      'treatment_type': synced.treatmentType,
+      'memo': synced.memo,
+      'memberships': synced.memberships.map((m) => m.toJson()).toList(),
+      'membership_service_name': synced.membershipServiceName,
+      'membership_total_visits': synced.membershipTotalVisits,
+      'membership_used_visits': synced.membershipUsedVisits,
+      'gender': synced.gender?.dbValue,
+      'birth_date': synced.birthDate?.toIso8601String(),
+      'address': synced.address,
+      'occupation': synced.occupation,
+      'allergy_notes': synced.allergyNotes,
+      'medication_history': synced.medicationHistory,
+      'home_care_habits': synced.homeCareHabits,
+    };
+  }
 
   factory Customer.fromMap(Map<String, dynamic> map) {
-    // updated_at / created_at null·지연 응답에도 파싱이 깨지지 않도록 안전 변환.
     final id = DbMap.asText(map['id']);
     final name = DbMap.asText(map['name']);
     final phone = DbMap.asText(map['phone']);
     if (id.isEmpty || name.isEmpty || phone.isEmpty) {
       throw FormatException('customer row missing required fields: $map');
+    }
+
+    final rawMemberships = map['memberships'];
+    var memberships = <CustomerMembership>[];
+    if (rawMemberships is List) {
+      for (final item in rawMemberships) {
+        if (item is Map) {
+          memberships.add(
+            CustomerMembership.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+
+    final legacyName = DbMap.asText(map['membership_service_name']);
+    final legacyTotal = DbMap.asInt(map['membership_total_visits']);
+    final legacyUsed = DbMap.asInt(map['membership_used_visits']);
+    if (memberships.isEmpty && legacyTotal > 0) {
+      memberships = [
+        CustomerMembership(
+          id: 'legacy-$id',
+          serviceName: legacyName,
+          totalVisits: legacyTotal,
+          usedVisits: legacyUsed,
+        ),
+      ];
     }
 
     return Customer(
@@ -174,9 +259,10 @@ class Customer {
       lastTreatmentDate: DbMap.asDateTimeOrNow(map['last_treatment_date']),
       treatmentType: DbMap.asText(map['treatment_type']),
       memo: DbMap.asText(map['memo']),
-      membershipServiceName: DbMap.asText(map['membership_service_name']),
-      membershipTotalVisits: DbMap.asInt(map['membership_total_visits']),
-      membershipUsedVisits: DbMap.asInt(map['membership_used_visits']),
+      memberships: memberships,
+      membershipServiceName: legacyName,
+      membershipTotalVisits: legacyTotal,
+      membershipUsedVisits: legacyUsed,
       gender: CustomerGenderX.fromDb(DbMap.asTextOrNull(map['gender'])),
       birthDate: DbMap.asDateTime(map['birth_date']),
       address: DbMap.asText(map['address']),
@@ -184,6 +270,6 @@ class Customer {
       allergyNotes: DbMap.asText(map['allergy_notes']),
       medicationHistory: DbMap.asText(map['medication_history']),
       homeCareHabits: DbMap.asText(map['home_care_habits']),
-    );
+    ).withSyncedMembershipMirrors();
   }
 }

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_reply.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -34,24 +35,28 @@ class SupabaseSoriRepository implements SoriRepository {
 
   Map<String, dynamic> _customerWriteMap(Customer c, {bool includeId = true}) {
     // 차트 전용 메디컬 필드(allergy/home_care 등)는 customers payload에서 제외
+    final synced = c.withSyncedMembershipMirrors();
     final map = <String, dynamic>{
-      'shop_id': c.shopId,
-      'name': c.name,
-      'phone': c.phone,
-      'last_treatment_date': _dateOnly(c.lastTreatmentDate),
-      'treatment_type': c.treatmentType,
-      'memo': c.memo,
-      'membership_service_name': c.membershipServiceName,
-      'membership_total_visits': c.membershipTotalVisits,
-      'membership_used_visits': c.membershipUsedVisits,
-      'gender': c.gender?.dbValue,
-      'birth_date': c.birthDate == null ? null : _dateOnly(c.birthDate!),
-      'address': c.address,
-      'occupation': c.occupation,
+      'shop_id': synced.shopId,
+      'name': synced.name,
+      'phone': synced.phone,
+      'last_treatment_date': _dateOnly(synced.lastTreatmentDate),
+      'treatment_type': synced.treatmentType,
+      'memo': synced.memo,
+      'memberships':
+          synced.memberships.map((m) => m.toJson()).toList(),
+      'membership_service_name': synced.membershipServiceName,
+      'membership_total_visits': synced.membershipTotalVisits,
+      'membership_used_visits': synced.membershipUsedVisits,
+      'gender': synced.gender?.dbValue,
+      'birth_date':
+          synced.birthDate == null ? null : _dateOnly(synced.birthDate!),
+      'address': synced.address,
+      'occupation': synced.occupation,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
-    if (includeId && c.id.isNotEmpty && !_isTempId(c.id)) {
-      map['id'] = c.id;
+    if (includeId && synced.id.isNotEmpty && !_isTempId(synced.id)) {
+      map['id'] = synced.id;
     }
     return map;
   }
@@ -72,6 +77,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'allergy_notes': c.allergyNotes,
       'skin_sensitivity': c.skinSensitivity,
       'side_effect_history': c.sideEffectHistory,
+      'customer_requests': c.customerRequests,
       'concern_chips': c.concernChips,
       'first_visit_fear_chips': c.firstVisitFearChips,
       'revisit_feedback_chips': c.revisitFeedbackChips,
@@ -313,6 +319,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'phone': shop.phone,
       'naver_place_url': shop.naverPlaceUrl,
       'address': shop.address,
+      'service_menu': shop.serviceMenu,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     final includeId = shop.id.isNotEmpty && !_isTempId(shop.id);
@@ -339,12 +346,26 @@ class SupabaseSoriRepository implements SoriRepository {
     var customer =
         Customer.fromMap(Map<String, dynamic>.from(existingCustomer));
 
-    final total =
-        (request.membershipTotalVisits ?? customer.membershipTotalVisits)
-            .clamp(0, 999);
-    var used = (request.membershipUsedVisits ?? customer.membershipUsedVisits)
-        .clamp(0, 999);
-    if (total > 0 && used > total) used = total;
+    if (request.memberships != null) {
+      customer = customer
+          .copyWith(memberships: request.memberships)
+          .withSyncedMembershipMirrors();
+    } else {
+      final total =
+          (request.membershipTotalVisits ?? customer.membershipTotalVisits)
+              .clamp(0, 999);
+      var used = (request.membershipUsedVisits ?? customer.membershipUsedVisits)
+          .clamp(0, 999);
+      if (total > 0 && used > total) used = total;
+      customer = customer
+          .copyWith(
+            membershipServiceName:
+                request.membershipServiceName ?? customer.membershipServiceName,
+            membershipTotalVisits: total,
+            membershipUsedVisits: used,
+          )
+          .withSyncedMembershipMirrors();
+    }
 
     customer = customer.copyWith(
       name: request.customerName?.trim().isNotEmpty == true
@@ -361,11 +382,7 @@ class SupabaseSoriRepository implements SoriRepository {
       treatmentType: request.careName.isNotEmpty
           ? request.careName
           : customer.treatmentType,
-      membershipServiceName:
-          request.membershipServiceName ?? customer.membershipServiceName,
-      membershipTotalVisits: total,
-      membershipUsedVisits: used,
-    );
+    ).withSyncedMembershipMirrors();
 
     // 차트 upsert (방문 확인 전)
     CustomerChart chart;
@@ -392,6 +409,7 @@ class SupabaseSoriRepository implements SoriRepository {
           skinSensitivity: request.skinSensitivity ?? base.skinSensitivity,
           sideEffectHistory:
               request.sideEffectHistory ?? base.sideEffectHistory,
+          customerRequests: request.customerRequests ?? base.customerRequests,
           concernChips: request.concernChips,
           firstVisitFearChips: request.firstVisitFearChips,
           revisitFeedbackChips: request.revisitFeedbackChips,
@@ -429,14 +447,21 @@ class SupabaseSoriRepository implements SoriRepository {
       chart = CustomerChart.fromMap(Map<String, dynamic>.from(opened));
     }
 
-    // 회원권 차감 (방문 첫 확인 시에만)
-    if (request.deductMembership &&
-        !wasChecked &&
-        customer.isMembershipCustomer &&
-        customer.membershipUsedVisits < customer.membershipTotalVisits) {
-      customer = customer.copyWith(
-        membershipUsedVisits: customer.membershipUsedVisits + 1,
+    // 회원권 차감 (방문 첫 확인 시에만, careName 매칭)
+    var membershipDeducted = false;
+    var feedbackMessage = '';
+    if (request.deductMembership && !wasChecked) {
+      final deductResult = _smartDeductMembership(
+        customer.memberships,
+        request.careName,
       );
+      membershipDeducted = deductResult.deducted;
+      feedbackMessage = deductResult.message;
+      if (membershipDeducted) {
+        customer = customer
+            .copyWith(memberships: deductResult.memberships)
+            .withSyncedMembershipMirrors();
+      }
     }
 
     customer = await upsertCustomer(customer);
@@ -474,7 +499,54 @@ class SupabaseSoriRepository implements SoriRepository {
           CustomerReview.fromMap(Map<String, dynamic>.from(existingReview));
     }
 
-    return SaveChartResult(chart: chart, customer: customer, review: review);
+    return SaveChartResult(
+      chart: chart,
+      customer: customer,
+      review: review,
+      membershipDeducted: membershipDeducted,
+      feedbackMessage: feedbackMessage,
+    );
+  }
+
+  ({List<CustomerMembership> memberships, bool deducted, String message})
+      _smartDeductMembership(
+    List<CustomerMembership> memberships,
+    String careName,
+  ) {
+    if (careName.trim().isEmpty) {
+      return (
+        memberships: memberships,
+        deducted: false,
+        message: '진행 서비스가 없어 회원권을 차감하지 않았습니다.',
+      );
+    }
+    for (var i = 0; i < memberships.length; i++) {
+      final m = memberships[i];
+      if (!CustomerMembership.matchesService(m.serviceName, careName)) {
+        continue;
+      }
+      if (m.remainingVisits <= 0) {
+        return (
+          memberships: memberships,
+          deducted: false,
+          message: '${m.serviceName} 회원권 잔여 횟수가 없습니다.',
+        );
+      }
+      final updated = m.copyWith(usedVisits: m.usedVisits + 1);
+      final next = List<CustomerMembership>.from(memberships)..[i] = updated;
+      return (
+        memberships: next,
+        deducted: true,
+        message:
+            '${m.serviceName} 회원권 1회 차감 (잔여 ${updated.remainingVisits}회)',
+      );
+    }
+    return (
+      memberships: memberships,
+      deducted: false,
+      message:
+          '진행 서비스($careName)와 일치하는 회원권이 없어 차감하지 않았습니다.',
+    );
   }
 
   Future<CustomerChart> _insertChart(
@@ -497,6 +569,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'allergy_notes': request.allergyNotes ?? '',
       'skin_sensitivity': request.skinSensitivity ?? '',
       'side_effect_history': request.sideEffectHistory ?? '',
+      'customer_requests': request.customerRequests ?? '',
       'concern_chips': request.concernChips,
       'first_visit_fear_chips': request.firstVisitFearChips,
       'revisit_feedback_chips': request.revisitFeedbackChips,

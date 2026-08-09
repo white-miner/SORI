@@ -24,6 +24,12 @@ class MemorySoriRepository implements SoriRepository {
       phone: '02-1234-5678',
       naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
       address: '서울시 강남구',
+      serviceMenu: [
+        '재생케어',
+        '수분케어',
+        'EMS 윤곽케어',
+        '테라노바 복부관리',
+      ],
     );
 
     final customers = [
@@ -39,9 +45,6 @@ class MemorySoriRepository implements SoriRepository {
         birthDate: DateTime(1994, 3, 12),
         address: '서울시 강남구',
         allergyNotes: '향료 민감',
-        membershipServiceName: '',
-        membershipTotalVisits: 0,
-        membershipUsedVisits: 0,
       ),
       Customer(
         id: '2',
@@ -59,7 +62,7 @@ class MemorySoriRepository implements SoriRepository {
         membershipServiceName: '수분 케어 10회권',
         membershipTotalVisits: 10,
         membershipUsedVisits: 8,
-      ),
+      ).withSyncedMembershipMirrors(),
       Customer(
         id: '3',
         shopId: shop.id,
@@ -75,7 +78,7 @@ class MemorySoriRepository implements SoriRepository {
         membershipServiceName: '재생 케어 10회권',
         membershipTotalVisits: 10,
         membershipUsedVisits: 4,
-      ),
+      ).withSyncedMembershipMirrors(),
     ];
 
     const gallerySlides = [

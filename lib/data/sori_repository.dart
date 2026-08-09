@@ -1,6 +1,7 @@
 import '../models/ai_reply.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -53,6 +54,8 @@ class SaveChartRequest {
     this.allergyNotes,
     this.skinSensitivity,
     this.sideEffectHistory,
+    this.memberships,
+    this.customerRequests,
     this.membershipServiceName,
     this.membershipTotalVisits,
     this.membershipUsedVisits,
@@ -81,8 +84,13 @@ class SaveChartRequest {
   final String? allergyNotes;
   final String? skinSensitivity;
   final String? sideEffectHistory;
+  final List<CustomerMembership>? memberships;
+  final String? customerRequests;
+  /// @deprecated — prefer [memberships].
   final String? membershipServiceName;
+  /// @deprecated — prefer [memberships].
   final int? membershipTotalVisits;
+  /// @deprecated — prefer [memberships].
   final int? membershipUsedVisits;
   final bool deductMembership;
 }
@@ -92,11 +100,15 @@ class SaveChartResult {
     required this.chart,
     required this.customer,
     this.review,
+    this.membershipDeducted = false,
+    this.feedbackMessage = '',
   });
 
   final CustomerChart chart;
   final Customer customer;
   final CustomerReview? review;
+  final bool membershipDeducted;
+  final String feedbackMessage;
 }
 
 /// 데이터 소스 추상화 (Memory | Supabase).
