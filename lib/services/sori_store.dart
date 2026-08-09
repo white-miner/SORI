@@ -600,8 +600,9 @@ class SoriStore {
       }
       customers.insert(0, saved);
     } else {
-      final updated = customer.copyWith(name: name.trim(), phone: phone.trim());
-      final idx = customers.indexWhere((c) => c.id == customer!.id);
+      final existing = customer;
+      final updated = existing.copyWith(name: name.trim(), phone: phone.trim());
+      final idx = customers.indexWhere((c) => c.id == existing.id);
       if (idx >= 0) customers[idx] = updated;
       saved = updated;
       if (_repository.isRemote) {
