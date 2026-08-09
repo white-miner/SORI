@@ -32,6 +32,9 @@ abstract final class SoriSupabase {
       url: Env.supabaseUrl,
       // supabase_flutter 2.17+: publishableKey (anon key와 동일 역할)
       publishableKey: Env.supabaseAnonKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
     );
     _initialized = true;
     debugPrint('SoriSupabase: initialized.');

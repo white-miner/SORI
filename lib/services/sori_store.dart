@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show User;
 
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
@@ -12,6 +15,7 @@ import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_service_item.dart';
+import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
 /// 앱 Facade — UI는 Store, 데이터는 Repository (Memory | Supabase).
@@ -345,23 +349,72 @@ class SoriStore {
     }
   }
 
-  /// 소셜 로그인 시뮬레이터 — 이름·전화 필수 수집 후 온보딩으로 연결.
+  /// 소셜/이메일 로그인 — 이름·전화 수집 후 온보딩으로 연결.
   SessionUser beginSocialLogin({
     required SocialProvider provider,
     required String name,
     required String phone,
+    String? authUserId,
+    String email = '',
   }) {
     session = SessionUser(
       role: UserRole.guest,
       name: name.trim(),
       phone: phone.trim(),
       provider: provider,
+      authUserId: authUserId,
+      email: email.trim(),
       onboardingComplete: false,
       shopSetupComplete: false,
       activeMode: UserRole.customer,
     );
     _notify();
     return session!;
+  }
+
+  /// Supabase Auth 세션 → 앱 SessionUser 동기화.
+  /// 이미 온보딩 완료된 동일 유저면 유지, 아니면 guest 세션으로 온보딩 진입 준비.
+  SessionUser syncFromAuthUser(User user) {
+    final authId = user.id;
+    final existing = session;
+    if (existing != null &&
+        existing.authUserId == authId &&
+        existing.onboardingComplete) {
+      return existing;
+    }
+    if (existing != null &&
+        existing.onboardingComplete &&
+        existing.authUserId == null) {
+      // 로컬 세션만 있는 경우 auth id만 연결
+      session = existing.copyWith(authUserId: authId);
+      _notify();
+      return session!;
+    }
+
+    final provider = SoriAuthService.providerFromUser(user);
+    final name = SoriAuthService.displayNameFromUser(user);
+    final phone = SoriAuthService.phoneFromUser(user);
+    final email = user.email?.trim() ?? '';
+
+    return beginSocialLogin(
+      provider: provider,
+      name: name,
+      phone: phone,
+      authUserId: authId,
+      email: email,
+    );
+  }
+
+  void updateSessionProfile({
+    required String name,
+    required String phone,
+  }) {
+    if (session == null) return;
+    session = session!.copyWith(
+      name: name.trim(),
+      phone: phone.trim(),
+    );
+    _notify();
   }
 
   /// 역할 선택 완료. 고객이면 전화 매칭 후 바로 홈, 원장이면 샵 설정 필요.
@@ -500,6 +553,9 @@ class SoriStore {
   void logout() {
     session = null;
     _notify();
+    if (SoriAuthService.instance.isAvailable) {
+      unawaited(SoriAuthService.instance.signOut());
+    }
   }
 
   bool verifyPhoneLast4({

@@ -1,6 +1,6 @@
 enum UserRole { guest, director, customer }
 
-enum SocialProvider { kakao, naver, google, apple }
+enum SocialProvider { kakao, naver, google, apple, email }
 
 class SessionUser {
   const SessionUser({
@@ -9,6 +9,8 @@ class SessionUser {
     required this.phone,
     required this.provider,
     this.customerId,
+    this.authUserId,
+    this.email = '',
     this.onboardingComplete = false,
     this.shopSetupComplete = false,
     this.activeMode = UserRole.customer,
@@ -20,6 +22,8 @@ class SessionUser {
   final String phone;
   final SocialProvider provider;
   final String? customerId;
+  final String? authUserId;
+  final String email;
   final bool onboardingComplete;
   final bool shopSetupComplete;
 
@@ -37,11 +41,15 @@ class SessionUser {
 
   bool get canToggleMode => onboardingComplete && shopSetupComplete;
 
+  bool get needsProfileCompletion =>
+      name.trim().isEmpty || phoneDigits.length < 10;
+
   String get providerLabel => switch (provider) {
         SocialProvider.kakao => '카카오',
         SocialProvider.naver => '네이버',
         SocialProvider.google => 'Google',
         SocialProvider.apple => 'Apple',
+        SocialProvider.email => '이메일',
       };
 
   SessionUser copyWith({
@@ -50,6 +58,8 @@ class SessionUser {
     String? phone,
     SocialProvider? provider,
     String? customerId,
+    String? authUserId,
+    String? email,
     bool? onboardingComplete,
     bool? shopSetupComplete,
     UserRole? activeMode,
@@ -61,6 +71,8 @@ class SessionUser {
       phone: phone ?? this.phone,
       provider: provider ?? this.provider,
       customerId: customerId ?? this.customerId,
+      authUserId: authUserId ?? this.authUserId,
+      email: email ?? this.email,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       shopSetupComplete: shopSetupComplete ?? this.shopSetupComplete,
       activeMode: activeMode ?? this.activeMode,
