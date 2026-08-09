@@ -129,12 +129,16 @@ class OpenAiService {
   static const String _polishSystemPrompt = '''
 당신은 에스테틱/반영구 샵의 15년 차 수석 원장이자 전문 카피라이터입니다.
 
+제공된 '서비스명'을 분석하여 타겟 부위(예: 복부, 하체, 얼굴 윤곽 등)와 핵심 관리 목적을 정확히 추론하세요.
+서비스명(타겟 부위) + 키워드 칩(시술 수단 및 감각) + 코멘트를 모두 종합하여,
+해당 부위에 특화된 구체적이고 매력적인 베네핏(Benefit) 중심의 세일즈 문장을 작성하세요.
+
 사용자의 텍스트 맥락을 분석하여 아래 3가지 모드 중 하나를 스스로 선택해 답변하세요.
 
 [모드 A: 메뉴/상품 소개]
 철저히 '비전문가 고객' 눈높이에서 일상의 유익함(Benefit)을 시각적으로 묘사하는 세일즈 톤.
-(예: 아침 준비 시간 단축, 화장 잘 먹음 등)
-선택된 범용 키워드 칩(시술 수단·체감 감각·기대 효과)과 자유 코멘트(특정 성분·구체 메모)를
+(예: 아침 준비 시간 단축, 화장 잘 먹음, 복부 라인 정리 등)
+서비스명을 최우선으로 반영하고, 선택된 범용 키워드 칩과 자유 코멘트(특정 성분·구체 메모)를
 키워드 나열 없이 자연스럽게 믹스해 1~2문장 세일즈 카피로 완성하세요.
 
 [모드 B: CS/주의사항/Q&A]
@@ -148,7 +152,7 @@ class OpenAiService {
 따옴표·제목·불릿·해시태그·모드 표기 금지. 과장·허위·의료적 단정 금지.
 ''';
 
-  /// 서비스 메뉴 설명 — 자유 코멘트 + 선택 칩 하이브리드 윤문.
+  /// 서비스 메뉴 설명 — 서비스명 + 칩 + 자유 코멘트 하이브리드 윤문.
   Future<String> polishServiceDescription({
     required String serviceName,
     required String roughDescription,
@@ -161,29 +165,34 @@ class OpenAiService {
       );
     }
 
+    final name = serviceName.trim();
     final draft = roughDescription.trim();
     final chips = selectedChips
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList(growable: false);
-    final name = serviceName.trim();
 
-    if (draft.isEmpty && chips.isEmpty && name.isEmpty) {
-      throw OpenAiException('다듬을 설명, 키워드 칩, 또는 서비스명을 먼저 입력해 주세요.');
+    if (name.isEmpty) {
+      throw OpenAiException(
+        '서비스명을 먼저 입력해 주세요. 타겟 부위·관리 목적 추론에 필요해요.',
+      );
     }
 
     final chipsLine = chips.isEmpty ? '(없음)' : chips.join(', ');
     final memoLine = draft.isEmpty ? '(없음)' : draft;
 
+    // 서비스명을 최우선 컨텍스트로 payload에 명시
     final userPrompt = '''
+[서비스명 — 최우선 컨텍스트]
+$name
+
 [샵 이름] ${shopName.trim().isEmpty ? '뷰티 살롱' : shopName.trim()}
-[서비스명] ${name.isEmpty ? '(미정)' : name}
 [선택된 키워드 칩] $chipsLine
 [자유 코멘트]
 $memoLine
 
-자유 코멘트의 구체 성분·메모와 선택된 범용 칩을 완벽하게 믹스하여,
-맥락에 맞는 모드로 최종 문장만 1~3문장(메뉴 소개면 1~2문장 세일즈 카피)으로 다듬어 주세요.
+서비스명에서 타겟 부위와 관리 목적을 먼저 추론한 뒤,
+키워드 칩·자유 코멘트를 종합해 해당 부위에 특화된 Benefit 중심 문장만 1~3문장으로 작성해 주세요.
 ''';
 
     try {

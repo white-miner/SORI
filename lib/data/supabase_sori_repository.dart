@@ -130,7 +130,7 @@ class SupabaseSoriRepository implements SoriRepository {
 
   @override
   Future<SoriSnapshot> loadInitialData() async {
-    // 행 파싱·부분 테이블 실패는 흡수하고, shops 쿼리 자체 장애만 상위로 전달한다.
+    // 행 파싱·부분 테이블 실패는 흡수하고, shops 조회 실패 시에도 로컬 폴백으로 부트스트랩 유지.
     const fallbackShop = Shop(
       id: '',
       name: 'SORI 에스테틱',
@@ -163,8 +163,10 @@ class SupabaseSoriRepository implements SoriRepository {
         }
       }
     } catch (e, st) {
-      debugPrint('SupabaseSoriRepository.loadInitialData shops failed: $e\n$st');
-      rethrow;
+      debugPrint(
+        'SupabaseSoriRepository.loadInitialData shops failed, using fallback: $e\n$st',
+      );
+      shop = fallbackShop;
     }
 
     List<Customer> customers = const [];
@@ -313,25 +315,44 @@ class SupabaseSoriRepository implements SoriRepository {
 
   @override
   Future<Shop> upsertShop(Shop shop) async {
-    final payload = <String, dynamic>{
+    final basePayload = <String, dynamic>{
       'name': shop.name,
       'owner_name': shop.ownerName ?? '',
       'phone': shop.phone,
       'naver_place_url': shop.naverPlaceUrl,
       'address': shop.address,
-      'operating_hours': shop.operatingHours,
-      'sns_blog_url': shop.snsBlogUrl,
-      'sns_instagram_url': shop.snsInstagramUrl,
       'service_menu': shop.serviceMenu.map((e) => e.toMap()).toList(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     final includeId = shop.id.isNotEmpty && !_isTempId(shop.id);
-    if (includeId) payload['id'] = shop.id;
+    if (includeId) basePayload['id'] = shop.id;
 
-    final row = includeId
-        ? await _db.from('shops').upsert(payload).select().single()
-        : await _db.from('shops').insert(payload).select().single();
-    return Shop.fromMap(Map<String, dynamic>.from(row));
+    // operating_hours / SNS 컬럼이 아직 없는 스키마에도 대응
+    final fullPayload = <String, dynamic>{
+      ...basePayload,
+      'operating_hours': shop.operatingHours,
+      'sns_blog_url': shop.snsBlogUrl,
+      'sns_instagram_url': shop.snsInstagramUrl,
+    };
+
+    try {
+      final row = includeId
+          ? await _db.from('shops').upsert(fullPayload).select().single()
+          : await _db.from('shops').insert(fullPayload).select().single();
+      return Shop.fromMap(Map<String, dynamic>.from(row));
+    } catch (e) {
+      debugPrint('upsertShop with hours/SNS failed, retrying base payload: $e');
+      final row = includeId
+          ? await _db.from('shops').upsert(basePayload).select().single()
+          : await _db.from('shops').insert(basePayload).select().single();
+      // 원격에 hours/SNS가 없어도 로컬 값은 유지
+      return Shop.fromMap(Map<String, dynamic>.from(row)).copyWith(
+        operatingHours: shop.operatingHours,
+        snsBlogUrl: shop.snsBlogUrl,
+        snsInstagramUrl: shop.snsInstagramUrl,
+        serviceMenu: shop.serviceMenu,
+      );
+    }
   }
 
   @override

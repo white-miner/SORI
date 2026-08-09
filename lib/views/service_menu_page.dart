@@ -77,10 +77,19 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
     final name = draft.name.text.trim();
     final desc = draft.description.text.trim();
     final chips = draft.selectedChips.toList();
-    if (name.isEmpty && desc.isEmpty && chips.isEmpty) {
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('서비스명, 키워드 칩, 또는 자유 코멘트를 입력해 주세요'),
+          content: Text('서비스명을 먼저 입력해 주세요 (타겟 부위 추론에 필요해요)'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (desc.isEmpty && chips.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('키워드 칩 또는 자유 코멘트를 입력해 주세요'),
           behavior: SnackBarBehavior.floating,
         ),
       );

@@ -89,27 +89,56 @@ class Shop {
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
-    final rawMenu = map['service_menu'];
-    final menu = <ShopServiceItem>[];
-    if (rawMenu is List) {
-      for (final item in rawMenu) {
-        final parsed = ShopServiceItem.fromDynamic(item);
-        if (parsed.name.trim().isEmpty) continue;
-        menu.add(parsed);
+    try {
+      final rawMenu = map['service_menu'];
+      final menu = <ShopServiceItem>[];
+      if (rawMenu is List) {
+        for (final item in rawMenu) {
+          try {
+            final parsed = ShopServiceItem.fromDynamic(item);
+            if (parsed.name.trim().isEmpty) continue;
+            menu.add(parsed);
+          } catch (_) {
+            // 개별 메뉴 항목 파싱 실패는 건너뜀
+          }
+        }
       }
-    }
 
-    return Shop(
-      id: DbMap.asText(map['id']),
-      name: DbMap.asText(map['name'], 'SORI 샵'),
-      ownerName: DbMap.asTextOrNull(map['owner_name']),
-      phone: DbMap.asTextOrNull(map['phone']),
-      naverPlaceUrl: DbMap.asText(map['naver_place_url']),
-      address: DbMap.asTextOrNull(map['address']),
-      operatingHours: DbMap.asText(map['operating_hours']),
-      snsBlogUrl: DbMap.asText(map['sns_blog_url']),
-      snsInstagramUrl: DbMap.asText(map['sns_instagram_url']),
-      serviceMenu: menu,
-    );
+      // null/누락·별칭(sns_insta_url) 모두 ''로 흡수
+      final operatingHours = DbMap.asText(
+        map['operating_hours'] ?? map['operatingHours'],
+      );
+      final snsBlogUrl = DbMap.asText(
+        map['sns_blog_url'] ?? map['snsBlogUrl'],
+      );
+      final snsInstagramUrl = DbMap.asText(
+        map['sns_instagram_url'] ??
+            map['sns_insta_url'] ??
+            map['snsInstagramUrl'] ??
+            map['snsInstaUrl'],
+      );
+
+      return Shop(
+        id: DbMap.asText(map['id']),
+        name: DbMap.asText(map['name'], 'SORI 샵'),
+        ownerName: DbMap.asTextOrNull(map['owner_name']),
+        phone: DbMap.asTextOrNull(map['phone']),
+        naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+        address: DbMap.asTextOrNull(map['address']),
+        operatingHours: operatingHours,
+        snsBlogUrl: snsBlogUrl,
+        snsInstagramUrl: snsInstagramUrl,
+        serviceMenu: menu,
+      );
+    } catch (_) {
+      return Shop(
+        id: DbMap.asText(map['id']),
+        name: DbMap.asText(map['name'], 'SORI 샵'),
+        ownerName: DbMap.asTextOrNull(map['owner_name']),
+        phone: DbMap.asTextOrNull(map['phone']),
+        naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+        address: DbMap.asTextOrNull(map['address']),
+      );
+    }
   }
 }
