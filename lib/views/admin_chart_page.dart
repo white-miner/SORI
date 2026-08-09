@@ -129,9 +129,29 @@ class _AdminChartPageState extends State<AdminChartPage> {
                   onConfirmOnly: chart.visitChecked
                       ? null
                       : () async {
+                          final before =
+                              widget.store.findCustomer(widget.customerId);
+                          final hadMembership =
+                              before?.isMembershipCustomer ?? false;
                           final opened =
                               widget.store.confirmVisit(chartId: chart.id);
                           if (!context.mounted) return;
+                          final after =
+                              widget.store.findCustomer(widget.customerId);
+                          final remain =
+                              after?.membershipRemainingVisits ?? 0;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                hadMembership
+                                    ? '방문 확인 완료 · 회원권 1회 차감됐어요 (잔여 $remain회)'
+                                    : '방문 확인 완료 · 고객 리뷰 링크가 준비됐어요',
+                              ),
+                              backgroundColor: MyApp.soriPurple,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
                           await showCustomerLinkPopup(
                             context,
                             chart: opened,

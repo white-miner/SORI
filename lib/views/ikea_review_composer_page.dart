@@ -140,32 +140,66 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
   Future<void> _copyAndOpenNaver() async {
     final text = _aiReview.trim().isEmpty ? _fallbackText() : _aiReview.trim();
     setState(() => _copying = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await Clipboard.setData(ClipboardData(text: text));
-      final chartId = _chart?.id;
-      if (chartId != null) {
-        await widget.store.markNaverRegistered(
-          chartId: chartId,
-          composedText: text,
-        );
-      }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
-          content: Text('후기를 복사했어요. 네이버 플레이스로 이동합니다.'),
+          content: Text('클립보드에 후기를 복사했어요'),
           backgroundColor: SoriTokens.primary,
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
         ),
       );
+
+      final chartId = _chart?.id;
+      var synced = chartId == null;
+      if (chartId != null) {
+        try {
+          final review = await widget.store.markNaverRegistered(
+            chartId: chartId,
+            composedText: text,
+          );
+          synced = review?.naverRegistered == true;
+          widget.store.clearError();
+        } catch (_) {
+          synced = false;
+          widget.store.clearError();
+          if (mounted) {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '복사는 완료됐어요. 네이버 등록 상태 저장은 잠시 후 다시 시도해 주세요.',
+                ),
+                backgroundColor: SoriTokens.warningText,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      }
+
+      if (synced && mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('네이버 등록 완료로 저장했어요. 플레이스로 이동합니다.'),
+            backgroundColor: SoriTokens.success,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
       final uri = Uri.tryParse(widget.store.shop.naverReviewDeepLink);
       if (uri != null) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: Text('복사/등록 중 문제가 생겼어요: $e'),
+          content: Text('복사 중 문제가 생겼어요: $e'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
         ),

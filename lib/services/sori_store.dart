@@ -567,6 +567,7 @@ class SoriStore {
   }
 
   /// 네이버 플레이스 리뷰 등록 트래킹 (clipboard CTA 후).
+  /// 원격 동기화 실패 시 1회 재시도 후 예외를 다시 던져 UI가 상태를 구분하게 한다.
   Future<CustomerReview?> markNaverRegistered({
     required String chartId,
     String? composedText,
@@ -585,22 +586,35 @@ class SoriStore {
       _notify();
     }
 
-    try {
-      final remote = await _repository.markNaverRegistered(
-        chartId: chartId,
-        composedText: composedText,
-      );
-      if (remote != null) {
-        _mergeReview(remote);
-        _notify();
+    Object? lastFailure;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final remote = await _repository.markNaverRegistered(
+          chartId: chartId,
+          composedText: composedText,
+        );
+        if (remote != null) {
+          _mergeReview(remote);
+          lastError = null;
+          _notify();
+          return remote;
+        }
+        if (!_repository.isRemote) {
+          return reviewForChart(chartId);
+        }
+        lastFailure = StateError('naver_registered sync returned empty');
+      } catch (e, st) {
+        lastFailure = e;
+        debugPrint('markNaverRegistered attempt ${attempt + 1} failed: $e\n$st');
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
       }
-      return remote ?? reviewForChart(chartId);
-    } catch (e, st) {
-      debugPrint('markNaverRegistered failed: $e\n$st');
-      _setError(e);
-      _notify();
-      return reviewForChart(chartId);
     }
+
+    _setError(lastFailure ?? StateError('naver_registered sync failed'));
+    _notify();
+    throw lastFailure ?? StateError('naver_registered sync failed');
   }
 
   AiReply? aiReplyForReview(String reviewId) {

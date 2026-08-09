@@ -1,23 +1,30 @@
 {
-    "name": "sori",
-    "short_name": "sori",
+    "name": "소통하는 리뷰, SORI",
+    "short_name": "SORI",
+    "description": "에스테틱 샵을 위한 케어 리포트와 AI 리뷰 작성 앱",
     "start_url": ".",
+    "scope": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "display_override": ["standalone", "fullscreen"],
+    "background_color": "#5B4CDB",
+    "theme_color": "#5B4CDB",
     "orientation": "portrait-primary",
+    "lang": "ko",
+    "dir": "ltr",
     "prefer_related_applications": false,
+    "categories": ["business", "productivity"],
     "icons": [
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-maskable-192.png",

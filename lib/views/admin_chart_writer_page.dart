@@ -4,6 +4,7 @@ import '../models/chart_interview_chips.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import 'customer_link_popup.dart';
 import 'my_app.dart';
 
@@ -316,6 +317,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     }
 
     setState(() => _saving = true);
+    final wasAlreadyChecked = widget.existingChart?.visitChecked == true;
+    final expectMembershipDeduct =
+        !wasAlreadyChecked && _membershipTotal > 0;
     try {
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: widget.customer.id,
@@ -349,6 +353,22 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       );
 
       if (!mounted) return;
+      final customer = widget.store.findCustomer(widget.customer.id);
+      final remain = customer?.membershipRemainingVisits ?? 0;
+      final deducted = expectMembershipDeduct &&
+          (customer?.isMembershipCustomer ?? false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            deducted
+                ? '방문 확인 완료 · 회원권 1회 차감됐어요 (잔여 $remain회)'
+                : '방문 확인 완료 · 고객 리뷰 링크가 준비됐어요',
+          ),
+          backgroundColor: SoriTokens.primary,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
       await showCustomerLinkPopup(context, chart: chart, store: widget.store);
       if (!mounted) return;
       Navigator.pop(context, chart);
