@@ -142,24 +142,48 @@ class SupabaseSoriRepository implements SoriRepository {
 
     late final Shop shop;
     try {
-      final shops = await _db
-          .from('shops')
-          .select()
-          .order('created_at', ascending: true)
-          .limit(1);
-      final parsedShops = _mapRowsSafely(
-        shops as List,
-        Shop.fromMap,
-        label: 'shops',
-      );
-      if (parsedShops.isNotEmpty) {
-        shop = parsedShops.first;
-      } else {
+      Shop? preferred;
+      final uid = _db.auth.currentUser?.id;
+      if (uid != null && uid.isNotEmpty) {
         try {
-          shop = await upsertShop(fallbackShop);
+          final owned = await _db
+              .from('shops')
+              .select()
+              .eq('owner_user_id', uid)
+              .limit(1);
+          final parsedOwned = _mapRowsSafely(
+            owned as List,
+            Shop.fromMap,
+            label: 'shops.owned',
+          );
+          if (parsedOwned.isNotEmpty) preferred = parsedOwned.first;
         } catch (e) {
-          debugPrint('shops upsert fallback kept local shop: $e');
-          shop = fallbackShop;
+          debugPrint('owned shop lookup skipped: $e');
+        }
+      }
+
+      if (preferred != null) {
+        shop = preferred;
+      } else {
+        final shops = await _db
+            .from('shops')
+            .select()
+            .order('created_at', ascending: true)
+            .limit(1);
+        final parsedShops = _mapRowsSafely(
+          shops as List,
+          Shop.fromMap,
+          label: 'shops',
+        );
+        if (parsedShops.isNotEmpty) {
+          shop = parsedShops.first;
+        } else {
+          try {
+            shop = await upsertShop(fallbackShop);
+          } catch (e) {
+            debugPrint('shops upsert fallback kept local shop: $e');
+            shop = fallbackShop;
+          }
         }
       }
     } catch (e, st) {
@@ -674,5 +698,111 @@ class SupabaseSoriRepository implements SoriRepository {
         .select()
         .single();
     return CustomerReview.fromMap(Map<String, dynamic>.from(updated));
+  }
+
+  @override
+  Future<AuthRoleResolution> resolveAuthRole(String userId) async {
+    final uid = userId.trim();
+    if (uid.isEmpty) return const AuthRoleResolution.unknown();
+
+    try {
+      final owned = await _db
+          .from('shops')
+          .select()
+          .eq('owner_user_id', uid)
+          .limit(1);
+      final shops = _mapRowsSafely(
+        owned as List,
+        Shop.fromMap,
+        label: 'resolve.shops',
+      );
+      if (shops.isNotEmpty) {
+        return AuthRoleResolution.director(shops.first);
+      }
+    } catch (e) {
+      debugPrint('resolveAuthRole shops failed: $e');
+    }
+
+    try {
+      final linked = await _db
+          .from('customers')
+          .select()
+          .eq('user_id', uid)
+          .limit(1);
+      final customers = _mapRowsSafely(
+        linked as List,
+        Customer.fromMap,
+        label: 'resolve.customers',
+      );
+      if (customers.isNotEmpty) {
+        return AuthRoleResolution.customer(customers.first);
+      }
+    } catch (e) {
+      debugPrint('resolveAuthRole customers failed: $e');
+    }
+
+    try {
+      final profile = await _db
+          .from('profiles')
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
+      if (profile != null) {
+        final role = '${profile['role'] ?? ''}'.toLowerCase();
+        if (role == 'director') {
+          // 프로필만 director면 소유 샵이 아직 없을 수 있음 → unknown으로 온보딩
+          return const AuthRoleResolution.unknown();
+        }
+        if (role == 'customer') {
+          return const AuthRoleResolution.unknown();
+        }
+      }
+    } catch (e) {
+      debugPrint('resolveAuthRole profile failed: $e');
+    }
+
+    return const AuthRoleResolution.unknown();
+  }
+
+  @override
+  Future<void> linkShopOwner({
+    required String shopId,
+    required String userId,
+  }) async {
+    if (shopId.isEmpty || userId.isEmpty || _isTempId(shopId)) return;
+    try {
+      await _db.from('shops').update({
+        'owner_user_id': userId,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', shopId);
+      await _db.from('profiles').update({
+        'role': 'director',
+        'active_mode': 'director',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', userId);
+    } catch (e) {
+      debugPrint('linkShopOwner failed: $e');
+    }
+  }
+
+  @override
+  Future<void> linkCustomerUser({
+    required String customerId,
+    required String userId,
+  }) async {
+    if (customerId.isEmpty || userId.isEmpty || _isTempId(customerId)) return;
+    try {
+      await _db.from('customers').update({
+        'user_id': userId,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', customerId);
+      await _db.from('profiles').update({
+        'role': 'customer',
+        'active_mode': 'customer',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', userId);
+    } catch (e) {
+      debugPrint('linkCustomerUser failed: $e');
+    }
   }
 }

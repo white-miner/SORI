@@ -405,6 +405,77 @@ class SoriStore {
     );
   }
 
+  /// 로그인 성공 후 shops/customers 판별로 원장·고객 홈 세션을 구성.
+  Future<SessionUser> hydrateSessionFromAuth(User user) async {
+    syncFromAuthUser(user);
+    if (session == null) {
+      throw StateError('No session after syncFromAuthUser');
+    }
+    if (session!.onboardingComplete) {
+      return session!;
+    }
+
+    try {
+      final resolved = await _repository.resolveAuthRole(user.id);
+      if (resolved.isDirector && resolved.shop != null) {
+        shop = resolved.shop!;
+        shopRegisteredByUser = true;
+        // 소유 샵 기준으로 데이터 재로드
+        if (_repository.isRemote) {
+          try {
+            final snapshot = await _repository.loadInitialData();
+            _applySnapshot(snapshot);
+            shop = resolved.shop!;
+          } catch (e) {
+            debugPrint('hydrate reload after director resolve: $e');
+          }
+        }
+        final ownerName = shop.ownerName?.trim();
+        session = session!.copyWith(
+          role: UserRole.director,
+          name: session!.name.trim().isNotEmpty
+              ? session!.name
+              : (ownerName != null && ownerName.isNotEmpty
+                  ? ownerName
+                  : '원장'),
+          onboardingComplete: true,
+          shopSetupComplete: true,
+          activeMode: UserRole.director,
+          showFirstChartTutorial: false,
+        );
+        _notify();
+        return session!;
+      }
+
+      if (resolved.isCustomer && resolved.customer != null) {
+        final c = resolved.customer!;
+        final idx = customers.indexWhere((e) => e.id == c.id);
+        if (idx >= 0) {
+          customers[idx] = c;
+        } else {
+          customers.insert(0, c);
+        }
+        session = session!.copyWith(
+          role: UserRole.customer,
+          customerId: c.id,
+          name: c.name.trim().isNotEmpty ? c.name : session!.name,
+          phone: c.phone.trim().isNotEmpty ? c.phone : session!.phone,
+          onboardingComplete: true,
+          shopSetupComplete: false,
+          activeMode: UserRole.customer,
+          showFirstChartTutorial: false,
+        );
+        _notify();
+        return session!;
+      }
+    } catch (e, st) {
+      debugPrint('hydrateSessionFromAuth resolve failed: $e\n$st');
+    }
+
+    _notify();
+    return session!;
+  }
+
   void updateSessionProfile({
     required String name,
     required String phone,
@@ -446,6 +517,15 @@ class SoriStore {
         activeMode: UserRole.customer,
         showFirstChartTutorial: false,
       );
+      final authId = session!.authUserId;
+      if (authId != null && authId.isNotEmpty) {
+        unawaited(
+          _repository.linkCustomerUser(
+            customerId: customer.id,
+            userId: authId,
+          ),
+        );
+      }
     } else {
       session = session!.copyWith(
         role: UserRole.director,
@@ -479,6 +559,12 @@ class SoriStore {
       activeMode: UserRole.director,
       showFirstChartTutorial: true,
     );
+    final authId = session!.authUserId;
+    if (authId != null && authId.isNotEmpty && shop.id.isNotEmpty) {
+      unawaited(
+        _repository.linkShopOwner(shopId: shop.id, userId: authId),
+      );
+    }
     _notify();
     return session!;
   }

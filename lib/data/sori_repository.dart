@@ -5,6 +5,9 @@ import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import 'auth_role_resolution.dart';
+
+export 'auth_role_resolution.dart';
 
 /// 앱 초기 로드용 스냅샷 (Repository → Store).
 class SoriSnapshot {
@@ -139,5 +142,20 @@ abstract class SoriRepository {
   Future<CustomerReview?> markNaverRegistered({
     required String chartId,
     String? composedText,
+  });
+
+  /// Auth user id로 원장(shops.owner_user_id) / 고객(customers.user_id) 판별.
+  Future<AuthRoleResolution> resolveAuthRole(String userId);
+
+  /// 샵 소유자(원장) Auth 연결.
+  Future<void> linkShopOwner({
+    required String shopId,
+    required String userId,
+  });
+
+  /// 고객 Auth 연결.
+  Future<void> linkCustomerUser({
+    required String customerId,
+    required String userId,
   });
 }

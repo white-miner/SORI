@@ -223,4 +223,21 @@ class MemorySoriRepository implements SoriRepository {
       naverRegisteredAt: DateTime.now(),
     );
   }
+
+  @override
+  Future<AuthRoleResolution> resolveAuthRole(String userId) async {
+    return const AuthRoleResolution.unknown();
+  }
+
+  @override
+  Future<void> linkShopOwner({
+    required String shopId,
+    required String userId,
+  }) async {}
+
+  @override
+  Future<void> linkCustomerUser({
+    required String customerId,
+    required String userId,
+  }) async {}
 }

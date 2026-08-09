@@ -86,9 +86,10 @@ class _EntryHomePageState extends State<EntryHomePage>
     if (_handlingAuth || !mounted) return;
     _handlingAuth = true;
     try {
-      final sessionUser = _store.syncFromAuthUser(user);
+      final sessionUser = await _store.hydrateSessionFromAuth(user);
       if (!mounted) return;
 
+      // 원장(shops) / 고객(customers)으로 판별된 계정 → 메인 홈
       if (sessionUser.onboardingComplete) {
         Navigator.of(context).pushNamedAndRemoveUntil(
           AppRouter.app,
@@ -101,7 +102,6 @@ class _EntryHomePageState extends State<EntryHomePage>
         final profile = await _collectProfile(sessionUser.provider);
         if (!mounted) return;
         if (profile == null) {
-          // 프로필 미완료 시에도 온보딩으로 진행 (이름만이라도)
           if (_store.session?.name.trim().isEmpty == true) {
             _store.updateSessionProfile(
               name: SoriAuthService.displayNameFromUser(user).isEmpty
@@ -116,6 +116,7 @@ class _EntryHomePageState extends State<EntryHomePage>
       }
 
       if (!mounted) return;
+      // 신규 계정 → 원장/고객 선택 온보딩
       await Navigator.of(context).push(
         PageRouteBuilder<void>(
           pageBuilder: (context, animation, secondaryAnimation) =>
