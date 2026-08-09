@@ -355,15 +355,17 @@ class SoriStore {
     required String name,
     required String phone,
     String? authUserId,
+    String? providerId,
     String email = '',
   }) {
     session = SessionUser(
       role: UserRole.guest,
-      name: name.trim(),
+      name: name.trim().isEmpty ? '소리 회원' : name.trim(),
       phone: phone.trim(),
       provider: provider,
       authUserId: authUserId,
-      email: email.trim(),
+      providerId: providerId,
+      email: email.trim(), // 카카오는 빈 문자열 허용
       onboardingComplete: false,
       shopSetupComplete: false,
       activeMode: UserRole.customer,
@@ -373,20 +375,36 @@ class SoriStore {
   }
 
   /// Supabase Auth 세션 → 앱 SessionUser 동기화.
-  /// 이미 온보딩 완료된 동일 유저면 유지, 아니면 guest 세션으로 온보딩 진입 준비.
+  /// 이메일 null(카카오)이어도 provider_id 기준으로 세션을 유지합니다.
   SessionUser syncFromAuthUser(User user) {
     final authId = user.id;
+    final providerId = SoriAuthService.providerIdFromUser(user);
     final existing = session;
-    if (existing != null &&
-        existing.authUserId == authId &&
-        existing.onboardingComplete) {
-      return existing;
+
+    if (existing != null && existing.onboardingComplete) {
+      final sameAuth = existing.authUserId == authId;
+      final sameProvider = existing.providerId != null &&
+          existing.providerId == providerId;
+      if (sameAuth || sameProvider) {
+        session = existing.copyWith(
+          authUserId: authId,
+          providerId: providerId,
+          email: SoriAuthService.emailFromUser(user).isNotEmpty
+              ? SoriAuthService.emailFromUser(user)
+              : existing.email,
+        );
+        _notify();
+        return session!;
+      }
     }
+
     if (existing != null &&
         existing.onboardingComplete &&
         existing.authUserId == null) {
-      // 로컬 세션만 있는 경우 auth id만 연결
-      session = existing.copyWith(authUserId: authId);
+      session = existing.copyWith(
+        authUserId: authId,
+        providerId: providerId,
+      );
       _notify();
       return session!;
     }
@@ -394,13 +412,14 @@ class SoriStore {
     final provider = SoriAuthService.providerFromUser(user);
     final name = SoriAuthService.displayNameFromUser(user);
     final phone = SoriAuthService.phoneFromUser(user);
-    final email = user.email?.trim() ?? '';
+    final email = SoriAuthService.emailFromUser(user);
 
     return beginSocialLogin(
       provider: provider,
       name: name,
       phone: phone,
       authUserId: authId,
+      providerId: providerId,
       email: email,
     );
   }

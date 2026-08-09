@@ -57,10 +57,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SITE_URL: https://white-miner.github.io/SORI/
         run: |
           DEFINES=(
             --dart-define="SUPABASE_URL=${SUPABASE_URL}"
             --dart-define="SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
+            --dart-define="SITE_URL=${SITE_URL}"
           )
           if [ -n "$OPENAI_API_KEY" ]; then
             DEFINES+=(--dart-define="OPENAI_API_KEY=${OPENAI_API_KEY}")

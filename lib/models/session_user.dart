@@ -10,6 +10,7 @@ class SessionUser {
     required this.provider,
     this.customerId,
     this.authUserId,
+    this.providerId,
     this.email = '',
     this.onboardingComplete = false,
     this.shopSetupComplete = false,
@@ -23,6 +24,9 @@ class SessionUser {
   final SocialProvider provider;
   final String? customerId;
   final String? authUserId;
+
+  /// OAuth provider 고유 ID (카카오 id 등). 이메일 없이도 매핑에 사용.
+  final String? providerId;
   final String email;
   final bool onboardingComplete;
   final bool shopSetupComplete;
@@ -59,6 +63,7 @@ class SessionUser {
     SocialProvider? provider,
     String? customerId,
     String? authUserId,
+    String? providerId,
     String? email,
     bool? onboardingComplete,
     bool? shopSetupComplete,
@@ -72,6 +77,7 @@ class SessionUser {
       provider: provider ?? this.provider,
       customerId: customerId ?? this.customerId,
       authUserId: authUserId ?? this.authUserId,
+      providerId: providerId ?? this.providerId,
       email: email ?? this.email,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       shopSetupComplete: shopSetupComplete ?? this.shopSetupComplete,
