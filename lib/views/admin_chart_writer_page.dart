@@ -112,12 +112,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _birthDate = c.birthDate;
     final synced = c.withSyncedMembershipMirrors();
     _memberships = List<CustomerMembership>.from(synced.memberships);
+    // 오늘 진행 서비스는 진입 시 항상 빈 칸 (기존 차트 수정 시에만 복원)
     _careNameController = TextEditingController(
-      text: existing?.careName.isNotEmpty == true
-          ? existing!.careName
-          : (c.treatmentType.isNotEmpty
-              ? c.treatmentType
-              : (_serviceOptions.isNotEmpty ? _serviceOptions.first : '')),
+      text: existing?.careName ?? '',
     );
     _requestsController = TextEditingController(
       text: existing?.customerRequests ?? '',
@@ -158,8 +155,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         ..._memberships,
         CustomerMembership(
           id: 'm-${DateTime.now().millisecondsSinceEpoch}',
-          serviceName:
-              _serviceOptions.isNotEmpty ? _serviceOptions.first : '',
+          serviceName: '',
           totalVisits: 10,
           usedVisits: 0,
         ),
@@ -242,10 +238,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       if (prior?.customerRequests.isNotEmpty == true) {
         _requestsController.text = prior!.customerRequests;
       }
-      if (_careNameController.text.trim().isEmpty &&
-          matched.treatmentType.isNotEmpty) {
-        _careNameController.text = matched.treatmentType;
-      }
+      // 오늘 진행 서비스는 자동완성으로 채우지 않음 (빈 칸 유지)
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -728,7 +721,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: const Text(
-                            '[ + 회원권 추가 ]',
+                            '+ 회원권 추가',
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -1049,7 +1042,8 @@ class _ServiceNameFieldState extends State<_ServiceNameField> {
         return _ServicePickerSheet(
           title: widget.label,
           options: widget.options,
-          initialQuery: _controller.text,
+          // 빈 칸이면 전체 목록, 입력 중이면 해당 쿼리로 필터
+          initialQuery: _controller.text.trim(),
         );
       },
     );
@@ -1068,6 +1062,7 @@ class _ServiceNameFieldState extends State<_ServiceNameField> {
         if (widget.options.isEmpty) {
           return const Iterable<String>.empty();
         }
+        // 빈 문자열이면 전체 목록 즉시 노출
         return _filtered(textEditingValue.text);
       },
       onSelected: (selection) {
@@ -1129,6 +1124,12 @@ class _ServiceNameFieldState extends State<_ServiceNameField> {
           focusNode: focusNode,
           onChanged: widget.onChanged,
           onSubmitted: (_) => onFieldSubmitted(),
+          onTap: () {
+            // 빈 칸 터치 시 전체 서비스 목록을 바로 펼침
+            if (widget.options.isNotEmpty && controller.text.trim().isEmpty) {
+              _openPickerSheet();
+            }
+          },
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -1137,39 +1138,18 @@ class _ServiceNameFieldState extends State<_ServiceNameField> {
             labelText: widget.label,
             hintText: widget.options.isEmpty
                 ? '서비스명을 직접 입력하세요'
-                : '탭하여 검색·선택하거나 직접 입력',
+                : '탭하여 전체 목록 보기 · 검색 또는 직접 입력',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
             ),
             contentPadding: const EdgeInsets.fromLTRB(16, 18, 8, 18),
-            suffixIcon: Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: '서비스 목록 열기',
-                    onPressed: widget.options.isEmpty ? null : _openPickerSheet,
-                    iconSize: 30,
-                    icon: Icon(
-                      Icons.search_rounded,
-                      color: widget.options.isEmpty
-                          ? Colors.grey
-                          : MyApp.soriPurple,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '드롭다운',
-                    onPressed: widget.options.isEmpty ? null : _openPickerSheet,
-                    iconSize: 34,
-                    icon: Icon(
-                      Icons.arrow_drop_down_rounded,
-                      color: widget.options.isEmpty
-                          ? Colors.grey
-                          : MyApp.soriPurple,
-                    ),
-                  ),
-                ],
+            suffixIcon: IconButton(
+              tooltip: '서비스 목록 열기',
+              onPressed: widget.options.isEmpty ? null : _openPickerSheet,
+              iconSize: 28,
+              icon: Icon(
+                Icons.search_rounded,
+                color: widget.options.isEmpty ? Colors.grey : MyApp.soriPurple,
               ),
             ),
           ),
