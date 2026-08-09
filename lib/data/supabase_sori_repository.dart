@@ -71,6 +71,9 @@ class SupabaseSoriRepository implements SoriRepository {
       'care_name': c.careName,
       'treatment_summary': c.treatmentSummary,
       'director_insight': c.directorInsight,
+      'allergy_notes': c.allergyNotes,
+      'skin_sensitivity': c.skinSensitivity,
+      'side_effect_history': c.sideEffectHistory,
       'concern_chips': c.concernChips,
       'first_visit_fear_chips': c.firstVisitFearChips,
       'revisit_feedback_chips': c.revisitFeedbackChips,
@@ -338,10 +341,6 @@ class SupabaseSoriRepository implements SoriRepository {
       birthDate: request.birthDate,
       address: request.address ?? customer.address,
       occupation: request.occupation ?? customer.occupation,
-      allergyNotes: request.allergyNotes ?? customer.allergyNotes,
-      medicationHistory:
-          request.medicationHistory ?? customer.medicationHistory,
-      homeCareHabits: request.homeCareHabits ?? customer.homeCareHabits,
       lastTreatmentDate: DateTime.now(),
       treatmentType: request.careName.isNotEmpty
           ? request.careName
@@ -373,6 +372,10 @@ class SupabaseSoriRepository implements SoriRepository {
           careName: request.careName,
           treatmentSummary: request.treatmentSummary,
           directorInsight: request.directorInsight,
+          allergyNotes: request.allergyNotes ?? base.allergyNotes,
+          skinSensitivity: request.skinSensitivity ?? base.skinSensitivity,
+          sideEffectHistory:
+              request.sideEffectHistory ?? base.sideEffectHistory,
           concernChips: request.concernChips,
           firstVisitFearChips: request.firstVisitFearChips,
           revisitFeedbackChips: request.revisitFeedbackChips,
@@ -475,6 +478,9 @@ class SupabaseSoriRepository implements SoriRepository {
       'care_name': request.careName,
       'treatment_summary': request.treatmentSummary,
       'director_insight': request.directorInsight,
+      'allergy_notes': request.allergyNotes ?? '',
+      'skin_sensitivity': request.skinSensitivity ?? '',
+      'side_effect_history': request.sideEffectHistory ?? '',
       'concern_chips': request.concernChips,
       'first_visit_fear_chips': request.firstVisitFearChips,
       'revisit_feedback_chips': request.revisitFeedbackChips,

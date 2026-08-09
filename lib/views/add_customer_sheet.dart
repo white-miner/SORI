@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'admin_chart_writer_page.dart';
 
-/// 고객 단독 등록 바텀시트. 성공 시 저장된 [Customer]를 반환한다.
+/// 고객 단독 등록 바텀시트 (이름·전화·메모만).
+/// [openChartAfter]가 true면 등록 직후 차트 작성 화면으로 이동합니다.
 Future<Customer?> showAddCustomerSheet(
   BuildContext context, {
   required SoriStore store,
   String? initialName,
   String? initialPhone,
   String title = '신규 고객 등록',
-  String submitLabel = '고객 등록',
-}) {
-  return showModalBottomSheet<Customer>(
+  String submitLabel = '등록하고 차트 쓰기',
+  bool openChartAfter = true,
+}) async {
+  final customer = await showModalBottomSheet<Customer>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
@@ -30,6 +33,15 @@ Future<Customer?> showAddCustomerSheet(
       );
     },
   );
+
+  if (customer != null && openChartAfter && context.mounted) {
+    await openChartWriterForCustomer(
+      context,
+      store: store,
+      customer: customer,
+    );
+  }
+  return customer;
 }
 
 class _AddCustomerSheet extends StatefulWidget {
@@ -126,7 +138,7 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
       widget.store.clearError();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${saved.name}님을 등록했어요'),
+          content: Text('${saved.name}님을 등록했어요 · 차트 작성으로 이동합니다'),
           backgroundColor: SoriTokens.primary,
           behavior: SnackBarBehavior.floating,
         ),
@@ -178,7 +190,7 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
           ),
           const SizedBox(height: 4),
           const Text(
-            '차트 작성과 별도로 고객만 먼저 등록할 수 있어요',
+            '이름·전화·메모만 등록하고, 알레르기·부작용은 차트에서 입력해요',
             style: TextStyle(
               fontSize: 13,
               color: SoriTokens.textSecondary,
@@ -189,7 +201,7 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
             controller: _nameController,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
-              labelText: '고객명',
+              labelText: '이름',
               border: OutlineInputBorder(),
             ),
           ),
@@ -207,8 +219,10 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _memoController,
+            maxLines: 2,
             decoration: const InputDecoration(
-              labelText: '메모 (선택)',
+              labelText: '메모',
+              hintText: '지인소개 / 주차 / 일반 노트',
               border: OutlineInputBorder(),
             ),
           ),

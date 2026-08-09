@@ -51,8 +51,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   late final TextEditingController _addressController;
   late final TextEditingController _occupationController;
   late final TextEditingController _allergyController;
-  late final TextEditingController _medicationController;
-  late final TextEditingController _homeCareController;
+  late final TextEditingController _skinSensitivityController;
+  late final TextEditingController _sideEffectController;
   late final TextEditingController _careNameController;
   late final TextEditingController _summaryController;
   late final TextEditingController _insightController;
@@ -93,9 +93,22 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _phoneController = TextEditingController(text: c.phone);
     _addressController = TextEditingController(text: c.address);
     _occupationController = TextEditingController(text: c.occupation);
-    _allergyController = TextEditingController(text: c.allergyNotes);
-    _medicationController = TextEditingController(text: c.medicationHistory);
-    _homeCareController = TextEditingController(text: c.homeCareHabits);
+    // 차트 메디컬 우선, 구버전 고객 마스터 값은 폴백으로만 채움
+    _allergyController = TextEditingController(
+      text: (existing?.allergyNotes.isNotEmpty ?? false)
+          ? existing!.allergyNotes
+          : c.allergyNotes,
+    );
+    _skinSensitivityController = TextEditingController(
+      text: (existing?.skinSensitivity.isNotEmpty ?? false)
+          ? existing!.skinSensitivity
+          : c.medicationHistory,
+    );
+    _sideEffectController = TextEditingController(
+      text: (existing?.sideEffectHistory.isNotEmpty ?? false)
+          ? existing!.sideEffectHistory
+          : c.homeCareHabits,
+    );
     _gender = c.gender;
     _birthDate = c.birthDate;
     _membershipNameController = TextEditingController(
@@ -137,8 +150,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _addressController.dispose();
     _occupationController.dispose();
     _allergyController.dispose();
-    _medicationController.dispose();
-    _homeCareController.dispose();
+    _skinSensitivityController.dispose();
+    _sideEffectController.dispose();
     _membershipNameController.dispose();
     _careNameController.dispose();
     _summaryController.dispose();
@@ -180,14 +193,27 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       if (matched.occupation.isNotEmpty) {
         _occupationController.text = matched.occupation;
       }
-      if (matched.allergyNotes.isNotEmpty) {
-        _allergyController.text = matched.allergyNotes;
+      // 전화 매칭 시 이전 차트 메디컬을 우선 불러오고, 없으면 레거시 고객 필드 폴백
+      final prior = widget.store.latestChart(matched.id);
+      if ((prior?.allergyNotes.isNotEmpty ?? false) ||
+          matched.allergyNotes.isNotEmpty) {
+        _allergyController.text = prior?.allergyNotes.isNotEmpty == true
+            ? prior!.allergyNotes
+            : matched.allergyNotes;
       }
-      if (matched.medicationHistory.isNotEmpty) {
-        _medicationController.text = matched.medicationHistory;
+      if ((prior?.skinSensitivity.isNotEmpty ?? false) ||
+          matched.medicationHistory.isNotEmpty) {
+        _skinSensitivityController.text =
+            prior?.skinSensitivity.isNotEmpty == true
+                ? prior!.skinSensitivity
+                : matched.medicationHistory;
       }
-      if (matched.homeCareHabits.isNotEmpty) {
-        _homeCareController.text = matched.homeCareHabits;
+      if ((prior?.sideEffectHistory.isNotEmpty ?? false) ||
+          matched.homeCareHabits.isNotEmpty) {
+        _sideEffectController.text =
+            prior?.sideEffectHistory.isNotEmpty == true
+                ? prior!.sideEffectHistory
+                : matched.homeCareHabits;
       }
       if (matched.isMembershipCustomer) {
         _membershipNameController.text = matched.membershipServiceName;
@@ -363,8 +389,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         address: _addressController.text.trim(),
         occupation: _occupationController.text.trim(),
         allergyNotes: _allergyController.text.trim(),
-        medicationHistory: _medicationController.text.trim(),
-        homeCareHabits: _homeCareController.text.trim(),
+        skinSensitivity: _skinSensitivityController.text.trim(),
+        sideEffectHistory: _sideEffectController.text.trim(),
         membershipServiceName: _membershipNameController.text.trim(),
         membershipTotalVisits: _membershipTotal,
         membershipUsedVisits: _membershipUsed,
@@ -590,34 +616,44 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                 ),
                 const SizedBox(height: 12),
                 _SegmentCard(
-                  title: '2. 메디컬 & 피부 이력',
+                  title: '2. 이번 방문 메디컬 체크',
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        '알레르기·민감도·부작용은 고객 등록이 아니라 차트에 기록해요',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _allergyController,
                         maxLines: 2,
                         decoration: const InputDecoration(
-                          labelText: '알레르기 및 민감 반응',
-                          hintText: '금속, 켈로이드, 특정 성분 등',
+                          labelText: '알레르기',
+                          hintText: '금속, 향료, 특정 성분 등',
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        controller: _medicationController,
+                        controller: _skinSensitivityController,
                         maxLines: 2,
                         decoration: const InputDecoration(
-                          labelText: '복용 약물 및 피부과 시술 경험',
-                          hintText: '이소티논, 레이저, 필러 등',
+                          labelText: '피부 민감도',
+                          hintText: '홍조, 장벽 약화, 자극 반응 등',
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        controller: _homeCareController,
+                        controller: _sideEffectController,
                         maxLines: 2,
                         decoration: const InputDecoration(
-                          labelText: '평소 홈케어 및 클렌징 습관',
+                          labelText: '부작용 이력',
+                          hintText: '이전 시술 후 붉어짐, 통증, 다운타임 등',
                           border: OutlineInputBorder(),
                         ),
                       ),

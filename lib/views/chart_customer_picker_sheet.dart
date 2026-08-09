@@ -78,8 +78,9 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
       store: widget.store,
       initialName: looksLikeName ? _query.trim() : null,
       initialPhone: looksLikePhone ? _query.trim() : null,
-      title: '신규 고객 등록 후 차트 작성',
+      title: '신규 고객 등록',
       submitLabel: '등록하고 차트 쓰기',
+      openChartAfter: false,
     );
     if (created == null || !mounted) return;
     Navigator.pop(context);

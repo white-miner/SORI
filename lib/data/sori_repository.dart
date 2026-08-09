@@ -51,8 +51,8 @@ class SaveChartRequest {
     this.address,
     this.occupation,
     this.allergyNotes,
-    this.medicationHistory,
-    this.homeCareHabits,
+    this.skinSensitivity,
+    this.sideEffectHistory,
     this.membershipServiceName,
     this.membershipTotalVisits,
     this.membershipUsedVisits,
@@ -77,9 +77,10 @@ class SaveChartRequest {
   final DateTime? birthDate;
   final String? address;
   final String? occupation;
+  /// 차트(customer_charts)에 저장되는 메디컬 필드.
   final String? allergyNotes;
-  final String? medicationHistory;
-  final String? homeCareHabits;
+  final String? skinSensitivity;
+  final String? sideEffectHistory;
   final String? membershipServiceName;
   final int? membershipTotalVisits;
   final int? membershipUsedVisits;

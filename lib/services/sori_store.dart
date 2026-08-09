@@ -224,8 +224,8 @@ class SoriStore {
     String? address,
     String? occupation,
     String? allergyNotes,
-    String? medicationHistory,
-    String? homeCareHabits,
+    String? skinSensitivity,
+    String? sideEffectHistory,
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
@@ -251,8 +251,8 @@ class SoriStore {
         address: address,
         occupation: occupation,
         allergyNotes: allergyNotes,
-        medicationHistory: medicationHistory,
-        homeCareHabits: homeCareHabits,
+        skinSensitivity: skinSensitivity,
+        sideEffectHistory: sideEffectHistory,
         membershipServiceName: membershipServiceName,
         membershipTotalVisits: membershipTotalVisits,
         membershipUsedVisits: membershipUsedVisits,
@@ -286,8 +286,8 @@ class SoriStore {
           address: address,
           occupation: occupation,
           allergyNotes: allergyNotes,
-          medicationHistory: medicationHistory,
-          homeCareHabits: homeCareHabits,
+          skinSensitivity: skinSensitivity,
+          sideEffectHistory: sideEffectHistory,
           membershipServiceName: membershipServiceName,
           membershipTotalVisits: membershipTotalVisits,
           membershipUsedVisits: membershipUsedVisits,
@@ -762,8 +762,8 @@ class SoriStore {
     String? address,
     String? occupation,
     String? allergyNotes,
-    String? medicationHistory,
-    String? homeCareHabits,
+    String? skinSensitivity,
+    String? sideEffectHistory,
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
@@ -786,6 +786,10 @@ class SoriStore {
         careName: careName,
         treatmentSummary: treatmentSummary,
         directorInsight: directorInsight,
+        allergyNotes: allergyNotes ?? charts[index].allergyNotes,
+        skinSensitivity: skinSensitivity ?? charts[index].skinSensitivity,
+        sideEffectHistory:
+            sideEffectHistory ?? charts[index].sideEffectHistory,
         concernChips: concernChips,
         firstVisitFearChips: firstVisitFearChips,
         revisitFeedbackChips: revisitFeedbackChips,
@@ -807,6 +811,9 @@ class SoriStore {
         careName: careName,
         treatmentSummary: treatmentSummary,
         directorInsight: directorInsight,
+        allergyNotes: allergyNotes ?? '',
+        skinSensitivity: skinSensitivity ?? '',
+        sideEffectHistory: sideEffectHistory ?? '',
         concernChips: concernChips,
         firstVisitFearChips: firstVisitFearChips,
         revisitFeedbackChips: revisitFeedbackChips,
@@ -823,6 +830,7 @@ class SoriStore {
         .clamp(0, 999);
     if (total > 0 && used > total) used = total;
 
+    // 고객 마스터: 인적/회원권만 갱신 (알레르기·부작용은 차트에만 저장)
     customers[custIndex] = customers[custIndex].copyWith(
       name: customerName?.trim().isNotEmpty == true
           ? customerName!.trim()
@@ -834,9 +842,6 @@ class SoriStore {
       birthDate: birthDate,
       address: address ?? customer.address,
       occupation: occupation ?? customer.occupation,
-      allergyNotes: allergyNotes ?? customer.allergyNotes,
-      medicationHistory: medicationHistory ?? customer.medicationHistory,
-      homeCareHabits: homeCareHabits ?? customer.homeCareHabits,
       lastTreatmentDate: DateTime.now(),
       treatmentType: careName.isNotEmpty ? careName : customer.treatmentType,
       membershipServiceName:

@@ -14,6 +14,9 @@ class CustomerChart {
     this.careName = '',
     this.treatmentSummary = '',
     this.directorInsight = '',
+    this.allergyNotes = '',
+    this.skinSensitivity = '',
+    this.sideEffectHistory = '',
     this.concernChips = const [],
     this.firstVisitFearChips = const [],
     this.revisitFeedbackChips = const [],
@@ -35,6 +38,12 @@ class CustomerChart {
   final String careName;
   final String treatmentSummary;
   final String directorInsight;
+
+  /// 방문 차트에 기록하는 메디컬 정보 (고객 등록 폼과 분리).
+  final String allergyNotes;
+  final String skinSensitivity;
+  final String sideEffectHistory;
+
   final List<String> concernChips;
   final List<String> firstVisitFearChips;
   final List<String> revisitFeedbackChips;
@@ -64,6 +73,9 @@ class CustomerChart {
     String? careName,
     String? treatmentSummary,
     String? directorInsight,
+    String? allergyNotes,
+    String? skinSensitivity,
+    String? sideEffectHistory,
     List<String>? concernChips,
     List<String>? firstVisitFearChips,
     List<String>? revisitFeedbackChips,
@@ -85,6 +97,9 @@ class CustomerChart {
       careName: careName ?? this.careName,
       treatmentSummary: treatmentSummary ?? this.treatmentSummary,
       directorInsight: directorInsight ?? this.directorInsight,
+      allergyNotes: allergyNotes ?? this.allergyNotes,
+      skinSensitivity: skinSensitivity ?? this.skinSensitivity,
+      sideEffectHistory: sideEffectHistory ?? this.sideEffectHistory,
       concernChips: concernChips ?? this.concernChips,
       firstVisitFearChips: firstVisitFearChips ?? this.firstVisitFearChips,
       revisitFeedbackChips:
@@ -108,6 +123,9 @@ class CustomerChart {
         'care_name': careName,
         'treatment_summary': treatmentSummary,
         'director_insight': directorInsight,
+        'allergy_notes': allergyNotes,
+        'skin_sensitivity': skinSensitivity,
+        'side_effect_history': sideEffectHistory,
         'concern_chips': concernChips,
         'first_visit_fear_chips': firstVisitFearChips,
         'revisit_feedback_chips': revisitFeedbackChips,
@@ -138,6 +156,9 @@ class CustomerChart {
       careName: DbMap.asText(map['care_name']),
       treatmentSummary: DbMap.asText(map['treatment_summary']),
       directorInsight: DbMap.asText(map['director_insight']),
+      allergyNotes: DbMap.asText(map['allergy_notes']),
+      skinSensitivity: DbMap.asText(map['skin_sensitivity']),
+      sideEffectHistory: DbMap.asText(map['side_effect_history']),
       concernChips: DbMap.asStringList(map['concern_chips']),
       firstVisitFearChips: DbMap.asStringList(map['first_visit_fear_chips']),
       revisitFeedbackChips: DbMap.asStringList(map['revisit_feedback_chips']),
