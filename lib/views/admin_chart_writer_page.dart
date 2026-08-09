@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/chart_interview_chips.dart';
+import '../models/chart_medical_chips.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -54,9 +55,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
   late final TextEditingController _occupationController;
-  late final TextEditingController _allergyController;
-  late final TextEditingController _skinSensitivityController;
-  late final TextEditingController _sideEffectController;
+  late final TextEditingController _allergyOtherController;
+  late final TextEditingController _skinOtherController;
+  late final TextEditingController _sideEffectOtherController;
   late final TextEditingController _careNameController;
   late final TextEditingController _requestsController;
   late final TextEditingController _summaryController;
@@ -69,6 +70,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   String? _beforeLabel;
   String? _afterLabel;
 
+  final Set<String> _allergyChips = {};
+  final Set<String> _skinChips = {};
+  final Set<String> _sideEffectChips = {};
   final Set<String> _fears = {};
   final Set<String> _revisit = {};
   final Set<String> _concerns = {};
@@ -113,21 +117,38 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _addressController = TextEditingController(text: c.address);
     _occupationController = TextEditingController(text: c.occupation);
     // 차트 메디컬 우선, 구버전 고객 마스터 값은 폴백으로만 채움
-    _allergyController = TextEditingController(
-      text: (existing?.allergyNotes.isNotEmpty ?? false)
-          ? existing!.allergyNotes
-          : c.allergyNotes,
+    final allergyRaw = (existing?.allergyNotes.isNotEmpty ?? false)
+        ? existing!.allergyNotes
+        : c.allergyNotes;
+    final skinRaw = (existing?.skinSensitivity.isNotEmpty ?? false)
+        ? existing!.skinSensitivity
+        : c.medicationHistory;
+    final sideRaw = (existing?.sideEffectHistory.isNotEmpty ?? false)
+        ? existing!.sideEffectHistory
+        : c.homeCareHabits;
+    final allergyParsed = ChartMedicalChips.parseStored(
+      allergyRaw,
+      options: ChartMedicalChips.allergies,
+      noneLabel: ChartMedicalChips.allergyNone,
     );
-    _skinSensitivityController = TextEditingController(
-      text: (existing?.skinSensitivity.isNotEmpty ?? false)
-          ? existing!.skinSensitivity
-          : c.medicationHistory,
+    final skinParsed = ChartMedicalChips.parseStored(
+      skinRaw,
+      options: ChartMedicalChips.skinSensitivities,
+      noneLabel: ChartMedicalChips.skinNone,
     );
-    _sideEffectController = TextEditingController(
-      text: (existing?.sideEffectHistory.isNotEmpty ?? false)
-          ? existing!.sideEffectHistory
-          : c.homeCareHabits,
+    final sideParsed = ChartMedicalChips.parseStored(
+      sideRaw,
+      options: ChartMedicalChips.sideEffectHistories,
+      noneLabel: ChartMedicalChips.sideEffectNone,
     );
+    _allergyChips.addAll(allergyParsed.selected);
+    _skinChips.addAll(skinParsed.selected);
+    _sideEffectChips.addAll(sideParsed.selected);
+    _allergyOtherController =
+        TextEditingController(text: allergyParsed.otherText);
+    _skinOtherController = TextEditingController(text: skinParsed.otherText);
+    _sideEffectOtherController =
+        TextEditingController(text: sideParsed.otherText);
     _gender = c.gender;
     _birthDate = c.birthDate;
     _birthTextController = TextEditingController(
@@ -163,9 +184,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _phoneController.dispose();
     _addressController.dispose();
     _occupationController.dispose();
-    _allergyController.dispose();
-    _skinSensitivityController.dispose();
-    _sideEffectController.dispose();
+    _allergyOtherController.dispose();
+    _skinOtherController.dispose();
+    _sideEffectOtherController.dispose();
     _careNameController.dispose();
     _requestsController.dispose();
     _summaryController.dispose();
@@ -240,23 +261,39 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
       final prior = widget.store.latestChart(matched.id);
       if ((prior?.allergyNotes.isNotEmpty ?? false) ||
           matched.allergyNotes.isNotEmpty) {
-        _allergyController.text = prior?.allergyNotes.isNotEmpty == true
-            ? prior!.allergyNotes
-            : matched.allergyNotes;
+        _applyMedicalStored(
+          prior?.allergyNotes.isNotEmpty == true
+              ? prior!.allergyNotes
+              : matched.allergyNotes,
+          selected: _allergyChips,
+          otherController: _allergyOtherController,
+          options: ChartMedicalChips.allergies,
+          noneLabel: ChartMedicalChips.allergyNone,
+        );
       }
       if ((prior?.skinSensitivity.isNotEmpty ?? false) ||
           matched.medicationHistory.isNotEmpty) {
-        _skinSensitivityController.text =
-            prior?.skinSensitivity.isNotEmpty == true
-                ? prior!.skinSensitivity
-                : matched.medicationHistory;
+        _applyMedicalStored(
+          prior?.skinSensitivity.isNotEmpty == true
+              ? prior!.skinSensitivity
+              : matched.medicationHistory,
+          selected: _skinChips,
+          otherController: _skinOtherController,
+          options: ChartMedicalChips.skinSensitivities,
+          noneLabel: ChartMedicalChips.skinNone,
+        );
       }
       if ((prior?.sideEffectHistory.isNotEmpty ?? false) ||
           matched.homeCareHabits.isNotEmpty) {
-        _sideEffectController.text =
-            prior?.sideEffectHistory.isNotEmpty == true
-                ? prior!.sideEffectHistory
-                : matched.homeCareHabits;
+        _applyMedicalStored(
+          prior?.sideEffectHistory.isNotEmpty == true
+              ? prior!.sideEffectHistory
+              : matched.homeCareHabits,
+          selected: _sideEffectChips,
+          otherController: _sideEffectOtherController,
+          options: ChartMedicalChips.sideEffectHistories,
+          noneLabel: ChartMedicalChips.sideEffectNone,
+        );
       }
       _memberships =
           List<CustomerMembership>.from(matched.withSyncedMembershipMirrors().memberships);
@@ -472,6 +509,45 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     return fb.isEmpty ? null : fb;
   }
 
+  void _applyMedicalStored(
+    String raw, {
+    required Set<String> selected,
+    required TextEditingController otherController,
+    required List<String> options,
+    required String noneLabel,
+  }) {
+    final parsed = ChartMedicalChips.parseStored(
+      raw,
+      options: options,
+      noneLabel: noneLabel,
+    );
+    selected
+      ..clear()
+      ..addAll(parsed.selected);
+    otherController.text = parsed.otherText;
+  }
+
+  void _toggleMedicalChip({
+    required Set<String> selected,
+    required String label,
+    required String noneLabel,
+  }) {
+    setState(() {
+      if (label == noneLabel) {
+        selected
+          ..clear()
+          ..add(noneLabel);
+        return;
+      }
+      selected.remove(noneLabel);
+      if (selected.contains(label)) {
+        selected.remove(label);
+      } else {
+        selected.add(label);
+      }
+    });
+  }
+
   Future<void> _saveAndConfirm() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -533,9 +609,21 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         birthDate: _birthDate,
         address: _addressController.text.trim(),
         occupation: _occupationController.text.trim(),
-        allergyNotes: _allergyController.text.trim(),
-        skinSensitivity: _skinSensitivityController.text.trim(),
-        sideEffectHistory: _sideEffectController.text.trim(),
+        allergyNotes: ChartMedicalChips.joinSelection(
+          selected: _allergyChips,
+          noneLabel: ChartMedicalChips.allergyNone,
+          otherText: _allergyOtherController.text,
+        ),
+        skinSensitivity: ChartMedicalChips.joinSelection(
+          selected: _skinChips,
+          noneLabel: ChartMedicalChips.skinNone,
+          otherText: _skinOtherController.text,
+        ),
+        sideEffectHistory: ChartMedicalChips.joinSelection(
+          selected: _sideEffectChips,
+          noneLabel: ChartMedicalChips.sideEffectNone,
+          otherText: _sideEffectOtherController.text,
+        ),
         memberships: _memberships
             .where((m) => m.serviceName.trim().isNotEmpty && m.totalVisits > 0)
             .toList(),
@@ -953,34 +1041,49 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
-                        controller: _allergyController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: '알레르기',
-                          hintText: '금속, 향료, 특정 성분 등',
-                          border: OutlineInputBorder(),
+                      _MedicalChipGroup(
+                        title: '알레르기',
+                        options: ChartMedicalChips.allergies,
+                        selected: _allergyChips,
+                        noneLabel: ChartMedicalChips.allergyNone,
+                        otherController: _allergyOtherController,
+                        otherHint: '예: 강아지 털, 특정 시술 성분',
+                        onToggle: (label) => _toggleMedicalChip(
+                          selected: _allergyChips,
+                          label: label,
+                          noneLabel: ChartMedicalChips.allergyNone,
                         ),
+                        onOtherChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _skinSensitivityController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: '피부 민감도',
-                          hintText: '홍조, 장벽 약화, 자극 반응 등',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 18),
+                      _MedicalChipGroup(
+                        title: '피부 민감도',
+                        options: ChartMedicalChips.skinSensitivities,
+                        selected: _skinChips,
+                        noneLabel: ChartMedicalChips.skinNone,
+                        otherController: _skinOtherController,
+                        otherHint: '예: 장벽 손상, 특정 시즌 민감',
+                        onToggle: (label) => _toggleMedicalChip(
+                          selected: _skinChips,
+                          label: label,
+                          noneLabel: ChartMedicalChips.skinNone,
                         ),
+                        onOtherChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _sideEffectController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: '부작용 이력',
-                          hintText: '이전 시술 후 붉어짐, 통증, 다운타임 등',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 18),
+                      _MedicalChipGroup(
+                        title: '부작용 이력',
+                        options: ChartMedicalChips.sideEffectHistories,
+                        selected: _sideEffectChips,
+                        noneLabel: ChartMedicalChips.sideEffectNone,
+                        otherController: _sideEffectOtherController,
+                        otherHint: '예: 특정 기기 후 지속 홍반',
+                        onToggle: (label) => _toggleMedicalChip(
+                          selected: _sideEffectChips,
+                          label: label,
+                          noneLabel: ChartMedicalChips.sideEffectNone,
                         ),
+                        onOtherChanged: (_) => setState(() {}),
                       ),
                     ],
                   ),
@@ -1502,6 +1605,78 @@ class _ServicePickerSheetState extends State<_ServicePickerSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MedicalChipGroup extends StatelessWidget {
+  const _MedicalChipGroup({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.noneLabel,
+    required this.otherController,
+    required this.otherHint,
+    required this.onToggle,
+    required this.onOtherChanged,
+  });
+
+  final String title;
+  final List<String> options;
+  final Set<String> selected;
+  final String noneLabel;
+  final TextEditingController otherController;
+  final String otherHint;
+  final ValueChanged<String> onToggle;
+  final ValueChanged<String> onOtherChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final showOther =
+        selected.contains(ChartMedicalChips.otherLabel) &&
+        !selected.contains(noneLabel);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((label) {
+            final isSelected = selected.contains(label);
+            return FilterChip(
+              label: Text(label, style: const TextStyle(fontSize: 12)),
+              selected: isSelected,
+              onSelected: (_) => onToggle(label),
+              selectedColor: MyApp.soriPurple.withValues(alpha: 0.18),
+              checkmarkColor: MyApp.soriPurple,
+              side: BorderSide(
+                color: isSelected
+                    ? MyApp.soriPurple.withValues(alpha: 0.45)
+                    : Colors.grey.shade300,
+              ),
+            );
+          }).toList(),
+        ),
+        if (showOther) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: otherController,
+            onChanged: onOtherChanged,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: '기타 직접 입력',
+              hintText: otherHint,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -140,6 +140,7 @@ class CustomerChart {
         'care_name': careName,
         'treatment_summary': treatmentSummary,
         'director_insight': directorInsight,
+        // 메디컬/요약 미입력도 null이 아닌 '' 로 안전하게 기록.
         'allergy_notes': allergyNotes,
         'skin_sensitivity': skinSensitivity,
         'side_effect_history': sideEffectHistory,

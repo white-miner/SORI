@@ -37,6 +37,10 @@ class SupabaseSoriRepository implements SoriRepository {
   /// Before/After 미첨부·빈 문자열은 DB null로 고정.
   static String? _imageUrlOrNull(String? value) => DbMap.asTextOrNull(value);
 
+  /// TEXT 컬럼용: null/공백 → '' (스키마 default '' 와 호환, 에러 방지).
+  static String _textOrEmpty(String? value) =>
+      value == null ? '' : value.trim();
+
   Map<String, dynamic> _customerWriteMap(Customer c, {bool includeId = true}) {
     // 차트 전용 메디컬 필드(allergy/home_care 등)는 customers payload에서 제외
     final synced = c.withSyncedMembershipMirrors();
@@ -75,17 +79,17 @@ class SupabaseSoriRepository implements SoriRepository {
       'visit_checked_at': c.visitCheckedAt?.toUtc().toIso8601String(),
       'before_image_url': _imageUrlOrNull(c.beforeImageUrl),
       'after_image_url': _imageUrlOrNull(c.afterImageUrl),
-      'care_name': c.careName,
-      'treatment_summary': c.treatmentSummary,
-      'director_insight': c.directorInsight,
-      'allergy_notes': c.allergyNotes,
-      'skin_sensitivity': c.skinSensitivity,
-      'side_effect_history': c.sideEffectHistory,
-      'customer_requests': c.customerRequests,
+      'care_name': _textOrEmpty(c.careName),
+      'treatment_summary': _textOrEmpty(c.treatmentSummary),
+      'director_insight': _textOrEmpty(c.directorInsight),
+      'allergy_notes': _textOrEmpty(c.allergyNotes),
+      'skin_sensitivity': _textOrEmpty(c.skinSensitivity),
+      'side_effect_history': _textOrEmpty(c.sideEffectHistory),
+      'customer_requests': _textOrEmpty(c.customerRequests),
       'concern_chips': c.concernChips,
       'first_visit_fear_chips': c.firstVisitFearChips,
       'revisit_feedback_chips': c.revisitFeedbackChips,
-      'feedback_token': c.feedbackToken,
+      'feedback_token': DbMap.asTextOrNull(c.feedbackToken),
       'feedback_line_opened_at':
           c.feedbackLineOpenedAt?.toUtc().toIso8601String(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -620,13 +624,13 @@ class SupabaseSoriRepository implements SoriRepository {
       // 사진 미첨부 시에도 키를 포함해 명시적 null로 insert (스키마 NOT NULL 아님).
       'before_image_url': _imageUrlOrNull(request.beforeImageUrl),
       'after_image_url': _imageUrlOrNull(request.afterImageUrl),
-      'care_name': request.careName,
-      'treatment_summary': request.treatmentSummary,
-      'director_insight': request.directorInsight,
-      'allergy_notes': request.allergyNotes ?? '',
-      'skin_sensitivity': request.skinSensitivity ?? '',
-      'side_effect_history': request.sideEffectHistory ?? '',
-      'customer_requests': request.customerRequests ?? '',
+      'care_name': _textOrEmpty(request.careName),
+      'treatment_summary': _textOrEmpty(request.treatmentSummary),
+      'director_insight': _textOrEmpty(request.directorInsight),
+      'allergy_notes': _textOrEmpty(request.allergyNotes),
+      'skin_sensitivity': _textOrEmpty(request.skinSensitivity),
+      'side_effect_history': _textOrEmpty(request.sideEffectHistory),
+      'customer_requests': _textOrEmpty(request.customerRequests),
       'concern_chips': request.concernChips,
       'first_visit_fear_chips': request.firstVisitFearChips,
       'revisit_feedback_chips': request.revisitFeedbackChips,
