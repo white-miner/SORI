@@ -720,17 +720,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                       }),
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: OutlinedButton(
                           onPressed: _addMembership,
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text(
-                            '+ 회원권 추가',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: SoriTokens.primary,
                             side: const BorderSide(color: SoriTokens.primary),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text(
+                            '[ + 회원권 추가 ]',
+                            style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
                       ),
@@ -986,7 +985,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   }
 }
 
-class _ServiceNameField extends StatelessWidget {
+class _ServiceNameField extends StatefulWidget {
   const _ServiceNameField({
     required this.label,
     required this.value,
@@ -1000,49 +999,344 @@ class _ServiceNameField extends StatelessWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Autocomplete<String>(
-      initialValue: TextEditingValue(text: value),
-      optionsBuilder: (textEditingValue) {
-        final q = textEditingValue.text.trim().toLowerCase();
-        if (q.isEmpty) return options;
-        return options.where((o) => o.toLowerCase().contains(q));
+  State<_ServiceNameField> createState() => _ServiceNameFieldState();
+}
+
+class _ServiceNameFieldState extends State<_ServiceNameField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  final _fieldKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ServiceNameField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value && widget.value != _controller.text) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  List<String> _filtered(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return widget.options;
+    return widget.options
+        .where((o) => o.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
+  Future<void> _openPickerSheet() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return _ServicePickerSheet(
+          title: widget.label,
+          options: widget.options,
+          initialQuery: _controller.text,
+        );
       },
-      onSelected: onChanged,
-      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        if (controller.text != value && value.isNotEmpty && controller.text.isEmpty) {
-          controller.text = value;
+    );
+    if (!mounted || selected == null) return;
+    _controller.text = selected;
+    widget.onChanged(selected);
+    _focusNode.unfocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawAutocomplete<String>(
+      textEditingController: _controller,
+      focusNode: _focusNode,
+      optionsBuilder: (textEditingValue) {
+        if (widget.options.isEmpty) {
+          return const Iterable<String>.empty();
         }
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          onChanged: onChanged,
-          onSubmitted: (_) => onFieldSubmitted(),
-          decoration: InputDecoration(
-            labelText: label,
-            hintText: options.isEmpty ? '직접 입력' : '목록에서 선택하거나 직접 입력',
-            border: const OutlineInputBorder(),
-            suffixIcon: options.isEmpty
-                ? null
-                : PopupMenuButton<String>(
-                    tooltip: '서비스 메뉴',
-                    icon: const Icon(Icons.arrow_drop_down_rounded),
-                    onSelected: (v) {
-                      controller.text = v;
-                      onChanged(v);
-                    },
-                    itemBuilder: (context) => options
-                        .map(
-                          (o) => PopupMenuItem<String>(
-                            value: o,
-                            child: Text(o),
-                          ),
-                        )
-                        .toList(),
-                  ),
+        return _filtered(textEditingValue.text);
+      },
+      onSelected: (selection) {
+        _controller.text = selection;
+        widget.onChanged(selection);
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final box =
+            _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final width = box?.size.width ??
+            (MediaQuery.sizeOf(context).width - 64).clamp(240.0, 800.0);
+
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 8,
+            color: Colors.white,
+            shadowColor: Colors.black26,
+            borderRadius: BorderRadius.circular(14),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: 280,
+                minWidth: width,
+                maxWidth: width,
+              ),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shrinkWrap: true,
+                itemCount: options.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return InkWell(
+                    onTap: () => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Text(
+                        option,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         );
       },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextField(
+          key: _fieldKey,
+          controller: controller,
+          focusNode: focusNode,
+          onChanged: widget.onChanged,
+          onSubmitted: (_) => onFieldSubmitted(),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            labelText: widget.label,
+            hintText: widget.options.isEmpty
+                ? '서비스명을 직접 입력하세요'
+                : '탭하여 검색·선택하거나 직접 입력',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(16, 18, 8, 18),
+            suffixIcon: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: '서비스 목록 열기',
+                    onPressed: widget.options.isEmpty ? null : _openPickerSheet,
+                    iconSize: 30,
+                    icon: Icon(
+                      Icons.search_rounded,
+                      color: widget.options.isEmpty
+                          ? Colors.grey
+                          : MyApp.soriPurple,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '드롭다운',
+                    onPressed: widget.options.isEmpty ? null : _openPickerSheet,
+                    iconSize: 34,
+                    icon: Icon(
+                      Icons.arrow_drop_down_rounded,
+                      color: widget.options.isEmpty
+                          ? Colors.grey
+                          : MyApp.soriPurple,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ServicePickerSheet extends StatefulWidget {
+  const _ServicePickerSheet({
+    required this.title,
+    required this.options,
+    required this.initialQuery,
+  });
+
+  final String title;
+  final List<String> options;
+  final String initialQuery;
+
+  @override
+  State<_ServicePickerSheet> createState() => _ServicePickerSheetState();
+}
+
+class _ServicePickerSheetState extends State<_ServicePickerSheet> {
+  late final TextEditingController _searchController;
+  late List<String> _filtered;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.initialQuery);
+    _filtered = _apply(widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<String> _apply(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return widget.options;
+    return widget.options
+        .where((o) => o.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            widget.title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '샵 서비스 메뉴에서 선택하거나 검색하세요',
+            style: TextStyle(
+              fontSize: 13,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _searchController,
+            autofocus: true,
+            onChanged: (v) => setState(() => _filtered = _apply(v)),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: '서비스명 검색',
+              prefixIcon: const Icon(Icons.search_rounded, size: 26),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 16,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+            ),
+            child: _filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '일치하는 서비스가 없어요',
+                          style: TextStyle(
+                            color: SoriTokens.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (_searchController.text.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(
+                              context,
+                              _searchController.text.trim(),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: MyApp.soriPurple,
+                            ),
+                            child: Text(
+                              '"${_searchController.text.trim()}" 직접 사용',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final name = _filtered[index];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        title: Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.pop(context, name),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
