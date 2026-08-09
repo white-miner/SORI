@@ -3,6 +3,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_service_item.dart';
 import 'sori_repository.dart';
 
 /// 로컬 더미 데이터 (UI 하드코딩 분리용).
@@ -25,10 +26,22 @@ class MemorySoriRepository implements SoriRepository {
       naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
       address: '서울시 강남구',
       serviceMenu: [
-        '재생케어',
-        '수분케어',
-        'EMS 윤곽케어',
-        '테라노바 복부관리',
+        ShopServiceItem(
+          name: '재생케어',
+          description: '피부 장벽을 편안하게 회복시키는 집중 케어예요.',
+        ),
+        ShopServiceItem(
+          name: '수분케어',
+          description: '건조한 피부에 촉촉함을 더하는 수분 충전 케어예요.',
+        ),
+        ShopServiceItem(
+          name: 'EMS 윤곽케어',
+          description: '탄력과 라인 정리를 돕는 EMS 기반 윤곽 케어예요.',
+        ),
+        ShopServiceItem(
+          name: '테라노바 복부관리',
+          description: '복부 순환과 컨디션을 가볍게 풀어주는 관리예요.',
+        ),
       ],
     );
 

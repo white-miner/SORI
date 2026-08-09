@@ -125,6 +125,95 @@ class OpenAiService {
         '특히 $picks 점이 마음에 들었고, 상승형 디자인 디테일까지 꼼꼼해 다음에도 믿고 방문하고 싶습니다. '
         '#${shopName.replaceAll(' ', '')} #소통하는리뷰 #에스테틱후기';
   }
+
+  static const String _polishSystemPrompt = '''
+당신은 한국 뷰티·에스테틱 살롱의 카피라이터입니다.
+원장이 대충 적은 서비스 설명을, 고객이 이해하기 쉽고 매력적인 살롱 안내 문구로 다듬습니다.
+
+[규칙]
+1. 출력은 한국어 1~2문장만. 따옴표·제목·불릿·해시태그 금지.
+2. 과장·허위·의료적 단정 금지. 따뜻하고 신뢰감 있는 톤.
+3. 원문의 핵심 효과·분위기·시술 포인트는 유지하세요.
+''';
+
+  /// 서비스 메뉴 고객 안내 설명을 1~2문장으로 윤문.
+  Future<String> polishServiceDescription({
+    required String serviceName,
+    required String roughDescription,
+    String shopName = '',
+  }) async {
+    if (!isConfigured) {
+      throw OpenAiException(
+        'OpenAI API 키가 설정되지 않았어요. OPENAI_API_KEY를 확인해 주세요.',
+      );
+    }
+
+    final draft = roughDescription.trim().isEmpty
+        ? serviceName.trim()
+        : roughDescription.trim();
+    if (draft.isEmpty) {
+      throw OpenAiException('다듬을 설명이나 서비스명을 먼저 입력해 주세요.');
+    }
+
+    final userPrompt = '''
+[샵 이름] ${shopName.trim().isEmpty ? '뷰티 살롱' : shopName.trim()}
+[서비스명] ${serviceName.trim().isEmpty ? '(미정)' : serviceName.trim()}
+[원장 메모]
+$draft
+
+위 내용을 고객 안내용으로 1~2문장 다듬어 주세요.
+''';
+
+    try {
+      final response = await _client
+          .post(
+            Uri.parse(_endpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${Env.openaiApiKey}',
+            },
+            body: jsonEncode({
+              'model': _model,
+              'temperature': 0.7,
+              'messages': [
+                {'role': 'system', 'content': _polishSystemPrompt},
+                {'role': 'user', 'content': userPrompt},
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (response.statusCode == 429) {
+        throw OpenAiException(
+          'AI API 크레딧이 부족하거나 요청이 많습니다. OpenAI 결제 상태를 확인해 주세요.',
+        );
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw OpenAiException(
+          'AI 서버 응답에 문제가 있어요 (${response.statusCode}). 잠시 후 다시 시도해 주세요.',
+        );
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final choices = body['choices'] as List?;
+      if (choices == null || choices.isEmpty) {
+        throw OpenAiException('AI가 문장을 만들지 못했어요. 다시 시도해 주세요.');
+      }
+      final message = (choices.first as Map)['message'] as Map?;
+      final content = (message?['content'] as String?)?.trim() ?? '';
+      if (content.isEmpty) {
+        throw OpenAiException('AI가 빈 문장을 반환했어요. 다시 시도해 주세요.');
+      }
+      return content;
+    } on OpenAiException {
+      rethrow;
+    } catch (e, st) {
+      debugPrint('OpenAI polish failed: $e\n$st');
+      throw OpenAiException(
+        '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
+      );
+    }
+  }
 }
 
 class OpenAiException implements Exception {

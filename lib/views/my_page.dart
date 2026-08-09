@@ -9,6 +9,7 @@ import '../widgets/membership_progress.dart';
 import '../widgets/review_qr_modal.dart';
 import '../widgets/sori_card.dart';
 import 'customer_review_history_page.dart';
+import 'service_menu_page.dart';
 import 'shop_settings_page.dart';
 
 class MyPage extends StatelessWidget {
@@ -121,6 +122,40 @@ class MyPage extends StatelessWidget {
               child: MembershipProgressView(customer: customer),
             ),
           ],
+          if (session.shopSetupComplete || isDirector) ...[
+            const SizedBox(height: 20),
+            const _SectionLabel('설정 / 관리'),
+            SoriCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _MenuTile(
+                    icon: Icons.storefront_outlined,
+                    title: '샵 정보 관리',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ShopSettingsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  _MenuTile(
+                    icon: Icons.spa_outlined,
+                    title: '서비스 메뉴 관리',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ServiceMenuPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (session.canToggleMode) ...[
             const SizedBox(height: 16),
             SoriCard(
@@ -193,24 +228,11 @@ class MyPage extends StatelessWidget {
             const _AiShopReportCard(),
           ],
           const SizedBox(height: 20),
-          const _SectionLabel('설정 / 관리'),
+          const _SectionLabel('계정'),
           SoriCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                if (session.shopSetupComplete || isDirector)
-                  _MenuTile(
-                    icon: Icons.storefront_outlined,
-                    title: '샵 관리 · 서비스 메뉴',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ShopSettingsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                const Divider(height: 1),
                 _MenuTile(
                   icon: Icons.notifications_outlined,
                   title: '알림 설정',

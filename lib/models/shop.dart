@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import 'shop_service_item.dart';
 
 class Shop {
   const Shop({
@@ -8,6 +9,9 @@ class Shop {
     this.ownerName,
     this.phone,
     this.address,
+    this.operatingHours = '',
+    this.snsBlogUrl = '',
+    this.snsInstagramUrl = '',
     this.serviceMenu = const [],
   });
 
@@ -18,8 +22,21 @@ class Shop {
   final String? phone;
   final String? address;
 
-  /// 샵에서 제공하는 서비스명 목록 (드롭다운 소스).
-  final List<String> serviceMenu;
+  /// 휴무일 및 운영시간 안내.
+  final String operatingHours;
+
+  /// SNS — 블로그 / 인스타그램.
+  final String snsBlogUrl;
+  final String snsInstagramUrl;
+
+  /// 샵에서 제공하는 서비스 메뉴 (이름 + 고객 안내 설명).
+  final List<ShopServiceItem> serviceMenu;
+
+  /// 차트·회원권 드롭다운용 서비스명 목록.
+  List<String> get serviceNames => serviceMenu
+      .map((e) => e.name.trim())
+      .where((e) => e.isNotEmpty)
+      .toList(growable: false);
 
   bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
 
@@ -39,7 +56,10 @@ class Shop {
     String? ownerName,
     String? phone,
     String? address,
-    List<String>? serviceMenu,
+    String? operatingHours,
+    String? snsBlogUrl,
+    String? snsInstagramUrl,
+    List<ShopServiceItem>? serviceMenu,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -48,6 +68,9 @@ class Shop {
       ownerName: ownerName ?? this.ownerName,
       phone: phone ?? this.phone,
       address: address ?? this.address,
+      operatingHours: operatingHours ?? this.operatingHours,
+      snsBlogUrl: snsBlogUrl ?? this.snsBlogUrl,
+      snsInstagramUrl: snsInstagramUrl ?? this.snsInstagramUrl,
       serviceMenu: serviceMenu ?? this.serviceMenu,
     );
   }
@@ -59,10 +82,23 @@ class Shop {
         'phone': phone,
         'naver_place_url': naverPlaceUrl,
         'address': address,
-        'service_menu': serviceMenu,
+        'operating_hours': operatingHours,
+        'sns_blog_url': snsBlogUrl,
+        'sns_instagram_url': snsInstagramUrl,
+        'service_menu': serviceMenu.map((e) => e.toMap()).toList(),
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
+    final rawMenu = map['service_menu'];
+    final menu = <ShopServiceItem>[];
+    if (rawMenu is List) {
+      for (final item in rawMenu) {
+        final parsed = ShopServiceItem.fromDynamic(item);
+        if (parsed.name.trim().isEmpty) continue;
+        menu.add(parsed);
+      }
+    }
+
     return Shop(
       id: DbMap.asText(map['id']),
       name: DbMap.asText(map['name'], 'SORI 샵'),
@@ -70,10 +106,10 @@ class Shop {
       phone: DbMap.asTextOrNull(map['phone']),
       naverPlaceUrl: DbMap.asText(map['naver_place_url']),
       address: DbMap.asTextOrNull(map['address']),
-      serviceMenu: DbMap.asStringList(map['service_menu'])
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(),
+      operatingHours: DbMap.asText(map['operating_hours']),
+      snsBlogUrl: DbMap.asText(map['sns_blog_url']),
+      snsInstagramUrl: DbMap.asText(map['sns_instagram_url']),
+      serviceMenu: menu,
     );
   }
 }

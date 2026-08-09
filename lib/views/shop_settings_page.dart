@@ -4,6 +4,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'my_app.dart';
 
+/// 샵 기본 정보 · 운영시간 · SNS 관리 (서비스 메뉴는 별도 페이지).
 class ShopSettingsPage extends StatefulWidget {
   const ShopSettingsPage({super.key, this.requireNaver = false});
 
@@ -19,18 +20,21 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   late final TextEditingController _naverController;
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
-  late final TextEditingController _menuInputController;
-  late List<String> _serviceMenu;
+  late final TextEditingController _hoursController;
+  late final TextEditingController _blogController;
+  late final TextEditingController _instagramController;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: _store.shop.name);
-    _naverController = TextEditingController(text: _store.shop.naverPlaceUrl);
-    _addressController = TextEditingController(text: _store.shop.address ?? '');
-    _phoneController = TextEditingController(text: _store.shop.phone ?? '');
-    _menuInputController = TextEditingController();
-    _serviceMenu = List<String>.from(_store.shop.serviceMenu);
+    final shop = _store.shop;
+    _nameController = TextEditingController(text: shop.name);
+    _naverController = TextEditingController(text: shop.naverPlaceUrl);
+    _addressController = TextEditingController(text: shop.address ?? '');
+    _phoneController = TextEditingController(text: shop.phone ?? '');
+    _hoursController = TextEditingController(text: shop.operatingHours);
+    _blogController = TextEditingController(text: shop.snsBlogUrl);
+    _instagramController = TextEditingController(text: shop.snsInstagramUrl);
   }
 
   @override
@@ -39,30 +43,10 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _naverController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
-    _menuInputController.dispose();
+    _hoursController.dispose();
+    _blogController.dispose();
+    _instagramController.dispose();
     super.dispose();
-  }
-
-  void _addMenuItem() {
-    final name = _menuInputController.text.trim();
-    if (name.isEmpty) return;
-    if (_serviceMenu.any((e) => e.toLowerCase() == name.toLowerCase())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('이미 등록된 서비스명이에요'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    setState(() {
-      _serviceMenu = [..._serviceMenu, name];
-      _menuInputController.clear();
-    });
-  }
-
-  void _removeMenuItem(String name) {
-    setState(() => _serviceMenu = _serviceMenu.where((e) => e != name).toList());
   }
 
   void _save() {
@@ -85,12 +69,14 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
       naverPlaceUrl: naver,
       address: _addressController.text,
       phone: _phoneController.text,
-      serviceMenu: _serviceMenu,
+      operatingHours: _hoursController.text,
+      snsBlogUrl: _blogController.text,
+      snsInstagramUrl: _instagramController.text,
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('샵 프로필·서비스 메뉴가 저장되었습니다.'),
+        content: Text('샵 정보가 저장되었습니다.'),
         backgroundColor: MyApp.soriPurple,
       ),
     );
@@ -102,7 +88,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F7FC),
       appBar: AppBar(
-        title: const Text('샵 관리'),
+        title: const Text('샵 정보 관리'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF2D3436),
         elevation: 0,
@@ -158,82 +144,55 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
           ),
           const SizedBox(height: 24),
           const Text(
-            '서비스 메뉴 관리',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            '휴무일 및 운영시간',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           const Text(
-            '차트·회원권 드롭다운에 노출됩니다 (예: EMS 윤곽케어, 테라노바 복부관리)',
-            style: TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
+            '고객에게 안내할 운영 스케줄을 적어 주세요',
+            style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _hoursController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: '휴무일 및 운영시간',
+              hintText: '예: 화–일 10:00–20:00 / 매주 월요일 휴무',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'SNS 채널',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '블로그·인스타그램 링크를 등록해 주세요',
+            style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _blogController,
+            decoration: const InputDecoration(
+              labelText: '블로그 링크',
+              hintText: 'https://blog.naver.com/...',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.rss_feed_rounded),
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _menuInputController,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _addMenuItem(),
-                  decoration: const InputDecoration(
-                    labelText: '서비스명 추가',
-                    hintText: '예: EMS 윤곽케어',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _addMenuItem,
-                style: FilledButton.styleFrom(
-                  backgroundColor: SoriTokens.primary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 16,
-                  ),
-                ),
-                child: const Text('추가'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_serviceMenu.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: SoriTokens.border),
-              ),
-              child: const Text(
-                '등록된 서비스가 없습니다. 위에서 추가해 주세요.',
-                style: TextStyle(color: SoriTokens.textSecondary),
-              ),
-            )
-          else
-            ..._serviceMenu.map(
-              (name) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(
-                    name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  trailing: IconButton(
-                    tooltip: '삭제',
-                    onPressed: () => _removeMenuItem(name),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ),
+          TextField(
+            controller: _instagramController,
+            decoration: const InputDecoration(
+              labelText: '인스타그램 링크',
+              hintText: 'https://www.instagram.com/...',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.camera_alt_outlined),
             ),
+          ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _save,

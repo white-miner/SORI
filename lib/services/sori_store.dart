@@ -11,6 +11,7 @@ import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_service_item.dart';
 import 'visit_trigger_service.dart';
 
 /// 앱 Facade — UI는 Store, 데이터는 Repository (Memory | Supabase).
@@ -513,13 +514,19 @@ class SoriStore {
     required String naverPlaceUrl,
     String? address,
     String? phone,
-    List<String>? serviceMenu,
+    String? operatingHours,
+    String? snsBlogUrl,
+    String? snsInstagramUrl,
+    List<ShopServiceItem>? serviceMenu,
   }) {
     shop = shop.copyWith(
       name: name.trim(),
       naverPlaceUrl: naverPlaceUrl.trim(),
       address: address?.trim(),
       phone: phone?.trim(),
+      operatingHours: operatingHours?.trim(),
+      snsBlogUrl: snsBlogUrl?.trim(),
+      snsInstagramUrl: snsInstagramUrl?.trim(),
       serviceMenu: serviceMenu,
     );
     _notify();

@@ -319,7 +319,10 @@ class SupabaseSoriRepository implements SoriRepository {
       'phone': shop.phone,
       'naver_place_url': shop.naverPlaceUrl,
       'address': shop.address,
-      'service_menu': shop.serviceMenu,
+      'operating_hours': shop.operatingHours,
+      'sns_blog_url': shop.snsBlogUrl,
+      'sns_instagram_url': shop.snsInstagramUrl,
+      'service_menu': shop.serviceMenu.map((e) => e.toMap()).toList(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     final includeId = shop.id.isNotEmpty && !_isTempId(shop.id);

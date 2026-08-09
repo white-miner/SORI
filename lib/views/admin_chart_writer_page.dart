@@ -75,7 +75,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
 
   bool get _isFirstVisit => _visitNumber <= 1;
 
-  List<String> get _serviceOptions => widget.store.shop.serviceMenu;
+  List<String> get _serviceOptions => widget.store.shop.serviceNames;
 
   @override
   void initState() {

@@ -92,22 +92,32 @@ class _AppShellPageState extends State<AppShellPage> {
     ];
 
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
+    // PC/태블릿: 하단 '오늘 케어 일정' 시트와 FAB 겹침 방지
+    final isWide = MediaQuery.sizeOf(context).width >= 600;
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
       body: IndexedStack(index: _tab, children: pages),
       floatingActionButton: isDirector
-          ? FloatingActionButton(
-              tooltip: '새 차트 작성',
-              onPressed: () => showChartCustomerPickerSheet(
-                context,
-                store: _store,
+          ? Padding(
+              padding: EdgeInsets.only(
+                top: isWide ? MediaQuery.paddingOf(context).top + 12 : 0,
               ),
-              backgroundColor: SoriTokens.primary,
-              child: const Icon(Icons.edit_note_rounded, color: Colors.white),
+              child: FloatingActionButton(
+                tooltip: '새 차트 작성',
+                onPressed: () => showChartCustomerPickerSheet(
+                  context,
+                  store: _store,
+                ),
+                backgroundColor: SoriTokens.primary,
+                child:
+                    const Icon(Icons.edit_note_rounded, color: Colors.white),
+              ),
             )
           : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonLocation: isWide
+          ? FloatingActionButtonLocation.endTop
+          : FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _SoriBottomNav(
         currentIndex: _tab,
         isDirector: isDirector,
