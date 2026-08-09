@@ -9,6 +9,7 @@ import '../models/customer_review.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../services/supabase_client.dart';
+import '../utils/db_map.dart';
 import 'sori_repository.dart';
 
 /// Supabase SDK 실연동 Repository.
@@ -32,6 +33,9 @@ class SupabaseSoriRepository implements SoriRepository {
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
+
+  /// Before/After 미첨부·빈 문자열은 DB null로 고정.
+  static String? _imageUrlOrNull(String? value) => DbMap.asTextOrNull(value);
 
   Map<String, dynamic> _customerWriteMap(Customer c, {bool includeId = true}) {
     // 차트 전용 메디컬 필드(allergy/home_care 등)는 customers payload에서 제외
@@ -69,8 +73,8 @@ class SupabaseSoriRepository implements SoriRepository {
       'custom_chart_no': c.customChartNo,
       'visit_checked': c.visitChecked,
       'visit_checked_at': c.visitCheckedAt?.toUtc().toIso8601String(),
-      'before_image_url': c.beforeImageUrl,
-      'after_image_url': c.afterImageUrl,
+      'before_image_url': _imageUrlOrNull(c.beforeImageUrl),
+      'after_image_url': _imageUrlOrNull(c.afterImageUrl),
       'care_name': c.careName,
       'treatment_summary': c.treatmentSummary,
       'director_insight': c.directorInsight,
@@ -447,6 +451,8 @@ class SupabaseSoriRepository implements SoriRepository {
             (existing['visit_checked'] as bool?) ?? false;
         final base =
             CustomerChart.fromMap(Map<String, dynamic>.from(existing));
+        final beforeUrl = _imageUrlOrNull(request.beforeImageUrl);
+        final afterUrl = _imageUrlOrNull(request.afterImageUrl);
         chart = base.copyWith(
           visitNumber: request.visitNumber,
           customChartNo: request.customChartNo,
@@ -461,8 +467,10 @@ class SupabaseSoriRepository implements SoriRepository {
           concernChips: request.concernChips,
           firstVisitFearChips: request.firstVisitFearChips,
           revisitFeedbackChips: request.revisitFeedbackChips,
-          beforeImageUrl: request.beforeImageUrl,
-          afterImageUrl: request.afterImageUrl,
+          beforeImageUrl: beforeUrl,
+          afterImageUrl: afterUrl,
+          clearBeforeImageUrl: beforeUrl == null,
+          clearAfterImageUrl: afterUrl == null,
           clearCustomChartNo: request.customChartNo == null ||
               request.customChartNo!.trim().isEmpty,
         );
@@ -609,8 +617,9 @@ class SupabaseSoriRepository implements SoriRepository {
           ? null
           : request.customChartNo?.trim(),
       'visit_checked': false,
-      'before_image_url': request.beforeImageUrl,
-      'after_image_url': request.afterImageUrl,
+      // 사진 미첨부 시에도 키를 포함해 명시적 null로 insert (스키마 NOT NULL 아님).
+      'before_image_url': _imageUrlOrNull(request.beforeImageUrl),
+      'after_image_url': _imageUrlOrNull(request.afterImageUrl),
       'care_name': request.careName,
       'treatment_summary': request.treatmentSummary,
       'director_insight': request.directorInsight,

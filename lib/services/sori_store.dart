@@ -15,6 +15,7 @@ import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_service_item.dart';
+import '../utils/db_map.dart';
 import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
@@ -1071,6 +1072,9 @@ class SoriStore {
     final wasAlreadyChecked = chartId != null &&
         charts.any((c) => c.id == chartId && c.visitChecked);
 
+    final beforeUrl = DbMap.asTextOrNull(beforeImageUrl);
+    final afterUrl = DbMap.asTextOrNull(afterImageUrl);
+
     CustomerChart chart;
     if (chartId != null) {
       final index = charts.indexWhere((c) => c.id == chartId);
@@ -1089,8 +1093,10 @@ class SoriStore {
         concernChips: concernChips,
         firstVisitFearChips: firstVisitFearChips,
         revisitFeedbackChips: revisitFeedbackChips,
-        beforeImageUrl: beforeImageUrl,
-        afterImageUrl: afterImageUrl,
+        beforeImageUrl: beforeUrl,
+        afterImageUrl: afterUrl,
+        clearBeforeImageUrl: beforeUrl == null,
+        clearAfterImageUrl: afterUrl == null,
         clearCustomChartNo:
             customChartNo == null || customChartNo.trim().isEmpty,
       );
@@ -1114,8 +1120,8 @@ class SoriStore {
         concernChips: concernChips,
         firstVisitFearChips: firstVisitFearChips,
         revisitFeedbackChips: revisitFeedbackChips,
-        beforeImageUrl: beforeImageUrl,
-        afterImageUrl: afterImageUrl,
+        beforeImageUrl: beforeUrl,
+        afterImageUrl: afterUrl,
       );
       charts.insert(0, chart);
     }

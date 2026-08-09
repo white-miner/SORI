@@ -459,6 +459,19 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     );
   }
 
+  /// 사진 미첨부 → null. 첨부됐지만 라벨이 비면 fallback, 그것도 없으면 null.
+  static String? _chartImageUrlOrNull({
+    required bool attached,
+    required String? label,
+    required String fallback,
+  }) {
+    if (!attached) return null;
+    final trimmed = label?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    final fb = fallback.trim();
+    return fb.isEmpty ? null : fb;
+  }
+
   Future<void> _saveAndConfirm() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -503,8 +516,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         concernChips: _concerns.toList(),
         firstVisitFearChips: _fears.toList(),
         revisitFeedbackChips: _revisit.toList(),
-        beforeImageUrl: _beforeAttached ? (_beforeLabel ?? 'before.jpg') : null,
-        afterImageUrl: _afterAttached ? (_afterLabel ?? 'after.jpg') : null,
+        // 미첨부 시 null. 빈 라벨도 null로 취급해 DB에 빈 문자열이 들어가지 않게 한다.
+        beforeImageUrl: _chartImageUrlOrNull(
+          attached: _beforeAttached,
+          label: _beforeLabel,
+          fallback: 'before.jpg',
+        ),
+        afterImageUrl: _chartImageUrlOrNull(
+          attached: _afterAttached,
+          label: _afterLabel,
+          fallback: 'after.jpg',
+        ),
         customerName: _nameController.text,
         customerPhone: _phoneController.text,
         gender: _gender,

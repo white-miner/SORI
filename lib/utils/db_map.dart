@@ -11,6 +11,9 @@ abstract final class DbMap {
     return text.isEmpty ? null : text;
   }
 
+  /// Insert/Upsert용: 빈 문자열·공백을 JSON null로 정규화.
+  static Object? nullIfBlank(String? value) => asTextOrNull(value);
+
   static int asInt(dynamic value, [int fallback = 0]) {
     if (value is int) return value;
     if (value is num) return value.toInt();

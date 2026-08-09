@@ -90,6 +90,8 @@ class CustomerChart {
     DateTime? feedbackLineOpenedAt,
     DateTime? createdAt,
     bool clearCustomChartNo = false,
+    bool clearBeforeImageUrl = false,
+    bool clearAfterImageUrl = false,
   }) {
     return CustomerChart(
       id: id ?? this.id,
@@ -100,8 +102,12 @@ class CustomerChart {
           clearCustomChartNo ? null : (customChartNo ?? this.customChartNo),
       visitChecked: visitChecked ?? this.visitChecked,
       visitCheckedAt: visitCheckedAt ?? this.visitCheckedAt,
-      beforeImageUrl: beforeImageUrl ?? this.beforeImageUrl,
-      afterImageUrl: afterImageUrl ?? this.afterImageUrl,
+      beforeImageUrl: clearBeforeImageUrl
+          ? null
+          : (beforeImageUrl ?? this.beforeImageUrl),
+      afterImageUrl: clearAfterImageUrl
+          ? null
+          : (afterImageUrl ?? this.afterImageUrl),
       careName: careName ?? this.careName,
       treatmentSummary: treatmentSummary ?? this.treatmentSummary,
       directorInsight: directorInsight ?? this.directorInsight,
@@ -128,8 +134,9 @@ class CustomerChart {
         'custom_chart_no': customChartNo,
         'visit_checked': visitChecked,
         'visit_checked_at': visitCheckedAt?.toIso8601String(),
-        'before_image_url': beforeImageUrl,
-        'after_image_url': afterImageUrl,
+        // 미첨부는 빈 문자열이 아니라 명시적 null로 저장한다.
+        'before_image_url': DbMap.nullIfBlank(beforeImageUrl),
+        'after_image_url': DbMap.nullIfBlank(afterImageUrl),
         'care_name': careName,
         'treatment_summary': treatmentSummary,
         'director_insight': directorInsight,
