@@ -133,7 +133,8 @@ class _AppShellPageState extends State<AppShellPage> {
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
 
     return Scaffold(
-      backgroundColor: SoriTokens.background,
+      // 마이 탭 플로팅 카드와 맞춘 쿨그레이 (다른 탭도 동일 톤 유지)
+      backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
         title: Text(_titleForTab(isDirector)),
         backgroundColor: Colors.white,
