@@ -1,12 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../routing/app_router.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
-import '../widgets/sori_logo.dart';
 import 'entry_home_page.dart';
 import 'onboarding_page.dart';
 import 'app_shell_page.dart';
@@ -18,7 +16,7 @@ enum _SplashDest {
   review,
 }
 
-/// 브랜드 스플래시 — 세션 체크 후 Fade로 다음 화면 전환 (로그인 깜빡임 방지).
+/// 브랜드 스플래시 — 통합 로고 이미지 + 세션 체크 후 Fade 전환.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key, this.initialToken});
 
@@ -32,6 +30,8 @@ class _SplashPageState extends State<SplashPage> {
   final _store = SoriStore.instance;
   final _auth = SoriAuthService.instance;
   bool _navigated = false;
+
+  static const String _combinedLogo = 'assets/images/sori_logo1.png';
 
   @override
   void initState() {
@@ -107,8 +107,7 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenW = MediaQuery.sizeOf(context).width;
-    final logoWidth = (screenW * 0.34).clamp(112.0, 200.0);
+    final logoWidth = MediaQuery.of(context).size.width * 0.55;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -119,28 +118,15 @@ class _SplashPageState extends State<SplashPage> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // 화면 정중앙: 슬로건 + 로고 (사이 Spacer 금지)
               Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      '소통하는 리뷰',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.jua(
-                        fontSize: 32,
-                        color: const Color(0xFF6C5CE7),
-                        height: 1.15,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SoriLogo(width: logoWidth),
-                  ],
+                child: Image.asset(
+                  _combinedLogo,
+                  width: logoWidth,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  gaplessPlayback: true,
                 ),
               ),
-              // 최하단 카피라이트
               Positioned(
                 left: 24,
                 right: 24,
