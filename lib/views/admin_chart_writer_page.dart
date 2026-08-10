@@ -9,6 +9,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/db_map.dart';
 import 'customer_link_popup.dart';
 import 'my_app.dart';
 
@@ -589,9 +590,13 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
             ? '$_visitNumber회차 ${_careNameController.text.trim()}'
             : _summaryController.text.trim(),
         directorInsight: _insightController.text.trim(),
-        concernChips: _concerns.toList(),
-        firstVisitFearChips: _fears.toList(),
-        revisitFeedbackChips: _revisit.toList(),
+        concernChips: DbMap.sanitizeStringList(_concerns),
+        firstVisitFearChips: DbMap.sanitizeStringList(
+          _isFirstVisit ? _fears : const <String>{},
+        ),
+        revisitFeedbackChips: DbMap.sanitizeStringList(
+          _isFirstVisit ? const <String>{} : _revisit,
+        ),
         // 미첨부 시 null. 빈 라벨도 null로 취급해 DB에 빈 문자열이 들어가지 않게 한다.
         beforeImageUrl: _chartImageUrlOrNull(
           attached: _beforeAttached,
@@ -603,12 +608,13 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
           label: _afterLabel,
           fallback: 'after.jpg',
         ),
-        customerName: _nameController.text,
-        customerPhone: _phoneController.text,
+        customerName: _nameController.text.trim(),
+        customerPhone: _phoneController.text.trim(),
         gender: _gender,
         birthDate: _birthDate,
         address: _addressController.text.trim(),
         occupation: _occupationController.text.trim(),
+        // 메디컬 TEXT: 다중 칩을 쉼표 문자열로 병합 (빈 선택 → '')
         allergyNotes: ChartMedicalChips.joinSelection(
           selected: _allergyChips,
           noneLabel: ChartMedicalChips.allergyNone,
@@ -631,17 +637,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
 
       if (!mounted) return;
       final feedback = widget.store.lastVisitFeedback?.trim();
-      final deducted = widget.store.lastMembershipDeducted == true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             (feedback != null && feedback.isNotEmpty)
-                ? feedback
-                : (deducted
-                    ? '방문 확인 완료 · 회원권 1회 차감됐어요'
-                    : '방문 확인 완료 · 1회성 시술 차트로 저장했어요'),
+                ? '✅ 차트가 안전하게 저장되었습니다.\n$feedback'
+                : '✅ 차트가 안전하게 저장되었습니다.',
           ),
-          backgroundColor: deducted ? SoriTokens.primary : SoriTokens.warningText,
+          backgroundColor: SoriTokens.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),

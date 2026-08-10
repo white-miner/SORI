@@ -126,32 +126,45 @@ class CustomerChart {
     );
   }
 
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'shop_id': shopId,
-        'customer_id': customerId,
-        'visit_number': visitNumber,
-        'custom_chart_no': customChartNo,
-        'visit_checked': visitChecked,
-        'visit_checked_at': visitCheckedAt?.toIso8601String(),
-        // 미첨부는 빈 문자열이 아니라 명시적 null로 저장한다.
-        'before_image_url': DbMap.nullIfBlank(beforeImageUrl),
-        'after_image_url': DbMap.nullIfBlank(afterImageUrl),
-        'care_name': careName,
-        'treatment_summary': treatmentSummary,
-        'director_insight': directorInsight,
-        // 메디컬/요약 미입력도 null이 아닌 '' 로 안전하게 기록.
-        'allergy_notes': allergyNotes,
-        'skin_sensitivity': skinSensitivity,
-        'side_effect_history': sideEffectHistory,
-        'customer_requests': customerRequests,
-        'concern_chips': concernChips,
-        'first_visit_fear_chips': firstVisitFearChips,
-        'revisit_feedback_chips': revisitFeedbackChips,
-        'feedback_token': feedbackToken,
-        'feedback_line_opened_at':
-            feedbackLineOpenedAt?.toIso8601String(),
-      };
+  Map<String, dynamic> toMap() => toDbWriteMap(includeId: true);
+
+  /// Supabase customer_charts insert/update 전용 안전 페이로드.
+  /// - 사진·토큰 등 optional URL/토큰 → null
+  /// - TEXT 메디컬/요약 → 항상 String (빈칸은 '')
+  /// - jsonb 칩 컬럼 → 항상 List&lt;String&gt; (빈 선택도 [])
+  Map<String, dynamic> toDbWriteMap({bool includeId = false}) {
+    final map = <String, dynamic>{
+      'shop_id': shopId,
+      'customer_id': customerId,
+      'visit_number': visitNumber < 1 ? 1 : visitNumber,
+      'custom_chart_no': DbMap.asTextOrNull(customChartNo),
+      'visit_checked': visitChecked,
+      'visit_checked_at': visitCheckedAt?.toUtc().toIso8601String(),
+      'before_image_url': DbMap.asTextOrNull(beforeImageUrl),
+      'after_image_url': DbMap.asTextOrNull(afterImageUrl),
+      'care_name': careName.trim(),
+      'treatment_summary': treatmentSummary.trim(),
+      'director_insight': directorInsight.trim(),
+      // TEXT: 칩 UI에서 이미 join된 문자열. List를 절대 넣지 않는다.
+      'allergy_notes': allergyNotes.trim(),
+      'skin_sensitivity': skinSensitivity.trim(),
+      'side_effect_history': sideEffectHistory.trim(),
+      'customer_requests': customerRequests.trim(),
+      // jsonb: 심리/관심 칩은 배열로 저장 (스키마와 일치).
+      'concern_chips': DbMap.sanitizeStringList(concernChips),
+      'first_visit_fear_chips': DbMap.sanitizeStringList(firstVisitFearChips),
+      'revisit_feedback_chips':
+          DbMap.sanitizeStringList(revisitFeedbackChips),
+      'feedback_token': DbMap.asTextOrNull(feedbackToken),
+      'feedback_line_opened_at':
+          feedbackLineOpenedAt?.toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (includeId && id.isNotEmpty) {
+      map['id'] = id;
+    }
+    return map;
+  }
 
   factory CustomerChart.fromMap(Map<String, dynamic> map) {
     final id = DbMap.asText(map['id']);

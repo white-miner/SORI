@@ -41,6 +41,42 @@ class SupabaseSoriRepository implements SoriRepository {
   static String _textOrEmpty(String? value) =>
       value == null ? '' : value.trim();
 
+  CustomerChart _chartFromSaveRequest(
+    SaveChartRequest request,
+    String shopId, {
+    String id = '',
+    bool visitChecked = false,
+    DateTime? visitCheckedAt,
+    String? feedbackToken,
+    DateTime? feedbackLineOpenedAt,
+  }) {
+    return CustomerChart(
+      id: id,
+      shopId: shopId,
+      customerId: request.customerId,
+      visitNumber: request.visitNumber < 1 ? 1 : request.visitNumber,
+      customChartNo: DbMap.asTextOrNull(request.customChartNo),
+      visitChecked: visitChecked,
+      visitCheckedAt: visitCheckedAt,
+      beforeImageUrl: _imageUrlOrNull(request.beforeImageUrl),
+      afterImageUrl: _imageUrlOrNull(request.afterImageUrl),
+      careName: _textOrEmpty(request.careName),
+      treatmentSummary: _textOrEmpty(request.treatmentSummary),
+      directorInsight: _textOrEmpty(request.directorInsight),
+      allergyNotes: _textOrEmpty(request.allergyNotes),
+      skinSensitivity: _textOrEmpty(request.skinSensitivity),
+      sideEffectHistory: _textOrEmpty(request.sideEffectHistory),
+      customerRequests: _textOrEmpty(request.customerRequests),
+      concernChips: DbMap.sanitizeStringList(request.concernChips),
+      firstVisitFearChips:
+          DbMap.sanitizeStringList(request.firstVisitFearChips),
+      revisitFeedbackChips:
+          DbMap.sanitizeStringList(request.revisitFeedbackChips),
+      feedbackToken: DbMap.asTextOrNull(feedbackToken),
+      feedbackLineOpenedAt: feedbackLineOpenedAt,
+    );
+  }
+
   Map<String, dynamic> _customerWriteMap(Customer c, {bool includeId = true}) {
     // 차트 전용 메디컬 필드(allergy/home_care 등)는 customers payload에서 제외
     final synced = c.withSyncedMembershipMirrors();
@@ -70,34 +106,11 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   Map<String, dynamic> _chartWriteMap(CustomerChart c, {bool includeId = true}) {
-    final map = <String, dynamic>{
-      'shop_id': c.shopId,
-      'customer_id': c.customerId,
-      'visit_number': c.visitNumber,
-      'custom_chart_no': c.customChartNo,
-      'visit_checked': c.visitChecked,
-      'visit_checked_at': c.visitCheckedAt?.toUtc().toIso8601String(),
-      'before_image_url': _imageUrlOrNull(c.beforeImageUrl),
-      'after_image_url': _imageUrlOrNull(c.afterImageUrl),
-      'care_name': _textOrEmpty(c.careName),
-      'treatment_summary': _textOrEmpty(c.treatmentSummary),
-      'director_insight': _textOrEmpty(c.directorInsight),
-      'allergy_notes': _textOrEmpty(c.allergyNotes),
-      'skin_sensitivity': _textOrEmpty(c.skinSensitivity),
-      'side_effect_history': _textOrEmpty(c.sideEffectHistory),
-      'customer_requests': _textOrEmpty(c.customerRequests),
-      'concern_chips': c.concernChips,
-      'first_visit_fear_chips': c.firstVisitFearChips,
-      'revisit_feedback_chips': c.revisitFeedbackChips,
-      'feedback_token': DbMap.asTextOrNull(c.feedbackToken),
-      'feedback_line_opened_at':
-          c.feedbackLineOpenedAt?.toUtc().toIso8601String(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    };
+    // temp id는 DB에 보내지 않음
     if (includeId && c.id.isNotEmpty && !_isTempId(c.id)) {
-      map['id'] = c.id;
+      return c.toDbWriteMap(includeId: true);
     }
-    return map;
+    return c.toDbWriteMap(includeId: false);
   }
 
   bool _isTempId(String id) =>
@@ -455,29 +468,16 @@ class SupabaseSoriRepository implements SoriRepository {
             (existing['visit_checked'] as bool?) ?? false;
         final base =
             CustomerChart.fromMap(Map<String, dynamic>.from(existing));
-        final beforeUrl = _imageUrlOrNull(request.beforeImageUrl);
-        final afterUrl = _imageUrlOrNull(request.afterImageUrl);
-        chart = base.copyWith(
-          visitNumber: request.visitNumber,
-          customChartNo: request.customChartNo,
-          careName: request.careName,
-          treatmentSummary: request.treatmentSummary,
-          directorInsight: request.directorInsight,
-          allergyNotes: request.allergyNotes ?? base.allergyNotes,
-          skinSensitivity: request.skinSensitivity ?? base.skinSensitivity,
-          sideEffectHistory:
-              request.sideEffectHistory ?? base.sideEffectHistory,
-          customerRequests: request.customerRequests ?? base.customerRequests,
-          concernChips: request.concernChips,
-          firstVisitFearChips: request.firstVisitFearChips,
-          revisitFeedbackChips: request.revisitFeedbackChips,
-          beforeImageUrl: beforeUrl,
-          afterImageUrl: afterUrl,
-          clearBeforeImageUrl: beforeUrl == null,
-          clearAfterImageUrl: afterUrl == null,
-          clearCustomChartNo: request.customChartNo == null ||
-              request.customChartNo!.trim().isEmpty,
+        final draft = _chartFromSaveRequest(
+          request,
+          customer.shopId,
+          id: base.id,
+          visitChecked: base.visitChecked,
+          visitCheckedAt: base.visitCheckedAt,
+          feedbackToken: base.feedbackToken,
+          feedbackLineOpenedAt: base.feedbackLineOpenedAt,
         );
+        chart = draft;
         final updated = await _db
             .from('customer_charts')
             .update(_chartWriteMap(chart, includeId: false))
@@ -613,28 +613,13 @@ class SupabaseSoriRepository implements SoriRepository {
     SaveChartRequest request,
     String shopId,
   ) async {
-    final payload = <String, dynamic>{
-      'shop_id': shopId,
-      'customer_id': request.customerId,
-      'visit_number': request.visitNumber,
-      'custom_chart_no': request.customChartNo?.trim().isEmpty == true
-          ? null
-          : request.customChartNo?.trim(),
-      'visit_checked': false,
-      // 사진 미첨부 시에도 키를 포함해 명시적 null로 insert (스키마 NOT NULL 아님).
-      'before_image_url': _imageUrlOrNull(request.beforeImageUrl),
-      'after_image_url': _imageUrlOrNull(request.afterImageUrl),
-      'care_name': _textOrEmpty(request.careName),
-      'treatment_summary': _textOrEmpty(request.treatmentSummary),
-      'director_insight': _textOrEmpty(request.directorInsight),
-      'allergy_notes': _textOrEmpty(request.allergyNotes),
-      'skin_sensitivity': _textOrEmpty(request.skinSensitivity),
-      'side_effect_history': _textOrEmpty(request.sideEffectHistory),
-      'customer_requests': _textOrEmpty(request.customerRequests),
-      'concern_chips': request.concernChips,
-      'first_visit_fear_chips': request.firstVisitFearChips,
-      'revisit_feedback_chips': request.revisitFeedbackChips,
-    };
+    final draft = _chartFromSaveRequest(request, shopId);
+    final payload = _chartWriteMap(draft, includeId: false);
+    // 신규 insert 시 서버가 발급할 토큰/확인 필드는 보내지 않음
+    payload.remove('feedback_token');
+    payload.remove('feedback_line_opened_at');
+    payload['visit_checked'] = false;
+    payload['visit_checked_at'] = null;
     final row =
         await _db.from('customer_charts').insert(payload).select().single();
     return CustomerChart.fromMap(Map<String, dynamic>.from(row));
