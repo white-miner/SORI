@@ -10,6 +10,7 @@ import '../widgets/membership_progress.dart';
 import '../widgets/review_qr_modal.dart';
 import '../widgets/sori_logo.dart';
 import 'customer_review_history_page.dart';
+import 'my_info_edit_page.dart';
 import 'service_menu_page.dart';
 import 'shop_settings_page.dart';
 
@@ -49,12 +50,21 @@ class MyPage extends StatelessWidget {
     final remain = customer?.membershipRemainingVisits ?? 0;
 
     final isDirector = session.activeMode == UserRole.director;
-    final showManage = isDirector || session.shopSetupComplete;
     final shop = store.shop;
     final shopName = shop.name.trim();
     final ownerName = (shop.ownerName ?? '').trim();
     final hasShopProfile = shopName.isNotEmpty && ownerName.isNotEmpty;
-    final useShopProfile = isDirector || showManage;
+    final displayName = isDirector
+        ? (hasShopProfile
+            ? '$shopName / 원장 $ownerName'
+            : (session.name.trim().isEmpty ? '원장' : session.name))
+        : (session.name.trim().isEmpty ? '고객' : session.name);
+
+    Future<void> openProfileEdit() async {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const MyInfoEditPage()),
+      );
+    }
 
     return ColoredBox(
       color: _myPageBg,
@@ -63,7 +73,6 @@ class MyPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
           children: [
             _FloatCard(
-              onTap: useShopProfile ? () => _openShopSettings(context) : null,
               child: Row(
                 children: [
                   CircleAvatar(
@@ -79,63 +88,52 @@ class MyPage extends StatelessWidget {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: useShopProfile
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                hasShopProfile
-                                    ? '$shopName / 원장 $ownerName'
-                                    : '샵 정보를 등록해 주세요 〉',
-                                style: TextStyle(
-                                  fontSize: hasShopProfile ? 17 : 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: hasShopProfile
-                                      ? SoriTokens.textPrimary
-                                      : SoriTokens.primary,
-                                  height: 1.3,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                hasShopProfile
-                                    ? '${session.phone} · ${session.providerLabel}'
-                                    : '터치하여 샵 이름 · 원장명을 등록하세요',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: _mutedText,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                session.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${session.phone} · ${session.providerLabel}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: _mutedText,
-                                ),
-                              ),
-                            ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            height: 1.3,
                           ),
-                  ),
-                  if (useShopProfile)
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${session.phone} · ${session.providerLabel}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: _mutedText,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: openProfileEdit,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SoriTokens.primary,
+                      side: const BorderSide(color: SoriTokens.primary),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text(
+                      '프로필 관리',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -180,7 +178,8 @@ class MyPage extends StatelessWidget {
                 child: MembershipProgressView(customer: customer),
               ),
             ],
-            if (showManage) ...[
+            // 원장 전용 관리 / 통계 영역 (고객 모드에서는 완전 숨김)
+            if (isDirector) ...[
               const SizedBox(height: 28),
               const _SectionTitle('관리'),
               _FloatCard(
@@ -193,14 +192,12 @@ class MyPage extends StatelessWidget {
                       onTap: () => _openShopSettings(context),
                     ),
                     const SizedBox(height: 4),
-                    if (isDirector) ...[
-                      _MenuTile(
-                        icon: Icons.people_outline_rounded,
-                        title: '고객 정보',
-                        onTap: () => onSelectTab?.call(1),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                    _MenuTile(
+                      icon: Icons.people_outline_rounded,
+                      title: '고객 정보',
+                      onTap: () => onSelectTab?.call(1),
+                    ),
+                    const SizedBox(height: 4),
                     _MenuTile(
                       icon: Icons.spa_outlined,
                       title: '서비스 메뉴',
@@ -212,19 +209,15 @@ class MyPage extends StatelessWidget {
                         );
                       },
                     ),
-                    if (isDirector) ...[
-                      const SizedBox(height: 4),
-                      _MenuTile(
-                        icon: Icons.photo_library_outlined,
-                        title: '성공 사례',
-                        onTap: () => onSelectTab?.call(3),
-                      ),
-                    ],
+                    const SizedBox(height: 4),
+                    _MenuTile(
+                      icon: Icons.photo_library_outlined,
+                      title: '성공 사례 관리',
+                      onTap: () => onSelectTab?.call(2),
+                    ),
                   ],
                 ),
               ),
-            ],
-            if (isDirector) ...[
               const SizedBox(height: 28),
               const _SectionTitle('리뷰 통계'),
               _DirectorStatsDashboard(store: store),
@@ -313,16 +306,9 @@ class MyPage extends StatelessWidget {
                     const SizedBox(height: 4),
                   ],
                   _MenuTile(
-                    icon: Icons.notifications_outlined,
-                    title: '알림 설정',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('알림 설정은 준비 중이에요'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
+                    icon: Icons.manage_accounts_outlined,
+                    title: '프로필 관리',
+                    onTap: openProfileEdit,
                   ),
                   const SizedBox(height: 4),
                   _MenuTile(

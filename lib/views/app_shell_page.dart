@@ -10,13 +10,11 @@ import 'customer_care_page.dart';
 import 'customer_home_page.dart';
 import 'director_customers_tab.dart';
 import 'director_home_page.dart';
-import 'director_review_manage_page.dart';
-import 'ikea_review_composer_page.dart';
 import 'message_history_page.dart';
 import 'my_page.dart';
 import 'success_cases_page.dart';
 
-/// 로그인 후 5탭 앱 셸 (원장/고객 모드 공통).
+/// 로그인 후 앱 셸 — 원장/고객 권한별 탭 분리.
 class AppShellPage extends StatefulWidget {
   const AppShellPage({super.key});
 
@@ -51,7 +49,14 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final isDirector =
+        _store.session?.activeMode == UserRole.director;
+    final maxIndex = isDirector ? 3 : 2;
+    if (_tab > maxIndex) {
+      _tab = 0;
+    }
+    setState(() {});
   }
 
   void _selectTab(int index) {
@@ -76,20 +81,21 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   String _titleForTab(bool isDirector) {
-    switch (_tab) {
-      case 0:
-        return '홈';
-      case 1:
-        return isDirector ? '고객 CRM' : '케어';
-      case 2:
-        return isDirector ? '리뷰 관리' : '리뷰 작성';
-      case 3:
-        return '성공 사례';
-      case 4:
-        return '마이';
-      default:
-        return 'SORI';
+    if (isDirector) {
+      return switch (_tab) {
+        0 => '홈',
+        1 => '고객 관리',
+        2 => '성공 사례',
+        3 => '마이',
+        _ => 'SORI',
+      };
     }
+    return switch (_tab) {
+      0 => '홈',
+      1 => '케어',
+      2 => '마이',
+      _ => 'SORI',
+    };
   }
 
   @override
@@ -97,44 +103,43 @@ class _AppShellPageState extends State<AppShellPage> {
     final session = _store.session;
     if (session == null || !session.onboardingComplete) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: SoriTokens.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: SoriTokens.primary),
+        ),
       );
     }
 
     final isDirector = session.activeMode == UserRole.director;
     final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
 
-    final pages = <Widget>[
-      isDirector
-          ? DirectorHomePage(key: const ValueKey('d-home'), store: _store)
-          : CustomerHomePage(
+    final pages = isDirector
+        ? <Widget>[
+            DirectorHomePage(key: const ValueKey('d-home'), store: _store),
+            DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store),
+            SuccessCasesPage(key: const ValueKey('d-success'), store: _store),
+            MyPage(
+              key: const ValueKey('d-my'),
+              store: _store,
+              onSelectTab: _selectTab,
+            ),
+          ]
+        : <Widget>[
+            CustomerHomePage(
               key: const ValueKey('c-home'),
               store: _store,
               onSelectTab: _selectTab,
             ),
-      isDirector
-          ? DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store)
-          : CustomerCareTab(key: const ValueKey('c-care'), store: _store),
-      isDirector
-          ? DirectorReviewManagePage(
-              key: const ValueKey('d-review'),
+            CustomerCareTab(key: const ValueKey('c-care'), store: _store),
+            MyPage(
+              key: const ValueKey('c-my'),
               store: _store,
-            )
-          : IkeaReviewComposerPage(
-              key: const ValueKey('c-review'),
-              store: _store,
+              onSelectTab: _selectTab,
             ),
-      SuccessCasesPage(key: const ValueKey('success'), store: _store),
-      MyPage(
-        store: _store,
-        onSelectTab: _selectTab,
-      ),
-    ];
+          ];
 
-    final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
+    final safeIndex = _tab.clamp(0, pages.length - 1);
 
     return Scaffold(
-      // 마이 탭 플로팅 카드와 맞춘 쿨그레이 (다른 탭도 동일 톤 유지)
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
         title: Row(
@@ -153,16 +158,18 @@ class _AppShellPageState extends State<AppShellPage> {
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [
-          IconButton(
-            tooltip: '알림',
-            onPressed: _openNotifications,
-            icon: const Icon(Icons.notifications_none_rounded),
-          ),
-          // 태블릿/PC: endTop FAB(보라 차트 버튼) 바로 왼쪽에 알림이 오도록 우측 여백
-          if (isDirector && isWide) const SizedBox(width: 72),
+          // 홈 탭(Index 0)에서만 알림 아이콘 노출
+          if (safeIndex == 0)
+            IconButton(
+              tooltip: '알림',
+              onPressed: _openNotifications,
+              icon: const Icon(Icons.notifications_none_rounded),
+            ),
+          if (isDirector && isWide && safeIndex == 0)
+            const SizedBox(width: 72),
         ],
       ),
-      body: IndexedStack(index: _tab, children: pages),
+      body: IndexedStack(index: safeIndex, children: pages),
       floatingActionButton: isDirector
           ? FloatingActionButton(
               tooltip: '새 차트 작성',
@@ -177,156 +184,69 @@ class _AppShellPageState extends State<AppShellPage> {
       floatingActionButtonLocation: isWide
           ? FloatingActionButtonLocation.endTop
           : FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _SoriBottomNav(
-        currentIndex: _tab,
+      bottomNavigationBar: _RoleBottomNav(
+        currentIndex: safeIndex,
         isDirector: isDirector,
-        reviewLabel: reviewLabel,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: _selectTab,
       ),
     );
   }
 }
 
-/// 중앙 리뷰 탭이 바 위로 돌출되는 커스텀 하단 네비.
-class _SoriBottomNav extends StatelessWidget {
-  const _SoriBottomNav({
+class _RoleBottomNav extends StatelessWidget {
+  const _RoleBottomNav({
     required this.currentIndex,
     required this.isDirector,
-    required this.reviewLabel,
     required this.onTap,
   });
 
   final int currentIndex;
   final bool isDirector;
-  final String reviewLabel;
   final ValueChanged<int> onTap;
-
-  static const double _barHeight = 64;
-  static const double _fabSize = 58;
-  static const double _protrude = 22;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _barHeight + _protrude + MediaQuery.paddingOf(context).bottom,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: _barHeight + MediaQuery.paddingOf(context).bottom,
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.paddingOf(context).bottom,
-              ),
-              decoration: BoxDecoration(
-                color: SoriTokens.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  _NavItem(
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home_rounded,
-                    label: '홈',
-                    selected: currentIndex == 0,
-                    onTap: () => onTap(0),
-                  ),
-                  _NavItem(
-                    icon: isDirector
-                        ? Icons.people_outline
-                        : Icons.timeline_outlined,
-                    activeIcon: isDirector ? Icons.people : Icons.timeline,
-                    label: isDirector ? '고객' : '케어',
-                    selected: currentIndex == 1,
-                    onTap: () => onTap(1),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onTap(2),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          SizedBox(height: _fabSize / 2),
-                          Text(
-                            reviewLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: currentIndex == 2
-                                  ? SoriTokens.primary
-                                  : SoriTokens.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _NavItem(
-                    icon: Icons.photo_library_outlined,
-                    activeIcon: Icons.photo_library_rounded,
-                    label: '성공 사례',
-                    selected: currentIndex == 3,
-                    onTap: () => onTap(3),
-                  ),
-                  _NavItem(
-                    icon: Icons.person_outline_rounded,
-                    activeIcon: Icons.person_rounded,
-                    label: '마이',
-                    selected: currentIndex == 4,
-                    onTap: () => onTap(4),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () => onTap(2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: _fabSize,
-                  height: _fabSize,
-                  decoration: BoxDecoration(
-                    color: SoriTokens.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: SoriTokens.primary.withValues(alpha: 0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                    border: currentIndex == 2
-                        ? Border.all(color: Colors.white, width: 3)
-                        : null,
-                  ),
-                  child: const Icon(
-                    Icons.chat_bubble_rounded,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-              ),
-            ),
+    final items = isDirector
+        ? const [
+            (Icons.home_outlined, Icons.home_rounded, '홈'),
+            (Icons.people_outline, Icons.people, '고객 관리'),
+            (Icons.photo_library_outlined, Icons.photo_library_rounded, '성공 사례'),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
+          ]
+        : const [
+            (Icons.home_outlined, Icons.home_rounded, '홈'),
+            (Icons.spa_outlined, Icons.spa_rounded, '케어'),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
+          ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: SoriTokens.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
           ),
         ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                _NavItem(
+                  icon: items[i].$1,
+                  activeIcon: items[i].$2,
+                  label: items[i].$3,
+                  selected: currentIndex == i,
+                  onTap: () => onTap(i),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -349,8 +269,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        selected ? SoriTokens.primary : SoriTokens.textSecondary;
+    final color = selected ? SoriTokens.primary : SoriTokens.textSecondary;
     return Expanded(
       child: InkWell(
         onTap: onTap,

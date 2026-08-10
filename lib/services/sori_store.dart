@@ -524,6 +524,37 @@ class SoriStore {
     _notify();
   }
 
+  /// 프로필 관리 — 세션 + 연결된 고객 주소/이름 동기화.
+  void updateMyProfile({
+    required String name,
+    required String phone,
+    String? address,
+  }) {
+    updateSessionProfile(name: name, phone: phone);
+    final customerId = session?.customerId;
+    if (customerId == null) return;
+    final idx = customers.indexWhere((c) => c.id == customerId);
+    if (idx < 0) return;
+    customers[idx] = customers[idx].copyWith(
+      name: name.trim(),
+      phone: phone.trim(),
+      address: address?.trim(),
+    );
+    _notify();
+    if (_repository.isRemote) {
+      () async {
+        try {
+          final saved = await _repository.upsertCustomer(customers[idx]);
+          final i = customers.indexWhere((c) => c.id == saved.id);
+          if (i >= 0) customers[i] = saved;
+          _notify();
+        } catch (e) {
+          debugPrint('updateMyProfile upsert failed: $e');
+        }
+      }();
+    }
+  }
+
   /// 역할 선택 완료. 고객이면 전화 매칭 후 바로 홈, 원장이면 샵 설정 필요.
   SessionUser completeRoleSelection(UserRole role) {
     if (session == null) throw StateError('No session');

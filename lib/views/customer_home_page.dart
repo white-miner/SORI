@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
+import 'ikea_review_composer_page.dart';
 
 /// 고객 홈 — 대시보드 (웰컴 · 리뷰 요청 · 샵 퀵액션).
 class CustomerHomePage extends StatelessWidget {
@@ -15,6 +16,23 @@ class CustomerHomePage extends StatelessWidget {
 
   final SoriStore store;
   final ValueChanged<int>? onSelectTab;
+
+  void _openReview(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: SoriTokens.background,
+          appBar: AppBar(
+            title: const Text('리뷰 작성'),
+            backgroundColor: Colors.white,
+            foregroundColor: SoriTokens.textPrimary,
+            elevation: 0,
+          ),
+          body: IkeaReviewComposerPage(store: store),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,9 +57,7 @@ class CustomerHomePage extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           if (hasReviewRequest) ...[
-            _ReviewRequestBanner(
-              onTap: () => onSelectTab?.call(2),
-            ),
+            _ReviewRequestBanner(onTap: () => _openReview(context)),
             const SizedBox(height: 12),
           ],
           SoriCard(
@@ -112,7 +128,7 @@ class CustomerHomePage extends StatelessWidget {
                 child: _QuickNavChip(
                   icon: Icons.chat_bubble_outline,
                   label: '리뷰 작성',
-                  onTap: () => onSelectTab?.call(2),
+                  onTap: () => _openReview(context),
                 ),
               ),
             ],
