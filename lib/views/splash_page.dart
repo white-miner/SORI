@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../routing/app_router.dart';
 import '../services/sori_auth_service.dart';
@@ -107,49 +108,53 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     final screenW = MediaQuery.sizeOf(context).width;
-    // 슬로건 시각적 폭과 균형 — 좁은 화면에서도 중앙 정렬 유지
-    final logoWidth = (screenW * 0.36).clamp(120.0, 220.0);
+    final logoWidth = (screenW * 0.34).clamp(112.0, 200.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              const Spacer(),
-              // 정중앙 그룹: 슬로건 + 로고
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    '소통하는 리뷰',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF6C5CE7),
-                      height: 1.2,
-                      letterSpacing: -0.4,
+              // 화면 정중앙: 슬로건 + 로고 (사이 Spacer 금지)
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      '소통하는 리뷰',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.jua(
+                        fontSize: 32,
+                        color: const Color(0xFF6C5CE7),
+                        height: 1.15,
+                        letterSpacing: -0.2,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  SoriLogo(width: logoWidth),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                'Copyright © SORI. All Rights Reserved.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.grey[500],
+                    const SizedBox(height: 12),
+                    SoriLogo(width: logoWidth),
+                  ],
                 ),
               ),
-              const SizedBox(height: 32),
+              // 최하단 카피라이트
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 32,
+                child: Text(
+                  'Copyright © SORI. All Rights Reserved.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
