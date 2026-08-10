@@ -1,15 +1,18 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:signature/signature.dart';
 
 import '../models/chart_interview_chips.dart';
 import '../models/chart_medical_chips.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
+import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/db_map.dart';
+import 'chart_consent_tab.dart';
 import 'customer_link_popup.dart';
 import 'my_app.dart';
 
@@ -48,8 +51,12 @@ class AdminChartWriterPage extends StatefulWidget {
   State<AdminChartWriterPage> createState() => _AdminChartWriterPageState();
 }
 
-class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
+class _AdminChartWriterPageState extends State<AdminChartWriterPage>
+    with TickerProviderStateMixin {
   late int _visitNumber;
+  late final TabController _tabController;
+  late final PageController _pageController;
+  late final SignatureController _signatureController;
   late final TextEditingController _customNoController;
   late final TextEditingController _birthTextController;
   late final TextEditingController _nameController;
@@ -79,6 +86,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   final Set<String> _concerns = {};
   bool _saving = false;
 
+  bool _consentMandatory = false;
+  bool _consentPhoto = false;
+  bool _consentMarketing = false;
+  bool _consentOfflineOnly = false;
+  String? _existingSignatureUrl;
+
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
   late bool _isFirstVisitMode;
 
@@ -91,6 +104,13 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _pageController = PageController();
+    _signatureController = SignatureController(
+      penStrokeWidth: 2.8,
+      penColor: const Color(0xFF2D3436),
+      exportBackgroundColor: Colors.white,
+    );
     final existing = widget.existingChart;
     // 전화번호를 Unique Key로 기존 고객 프로필을 우선 로드 (자동 완성).
     final byPhone = widget.store.findCustomerByPhone(widget.customer.phone);
@@ -175,10 +195,18 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
     _fears.addAll(existing?.firstVisitFearChips ?? const []);
     _revisit.addAll(existing?.revisitFeedbackChips ?? const []);
     _concerns.addAll(existing?.concernChips ?? const []);
+    _consentMandatory = existing?.consentMandatory ?? false;
+    _consentPhoto = existing?.consentPhoto ?? false;
+    _consentMarketing = existing?.consentMarketing ?? false;
+    _consentOfflineOnly = existing?.consentOfflineOnly ?? false;
+    _existingSignatureUrl = existing?.signatureUrl;
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
+    _pageController.dispose();
+    _signatureController.dispose();
     _customNoController.dispose();
     _birthTextController.dispose();
     _nameController.dispose();
@@ -577,6 +605,22 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
 
     setState(() => _saving = true);
     try {
+      // 서명 패드에 획이 있을 때만 업로드. 실패해도 차트 저장은 진행.
+      String? signatureUrl = _existingSignatureUrl;
+      if (_signatureController.isNotEmpty) {
+        final bytes = await _signatureController.toPngBytes();
+        if (bytes != null && bytes.isNotEmpty) {
+          final uploaded = await ChartSignatureStorage.uploadPng(
+            bytes: bytes,
+            shopId: widget.store.shop.id,
+            customerId: widget.customer.id,
+          );
+          if (uploaded != null) {
+            signatureUrl = uploaded;
+          }
+        }
+      }
+
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: widget.customer.id,
         visitNumber: _visitNumber,
@@ -597,7 +641,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         revisitFeedbackChips: DbMap.sanitizeStringList(
           _isFirstVisit ? const <String>{} : _revisit,
         ),
-        // 미첨부 시 null. 빈 라벨도 null로 취급해 DB에 빈 문자열이 들어가지 않게 한다.
         beforeImageUrl: _chartImageUrlOrNull(
           attached: _beforeAttached,
           label: _beforeLabel,
@@ -614,7 +657,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         birthDate: _birthDate,
         address: _addressController.text.trim(),
         occupation: _occupationController.text.trim(),
-        // 메디컬 TEXT: 다중 칩을 쉼표 문자열로 병합 (빈 선택 → '')
         allergyNotes: ChartMedicalChips.joinSelection(
           selected: _allergyChips,
           noneLabel: ChartMedicalChips.allergyNone,
@@ -633,6 +675,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         memberships: _memberships
             .where((m) => m.serviceName.trim().isNotEmpty && m.totalVisits > 0)
             .toList(),
+        consentMandatory: _consentMandatory,
+        consentPhoto: _consentPhoto,
+        consentMarketing: _consentPhoto && _consentMarketing,
+        consentOfflineOnly: _consentPhoto && _consentOfflineOnly,
+        signatureUrl: signatureUrl,
       );
 
       if (!mounted) return;
@@ -678,13 +725,112 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF2D3436),
         elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: MyApp.soriPurple,
+          unselectedLabelColor: Colors.grey.shade600,
+          indicatorColor: MyApp.soriPurple,
+          onTap: (index) {
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+            );
+          },
+          tabs: const [
+            Tab(text: '차트 작성'),
+            Tab(text: '전자 동의서'),
+          ],
+        ),
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                if (_tabController.index != index) {
+                  _tabController.animateTo(index);
+                }
+              },
               children: [
+                ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  children: _buildChartFormChildren(),
+                ),
+                ChartConsentTab(
+                  consentMandatory: _consentMandatory,
+                  consentPhoto: _consentPhoto,
+                  consentMarketing: _consentMarketing,
+                  consentOfflineOnly: _consentOfflineOnly,
+                  signatureController: _signatureController,
+                  existingSignatureUrl: _existingSignatureUrl,
+                  onMandatoryChanged: (v) =>
+                      setState(() => _consentMandatory = v),
+                  onPhotoChanged: (v) {
+                    setState(() {
+                      _consentPhoto = v;
+                      if (!v) {
+                        _consentMarketing = false;
+                        _consentOfflineOnly = false;
+                      } else if (!_consentMarketing && !_consentOfflineOnly) {
+                        _consentOfflineOnly = true;
+                      }
+                    });
+                  },
+                  onMarketingSelected: () => setState(() {
+                    _consentMarketing = true;
+                    _consentOfflineOnly = false;
+                  }),
+                  onOfflineOnlySelected: () => setState(() {
+                    _consentMarketing = false;
+                    _consentOfflineOnly = true;
+                  }),
+                  onClearSignature: () => _signatureController.clear(),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : _saveAndConfirm,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: MyApp.soriPurple,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    _saving ? '저장 중…' : '차트 저장 및 방문 확인 완료',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildChartFormChildren() {
+    return [
                 _SegmentCard(
                   title: '차트 번호',
                   child: Column(
@@ -1227,45 +1373,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage> {
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _saveAndConfirm,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: MyApp.soriPurple,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    _saving ? '저장 중…' : '차트 저장 및 방문 확인 완료',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    ];
   }
 }
 

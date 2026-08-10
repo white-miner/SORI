@@ -24,6 +24,11 @@ class CustomerChart {
     this.feedbackToken,
     this.feedbackLineOpenedAt,
     this.createdAt,
+    this.consentMandatory = false,
+    this.consentPhoto = false,
+    this.consentMarketing = false,
+    this.consentOfflineOnly = false,
+    this.signatureUrl,
   });
 
   final String id;
@@ -55,6 +60,13 @@ class CustomerChart {
 
   /// DB created_at (타임라인 날짜 표시용, 쓰기 시 서버 기본값 사용).
   final DateTime? createdAt;
+
+  /// 전자 동의서.
+  final bool consentMandatory;
+  final bool consentPhoto;
+  final bool consentMarketing;
+  final bool consentOfflineOnly;
+  final String? signatureUrl;
 
   bool get hasFeedbackLine =>
       feedbackToken != null && feedbackLineOpenedAt != null;
@@ -89,9 +101,15 @@ class CustomerChart {
     String? feedbackToken,
     DateTime? feedbackLineOpenedAt,
     DateTime? createdAt,
+    bool? consentMandatory,
+    bool? consentPhoto,
+    bool? consentMarketing,
+    bool? consentOfflineOnly,
+    String? signatureUrl,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
+    bool clearSignatureUrl = false,
   }) {
     return CustomerChart(
       id: id ?? this.id,
@@ -123,15 +141,18 @@ class CustomerChart {
       feedbackLineOpenedAt:
           feedbackLineOpenedAt ?? this.feedbackLineOpenedAt,
       createdAt: createdAt ?? this.createdAt,
+      consentMandatory: consentMandatory ?? this.consentMandatory,
+      consentPhoto: consentPhoto ?? this.consentPhoto,
+      consentMarketing: consentMarketing ?? this.consentMarketing,
+      consentOfflineOnly: consentOfflineOnly ?? this.consentOfflineOnly,
+      signatureUrl:
+          clearSignatureUrl ? null : (signatureUrl ?? this.signatureUrl),
     );
   }
 
   Map<String, dynamic> toMap() => toDbWriteMap(includeId: true);
 
   /// Supabase customer_charts insert/update 전용 안전 페이로드.
-  /// - 사진·토큰 등 optional URL/토큰 → null
-  /// - TEXT 메디컬/요약 → 항상 String (빈칸은 '')
-  /// - jsonb 칩 컬럼 → 항상 List&lt;String&gt; (빈 선택도 [])
   Map<String, dynamic> toDbWriteMap({bool includeId = false}) {
     final map = <String, dynamic>{
       'shop_id': shopId,
@@ -145,12 +166,10 @@ class CustomerChart {
       'care_name': careName.trim(),
       'treatment_summary': treatmentSummary.trim(),
       'director_insight': directorInsight.trim(),
-      // TEXT: 칩 UI에서 이미 join된 문자열. List를 절대 넣지 않는다.
       'allergy_notes': allergyNotes.trim(),
       'skin_sensitivity': skinSensitivity.trim(),
       'side_effect_history': sideEffectHistory.trim(),
       'customer_requests': customerRequests.trim(),
-      // jsonb: 심리/관심 칩은 배열로 저장 (스키마와 일치).
       'concern_chips': DbMap.sanitizeStringList(concernChips),
       'first_visit_fear_chips': DbMap.sanitizeStringList(firstVisitFearChips),
       'revisit_feedback_chips':
@@ -158,6 +177,12 @@ class CustomerChart {
       'feedback_token': DbMap.asTextOrNull(feedbackToken),
       'feedback_line_opened_at':
           feedbackLineOpenedAt?.toUtc().toIso8601String(),
+      // 동의서: 미작성 시 false / signature null
+      'consent_mandatory': consentMandatory,
+      'consent_photo': consentPhoto,
+      'consent_marketing': consentMarketing,
+      'consent_offline_only': consentOfflineOnly,
+      'signature_url': DbMap.asTextOrNull(signatureUrl),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (includeId && id.isNotEmpty) {
@@ -197,6 +222,11 @@ class CustomerChart {
       feedbackToken: DbMap.asTextOrNull(map['feedback_token']),
       feedbackLineOpenedAt: DbMap.asDateTime(map['feedback_line_opened_at']),
       createdAt: DbMap.asDateTime(map['created_at']),
+      consentMandatory: DbMap.asBool(map['consent_mandatory']),
+      consentPhoto: DbMap.asBool(map['consent_photo']),
+      consentMarketing: DbMap.asBool(map['consent_marketing']),
+      consentOfflineOnly: DbMap.asBool(map['consent_offline_only']),
+      signatureUrl: DbMap.asTextOrNull(map['signature_url']),
     );
   }
 }

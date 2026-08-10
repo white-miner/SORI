@@ -63,6 +63,11 @@ class SaveChartRequest {
     this.membershipTotalVisits,
     this.membershipUsedVisits,
     this.deductMembership = true,
+    this.consentMandatory = false,
+    this.consentPhoto = false,
+    this.consentMarketing = false,
+    this.consentOfflineOnly = false,
+    this.signatureUrl,
   });
 
   final String customerId;
@@ -96,6 +101,13 @@ class SaveChartRequest {
   /// @deprecated — prefer [memberships].
   final int? membershipUsedVisits;
   final bool deductMembership;
+
+  /// 전자 동의서 (미작성 시 전부 false / signatureUrl null).
+  final bool consentMandatory;
+  final bool consentPhoto;
+  final bool consentMarketing;
+  final bool consentOfflineOnly;
+  final String? signatureUrl;
 }
 
 class SaveChartResult {

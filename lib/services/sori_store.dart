@@ -242,6 +242,11 @@ class SoriStore {
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
+    bool consentMandatory = false,
+    bool consentPhoto = false,
+    bool consentMarketing = false,
+    bool consentOfflineOnly = false,
+    String? signatureUrl,
   }) async {
     if (!_repository.isRemote) {
       return saveChartAndConfirmVisit(
@@ -271,6 +276,11 @@ class SoriStore {
         membershipServiceName: membershipServiceName,
         membershipTotalVisits: membershipTotalVisits,
         membershipUsedVisits: membershipUsedVisits,
+        consentMandatory: consentMandatory,
+        consentPhoto: consentPhoto,
+        consentMarketing: consentMarketing,
+        consentOfflineOnly: consentOfflineOnly,
+        signatureUrl: signatureUrl,
       );
     }
 
@@ -309,6 +319,11 @@ class SoriStore {
           membershipTotalVisits: membershipTotalVisits,
           membershipUsedVisits: membershipUsedVisits,
           deductMembership: !wasAlreadyChecked,
+          consentMandatory: consentMandatory,
+          consentPhoto: consentPhoto,
+          consentMarketing: consentMarketing,
+          consentOfflineOnly: consentOfflineOnly,
+          signatureUrl: signatureUrl,
         ),
       );
       _mergeCustomer(result.customer);
@@ -1063,6 +1078,11 @@ class SoriStore {
     String? membershipServiceName,
     int? membershipTotalVisits,
     int? membershipUsedVisits,
+    bool consentMandatory = false,
+    bool consentPhoto = false,
+    bool consentMarketing = false,
+    bool consentOfflineOnly = false,
+    String? signatureUrl,
   }) {
     final customer = findCustomer(customerId);
     if (customer == null) {
@@ -1074,6 +1094,7 @@ class SoriStore {
 
     final beforeUrl = DbMap.asTextOrNull(beforeImageUrl);
     final afterUrl = DbMap.asTextOrNull(afterImageUrl);
+    final sigUrl = DbMap.asTextOrNull(signatureUrl);
 
     CustomerChart chart;
     if (chartId != null) {
@@ -1098,6 +1119,11 @@ class SoriStore {
         clearAfterImageUrl: afterUrl == null,
         clearCustomChartNo:
             customChartNo == null || customChartNo.trim().isEmpty,
+        consentMandatory: consentMandatory,
+        consentPhoto: consentPhoto,
+        consentMarketing: consentMarketing,
+        consentOfflineOnly: consentOfflineOnly,
+        signatureUrl: sigUrl ?? charts[index].signatureUrl,
       );
       charts[index] = chart;
     } else {
@@ -1121,6 +1147,11 @@ class SoriStore {
         revisitFeedbackChips: DbMap.sanitizeStringList(revisitFeedbackChips),
         beforeImageUrl: beforeUrl,
         afterImageUrl: afterUrl,
+        consentMandatory: consentMandatory,
+        consentPhoto: consentPhoto,
+        consentMarketing: consentMarketing,
+        consentOfflineOnly: consentOfflineOnly,
+        signatureUrl: sigUrl,
       );
       charts.insert(0, chart);
     }

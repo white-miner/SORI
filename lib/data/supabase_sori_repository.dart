@@ -74,6 +74,11 @@ class SupabaseSoriRepository implements SoriRepository {
           DbMap.sanitizeStringList(request.revisitFeedbackChips),
       feedbackToken: DbMap.asTextOrNull(feedbackToken),
       feedbackLineOpenedAt: feedbackLineOpenedAt,
+      consentMandatory: request.consentMandatory,
+      consentPhoto: request.consentPhoto,
+      consentMarketing: request.consentMarketing,
+      consentOfflineOnly: request.consentOfflineOnly,
+      signatureUrl: _imageUrlOrNull(request.signatureUrl),
     );
   }
 
@@ -477,7 +482,10 @@ class SupabaseSoriRepository implements SoriRepository {
           feedbackToken: base.feedbackToken,
           feedbackLineOpenedAt: base.feedbackLineOpenedAt,
         );
-        chart = draft;
+        // 서명 미갱신 시 기존 signature_url 유지
+        chart = draft.copyWith(
+          signatureUrl: draft.signatureUrl ?? base.signatureUrl,
+        );
         final updated = await _db
             .from('customer_charts')
             .update(_chartWriteMap(chart, includeId: false))
