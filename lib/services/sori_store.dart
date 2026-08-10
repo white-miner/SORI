@@ -773,6 +773,7 @@ class SoriStore {
   void updateShopProfile({
     required String name,
     required String naverPlaceUrl,
+    String? ownerName,
     String? address,
     String? phone,
     String? operatingHours,
@@ -783,6 +784,7 @@ class SoriStore {
     shop = shop.copyWith(
       name: name.trim(),
       naverPlaceUrl: naverPlaceUrl.trim(),
+      ownerName: ownerName?.trim(),
       address: address?.trim(),
       phone: phone?.trim(),
       operatingHours: operatingHours?.trim(),

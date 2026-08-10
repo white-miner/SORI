@@ -22,6 +22,31 @@ class MyPage extends StatelessWidget {
   final SoriStore store;
   final ValueChanged<int>? onSelectTab;
 
+  Future<void> _openShopSettings(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const ShopSettingsPage(),
+      ),
+    );
+    // AppShell이 store listener로 이미 재빌드하지만, 탭 복귀 직후 확실히 반영.
+  }
+
+  String _avatarLetter({
+    required bool useShopProfile,
+    required String shopName,
+    required String ownerName,
+    required String sessionName,
+  }) {
+    if (useShopProfile) {
+      final source = shopName.isNotEmpty
+          ? shopName
+          : (ownerName.isNotEmpty ? ownerName : sessionName);
+      if (source.isNotEmpty) return source.characters.first;
+    }
+    if (sessionName.isNotEmpty) return sessionName.characters.first;
+    return 'S';
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = store.session!;
@@ -38,257 +63,297 @@ class MyPage extends StatelessWidget {
 
     final isDirector = session.activeMode == UserRole.director;
     final showManage = isDirector || session.shopSetupComplete;
+    final shop = store.shop;
+    final shopName = shop.name.trim();
+    final ownerName = (shop.ownerName ?? '').trim();
+    final hasShopProfile = shopName.isNotEmpty && ownerName.isNotEmpty;
+    final useShopProfile = isDirector || showManage;
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-        children: [
-          SoriCard(
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: SoriTokens.primarySoft,
-                  child: Text(
-                    session.name.characters.first,
-                    style: const TextStyle(
-                      color: SoriTokens.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+    return ColoredBox(
+      color: SoriTokens.background,
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          children: [
+            SoriCard(
+              onTap: useShopProfile ? () => _openShopSettings(context) : null,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: SoriTokens.primarySoft,
+                    child: Text(
+                      _avatarLetter(
+                        useShopProfile: useShopProfile,
+                        shopName: shopName,
+                        ownerName: ownerName,
+                        sessionName: session.name,
+                      ),
+                      style: const TextStyle(
+                        color: SoriTokens.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 14),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: useShopProfile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                hasShopProfile
+                                    ? '$shopName / 원장 $ownerName'
+                                    : '샵 정보를 등록해 주세요 〉',
+                                style: TextStyle(
+                                  fontSize: hasShopProfile ? 17 : 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: hasShopProfile
+                                      ? SoriTokens.textPrimary
+                                      : SoriTokens.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                hasShopProfile
+                                    ? '${session.phone} · ${session.providerLabel}'
+                                    : '터치하여 샵 이름 · 원장명을 등록하세요',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                session.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${session.phone} · ${session.providerLabel}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                  if (useShopProfile)
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: SoriTokens.textSecondary,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        session.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${session.phone} · ${session.providerLabel}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: SoriTokens.textSecondary,
-                        ),
-                      ),
-                    ],
+                  child: _StatCard(
+                    label: '내 소통 리뷰',
+                    value: '$reviewCount',
+                    onTap: isDirector
+                        ? null
+                        : () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    CustomerReviewHistoryPage(store: store),
+                              ),
+                            );
+                          },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _StatCard(
+                    label: isDirector ? '등록 고객' : '회원권 남은 회차',
+                    value: isDirector
+                        ? '${store.customers.length}'
+                        : '$remain',
+                    onTap: () => onSelectTab?.call(1),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: '내 소통 리뷰',
-                  value: '$reviewCount',
-                  onTap: isDirector
-                      ? null
-                      : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  CustomerReviewHistoryPage(store: store),
-                            ),
-                          );
-                        },
-                ),
+            if (!isDirector && customer != null) ...[
+              const SizedBox(height: 12),
+              SoriCard(
+                child: MembershipProgressView(customer: customer),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
-                  label: isDirector ? '등록 고객' : '회원권 남은 회차',
-                  value: isDirector
-                      ? '${store.customers.length}'
-                      : '$remain',
-                  onTap: isDirector
-                      ? () => onSelectTab?.call(1)
-                      : () => onSelectTab?.call(1),
+            ],
+            if (showManage) ...[
+              const SizedBox(height: 20),
+              const _SectionLabel('관리'),
+              SoriCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _MenuTile(
+                      icon: Icons.storefront_outlined,
+                      title: '샵 정보',
+                      onTap: () => _openShopSettings(context),
+                    ),
+                    if (isDirector) ...[
+                      const Divider(height: 1),
+                      _MenuTile(
+                        icon: Icons.people_outline_rounded,
+                        title: '고객 정보',
+                        onTap: () => onSelectTab?.call(1),
+                      ),
+                    ],
+                    const Divider(height: 1),
+                    _MenuTile(
+                      icon: Icons.spa_outlined,
+                      title: '서비스 메뉴',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ServiceMenuPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    if (isDirector) ...[
+                      const Divider(height: 1),
+                      _MenuTile(
+                        icon: Icons.photo_library_outlined,
+                        title: '성공 사례',
+                        onTap: () => onSelectTab?.call(3),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
-          ),
-          if (!isDirector && customer != null) ...[
-            const SizedBox(height: 12),
-            SoriCard(
-              child: MembershipProgressView(customer: customer),
-            ),
-          ],
-          if (showManage) ...[
+            if (isDirector) ...[
+              const SizedBox(height: 20),
+              const _SectionLabel('리뷰 통계'),
+              _DirectorStatsDashboard(store: store),
+              const SizedBox(height: 12),
+              SoriCard(
+                onTap: () => showShopReviewQrModal(context, store: store),
+                child: const Row(
+                  children: [
+                    Icon(Icons.qr_code_2_rounded, color: SoriTokens.primary),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '고객 리뷰 QR 생성/다운로드',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '샵 전용 리뷰 작성 페이지로 바로 연결돼요',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: SoriTokens.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: SoriTokens.textSecondary),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const _SectionLabel('📊 AI 샵 경영 리포트'),
+              const _AiShopReportCard(),
+            ],
             const SizedBox(height: 20),
-            const _SectionLabel('관리'),
+            const _SectionLabel('계정 / 설정'),
             SoriCard(
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  _MenuTile(
-                    icon: Icons.storefront_outlined,
-                    title: '샵 정보',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ShopSettingsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  if (isDirector) ...[
-                    const Divider(height: 1),
-                    _MenuTile(
-                      icon: Icons.people_outline_rounded,
-                      title: '고객 정보',
-                      onTap: () => onSelectTab?.call(1),
-                    ),
-                  ],
-                  const Divider(height: 1),
-                  _MenuTile(
-                    icon: Icons.spa_outlined,
-                    title: '서비스 메뉴',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ServiceMenuPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  if (isDirector) ...[
-                    const Divider(height: 1),
-                    _MenuTile(
-                      icon: Icons.photo_library_outlined,
-                      title: '성공 사례',
-                      onTap: () => onSelectTab?.call(3),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-          if (isDirector) ...[
-            const SizedBox(height: 20),
-            const _SectionLabel('리뷰 통계'),
-            _DirectorStatsDashboard(store: store),
-            const SizedBox(height: 12),
-            SoriCard(
-              onTap: () => showShopReviewQrModal(context, store: store),
-              child: const Row(
-                children: [
-                  Icon(Icons.qr_code_2_rounded, color: SoriTokens.primary),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '고객 리뷰 QR 생성/다운로드',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '샵 전용 리뷰 작성 페이지로 바로 연결돼요',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: SoriTokens.textSecondary,
+                  if (session.canToggleMode) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.swap_horiz_rounded,
+                            color: SoriTokens.primary,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: SoriTokens.textSecondary),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            const _SectionLabel('📊 AI 샵 경영 리포트'),
-            const _AiShopReportCard(),
-          ],
-          const SizedBox(height: 20),
-          const _SectionLabel('계정 / 설정'),
-          SoriCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                if (session.canToggleMode) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.swap_horiz_rounded,
-                          color: SoriTokens.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            isDirector ? '원장 모드' : '고객 모드',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              isDirector ? '원장 모드' : '고객 모드',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
                           ),
-                        ),
-                        Switch.adaptive(
-                          value: isDirector,
-                          activeThumbColor: SoriTokens.primary,
-                          onChanged: (_) {
-                            store.toggleActiveMode();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isDirector ? '고객 모드로 전환' : '원장 모드로 전환',
+                          Switch.adaptive(
+                            value: isDirector,
+                            activeThumbColor: SoriTokens.primary,
+                            onChanged: (_) {
+                              store.toggleActiveMode();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isDirector ? '고객 모드로 전환' : '원장 모드로 전환',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: SoriTokens.primary,
                                 ),
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: SoriTokens.primary,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
+                    const Divider(height: 1),
+                  ],
+                  _MenuTile(
+                    icon: Icons.notifications_outlined,
+                    title: '알림 설정',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('알림 설정은 준비 중이에요'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1),
+                  _MenuTile(
+                    icon: Icons.help_outline,
+                    title: '고객센터',
+                    onTap: () {},
+                  ),
+                  const Divider(height: 1),
+                  _MenuTile(
+                    icon: Icons.logout,
+                    title: '로그아웃',
+                    danger: true,
+                    onTap: () {
+                      store.logout();
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        AppRouter.home,
+                        (_) => false,
+                      );
+                    },
+                  ),
                 ],
-                _MenuTile(
-                  icon: Icons.notifications_outlined,
-                  title: '알림 설정',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('알림 설정은 준비 중이에요'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                _MenuTile(
-                  icon: Icons.help_outline,
-                  title: '고객센터',
-                  onTap: () {},
-                ),
-                const Divider(height: 1),
-                _MenuTile(
-                  icon: Icons.logout,
-                  title: '로그아웃',
-                  danger: true,
-                  onTap: () {
-                    store.logout();
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      AppRouter.home,
-                      (_) => false,
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -353,27 +418,34 @@ class _DirectorStatsDashboardState extends State<_DirectorStatsDashboard> {
       widget.store,
       period: _period,
     );
-    return SoriCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SegmentedButton<ReviewStatsPeriod>(
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SoriCard(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: SegmentedButton<ReviewStatsPeriod>(
             segments: const [
               ButtonSegment(
-                value: ReviewStatsPeriod.week,
-                label: Text('일주일'),
+                value: ReviewStatsPeriod.year,
+                label: Text('년'),
               ),
               ButtonSegment(
                 value: ReviewStatsPeriod.month,
                 label: Text('월'),
               ),
               ButtonSegment(
-                value: ReviewStatsPeriod.year,
-                label: Text('년'),
+                value: ReviewStatsPeriod.week,
+                label: Text('주'),
+              ),
+              ButtonSegment(
+                value: ReviewStatsPeriod.day,
+                label: Text('일'),
               ),
             ],
             selected: {_period},
             onSelectionChanged: (s) => setState(() => _period = s.first),
+            showSelectedIcon: false,
             style: ButtonStyle(
               visualDensity: VisualDensity.compact,
               textStyle: WidgetStateProperty.all(
@@ -381,123 +453,139 @@ class _DirectorStatsDashboardState extends State<_DirectorStatsDashboard> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricFloatingCard(
+                label: '작성된 리뷰',
+                value: '${stats.reviewsWritten}',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MetricFloatingCard(
+                label: '네이버 전환율',
+                value: '${stats.naverConversionPercent.toStringAsFixed(0)}%',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MetricFloatingCard(
+                label: '차트 작성(케어)',
+                value: '${stats.chartsWritten}',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SoriCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _MiniMetric(
-                  label: '작성된 리뷰',
-                  value: '${stats.reviewsWritten}',
+              const Text(
+                '가장 많이 선택된 감성 칩 Top 3',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
-              Expanded(
-                child: _MiniMetric(
-                  label: '네이버 전환율',
-                  value: '${stats.naverConversionPercent.toStringAsFixed(0)}%',
-                ),
-              ),
-              Expanded(
-                child: _MiniMetric(
-                  label: '차트 작성(케어)',
-                  value: '${stats.chartsWritten}',
-                ),
-              ),
+              const SizedBox(height: 8),
+              if (stats.topChips.isEmpty)
+                Text(
+                  '아직 집계할 칩 데이터가 없어요',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                )
+              else
+                ...stats.topChips.asMap().entries.map((e) {
+                  final rank = e.key + 1;
+                  final item = e.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: SoriTokens.primarySoft,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '$rank',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: SoriTokens.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item.chip,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Text(
+                          '${item.count}회',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: SoriTokens.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
             ],
           ),
-          const SizedBox(height: 14),
-          const Text(
-            '가장 많이 선택된 감성 칩 Top 3',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (stats.topChips.isEmpty)
-            Text(
-              '아직 집계할 칩 데이터가 없어요',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-            )
-          else
-            ...stats.topChips.asMap().entries.map((e) {
-              final rank = e.key + 1;
-              final item = e.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: SoriTokens.primarySoft,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '$rank',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: SoriTokens.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        item.chip,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    Text(
-                      '${item.count}회',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _MiniMetric extends StatelessWidget {
-  const _MiniMetric({required this.label, required this.value});
+class _MetricFloatingCard extends StatelessWidget {
+  const _MetricFloatingCard({
+    required this.label,
+    required this.value,
+  });
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: SoriTokens.primary,
+    return SoriCard(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.primary,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 11,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -629,7 +717,7 @@ class _ReportInsight extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: SoriTokens.background,
+        color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: SoriTokens.border),
       ),

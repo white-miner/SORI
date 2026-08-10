@@ -17,6 +17,7 @@ class ShopSettingsPage extends StatefulWidget {
 class _ShopSettingsPageState extends State<ShopSettingsPage> {
   final _store = SoriStore.instance;
   late final TextEditingController _nameController;
+  late final TextEditingController _ownerController;
   late final TextEditingController _naverController;
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
@@ -29,6 +30,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     super.initState();
     final shop = _store.shop;
     _nameController = TextEditingController(text: shop.name);
+    _ownerController = TextEditingController(text: shop.ownerName ?? '');
     _naverController = TextEditingController(text: shop.naverPlaceUrl);
     _addressController = TextEditingController(text: shop.address ?? '');
     _phoneController = TextEditingController(text: shop.phone ?? '');
@@ -40,6 +42,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   @override
   void dispose() {
     _nameController.dispose();
+    _ownerController.dispose();
     _naverController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
@@ -66,6 +69,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
 
     _store.updateShopProfile(
       name: _nameController.text,
+      ownerName: _ownerController.text,
       naverPlaceUrl: naver,
       address: _addressController.text,
       phone: _phoneController.text,
@@ -113,6 +117,16 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
             controller: _nameController,
             decoration: const InputDecoration(
               labelText: '샵 이름 *',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _ownerController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: '대표 원장명',
+              hintText: '예: 박종환',
               border: OutlineInputBorder(),
             ),
           ),

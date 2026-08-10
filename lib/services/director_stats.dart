@@ -2,6 +2,7 @@ import '../services/sori_store.dart';
 
 /// 리뷰 통계 조회 기간.
 enum ReviewStatsPeriod {
+  day,
   week,
   month,
   year,
@@ -9,13 +10,16 @@ enum ReviewStatsPeriod {
 
 extension ReviewStatsPeriodX on ReviewStatsPeriod {
   String get label => switch (this) {
-        ReviewStatsPeriod.week => '일주일',
+        ReviewStatsPeriod.day => '일',
+        ReviewStatsPeriod.week => '주',
         ReviewStatsPeriod.month => '월',
         ReviewStatsPeriod.year => '년',
       };
 
   DateTime startOf(DateTime now) {
     switch (this) {
+      case ReviewStatsPeriod.day:
+        return DateTime(now.year, now.month, now.day);
       case ReviewStatsPeriod.week:
         return now.subtract(const Duration(days: 7));
       case ReviewStatsPeriod.month:
@@ -64,10 +68,8 @@ class DirectorPeriodStats {
     }).toList();
 
     final periodReviews = store.reviews.where((r) {
-      // 작성 시각: 수락/작성 시점 우선, 없으면 네이버 공유 시점
       final d = r.acceptedAt ?? r.naverRegisteredAt;
       if (inRange(d)) return true;
-      // 차트 작성 기간에 묶인 리뷰도 포함
       return periodCharts.any((c) => c.id == r.chartId);
     }).toList();
 
