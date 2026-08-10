@@ -183,19 +183,10 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
             child: Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    '고객 CRM',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: SoriTokens.textPrimary,
-                    ),
-                  ),
-                ),
+                const Spacer(),
                 if (!isEmptyDb)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),

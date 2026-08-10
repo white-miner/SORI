@@ -13,6 +13,7 @@ import 'director_review_manage_page.dart';
 import 'ikea_review_composer_page.dart';
 import 'message_history_page.dart';
 import 'my_page.dart';
+import 'success_cases_page.dart';
 
 /// 로그인 후 5탭 앱 셸 (원장/고객 모드 공통).
 class AppShellPage extends StatefulWidget {
@@ -25,6 +26,8 @@ class AppShellPage extends StatefulWidget {
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
   int _tab = 0;
+
+  static const _wideBreakpoint = 600.0;
 
   @override
   void initState() {
@@ -54,6 +57,40 @@ class _AppShellPageState extends State<AppShellPage> {
     setState(() => _tab = index);
   }
 
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: SoriTokens.background,
+          appBar: AppBar(
+            title: const Text('알림'),
+            backgroundColor: Colors.white,
+            foregroundColor: SoriTokens.textPrimary,
+            elevation: 0,
+          ),
+          body: const MessageHistoryPage(embedded: true),
+        ),
+      ),
+    );
+  }
+
+  String _titleForTab(bool isDirector) {
+    switch (_tab) {
+      case 0:
+        return '홈';
+      case 1:
+        return isDirector ? '고객 CRM' : '케어';
+      case 2:
+        return isDirector ? '리뷰 관리' : '리뷰 작성';
+      case 3:
+        return '성공 사례';
+      case 4:
+        return '마이';
+      default:
+        return 'SORI';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = _store.session;
@@ -64,6 +101,8 @@ class _AppShellPageState extends State<AppShellPage> {
     }
 
     final isDirector = session.activeMode == UserRole.director;
+    final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+
     final pages = <Widget>[
       isDirector
           ? DirectorHomePage(key: const ValueKey('d-home'), store: _store)
@@ -84,7 +123,7 @@ class _AppShellPageState extends State<AppShellPage> {
               key: const ValueKey('c-review'),
               store: _store,
             ),
-      const MessageHistoryPage(),
+      SuccessCasesPage(key: const ValueKey('success'), store: _store),
       MyPage(
         store: _store,
         onSelectTab: _selectTab,
@@ -92,27 +131,34 @@ class _AppShellPageState extends State<AppShellPage> {
     ];
 
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
-    // PC/태블릿: 하단 '오늘 케어 일정' 시트와 FAB 겹침 방지
-    final isWide = MediaQuery.sizeOf(context).width >= 600;
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
+      appBar: AppBar(
+        title: Text(_titleForTab(isDirector)),
+        backgroundColor: Colors.white,
+        foregroundColor: SoriTokens.textPrimary,
+        elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: '알림',
+            onPressed: _openNotifications,
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+          // 태블릿/PC: endTop FAB(보라 차트 버튼) 바로 왼쪽에 알림이 오도록 우측 여백
+          if (isDirector && isWide) const SizedBox(width: 72),
+        ],
+      ),
       body: IndexedStack(index: _tab, children: pages),
       floatingActionButton: isDirector
-          ? Padding(
-              padding: EdgeInsets.only(
-                top: isWide ? MediaQuery.paddingOf(context).top + 12 : 0,
+          ? FloatingActionButton(
+              tooltip: '새 차트 작성',
+              onPressed: () => showChartCustomerPickerSheet(
+                context,
+                store: _store,
               ),
-              child: FloatingActionButton(
-                tooltip: '새 차트 작성',
-                onPressed: () => showChartCustomerPickerSheet(
-                  context,
-                  store: _store,
-                ),
-                backgroundColor: SoriTokens.primary,
-                child:
-                    const Icon(Icons.edit_note_rounded, color: Colors.white),
-              ),
+              backgroundColor: SoriTokens.primary,
+              child: const Icon(Icons.edit_note_rounded, color: Colors.white),
             )
           : null,
       floatingActionButtonLocation: isWide
@@ -216,9 +262,9 @@ class _SoriBottomNav extends StatelessWidget {
                     ),
                   ),
                   _NavItem(
-                    icon: Icons.notifications_none_rounded,
-                    activeIcon: Icons.notifications_rounded,
-                    label: '알림',
+                    icon: Icons.photo_library_outlined,
+                    activeIcon: Icons.photo_library_rounded,
+                    label: '성공 사례',
                     selected: currentIndex == 3,
                     onTap: () => onTap(3),
                   ),
@@ -298,10 +344,12 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(selected ? activeIcon : icon, color: color, size: 24),
+            Icon(selected ? activeIcon : icon, color: color, size: 22),
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
