@@ -48,16 +48,14 @@ class _EntryHomePageState extends State<EntryHomePage>
     }
 
     _authSub = _auth.onAuthStateChange.listen(_onAuthState);
+    // 스플래시에서 세션 라우팅을 담당. 여기서는 OAuth 콜백(signedIn)만 처리해
+    // 로그인 화면 깜빡임을 막는다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // 이미 로그인된 상태로 /login에 직접 진입한 경우만 복구
       final session = _auth.currentSession;
       if (session != null) {
         unawaited(_handleSignedIn(session.user));
-        return;
-      }
-      final local = _store.session;
-      if (local != null && local.onboardingComplete) {
-        Navigator.of(context).pushReplacementNamed(AppRouter.app);
       }
     });
   }

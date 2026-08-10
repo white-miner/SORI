@@ -5,9 +5,11 @@ import '../views/app_shell_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_app.dart';
+import '../views/splash_page.dart';
 
 class AppRouter {
   static const String home = '/';
+  static const String login = '/login';
   static const String app = '/app';
   static const String admin = '/admin'; // 하위 호환 → /app
   static const String review = '/review';
@@ -26,9 +28,9 @@ class AppRouter {
       final token = tokenFromQuery.isNotEmpty
           ? tokenFromQuery
           : (settings.arguments is String ? settings.arguments as String : '');
-      return MaterialPageRoute<void>(
+      return _fadeRoute(
         settings: settings,
-        builder: (_) => CustomerReviewPage(
+        child: CustomerReviewPage(
           store: SoriStore.instance,
           token: token,
         ),
@@ -36,16 +38,25 @@ class AppRouter {
     }
 
     if (path == app || path == admin) {
-      return MaterialPageRoute<void>(
+      return _fadeRoute(
         settings: settings,
-        builder: (_) => const AppShellPage(),
+        child: const AppShellPage(),
+      );
+    }
+
+    if (path == login) {
+      return _fadeRoute(
+        settings: settings,
+        child: EntryHomePage(
+          initialToken: page == 'review' ? null : tokenFromQuery,
+        ),
       );
     }
 
     if (path == home || path.isEmpty) {
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => EntryHomePage(
+        builder: (_) => SplashPage(
           initialToken: page == 'review' ? null : tokenFromQuery,
         ),
       );
@@ -76,6 +87,20 @@ class AppRouter {
           ),
         ),
       ),
+    );
+  }
+
+  static PageRouteBuilder<void> _fadeRoute({
+    required RouteSettings settings,
+    required Widget child,
+  }) {
+    return PageRouteBuilder<void>(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      transitionDuration: const Duration(milliseconds: 420),
     );
   }
 
