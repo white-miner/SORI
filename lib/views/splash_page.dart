@@ -106,27 +106,39 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final logoWidth = MediaQuery.of(context).size.width * 0.42;
+    final screenW = MediaQuery.sizeOf(context).width;
+    // 슬로건 시각적 폭과 균형 — 좁은 화면에서도 중앙 정렬 유지
+    final logoWidth = (screenW * 0.36).clamp(120.0, 220.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 12),
-              const Text(
-                '소통하는 리뷰',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF6C5CE7),
-                  letterSpacing: 0.2,
-                ),
-              ),
               const Spacer(),
-              SoriLogo(width: logoWidth),
+              // 정중앙 그룹: 슬로건 + 로고
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    '소통하는 리뷰',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF6C5CE7),
+                      height: 1.2,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SoriLogo(width: logoWidth),
+                ],
+              ),
               const Spacer(),
               Text(
                 'Copyright © SORI. All Rights Reserved.',
@@ -134,9 +146,10 @@ class _SplashPageState extends State<SplashPage> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
-                  color: Colors.grey[600],
+                  color: Colors.grey[500],
                 ),
               ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
