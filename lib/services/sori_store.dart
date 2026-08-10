@@ -16,6 +16,7 @@ import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_service_item.dart';
 import '../utils/db_map.dart';
+import '../utils/korean_choseong.dart';
 import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
@@ -805,11 +806,14 @@ class SoriStore {
 
   List<Customer> searchCustomers(String query) {
     if (query.trim().isEmpty) return List.of(customers);
-    final q = query.trim().toLowerCase();
+    final q = query.trim();
     final digits = normalizePhone(query);
     return customers.where((c) {
-      return c.name.toLowerCase().contains(q) ||
-          (digits.isNotEmpty && normalizePhone(c.phone).contains(digits));
+      if (KoreanChoseong.matchesName(c.name, q)) return true;
+      if (digits.isNotEmpty && normalizePhone(c.phone).contains(digits)) {
+        return true;
+      }
+      return false;
     }).toList();
   }
 
