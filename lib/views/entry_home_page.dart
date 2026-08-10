@@ -161,48 +161,32 @@ class _EntryHomePageState extends State<EntryHomePage>
               child: Column(
                 children: [
                   const Spacer(flex: 2),
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: SoriTokens.primary,
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: SoriTokens.primary.withValues(alpha: 0.28),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'S',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                  Image.asset(
+                    'assets/images/sori_logo.png',
+                    width: MediaQuery.of(context).size.width * 0.38,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
                   const Text(
-                    '소통하는 리뷰, SORI',
+                    '소통하는 리뷰',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: SoriTokens.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF6C5CE7),
                       height: 1.3,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Text(
                     '에스테틱 원장과 고객이 시술 차트와 후기로\n1:1 소통하는 CRM',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.grey.shade600,
                       height: 1.45,
                     ),
                   ),

@@ -4,6 +4,7 @@ import '../models/session_user.dart';
 import '../routing/app_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/sori_logo.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'customer_care_page.dart';
 import 'customer_home_page.dart';
@@ -136,7 +137,18 @@ class _AppShellPageState extends State<AppShellPage> {
       // 마이 탭 플로팅 카드와 맞춘 쿨그레이 (다른 탭도 동일 톤 유지)
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
-        title: Text(_titleForTab(isDirector)),
+        title: Row(
+          children: [
+            const SoriLogo(width: 24, height: 24),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                _titleForTab(isDirector),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.white,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,

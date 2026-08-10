@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../routing/app_router.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
+import '../widgets/sori_logo.dart';
 import 'entry_home_page.dart';
 import 'onboarding_page.dart';
 import 'app_shell_page.dart';
@@ -125,31 +126,7 @@ class _SplashPageState extends State<SplashPage> {
                 ),
               ),
               const Spacer(),
-              Image.asset(
-                'assets/images/sori_logo.png',
-                width: logoWidth,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: logoWidth,
-                    height: logoWidth * 0.7,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6C5CE7).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'SORI',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF6C5CE7),
-                      ),
-                    ),
-                  );
-                },
-              ),
+              SoriLogo(width: logoWidth),
               const Spacer(),
               Text(
                 'Copyright © SORI. All Rights Reserved.',

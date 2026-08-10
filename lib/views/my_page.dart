@@ -8,6 +8,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/membership_progress.dart';
 import '../widgets/review_qr_modal.dart';
+import '../widgets/sori_logo.dart';
 import 'customer_review_history_page.dart';
 import 'service_menu_page.dart';
 import 'shop_settings_page.dart';
@@ -32,22 +33,6 @@ class MyPage extends StatelessWidget {
         builder: (_) => const ShopSettingsPage(),
       ),
     );
-  }
-
-  String _avatarLetter({
-    required bool useShopProfile,
-    required String shopName,
-    required String ownerName,
-    required String sessionName,
-  }) {
-    if (useShopProfile) {
-      final source = shopName.isNotEmpty
-          ? shopName
-          : (ownerName.isNotEmpty ? ownerName : sessionName);
-      if (source.isNotEmpty) return source.characters.first;
-    }
-    if (sessionName.isNotEmpty) return sessionName.characters.first;
-    return 'S';
   }
 
   @override
@@ -84,17 +69,11 @@ class MyPage extends StatelessWidget {
                   CircleAvatar(
                     radius: 28,
                     backgroundColor: SoriTokens.primarySoft,
-                    child: Text(
-                      _avatarLetter(
-                        useShopProfile: useShopProfile,
-                        shopName: shopName,
-                        ownerName: ownerName,
-                        sessionName: session.name,
-                      ),
-                      style: const TextStyle(
-                        color: SoriTokens.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Opacity(
+                        opacity: 0.85,
+                        child: SoriLogo(width: 36, height: 36),
                       ),
                     ),
                   ),
