@@ -1,65 +1,90 @@
 import '../services/sori_store.dart';
 
-/// 원장 마이페이지용 월간 통계 요약.
-class DirectorMonthlyStats {
-  const DirectorMonthlyStats({
-    required this.reviewsThisMonth,
-    required this.chartsThisMonth,
+/// 리뷰 통계 조회 기간.
+enum ReviewStatsPeriod {
+  week,
+  month,
+  year,
+}
+
+extension ReviewStatsPeriodX on ReviewStatsPeriod {
+  String get label => switch (this) {
+        ReviewStatsPeriod.week => '일주일',
+        ReviewStatsPeriod.month => '월',
+        ReviewStatsPeriod.year => '년',
+      };
+
+  DateTime startOf(DateTime now) {
+    switch (this) {
+      case ReviewStatsPeriod.week:
+        return now.subtract(const Duration(days: 7));
+      case ReviewStatsPeriod.month:
+        return now.subtract(const Duration(days: 30));
+      case ReviewStatsPeriod.year:
+        return now.subtract(const Duration(days: 365));
+    }
+  }
+}
+
+/// 원장 마이페이지용 기간별 통계 요약.
+class DirectorPeriodStats {
+  const DirectorPeriodStats({
+    required this.reviewsWritten,
+    required this.chartsWritten,
     required this.naverConversionPercent,
     required this.topChips,
   });
 
-  final int reviewsThisMonth;
-  final int chartsThisMonth;
+  /// 기간 내 작성된 리뷰 수.
+  final int reviewsWritten;
+
+  /// 기간 내 차트(케어) 작성 건수.
+  final int chartsWritten;
+
+  /// AI 후기 작성 후 네이버 공유(등록) 전환율 %.
   final double naverConversionPercent;
   final List<({String chip, int count})> topChips;
 
-  static DirectorMonthlyStats fromStore(SoriStore store, {DateTime? now}) {
+  static DirectorPeriodStats fromStore(
+    SoriStore store, {
+    ReviewStatsPeriod period = ReviewStatsPeriod.month,
+    DateTime? now,
+  }) {
     final n = now ?? DateTime.now();
-    final monthStart = DateTime(n.year, n.month, 1);
+    final start = period.startOf(n);
 
-    bool inMonth(DateTime? d) {
+    bool inRange(DateTime? d) {
       if (d == null) return false;
-      return !d.isBefore(monthStart) &&
-          d.year == n.year &&
-          d.month == n.month;
+      return !d.isBefore(start) && !d.isAfter(n);
     }
 
-    final monthCharts = store.charts.where((c) {
-      final d = c.visitCheckedAt ?? c.feedbackLineOpenedAt;
-      if (d != null) return inMonth(d);
-      return false;
+    final periodCharts = store.charts.where((c) {
+      final d = c.visitCheckedAt ?? c.createdAt ?? c.feedbackLineOpenedAt;
+      return inRange(d);
     }).toList();
 
-    final chartsBasis =
-        monthCharts.isNotEmpty ? monthCharts : store.charts.toList();
-    final chartIds = chartsBasis.map((c) => c.id).toSet();
-
-    final monthReviews = store.reviews.where((r) {
-      if (chartIds.contains(r.chartId)) return true;
-      if (r.acceptedAt != null) return inMonth(r.acceptedAt);
-      if (r.naverRegisteredAt != null) return inMonth(r.naverRegisteredAt);
-      return monthCharts.isEmpty;
+    final periodReviews = store.reviews.where((r) {
+      // 작성 시각: 수락/작성 시점 우선, 없으면 네이버 공유 시점
+      final d = r.acceptedAt ?? r.naverRegisteredAt;
+      if (inRange(d)) return true;
+      // 차트 작성 기간에 묶인 리뷰도 포함
+      return periodCharts.any((c) => c.id == r.chartId);
     }).toList();
 
-    final reviewCount = monthReviews.isNotEmpty
-        ? monthReviews.length
-        : store.reviews.length;
-    final naverCount = (monthReviews.isNotEmpty ? monthReviews : store.reviews)
-        .where((r) => r.naverRegistered)
-        .length;
+    final reviewCount = periodReviews.length;
+    final naverCount = periodReviews.where((r) => r.naverRegistered).length;
     final conversion =
         reviewCount == 0 ? 0.0 : (naverCount / reviewCount) * 100;
 
     final chipCounts = <String, int>{};
-    for (final r in (monthReviews.isNotEmpty ? monthReviews : store.reviews)) {
+    for (final r in periodReviews) {
       for (final chip in r.puzzleSelections) {
         final key = chip.trim();
         if (key.isEmpty) continue;
         chipCounts[key] = (chipCounts[key] ?? 0) + 1;
       }
     }
-    for (final c in chartsBasis) {
+    for (final c in periodCharts) {
       for (final chip in [
         ...c.concernChips,
         ...c.firstVisitFearChips,
@@ -76,11 +101,19 @@ class DirectorMonthlyStats {
     final top3 =
         top.take(3).map((e) => (chip: e.key, count: e.value)).toList();
 
-    return DirectorMonthlyStats(
-      reviewsThisMonth: reviewCount,
-      chartsThisMonth: chartsBasis.length,
+    return DirectorPeriodStats(
+      reviewsWritten: reviewCount,
+      chartsWritten: periodCharts.length,
       naverConversionPercent: conversion,
       topChips: top3,
     );
   }
+}
+
+/// @Deprecated — [DirectorPeriodStats] 사용.
+typedef DirectorMonthlyStats = DirectorPeriodStats;
+
+extension DirectorMonthlyStatsCompat on DirectorPeriodStats {
+  int get reviewsThisMonth => reviewsWritten;
+  int get chartsThisMonth => chartsWritten;
 }

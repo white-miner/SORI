@@ -37,6 +37,7 @@ class MyPage extends StatelessWidget {
     final remain = customer?.membershipRemainingVisits ?? 0;
 
     final isDirector = session.activeMode == UserRole.director;
+    final showManage = isDirector || session.shopSetupComplete;
 
     return SafeArea(
       child: ListView(
@@ -110,7 +111,7 @@ class MyPage extends StatelessWidget {
                       ? '${store.customers.length}'
                       : '$remain',
                   onTap: isDirector
-                      ? null
+                      ? () => onSelectTab?.call(1)
                       : () => onSelectTab?.call(1),
                 ),
               ),
@@ -122,16 +123,16 @@ class MyPage extends StatelessWidget {
               child: MembershipProgressView(customer: customer),
             ),
           ],
-          if (session.shopSetupComplete || isDirector) ...[
+          if (showManage) ...[
             const SizedBox(height: 20),
-            const _SectionLabel('설정 / 관리'),
+            const _SectionLabel('관리'),
             SoriCard(
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
                   _MenuTile(
                     icon: Icons.storefront_outlined,
-                    title: '샵 정보 관리',
+                    title: '샵 정보',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -140,10 +141,18 @@ class MyPage extends StatelessWidget {
                       );
                     },
                   ),
+                  if (isDirector) ...[
+                    const Divider(height: 1),
+                    _MenuTile(
+                      icon: Icons.people_outline_rounded,
+                      title: '고객 정보',
+                      onTap: () => onSelectTab?.call(1),
+                    ),
+                  ],
                   const Divider(height: 1),
                   _MenuTile(
                     icon: Icons.spa_outlined,
-                    title: '서비스 메뉴 관리',
+                    title: '서비스 메뉴',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -152,46 +161,21 @@ class MyPage extends StatelessWidget {
                       );
                     },
                   ),
-                ],
-              ),
-            ),
-          ],
-          if (session.canToggleMode) ...[
-            const SizedBox(height: 16),
-            SoriCard(
-              child: Row(
-                children: [
-                  const Icon(Icons.swap_horiz_rounded, color: SoriTokens.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isDirector ? '원장 모드' : '고객 모드',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                  if (isDirector) ...[
+                    const Divider(height: 1),
+                    _MenuTile(
+                      icon: Icons.photo_library_outlined,
+                      title: '성공 사례',
+                      onTap: () => onSelectTab?.call(3),
                     ),
-                  ),
-                  Switch.adaptive(
-                    value: isDirector,
-                    activeThumbColor: SoriTokens.primary,
-                    onChanged: (_) {
-                      store.toggleActiveMode();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isDirector ? '고객 모드로 전환' : '원장 모드로 전환',
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: SoriTokens.primary,
-                        ),
-                      );
-                    },
-                  ),
+                  ],
                 ],
               ),
             ),
           ],
           if (isDirector) ...[
             const SizedBox(height: 20),
-            const _SectionLabel('이번 달 리뷰 대시보드'),
+            const _SectionLabel('리뷰 통계'),
             _DirectorStatsDashboard(store: store),
             const SizedBox(height: 12),
             SoriCard(
@@ -228,11 +212,48 @@ class MyPage extends StatelessWidget {
             const _AiShopReportCard(),
           ],
           const SizedBox(height: 20),
-          const _SectionLabel('계정'),
+          const _SectionLabel('계정 / 설정'),
           SoriCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
+                if (session.canToggleMode) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.swap_horiz_rounded,
+                          color: SoriTokens.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isDirector ? '원장 모드' : '고객 모드',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Switch.adaptive(
+                          value: isDirector,
+                          activeThumbColor: SoriTokens.primary,
+                          onChanged: (_) {
+                            store.toggleActiveMode();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isDirector ? '고객 모드로 전환' : '원장 모드로 전환',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: SoriTokens.primary,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                ],
                 _MenuTile(
                   icon: Icons.notifications_outlined,
                   title: '알림 설정',
@@ -313,24 +334,60 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _DirectorStatsDashboard extends StatelessWidget {
+class _DirectorStatsDashboard extends StatefulWidget {
   const _DirectorStatsDashboard({required this.store});
 
   final SoriStore store;
 
   @override
+  State<_DirectorStatsDashboard> createState() =>
+      _DirectorStatsDashboardState();
+}
+
+class _DirectorStatsDashboardState extends State<_DirectorStatsDashboard> {
+  ReviewStatsPeriod _period = ReviewStatsPeriod.month;
+
+  @override
   Widget build(BuildContext context) {
-    final stats = DirectorMonthlyStats.fromStore(store);
+    final stats = DirectorPeriodStats.fromStore(
+      widget.store,
+      period: _period,
+    );
     return SoriCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SegmentedButton<ReviewStatsPeriod>(
+            segments: const [
+              ButtonSegment(
+                value: ReviewStatsPeriod.week,
+                label: Text('일주일'),
+              ),
+              ButtonSegment(
+                value: ReviewStatsPeriod.month,
+                label: Text('월'),
+              ),
+              ButtonSegment(
+                value: ReviewStatsPeriod.year,
+                label: Text('년'),
+              ),
+            ],
+            selected: {_period},
+            onSelectionChanged: (s) => setState(() => _period = s.first),
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStateProperty.all(
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: _MiniMetric(
-                  label: '이번 달 리뷰',
-                  value: '${stats.reviewsThisMonth}',
+                  label: '작성된 리뷰',
+                  value: '${stats.reviewsWritten}',
                 ),
               ),
               Expanded(
@@ -341,8 +398,8 @@ class _DirectorStatsDashboard extends StatelessWidget {
               ),
               Expanded(
                 child: _MiniMetric(
-                  label: '케어 차트',
-                  value: '${stats.chartsThisMonth}',
+                  label: '차트 작성(케어)',
+                  value: '${stats.chartsWritten}',
                 ),
               ),
             ],
