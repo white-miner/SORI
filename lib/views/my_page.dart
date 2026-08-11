@@ -212,7 +212,7 @@ class MyPage extends StatelessWidget {
                     const SizedBox(height: 4),
                     _MenuTile(
                       icon: Icons.photo_library_outlined,
-                      title: '성공 사례 관리',
+                      title: '관리 케이스',
                       onTap: () => onSelectTab?.call(2),
                     ),
                   ],

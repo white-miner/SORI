@@ -29,6 +29,7 @@ class CustomerChart {
     this.consentMarketing = false,
     this.consentOfflineOnly = false,
     this.signatureUrl,
+    this.caseShared = false,
   });
 
   final String id;
@@ -68,10 +69,19 @@ class CustomerChart {
   final bool consentOfflineOnly;
   final String? signatureUrl;
 
+  /// 관리 케이스 공개 공유 여부 (동의 서명 완료 차트만 true 가능).
+  final bool caseShared;
+
   bool get hasFeedbackLine =>
       feedbackToken != null && feedbackLineOpenedAt != null;
 
   bool get isFirstVisit => visitNumber <= 1;
+
+  /// 정보 활용 동의서 서명 완료 여부.
+  bool get isConsentSigned {
+    final sig = signatureUrl?.trim() ?? '';
+    return sig.isNotEmpty;
+  }
 
   String get displayChartNo =>
       (customChartNo != null && customChartNo!.trim().isNotEmpty)
@@ -106,6 +116,7 @@ class CustomerChart {
     bool? consentMarketing,
     bool? consentOfflineOnly,
     String? signatureUrl,
+    bool? caseShared,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
@@ -147,6 +158,7 @@ class CustomerChart {
       consentOfflineOnly: consentOfflineOnly ?? this.consentOfflineOnly,
       signatureUrl:
           clearSignatureUrl ? null : (signatureUrl ?? this.signatureUrl),
+      caseShared: caseShared ?? this.caseShared,
     );
   }
 
@@ -183,6 +195,7 @@ class CustomerChart {
       'consent_marketing': consentMarketing,
       'consent_offline_only': consentOfflineOnly,
       'signature_url': DbMap.asTextOrNull(signatureUrl),
+      'case_shared': caseShared,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (includeId && id.isNotEmpty) {
@@ -227,6 +240,7 @@ class CustomerChart {
       consentMarketing: DbMap.asBool(map['consent_marketing']),
       consentOfflineOnly: DbMap.asBool(map['consent_offline_only']),
       signatureUrl: DbMap.asTextOrNull(map['signature_url']),
+      caseShared: DbMap.asBool(map['case_shared'] ?? map['is_public']),
     );
   }
 }

@@ -1025,6 +1025,33 @@ class SoriStore {
     _notify();
   }
 
+  /// 관리 케이스 공개 공유 토글. 동의 서명 없는 차트는 shared=true 거부.
+  /// returns false if blocked by consent defense.
+  bool setManagementCaseShared(String chartId, bool shared) {
+    final index = charts.indexWhere((c) => c.id == chartId);
+    if (index < 0) return false;
+    final chart = charts[index];
+    if (shared && !chart.isConsentSigned) {
+      return false;
+    }
+    final nextShared = chart.isConsentSigned ? shared : false;
+    charts[index] = chart.copyWith(caseShared: nextShared);
+    _notify();
+    if (_repository.isRemote) {
+      unawaited(() async {
+        try {
+          await _repository.updateChartCaseShared(
+            chartId: chart.id,
+            shared: nextShared,
+          );
+        } catch (e) {
+          debugPrint('setManagementCaseShared remote failed: $e');
+        }
+      }());
+    }
+    return true;
+  }
+
   List<Customer> customersForDate(DateTime day) {
     return customers.where((c) {
       final d = c.lastTreatmentDate;

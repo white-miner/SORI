@@ -204,6 +204,12 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   @override
+  Future<void> updateChartCaseShared({
+    required String chartId,
+    required bool shared,
+  }) async {}
+
+  @override
   Future<CustomerReview> upsertReview(CustomerReview review) async => review;
 
   @override

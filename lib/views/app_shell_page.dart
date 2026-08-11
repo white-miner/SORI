@@ -85,7 +85,7 @@ class _AppShellPageState extends State<AppShellPage> {
       return switch (_tab) {
         0 => '홈',
         1 => '고객 관리',
-        2 => '성공 사례',
+        2 => '관리 케이스',
         3 => '마이',
         _ => 'SORI',
       };
@@ -210,7 +210,7 @@ class _RoleBottomNav extends StatelessWidget {
         ? const [
             (Icons.home_outlined, Icons.home_rounded, '홈'),
             (Icons.people_outline, Icons.people, '고객 관리'),
-            (Icons.photo_library_outlined, Icons.photo_library_rounded, '성공 사례'),
+            (Icons.photo_library_outlined, Icons.photo_library_rounded, '관리 케이스'),
             (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ]
         : const [

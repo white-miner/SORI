@@ -148,6 +148,12 @@ abstract class SoriRepository {
 
   Future<SaveChartResult> saveChartAndConfirmVisit(SaveChartRequest request);
 
+  /// 관리 케이스 공개 공유 플래그 갱신.
+  Future<void> updateChartCaseShared({
+    required String chartId,
+    required bool shared,
+  });
+
   Future<CustomerReview> upsertReview(CustomerReview review);
 
   /// 네이버 리뷰 등록 트래킹.

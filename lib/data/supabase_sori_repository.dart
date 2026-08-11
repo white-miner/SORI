@@ -485,6 +485,7 @@ class SupabaseSoriRepository implements SoriRepository {
         // 서명 미갱신 시 기존 signature_url 유지
         chart = draft.copyWith(
           signatureUrl: draft.signatureUrl ?? base.signatureUrl,
+          caseShared: base.caseShared,
         );
         final updated = await _db
             .from('customer_charts')
@@ -631,6 +632,22 @@ class SupabaseSoriRepository implements SoriRepository {
     final row =
         await _db.from('customer_charts').insert(payload).select().single();
     return CustomerChart.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> updateChartCaseShared({
+    required String chartId,
+    required bool shared,
+  }) async {
+    try {
+      await _db.from('customer_charts').update({
+        'case_shared': shared,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', chartId);
+    } catch (e) {
+      // 마이그레이션 미적용 환경에서는 로컬 상태만 유지
+      debugPrint('updateChartCaseShared skipped: $e');
+    }
   }
 
   @override
