@@ -9,13 +9,15 @@ import 'chart_customer_picker_sheet.dart';
 import 'customer_care_page.dart';
 import 'customer_home_page.dart';
 import 'customer_management_cases_page.dart';
+import 'customer_review_dashboard_page.dart';
 import 'director_customers_tab.dart';
 import 'director_home_page.dart';
+import 'director_review_manage_page.dart';
 import 'message_history_page.dart';
 import 'my_page.dart';
 import 'success_cases_page.dart';
 
-/// 로그인 후 앱 셸 — 원장/고객 권한별 탭 분리.
+/// 로그인 후 5탭 앱 셸 — 중앙 리뷰 메인 버튼 복구.
 class AppShellPage extends StatefulWidget {
   const AppShellPage({super.key});
 
@@ -28,6 +30,7 @@ class _AppShellPageState extends State<AppShellPage> {
   int _tab = 0;
 
   static const _wideBreakpoint = 600.0;
+  static const _reviewAccent = Color(0xFF6C5CE7);
 
   @override
   void initState() {
@@ -51,10 +54,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
   void _onChanged() {
     if (!mounted) return;
-    const maxIndex = 3;
-    if (_tab > maxIndex) {
-      _tab = 0;
-    }
+    if (_tab > 4) _tab = 0;
     setState(() {});
   }
 
@@ -84,16 +84,18 @@ class _AppShellPageState extends State<AppShellPage> {
       return switch (_tab) {
         0 => '홈',
         1 => '고객 관리',
-        2 => '관리 케이스',
-        3 => '마이',
+        2 => '리뷰 관리',
+        3 => '관리 케이스',
+        4 => '마이',
         _ => 'SORI',
       };
     }
     return switch (_tab) {
       0 => '홈',
       1 => '케어',
-      2 => '관리 케이스',
-      3 => '마이',
+      2 => '리뷰 작성',
+      3 => '관리 케이스',
+      4 => '마이',
       _ => 'SORI',
     };
   }
@@ -111,12 +113,17 @@ class _AppShellPageState extends State<AppShellPage> {
 
     final isDirector = session.activeMode == UserRole.director;
     final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+    final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
 
     final pages = isDirector
         ? <Widget>[
             DirectorHomePage(key: const ValueKey('d-home'), store: _store),
             DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store),
-            SuccessCasesPage(key: const ValueKey('d-success'), store: _store),
+            DirectorReviewManagePage(
+              key: const ValueKey('d-review'),
+              store: _store,
+            ),
+            SuccessCasesPage(key: const ValueKey('d-cases'), store: _store),
             MyPage(
               key: const ValueKey('d-my'),
               store: _store,
@@ -130,6 +137,10 @@ class _AppShellPageState extends State<AppShellPage> {
               onSelectTab: _selectTab,
             ),
             CustomerCareTab(key: const ValueKey('c-care'), store: _store),
+            CustomerReviewDashboardPage(
+              key: const ValueKey('c-review'),
+              store: _store,
+            ),
             CustomerManagementCasesPage(
               key: const ValueKey('c-cases'),
               store: _store,
@@ -162,7 +173,6 @@ class _AppShellPageState extends State<AppShellPage> {
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [
-          // 홈 탭(Index 0)에서만 알림 아이콘 노출
           if (safeIndex == 0)
             IconButton(
               tooltip: '알림',
@@ -181,36 +191,45 @@ class _AppShellPageState extends State<AppShellPage> {
                 context,
                 store: _store,
               ),
-              backgroundColor: SoriTokens.primary,
+              backgroundColor: _reviewAccent,
               child: const Icon(Icons.edit_note_rounded, color: Colors.white),
             )
           : null,
       floatingActionButtonLocation: isWide
           ? FloatingActionButtonLocation.endTop
           : FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _RoleBottomNav(
+      bottomNavigationBar: _CenterReviewBottomNav(
         currentIndex: safeIndex,
         isDirector: isDirector,
+        reviewLabel: reviewLabel,
         onTap: _selectTab,
       ),
     );
   }
 }
 
-class _RoleBottomNav extends StatelessWidget {
-  const _RoleBottomNav({
+/// 중앙 리뷰 버튼이 바 위로 돌출되는 5탭 네비.
+class _CenterReviewBottomNav extends StatelessWidget {
+  const _CenterReviewBottomNav({
     required this.currentIndex,
     required this.isDirector,
+    required this.reviewLabel,
     required this.onTap,
   });
 
   final int currentIndex;
   final bool isDirector;
+  final String reviewLabel;
   final ValueChanged<int> onTap;
+
+  static const double _barHeight = 64;
+  static const double _fabSize = 58;
+  static const double _protrude = 22;
+  static const Color _accent = Color(0xFF6C5CE7);
 
   @override
   Widget build(BuildContext context) {
-    final items = isDirector
+    final side = isDirector
         ? const [
             (Icons.home_outlined, Icons.home_rounded, '홈'),
             (Icons.people_outline, Icons.people, '고객 관리'),
@@ -224,34 +243,127 @@ class _RoleBottomNav extends StatelessWidget {
             (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
+    // side indices map to tabs 0,1,3,4 (center is 2)
+    final sideTabIndex = [0, 1, 3, 4];
+
+    return SizedBox(
+      height: _barHeight + _protrude + MediaQuery.paddingOf(context).bottom,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: _barHeight + MediaQuery.paddingOf(context).bottom,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+              decoration: BoxDecoration(
+                color: SoriTokens.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  _NavItem(
+                    icon: side[0].$1,
+                    activeIcon: side[0].$2,
+                    label: side[0].$3,
+                    selected: currentIndex == sideTabIndex[0],
+                    onTap: () => onTap(sideTabIndex[0]),
+                  ),
+                  _NavItem(
+                    icon: side[1].$1,
+                    activeIcon: side[1].$2,
+                    label: side[1].$3,
+                    selected: currentIndex == sideTabIndex[1],
+                    onTap: () => onTap(sideTabIndex[1]),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onTap(2),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          SizedBox(height: _fabSize / 2),
+                          Text(
+                            reviewLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: currentIndex == 2
+                                  ? _accent
+                                  : SoriTokens.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _NavItem(
+                    icon: side[2].$1,
+                    activeIcon: side[2].$2,
+                    label: side[2].$3,
+                    selected: currentIndex == sideTabIndex[2],
+                    onTap: () => onTap(sideTabIndex[2]),
+                  ),
+                  _NavItem(
+                    icon: side[3].$1,
+                    activeIcon: side[3].$2,
+                    label: side[3].$3,
+                    selected: currentIndex == sideTabIndex[3],
+                    onTap: () => onTap(sideTabIndex[3]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => onTap(2),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: _fabSize,
+                  height: _fabSize,
+                  decoration: BoxDecoration(
+                    color: _accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _accent.withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: currentIndex == 2
+                        ? Border.all(color: Colors.white, width: 3)
+                        : null,
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              for (var i = 0; i < items.length; i++)
-                _NavItem(
-                  icon: items[i].$1,
-                  activeIcon: items[i].$2,
-                  label: items[i].$3,
-                  selected: currentIndex == i,
-                  onTap: () => onTap(i),
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -274,7 +386,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? SoriTokens.primary : SoriTokens.textSecondary;
+    final color = selected ? const Color(0xFF6C5CE7) : SoriTokens.textSecondary;
     return Expanded(
       child: InkWell(
         onTap: onTap,

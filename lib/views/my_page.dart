@@ -213,7 +213,7 @@ class MyPage extends StatelessWidget {
                     _MenuTile(
                       icon: Icons.photo_library_outlined,
                       title: '관리 케이스',
-                      onTap: () => onSelectTab?.call(2),
+                      onTap: () => onSelectTab?.call(3),
                     ),
                   ],
                 ),
