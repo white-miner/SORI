@@ -26,6 +26,15 @@ class ChartConsentTab extends StatelessWidget {
     this.existingSignatureUrl,
     this.quickChartMode = false,
     this.consentValidUntil,
+    this.consentSectionKey,
+    this.signatureFieldKey,
+    this.shakeAnimation,
+    this.highlightConsent = false,
+    this.highlightSignature = false,
+    this.showConsentError = false,
+    this.showSignatureError = false,
+    this.consentErrorText = '필수 동의 항목을 체크해 주세요',
+    this.signatureErrorText = '서명이 누락되었습니다',
   });
 
   final bool consentCareNotice;
@@ -47,6 +56,16 @@ class ChartConsentTab extends StatelessWidget {
   /// 최근 1년 이내 서명 이력 → 필수 동의/서명 검증 Bypass.
   final bool quickChartMode;
   final DateTime? consentValidUntil;
+
+  final GlobalKey? consentSectionKey;
+  final GlobalKey? signatureFieldKey;
+  final Animation<double>? shakeAnimation;
+  final bool highlightConsent;
+  final bool highlightSignature;
+  final bool showConsentError;
+  final bool showSignatureError;
+  final String consentErrorText;
+  final String signatureErrorText;
 
   String _fmtUntil(DateTime d) =>
       '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
@@ -117,25 +136,36 @@ class ChartConsentTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _MandatoryAccordion(
-                  title: ChartConsentTexts.mandatoryCareTitle,
-                  bullets: ChartConsentTexts.mandatoryCareBody,
-                  checked: consentCareNotice,
-                  onChanged: onCareNoticeChanged,
-                ),
-                const SizedBox(height: 10),
-                _MandatoryAccordion(
-                  title: ChartConsentTexts.mandatoryReactionTitle,
-                  bullets: ChartConsentTexts.mandatoryReactionBody,
-                  checked: consentAbnormalReaction,
-                  onChanged: onAbnormalReactionChanged,
-                ),
-                const SizedBox(height: 10),
-                _MandatoryAccordion(
-                  title: ChartConsentTexts.mandatoryRefundTitle,
-                  bullets: ChartConsentTexts.mandatoryRefundBody,
-                  checked: consentRefundPolicy,
-                  onChanged: onRefundPolicyChanged,
+                _ConsentValidationBlock(
+                  anchorKey: consentSectionKey,
+                  highlighted: highlightConsent,
+                  showError: showConsentError,
+                  errorText: consentErrorText,
+                  shake: shakeAnimation,
+                  child: Column(
+                    children: [
+                      _MandatoryAccordion(
+                        title: ChartConsentTexts.mandatoryCareTitle,
+                        bullets: ChartConsentTexts.mandatoryCareBody,
+                        checked: consentCareNotice,
+                        onChanged: onCareNoticeChanged,
+                      ),
+                      const SizedBox(height: 10),
+                      _MandatoryAccordion(
+                        title: ChartConsentTexts.mandatoryReactionTitle,
+                        bullets: ChartConsentTexts.mandatoryReactionBody,
+                        checked: consentAbnormalReaction,
+                        onChanged: onAbnormalReactionChanged,
+                      ),
+                      const SizedBox(height: 10),
+                      _MandatoryAccordion(
+                        title: ChartConsentTexts.mandatoryRefundTitle,
+                        bullets: ChartConsentTexts.mandatoryRefundBody,
+                        checked: consentRefundPolicy,
+                        onChanged: onRefundPolicyChanged,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -219,58 +249,74 @@ class ChartConsentTab extends StatelessWidget {
           ),
         ),
         if (!quickChartMode)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      '고객 서명',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                    ),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: onClearSignature,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('다시 쓰기'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  height: 160,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F7FC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+          _ConsentValidationBlock(
+            anchorKey: signatureFieldKey,
+            highlighted: highlightSignature,
+            showError: showSignatureError,
+            errorText: signatureErrorText,
+            shake: shakeAnimation,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Signature(
-                    controller: signatureController,
-                    backgroundColor: const Color(0xFFF8F7FC),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        '고객 서명',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: onClearSignature,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('다시 쓰기'),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '손가락 또는 터치펜으로 서명해 주세요 (필수)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F7FC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: highlightSignature || showSignatureError
+                            ? const Color(0xFFE53935)
+                            : Colors.grey.shade300,
+                        width: highlightSignature || showSignatureError
+                            ? 1.6
+                            : 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Signature(
+                      controller: signatureController,
+                      backgroundColor: const Color(0xFFF8F7FC),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '손가락 또는 터치펜으로 서명해 주세요 (필수)',
+                    textAlign: TextAlign.center,
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
             ),
           )
         else
@@ -522,6 +568,89 @@ class _PhotoUseOption extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ConsentValidationBlock extends StatelessWidget {
+  const _ConsentValidationBlock({
+    required this.child,
+    required this.highlighted,
+    required this.showError,
+    required this.errorText,
+    this.anchorKey,
+    this.shake,
+  });
+
+  final GlobalKey? anchorKey;
+  final bool highlighted;
+  final bool showError;
+  final String errorText;
+  final Animation<double>? shake;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget content = child;
+    if (shake != null) {
+      content = AnimatedBuilder(
+        animation: shake!,
+        builder: (context, child) {
+          final dx = highlighted ? shake!.value : 0.0;
+          return Transform.translate(offset: Offset(dx, 0), child: child);
+        },
+        child: content,
+      );
+    }
+
+    return KeyedSubtree(
+      key: anchorKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.all(highlighted ? 3 : 0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: highlighted
+                    ? const Color(0xFFE53935)
+                    : Colors.transparent,
+                width: highlighted ? 1.5 : 0,
+              ),
+            ),
+            child: content,
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: showError
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 4),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOut,
+                      builder: (context, opacity, child) =>
+                          Opacity(opacity: opacity, child: child),
+                      child: Text(
+                        '* $errorText',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          color: Color(0xFFE53935),
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }

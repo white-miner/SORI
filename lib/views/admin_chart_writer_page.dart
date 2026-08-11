@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -102,6 +104,19 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   CustomerChart? _annualConsentSource;
   DateTime? _consentValidUntil;
 
+  final GlobalKey _nameFieldKey = GlobalKey();
+  final GlobalKey _genderFieldKey = GlobalKey();
+  final GlobalKey _phoneFieldKey = GlobalKey();
+  final GlobalKey _careNameFieldKey = GlobalKey();
+  final GlobalKey _consentSectionKey = GlobalKey();
+  final GlobalKey _signatureFieldKey = GlobalKey();
+
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeOffset;
+  Timer? _highlightClearTimer;
+  _ChartRequiredField? _inlineErrorField;
+  _ChartRequiredField? _highlightField;
+
   bool get _consentMandatory =>
       _consentCareNotice &&
       _consentAbnormalReaction &&
@@ -110,44 +125,119 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   bool get _quickChartMode =>
       _annualConsentSource != null && _consentValidUntil != null;
 
-  /// 누락된 필수 항목 라벨 목록 (저장 터치 시 SnackBar용).
-  List<String> _collectMissingRequiredFields() {
-    final missing = <String>[];
+  _ChartRequiredField? _firstMissingRequiredField() {
     if (_nameController.text.trim().isEmpty) {
-      missing.add('고객 성함');
+      return _ChartRequiredField.name;
     }
-    if (_gender == null) {
-      missing.add('성별');
-    }
+    if (_gender == null) return _ChartRequiredField.gender;
     if (SoriStore.normalizePhone(_phoneController.text).length < 10) {
-      missing.add('연락처');
+      return _ChartRequiredField.phone;
     }
     if (_careNameController.text.trim().isEmpty) {
-      missing.add('오늘 진행 서비스');
+      return _ChartRequiredField.careName;
     }
     if (!_quickChartMode) {
-      if (!_consentCareNotice ||
-          !_consentAbnormalReaction ||
-          !_consentRefundPolicy) {
-        missing.add('필수 동의 항목');
-      }
+      if (!_consentMandatory) return _ChartRequiredField.consent;
       if (!_signatureController.isNotEmpty) {
-        missing.add('자필 서명');
+        return _ChartRequiredField.signature;
       }
     }
-    return missing;
+    return null;
   }
 
-  void _showMissingFieldsSnackBar(List<String> missing) {
-    final joined = missing.join(', ');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$joined을(를) 입력해 주세요.'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.redAccent,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  bool _isRequiredFieldFilled(_ChartRequiredField field) {
+    switch (field) {
+      case _ChartRequiredField.name:
+        return _nameController.text.trim().isNotEmpty;
+      case _ChartRequiredField.gender:
+        return _gender != null;
+      case _ChartRequiredField.phone:
+        return SoriStore.normalizePhone(_phoneController.text).length >= 10;
+      case _ChartRequiredField.careName:
+        return _careNameController.text.trim().isNotEmpty;
+      case _ChartRequiredField.consent:
+        return _quickChartMode || _consentMandatory;
+      case _ChartRequiredField.signature:
+        return _quickChartMode || _signatureController.isNotEmpty;
+    }
+  }
+
+  GlobalKey _keyForRequiredField(_ChartRequiredField field) {
+    switch (field) {
+      case _ChartRequiredField.name:
+        return _nameFieldKey;
+      case _ChartRequiredField.gender:
+        return _genderFieldKey;
+      case _ChartRequiredField.phone:
+        return _phoneFieldKey;
+      case _ChartRequiredField.careName:
+        return _careNameFieldKey;
+      case _ChartRequiredField.consent:
+        return _consentSectionKey;
+      case _ChartRequiredField.signature:
+        return _signatureFieldKey;
+    }
+  }
+
+  void _pruneResolvedValidationErrors() {
+    final inline = _inlineErrorField;
+    final highlight = _highlightField;
+    if (inline == null && highlight == null) return;
+    final clearInline =
+        inline != null && _isRequiredFieldFilled(inline);
+    final clearHighlight =
+        highlight != null && _isRequiredFieldFilled(highlight);
+    if (!clearInline && !clearHighlight) return;
+    setState(() {
+      if (clearInline) _inlineErrorField = null;
+      if (clearHighlight) _highlightField = null;
+    });
+  }
+
+  Future<bool> _focusFirstMissingRequiredField() async {
+    final field = _firstMissingRequiredField();
+    if (field == null) return true;
+
+    HapticFeedback.lightImpact();
+    setState(() {
+      _inlineErrorField = field;
+      _highlightField = field;
+    });
+
+    final targetPage = field.isConsentTab ? 1 : 0;
+    final currentPage = _pageController.hasClients
+        ? (_pageController.page?.round() ?? _tabController.index)
+        : _tabController.index;
+    if (currentPage != targetPage) {
+      _tabController.animateTo(targetPage);
+      await _pageController.animateToPage(
+        targetPage,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+    }
+
+    final targetContext = _keyForRequiredField(field).currentContext;
+    if (targetContext != null && targetContext.mounted) {
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.35,
+      );
+    }
+
+    if (!mounted) return false;
+    _shakeController.forward(from: 0);
+    _highlightClearTimer?.cancel();
+    _highlightClearTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      if (_highlightField == field) {
+        setState(() => _highlightField = null);
+      }
+    });
+    return false;
   }
 
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
@@ -164,6 +254,21 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _pageController = PageController();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _shakeOffset = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -7), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -7, end: 7), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 7, end: -5), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -5, end: 5), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 5, end: -3), weight: 1.5),
+      TweenSequenceItem(tween: Tween(begin: -3, end: 0), weight: 1.5),
+    ]).animate(CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.easeInOut,
+    ));
     _signatureController = SignatureController(
       penStrokeWidth: 2.8,
       penColor: const Color(0xFF2D3436),
@@ -276,15 +381,20 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   void _onSignatureChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _pruneResolvedValidationErrors();
   }
 
   void _onFormBasicsChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _pruneResolvedValidationErrors();
   }
 
   void _onPhoneChanged() {
     _refreshAnnualConsent();
+    _pruneResolvedValidationErrors();
   }
 
   void _refreshAnnualConsent({bool notify = true}) {
@@ -315,6 +425,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   @override
   void dispose() {
+    _highlightClearTimer?.cancel();
+    _shakeController.dispose();
     _tabController.dispose();
     _pageController.dispose();
     _signatureController.removeListener(_onSignatureChanged);
@@ -695,11 +807,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   Future<void> _saveAndConfirm() async {
-    final missing = _collectMissingRequiredFields();
-    if (missing.isNotEmpty) {
-      _showMissingFieldsSnackBar(missing);
-      return;
-    }
+    final ok = await _focusFirstMissingRequiredField();
+    if (!ok) return;
 
     setState(() => _saving = true);
     try {
@@ -879,12 +988,31 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   existingSignatureUrl: _existingSignatureUrl,
                   quickChartMode: _quickChartMode,
                   consentValidUntil: _consentValidUntil,
-                  onCareNoticeChanged: (v) =>
-                      setState(() => _consentCareNotice = v),
-                  onAbnormalReactionChanged: (v) =>
-                      setState(() => _consentAbnormalReaction = v),
-                  onRefundPolicyChanged: (v) =>
-                      setState(() => _consentRefundPolicy = v),
+                  consentSectionKey: _consentSectionKey,
+                  signatureFieldKey: _signatureFieldKey,
+                  shakeAnimation: _shakeOffset,
+                  highlightConsent:
+                      _highlightField == _ChartRequiredField.consent,
+                  highlightSignature:
+                      _highlightField == _ChartRequiredField.signature,
+                  showConsentError:
+                      _inlineErrorField == _ChartRequiredField.consent,
+                  showSignatureError:
+                      _inlineErrorField == _ChartRequiredField.signature,
+                  consentErrorText: _ChartRequiredField.consent.errorCopy,
+                  signatureErrorText: _ChartRequiredField.signature.errorCopy,
+                  onCareNoticeChanged: (v) {
+                    setState(() => _consentCareNotice = v);
+                    _pruneResolvedValidationErrors();
+                  },
+                  onAbnormalReactionChanged: (v) {
+                    setState(() => _consentAbnormalReaction = v);
+                    _pruneResolvedValidationErrors();
+                  },
+                  onRefundPolicyChanged: (v) {
+                    setState(() => _consentRefundPolicy = v);
+                    _pruneResolvedValidationErrors();
+                  },
                   onPhotoChanged: (v) {
                     setState(() {
                       _consentPhoto = v;
@@ -1021,56 +1149,136 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: '고객 성함 *',
-                          border: OutlineInputBorder(),
+                      _SmartFocusTarget(
+                        anchorKey: _nameFieldKey,
+                        highlighted:
+                            _highlightField == _ChartRequiredField.name,
+                        showError: _inlineErrorField == _ChartRequiredField.name,
+                        errorText: _ChartRequiredField.name.errorCopy,
+                        shake: _shakeOffset,
+                        child: TextField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: '고객 성함 *',
+                            border: const OutlineInputBorder(),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: _inlineErrorField ==
+                                        _ChartRequiredField.name
+                                    ? const Color(0xFFE53935)
+                                    : Colors.grey.shade400,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: _inlineErrorField ==
+                                        _ChartRequiredField.name
+                                    ? const Color(0xFFE53935)
+                                    : MyApp.soriPurple,
+                                width: 1.6,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        '성별 *',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ChoiceChip(
-                              label: const Center(child: Text('여성')),
-                              selected: _gender == CustomerGender.female,
-                              onSelected: (_) =>
-                                  setState(() => _gender = CustomerGender.female),
-                              selectedColor: MyApp.soriPurple.withValues(alpha: 0.2),
+                      _SmartFocusTarget(
+                        anchorKey: _genderFieldKey,
+                        highlighted:
+                            _highlightField == _ChartRequiredField.gender,
+                        showError:
+                            _inlineErrorField == _ChartRequiredField.gender,
+                        errorText: _ChartRequiredField.gender.errorCopy,
+                        shake: _shakeOffset,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '성별 *',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ChoiceChip(
-                              label: const Center(child: Text('남성')),
-                              selected: _gender == CustomerGender.male,
-                              onSelected: (_) =>
-                                  setState(() => _gender = CustomerGender.male),
-                              selectedColor: MyApp.soriPurple.withValues(alpha: 0.2),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: const Center(child: Text('여성')),
+                                    selected:
+                                        _gender == CustomerGender.female,
+                                    onSelected: (_) {
+                                      setState(
+                                        () =>
+                                            _gender = CustomerGender.female,
+                                      );
+                                      _pruneResolvedValidationErrors();
+                                    },
+                                    selectedColor: MyApp.soriPurple
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: const Center(child: Text('남성')),
+                                    selected: _gender == CustomerGender.male,
+                                    onSelected: (_) {
+                                      setState(
+                                        () => _gender = CustomerGender.male,
+                                      );
+                                      _pruneResolvedValidationErrors();
+                                    },
+                                    selectedColor: MyApp.soriPurple
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.done,
-                        onEditingComplete: _autofillFromPhone,
-                        decoration: InputDecoration(
-                          labelText: '전화번호 / 연락처 *',
-                          hintText: '입력 시 기존 고객 정보 자동 완성',
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            tooltip: '기존 정보 불러오기',
-                            onPressed: _autofillFromPhone,
-                            icon: const Icon(Icons.person_search_outlined),
+                      _SmartFocusTarget(
+                        anchorKey: _phoneFieldKey,
+                        highlighted:
+                            _highlightField == _ChartRequiredField.phone,
+                        showError:
+                            _inlineErrorField == _ChartRequiredField.phone,
+                        errorText: _ChartRequiredField.phone.errorCopy,
+                        shake: _shakeOffset,
+                        child: TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.done,
+                          onEditingComplete: _autofillFromPhone,
+                          decoration: InputDecoration(
+                            labelText: '전화번호 / 연락처 *',
+                            hintText: '입력 시 기존 고객 정보 자동 완성',
+                            border: const OutlineInputBorder(),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: _inlineErrorField ==
+                                        _ChartRequiredField.phone
+                                    ? const Color(0xFFE53935)
+                                    : Colors.grey.shade400,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: _inlineErrorField ==
+                                        _ChartRequiredField.phone
+                                    ? const Color(0xFFE53935)
+                                    : MyApp.soriPurple,
+                                width: 1.6,
+                              ),
+                            ),
+                            suffixIcon: IconButton(
+                              tooltip: '기존 정보 불러오기',
+                              onPressed: _autofillFromPhone,
+                              icon: const Icon(Icons.person_search_outlined),
+                            ),
                           ),
                         ),
                       ),
@@ -1157,12 +1365,25 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _ServiceNameField(
-                        label: '오늘 진행 서비스 *',
-                        value: _careNameController.text,
-                        options: _serviceOptions,
-                        onChanged: (v) =>
-                            setState(() => _careNameController.text = v),
+                      _SmartFocusTarget(
+                        anchorKey: _careNameFieldKey,
+                        highlighted:
+                            _highlightField == _ChartRequiredField.careName,
+                        showError:
+                            _inlineErrorField == _ChartRequiredField.careName,
+                        errorText: _ChartRequiredField.careName.errorCopy,
+                        shake: _shakeOffset,
+                        child: _ServiceNameField(
+                          label: '오늘 진행 서비스 *',
+                          value: _careNameController.text,
+                          options: _serviceOptions,
+                          onChanged: (v) {
+                            setState(() => _careNameController.text = v);
+                            _pruneResolvedValidationErrors();
+                          },
+                          hasError: _inlineErrorField ==
+                              _ChartRequiredField.careName,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -1609,12 +1830,14 @@ class _ServiceNameField extends StatefulWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.hasError = false,
   });
 
   final String label;
   final String value;
   final List<String> options;
   final ValueChanged<String> onChanged;
+  final bool hasError;
 
   @override
   State<_ServiceNameField> createState() => _ServiceNameFieldState();
@@ -1766,6 +1989,23 @@ class _ServiceNameFieldState extends State<_ServiceNameField> {
                 : '탭하여 전체 목록 보기 · 검색 또는 직접 입력',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: widget.hasError
+                    ? const Color(0xFFE53935)
+                    : Colors.grey.shade400,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: widget.hasError
+                    ? const Color(0xFFE53935)
+                    : MyApp.soriPurple,
+                width: 1.6,
+              ),
             ),
             contentPadding: const EdgeInsets.fromLTRB(16, 18, 8, 18),
             suffixIcon: IconButton(
@@ -2189,6 +2429,121 @@ class _PhotoAttachBox extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum _ChartRequiredField {
+  name,
+  gender,
+  phone,
+  careName,
+  consent,
+  signature,
+}
+
+extension on _ChartRequiredField {
+  bool get isConsentTab =>
+      this == _ChartRequiredField.consent ||
+      this == _ChartRequiredField.signature;
+
+  String get errorCopy {
+    switch (this) {
+      case _ChartRequiredField.name:
+      case _ChartRequiredField.careName:
+        return '필수 항목입니다';
+      case _ChartRequiredField.gender:
+        return '성별을 선택해 주세요';
+      case _ChartRequiredField.phone:
+        return '연락처를 입력해 주세요';
+      case _ChartRequiredField.consent:
+        return '필수 동의 항목을 체크해 주세요';
+      case _ChartRequiredField.signature:
+        return '서명이 누락되었습니다';
+    }
+  }
+}
+
+/// 스마트 포커싱: 스크롤 앵커 + 흔들림 + 붉은 테두리 + 인라인 에러.
+class _SmartFocusTarget extends StatelessWidget {
+  const _SmartFocusTarget({
+    required this.anchorKey,
+    required this.highlighted,
+    required this.showError,
+    required this.errorText,
+    required this.shake,
+    required this.child,
+  });
+
+  final GlobalKey anchorKey;
+  final bool highlighted;
+  final bool showError;
+  final String errorText;
+  final Animation<double> shake;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key: anchorKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnimatedBuilder(
+            animation: shake,
+            builder: (context, child) {
+              final dx = highlighted ? shake.value : 0.0;
+              return Transform.translate(
+                offset: Offset(dx, 0),
+                child: child,
+              );
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.all(highlighted ? 3 : 0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: highlighted
+                      ? const Color(0xFFE53935)
+                      : Colors.transparent,
+                  width: highlighted ? 1.5 : 0,
+                ),
+              ),
+              child: child,
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: showError
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 2),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOut,
+                      builder: (context, opacity, child) => Opacity(
+                        opacity: opacity,
+                        child: child,
+                      ),
+                      child: Text(
+                        '* $errorText',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          color: Color(0xFFE53935),
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }
