@@ -203,9 +203,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _revisit.addAll(existing?.revisitFeedbackChips ?? const []);
     _concerns.addAll(existing?.concernChips ?? const []);
     for (final tag in existing?.homeCarePrescriptions ?? const <String>[]) {
-      final p = HomeCarePrescriptionCatalog.byId(tag) ??
-          HomeCarePrescriptionCatalog.byChipLabel(tag);
-      _homeCarePrescriptions.add(p?.id ?? tag);
+      final id = HomecareDictionary.canonicalize(tag);
+      if (id != null) _homeCarePrescriptions.add(id);
     }
     _consentMandatory = existing?.consentMandatory ?? false;
     _consentPhoto = existing?.consentPhoto ?? false;
@@ -695,10 +694,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         consentOfflineOnly: _consentPhoto && _consentOfflineOnly,
         signatureUrl: signatureUrl,
         homeCarePrescriptions:
-            DbMap.sanitizeStringList(_homeCarePrescriptions),
-        guardianPhone: _guardianPhoneController.text.trim().isEmpty
-            ? null
-            : _guardianPhoneController.text.trim(),
+            HomecareDictionary.sanitizeTagIds(_homeCarePrescriptions),
+        guardianPhone: () {
+          final d =
+              SoriStore.normalizePhone(_guardianPhoneController.text);
+          return d.isEmpty ? null : d;
+        }(),
         infoViewConsent: _infoViewConsent,
       );
 
@@ -1410,18 +1411,20 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: HomeCarePrescriptionCatalog.all.map((p) {
+                        children: HomecareDictionary.allTagIds.map((id) {
                           final selected =
-                              _homeCarePrescriptions.contains(p.id);
+                              _homeCarePrescriptions.contains(id);
+                          final label =
+                              HomecareDictionary.chipLabelOf(id) ?? id;
                           return FilterChip(
-                            label: Text(p.chipLabel),
+                            label: Text(label),
                             selected: selected,
                             onSelected: (v) {
                               setState(() {
                                 if (v) {
-                                  _homeCarePrescriptions.add(p.id);
+                                  _homeCarePrescriptions.add(id);
                                 } else {
-                                  _homeCarePrescriptions.remove(p.id);
+                                  _homeCarePrescriptions.remove(id);
                                 }
                               });
                             },

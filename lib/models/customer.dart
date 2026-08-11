@@ -199,7 +199,7 @@ class Customer {
       'id': synced.id,
       'shop_id': synced.shopId,
       'name': synced.name,
-      'phone': synced.phone,
+      'phone': synced.phone.replaceAll(RegExp(r'[^0-9]'), ''),
       'last_treatment_date': synced.lastTreatmentDate.toIso8601String(),
       'treatment_type': synced.treatmentType,
       'memo': synced.memo,

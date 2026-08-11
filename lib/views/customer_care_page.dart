@@ -113,7 +113,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                 : '케어'));
     final visitNo = latest?.visitNumber ?? customer?.membershipUsedVisits ?? 0;
     final mission = _activeMission(activeId);
-    final directives = HomeCarePrescriptionCatalog.directivesFor(
+    final directives = HomecareDictionary.resolveDirectives(
       latest?.homeCarePrescriptions ?? const [],
     );
     final viewingFamily = _viewingCustomerId != null;
@@ -181,7 +181,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                   mission.chart.homeCareMissionChecks,
                 ),
                 dayOffset: mission.dayOffset,
-                directives: HomeCarePrescriptionCatalog.directivesFor(
+                directives: HomecareDictionary.resolveDirectives(
                   mission.chart.homeCarePrescriptions,
                 ),
                 onToggle: (index, value) {
@@ -705,7 +705,7 @@ class _AiReportDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final directives = HomeCarePrescriptionCatalog.directivesFor(
+    final directives = HomecareDictionary.resolveDirectives(
       chart.homeCarePrescriptions,
     );
     return Scaffold(

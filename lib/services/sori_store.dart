@@ -12,6 +12,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
+import '../models/home_care_prescriptions.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -82,6 +83,10 @@ class SoriStore {
   ];
 
   final List<void Function()> _listeners = [];
+
+  /// 미션 체크 디바운스 (차트별 마지막 터치 후 1.5초).
+  final Map<String, Timer> _missionDebounceTimers = {};
+  final Map<String, List<bool>> _pendingMissionChecks = {};
 
   void addListener(void Function() listener) => _listeners.add(listener);
   void removeListener(void Function() listener) => _listeners.remove(listener);
@@ -257,6 +262,9 @@ class SoriStore {
     String? guardianPhone,
     bool infoViewConsent = false,
   }) async {
+    if (blocksDirectorChartWrites) {
+      throw StateError('고객 모드에서는 원장 차트를 저장할 수 없습니다.');
+    }
     if (!_repository.isRemote) {
       return saveChartAndConfirmVisit(
         customerId: customerId,
@@ -317,7 +325,9 @@ class SoriStore {
           beforeImageUrl: beforeImageUrl,
           afterImageUrl: afterImageUrl,
           customerName: customerName,
-          customerPhone: customerPhone,
+          customerPhone: customerPhone == null
+              ? null
+              : normalizePhone(customerPhone),
           gender: gender,
           birthDate: birthDate,
           address: address,
@@ -336,8 +346,12 @@ class SoriStore {
           consentMarketing: consentMarketing,
           consentOfflineOnly: consentOfflineOnly,
           signatureUrl: signatureUrl,
-          homeCarePrescriptions: homeCarePrescriptions,
-          guardianPhone: guardianPhone,
+          homeCarePrescriptions:
+              HomecareDictionary.sanitizeTagIds(homeCarePrescriptions),
+          guardianPhone: () {
+            final d = normalizePhone(guardianPhone ?? '');
+            return d.isEmpty ? null : d;
+          }(),
           infoViewConsent: infoViewConsent,
         ),
       );
@@ -360,7 +374,11 @@ class SoriStore {
   }
 
   static String normalizePhone(String phone) =>
-      phone.replaceAll(RegExp(r'\D'), '');
+      phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+  /// 고객 모드에서는 원장 차트 본문 저장을 호출할 수 없다.
+  bool get blocksDirectorChartWrites =>
+      session != null && session!.activeMode == UserRole.customer;
 
   static String phoneLast4(String phone) {
     final d = normalizePhone(phone);
@@ -1093,19 +1111,51 @@ class SoriStore {
       charts[index].homeCareMissionChecks,
     );
     next[dayIndex] = checked;
+    // 로컬 즉시 반영 (UX)
     charts[index] = charts[index].copyWith(homeCareMissionChecks: next);
+    _pendingMissionChecks[chartId] = List<bool>.from(next);
     _notify();
-    if (_repository.isRemote) {
-      unawaited(() async {
-        try {
-          await _repository.updateHomeCareMissionChecks(
-            chartId: chartId,
-            checks: next,
-          );
-        } catch (e) {
-          debugPrint('setHomeCareMissionCheck remote failed: $e');
-        }
-      }());
+
+    // 마지막 터치 후 1.5초 디바운스 → 서버 1회 통신
+    _missionDebounceTimers[chartId]?.cancel();
+    _missionDebounceTimers[chartId] = Timer(
+      const Duration(milliseconds: 1500),
+      () {
+        final checks = _pendingMissionChecks.remove(chartId);
+        _missionDebounceTimers.remove(chartId);
+        if (checks == null || !_repository.isRemote) return;
+        unawaited(() async {
+          try {
+            await _repository.updateHomeCareMissionChecks(
+              chartId: chartId,
+              checks: checks,
+            );
+          } catch (e) {
+            debugPrint('setHomeCareMissionCheck remote failed: $e');
+          }
+        }());
+      },
+    );
+  }
+
+  /// 앱 종료/로그아웃 전 대기 중인 미션 패치를 즉시 플러시.
+  Future<void> flushPendingMissionChecks() async {
+    final pending = Map<String, List<bool>>.from(_pendingMissionChecks);
+    for (final timer in _missionDebounceTimers.values) {
+      timer.cancel();
+    }
+    _missionDebounceTimers.clear();
+    _pendingMissionChecks.clear();
+    if (!_repository.isRemote) return;
+    for (final entry in pending.entries) {
+      try {
+        await _repository.updateHomeCareMissionChecks(
+          chartId: entry.key,
+          checks: entry.value,
+        );
+      } catch (e) {
+        debugPrint('flushPendingMissionChecks failed: $e');
+      }
     }
   }
 
@@ -1256,6 +1306,9 @@ class SoriStore {
     String? guardianPhone,
     bool infoViewConsent = false,
   }) {
+    if (blocksDirectorChartWrites) {
+      throw StateError('고객 모드에서는 원장 차트를 저장할 수 없습니다.');
+    }
     final customer = findCustomer(customerId);
     if (customer == null) {
       throw StateError('Customer not found');
@@ -1267,8 +1320,15 @@ class SoriStore {
     final beforeUrl = DbMap.asTextOrNull(beforeImageUrl);
     final afterUrl = DbMap.asTextOrNull(afterImageUrl);
     final sigUrl = DbMap.asTextOrNull(signatureUrl);
-    final prescriptions = DbMap.sanitizeStringList(homeCarePrescriptions);
-    final guardian = DbMap.asTextOrNull(guardianPhone);
+    final prescriptions =
+        HomecareDictionary.sanitizeTagIds(homeCarePrescriptions);
+    final guardianDigits = normalizePhone(guardianPhone ?? '');
+    final guardian = guardianDigits.isEmpty ? null : guardianDigits;
+
+    // 고객 전화번호도 숫자만 저장
+    final normalizedCustomerPhone = customerPhone == null
+        ? null
+        : normalizePhone(customerPhone);
 
     CustomerChart chart;
     if (chartId != null) {
@@ -1364,8 +1424,9 @@ class SoriStore {
       name: customerName?.trim().isNotEmpty == true
           ? customerName!.trim()
           : customer.name,
-      phone: customerPhone?.trim().isNotEmpty == true
-          ? customerPhone!.trim()
+      phone: (normalizedCustomerPhone != null &&
+              normalizedCustomerPhone.isNotEmpty)
+          ? normalizedCustomerPhone
           : customer.phone,
       gender: gender,
       birthDate: birthDate,

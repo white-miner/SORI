@@ -7,6 +7,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
+import '../models/home_care_prescriptions.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../services/supabase_client.dart';
@@ -81,8 +82,12 @@ class SupabaseSoriRepository implements SoriRepository {
       consentOfflineOnly: request.consentOfflineOnly,
       signatureUrl: _imageUrlOrNull(request.signatureUrl),
       homeCarePrescriptions:
-          DbMap.sanitizeStringList(request.homeCarePrescriptions),
-      guardianPhone: DbMap.asTextOrNull(request.guardianPhone),
+          HomecareDictionary.sanitizeTagIds(request.homeCarePrescriptions),
+      guardianPhone: () {
+        final digits =
+            (request.guardianPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+        return digits.isEmpty ? null : digits;
+      }(),
       infoViewConsent: request.infoViewConsent,
     );
   }
@@ -93,7 +98,7 @@ class SupabaseSoriRepository implements SoriRepository {
     final map = <String, dynamic>{
       'shop_id': synced.shopId,
       'name': synced.name,
-      'phone': synced.phone,
+      'phone': synced.phone.replaceAll(RegExp(r'[^0-9]'), ''),
       'last_treatment_date': _dateOnly(synced.lastTreatmentDate),
       'treatment_type': synced.treatmentType,
       'memo': synced.memo,
@@ -377,7 +382,7 @@ class SupabaseSoriRepository implements SoriRepository {
     final payload = <String, dynamic>{
       'shop_id': shopId,
       'name': name.trim(),
-      'phone': phone.trim(),
+      'phone': phone.replaceAll(RegExp(r'[^0-9]'), ''),
       'memo': memo.trim(),
     };
     final row =
@@ -677,14 +682,27 @@ class SupabaseSoriRepository implements SoriRepository {
     required String chartId,
     required List<bool> checks,
   }) async {
+    final payload = CustomerChart.normalizeMissionChecks(checks);
     try {
-      await _db.from('customer_charts').update({
-        'home_care_mission_checks':
-            CustomerChart.normalizeMissionChecks(checks),
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', chartId);
+      // 좁은 RPC — 원장 차트 필드 오염 방지 + 멱등 패치
+      await _db.rpc(
+        'patch_home_care_mission_checks',
+        params: {
+          'p_chart_id': chartId,
+          'p_checks': payload,
+        },
+      );
     } catch (e) {
-      debugPrint('updateHomeCareMissionChecks skipped: $e');
+      // 마이그레이션 미적용 시 컬럼 단위 폴백
+      debugPrint('patch_home_care_mission_checks rpc failed, fallback: $e');
+      try {
+        await _db.from('customer_charts').update({
+          'home_care_mission_checks': payload,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', chartId);
+      } catch (e2) {
+        debugPrint('updateHomeCareMissionChecks skipped: $e2');
+      }
     }
   }
 

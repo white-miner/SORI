@@ -35,7 +35,7 @@ class SessionUser {
   final UserRole activeMode;
   final bool showFirstChartTutorial;
 
-  String get phoneDigits => phone.replaceAll(RegExp(r'\D'), '');
+  String get phoneDigits => phone.replaceAll(RegExp(r'[^0-9]'), '');
 
   String get phoneLast4 {
     final d = phoneDigits;

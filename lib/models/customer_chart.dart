@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import 'home_care_prescriptions.dart';
 
 class CustomerChart {
   const CustomerChart({
@@ -251,9 +252,16 @@ class CustomerChart {
       'consent_offline_only': consentOfflineOnly,
       'signature_url': DbMap.asTextOrNull(signatureUrl),
       'case_shared': caseShared,
-      'home_care_prescriptions':
-          DbMap.sanitizeStringList(homeCarePrescriptions),
-      'guardian_phone': DbMap.asTextOrNull(guardianPhone),
+      'prescription_tags': HomecareDictionary.sanitizeTagIds(
+        homeCarePrescriptions,
+      ),
+      'home_care_prescriptions': HomecareDictionary.sanitizeTagIds(
+        homeCarePrescriptions,
+      ),
+      'guardian_phone': () {
+        final digits = (guardianPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+        return digits.isEmpty ? null : digits;
+      }(),
       'info_view_consent': infoViewConsent,
       'home_care_mission_checks':
           normalizeMissionChecks(homeCareMissionChecks),
@@ -302,9 +310,17 @@ class CustomerChart {
       consentOfflineOnly: DbMap.asBool(map['consent_offline_only']),
       signatureUrl: DbMap.asTextOrNull(map['signature_url']),
       caseShared: DbMap.asBool(map['case_shared'] ?? map['is_public']),
-      homeCarePrescriptions:
-          DbMap.asStringList(map['home_care_prescriptions']),
-      guardianPhone: DbMap.asTextOrNull(map['guardian_phone']),
+      homeCarePrescriptions: HomecareDictionary.sanitizeTagIds(
+        DbMap.asStringList(
+          map['prescription_tags'] ?? map['home_care_prescriptions'],
+        ),
+      ),
+      guardianPhone: () {
+        final raw = DbMap.asTextOrNull(map['guardian_phone']);
+        if (raw == null) return null;
+        final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+        return digits.isEmpty ? null : digits;
+      }(),
       infoViewConsent: DbMap.asBool(map['info_view_consent']),
       homeCareMissionChecks:
           missionChecksFromDynamic(map['home_care_mission_checks']),
