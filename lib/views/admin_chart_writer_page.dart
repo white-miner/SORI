@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
 
 import '../models/chart_interview_chips.dart';
@@ -11,6 +12,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/home_care_prescriptions.dart';
+import '../services/chart_photo_storage.dart';
 import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -87,10 +89,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   CustomerGender? _gender;
   DateTime? _birthDate;
-  bool _beforeAttached = false;
-  bool _afterAttached = false;
-  String? _beforeLabel;
-  String? _afterLabel;
+  Uint8List? _beforePreviewBytes;
+  Uint8List? _afterPreviewBytes;
+  String? _beforeUrl;
+  String? _afterUrl;
+  bool _beforeUploading = false;
+  bool _afterUploading = false;
 
   final Set<String> _allergyChips = {};
   final Set<String> _skinChips = {};
@@ -380,10 +384,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       text: existing?.guardianPhone ?? seed?.guardianPhone ?? '',
     );
     // 사진은 해당 회차 차트에만 귀속 — 신규 작성 시 이전 회차 사진을 끌어오지 않음
-    _beforeAttached = existing?.beforeImageUrl != null;
-    _afterAttached = existing?.afterImageUrl != null;
-    _beforeLabel = existing?.beforeImageUrl;
-    _afterLabel = existing?.afterImageUrl;
+    _beforeUrl = existing?.beforeImageUrl;
+    _afterUrl = existing?.afterImageUrl;
+    _beforePreviewBytes = null;
+    _afterPreviewBytes = null;
     _fears.addAll(existing?.firstVisitFearChips ?? const []);
     _revisit.addAll(existing?.revisitFeedbackChips ?? const []);
     _concerns.addAll(
@@ -735,88 +739,217 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     });
   }
 
-  void _attachPhoto({required bool isBefore}) {
-    showModalBottomSheet<void>(
+  Future<void> _attachPhoto({required bool isBefore}) async {
+    final hasPhoto = isBefore
+        ? ((_beforeUrl?.trim().isNotEmpty ?? false) ||
+            _beforePreviewBytes != null)
+        : ((_afterUrl?.trim().isNotEmpty ?? false) ||
+            _afterPreviewBytes != null);
+
+    await showModalBottomSheet<void>(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('사진 업로드'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    if (isBefore) {
-                      _beforeAttached = true;
-                      _beforeLabel =
-                          'before_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                    } else {
-                      _afterAttached = true;
-                      _afterLabel =
-                          'after_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                    }
-                  });
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('카메라 촬영'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    if (isBefore) {
-                      _beforeAttached = true;
-                      _beforeLabel =
-                          'camera_before_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                    } else {
-                      _afterAttached = true;
-                      _afterLabel =
-                          'camera_after_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                    }
-                  });
-                },
-              ),
-              if ((isBefore && _beforeAttached) || (!isBefore && _afterAttached))
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  isBefore ? 'Before 사진' : 'After 사진',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  title: const Text('첨부 삭제'),
+                  leading: CircleAvatar(
+                    backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
+                    child: const Icon(
+                      Icons.photo_camera_outlined,
+                      color: MyApp.soriPurple,
+                    ),
+                  ),
+                  title: const Text(
+                    '카메라로 직접 촬영',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('시술 전후 모습을 바로 촬영합니다'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    setState(() {
-                      if (isBefore) {
-                        _beforeAttached = false;
-                        _beforeLabel = null;
-                      } else {
-                        _afterAttached = false;
-                        _afterLabel = null;
-                      }
-                    });
+                    _pickAndUploadPhoto(
+                      isBefore: isBefore,
+                      source: ImageSource.camera,
+                    );
                   },
                 ),
-            ],
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
+                    child: const Icon(
+                      Icons.photo_library_outlined,
+                      color: MyApp.soriPurple,
+                    ),
+                  ),
+                  title: const Text(
+                    '디바이스 갤러리에서 선택',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('저장된 사진을 불러옵니다'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickAndUploadPhoto(
+                      isBefore: isBefore,
+                      source: ImageSource.gallery,
+                    );
+                  },
+                ),
+                if (hasPhoto)
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.redAccent.withValues(alpha: 0.12),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    title: const Text(
+                      '사진 삭제',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _clearPhoto(isBefore: isBefore);
+                    },
+                  ),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.grey.shade200,
+                    child: Icon(Icons.close, color: Colors.grey.shade700),
+                  ),
+                  title: const Text(
+                    '취소',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onTap: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  /// 사진 미첨부 → null. 첨부됐지만 라벨이 비면 fallback, 그것도 없으면 null.
-  static String? _chartImageUrlOrNull({
-    required bool attached,
-    required String? label,
-    required String fallback,
-  }) {
-    if (!attached) return null;
-    final trimmed = label?.trim();
-    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
-    final fb = fallback.trim();
-    return fb.isEmpty ? null : fb;
+  void _clearPhoto({required bool isBefore}) {
+    setState(() {
+      if (isBefore) {
+        _beforePreviewBytes = null;
+        _beforeUrl = null;
+        _beforeUploading = false;
+      } else {
+        _afterPreviewBytes = null;
+        _afterUrl = null;
+        _afterUploading = false;
+      }
+    });
+  }
+
+  Future<void> _pickAndUploadPhoto({
+    required bool isBefore,
+    required ImageSource source,
+  }) async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1200,
+      );
+      if (file == null || !mounted) return;
+
+      final bytes = await file.readAsBytes();
+      if (!mounted || bytes.isEmpty) return;
+
+      setState(() {
+        if (isBefore) {
+          _beforePreviewBytes = bytes;
+          _beforeUploading = true;
+        } else {
+          _afterPreviewBytes = bytes;
+          _afterUploading = true;
+        }
+      });
+
+      final url = await ChartPhotoStorage.uploadJpeg(
+        bytes: bytes,
+        shopId: widget.store.shop.id,
+        customerId: widget.customer.id,
+        kind: isBefore ? 'before' : 'after',
+      );
+
+      if (!mounted) return;
+      if (url == null || url.trim().isEmpty) {
+        setState(() {
+          if (isBefore) {
+            _beforeUploading = false;
+          } else {
+            _afterUploading = false;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사진 업로드에 실패했어요. 네트워크·Storage 버킷을 확인해 주세요.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        if (isBefore) {
+          _beforeUrl = url;
+          _beforeUploading = false;
+        } else {
+          _afterUrl = url;
+          _afterUploading = false;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (isBefore) {
+          _beforeUploading = false;
+        } else {
+          _afterUploading = false;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('사진 선택 실패: $e'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _applyMedicalStored(
@@ -861,6 +994,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   Future<void> _saveAndConfirm() async {
     final ok = await _focusFirstMissingRequiredField();
     if (!ok) return;
+    if (!mounted) return;
+    if (_beforeUploading || _afterUploading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('사진 업로드가 끝날 때까지 잠시만 기다려 주세요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -902,16 +1045,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         revisitFeedbackChips: DbMap.sanitizeStringList(
           _isFirstVisit ? const <String>{} : _revisit,
         ),
-        beforeImageUrl: _chartImageUrlOrNull(
-          attached: _beforeAttached,
-          label: _beforeLabel,
-          fallback: 'before.jpg',
-        ),
-        afterImageUrl: _chartImageUrlOrNull(
-          attached: _afterAttached,
-          label: _afterLabel,
-          fallback: 'after.jpg',
-        ),
+        beforeImageUrl: DbMap.asTextOrNull(_beforeUrl),
+        afterImageUrl: DbMap.asTextOrNull(_afterUrl),
         customerName: _nameController.text.trim(),
         customerPhone: _phoneController.text.trim(),
         gender: _gender,
@@ -1685,18 +1820,22 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                           Expanded(
                             child: _PhotoAttachBox(
                               title: 'Before',
-                              attached: _beforeAttached,
-                              fileLabel: _beforeLabel,
+                              previewBytes: _beforePreviewBytes,
+                              networkUrl: _beforeUrl,
+                              uploading: _beforeUploading,
                               onTap: () => _attachPhoto(isBefore: true),
+                              onClear: () => _clearPhoto(isBefore: true),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: _PhotoAttachBox(
                               title: 'After',
-                              attached: _afterAttached,
-                              fileLabel: _afterLabel,
+                              previewBytes: _afterPreviewBytes,
+                              networkUrl: _afterUrl,
+                              uploading: _afterUploading,
                               onTap: () => _attachPhoto(isBefore: false),
+                              onClear: () => _clearPhoto(isBefore: false),
                             ),
                           ),
                         ],
@@ -1919,66 +2058,172 @@ class _SegmentCard extends StatelessWidget {
 class _PhotoAttachBox extends StatelessWidget {
   const _PhotoAttachBox({
     required this.title,
-    required this.attached,
     required this.onTap,
-    this.fileLabel,
+    required this.onClear,
+    this.previewBytes,
+    this.networkUrl,
+    this.uploading = false,
   });
 
   final String title;
-  final bool attached;
   final VoidCallback onTap;
-  final String? fileLabel;
+  final VoidCallback onClear;
+  final Uint8List? previewBytes;
+  final String? networkUrl;
+  final bool uploading;
+
+  bool get _hasImage =>
+      previewBytes != null ||
+      (networkUrl != null && networkUrl!.trim().isNotEmpty);
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: attached
-          ? MyApp.soriPurple.withValues(alpha: 0.08)
-          : const Color(0xFFF3F1FB),
-      borderRadius: BorderRadius.circular(12),
+      color: const Color(0xFFF3F1FB),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 110,
-          padding: const EdgeInsets.all(12),
+        onTap: uploading ? null : onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          height: 148,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: attached
-                  ? MyApp.soriPurple.withValues(alpha: 0.35)
+              color: _hasImage
+                  ? MyApp.soriPurple.withValues(alpha: 0.4)
                   : Colors.grey.shade300,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: MyApp.soriPurple,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (previewBytes != null)
+                  Image.memory(previewBytes!, fit: BoxFit.cover)
+                else if (networkUrl != null && networkUrl!.trim().isNotEmpty)
+                  Image.network(
+                    networkUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _EmptyPhotoPlaceholder(title: title),
+                  )
+                else
+                  _EmptyPhotoPlaceholder(title: title),
+                if (uploading)
+                  ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.6,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Icon(
-                attached ? Icons.check_circle : Icons.add_a_photo_outlined,
-                color: MyApp.soriPurple,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                attached ? '첨부됨' : '📷 사진 업로드 / 카메라 촬영',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.3,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
+                if (_hasImage && !uploading)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: onClear,
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_hasImage && !uploading)
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        '다시 선택',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyPhotoPlaceholder extends StatelessWidget {
+  const _EmptyPhotoPlaceholder({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFFF3F1FB),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 18),
+          const Icon(Icons.add_a_photo_outlined, color: MyApp.soriPurple),
+          const SizedBox(height: 8),
+          Text(
+            '📷 $title 촬영 / 선택',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
       ),
     );
   }
