@@ -8,6 +8,7 @@ import '../widgets/sori_logo.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'customer_care_page.dart';
 import 'customer_home_page.dart';
+import 'customer_management_cases_page.dart';
 import 'director_customers_tab.dart';
 import 'director_home_page.dart';
 import 'message_history_page.dart';
@@ -50,9 +51,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
   void _onChanged() {
     if (!mounted) return;
-    final isDirector =
-        _store.session?.activeMode == UserRole.director;
-    final maxIndex = isDirector ? 3 : 2;
+    const maxIndex = 3;
     if (_tab > maxIndex) {
       _tab = 0;
     }
@@ -93,7 +92,8 @@ class _AppShellPageState extends State<AppShellPage> {
     return switch (_tab) {
       0 => '홈',
       1 => '케어',
-      2 => '마이',
+      2 => '관리 케이스',
+      3 => '마이',
       _ => 'SORI',
     };
   }
@@ -130,6 +130,10 @@ class _AppShellPageState extends State<AppShellPage> {
               onSelectTab: _selectTab,
             ),
             CustomerCareTab(key: const ValueKey('c-care'), store: _store),
+            CustomerManagementCasesPage(
+              key: const ValueKey('c-cases'),
+              store: _store,
+            ),
             MyPage(
               key: const ValueKey('c-my'),
               store: _store,
@@ -216,6 +220,7 @@ class _RoleBottomNav extends StatelessWidget {
         : const [
             (Icons.home_outlined, Icons.home_rounded, '홈'),
             (Icons.spa_outlined, Icons.spa_rounded, '케어'),
+            (Icons.photo_library_outlined, Icons.photo_library_rounded, '관리 케이스'),
             (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ];
 

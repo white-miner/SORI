@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/sori_card.dart';
+import 'customer_management_cases_page.dart';
 
 enum _CaseScope { shared, myShop }
 
@@ -128,6 +130,13 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isCustomer =
+        widget.store.session?.activeMode == UserRole.customer;
+    if (isCustomer) {
+      // 고객 모드는 공유 피드만 (스위치 숨김)
+      return CustomerManagementCasesPage(store: widget.store);
+    }
+
     final cases = _cases;
 
     return SafeArea(

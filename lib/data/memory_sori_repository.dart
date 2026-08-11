@@ -124,6 +124,12 @@ class MemorySoriRepository implements SoriRepository {
         careName: '재생케어',
         treatmentSummary: '첫 방문 재생케어',
         directorInsight: '두피 민감 — 저자극 제품 권장',
+        beforeImageUrl: 'https://picsum.photos/seed/sori-b1/600/800',
+        afterImageUrl: 'https://picsum.photos/seed/sori-a1/600/800',
+        signatureUrl: 'https://example.com/sig-1.png',
+        consentPhoto: true,
+        caseShared: true,
+        visitCheckedAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       CustomerChart(
         id: 'chart-2',
@@ -134,6 +140,12 @@ class MemorySoriRepository implements SoriRepository {
         careName: '수분케어',
         treatmentSummary: '회원권 6회차 수분케어',
         directorInsight: '보습 유지 양호, 홈케어 루틴 점검',
+        beforeImageUrl: 'https://picsum.photos/seed/sori-b2/600/800',
+        afterImageUrl: 'https://picsum.photos/seed/sori-a2/600/800',
+        signatureUrl: 'https://example.com/sig-2.png',
+        consentPhoto: true,
+        caseShared: true,
+        visitCheckedAt: DateTime.now().subtract(const Duration(days: 5)),
       ),
       CustomerChart(
         id: 'chart-3',
@@ -143,6 +155,8 @@ class MemorySoriRepository implements SoriRepository {
         careName: '재생케어',
         treatmentSummary: '회원권 4회차 재생케어',
         directorInsight: '트리트먼트 업셀 가능',
+        beforeImageUrl: 'https://picsum.photos/seed/sori-b3/600/800',
+        afterImageUrl: 'https://picsum.photos/seed/sori-a3/600/800',
       ),
     ];
 
