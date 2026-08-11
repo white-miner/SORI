@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/home_care_prescriptions.dart';
+import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
@@ -878,28 +880,58 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }) async {
     try {
       final picker = ImagePicker();
+      // 1차: picker 단 리사이즈 (원본 메모리 폭주 방지)
       final file = await picker.pickImage(
         source: source,
-        imageQuality: 80,
-        maxWidth: 1200,
+        imageQuality: 85,
+        maxWidth: 1600,
       );
       if (file == null || !mounted) return;
 
-      final bytes = await file.readAsBytes();
-      if (!mounted || bytes.isEmpty) return;
+      final rawBytes = await file.readAsBytes();
+      if (!mounted || rawBytes.isEmpty) return;
 
       setState(() {
         if (isBefore) {
-          _beforePreviewBytes = bytes;
+          _beforePreviewBytes = rawBytes;
           _beforeUploading = true;
         } else {
-          _afterPreviewBytes = bytes;
+          _afterPreviewBytes = rawBytes;
           _afterUploading = true;
         }
       });
 
-      final url = await ChartPhotoStorage.uploadJpeg(
-        bytes: bytes,
+      // 2차: WebP 강제 변환 + 긴 축 ≤1200 + quality≈80 (≤500KB 유도)
+      final compressed = await ChartPhotoCompressor.toWebp(rawBytes);
+      if (!mounted) return;
+      if (compressed == null || compressed.isEmpty) {
+        setState(() {
+          if (isBefore) {
+            _beforeUploading = false;
+          } else {
+            _afterUploading = false;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사진 압축(WebP)에 실패했어요. 다른 사진으로 다시 시도해 주세요.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        if (isBefore) {
+          _beforePreviewBytes = compressed;
+        } else {
+          _afterPreviewBytes = compressed;
+        }
+      });
+
+      final url = await ChartPhotoStorage.uploadWebp(
+        bytes: compressed,
         shopId: widget.store.shop.id,
         customerId: widget.customer.id,
         kind: isBefore ? 'before' : 'after',
@@ -2102,10 +2134,14 @@ class _PhotoAttachBox extends StatelessWidget {
                 if (previewBytes != null)
                   Image.memory(previewBytes!, fit: BoxFit.cover)
                 else if (networkUrl != null && networkUrl!.trim().isNotEmpty)
-                  Image.network(
-                    networkUrl!,
+                  CachedNetworkImage(
+                    imageUrl: networkUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _EmptyPhotoPlaceholder(title: title),
+                    memCacheWidth: 600,
+                    fadeInDuration: const Duration(milliseconds: 160),
+                    placeholder: (_, _) => _EmptyPhotoPlaceholder(title: title),
+                    errorWidget: (_, _, _) =>
+                        _EmptyPhotoPlaceholder(title: title),
                   )
                 else
                   _EmptyPhotoPlaceholder(title: title),

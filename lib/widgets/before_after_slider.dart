@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/sori_tokens.dart';
@@ -176,22 +177,21 @@ class ChartImagePane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (_isNetwork) {
-      return Image.network(
-        url!.trim(),
+      return CachedNetworkImage(
+        imageUrl: url!.trim(),
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _Placeholder(
+        memCacheWidth: 1200,
+        fadeInDuration: const Duration(milliseconds: 180),
+        placeholder: (_, _) => ColoredBox(
+          color: tone.withValues(alpha: 0.12),
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        errorWidget: (_, _, _) => _Placeholder(
           label: fallbackLabel,
           tone: tone,
         ),
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return ColoredBox(
-            color: tone.withValues(alpha: 0.12),
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        },
       );
     }
     return _Placeholder(label: fallbackLabel, tone: tone);

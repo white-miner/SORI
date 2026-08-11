@@ -5,12 +5,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_client.dart';
 
-/// 차트 Before/After 사진 → Supabase Storage `chart_photos` 업로드.
+/// 차트 Before/After 사진 → Supabase Storage `chart_photos` (WebP only).
 abstract final class ChartPhotoStorage {
   static const bucket = 'chart_photos';
 
-  /// JPEG 바이트 업로드. 실패·미초기화 시 null.
-  static Future<String?> uploadJpeg({
+  /// WebP 바이트 업로드. 실패·미초기화 시 null.
+  static Future<String?> uploadWebp({
     required Uint8List bytes,
     required String shopId,
     required String customerId,
@@ -25,20 +25,20 @@ abstract final class ChartPhotoStorage {
     final safeKind = kind.trim().isEmpty ? 'photo' : kind.trim();
     final stamp = DateTime.now().toUtc().millisecondsSinceEpoch;
     final id = _shortId();
-    final path = '$safeShop/$safeCustomer/${id}_${stamp}_$safeKind.jpg';
+    final path = '$safeShop/$safeCustomer/${id}_${stamp}_$safeKind.webp';
 
     try {
       await client.storage.from(bucket).uploadBinary(
             path,
             bytes,
             fileOptions: const FileOptions(
-              contentType: 'image/jpeg',
+              contentType: 'image/webp',
               upsert: true,
             ),
           );
       return client.storage.from(bucket).getPublicUrl(path);
     } catch (e, st) {
-      debugPrint('ChartPhotoStorage.uploadJpeg failed: $e\n$st');
+      debugPrint('ChartPhotoStorage.uploadWebp failed: $e\n$st');
       return null;
     }
   }
