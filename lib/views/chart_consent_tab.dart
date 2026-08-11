@@ -3,10 +3,11 @@ import 'package:signature/signature.dart';
 
 import '../models/chart_consent_texts.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_scroll_behavior.dart';
 import 'my_app.dart';
 
 /// 전자 동의서 — 필수 3항목 아코디언 + 선택 촬영 동의 + 하단 서명 패드.
-class ChartConsentTab extends StatelessWidget {
+class ChartConsentTab extends StatefulWidget {
   const ChartConsentTab({
     super.key,
     required this.consentCareNotice,
@@ -35,6 +36,7 @@ class ChartConsentTab extends StatelessWidget {
     this.showSignatureError = false,
     this.consentErrorText = '필수 동의 항목을 체크해 주세요',
     this.signatureErrorText = '서명이 누락되었습니다',
+    this.onSignaturePointerActive,
   });
 
   final bool consentCareNotice;
@@ -66,19 +68,46 @@ class ChartConsentTab extends StatelessWidget {
   final bool showSignatureError;
   final String consentErrorText;
   final String signatureErrorText;
+  final ValueChanged<bool>? onSignaturePointerActive;
+
+  @override
+  State<ChartConsentTab> createState() => _ChartConsentTabState();
+}
+
+class _ChartConsentTabState extends State<ChartConsentTab> {
+  bool _lockConsentScroll = false;
 
   String _fmtUntil(DateTime d) =>
       '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+
+  void _setSignaturePointerActive(bool active) {
+    if (_lockConsentScroll == active) return;
+    setState(() => _lockConsentScroll = active);
+    widget.onSignaturePointerActive?.call(active);
+  }
+
+  @override
+  void dispose() {
+    if (_lockConsentScroll) {
+      widget.onSignaturePointerActive?.call(false);
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            children: [
-              if (quickChartMode && consentValidUntil != null) ...[
+          child: ScrollConfiguration(
+            behavior: const SoriMouseWheelScrollBehavior(),
+            child: ListView(
+              physics: _lockConsentScroll
+                  ? const NeverScrollableScrollPhysics()
+                  : null,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              children: [
+              if (widget.quickChartMode && widget.consentValidUntil != null) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -91,7 +120,7 @@ class ChartConsentTab extends StatelessWidget {
                     border: Border.all(color: const Color(0xFF81C784)),
                   ),
                   child: Text(
-                    '✅ 1년 포괄적 동의 완료 (유효기간: ${_fmtUntil(consentValidUntil!)} 까지)',
+                    '✅ 1년 포괄적 동의 완료 (유효기간: ${_fmtUntil(widget.consentValidUntil!)} 까지)',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -137,32 +166,32 @@ class ChartConsentTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _ConsentValidationBlock(
-                  anchorKey: consentSectionKey,
-                  highlighted: highlightConsent,
-                  showError: showConsentError,
-                  errorText: consentErrorText,
-                  shake: shakeAnimation,
+                  anchorKey: widget.consentSectionKey,
+                  highlighted: widget.highlightConsent,
+                  showError: widget.showConsentError,
+                  errorText: widget.consentErrorText,
+                  shake: widget.shakeAnimation,
                   child: Column(
                     children: [
                       _MandatoryAccordion(
                         title: ChartConsentTexts.mandatoryCareTitle,
                         bullets: ChartConsentTexts.mandatoryCareBody,
-                        checked: consentCareNotice,
-                        onChanged: onCareNoticeChanged,
+                        checked: widget.consentCareNotice,
+                        onChanged: widget.onCareNoticeChanged,
                       ),
                       const SizedBox(height: 10),
                       _MandatoryAccordion(
                         title: ChartConsentTexts.mandatoryReactionTitle,
                         bullets: ChartConsentTexts.mandatoryReactionBody,
-                        checked: consentAbnormalReaction,
-                        onChanged: onAbnormalReactionChanged,
+                        checked: widget.consentAbnormalReaction,
+                        onChanged: widget.onAbnormalReactionChanged,
                       ),
                       const SizedBox(height: 10),
                       _MandatoryAccordion(
                         title: ChartConsentTexts.mandatoryRefundTitle,
                         bullets: ChartConsentTexts.mandatoryRefundBody,
-                        checked: consentRefundPolicy,
-                        onChanged: onRefundPolicyChanged,
+                        checked: widget.consentRefundPolicy,
+                        onChanged: widget.onRefundPolicyChanged,
                       ),
                     ],
                   ),
@@ -174,8 +203,8 @@ class ChartConsentTab extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CheckboxListTile(
-                      value: consentPhoto,
-                      onChanged: (v) => onPhotoChanged(v ?? false),
+                      value: widget.consentPhoto,
+                      onChanged: (v) => widget.onPhotoChanged(v ?? false),
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
                       activeColor: MyApp.soriPurple,
@@ -197,7 +226,7 @@ class ChartConsentTab extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (consentPhoto) ...[
+                    if (widget.consentPhoto) ...[
                       const Divider(height: 8),
                       const Padding(
                         padding: EdgeInsets.only(left: 8, bottom: 8),
@@ -219,15 +248,15 @@ class ChartConsentTab extends StatelessWidget {
                         child: Column(
                           children: [
                             _PhotoUseOption(
-                              selected: consentMarketing,
+                              selected: widget.consentMarketing,
                               title: ChartConsentTexts.photoUseMarketing,
-                              onTap: onMarketingSelected,
+                              onTap: widget.onMarketingSelected,
                             ),
                             const SizedBox(height: 8),
                             _PhotoUseOption(
-                              selected: consentOfflineOnly,
+                              selected: widget.consentOfflineOnly,
                               title: ChartConsentTexts.photoUseOffline,
-                              onTap: onOfflineOnlySelected,
+                              onTap: widget.onOfflineOnlySelected,
                             ),
                           ],
                         ),
@@ -236,9 +265,9 @@ class ChartConsentTab extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!quickChartMode &&
-                  existingSignatureUrl != null &&
-                  existingSignatureUrl!.trim().isNotEmpty) ...[
+              if (!widget.quickChartMode &&
+                  widget.existingSignatureUrl != null &&
+                  widget.existingSignatureUrl!.trim().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
                   '이전에 저장된 서명이 있습니다. 새로 서명하면 교체됩니다.',
@@ -246,15 +275,16 @@ class ChartConsentTab extends StatelessWidget {
                 ),
               ],
             ],
+            ),
           ),
         ),
-        if (!quickChartMode)
+        if (!widget.quickChartMode)
           _ConsentValidationBlock(
-            anchorKey: signatureFieldKey,
-            highlighted: highlightSignature,
-            showError: showSignatureError,
-            errorText: signatureErrorText,
-            shake: shakeAnimation,
+            anchorKey: widget.signatureFieldKey,
+            highlighted: widget.highlightSignature,
+            showError: widget.showSignatureError,
+            errorText: widget.signatureErrorText,
+            shake: widget.shakeAnimation,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -280,7 +310,7 @@ class ChartConsentTab extends StatelessWidget {
                       ),
                       const Spacer(),
                       TextButton.icon(
-                        onPressed: onClearSignature,
+                        onPressed: widget.onClearSignature,
                         icon: const Icon(Icons.refresh, size: 18),
                         label: const Text('다시 쓰기'),
                       ),
@@ -294,18 +324,23 @@ class ChartConsentTab extends StatelessWidget {
                       color: const Color(0xFFF8F7FC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: highlightSignature || showSignatureError
+                        color: widget.highlightSignature ||
+                                widget.showSignatureError
                             ? const Color(0xFFE53935)
                             : Colors.grey.shade300,
-                        width: highlightSignature || showSignatureError
+                        width: widget.highlightSignature ||
+                                widget.showSignatureError
                             ? 1.6
                             : 1,
                       ),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Signature(
-                      controller: signatureController,
-                      backgroundColor: const Color(0xFFF8F7FC),
+                    child: _SignatureGestureSurface(
+                      onPointerActive: _setSignaturePointerActive,
+                      child: Signature(
+                        controller: widget.signatureController,
+                        backgroundColor: const Color(0xFFF8F7FC),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -335,6 +370,29 @@ class ChartConsentTab extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 서명 패드 포인터를 가로채 부모 스크롤/PageView로 버블링되지 않게 한다.
+class _SignatureGestureSurface extends StatelessWidget {
+  const _SignatureGestureSurface({
+    required this.onPointerActive,
+    required this.child,
+  });
+
+  final ValueChanged<bool> onPointerActive;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => onPointerActive(true),
+      onPointerMove: (_) => onPointerActive(true),
+      onPointerUp: (_) => onPointerActive(false),
+      onPointerCancel: (_) => onPointerActive(false),
+      child: child,
     );
   }
 }

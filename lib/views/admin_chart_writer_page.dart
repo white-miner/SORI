@@ -15,6 +15,7 @@ import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/db_map.dart';
+import '../utils/sori_scroll_behavior.dart';
 import 'chart_consent_tab.dart';
 import 'customer_link_popup.dart';
 import 'my_app.dart';
@@ -90,6 +91,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   final Set<String> _concerns = {};
   final Set<String> _homeCarePrescriptions = {};
   bool _saving = false;
+  /// 서명 패드 포인터 활성 중 PageView 스와이프 잠금.
+  bool _signaturePointerActive = false;
 
   bool _consentCareNotice = false;
   bool _consentAbnormalReaction = false;
@@ -937,7 +940,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ScrollConfiguration(
+      behavior: const SoriMouseWheelScrollBehavior(),
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('차트 작성'),
@@ -967,6 +972,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           Expanded(
             child: PageView(
               controller: _pageController,
+              physics: _signaturePointerActive
+                  ? const NeverScrollableScrollPhysics()
+                  : const PageScrollPhysics(),
               onPageChanged: (index) {
                 if (_tabController.index != index) {
                   _tabController.animateTo(index);
@@ -1001,6 +1009,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       _inlineErrorField == _ChartRequiredField.signature,
                   consentErrorText: _ChartRequiredField.consent.errorCopy,
                   signatureErrorText: _ChartRequiredField.signature.errorCopy,
+                  onSignaturePointerActive: (active) {
+                    if (_signaturePointerActive == active) return;
+                    setState(() => _signaturePointerActive = active);
+                  },
                   onCareNoticeChanged: (v) {
                     setState(() => _consentCareNotice = v);
                     _pruneResolvedValidationErrors();
@@ -1079,6 +1091,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           ),
         ],
       ),
+    ),
     );
   }
 
