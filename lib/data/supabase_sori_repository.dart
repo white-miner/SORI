@@ -27,6 +27,103 @@ class SupabaseSoriRepository implements SoriRepository {
     return c;
   }
 
+  /// 차트 저장/조회 테이블 — chart_records(뷰) 우선, 실패 시 customer_charts.
+  static const String _chartsPrimary = 'chart_records';
+  static const String _chartsFallback = 'customer_charts';
+
+  Future<T> _withChartsTable<T>(
+    Future<T> Function(String table) run,
+  ) async {
+    try {
+      return await run(_chartsPrimary);
+    } catch (e) {
+      debugPrint('$_chartsPrimary failed, fallback $_chartsFallback: $e');
+      return run(_chartsFallback);
+    }
+  }
+
+  /// PGRST204 방어: 스키마에 없는 컬럼 키를 페이로드에서 제거 후 재시도.
+  Map<String, dynamic> _stripUnknownChartColumn(
+    Map<String, dynamic> payload,
+    Object error,
+  ) {
+    final msg = error.toString();
+    // Could not find the 'col' column of 'table'
+    final match = RegExp(
+      r"Could not find the '([^']+)' column",
+      caseSensitive: false,
+    ).firstMatch(msg);
+    if (match == null) return payload;
+    final col = match.group(1);
+    if (col == null || col.isEmpty) return payload;
+    final next = Map<String, dynamic>.from(payload)..remove(col);
+    debugPrint('Removed unknown chart column from payload: $col');
+    return next;
+  }
+
+  Future<Map<String, dynamic>> _insertChartRow(
+    Map<String, dynamic> payload,
+  ) async {
+    var body = Map<String, dynamic>.from(payload);
+    Object? lastError;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      for (final table in [_chartsPrimary, _chartsFallback]) {
+        try {
+          final row =
+              await _db.from(table).insert(body).select().single();
+          return Map<String, dynamic>.from(row);
+        } catch (e) {
+          lastError = e;
+          final stripped = _stripUnknownChartColumn(body, e);
+          if (stripped.length != body.length) {
+            body = stripped;
+            break; // retry same attempt with stripped payload
+          }
+          debugPrint('insert chart via $table failed: $e');
+        }
+      }
+    }
+    throw lastError ?? StateError('chart insert failed');
+  }
+
+  Future<Map<String, dynamic>> _updateChartRow({
+    required String chartId,
+    required Map<String, dynamic> payload,
+  }) async {
+    var body = Map<String, dynamic>.from(payload);
+    Object? lastError;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      for (final table in [_chartsPrimary, _chartsFallback]) {
+        try {
+          final row = await _db
+              .from(table)
+              .update(body)
+              .eq('id', chartId)
+              .select()
+              .single();
+          return Map<String, dynamic>.from(row);
+        } catch (e) {
+          lastError = e;
+          final stripped = _stripUnknownChartColumn(body, e);
+          if (stripped.length != body.length) {
+            body = stripped;
+            break;
+          }
+          debugPrint('update chart via $table failed: $e');
+        }
+      }
+    }
+    throw lastError ?? StateError('chart update failed');
+  }
+
+  Future<Map<String, dynamic>?> _selectChartById(String chartId) async {
+    return _withChartsTable((table) async {
+      final row = await _db.from(table).select().eq('id', chartId).maybeSingle();
+      if (row == null) return null;
+      return Map<String, dynamic>.from(row);
+    });
+  }
+
   @override
   bool get isRemote => true;
 
@@ -244,18 +341,20 @@ class SupabaseSoriRepository implements SoriRepository {
 
     List<CustomerChart> charts = const [];
     try {
-      final chartRows = await _db
-          .from('customer_charts')
-          .select()
-          .eq('shop_id', shop.id)
-          .order('visit_number', ascending: false);
+      final chartRows = await _withChartsTable(
+        (table) => _db
+            .from(table)
+            .select()
+            .eq('shop_id', shop.id)
+            .order('visit_number', ascending: false),
+      );
       charts = _mapRowsSafely(
         chartRows as List,
         CustomerChart.fromMap,
-        label: 'customer_charts',
+        label: 'chart_records',
       );
     } catch (e, st) {
-      debugPrint('customer_charts load skipped: $e\n$st');
+      debugPrint('charts load skipped: $e\n$st');
     }
 
     List<CustomerReview> reviews = const [];
@@ -646,21 +745,15 @@ class SupabaseSoriRepository implements SoriRepository {
           : customer.treatmentType,
     ).withSyncedMembershipMirrors();
 
-    // 차트 upsert (방문 확인 전)
+    // 차트 upsert (방문 확인 전) — chart_records 우선
     CustomerChart chart;
     final existingChartId = request.chartId;
     var wasChecked = false;
     if (existingChartId != null && !_isTempId(existingChartId)) {
-      final existing = await _db
-          .from('customer_charts')
-          .select()
-          .eq('id', existingChartId)
-          .maybeSingle();
+      final existing = await _selectChartById(existingChartId);
       if (existing != null) {
-        wasChecked =
-            (existing['visit_checked'] as bool?) ?? false;
-        final base =
-            CustomerChart.fromMap(Map<String, dynamic>.from(existing));
+        wasChecked = (existing['visit_checked'] as bool?) ?? false;
+        final base = CustomerChart.fromMap(existing);
         final draft = _chartFromSaveRequest(
           request,
           customer.shopId,
@@ -675,13 +768,11 @@ class SupabaseSoriRepository implements SoriRepository {
           signatureUrl: draft.signatureUrl ?? base.signatureUrl,
           caseShared: base.caseShared,
         );
-        final updated = await _db
-            .from('customer_charts')
-            .update(_chartWriteMap(chart, includeId: false))
-            .eq('id', chart.id)
-            .select()
-            .single();
-        chart = CustomerChart.fromMap(Map<String, dynamic>.from(updated));
+        final updated = await _updateChartRow(
+          chartId: chart.id,
+          payload: _chartWriteMap(chart, includeId: false),
+        );
+        chart = CustomerChart.fromMap(updated);
       } else {
         chart = await _insertChart(request, customer.shopId);
       }
@@ -691,17 +782,15 @@ class SupabaseSoriRepository implements SoriRepository {
 
     // 방문 확인 → DB trigger가 feedback_token 발급
     if (!chart.visitChecked) {
-      final opened = await _db
-          .from('customer_charts')
-          .update({
-            'visit_checked': true,
-            'visit_checked_at': DateTime.now().toUtc().toIso8601String(),
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', chart.id)
-          .select()
-          .single();
-      chart = CustomerChart.fromMap(Map<String, dynamic>.from(opened));
+      final opened = await _updateChartRow(
+        chartId: chart.id,
+        payload: {
+          'visit_checked': true,
+          'visit_checked_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
+      chart = CustomerChart.fromMap(opened);
     }
 
     // 회원권 차감 (방문 첫 확인 시에만, careName 매칭)
@@ -818,9 +907,8 @@ class SupabaseSoriRepository implements SoriRepository {
     payload.remove('feedback_line_opened_at');
     payload['visit_checked'] = false;
     payload['visit_checked_at'] = null;
-    final row =
-        await _db.from('customer_charts').insert(payload).select().single();
-    return CustomerChart.fromMap(Map<String, dynamic>.from(row));
+    final row = await _insertChartRow(payload);
+    return CustomerChart.fromMap(row);
   }
 
   @override
@@ -829,13 +917,26 @@ class SupabaseSoriRepository implements SoriRepository {
     required bool shared,
   }) async {
     try {
-      await _db.from('customer_charts').update({
-        'case_shared': shared,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', chartId);
+      await _updateChartRow(
+        chartId: chartId,
+        payload: {
+          'is_case_shared': shared,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
     } catch (e) {
-      // 마이그레이션 미적용 환경에서는 로컬 상태만 유지
-      debugPrint('updateChartCaseShared skipped: $e');
+      // 구 스키마 폴백
+      try {
+        await _updateChartRow(
+          chartId: chartId,
+          payload: {
+            'case_shared': shared,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+        );
+      } catch (e2) {
+        debugPrint('updateChartCaseShared skipped: $e2');
+      }
     }
   }
 
@@ -858,10 +959,13 @@ class SupabaseSoriRepository implements SoriRepository {
       // 마이그레이션 미적용 시 컬럼 단위 폴백
       debugPrint('patch_home_care_mission_checks rpc failed, fallback: $e');
       try {
-        await _db.from('customer_charts').update({
-          'home_care_mission_checks': payload,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', chartId);
+        await _updateChartRow(
+          chartId: chartId,
+          payload: {
+            'home_care_mission_checks': payload,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+        );
       } catch (e2) {
         debugPrint('updateHomeCareMissionChecks skipped: $e2');
       }
@@ -917,11 +1021,7 @@ class SupabaseSoriRepository implements SoriRepository {
     final now = DateTime.now().toUtc().toIso8601String();
     if (existing == null) {
       // 차트만 있고 리뷰 행이 없으면 최소 행 생성
-      final chart = await _db
-          .from('customer_charts')
-          .select()
-          .eq('id', chartId)
-          .maybeSingle();
+      final chart = await _selectChartById(chartId);
       if (chart == null) return null;
       final inserted = await _db
           .from('customer_reviews')

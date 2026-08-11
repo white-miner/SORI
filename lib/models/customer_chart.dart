@@ -251,7 +251,8 @@ class CustomerChart {
       'consent_marketing': consentMarketing,
       'consent_offline_only': consentOfflineOnly,
       'signature_url': DbMap.asTextOrNull(signatureUrl),
-      'case_shared': caseShared,
+      // DB 컬럼명: is_case_shared (legacy case_shared 미전송 → PGRST204 방지)
+      'is_case_shared': caseShared,
       'prescription_tags': HomecareDictionary.sanitizeTagIds(
         homeCarePrescriptions,
       ),
@@ -309,7 +310,9 @@ class CustomerChart {
       consentMarketing: DbMap.asBool(map['consent_marketing']),
       consentOfflineOnly: DbMap.asBool(map['consent_offline_only']),
       signatureUrl: DbMap.asTextOrNull(map['signature_url']),
-      caseShared: DbMap.asBool(map['case_shared'] ?? map['is_public']),
+      caseShared: DbMap.asBool(
+        map['is_case_shared'] ?? map['case_shared'] ?? map['is_public'],
+      ),
       homeCarePrescriptions: HomecareDictionary.sanitizeTagIds(
         DbMap.asStringList(
           map['prescription_tags'] ?? map['home_care_prescriptions'],

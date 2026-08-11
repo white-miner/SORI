@@ -110,18 +110,45 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   bool get _quickChartMode =>
       _annualConsentSource != null && _consentValidUntil != null;
 
-  bool get _formBasicsOk {
-    return _nameController.text.trim().isNotEmpty &&
-        _gender != null &&
-        SoriStore.normalizePhone(_phoneController.text).length >= 10 &&
-        _careNameController.text.trim().isNotEmpty;
+  /// 누락된 필수 항목 라벨 목록 (저장 터치 시 SnackBar용).
+  List<String> _collectMissingRequiredFields() {
+    final missing = <String>[];
+    if (_nameController.text.trim().isEmpty) {
+      missing.add('고객 성함');
+    }
+    if (_gender == null) {
+      missing.add('성별');
+    }
+    if (SoriStore.normalizePhone(_phoneController.text).length < 10) {
+      missing.add('연락처');
+    }
+    if (_careNameController.text.trim().isEmpty) {
+      missing.add('오늘 진행 서비스');
+    }
+    if (!_quickChartMode) {
+      if (!_consentCareNotice ||
+          !_consentAbnormalReaction ||
+          !_consentRefundPolicy) {
+        missing.add('필수 동의 항목');
+      }
+      if (!_signatureController.isNotEmpty) {
+        missing.add('자필 서명');
+      }
+    }
+    return missing;
   }
 
-  bool get _consentReadyForSave =>
-      _quickChartMode ||
-      (_consentMandatory && _signatureController.isNotEmpty);
-
-  bool get _canSave => !_saving && _formBasicsOk && _consentReadyForSave;
+  void _showMissingFieldsSnackBar(List<String> missing) {
+    final joined = missing.join(', ');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$joined을(를) 입력해 주세요.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
   late bool _isFirstVisitMode;
@@ -668,51 +695,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   Future<void> _saveAndConfirm() async {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('고객 성함을 입력해 주세요.')),
-      );
+    final missing = _collectMissingRequiredFields();
+    if (missing.isNotEmpty) {
+      _showMissingFieldsSnackBar(missing);
       return;
-    }
-    if (_gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('성별을 선택해 주세요.')),
-      );
-      return;
-    }
-    if (SoriStore.normalizePhone(_phoneController.text).length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('전화번호를 올바르게 입력해 주세요.')),
-      );
-      return;
-    }
-    if (_careNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('오늘 진행 서비스를 선택하거나 입력해 주세요.')),
-      );
-      return;
-    }
-    if (!_quickChartMode) {
-      if (!_consentMandatory) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('필수 동의 3항목을 모두 체크해 주세요.'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return;
-      }
-      if (!_signatureController.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('고객 자필 서명이 필요합니다.'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return;
-      }
     }
 
     setState(() => _saving = true);
@@ -940,7 +926,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _canSave ? _saveAndConfirm : null,
+                  onPressed: _saving ? null : _saveAndConfirm,
                   style: FilledButton.styleFrom(
                     backgroundColor: _quickChartMode
                         ? const Color(0xFF2E7D32)
