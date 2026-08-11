@@ -915,6 +915,36 @@ class SoriStore {
       ..sort((a, b) => b.visitNumber.compareTo(a.visitNumber));
   }
 
+  /// 전화번호 기준, 서명 완료 + 365일 이내 가장 최근 차트.
+  CustomerChart? latestConsentWithinYearForPhone(String phone) {
+    final digits = normalizePhone(phone);
+    if (digits.length < 10) return null;
+    final cutoff = DateTime.now().subtract(const Duration(days: 365));
+    CustomerChart? best;
+    DateTime? bestAt;
+    for (final customer in customers) {
+      if (normalizePhone(customer.phone) != digits) continue;
+      for (final chart in charts.where((c) => c.customerId == customer.id)) {
+        if (!chart.isConsentSigned) continue;
+        final signedAt = chart.createdAt ?? chart.visitCheckedAt;
+        if (signedAt == null || signedAt.isBefore(cutoff)) continue;
+        if (bestAt == null || signedAt.isAfter(bestAt)) {
+          best = chart;
+          bestAt = signedAt;
+        }
+      }
+    }
+    return best;
+  }
+
+  /// 포괄 동의 유효 만료일 (서명일 + 365일).
+  static DateTime? consentValidUntil(CustomerChart? chart) {
+    if (chart == null || !chart.isConsentSigned) return null;
+    final signedAt = chart.createdAt ?? chart.visitCheckedAt;
+    if (signedAt == null) return null;
+    return signedAt.add(const Duration(days: 365));
+  }
+
   CustomerChart? latestChart(String customerId) {
     final list = chartsForCustomer(customerId);
     return list.isEmpty ? null : list.first;

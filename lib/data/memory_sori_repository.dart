@@ -151,6 +151,7 @@ class MemorySoriRepository implements SoriRepository {
         consentPhoto: true,
         caseShared: true,
         visitCheckedAt: DateTime.now().subtract(const Duration(days: 2)),
+        createdAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       CustomerChart(
         id: 'chart-2',
@@ -167,6 +168,7 @@ class MemorySoriRepository implements SoriRepository {
         consentPhoto: true,
         caseShared: true,
         visitCheckedAt: DateTime.now().subtract(const Duration(days: 5)),
+        createdAt: DateTime.now().subtract(const Duration(days: 5)),
       ),
       CustomerChart(
         id: 'chart-3',
@@ -178,6 +180,7 @@ class MemorySoriRepository implements SoriRepository {
         directorInsight: '트리트먼트 업셀 가능',
         beforeImageUrl: 'https://picsum.photos/seed/sori-b3/600/800',
         afterImageUrl: 'https://picsum.photos/seed/sori-a3/600/800',
+        createdAt: DateTime.now().subtract(const Duration(days: 40)),
       ),
     ];
 

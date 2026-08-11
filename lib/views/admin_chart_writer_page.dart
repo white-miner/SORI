@@ -98,10 +98,30 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   String? _existingSignatureUrl;
   bool _infoViewConsent = false;
 
+  /// 365일 이내 포괄 동의 재사용 차트.
+  CustomerChart? _annualConsentSource;
+  DateTime? _consentValidUntil;
+
   bool get _consentMandatory =>
       _consentCareNotice &&
       _consentAbnormalReaction &&
       _consentRefundPolicy;
+
+  bool get _quickChartMode =>
+      _annualConsentSource != null && _consentValidUntil != null;
+
+  bool get _formBasicsOk {
+    return _nameController.text.trim().isNotEmpty &&
+        _gender != null &&
+        SoriStore.normalizePhone(_phoneController.text).length >= 10 &&
+        _careNameController.text.trim().isNotEmpty;
+  }
+
+  bool get _consentReadyForSave =>
+      _quickChartMode ||
+      (_consentMandatory && _signatureController.isNotEmpty);
+
+  bool get _canSave => !_saving && _formBasicsOk && _consentReadyForSave;
 
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
   late bool _isFirstVisitMode;
@@ -122,6 +142,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       penColor: const Color(0xFF2D3436),
       exportBackgroundColor: Colors.white,
     );
+    _signatureController.addListener(_onSignatureChanged);
     final existing = widget.existingChart;
     // 전화번호를 Unique Key로 기존 고객 프로필을 우선 로드 (자동 완성).
     final byPhone = widget.store.findCustomerByPhone(widget.customer.phone);
@@ -146,6 +167,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _customNoController = TextEditingController(text: initialChartNo);
     _nameController = TextEditingController(text: c.name);
     _phoneController = TextEditingController(text: c.phone);
+    _phoneController.addListener(_onPhoneChanged);
     _addressController = TextEditingController(text: c.address);
     _occupationController = TextEditingController(text: c.occupation);
     // 차트 메디컬 우선, 구버전 고객 마스터 값은 폴백으로만 채움
@@ -192,6 +214,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _careNameController = TextEditingController(
       text: existing?.careName ?? '',
     );
+    _careNameController.addListener(_onFormBasicsChanged);
+    _nameController.addListener(_onFormBasicsChanged);
     _requestsController = TextEditingController(
       text: existing?.customerRequests ?? '',
     );
@@ -221,22 +245,65 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _consentOfflineOnly = existing?.consentOfflineOnly ?? false;
     _existingSignatureUrl = existing?.signatureUrl;
     _infoViewConsent = existing?.infoViewConsent ?? false;
+    _refreshAnnualConsent(notify: false);
+  }
+
+  void _onSignatureChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onFormBasicsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onPhoneChanged() {
+    _refreshAnnualConsent();
+  }
+
+  void _refreshAnnualConsent({bool notify = true}) {
+    final covered = widget.store
+        .latestConsentWithinYearForPhone(_phoneController.text);
+    final until = SoriStore.consentValidUntil(covered);
+    void apply() {
+      _annualConsentSource = covered;
+      _consentValidUntil = until;
+      if (covered != null && until != null) {
+        // 간편 모드: 기존 포괄 동의 플래그 재사용
+        _consentCareNotice = true;
+        _consentAbnormalReaction = true;
+        _consentRefundPolicy = true;
+        if (_existingSignatureUrl == null ||
+            _existingSignatureUrl!.trim().isEmpty) {
+          _existingSignatureUrl = covered.signatureUrl;
+        }
+      }
+    }
+
+    if (notify) {
+      setState(apply);
+    } else {
+      apply();
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _pageController.dispose();
+    _signatureController.removeListener(_onSignatureChanged);
     _signatureController.dispose();
     _customNoController.dispose();
     _birthTextController.dispose();
     _nameController.dispose();
+    _phoneController.removeListener(_onPhoneChanged);
     _phoneController.dispose();
     _addressController.dispose();
     _occupationController.dispose();
     _allergyOtherController.dispose();
     _skinOtherController.dispose();
     _sideEffectOtherController.dispose();
+    _careNameController.removeListener(_onFormBasicsChanged);
+    _nameController.removeListener(_onFormBasicsChanged);
     _careNameController.dispose();
     _requestsController.dispose();
     _summaryController.dispose();
@@ -353,6 +420,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       }
       // 오늘 진행 서비스는 자동완성으로 채우지 않음 (빈 칸 유지)
     });
+    _refreshAnnualConsent();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${matched.name}님 기존 정보를 불러왔어요'),
@@ -624,12 +692,36 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       );
       return;
     }
+    if (!_quickChartMode) {
+      if (!_consentMandatory) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('필수 동의 3항목을 모두 체크해 주세요.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      if (!_signatureController.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('고객 자필 서명이 필요합니다.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() => _saving = true);
     try {
-      // 서명 패드에 획이 있을 때만 업로드. 실패해도 차트 저장은 진행.
-      String? signatureUrl = _existingSignatureUrl;
-      if (_signatureController.isNotEmpty) {
+      // 서명 패드에 획이 있을 때만 업로드. 간편 모드는 기존 포괄 서명 재사용.
+      String? signatureUrl = _quickChartMode
+          ? (_annualConsentSource?.signatureUrl ?? _existingSignatureUrl)
+          : _existingSignatureUrl;
+      if (!_quickChartMode && _signatureController.isNotEmpty) {
         final bytes = await _signatureController.toPngBytes();
         if (bytes != null && bytes.isNotEmpty) {
           final uploaded = await ChartSignatureStorage.uploadPng(
@@ -697,7 +789,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         memberships: _memberships
             .where((m) => m.serviceName.trim().isNotEmpty && m.totalVisits > 0)
             .toList(),
-        consentMandatory: _consentMandatory,
+        consentMandatory: _quickChartMode
+            ? true
+            : _consentMandatory,
         consentPhoto: _consentPhoto,
         consentMarketing: _consentPhoto && _consentMarketing,
         consentOfflineOnly: _consentPhoto && _consentOfflineOnly,
@@ -797,6 +891,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   consentOfflineOnly: _consentOfflineOnly,
                   signatureController: _signatureController,
                   existingSignatureUrl: _existingSignatureUrl,
+                  quickChartMode: _quickChartMode,
+                  consentValidUntil: _consentValidUntil,
                   onCareNoticeChanged: (v) =>
                       setState(() => _consentCareNotice = v),
                   onAbnormalReactionChanged: (v) =>
@@ -844,16 +940,23 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _saving ? null : _saveAndConfirm,
+                  onPressed: _canSave ? _saveAndConfirm : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: MyApp.soriPurple,
+                    backgroundColor: _quickChartMode
+                        ? const Color(0xFF2E7D32)
+                        : MyApp.soriPurple,
+                    disabledBackgroundColor: Colors.grey.shade300,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: Text(
-                    _saving ? '저장 중…' : '차트 저장 및 방문 확인 완료',
+                    _saving
+                        ? '저장 중…'
+                        : (_quickChartMode
+                            ? '1초 간편 차트 저장 및 방문 확인'
+                            : '차트 저장 및 방문 확인 완료'),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -867,6 +970,30 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   List<Widget> _buildChartFormChildren() {
     return [
+                if (_quickChartMode && _consentValidUntil != null) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F8EF),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF81C784)),
+                    ),
+                    child: Text(
+                      '✅ 1년 포괄적 동의 완료 (유효기간: ${_consentValidUntil!.year}.${_consentValidUntil!.month.toString().padLeft(2, '0')}.${_consentValidUntil!.day.toString().padLeft(2, '0')} 까지)',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.35,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ),
+                ],
                 _SegmentCard(
                   title: '차트 번호',
                   child: Column(

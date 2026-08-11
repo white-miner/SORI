@@ -24,6 +24,8 @@ class ChartConsentTab extends StatelessWidget {
     required this.onOfflineOnlySelected,
     required this.onClearSignature,
     this.existingSignatureUrl,
+    this.quickChartMode = false,
+    this.consentValidUntil,
   });
 
   final bool consentCareNotice;
@@ -42,6 +44,13 @@ class ChartConsentTab extends StatelessWidget {
   final VoidCallback onClearSignature;
   final String? existingSignatureUrl;
 
+  /// 최근 1년 이내 서명 이력 → 필수 동의/서명 검증 Bypass.
+  final bool quickChartMode;
+  final DateTime? consentValidUntil;
+
+  String _fmtUntil(DateTime d) =>
+      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -50,44 +59,86 @@ class ChartConsentTab extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: const Text(
-                  ChartConsentTexts.intro,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: SoriTokens.textSecondary,
+              if (quickChartMode && consentValidUntil != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F8EF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF81C784)),
+                  ),
+                  child: Text(
+                    '✅ 1년 포괄적 동의 완료 (유효기간: ${_fmtUntil(consentValidUntil!)} 까지)',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                      color: Color(0xFF2E7D32),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _MandatoryAccordion(
-                title: ChartConsentTexts.mandatoryCareTitle,
-                bullets: ChartConsentTexts.mandatoryCareBody,
-                checked: consentCareNotice,
-                onChanged: onCareNoticeChanged,
-              ),
-              const SizedBox(height: 10),
-              _MandatoryAccordion(
-                title: ChartConsentTexts.mandatoryReactionTitle,
-                bullets: ChartConsentTexts.mandatoryReactionBody,
-                checked: consentAbnormalReaction,
-                onChanged: onAbnormalReactionChanged,
-              ),
-              const SizedBox(height: 10),
-              _MandatoryAccordion(
-                title: ChartConsentTexts.mandatoryRefundTitle,
-                bullets: ChartConsentTexts.mandatoryRefundBody,
-                checked: consentRefundPolicy,
-                onChanged: onRefundPolicyChanged,
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: const Text(
+                    '단골 고객 간편 차트 모드입니다. 필수 동의·자필 서명 없이 바로 저장할 수 있어요. (선택 촬영 동의는 필요 시 갱신 가능)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: const Text(
+                    '신규·갱신 고객은 필수 동의 3항목과 자필 서명이 모두 완료되어야 차트를 저장할 수 있어요.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _MandatoryAccordion(
+                  title: ChartConsentTexts.mandatoryCareTitle,
+                  bullets: ChartConsentTexts.mandatoryCareBody,
+                  checked: consentCareNotice,
+                  onChanged: onCareNoticeChanged,
+                ),
+                const SizedBox(height: 10),
+                _MandatoryAccordion(
+                  title: ChartConsentTexts.mandatoryReactionTitle,
+                  bullets: ChartConsentTexts.mandatoryReactionBody,
+                  checked: consentAbnormalReaction,
+                  onChanged: onAbnormalReactionChanged,
+                ),
+                const SizedBox(height: 10),
+                _MandatoryAccordion(
+                  title: ChartConsentTexts.mandatoryRefundTitle,
+                  bullets: ChartConsentTexts.mandatoryRefundBody,
+                  checked: consentRefundPolicy,
+                  onChanged: onRefundPolicyChanged,
+                ),
+                const SizedBox(height: 12),
+              ],
               _ConsentCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +206,8 @@ class ChartConsentTab extends StatelessWidget {
                   ],
                 ),
               ),
-              if (existingSignatureUrl != null &&
+              if (!quickChartMode &&
+                  existingSignatureUrl != null &&
                   existingSignatureUrl!.trim().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -166,59 +218,76 @@ class ChartConsentTab extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    '고객 서명',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: onClearSignature,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('다시 쓰기'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Container(
-                height: 160,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F7FC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
+        if (!quickChartMode)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Signature(
-                  controller: signatureController,
-                  backgroundColor: const Color(0xFFF8F7FC),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      '고객 서명',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: onClearSignature,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('다시 쓰기'),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 6),
+                Container(
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F7FC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Signature(
+                    controller: signatureController,
+                    backgroundColor: const Color(0xFFF8F7FC),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '손가락 또는 터치펜으로 서명해 주세요 (필수)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            color: const Color(0xFFE8F8EF),
+            child: const Text(
+              '서명 패드 생략 · 기존 1년 포괄 동의를 재사용합니다',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF2E7D32),
               ),
-              const SizedBox(height: 6),
-              Text(
-                '손가락 또는 터치펜으로 서명해 주세요',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-              ),
-            ],
+            ),
           ),
-        ),
       ],
     );
   }
