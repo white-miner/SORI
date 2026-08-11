@@ -4,6 +4,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
+import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import 'auth_role_resolution.dart';
@@ -172,6 +173,15 @@ abstract class SoriRepository {
 
   /// 케어 다이어리 메모 upsert (customer_id + note_date).
   Future<CareDiaryNote> upsertCareDiaryNote(CareDiaryNote note);
+
+  /// 스마트 회원권 지갑 — 전화번호(숫자) 또는 UID 기준, 샵 Join.
+  Future<List<MembershipTicket>> loadMembershipWallet({
+    String? phone,
+    String? authUserId,
+  });
+
+  /// customers.memberships → membership_tickets 동기화.
+  Future<void> syncMembershipTicketsForCustomer(String customerId);
 
   Future<CustomerReview> upsertReview(CustomerReview review);
 

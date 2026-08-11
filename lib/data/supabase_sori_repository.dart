@@ -8,6 +8,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
+import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../services/supabase_client.dart';
@@ -369,7 +370,167 @@ class SupabaseSoriRepository implements SoriRepository {
             .select()
             .single()
         : await _db.from('customers').insert(payload).select().single();
-    return Customer.fromMap(Map<String, dynamic>.from(row));
+    final saved = Customer.fromMap(Map<String, dynamic>.from(row));
+    try {
+      await syncMembershipTicketsForCustomer(saved.id);
+    } catch (e) {
+      debugPrint('syncMembershipTicketsForCustomer skipped: $e');
+    }
+    return saved;
+  }
+
+  @override
+  Future<void> syncMembershipTicketsForCustomer(String customerId) async {
+    if (customerId.isEmpty || _isTempId(customerId)) return;
+    try {
+      await _db.rpc(
+        'sync_membership_tickets_for_customer',
+        params: {'p_customer_id': customerId},
+      );
+    } catch (e) {
+      // 마이그레이션 미적용 시 직접 upsert 폴백
+      debugPrint('sync rpc failed, local upsert fallback: $e');
+      await _fallbackSyncMembershipTickets(customerId);
+    }
+  }
+
+  Future<void> _fallbackSyncMembershipTickets(String customerId) async {
+    try {
+      final row = await _db
+          .from('customers')
+          .select('id, shop_id, phone, memberships')
+          .eq('id', customerId)
+          .maybeSingle();
+      if (row == null) return;
+      final phone = _digits(DbMap.asText(row['phone']));
+      final shopId = DbMap.asText(row['shop_id']);
+      final memberships = <CustomerMembership>[];
+      final raw = row['memberships'];
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map) {
+            memberships.add(
+              CustomerMembership.fromJson(Map<String, dynamic>.from(item)),
+            );
+          }
+        }
+      }
+      await _db.from('membership_tickets').delete().eq('customer_id', customerId);
+      for (final m in memberships) {
+        if (m.totalVisits <= 0) continue;
+        await _db.from('membership_tickets').upsert({
+          'id': m.id,
+          'shop_id': shopId,
+          'customer_id': customerId,
+          'customer_phone_digits': phone,
+          'ticket_name': m.serviceName,
+          'total_visits': m.totalVisits,
+          'used_visits': m.usedVisits,
+          'expires_at': m.expiresAt == null
+              ? null
+              : '${m.expiresAt!.year.toString().padLeft(4, '0')}-${m.expiresAt!.month.toString().padLeft(2, '0')}-${m.expiresAt!.day.toString().padLeft(2, '0')}',
+          'is_active': m.remainingVisits > 0,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      debugPrint('_fallbackSyncMembershipTickets skipped: $e');
+    }
+  }
+
+  @override
+  Future<List<MembershipTicket>> loadMembershipWallet({
+    String? phone,
+    String? authUserId,
+  }) async {
+    final digits = _digits(phone ?? '');
+    try {
+      var query = _db.from('membership_tickets').select(
+            '*, shops(id, name, naver_place_url)',
+          );
+      if (digits.isNotEmpty) {
+        query = query.eq('customer_phone_digits', digits);
+      } else if (authUserId != null && authUserId.isNotEmpty) {
+        final linked = await _db
+            .from('customers')
+            .select('id')
+            .eq('user_id', authUserId);
+        final ids = (linked as List)
+            .map((e) => DbMap.asText((e as Map)['id']))
+            .where((id) => id.isNotEmpty)
+            .toList();
+        if (ids.isEmpty) return const [];
+        query = query.inFilter('customer_id', ids);
+      } else {
+        return const [];
+      }
+
+      final rows = await query.order('updated_at', ascending: false);
+      final tickets = _mapRowsSafely(
+        rows as List,
+        MembershipTicket.fromMap,
+        label: 'membership_tickets',
+      );
+      return tickets
+          .where((t) => t.totalVisits > 0 && t.remainingVisits >= 0)
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadMembershipWallet failed, phone fallback: $e\n$st');
+      return _walletFromCustomersFallback(digits: digits, authUserId: authUserId);
+    }
+  }
+
+  Future<List<MembershipTicket>> _walletFromCustomersFallback({
+    required String digits,
+    String? authUserId,
+  }) async {
+    try {
+      final rows = await _db
+          .from('customers')
+          .select(
+            'id, shop_id, phone, user_id, memberships, membership_service_name, membership_total_visits, membership_used_visits, shops(id, name, naver_place_url)',
+          )
+          .limit(300);
+      final out = <MembershipTicket>[];
+      for (final raw in rows as List) {
+        if (raw is! Map) continue;
+        final map = Map<String, dynamic>.from(raw);
+        final phoneMatch =
+            digits.isNotEmpty && _digits(DbMap.asText(map['phone'])) == digits;
+        final uidMatch = authUserId != null &&
+            authUserId.isNotEmpty &&
+            DbMap.asText(map['user_id']) == authUserId;
+        if (!phoneMatch && !uidMatch) continue;
+        final customer = Customer.fromMap(map).withSyncedMembershipMirrors();
+        Map<String, dynamic>? shop;
+        final rawShop = map['shops'];
+        if (rawShop is Map) shop = Map<String, dynamic>.from(rawShop);
+        final shopName = DbMap.asText(shop?['name'], 'SORI 샵');
+        final naver = DbMap.asText(shop?['naver_place_url']);
+        for (final m in customer.memberships) {
+          if (m.totalVisits <= 0) continue;
+          out.add(
+            MembershipTicket(
+              id: m.id,
+              shopId: customer.shopId,
+              customerId: customer.id,
+              customerPhoneDigits: _digits(customer.phone),
+              shopName: shopName,
+              ticketName: m.serviceName.isEmpty ? '회원권' : m.serviceName,
+              totalVisits: m.totalVisits,
+              usedVisits: m.usedVisits,
+              expiresAt: m.expiresAt,
+              naverPlaceUrl: naver,
+              isActive: m.remainingVisits > 0,
+            ),
+          );
+        }
+      }
+      return out;
+    } catch (e) {
+      debugPrint('_walletFromCustomersFallback failed: $e');
+      return const [];
+    }
   }
 
   @override
@@ -561,6 +722,7 @@ class SupabaseSoriRepository implements SoriRepository {
     }
 
     customer = await upsertCustomer(customer);
+    // upsertCustomer → sync_membership_tickets_for_customer 로 티켓 지갑 동기화
 
     // 리뷰 초안
     CustomerReview? review;

@@ -7,12 +7,14 @@ class CustomerMembership {
     required this.serviceName,
     required this.totalVisits,
     this.usedVisits = 0,
+    this.expiresAt,
   });
 
   final String id;
   final String serviceName;
   final int totalVisits;
   final int usedVisits;
+  final DateTime? expiresAt;
 
   int get remainingVisits =>
       (totalVisits - usedVisits).clamp(0, 999);
@@ -26,12 +28,15 @@ class CustomerMembership {
     String? serviceName,
     int? totalVisits,
     int? usedVisits,
+    DateTime? expiresAt,
+    bool clearExpiresAt = false,
   }) {
     return CustomerMembership(
       id: id ?? this.id,
       serviceName: serviceName ?? this.serviceName,
       totalVisits: totalVisits ?? this.totalVisits,
       usedVisits: usedVisits ?? this.usedVisits,
+      expiresAt: clearExpiresAt ? null : (expiresAt ?? this.expiresAt),
     );
   }
 
@@ -40,6 +45,9 @@ class CustomerMembership {
         'service_name': serviceName,
         'total_visits': totalVisits,
         'used_visits': usedVisits,
+        if (expiresAt != null)
+          'expires_at':
+              '${expiresAt!.year.toString().padLeft(4, '0')}-${expiresAt!.month.toString().padLeft(2, '0')}-${expiresAt!.day.toString().padLeft(2, '0')}',
       };
 
   factory CustomerMembership.fromJson(Map<String, dynamic> map) {
@@ -48,6 +56,7 @@ class CustomerMembership {
       serviceName: DbMap.asText(map['service_name']),
       totalVisits: DbMap.asInt(map['total_visits']),
       usedVisits: DbMap.asInt(map['used_visits']),
+      expiresAt: DbMap.asDateTime(map['expires_at']),
     );
   }
 

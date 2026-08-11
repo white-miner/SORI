@@ -1,7 +1,9 @@
 import '../models/care_diary_note.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
+import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_service_item.dart';
@@ -76,6 +78,15 @@ class MemorySoriRepository implements SoriRepository {
         membershipServiceName: '수분 케어 10회권',
         membershipTotalVisits: 10,
         membershipUsedVisits: 8,
+        memberships: [
+          CustomerMembership(
+            id: 'm-moisture',
+            serviceName: '수분 케어 10회권',
+            totalVisits: 10,
+            usedVisits: 8,
+            expiresAt: DateTime.now().add(const Duration(days: 120)),
+          ),
+        ],
       ).withSyncedMembershipMirrors(),
       Customer(
         id: '3',
@@ -92,6 +103,15 @@ class MemorySoriRepository implements SoriRepository {
         membershipServiceName: '재생 케어 10회권',
         membershipTotalVisits: 10,
         membershipUsedVisits: 4,
+        memberships: [
+          CustomerMembership(
+            id: 'm-regen',
+            serviceName: '재생 케어 10회권',
+            totalVisits: 10,
+            usedVisits: 4,
+            expiresAt: DateTime.now().add(const Duration(days: 200)),
+          ),
+        ],
       ).withSyncedMembershipMirrors(),
     ];
 
@@ -232,6 +252,64 @@ class MemorySoriRepository implements SoriRepository {
 
   @override
   Future<CareDiaryNote> upsertCareDiaryNote(CareDiaryNote note) async => note;
+
+  @override
+  Future<List<MembershipTicket>> loadMembershipWallet({
+    String? phone,
+    String? authUserId,
+  }) async {
+    // 시드 스냅샷에서 전화번호 매칭 고객의 회원권을 지갑으로 변환
+    final snap = createSeedSnapshot();
+    final digits = (phone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    final out = <MembershipTicket>[];
+    for (final c in snap.customers) {
+      final match = digits.isNotEmpty &&
+          c.phone.replaceAll(RegExp(r'[^0-9]'), '') == digits;
+      if (!match) continue;
+      final synced = c.withSyncedMembershipMirrors();
+      for (final m in synced.memberships) {
+        if (m.totalVisits <= 0) continue;
+        out.add(
+          MembershipTicket(
+            id: m.id,
+            shopId: snap.shop.id,
+            customerId: c.id,
+            customerPhoneDigits: digits,
+            shopName: snap.shop.name,
+            ticketName: m.serviceName.isEmpty ? '회원권' : m.serviceName,
+            totalVisits: m.totalVisits,
+            usedVisits: m.usedVisits,
+            expiresAt: m.expiresAt ??
+                DateTime.now().add(const Duration(days: 180)),
+            naverPlaceUrl: snap.shop.naverPlaceUrl,
+            isActive: m.remainingVisits > 0,
+          ),
+        );
+      }
+    }
+    // 데모용 다중 샵 티켓 (같은 번호에 2장)
+    if (digits == '01023456789' || digits.isEmpty) {
+      out.add(
+        MembershipTicket(
+          id: 'demo-ticket-partner',
+          shopId: 'shop-partner',
+          customerId: '2',
+          customerPhoneDigits: digits.isEmpty ? '01023456789' : digits,
+          shopName: '파트너 스킨랩',
+          ticketName: '리프팅 케어 5회권',
+          totalVisits: 5,
+          usedVisits: 3,
+          expiresAt: DateTime.now().add(const Duration(days: 90)),
+          naverPlaceUrl: snap.shop.naverPlaceUrl,
+          isActive: true,
+        ),
+      );
+    }
+    return out;
+  }
+
+  @override
+  Future<void> syncMembershipTicketsForCustomer(String customerId) async {}
 
   @override
   Future<CustomerReview> upsertReview(CustomerReview review) async => review;

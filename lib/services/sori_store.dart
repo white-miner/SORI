@@ -13,6 +13,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
+import '../models/membership_ticket.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -64,6 +65,7 @@ class SoriStore {
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];
   final List<CareDiaryNote> diaryNotes = [];
+  final List<MembershipTicket> membershipTickets = [];
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
   final Set<String> reviewRequestedCustomerIds = {};
@@ -152,6 +154,7 @@ class SoriStore {
     } finally {
       isLoading = false;
       _notify();
+      unawaited(refreshMembershipWallet());
     }
   }
 
@@ -362,6 +365,7 @@ class SoriStore {
           ? result.feedbackMessage
           : null;
       lastMembershipDeducted = result.membershipDeducted;
+      unawaited(refreshMembershipWallet());
       return result.chart;
     } catch (e, st) {
       debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
@@ -1083,6 +1087,71 @@ class SoriStore {
     }
     return true;
   }
+
+  /// 세션 고객의 스마트 회원권 지갑 (다중 샵).
+  Future<void> refreshMembershipWallet() async {
+    final session = this.session;
+    if (session == null || session.activeMode != UserRole.customer) {
+      membershipTickets.clear();
+      _notify();
+      return;
+    }
+    try {
+      final remote = await _repository.loadMembershipWallet(
+        phone: session.phone,
+        authUserId: session.authUserId,
+      );
+      if (remote.isNotEmpty) {
+        membershipTickets
+          ..clear()
+          ..addAll(remote);
+        _notify();
+        return;
+      }
+    } catch (e) {
+      debugPrint('refreshMembershipWallet remote failed: $e');
+    }
+
+    // 로컬 폴백: 현재 샵 고객 기록 + 현재 샵 메타
+    final digits = normalizePhone(session.phone);
+    final out = <MembershipTicket>[];
+    for (final c in customers) {
+      if (digits.isNotEmpty && normalizePhone(c.phone) != digits) continue;
+      if (session.customerId != null &&
+          c.id != session.customerId &&
+          digits.isEmpty) {
+        continue;
+      }
+      final synced = c.withSyncedMembershipMirrors();
+      for (final m in synced.memberships) {
+        if (m.totalVisits <= 0) continue;
+        out.add(
+          MembershipTicket(
+            id: m.id,
+            shopId: c.shopId.isNotEmpty ? c.shopId : shop.id,
+            customerId: c.id,
+            customerPhoneDigits: normalizePhone(c.phone),
+            shopName: shop.name.trim().isEmpty ? 'SORI 샵' : shop.name,
+            ticketName: m.serviceName.isEmpty ? '회원권' : m.serviceName,
+            totalVisits: m.totalVisits,
+            usedVisits: m.usedVisits,
+            expiresAt: m.expiresAt,
+            naverPlaceUrl: shop.naverPlaceUrl,
+            isActive: m.remainingVisits > 0,
+          ),
+        );
+      }
+    }
+    membershipTickets
+      ..clear()
+      ..addAll(out);
+    _notify();
+  }
+
+  List<MembershipTicket> get activeMembershipWallet => membershipTickets
+      .where((t) => t.totalVisits > 0)
+      .toList()
+    ..sort((a, b) => a.remainingVisits.compareTo(b.remainingVisits));
 
   /// 보호자 연락처 + 정보 열람 동의가 있는 가족 고객 목록.
   List<Customer> familyCustomersForGuardianPhone(String phone) {

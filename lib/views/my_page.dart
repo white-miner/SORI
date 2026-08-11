@@ -6,7 +6,7 @@ import '../routing/app_router.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/membership_progress.dart';
+import '../widgets/membership_ticket_wallet.dart';
 import '../widgets/review_qr_modal.dart';
 import '../widgets/sori_logo.dart';
 import 'customer_review_history_page.dart';
@@ -18,7 +18,7 @@ import 'shop_settings_page.dart';
 const Color _myPageBg = Color(0xFFF5F6F8);
 const Color _mutedText = Color(0xFF757575); // grey[600]
 
-class MyPage extends StatelessWidget {
+class MyPage extends StatefulWidget {
   const MyPage({
     super.key,
     required this.store,
@@ -27,6 +27,33 @@ class MyPage extends StatelessWidget {
 
   final SoriStore store;
   final ValueChanged<int>? onSelectTab;
+
+  @override
+  State<MyPage> createState() => _MyPageState();
+}
+
+class _MyPageState extends State<MyPage> {
+  SoriStore get store => widget.store;
+  ValueChanged<int>? get onSelectTab => widget.onSelectTab;
+
+  @override
+  void initState() {
+    super.initState();
+    store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      store.refreshMembershipWallet();
+    });
+  }
+
+  @override
+  void dispose() {
+    store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _openShopSettings(BuildContext context) async {
     await Navigator.of(context).push(
@@ -45,9 +72,8 @@ class MyPage extends StatelessWidget {
         : store.chartsForCustomer(customerId);
     final reviewCount =
         charts.where((c) => store.reviewForChart(c.id) != null).length;
-    final customer =
-        customerId == null ? null : store.findCustomer(customerId);
-    final remain = customer?.membershipRemainingVisits ?? 0;
+    final wallet = store.activeMembershipWallet;
+    final remain = wallet.fold<int>(0, (s, t) => s + t.remainingVisits);
 
     final isDirector = session.activeMode == UserRole.director;
     final shop = store.shop;
@@ -161,21 +187,38 @@ class MyPage extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _FloatCard(
-                    onTap: () => onSelectTab?.call(1),
+                    onTap: isDirector ? () => onSelectTab?.call(1) : null,
                     child: _MiniStat(
-                      label: isDirector ? '등록 고객' : '회원권 남은 회차',
+                      label: isDirector ? '등록 고객' : '보유 티켓',
                       value: isDirector
                           ? '${store.customers.length}'
-                          : '$remain',
+                          : '${wallet.length}',
                     ),
                   ),
                 ),
               ],
             ),
-            if (!isDirector && customer != null) ...[
-              const SizedBox(height: 12),
-              _FloatCard(
-                child: MembershipProgressView(customer: customer),
+            if (!isDirector) ...[
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  const Expanded(
+                    child: _SectionTitle('스마트 회원권 지갑'),
+                  ),
+                  if (remain > 0)
+                    Text(
+                      '잔여 합계 $remain회',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6C5CE7),
+                      ),
+                    ),
+                ],
+              ),
+              MembershipTicketWallet(
+                tickets: wallet,
+                onRefresh: store.refreshMembershipWallet,
               ),
             ],
             // 원장 전용 관리 / 통계 영역 (고객 모드에서는 완전 숨김)
