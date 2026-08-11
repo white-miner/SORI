@@ -138,11 +138,41 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: const Text(
-                    '단골 고객 간편 차트 모드입니다. 필수 동의·자필 서명 없이 바로 저장할 수 있어요. (선택 촬영 동의는 필요 시 갱신 가능)',
+                    '읽기 전용 동의서 뷰어입니다. 과거 서명을 확인만 할 수 있으며, 차트 저장을 위한 재서명은 필요하지 않습니다.',
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.4,
                       color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.92,
+                    child: Column(
+                      children: [
+                        _MandatoryAccordion(
+                          title: ChartConsentTexts.mandatoryCareTitle,
+                          bullets: ChartConsentTexts.mandatoryCareBody,
+                          checked: true,
+                          onChanged: (_) {},
+                        ),
+                        const SizedBox(height: 10),
+                        _MandatoryAccordion(
+                          title: ChartConsentTexts.mandatoryReactionTitle,
+                          bullets: ChartConsentTexts.mandatoryReactionBody,
+                          checked: true,
+                          onChanged: (_) {},
+                        ),
+                        const SizedBox(height: 10),
+                        _MandatoryAccordion(
+                          title: ChartConsentTexts.mandatoryRefundTitle,
+                          bullets: ChartConsentTexts.mandatoryRefundBody,
+                          checked: true,
+                          onChanged: (_) {},
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -358,15 +388,54 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-            color: const Color(0xFFE8F8EF),
-            child: const Text(
-              '서명 패드 생략 · 기존 1년 포괄 동의를 재사용합니다',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF2E7D32),
-              ),
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '과거 자필 서명 (읽기 전용)',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                if (widget.existingSignatureUrl != null &&
+                    widget.existingSignatureUrl!.trim().isNotEmpty)
+                  Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F7FC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      widget.existingSignatureUrl!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Text(
+                          '서명 이미지를 불러올 수 없습니다',
+                          style: TextStyle(color: SoriTokens.textSecondary),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F8EF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '서명 패드 생략 · 기존 1년 포괄 동의를 재사용합니다',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
       ],

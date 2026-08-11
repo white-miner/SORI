@@ -56,7 +56,8 @@ class AdminChartWriterPage extends StatefulWidget {
   final Customer customer;
   final CustomerChart? existingChart;
 
-  /// CRM '1초 간편 차트' — 동의/서명 검증 Bypass.
+  /// CRM '1초 간편 차트' 진입 — 최근 차트 프리필.
+  /// 동의/서명 Bypass는 365일 이내 유효 동의에만 적용된다.
   final bool forceQuickChart;
 
   @override
@@ -133,9 +134,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       _consentAbnormalReaction &&
       _consentRefundPolicy;
 
+  /// 365일 이내 포괄 동의만 간편 모드(검증 Bypass). forceQuickChart만으로는 Bypass 불가.
   bool get _quickChartMode =>
-      widget.forceQuickChart ||
-      (_annualConsentSource != null && _consentValidUntil != null);
+      _annualConsentSource != null && _consentValidUntil != null;
+
+  bool get _needsConsentRenewal => !_quickChartMode;
 
   _ChartRequiredField? _firstMissingRequiredField() {
     if (_nameController.text.trim().isEmpty) {
@@ -287,10 +290,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       exportBackgroundColor: Colors.white,
     );
     _signatureController.addListener(_onSignatureChanged);
+    widget.store.addListener(_onStoreMembershipSync);
     final existing = widget.existingChart;
     // 전화번호를 Unique Key로 기존 고객 프로필을 우선 로드 (자동 완성).
     final byPhone = widget.store.findCustomerByPhone(widget.customer.phone);
     final c = byPhone ?? widget.customer;
+    // 간편 차트: 최근 차트에서 고정 정보 프리필 (신규 회차용 시드).
+    final seed = existing ??
+        (widget.forceQuickChart ? widget.store.latestChart(c.id) : null);
     _visitNumber =
         existing?.visitNumber ?? widget.store.nextVisitNumber(c.id);
     if (existing != null) {
@@ -315,14 +322,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _addressController = TextEditingController(text: c.address);
     _occupationController = TextEditingController(text: c.occupation);
     // 차트 메디컬 우선, 구버전 고객 마스터 값은 폴백으로만 채움
-    final allergyRaw = (existing?.allergyNotes.isNotEmpty ?? false)
-        ? existing!.allergyNotes
+    final allergyRaw = (seed?.allergyNotes.isNotEmpty ?? false)
+        ? seed!.allergyNotes
         : c.allergyNotes;
-    final skinRaw = (existing?.skinSensitivity.isNotEmpty ?? false)
-        ? existing!.skinSensitivity
+    final skinRaw = (seed?.skinSensitivity.isNotEmpty ?? false)
+        ? seed!.skinSensitivity
         : c.medicationHistory;
-    final sideRaw = (existing?.sideEffectHistory.isNotEmpty ?? false)
-        ? existing!.sideEffectHistory
+    final sideRaw = (seed?.sideEffectHistory.isNotEmpty ?? false)
+        ? seed!.sideEffectHistory
         : c.homeCareHabits;
     final allergyParsed = ChartMedicalChips.parseStored(
       allergyRaw,
@@ -354,41 +361,53 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     );
     final synced = c.withSyncedMembershipMirrors();
     _memberships = List<CustomerMembership>.from(synced.memberships);
-    // 오늘 진행 서비스는 진입 시 항상 빈 칸 (기존 차트 수정 시에만 복원)
+    // 오늘 관리 메뉴는 신규 회차에서 항상 빈 칸 (기존 차트 수정 시에만 복원)
     _careNameController = TextEditingController(
       text: existing?.careName ?? '',
     );
     _careNameController.addListener(_onFormBasicsChanged);
     _nameController.addListener(_onFormBasicsChanged);
     _requestsController = TextEditingController(
-      text: existing?.customerRequests ?? '',
+      text: existing?.customerRequests ?? seed?.customerRequests ?? '',
     );
-    _summaryController =
-        TextEditingController(text: existing?.treatmentSummary ?? '');
-    _insightController =
-        TextEditingController(text: existing?.directorInsight ?? '');
+    _summaryController = TextEditingController(
+      text: existing?.treatmentSummary ?? '',
+    );
+    _insightController = TextEditingController(
+      text: existing?.directorInsight ?? '',
+    );
     _guardianPhoneController = TextEditingController(
-      text: existing?.guardianPhone ?? '',
+      text: existing?.guardianPhone ?? seed?.guardianPhone ?? '',
     );
+    // 사진은 해당 회차 차트에만 귀속 — 신규 작성 시 이전 회차 사진을 끌어오지 않음
     _beforeAttached = existing?.beforeImageUrl != null;
     _afterAttached = existing?.afterImageUrl != null;
     _beforeLabel = existing?.beforeImageUrl;
     _afterLabel = existing?.afterImageUrl;
     _fears.addAll(existing?.firstVisitFearChips ?? const []);
     _revisit.addAll(existing?.revisitFeedbackChips ?? const []);
-    _concerns.addAll(existing?.concernChips ?? const []);
-    for (final tag in existing?.homeCarePrescriptions ?? const <String>[]) {
+    _concerns.addAll(
+      existing?.concernChips ??
+          (widget.forceQuickChart ? seed?.concernChips ?? const [] : const []),
+    );
+    for (final tag in existing?.homeCarePrescriptions ??
+        (widget.forceQuickChart
+            ? seed?.homeCarePrescriptions ?? const <String>[]
+            : const <String>[])) {
       final id = HomecareDictionary.canonicalize(tag);
       if (id != null) _homeCarePrescriptions.add(id);
     }
     _consentCareNotice = existing?.consentMandatory ?? false;
     _consentAbnormalReaction = existing?.consentMandatory ?? false;
     _consentRefundPolicy = existing?.consentMandatory ?? false;
-    _consentPhoto = existing?.consentPhoto ?? false;
-    _consentMarketing = existing?.consentMarketing ?? false;
-    _consentOfflineOnly = existing?.consentOfflineOnly ?? false;
+    _consentPhoto = existing?.consentPhoto ?? seed?.consentPhoto ?? false;
+    _consentMarketing =
+        existing?.consentMarketing ?? seed?.consentMarketing ?? false;
+    _consentOfflineOnly =
+        existing?.consentOfflineOnly ?? seed?.consentOfflineOnly ?? false;
     _existingSignatureUrl = existing?.signatureUrl;
-    _infoViewConsent = existing?.infoViewConsent ?? false;
+    _infoViewConsent =
+        existing?.infoViewConsent ?? seed?.infoViewConsent ?? false;
     _refreshAnnualConsent(notify: false);
   }
 
@@ -407,6 +426,34 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   void _onPhoneChanged() {
     _refreshAnnualConsent();
     _pruneResolvedValidationErrors();
+  }
+
+  void _onStoreMembershipSync() {
+    if (!mounted) return;
+    final live = widget.store.findCustomer(widget.customer.id) ??
+        widget.store.findCustomerByPhone(_phoneController.text);
+    if (live == null) return;
+    final next = List<CustomerMembership>.from(
+      live.withSyncedMembershipMirrors().memberships,
+    );
+    if (_membershipListsEqual(_memberships, next)) return;
+    setState(() => _memberships = next);
+  }
+
+  bool _membershipListsEqual(
+    List<CustomerMembership> a,
+    List<CustomerMembership> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].serviceName != b[i].serviceName ||
+          a[i].totalVisits != b[i].totalVisits ||
+          a[i].usedVisits != b[i].usedVisits) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _refreshAnnualConsent({bool notify = true}) {
@@ -438,6 +485,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   @override
   void dispose() {
     _highlightClearTimer?.cancel();
+    widget.store.removeListener(_onStoreMembershipSync);
     _shakeController.dispose();
     _tabController.dispose();
     _pageController.dispose();
@@ -464,15 +512,23 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   Future<void> _openMembershipSheet() async {
+    final live = widget.store.findCustomer(widget.customer.id) ??
+        widget.store.findCustomerByPhone(_phoneController.text) ??
+        widget.customer;
     final result = await showMembershipEditorSheet(
       context: context,
       store: widget.store,
-      customer: widget.customer,
+      customer: live,
       initialMemberships: _memberships,
-      persistImmediately: false,
+      persistImmediately: true,
     );
     if (!mounted || result == null) return;
-    setState(() => _memberships = result);
+    final refreshed = widget.store.findCustomer(live.id) ?? live;
+    setState(() {
+      _memberships = List<CustomerMembership>.from(
+        refreshed.withSyncedMembershipMirrors().memberships,
+      );
+    });
   }
 
   /// 전화번호로 기존 고객 인적·메디컬·회원권 정보를 폼에 자동 채움.
@@ -1104,14 +1160,35 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       border: Border.all(color: const Color(0xFF81C784)),
                     ),
                     child: Text(
-                      _consentValidUntil != null
-                          ? '✅ 1년 포괄적 동의 완료 (유효기간: ${_consentValidUntil!.year}.${_consentValidUntil!.month.toString().padLeft(2, '0')}.${_consentValidUntil!.day.toString().padLeft(2, '0')} 까지)'
-                          : '⚡ 1초 간편 차트 모드 — 필수 동의·서명 없이 바로 저장할 수 있어요',
+                      '✅ 1년 포괄적 동의 완료 (유효기간: ${_consentValidUntil!.year}.${_consentValidUntil!.month.toString().padLeft(2, '0')}.${_consentValidUntil!.day.toString().padLeft(2, '0')} 까지) · 서명 없이 저장 가능',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         height: 1.35,
                         color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ),
+                ] else if (widget.forceQuickChart || _needsConsentRenewal) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E1),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFFB74D)),
+                    ),
+                    child: const Text(
+                      '⚠️ 동의서 갱신 필요 — 서명일로부터 1년이 지났거나 이력이 없습니다. 전자 동의서 탭에서 필수 동의·자필 서명을 완료해야 저장됩니다.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.35,
+                        color: Color(0xFFEF6C00),
                       ),
                     ),
                   ),

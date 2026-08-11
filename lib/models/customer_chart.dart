@@ -231,6 +231,20 @@ class CustomerChart {
       'visit_checked_at': visitCheckedAt?.toUtc().toIso8601String(),
       'before_image_url': DbMap.asTextOrNull(beforeImageUrl),
       'after_image_url': DbMap.asTextOrNull(afterImageUrl),
+      'photo_meta': {
+        if (beforeImageUrl != null && beforeImageUrl!.trim().isNotEmpty)
+          'before': {
+            'visit_number': visitNumber < 1 ? 1 : visitNumber,
+            'chart_id': id,
+            'kind': 'before',
+          },
+        if (afterImageUrl != null && afterImageUrl!.trim().isNotEmpty)
+          'after': {
+            'visit_number': visitNumber < 1 ? 1 : visitNumber,
+            'chart_id': id,
+            'kind': 'after',
+          },
+      },
       'care_name': careName.trim(),
       'treatment_summary': treatmentSummary.trim(),
       'director_insight': directorInsight.trim(),
