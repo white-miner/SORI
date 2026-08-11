@@ -1366,6 +1366,44 @@ class SoriStore {
     }
   }
 
+  /// 차트 없이 고객 회원권만 저장 (CRM 퀵 액션 / 바텀 시트).
+  Future<Customer> saveCustomerMemberships({
+    required String customerId,
+    required List<CustomerMembership> memberships,
+  }) async {
+    if (blocksDirectorChartWrites) {
+      throw StateError('고객 모드에서는 회원권을 수정할 수 없습니다.');
+    }
+    final current = findCustomer(customerId);
+    if (current == null) {
+      throw StateError('고객을 찾을 수 없습니다.');
+    }
+    final updated = current
+        .copyWith(memberships: memberships)
+        .withSyncedMembershipMirrors();
+
+    if (!_repository.isRemote) {
+      _mergeCustomer(updated);
+      _notify();
+      return updated;
+    }
+
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      final saved = await _repository.upsertCustomer(updated);
+      _mergeCustomer(saved);
+      return saved;
+    } catch (e) {
+      _setError(e);
+      rethrow;
+    } finally {
+      isLoading = false;
+      _notify();
+    }
+  }
+
   /// 차트 저장 + 방문 확인 트리거 → 토큰/리뷰 초안 생성.
   /// [memberships] 는 방문 확인 직전 회원권 설정값이며,
   /// 아직 방문 미확인 차트인 경우 확인 시 careName과 매칭되는 회원권만 차감됩니다.

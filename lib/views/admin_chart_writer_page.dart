@@ -18,6 +18,8 @@ import '../utils/db_map.dart';
 import '../utils/sori_scroll_behavior.dart';
 import 'chart_consent_tab.dart';
 import 'customer_link_popup.dart';
+import 'management_menu_field.dart';
+import 'membership_editor_sheet.dart';
 import 'my_app.dart';
 
 Future<void> openChartWriterForCustomer(
@@ -25,6 +27,7 @@ Future<void> openChartWriterForCustomer(
   required SoriStore store,
   required Customer customer,
   CustomerChart? existingChart,
+  bool forceQuickChart = false,
 }) async {
   await Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -32,6 +35,7 @@ Future<void> openChartWriterForCustomer(
         store: store,
         customer: customer,
         existingChart: existingChart,
+        forceQuickChart: forceQuickChart,
       ),
       fullscreenDialog: true,
     ),
@@ -45,11 +49,15 @@ class AdminChartWriterPage extends StatefulWidget {
     required this.store,
     required this.customer,
     this.existingChart,
+    this.forceQuickChart = false,
   });
 
   final SoriStore store;
   final Customer customer;
   final CustomerChart? existingChart;
+
+  /// CRM '1초 간편 차트' — 동의/서명 검증 Bypass.
+  final bool forceQuickChart;
 
   @override
   State<AdminChartWriterPage> createState() => _AdminChartWriterPageState();
@@ -126,7 +134,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       _consentRefundPolicy;
 
   bool get _quickChartMode =>
-      _annualConsentSource != null && _consentValidUntil != null;
+      widget.forceQuickChart ||
+      (_annualConsentSource != null && _consentValidUntil != null);
 
   _ChartRequiredField? _firstMissingRequiredField() {
     if (_nameController.text.trim().isEmpty) {
@@ -454,32 +463,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     super.dispose();
   }
 
-  void _addMembership() {
-    setState(() {
-      _memberships = [
-        ..._memberships,
-        CustomerMembership(
-          id: 'm-${DateTime.now().millisecondsSinceEpoch}',
-          serviceName: '',
-          totalVisits: 10,
-          usedVisits: 0,
-        ),
-      ];
-    });
-  }
-
-  void _removeMembership(String id) {
-    setState(() {
-      _memberships = _memberships.where((m) => m.id != id).toList();
-    });
-  }
-
-  void _updateMembership(int index, CustomerMembership next) {
-    setState(() {
-      final list = List<CustomerMembership>.from(_memberships);
-      list[index] = next;
-      _memberships = list;
-    });
+  Future<void> _openMembershipSheet() async {
+    final result = await showMembershipEditorSheet(
+      context: context,
+      store: widget.store,
+      customer: widget.customer,
+      initialMemberships: _memberships,
+      persistImmediately: false,
+    );
+    if (!mounted || result == null) return;
+    setState(() => _memberships = result);
   }
 
   /// 전화번호로 기존 고객 인적·메디컬·회원권 정보를 폼에 자동 채움.
@@ -1097,7 +1090,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   List<Widget> _buildChartFormChildren() {
     return [
-                if (_quickChartMode && _consentValidUntil != null) ...[
+                if (_quickChartMode) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
@@ -1111,7 +1104,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       border: Border.all(color: const Color(0xFF81C784)),
                     ),
                     child: Text(
-                      '✅ 1년 포괄적 동의 완료 (유효기간: ${_consentValidUntil!.year}.${_consentValidUntil!.month.toString().padLeft(2, '0')}.${_consentValidUntil!.day.toString().padLeft(2, '0')} 까지)',
+                      _consentValidUntil != null
+                          ? '✅ 1년 포괄적 동의 완료 (유효기간: ${_consentValidUntil!.year}.${_consentValidUntil!.month.toString().padLeft(2, '0')}.${_consentValidUntil!.day.toString().padLeft(2, '0')} 까지)'
+                          : '⚡ 1초 간편 차트 모드 — 필수 동의·서명 없이 바로 저장할 수 있어요',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -1374,7 +1369,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 ),
                 const SizedBox(height: 12),
                 _SegmentCard(
-                  title: '오늘 진행 서비스 & 고객 요청사항',
+                  title: '관리 메뉴 목록 & 고객 요청사항',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1386,8 +1381,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                             _inlineErrorField == _ChartRequiredField.careName,
                         errorText: _ChartRequiredField.careName.errorCopy,
                         shake: _shakeOffset,
-                        child: _ServiceNameField(
-                          label: '오늘 진행 서비스 *',
+                        child: ManagementMenuField(
+                          label: '관리 메뉴 목록 *',
                           value: _careNameController.text,
                           options: _serviceOptions,
                           onChanged: (v) {
@@ -1413,153 +1408,48 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 ),
                 const SizedBox(height: 12),
                 _SegmentCard(
-                  title: '🎟️ 회원권 관리',
+                  title: '회원권',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '방문 확인 시 오늘 진행 서비스와 같은 회원권만 1회 차감됩니다.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B7280),
+                      Text(
+                        _memberships.isEmpty
+                            ? '등록된 회원권이 없습니다. 필요 시 아래에서 등록하세요.'
+                            : '등록 ${_memberships.length}종 · 잔여 ${_memberships.fold<int>(0, (s, m) => s + m.remainingVisits)}회',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: SoriTokens.textSecondary,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      if (_memberships.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            '등록된 회원권이 없습니다. 1회성 시술로 저장할 수 있어요.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: SoriTokens.textSecondary,
+                      if (_memberships.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        ..._memberships.take(3).map(
+                          (m) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              '· ${m.serviceName.isEmpty ? '(메뉴 미선택)' : m.serviceName} · 잔여 ${m.remainingVisits}회',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ...List.generate(_memberships.length, (index) {
-                        final m = _memberships[index];
-                        final remain = m.remainingVisits;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: SoriTokens.border),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '회원권 ${index + 1}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: '삭제',
-                                    onPressed: () => _removeMembership(m.id),
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              _ServiceNameField(
-                                label: '서비스명',
-                                value: m.serviceName,
-                                options: _serviceOptions,
-                                onChanged: (v) => _updateMembership(
-                                  index,
-                                  m.copyWith(serviceName: v),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              _SpinnerField(
-                                label: '총 횟수',
-                                value: m.totalVisits,
-                                onMinus: () => _updateMembership(
-                                  index,
-                                  m.copyWith(
-                                    totalVisits:
-                                        (m.totalVisits - 1).clamp(0, 99),
-                                    usedVisits: m.usedVisits.clamp(
-                                      0,
-                                      (m.totalVisits - 1).clamp(0, 99),
-                                    ),
-                                  ),
-                                ),
-                                onPlus: () => _updateMembership(
-                                  index,
-                                  m.copyWith(
-                                    totalVisits:
-                                        (m.totalVisits + 1).clamp(0, 99),
-                                  ),
-                                ),
-                                onChanged: (v) => _updateMembership(
-                                  index,
-                                  m.copyWith(
-                                    totalVisits: v.clamp(0, 99),
-                                    usedVisits:
-                                        m.usedVisits.clamp(0, v.clamp(0, 99)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _SpinnerField(
-                                label: '사용 횟수',
-                                value: m.usedVisits,
-                                onMinus: () => _updateMembership(
-                                  index,
-                                  m.copyWith(
-                                    usedVisits:
-                                        (m.usedVisits - 1).clamp(0, m.totalVisits),
-                                  ),
-                                ),
-                                onPlus: () => _updateMembership(
-                                  index,
-                                  m.copyWith(
-                                    usedVisits:
-                                        (m.usedVisits + 1).clamp(0, m.totalVisits),
-                                  ),
-                                ),
-                                onChanged: (v) => _updateMembership(
-                                  index,
-                                  m.copyWith(
-                                    usedVisits: v.clamp(0, m.totalVisits),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '잔여 $remain회',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: remain <= 2 && m.totalVisits > 0
-                                      ? const Color(0xFFB7791F)
-                                      : MyApp.soriPurple,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                      ],
+                      const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: _addMembership,
+                        child: OutlinedButton.icon(
+                          onPressed: _openMembershipSheet,
+                          icon: const Icon(Icons.card_membership_outlined),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: SoriTokens.primary,
                             side: const BorderSide(color: SoriTokens.primary),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                          child: const Text(
-                            '+ 회원권 추가',
+                          label: const Text(
+                            '+ 회원권 등록 / 관리',
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -1837,368 +1727,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 }
 
-class _ServiceNameField extends StatefulWidget {
-  const _ServiceNameField({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-    this.hasError = false,
-  });
-
-  final String label;
-  final String value;
-  final List<String> options;
-  final ValueChanged<String> onChanged;
-  final bool hasError;
-
-  @override
-  State<_ServiceNameField> createState() => _ServiceNameFieldState();
-}
-
-class _ServiceNameFieldState extends State<_ServiceNameField> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-  final _fieldKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.value);
-    _focusNode = FocusNode();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ServiceNameField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.value != oldWidget.value && widget.value != _controller.text) {
-      _controller.text = widget.value;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  List<String> _filtered(String query) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return widget.options;
-    return widget.options
-        .where((o) => o.toLowerCase().contains(q))
-        .toList(growable: false);
-  }
-
-  Future<void> _openPickerSheet() async {
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return _ServicePickerSheet(
-          title: widget.label,
-          options: widget.options,
-          // 빈 칸이면 전체 목록, 입력 중이면 해당 쿼리로 필터
-          initialQuery: _controller.text.trim(),
-        );
-      },
-    );
-    if (!mounted || selected == null) return;
-    _controller.text = selected;
-    widget.onChanged(selected);
-    _focusNode.unfocus();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RawAutocomplete<String>(
-      textEditingController: _controller,
-      focusNode: _focusNode,
-      optionsBuilder: (textEditingValue) {
-        if (widget.options.isEmpty) {
-          return const Iterable<String>.empty();
-        }
-        // 빈 문자열이면 전체 목록 즉시 노출
-        return _filtered(textEditingValue.text);
-      },
-      onSelected: (selection) {
-        _controller.text = selection;
-        widget.onChanged(selection);
-      },
-      optionsViewBuilder: (context, onSelected, options) {
-        final box =
-            _fieldKey.currentContext?.findRenderObject() as RenderBox?;
-        final width = box?.size.width ??
-            (MediaQuery.sizeOf(context).width - 64).clamp(240.0, 800.0);
-
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 8,
-            color: Colors.white,
-            shadowColor: Colors.black26,
-            borderRadius: BorderRadius.circular(14),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: 280,
-                minWidth: width,
-                maxWidth: width,
-              ),
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                shrinkWrap: true,
-                itemCount: options.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final option = options.elementAt(index);
-                  return InkWell(
-                    onTap: () => onSelected(option),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      child: Text(
-                        option,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
-      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        return TextField(
-          key: _fieldKey,
-          controller: controller,
-          focusNode: focusNode,
-          onChanged: widget.onChanged,
-          onSubmitted: (_) => onFieldSubmitted(),
-          onTap: () {
-            // 빈 칸 터치 시 전체 서비스 목록을 바로 펼침
-            if (widget.options.isNotEmpty && controller.text.trim().isEmpty) {
-              _openPickerSheet();
-            }
-          },
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-          decoration: InputDecoration(
-            labelText: widget.label,
-            hintText: widget.options.isEmpty
-                ? '서비스명을 직접 입력하세요'
-                : '탭하여 전체 목록 보기 · 검색 또는 직접 입력',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: widget.hasError
-                    ? const Color(0xFFE53935)
-                    : Colors.grey.shade400,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: widget.hasError
-                    ? const Color(0xFFE53935)
-                    : MyApp.soriPurple,
-                width: 1.6,
-              ),
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(16, 18, 8, 18),
-            suffixIcon: IconButton(
-              tooltip: '서비스 목록 열기',
-              onPressed: widget.options.isEmpty ? null : _openPickerSheet,
-              iconSize: 28,
-              icon: Icon(
-                Icons.search_rounded,
-                color: widget.options.isEmpty ? Colors.grey : MyApp.soriPurple,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ServicePickerSheet extends StatefulWidget {
-  const _ServicePickerSheet({
-    required this.title,
-    required this.options,
-    required this.initialQuery,
-  });
-
-  final String title;
-  final List<String> options;
-  final String initialQuery;
-
-  @override
-  State<_ServicePickerSheet> createState() => _ServicePickerSheetState();
-}
-
-class _ServicePickerSheetState extends State<_ServicePickerSheet> {
-  late final TextEditingController _searchController;
-  late List<String> _filtered;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController(text: widget.initialQuery);
-    _filtered = _apply(widget.initialQuery);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  List<String> _apply(String query) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return widget.options;
-    return widget.options
-        .where((o) => o.toLowerCase().contains(q))
-        .toList(growable: false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            widget.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '샵 서비스 메뉴에서 선택하거나 검색하세요',
-            style: TextStyle(
-              fontSize: 13,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            autofocus: true,
-            onChanged: (v) => setState(() => _filtered = _apply(v)),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              hintText: '서비스명 검색',
-              prefixIcon: const Icon(Icons.search_rounded, size: 26),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 16,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.45,
-            ),
-            child: _filtered.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 28),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          '일치하는 서비스가 없어요',
-                          style: TextStyle(
-                            color: SoriTokens.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (_searchController.text.trim().isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(
-                              context,
-                              _searchController.text.trim(),
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: MyApp.soriPurple,
-                            ),
-                            child: Text(
-                              '"${_searchController.text.trim()}" 직접 사용',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final name = _filtered[index];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        title: Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.pop(context, name),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MedicalChipGroup extends StatelessWidget {
   const _MedicalChipGroup({
     required this.title,
@@ -2311,74 +1839,6 @@ class _SegmentCard extends StatelessWidget {
   }
 }
 
-class _SpinnerField extends StatelessWidget {
-  const _SpinnerField({
-    required this.label,
-    required this.value,
-    required this.onMinus,
-    required this.onPlus,
-    required this.onChanged,
-  });
-
-  final String label;
-  final int value;
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
-            ),
-          ),
-        ),
-        IconButton.filledTonal(
-          onPressed: onMinus,
-          icon: const Icon(Icons.remove, size: 18),
-          style: IconButton.styleFrom(
-            backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
-            foregroundColor: MyApp.soriPurple,
-          ),
-        ),
-        SizedBox(
-          width: 56,
-          child: TextField(
-            key: ValueKey('$label-$value'),
-            controller: TextEditingController(text: '$value'),
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (raw) {
-              final parsed = int.tryParse(raw.trim());
-              if (parsed != null) onChanged(parsed);
-            },
-          ),
-        ),
-        IconButton.filledTonal(
-          onPressed: onPlus,
-          icon: const Icon(Icons.add, size: 18),
-          style: IconButton.styleFrom(
-            backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
-            foregroundColor: MyApp.soriPurple,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _PhotoAttachBox extends StatelessWidget {
   const _PhotoAttachBox({
     required this.title,
@@ -2465,7 +1925,7 @@ extension on _ChartRequiredField {
     switch (this) {
       case _ChartRequiredField.name:
       case _ChartRequiredField.careName:
-        return '필수 항목입니다';
+        return '관리 메뉴를 선택해 주세요';
       case _ChartRequiredField.gender:
         return '성별을 선택해 주세요';
       case _ChartRequiredField.phone:

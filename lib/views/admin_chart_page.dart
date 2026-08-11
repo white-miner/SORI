@@ -5,7 +5,9 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import 'admin_chart_writer_page.dart';
+import 'before_after_compare_sheet.dart';
 import 'customer_link_popup.dart';
+import 'membership_editor_sheet.dart';
 import 'my_app.dart';
 
 /// 원장용: 타임라인 요약 + 상세 펼침 + Before/After 갤러리.
@@ -51,7 +53,10 @@ class _AdminChartPageState extends State<AdminChartPage>
   List<CustomerChart> get _timeline =>
       widget.store.chartsForCustomer(widget.customerId);
 
-  Future<void> _openWriter({CustomerChart? chart}) async {
+  Future<void> _openWriter({
+    CustomerChart? chart,
+    bool forceQuickChart = false,
+  }) async {
     final customer = _customer;
     if (customer == null) return;
     await Navigator.of(context).push(
@@ -60,8 +65,39 @@ class _AdminChartPageState extends State<AdminChartPage>
           store: widget.store,
           customer: customer,
           existingChart: chart,
+          forceQuickChart: forceQuickChart,
         ),
       ),
+    );
+  }
+
+  Future<void> _openMembershipSheet() async {
+    final customer = _customer;
+    if (customer == null) return;
+    final result = await showMembershipEditorSheet(
+      context: context,
+      store: widget.store,
+      customer: customer,
+      persistImmediately: true,
+    );
+    if (!mounted || result == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.isEmpty
+              ? '회원권을 비웠습니다'
+              : '회원권 ${result.length}종이 저장됐어요',
+        ),
+        backgroundColor: MyApp.soriPurple,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _openBeforeAfterCompare() async {
+    await showBeforeAfterCompareSheet(
+      context: context,
+      charts: _timeline,
     );
   }
 
@@ -160,7 +196,7 @@ class _AdminChartPageState extends State<AdminChartPage>
     return Scaffold(
       backgroundColor: const Color(0xFFF8F7FC),
       appBar: AppBar(
-        title: Text('${customer.name} · 차트'),
+        title: Text('${customer.name} · 고객 관리'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF2D3436),
         elevation: 0,
@@ -175,17 +211,19 @@ class _AdminChartPageState extends State<AdminChartPage>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openWriter(),
-        backgroundColor: MyApp.soriPurple,
-        icon: const Icon(Icons.note_add_outlined, color: Colors.white),
-        label: const Text('새 차트 작성', style: TextStyle(color: Colors.white)),
-      ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: _Header(customer: customer),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+            child: _QuickActionDashboard(
+              onMembership: _openMembershipSheet,
+              onQuickChart: () => _openWriter(forceQuickChart: true),
+              onBeforeAfter: _openBeforeAfterCompare,
+            ),
           ),
           Expanded(
             child: TabBarView(
@@ -301,10 +339,125 @@ class _Header extends StatelessWidget {
                   customer.phone,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
+                if (customer.isMembershipCustomer) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    customer.membershipBadgeLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: MyApp.soriPurple,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickActionDashboard extends StatelessWidget {
+  const _QuickActionDashboard({
+    required this.onMembership,
+    required this.onQuickChart,
+    required this.onBeforeAfter,
+  });
+
+  final VoidCallback onMembership;
+  final VoidCallback onQuickChart;
+  final VoidCallback onBeforeAfter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _QuickActionButton(
+          label: '💳 회원권 등록 / 관리',
+          subtitle: '횟수권 즉시 등록·수정',
+          color: const Color(0xFF5B4B8A),
+          onTap: onMembership,
+        ),
+        const SizedBox(height: 10),
+        _QuickActionButton(
+          label: '📝 1초 간편 차트',
+          subtitle: '서명 없이 바로 차트 작성',
+          color: const Color(0xFF2E7D32),
+          onTap: onQuickChart,
+        ),
+        const SizedBox(height: 10),
+        _QuickActionButton(
+          label: '📸 관리 경과 비교 (B/A)',
+          subtitle: '과거·오늘 사진 슬라이더 비교',
+          color: const Color(0xFF1565C0),
+          onTap: onBeforeAfter,
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 1.5,
+      shadowColor: color.withValues(alpha: 0.35),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
