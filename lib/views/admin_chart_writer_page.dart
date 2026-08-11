@@ -89,12 +89,19 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   final Set<String> _homeCarePrescriptions = {};
   bool _saving = false;
 
-  bool _consentMandatory = false;
+  bool _consentCareNotice = false;
+  bool _consentAbnormalReaction = false;
+  bool _consentRefundPolicy = false;
   bool _consentPhoto = false;
   bool _consentMarketing = false;
   bool _consentOfflineOnly = false;
   String? _existingSignatureUrl;
   bool _infoViewConsent = false;
+
+  bool get _consentMandatory =>
+      _consentCareNotice &&
+      _consentAbnormalReaction &&
+      _consentRefundPolicy;
 
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
   late bool _isFirstVisitMode;
@@ -206,7 +213,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       final id = HomecareDictionary.canonicalize(tag);
       if (id != null) _homeCarePrescriptions.add(id);
     }
-    _consentMandatory = existing?.consentMandatory ?? false;
+    _consentCareNotice = existing?.consentMandatory ?? false;
+    _consentAbnormalReaction = existing?.consentMandatory ?? false;
+    _consentRefundPolicy = existing?.consentMandatory ?? false;
     _consentPhoto = existing?.consentPhoto ?? false;
     _consentMarketing = existing?.consentMarketing ?? false;
     _consentOfflineOnly = existing?.consentOfflineOnly ?? false;
@@ -780,14 +789,20 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   children: _buildChartFormChildren(),
                 ),
                 ChartConsentTab(
-                  consentMandatory: _consentMandatory,
+                  consentCareNotice: _consentCareNotice,
+                  consentAbnormalReaction: _consentAbnormalReaction,
+                  consentRefundPolicy: _consentRefundPolicy,
                   consentPhoto: _consentPhoto,
                   consentMarketing: _consentMarketing,
                   consentOfflineOnly: _consentOfflineOnly,
                   signatureController: _signatureController,
                   existingSignatureUrl: _existingSignatureUrl,
-                  onMandatoryChanged: (v) =>
-                      setState(() => _consentMandatory = v),
+                  onCareNoticeChanged: (v) =>
+                      setState(() => _consentCareNotice = v),
+                  onAbnormalReactionChanged: (v) =>
+                      setState(() => _consentAbnormalReaction = v),
+                  onRefundPolicyChanged: (v) =>
+                      setState(() => _consentRefundPolicy = v),
                   onPhotoChanged: (v) {
                     setState(() {
                       _consentPhoto = v;
