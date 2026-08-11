@@ -30,6 +30,10 @@ class CustomerChart {
     this.consentOfflineOnly = false,
     this.signatureUrl,
     this.caseShared = false,
+    this.homeCarePrescriptions = const [],
+    this.guardianPhone,
+    this.infoViewConsent = false,
+    this.homeCareMissionChecks = const [false, false, false],
   });
 
   final String id;
@@ -71,6 +75,18 @@ class CustomerChart {
 
   /// 관리 케이스 공개 공유 여부 (동의 서명 완료 차트만 true 가능).
   final bool caseShared;
+
+  /// 홈케어 처방 태그 ID 목록.
+  final List<String> homeCarePrescriptions;
+
+  /// 보호자 연락처 (가족 스위처 매칭).
+  final String? guardianPhone;
+
+  /// 보호자 정보 열람 동의.
+  final bool infoViewConsent;
+
+  /// 시술 후 3일 미션 체크 상태.
+  final List<bool> homeCareMissionChecks;
 
   bool get hasFeedbackLine =>
       feedbackToken != null && feedbackLineOpenedAt != null;
@@ -117,10 +133,15 @@ class CustomerChart {
     bool? consentOfflineOnly,
     String? signatureUrl,
     bool? caseShared,
+    List<String>? homeCarePrescriptions,
+    String? guardianPhone,
+    bool? infoViewConsent,
+    List<bool>? homeCareMissionChecks,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
     bool clearSignatureUrl = false,
+    bool clearGuardianPhone = false,
   }) {
     return CustomerChart(
       id: id ?? this.id,
@@ -159,7 +180,41 @@ class CustomerChart {
       signatureUrl:
           clearSignatureUrl ? null : (signatureUrl ?? this.signatureUrl),
       caseShared: caseShared ?? this.caseShared,
+      homeCarePrescriptions:
+          homeCarePrescriptions ?? this.homeCarePrescriptions,
+      guardianPhone: clearGuardianPhone
+          ? null
+          : (guardianPhone ?? this.guardianPhone),
+      infoViewConsent: infoViewConsent ?? this.infoViewConsent,
+      homeCareMissionChecks:
+          homeCareMissionChecks ?? this.homeCareMissionChecks,
     );
+  }
+
+  static List<bool> normalizeMissionChecks(List<bool>? raw) {
+    final base = List<bool>.filled(3, false);
+    if (raw == null) return base;
+    for (var i = 0; i < 3 && i < raw.length; i++) {
+      base[i] = raw[i];
+    }
+    return base;
+  }
+
+  static List<bool> missionChecksFromDynamic(dynamic raw) {
+    if (raw is! List) return const [false, false, false];
+    final out = <bool>[];
+    for (final e in raw) {
+      if (e is bool) {
+        out.add(e);
+      } else if (e is num) {
+        out.add(e != 0);
+      } else if (e is String) {
+        out.add(e.toLowerCase() == 'true' || e == '1');
+      } else {
+        out.add(false);
+      }
+    }
+    return normalizeMissionChecks(out);
   }
 
   Map<String, dynamic> toMap() => toDbWriteMap(includeId: true);
@@ -196,6 +251,12 @@ class CustomerChart {
       'consent_offline_only': consentOfflineOnly,
       'signature_url': DbMap.asTextOrNull(signatureUrl),
       'case_shared': caseShared,
+      'home_care_prescriptions':
+          DbMap.sanitizeStringList(homeCarePrescriptions),
+      'guardian_phone': DbMap.asTextOrNull(guardianPhone),
+      'info_view_consent': infoViewConsent,
+      'home_care_mission_checks':
+          normalizeMissionChecks(homeCareMissionChecks),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (includeId && id.isNotEmpty) {
@@ -241,6 +302,12 @@ class CustomerChart {
       consentOfflineOnly: DbMap.asBool(map['consent_offline_only']),
       signatureUrl: DbMap.asTextOrNull(map['signature_url']),
       caseShared: DbMap.asBool(map['case_shared'] ?? map['is_public']),
+      homeCarePrescriptions:
+          DbMap.asStringList(map['home_care_prescriptions']),
+      guardianPhone: DbMap.asTextOrNull(map['guardian_phone']),
+      infoViewConsent: DbMap.asBool(map['info_view_consent']),
+      homeCareMissionChecks:
+          missionChecksFromDynamic(map['home_care_mission_checks']),
     );
   }
 }

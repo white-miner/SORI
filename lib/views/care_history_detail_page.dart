@@ -6,9 +6,14 @@ import '../theme/sori_tokens.dart';
 
 /// 고객 케어 내역 상세 — 간단히/자세히 토글.
 class CareHistoryDetailPage extends StatefulWidget {
-  const CareHistoryDetailPage({super.key, required this.store});
+  const CareHistoryDetailPage({
+    super.key,
+    required this.store,
+    this.customerId,
+  });
 
   final SoriStore store;
+  final String? customerId;
 
   @override
   State<CareHistoryDetailPage> createState() => _CareHistoryDetailPageState();
@@ -19,7 +24,8 @@ class _CareHistoryDetailPageState extends State<CareHistoryDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final customerId = widget.store.session?.customerId;
+    final customerId =
+        widget.customerId ?? widget.store.session?.customerId;
     final charts = customerId == null
         ? <CustomerChart>[]
         : widget.store.chartsForCustomer(customerId).toList()

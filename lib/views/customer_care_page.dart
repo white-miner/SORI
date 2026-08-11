@@ -1,32 +1,102 @@
 import 'package:flutter/material.dart';
 
+import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/home_care_prescriptions.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_logo.dart';
 import 'care_history_detail_page.dart';
+import 'care_viewer_calendar_page.dart';
 import 'ikea_review_composer_page.dart';
 
-/// 고객 모드 전용 케어 탭.
-class CustomerCareTab extends StatelessWidget {
+/// 고객 모드 전용 케어 탭 — 미션·가족 스위처·처방 다이어리.
+class CustomerCareTab extends StatefulWidget {
   const CustomerCareTab({super.key, required this.store});
 
   final SoriStore store;
 
   @override
+  State<CustomerCareTab> createState() => _CustomerCareTabState();
+}
+
+class _CustomerCareTabState extends State<CustomerCareTab> {
+  SoriStore get store => widget.store;
+
+  /// null = 본인, 그 외 = 열람 중인 가족 customerId.
+  String? _viewingCustomerId;
+
+  @override
+  void initState() {
+    super.initState();
+    store.addListener(_onStore);
+  }
+
+  @override
+  void dispose() {
+    store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  String? get _selfCustomerId => store.session?.customerId;
+
+  String? get _activeCustomerId => _viewingCustomerId ?? _selfCustomerId;
+
+  List<Customer> _familyMembers() {
+    final phone = store.session?.phone ?? '';
+    final selfId = _selfCustomerId;
+    return store
+        .familyCustomersForGuardianPhone(phone)
+        .where((c) => c.id != selfId)
+        .toList();
+  }
+
+  /// 시술일 기준 0~2일차만 미션 활성.
+  ({CustomerChart chart, int dayOffset, int checkedCount})? _activeMission(
+    String? customerId,
+  ) {
+    if (customerId == null) return null;
+    final charts = store.chartsForCustomer(customerId);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    for (final chart in charts) {
+      if (chart.homeCarePrescriptions.isEmpty) continue;
+      final visit = chart.visitCheckedAt ?? chart.createdAt;
+      if (visit == null) continue;
+      final start = DateTime(visit.year, visit.month, visit.day);
+      final offset = today.difference(start).inDays;
+      if (offset < 0 || offset > 2) continue;
+      final checks =
+          CustomerChart.normalizeMissionChecks(chart.homeCareMissionChecks);
+      final checked = checks.where((e) => e).length;
+      return (chart: chart, dayOffset: offset, checkedCount: checked);
+    }
+    return null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final session = store.session!;
-    final customerId = session.customerId;
+    final selfId = _selfCustomerId;
+    final activeId = _activeCustomerId;
     final customer =
-        customerId == null ? null : store.findCustomer(customerId);
-    final charts = customerId == null
+        activeId == null ? null : store.findCustomer(activeId);
+    final selfCustomer =
+        selfId == null ? null : store.findCustomer(selfId);
+    final charts = activeId == null
         ? <CustomerChart>[]
-        : store.chartsForCustomer(customerId).toList()
+        : store.chartsForCustomer(activeId).toList()
       ..sort((a, b) => b.visitNumber.compareTo(a.visitNumber));
     final latest = charts.isEmpty ? null : charts.first;
-    final name = session.name.trim().isEmpty
-        ? (customer?.name ?? '고객')
+    final selfName = session.name.trim().isEmpty
+        ? (selfCustomer?.name ?? '나')
         : session.name.trim();
+    final activeName = customer?.name ?? selfName;
+    final family = _familyMembers();
     final shopName = store.shop.name.trim().isEmpty ? 'SORI 샵' : store.shop.name;
     final lastVisit = latest?.visitCheckedAt ??
         latest?.createdAt ??
@@ -42,6 +112,11 @@ class CustomerCareTab extends StatelessWidget {
                 ? latest.treatmentSummary
                 : '케어'));
     final visitNo = latest?.visitNumber ?? customer?.membershipUsedVisits ?? 0;
+    final mission = _activeMission(activeId);
+    final directives = HomeCarePrescriptionCatalog.directivesFor(
+      latest?.homeCarePrescriptions ?? const [],
+    );
+    final viewingFamily = _viewingCustomerId != null;
 
     return ColoredBox(
       color: const Color(0xFFF5F6F8),
@@ -50,21 +125,80 @@ class CustomerCareTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
             _ProfileHeaderRow(
-              name: name,
+              selfName: selfName,
+              selfSelected: !viewingFamily,
+              family: family,
+              selectedFamilyId: _viewingCustomerId,
+              onSelectSelf: () => setState(() => _viewingCustomerId = null),
+              onSelectFamily: (id) =>
+                  setState(() => _viewingCustomerId = id),
               onCalendar: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('예약 캘린더는 준비 중이에요'),
-                    behavior: SnackBarBehavior.floating,
+                final id = activeId;
+                if (id == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('고객 정보가 연결되어 있지 않아요'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CareViewerCalendarPage(
+                      store: store,
+                      customerId: id,
+                    ),
                   ),
                 );
               },
             ),
+            if (viewingFamily) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF0FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '보호자 열람 동의로 $activeName 님의 케어를 보고 있어요',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6C5CE7),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
+            if (mission != null) ...[
+              _HomeCareMissionCard(
+                checkedCount: mission.checkedCount,
+                checks: CustomerChart.normalizeMissionChecks(
+                  mission.chart.homeCareMissionChecks,
+                ),
+                dayOffset: mission.dayOffset,
+                directives: HomeCarePrescriptionCatalog.directivesFor(
+                  mission.chart.homeCarePrescriptions,
+                ),
+                onToggle: (index, value) {
+                  store.setHomeCareMissionCheck(
+                    chartId: mission.chart.id,
+                    dayIndex: index,
+                    checked: value,
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             _AiReportCard(
               shopName: shopName,
               lastVisit: lastVisit,
               insight: latest?.directorInsight ?? '',
+              directives: directives,
               onDetail: () {
                 if (latest == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -94,12 +228,17 @@ class CustomerCareTab extends StatelessWidget {
               onMore: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => CareHistoryDetailPage(store: store),
+                    builder: (_) => CareHistoryDetailPage(
+                      store: store,
+                      customerId: activeId,
+                    ),
                   ),
                 );
               },
             ),
-            if (latest != null && latest.hasFeedbackLine) ...[
+            if (latest != null &&
+                latest.hasFeedbackLine &&
+                !viewingFamily) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -143,13 +282,120 @@ class CustomerCareTab extends StatelessWidget {
   }
 }
 
+class _HomeCareMissionCard extends StatelessWidget {
+  const _HomeCareMissionCard({
+    required this.checkedCount,
+    required this.checks,
+    required this.dayOffset,
+    required this.directives,
+    required this.onToggle,
+  });
+
+  final int checkedCount;
+  final List<bool> checks;
+  final int dayOffset;
+  final List<String> directives;
+  final void Function(int index, bool value) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = checkedCount / 3.0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '원장님의 홈케어 처방 미션 ($checkedCount/3일)',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '시술 후 ${dayOffset + 1}일차 · 가장 중요한 3일 케어',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return LinearProgressIndicator(
+                  value: value,
+                  minHeight: 10,
+                  backgroundColor: const Color(0xFFEEF0F3),
+                  color: const Color(0xFF6C5CE7),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (var i = 0; i < 3; i++)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: checks[i],
+              onChanged: (v) => onToggle(i, v ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+              activeColor: const Color(0xFF6C5CE7),
+              title: Text(
+                '${i + 1}일차 홈케어 실천',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: Text(
+                i < directives.length
+                    ? directives[i]
+                    : (directives.isNotEmpty
+                        ? directives.first
+                        : '처방 내용을 실천해 주세요'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProfileHeaderRow extends StatelessWidget {
   const _ProfileHeaderRow({
-    required this.name,
+    required this.selfName,
+    required this.selfSelected,
+    required this.family,
+    required this.selectedFamilyId,
+    required this.onSelectSelf,
+    required this.onSelectFamily,
     required this.onCalendar,
   });
 
-  final String name;
+  final String selfName;
+  final bool selfSelected;
+  final List<Customer> family;
+  final String? selectedFamilyId;
+  final VoidCallback onSelectSelf;
+  final ValueChanged<String> onSelectFamily;
   final VoidCallback onCalendar;
 
   @override
@@ -158,24 +404,41 @@ class _ProfileHeaderRow extends StatelessWidget {
       children: [
         Expanded(
           child: SizedBox(
-            height: 56,
+            height: 64,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _ProfileChip(label: name, selected: true),
-                const SizedBox(width: 10),
-                const _ProfileChip(label: '가족', selected: false, muted: true),
-                const SizedBox(width: 10),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: SoriTokens.border),
+                InkWell(
+                  onTap: onSelectSelf,
+                  borderRadius: BorderRadius.circular(12),
+                  child: _ProfileChip(
+                    label: selfName,
+                    selected: selfSelected,
                   ),
-                  child: Icon(Icons.add, color: Colors.grey[500]),
                 ),
+                ...family.map((c) {
+                  final selected = selectedFamilyId == c.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 10),
+                    child: InkWell(
+                      onTap: () => onSelectFamily(c.id),
+                      borderRadius: BorderRadius.circular(12),
+                      child: _ProfileChip(
+                        label: c.name,
+                        selected: selected,
+                      ),
+                    ),
+                  );
+                }),
+                if (family.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 10),
+                    child: _ProfileChip(
+                      label: '가족',
+                      selected: false,
+                      muted: true,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -212,21 +475,27 @@ class _ProfileChip extends StatelessWidget {
               selected ? SoriTokens.primarySoft : const Color(0xFFEEF0F3),
           child: muted
               ? Icon(Icons.person_outline, color: Colors.grey[500], size: 22)
-              : Padding(
-                  padding: const EdgeInsets.all(8),
+              : const Padding(
+                  padding: EdgeInsets.all(8),
                   child: Opacity(
                     opacity: 0.9,
-                    child: const SoriLogo(width: 28, height: 28),
+                    child: SoriLogo(width: 28, height: 28),
                   ),
                 ),
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? SoriTokens.primary : Colors.grey[600],
+        SizedBox(
+          width: 56,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? SoriTokens.primary : Colors.grey[600],
+            ),
           ),
         ),
       ],
@@ -239,12 +508,14 @@ class _AiReportCard extends StatelessWidget {
     required this.shopName,
     required this.lastVisit,
     required this.insight,
+    required this.directives,
     required this.onDetail,
   });
 
   final String shopName;
   final DateTime? lastVisit;
   final String insight;
+  final List<String> directives;
   final VoidCallback onDetail;
 
   @override
@@ -275,9 +546,9 @@ class _AiReportCard extends StatelessWidget {
                   color: const Color(0xFFE8F5E9),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  '홈케어 진행중',
-                  style: TextStyle(
+                child: Text(
+                  directives.isEmpty ? '홈케어 대기' : '홈케어 진행중',
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF2E7D32),
@@ -299,38 +570,54 @@ class _AiReportCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             lastVisit == null
-                ? '최근 방문 기록이 없어요'
+                ? '최근 방문 기록 없음'
                 : '최근 방문 ${_fmt(lastVisit!)}',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
           if (insight.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              insight,
+              insight.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, height: 1.4),
             ),
           ],
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onDetail,
-              style: FilledButton.styleFrom(
-                backgroundColor: SoriTokens.primary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          if (directives.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...directives.take(2).map(
+                  (d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('· ', style: TextStyle(fontWeight: FontWeight.w800)),
+                        Expanded(
+                          child: Text(
+                            d,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+          ],
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onDetail,
               child: const Text(
                 'AI 리포트 상세보기',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF6C5CE7),
+                ),
               ),
             ),
           ),
@@ -374,55 +661,29 @@ class _CareSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '케어 내역 요약',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
           Text(
             careName,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            visitNo > 0 ? '$visitNo회차 진행중 · 잔여 $remaining회' : '아직 시술 기록이 없어요',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
+            [
+              if (visitNo > 0) '$visitNo회차',
+              if (remaining > 0) '잔여 $remaining회',
+              if (nextVisit != null) '다음 권장 ${_fmt(nextVisit!)}',
+            ].join(' · '),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
-          const SizedBox(height: 4),
-          Text(
-            nextVisit == null
-                ? '다음 방문일을 예약해 보세요'
-                : '다음 방문 예정 ${_fmt(nextVisit!)}',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: onMore,
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF2563EB),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
               child: const Text(
-                '케어내역 더보기 >',
+                '케어내역 더보기',
                 style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF6C5CE7),
                 ),
               ),
             ),
@@ -444,6 +705,9 @@ class _AiReportDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final directives = HomeCarePrescriptionCatalog.directivesFor(
+      chart.homeCarePrescriptions,
+    );
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
@@ -459,27 +723,46 @@ class _AiReportDetailPage extends StatelessWidget {
             shopName,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            chart.careName.isNotEmpty ? chart.careName : '케어 리포트',
-            style: TextStyle(color: Colors.grey[600]),
+            chart.careName.isNotEmpty ? chart.careName : '케어',
+            style: TextStyle(color: Colors.grey[700]),
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+          if (chart.directorInsight.trim().isNotEmpty) ...[
+            const Text(
+              '원장 인사이트',
+              style: TextStyle(fontWeight: FontWeight.w800),
             ),
-            child: Text(
-              chart.directorInsight.isNotEmpty
-                  ? chart.directorInsight
-                  : (chart.treatmentSummary.isNotEmpty
-                      ? chart.treatmentSummary
-                      : '작성된 AI 리포트가 아직 없어요'),
-              style: const TextStyle(fontSize: 15, height: 1.5),
-            ),
+            const SizedBox(height: 6),
+            Text(chart.directorInsight.trim(), style: const TextStyle(height: 1.45)),
+            const SizedBox(height: 18),
+          ],
+          const Text(
+            '홈케어 처방',
+            style: TextStyle(fontWeight: FontWeight.w800),
           ),
+          const SizedBox(height: 8),
+          if (directives.isEmpty)
+            Text(
+              '등록된 홈케어 처방이 없어요',
+              style: TextStyle(color: Colors.grey[600]),
+            )
+          else
+            ...directives.map(
+              (d) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(d, style: const TextStyle(height: 1.45, fontSize: 13)),
+                ),
+              ),
+            ),
         ],
       ),
     );

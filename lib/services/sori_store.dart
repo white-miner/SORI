@@ -7,6 +7,7 @@ import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
+import '../models/care_diary_note.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -61,6 +62,7 @@ class SoriStore {
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];
+  final List<CareDiaryNote> diaryNotes = [];
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
   final Set<String> reviewRequestedCustomerIds = {};
@@ -107,6 +109,9 @@ class SoriStore {
     aiReplies
       ..clear()
       ..addAll(snapshot.aiReplies);
+    diaryNotes
+      ..clear()
+      ..addAll(snapshot.diaryNotes);
     gallerySlides
       ..clear()
       ..addAll(snapshot.gallerySlides);
@@ -248,6 +253,9 @@ class SoriStore {
     bool consentMarketing = false,
     bool consentOfflineOnly = false,
     String? signatureUrl,
+    List<String> homeCarePrescriptions = const [],
+    String? guardianPhone,
+    bool infoViewConsent = false,
   }) async {
     if (!_repository.isRemote) {
       return saveChartAndConfirmVisit(
@@ -282,6 +290,9 @@ class SoriStore {
         consentMarketing: consentMarketing,
         consentOfflineOnly: consentOfflineOnly,
         signatureUrl: signatureUrl,
+        homeCarePrescriptions: homeCarePrescriptions,
+        guardianPhone: guardianPhone,
+        infoViewConsent: infoViewConsent,
       );
     }
 
@@ -325,6 +336,9 @@ class SoriStore {
           consentMarketing: consentMarketing,
           consentOfflineOnly: consentOfflineOnly,
           signatureUrl: signatureUrl,
+          homeCarePrescriptions: homeCarePrescriptions,
+          guardianPhone: guardianPhone,
+          infoViewConsent: infoViewConsent,
         ),
       );
       _mergeCustomer(result.customer);
@@ -1052,6 +1066,97 @@ class SoriStore {
     return true;
   }
 
+  /// 보호자 연락처 + 정보 열람 동의가 있는 가족 고객 목록.
+  List<Customer> familyCustomersForGuardianPhone(String phone) {
+    final key = normalizePhone(phone);
+    if (key.isEmpty) return const [];
+    final ids = <String>{};
+    for (final chart in charts) {
+      if (!chart.infoViewConsent) continue;
+      if (normalizePhone(chart.guardianPhone ?? '') != key) continue;
+      ids.add(chart.customerId);
+    }
+    if (ids.isEmpty) return const [];
+    return customers.where((c) => ids.contains(c.id)).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  void setHomeCareMissionCheck({
+    required String chartId,
+    required int dayIndex,
+    required bool checked,
+  }) {
+    if (dayIndex < 0 || dayIndex > 2) return;
+    final index = charts.indexWhere((c) => c.id == chartId);
+    if (index < 0) return;
+    final next = CustomerChart.normalizeMissionChecks(
+      charts[index].homeCareMissionChecks,
+    );
+    next[dayIndex] = checked;
+    charts[index] = charts[index].copyWith(homeCareMissionChecks: next);
+    _notify();
+    if (_repository.isRemote) {
+      unawaited(() async {
+        try {
+          await _repository.updateHomeCareMissionChecks(
+            chartId: chartId,
+            checks: next,
+          );
+        } catch (e) {
+          debugPrint('setHomeCareMissionCheck remote failed: $e');
+        }
+      }());
+    }
+  }
+
+  CareDiaryNote? diaryNoteFor({
+    required String customerId,
+    required DateTime day,
+  }) {
+    for (final n in diaryNotes) {
+      if (n.customerId == customerId && CareDiaryNote.sameDay(n.noteDate, day)) {
+        return n;
+      }
+    }
+    return null;
+  }
+
+  Future<CareDiaryNote> saveCareDiaryNote({
+    required String customerId,
+    required DateTime day,
+    required String body,
+  }) async {
+    final existing = diaryNoteFor(customerId: customerId, day: day);
+    final draft = CareDiaryNote(
+      id: existing?.id ?? 'diary-${DateTime.now().millisecondsSinceEpoch}',
+      shopId: shop.id,
+      customerId: customerId,
+      noteDate: DateTime(day.year, day.month, day.day),
+      body: body.trim(),
+      updatedAt: DateTime.now(),
+    );
+    CareDiaryNote saved = draft;
+    if (_repository.isRemote) {
+      try {
+        saved = await _repository.upsertCareDiaryNote(draft);
+      } catch (e) {
+        debugPrint('saveCareDiaryNote remote failed: $e');
+      }
+    }
+    final i = diaryNotes.indexWhere(
+      (n) =>
+          n.customerId == customerId &&
+          CareDiaryNote.sameDay(n.noteDate, day),
+    );
+    if (i >= 0) {
+      diaryNotes[i] = saved;
+    } else {
+      diaryNotes.insert(0, saved);
+    }
+    _notify();
+    return saved;
+  }
+
   List<Customer> customersForDate(DateTime day) {
     return customers.where((c) {
       final d = c.lastTreatmentDate;
@@ -1147,6 +1252,9 @@ class SoriStore {
     bool consentMarketing = false,
     bool consentOfflineOnly = false,
     String? signatureUrl,
+    List<String> homeCarePrescriptions = const [],
+    String? guardianPhone,
+    bool infoViewConsent = false,
   }) {
     final customer = findCustomer(customerId);
     if (customer == null) {
@@ -1159,6 +1267,8 @@ class SoriStore {
     final beforeUrl = DbMap.asTextOrNull(beforeImageUrl);
     final afterUrl = DbMap.asTextOrNull(afterImageUrl);
     final sigUrl = DbMap.asTextOrNull(signatureUrl);
+    final prescriptions = DbMap.sanitizeStringList(homeCarePrescriptions);
+    final guardian = DbMap.asTextOrNull(guardianPhone);
 
     CustomerChart chart;
     if (chartId != null) {
@@ -1188,6 +1298,10 @@ class SoriStore {
         consentMarketing: consentMarketing,
         consentOfflineOnly: consentOfflineOnly,
         signatureUrl: sigUrl ?? charts[index].signatureUrl,
+        homeCarePrescriptions: prescriptions,
+        guardianPhone: guardian,
+        clearGuardianPhone: guardian == null,
+        infoViewConsent: infoViewConsent,
       );
       charts[index] = chart;
     } else {
@@ -1216,6 +1330,9 @@ class SoriStore {
         consentMarketing: consentMarketing,
         consentOfflineOnly: consentOfflineOnly,
         signatureUrl: sigUrl,
+        homeCarePrescriptions: prescriptions,
+        guardianPhone: guardian,
+        infoViewConsent: infoViewConsent,
       );
       charts.insert(0, chart);
     }

@@ -1,4 +1,5 @@
 import '../models/ai_reply.dart';
+import '../models/care_diary_note.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -18,6 +19,7 @@ class SoriSnapshot {
     required this.reviews,
     required this.aiReplies,
     required this.gallerySlides,
+    this.diaryNotes = const [],
     this.todayHomecareTip =
         '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.',
     this.reviewRequestedCustomerIds = const {},
@@ -29,6 +31,7 @@ class SoriSnapshot {
   final List<CustomerReview> reviews;
   final List<AiReply> aiReplies;
   final List<ShopGallerySlide> gallerySlides;
+  final List<CareDiaryNote> diaryNotes;
   final String todayHomecareTip;
   final Set<String> reviewRequestedCustomerIds;
 }
@@ -68,6 +71,9 @@ class SaveChartRequest {
     this.consentMarketing = false,
     this.consentOfflineOnly = false,
     this.signatureUrl,
+    this.homeCarePrescriptions = const [],
+    this.guardianPhone,
+    this.infoViewConsent = false,
   });
 
   final String customerId;
@@ -108,6 +114,10 @@ class SaveChartRequest {
   final bool consentMarketing;
   final bool consentOfflineOnly;
   final String? signatureUrl;
+
+  final List<String> homeCarePrescriptions;
+  final String? guardianPhone;
+  final bool infoViewConsent;
 }
 
 class SaveChartResult {
@@ -153,6 +163,15 @@ abstract class SoriRepository {
     required String chartId,
     required bool shared,
   });
+
+  /// 홈케어 3일 미션 체크 갱신.
+  Future<void> updateHomeCareMissionChecks({
+    required String chartId,
+    required List<bool> checks,
+  });
+
+  /// 케어 다이어리 메모 upsert (customer_id + note_date).
+  Future<CareDiaryNote> upsertCareDiaryNote(CareDiaryNote note);
 
   Future<CustomerReview> upsertReview(CustomerReview review);
 

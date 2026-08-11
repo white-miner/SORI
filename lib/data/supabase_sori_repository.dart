@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/ai_reply.dart';
+import '../models/care_diary_note.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -79,6 +80,10 @@ class SupabaseSoriRepository implements SoriRepository {
       consentMarketing: request.consentMarketing,
       consentOfflineOnly: request.consentOfflineOnly,
       signatureUrl: _imageUrlOrNull(request.signatureUrl),
+      homeCarePrescriptions:
+          DbMap.sanitizeStringList(request.homeCarePrescriptions),
+      guardianPhone: DbMap.asTextOrNull(request.guardianPhone),
+      infoViewConsent: request.infoViewConsent,
     );
   }
 
@@ -275,12 +280,29 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('ai_replies load skipped: $e');
     }
 
+    List<CareDiaryNote> diaryNotes = const [];
+    try {
+      final diaryRows = await _db
+          .from('care_diary_notes')
+          .select()
+          .eq('shop_id', shop.id)
+          .order('note_date', ascending: false);
+      diaryNotes = _mapRowsSafely(
+        diaryRows as List,
+        CareDiaryNote.fromMap,
+        label: 'care_diary_notes',
+      );
+    } catch (e) {
+      debugPrint('care_diary_notes load skipped: $e');
+    }
+
     return SoriSnapshot(
       shop: shop,
       customers: customers,
       charts: charts,
       reviews: reviews,
       aiReplies: aiReplies,
+      diaryNotes: diaryNotes,
       gallerySlides: const [
         ShopGallerySlide(
           id: 'g1',
@@ -647,6 +669,38 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e) {
       // 마이그레이션 미적용 환경에서는 로컬 상태만 유지
       debugPrint('updateChartCaseShared skipped: $e');
+    }
+  }
+
+  @override
+  Future<void> updateHomeCareMissionChecks({
+    required String chartId,
+    required List<bool> checks,
+  }) async {
+    try {
+      await _db.from('customer_charts').update({
+        'home_care_mission_checks':
+            CustomerChart.normalizeMissionChecks(checks),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', chartId);
+    } catch (e) {
+      debugPrint('updateHomeCareMissionChecks skipped: $e');
+    }
+  }
+
+  @override
+  Future<CareDiaryNote> upsertCareDiaryNote(CareDiaryNote note) async {
+    final payload = note.toDbWriteMap(includeId: false);
+    try {
+      final row = await _db
+          .from('care_diary_notes')
+          .upsert(payload, onConflict: 'customer_id,note_date')
+          .select()
+          .single();
+      return CareDiaryNote.fromMap(Map<String, dynamic>.from(row));
+    } catch (e) {
+      debugPrint('upsertCareDiaryNote failed: $e');
+      rethrow;
     }
   }
 

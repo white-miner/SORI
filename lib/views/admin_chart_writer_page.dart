@@ -8,6 +8,7 @@ import '../models/chart_medical_chips.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
+import '../models/home_care_prescriptions.dart';
 import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -70,6 +71,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   late final TextEditingController _requestsController;
   late final TextEditingController _summaryController;
   late final TextEditingController _insightController;
+  late final TextEditingController _guardianPhoneController;
 
   CustomerGender? _gender;
   DateTime? _birthDate;
@@ -84,6 +86,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   final Set<String> _fears = {};
   final Set<String> _revisit = {};
   final Set<String> _concerns = {};
+  final Set<String> _homeCarePrescriptions = {};
   bool _saving = false;
 
   bool _consentMandatory = false;
@@ -91,6 +94,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   bool _consentMarketing = false;
   bool _consentOfflineOnly = false;
   String? _existingSignatureUrl;
+  bool _infoViewConsent = false;
 
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
   late bool _isFirstVisitMode;
@@ -188,6 +192,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         TextEditingController(text: existing?.treatmentSummary ?? '');
     _insightController =
         TextEditingController(text: existing?.directorInsight ?? '');
+    _guardianPhoneController = TextEditingController(
+      text: existing?.guardianPhone ?? '',
+    );
     _beforeAttached = existing?.beforeImageUrl != null;
     _afterAttached = existing?.afterImageUrl != null;
     _beforeLabel = existing?.beforeImageUrl;
@@ -195,11 +202,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _fears.addAll(existing?.firstVisitFearChips ?? const []);
     _revisit.addAll(existing?.revisitFeedbackChips ?? const []);
     _concerns.addAll(existing?.concernChips ?? const []);
+    for (final tag in existing?.homeCarePrescriptions ?? const <String>[]) {
+      final p = HomeCarePrescriptionCatalog.byId(tag) ??
+          HomeCarePrescriptionCatalog.byChipLabel(tag);
+      _homeCarePrescriptions.add(p?.id ?? tag);
+    }
     _consentMandatory = existing?.consentMandatory ?? false;
     _consentPhoto = existing?.consentPhoto ?? false;
     _consentMarketing = existing?.consentMarketing ?? false;
     _consentOfflineOnly = existing?.consentOfflineOnly ?? false;
     _existingSignatureUrl = existing?.signatureUrl;
+    _infoViewConsent = existing?.infoViewConsent ?? false;
   }
 
   @override
@@ -220,6 +233,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _requestsController.dispose();
     _summaryController.dispose();
     _insightController.dispose();
+    _guardianPhoneController.dispose();
     super.dispose();
   }
 
@@ -680,6 +694,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         consentMarketing: _consentPhoto && _consentMarketing,
         consentOfflineOnly: _consentPhoto && _consentOfflineOnly,
         signatureUrl: signatureUrl,
+        homeCarePrescriptions:
+            DbMap.sanitizeStringList(_homeCarePrescriptions),
+        guardianPhone: _guardianPhoneController.text.trim().isEmpty
+            ? null
+            : _guardianPhoneController.text.trim(),
+        infoViewConsent: _infoViewConsent,
       );
 
       if (!mounted) return;
@@ -1369,6 +1389,81 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                           hintText: '예: 민감 장벽 케어 강조',
                           border: OutlineInputBorder(),
                         ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        '💊 오늘 고객을 위한 홈케어 처방',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '다중 선택 가능 · 고객 앱에 Why/How 문장으로 변환됩니다',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: HomeCarePrescriptionCatalog.all.map((p) {
+                          final selected =
+                              _homeCarePrescriptions.contains(p.id);
+                          return FilterChip(
+                            label: Text(p.chipLabel),
+                            selected: selected,
+                            onSelected: (v) {
+                              setState(() {
+                                if (v) {
+                                  _homeCarePrescriptions.add(p.id);
+                                } else {
+                                  _homeCarePrescriptions.remove(p.id);
+                                }
+                              });
+                            },
+                            selectedColor:
+                                MyApp.soriPurple.withValues(alpha: 0.18),
+                            checkmarkColor: MyApp.soriPurple,
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        '가족 연동 (보호자)',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _guardianPhoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: '보호자 연락처',
+                          hintText: '예: 010-1234-5678',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          '정보 열람 동의',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: const Text(
+                          '보호자 번호로 로그인한 가족이 이 고객의 케어 탭을 열람할 수 있어요',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        value: _infoViewConsent,
+                        activeThumbColor: MyApp.soriPurple,
+                        onChanged: (v) =>
+                            setState(() => _infoViewConsent = v),
                       ),
                     ],
                   ),

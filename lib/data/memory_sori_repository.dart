@@ -1,3 +1,4 @@
+import '../models/care_diary_note.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
@@ -222,6 +223,15 @@ class MemorySoriRepository implements SoriRepository {
     required String chartId,
     required bool shared,
   }) async {}
+
+  @override
+  Future<void> updateHomeCareMissionChecks({
+    required String chartId,
+    required List<bool> checks,
+  }) async {}
+
+  @override
+  Future<CareDiaryNote> upsertCareDiaryNote(CareDiaryNote note) async => note;
 
   @override
   Future<CustomerReview> upsertReview(CustomerReview review) async => review;
