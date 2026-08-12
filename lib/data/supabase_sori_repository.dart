@@ -43,12 +43,11 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   /// PGRST204 방어: 스키마에 없는 컬럼 키를 페이로드에서 제거 후 재시도.
-  Map<String, dynamic> _stripUnknownChartColumn(
+  Map<String, dynamic> _stripUnknownColumn(
     Map<String, dynamic> payload,
     Object error,
   ) {
     final msg = error.toString();
-    // Could not find the 'col' column of 'table'
     final match = RegExp(
       r"Could not find the '([^']+)' column",
       caseSensitive: false,
@@ -57,9 +56,15 @@ class SupabaseSoriRepository implements SoriRepository {
     final col = match.group(1);
     if (col == null || col.isEmpty) return payload;
     final next = Map<String, dynamic>.from(payload)..remove(col);
-    debugPrint('Removed unknown chart column from payload: $col');
+    debugPrint('Removed unknown column from payload: $col');
     return next;
   }
+
+  Map<String, dynamic> _stripUnknownChartColumn(
+    Map<String, dynamic> payload,
+    Object error,
+  ) =>
+      _stripUnknownColumn(payload, error);
 
   Future<Map<String, dynamic>> _insertChartRow(
     Map<String, dynamic> payload,
@@ -129,11 +134,6 @@ class SupabaseSoriRepository implements SoriRepository {
 
   static String _digits(String phone) => phone.replaceAll(RegExp(r'\D'), '');
 
-  static String _dateOnly(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
-
   /// Before/After 미첨부·빈 문자열은 DB null로 고정.
   static String? _imageUrlOrNull(String? value) => DbMap.asTextOrNull(value);
 
@@ -191,31 +191,38 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   Map<String, dynamic> _customerWriteMap(Customer c, {bool includeId = true}) {
-    // 차트 전용 메디컬 필드(allergy/home_care 등)는 customers payload에서 제외
-    final synced = c.withSyncedMembershipMirrors();
-    final map = <String, dynamic>{
-      'shop_id': synced.shopId,
-      'name': synced.name,
-      'phone': synced.phone.replaceAll(RegExp(r'[^0-9]'), ''),
-      'last_treatment_date': _dateOnly(synced.lastTreatmentDate),
-      'treatment_type': synced.treatmentType,
-      'memo': synced.memo,
-      'memberships':
-          synced.memberships.map((m) => m.toJson()).toList(),
-      'membership_service_name': synced.membershipServiceName,
-      'membership_total_visits': synced.membershipTotalVisits,
-      'membership_used_visits': synced.membershipUsedVisits,
-      'gender': synced.gender?.dbValue,
-      'birth_date':
-          synced.birthDate == null ? null : _dateOnly(synced.birthDate!),
-      'address': synced.address,
-      'occupation': synced.occupation,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    };
-    if (includeId && synced.id.isNotEmpty && !_isTempId(synced.id)) {
-      map['id'] = synced.id;
+    // 단일 소스: Customer.toDbWriteMap
+    // 제외: allergy_notes / medication_history / home_care_habits (차트 SSOT)
+    final map = c.toDbWriteMap(includeId: false);
+    if (includeId && c.id.isNotEmpty && !_isTempId(c.id)) {
+      map['id'] = c.id;
     }
     return map;
+  }
+
+  Future<Map<String, dynamic>> _upsertCustomerRow(
+    Map<String, dynamic> payload, {
+    required bool includeId,
+  }) async {
+    var body = Map<String, dynamic>.from(payload);
+    Object? lastError;
+    for (var attempt = 0; attempt < 8; attempt++) {
+      try {
+        final row = includeId
+            ? await _db.from('customers').upsert(body).select().single()
+            : await _db.from('customers').insert(body).select().single();
+        return Map<String, dynamic>.from(row);
+      } catch (e) {
+        lastError = e;
+        final stripped = _stripUnknownColumn(body, e);
+        if (stripped.length != body.length) {
+          body = stripped;
+          continue;
+        }
+        rethrow;
+      }
+    }
+    throw lastError ?? StateError('customers upsert failed');
   }
 
   Map<String, dynamic> _chartWriteMap(CustomerChart c, {bool includeId = true}) {
@@ -462,14 +469,8 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<Customer> upsertCustomer(Customer customer) async {
     final includeId = customer.id.isNotEmpty && !_isTempId(customer.id);
     final payload = _customerWriteMap(customer, includeId: includeId);
-    final row = includeId
-        ? await _db
-            .from('customers')
-            .upsert(payload)
-            .select()
-            .single()
-        : await _db.from('customers').insert(payload).select().single();
-    final saved = Customer.fromMap(Map<String, dynamic>.from(row));
+    final row = await _upsertCustomerRow(payload, includeId: includeId);
+    final saved = Customer.fromMap(row);
     try {
       await syncMembershipTicketsForCustomer(saved.id);
     } catch (e) {
@@ -639,15 +640,29 @@ class SupabaseSoriRepository implements SoriRepository {
     required String phone,
     String memo = '',
   }) async {
-    final payload = <String, dynamic>{
+    var payload = <String, dynamic>{
       'shop_id': shopId,
       'name': name.trim(),
       'phone': phone.replaceAll(RegExp(r'[^0-9]'), ''),
       'memo': memo.trim(),
     };
-    final row =
-        await _db.from('customers').insert(payload).select().single();
-    return Customer.fromMap(Map<String, dynamic>.from(row));
+    Object? lastError;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      try {
+        final row =
+            await _db.from('customers').insert(payload).select().single();
+        return Customer.fromMap(Map<String, dynamic>.from(row));
+      } catch (e) {
+        lastError = e;
+        final stripped = _stripUnknownColumn(payload, e);
+        if (stripped.length != payload.length) {
+          payload = stripped;
+          continue;
+        }
+        rethrow;
+      }
+    }
+    throw lastError ?? StateError('registerCustomer failed');
   }
 
   @override

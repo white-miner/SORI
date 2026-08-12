@@ -193,24 +193,46 @@ class Customer {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// customers upsert 전용 안전 페이로드 (메디컬·차트 필드 제외).
+  /// SSOT: memberships jsonb → sync → membership_tickets.
+  Map<String, dynamic> toDbWriteMap({bool includeId = false}) {
     final synced = withSyncedMembershipMirrors();
-    return {
-      'id': synced.id,
+    final map = <String, dynamic>{
       'shop_id': synced.shopId,
       'name': synced.name,
       'phone': synced.phone.replaceAll(RegExp(r'[^0-9]'), ''),
-      'last_treatment_date': synced.lastTreatmentDate.toIso8601String(),
+      'last_treatment_date':
+          '${synced.lastTreatmentDate.year.toString().padLeft(4, '0')}-'
+          '${synced.lastTreatmentDate.month.toString().padLeft(2, '0')}-'
+          '${synced.lastTreatmentDate.day.toString().padLeft(2, '0')}',
       'treatment_type': synced.treatmentType,
       'memo': synced.memo,
       'memberships': synced.memberships.map((m) => m.toJson()).toList(),
+      // 레거시 미러 (구 UI/쿼리 호환). 티켓 지갑 SSOT 는 membership_tickets.
       'membership_service_name': synced.membershipServiceName,
       'membership_total_visits': synced.membershipTotalVisits,
       'membership_used_visits': synced.membershipUsedVisits,
       'gender': synced.gender?.dbValue,
-      'birth_date': synced.birthDate?.toIso8601String(),
+      'birth_date': synced.birthDate == null
+          ? null
+          : '${synced.birthDate!.year.toString().padLeft(4, '0')}-'
+              '${synced.birthDate!.month.toString().padLeft(2, '0')}-'
+              '${synced.birthDate!.day.toString().padLeft(2, '0')}',
       'address': synced.address,
       'occupation': synced.occupation,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (includeId && synced.id.isNotEmpty) {
+      map['id'] = synced.id;
+    }
+    return map;
+  }
+
+  Map<String, dynamic> toMap() {
+    final synced = withSyncedMembershipMirrors();
+    return {
+      ...synced.toDbWriteMap(includeId: true),
+      // 로컬/디버그용 — DB customers upsert 에는 넣지 않음 (차트 SSOT)
       'allergy_notes': synced.allergyNotes,
       'medication_history': synced.medicationHistory,
       'home_care_habits': synced.homeCareHabits,
