@@ -1,3 +1,4 @@
+import '../models/customer_review.dart';
 import '../services/sori_store.dart';
 
 /// 리뷰 통계 조회 기간.
@@ -31,6 +32,9 @@ extension ReviewStatsPeriodX on ReviewStatsPeriod {
 }
 
 /// 원장 마이페이지용 기간별 통계 요약.
+///
+/// - 작성된 리뷰: `customer_reviews` 중 status != draft (고객 작성 완료/진행만)
+/// - 차트 작성(케어): `customer_charts` 생성 건수만 독립 집계
 class DirectorPeriodStats {
   const DirectorPeriodStats({
     required this.reviewsWritten,
@@ -39,15 +43,19 @@ class DirectorPeriodStats {
     required this.topChips,
   });
 
-  /// 기간 내 작성된 리뷰 수.
+  /// 기간 내 작성된 리뷰 수 (DRAFT 제외).
   final int reviewsWritten;
 
-  /// 기간 내 차트(케어) 작성 건수.
+  /// 기간 내 차트(케어) 작성 건수 — 리뷰와 무관.
   final int chartsWritten;
 
   /// AI 후기 작성 후 네이버 공유(등록) 전환율 %.
   final double naverConversionPercent;
   final List<({String chip, int count})> topChips;
+
+  /// DB `status` 값 `'draft'` 와 동일 — 차트 저장 시 자동 초안은 통계에서 제외.
+  static bool isCompletedReview(CustomerReview r) =>
+      r.status != ReviewStatus.draft;
 
   static DirectorPeriodStats fromStore(
     SoriStore store, {
@@ -62,15 +70,24 @@ class DirectorPeriodStats {
       return !d.isBefore(start) && !d.isAfter(n);
     }
 
+    // 1) 차트 작성(케어) — customer_charts 생성 시각만 독립 집계
     final periodCharts = store.charts.where((c) {
-      final d = c.visitCheckedAt ?? c.createdAt ?? c.feedbackLineOpenedAt;
+      final d = c.createdAt ?? c.visitCheckedAt ?? c.feedbackLineOpenedAt;
       return inRange(d);
     }).toList();
 
+    // 2) 작성된 리뷰 — status != draft 만 (차트 초안 자동 생성분 제외)
     final periodReviews = store.reviews.where((r) {
-      final d = r.acceptedAt ?? r.naverRegisteredAt;
-      if (inRange(d)) return true;
-      return periodCharts.any((c) => c.id == r.chartId);
+      if (!isCompletedReview(r)) return false;
+      final completedAt = r.acceptedAt ?? r.naverRegisteredAt;
+      if (inRange(completedAt)) return true;
+      // 완료 상태인데 시각이 없으면 해당 차트 생성일이 기간 안일 때만 귀속
+      if (completedAt != null) return false;
+      final chart = store.findChartById(r.chartId);
+      if (chart == null) return false;
+      final chartAt =
+          chart.createdAt ?? chart.visitCheckedAt ?? chart.feedbackLineOpenedAt;
+      return inRange(chartAt);
     }).toList();
 
     final reviewCount = periodReviews.length;

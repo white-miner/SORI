@@ -71,8 +71,10 @@ class _MyPageState extends State<MyPage> {
     final charts = customerId == null
         ? store.charts
         : store.chartsForCustomer(customerId);
-    final reviewCount =
-        charts.where((c) => store.reviewForChart(c.id) != null).length;
+    final reviewCount = charts.where((c) {
+      final r = store.reviewForChart(c.id);
+      return r != null && DirectorPeriodStats.isCompletedReview(r);
+    }).length;
     final wallet = store.activeMembershipWallet;
     final remain = wallet.fold<int>(0, (s, t) => s + t.remainingVisits);
 
