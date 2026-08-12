@@ -59,15 +59,12 @@ class _AdminChartPageState extends State<AdminChartPage>
   }) async {
     final customer = _customer;
     if (customer == null) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AdminChartWriterPage(
-          store: widget.store,
-          customer: customer,
-          existingChart: chart,
-          forceQuickChart: forceQuickChart,
-        ),
-      ),
+    await openChartWriterForCustomer(
+      context,
+      store: widget.store,
+      customer: customer,
+      existingChart: chart,
+      forceQuickChart: forceQuickChart,
     );
   }
 

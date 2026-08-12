@@ -68,7 +68,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return _StoreErrorHost(child: child ?? const SizedBox.shrink());
       },
-      initialRoute: AppRouter.home,
+      initialRoute: AppRouter.resolveInitialRoute(),
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

@@ -13,6 +13,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/home_care_prescriptions.dart';
+import '../routing/app_router.dart';
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/chart_signature_storage.dart';
@@ -33,31 +34,34 @@ Future<void> openChartWriterForCustomer(
   CustomerChart? existingChart,
   bool forceQuickChart = false,
 }) async {
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => AdminChartWriterPage(
-        store: store,
-        customer: customer,
-        existingChart: existingChart,
-        forceQuickChart: forceQuickChart,
-      ),
-      fullscreenDialog: true,
-    ),
+  final location = AppRouter.buildChartCreateLocation(
+    customerId: customer.id,
+    chartId: existingChart?.id,
+    forceQuickChart: forceQuickChart,
   );
+  await Navigator.of(context).pushNamed(location);
 }
 
 /// 원장용 차트 작성 (고객 식별·메디컬 이력·심리 인터뷰·방문 확인).
+///
+/// `customerId` 는 URL(`/chart/create?customerId=`)을 최우선으로 고정한다.
 class AdminChartWriterPage extends StatefulWidget {
   const AdminChartWriterPage({
     super.key,
     required this.store,
-    required this.customer,
+    this.customerId,
+    this.customer,
     this.existingChart,
     this.forceQuickChart = false,
   });
 
   final SoriStore store;
-  final Customer customer;
+
+  /// URL / 라우터에서 전달된 고객 ID (SSOT).
+  final String? customerId;
+
+  /// 진입 시점 시드(선택). 없어도 [customerId] 로 Store에서 복원한다.
+  final Customer? customer;
   final CustomerChart? existingChart;
 
   /// CRM '1초 간편 차트' 진입 — 최근 차트 프리필.
@@ -70,6 +74,9 @@ class AdminChartWriterPage extends StatefulWidget {
 
 class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     with TickerProviderStateMixin {
+  /// URL → widget 순으로 고정된 고객 ID (저장 시 SSOT).
+  late String _boundCustomerId;
+
   late int _visitNumber;
   late final TabController _tabController;
   late final PageController _pageController;
@@ -270,9 +277,69 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   List<String> get _serviceOptions => widget.store.shop.serviceNames;
 
+  Customer _seedCustomer() {
+    final id = _boundCustomerId;
+    final found = widget.store.findCustomer(id) ?? widget.customer;
+    if (found != null) return found;
+    return Customer(
+      id: id,
+      name: '',
+      phone: '',
+      lastTreatmentDate: DateTime.now(),
+      treatmentType: '',
+      shopId: widget.store.shop.id,
+    );
+  }
+
+  /// URL을 최우선으로 customerId를 잠근다.
+  String _lockCustomerIdFromSources({RouteSettings? settings}) {
+    final fromBrowser = AppRouter.chartCustomerIdFromBrowser()?.trim() ?? '';
+    final fromRoute =
+        AppRouter.chartCustomerIdFromSettings(settings)?.trim() ?? '';
+    final fromWidget =
+        (widget.customerId ?? widget.customer?.id ?? '').trim();
+    if (fromBrowser.isNotEmpty) return fromBrowser;
+    if (fromRoute.isNotEmpty) return fromRoute;
+    return fromWidget;
+  }
+
+  Future<bool> _ensureCustomerIdForSave() async {
+    final refreshed = _lockCustomerIdFromSources(
+      settings: ModalRoute.of(context)?.settings,
+    );
+    if (refreshed.isNotEmpty) {
+      _boundCustomerId = refreshed;
+    }
+    if (_boundCustomerId.trim().isNotEmpty) {
+      return true;
+    }
+    if (!mounted) return false;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('고객 정보 유실'),
+        content: const Text(
+          '고객 정보가 유실되었습니다. 고객 관리 화면에서 다시 진입해 주세요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
+    _boundCustomerId = _lockCustomerIdFromSources();
     _tabController = TabController(length: 2, vsync: this);
     _pageController = PageController();
     _shakeController = AnimationController(
@@ -299,13 +366,24 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     widget.store.addListener(_onStoreMembershipSync);
     final existing = widget.existingChart;
     // 전화번호를 Unique Key로 기존 고객 프로필을 우선 로드 (자동 완성).
-    final byPhone = widget.store.findCustomerByPhone(widget.customer.phone);
-    final c = byPhone ?? widget.customer;
+    final seedCustomer = _seedCustomer();
+    final byPhone =
+        widget.store.findCustomerByPhone(seedCustomer.phone);
+    final c = byPhone ?? seedCustomer;
+    if (c.id.trim().isNotEmpty && _boundCustomerId.isEmpty) {
+      _boundCustomerId = c.id.trim();
+    }
     // 간편 차트: 최근 차트에서 고정 정보 프리필 (신규 회차용 시드).
     final seed = existing ??
-        (widget.forceQuickChart ? widget.store.latestChart(c.id) : null);
-    _visitNumber =
-        existing?.visitNumber ?? widget.store.nextVisitNumber(c.id);
+        (widget.forceQuickChart
+            ? widget.store.latestChart(_boundCustomerId.isNotEmpty
+                ? _boundCustomerId
+                : c.id)
+            : null);
+    _visitNumber = existing?.visitNumber ??
+        widget.store.nextVisitNumber(
+          _boundCustomerId.isNotEmpty ? _boundCustomerId : c.id,
+        );
     if (existing != null) {
       if (existing.revisitFeedbackChips.isNotEmpty &&
           existing.firstVisitFearChips.isEmpty) {
@@ -417,6 +495,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _refreshAnnualConsent(notify: false);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locked = _lockCustomerIdFromSources(
+      settings: ModalRoute.of(context)?.settings,
+    );
+    if (locked.isNotEmpty && locked != _boundCustomerId) {
+      _boundCustomerId = locked;
+    }
+  }
+
   void _onSignatureChanged() {
     if (!mounted) return;
     setState(() {});
@@ -436,7 +525,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   void _onStoreMembershipSync() {
     if (!mounted) return;
-    final live = widget.store.findCustomer(widget.customer.id) ??
+    final live = widget.store.findCustomer(_boundCustomerId) ??
         widget.store.findCustomerByPhone(_phoneController.text);
     if (live == null) return;
     final next = List<CustomerMembership>.from(
@@ -518,9 +607,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   Future<void> _openMembershipSheet() async {
-    final live = widget.store.findCustomer(widget.customer.id) ??
+    final live = widget.store.findCustomer(_boundCustomerId) ??
         widget.store.findCustomerByPhone(_phoneController.text) ??
         widget.customer;
+    if (live == null) {
+      final ok = await _ensureCustomerIdForSave();
+      if (!ok) return;
+      return;
+    }
     final result = await showMembershipEditorSheet(
       context: context,
       store: widget.store,
@@ -933,7 +1027,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       final url = await ChartPhotoStorage.uploadWebp(
         bytes: compressed,
         shopId: widget.store.shop.id,
-        customerId: widget.customer.id,
+        customerId: _boundCustomerId,
         kind: isBefore ? 'before' : 'after',
       );
 
@@ -1027,6 +1121,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     final ok = await _focusFirstMissingRequiredField();
     if (!ok) return;
     if (!mounted) return;
+    // 이중 검사: URL/바인딩 customerId 필수
+    final hasCustomer = await _ensureCustomerIdForSave();
+    if (!hasCustomer) return;
+    if (!mounted) return;
     if (_beforeUploading || _afterUploading) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1049,7 +1147,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           final uploaded = await ChartSignatureStorage.uploadPng(
             bytes: bytes,
             shopId: widget.store.shop.id,
-            customerId: widget.customer.id,
+            customerId: _boundCustomerId,
           );
           if (uploaded != null) {
             signatureUrl = uploaded;
@@ -1058,7 +1156,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       }
 
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
-        customerId: widget.customer.id,
+        customerId: _boundCustomerId,
         visitNumber: _visitNumber,
         customChartNo: _customNoController.text.trim().isEmpty
             ? null
@@ -1156,6 +1254,38 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
   @override
   Widget build(BuildContext context) {
+    if (_boundCustomerId.trim().isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: const Text('차트 작성'),
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF2D3436),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '고객 정보가 유실되었습니다. 고객 관리 화면에서 다시 진입해 주세요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, height: 1.45),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('돌아가기'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return ScrollConfiguration(
       behavior: const SoriMouseWheelScrollBehavior(),
       child: Scaffold(
