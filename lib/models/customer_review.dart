@@ -1,3 +1,5 @@
+import '../utils/db_map.dart';
+
 enum ReviewStatus {
   draft,
   accepted,
@@ -104,26 +106,29 @@ class CustomerReview {
       };
 
   factory CustomerReview.fromMap(Map<String, dynamic> map) {
-    final puzzle = map['puzzle_selections'];
+    final id = DbMap.asText(map['id']);
+    final chartId = DbMap.asText(map['chart_id']);
+    final customerId = DbMap.asText(map['customer_id']);
+    final shopId = DbMap.asText(map['shop_id']);
+    if (id.isEmpty || chartId.isEmpty || customerId.isEmpty || shopId.isEmpty) {
+      throw FormatException(
+        'customer_reviews row missing required fields '
+        '(id/chart_id/customer_id/shop_id)',
+      );
+    }
     return CustomerReview(
-      id: map['id'] as String,
-      chartId: map['chart_id'] as String,
-      customerId: map['customer_id'] as String,
-      shopId: map['shop_id'] as String,
-      puzzleSelections: puzzle is List
-          ? puzzle.map((e) => e.toString()).toList()
-          : const [],
-      originalText: map['original_text'] as String? ?? '',
-      editedText: map['edited_text'] as String?,
-      status: ReviewStatusX.fromDb(map['status'] as String? ?? 'draft'),
-      requestAiReply: map['request_ai_reply'] as bool? ?? false,
-      acceptedAt: map['accepted_at'] != null
-          ? DateTime.parse(map['accepted_at'] as String)
-          : null,
-      naverRegistered: map['naver_registered'] as bool? ?? false,
-      naverRegisteredAt: map['naver_registered_at'] != null
-          ? DateTime.parse(map['naver_registered_at'] as String)
-          : null,
+      id: id,
+      chartId: chartId,
+      customerId: customerId,
+      shopId: shopId,
+      puzzleSelections: DbMap.asStringList(map['puzzle_selections']),
+      originalText: DbMap.asText(map['original_text']),
+      editedText: DbMap.asTextOrNull(map['edited_text']),
+      status: ReviewStatusX.fromDb(DbMap.asText(map['status'], 'draft')),
+      requestAiReply: DbMap.asBool(map['request_ai_reply']),
+      acceptedAt: DbMap.asDateTime(map['accepted_at']),
+      naverRegistered: DbMap.asBool(map['naver_registered']),
+      naverRegisteredAt: DbMap.asDateTime(map['naver_registered_at']),
     );
   }
 }

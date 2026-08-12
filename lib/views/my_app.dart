@@ -103,7 +103,10 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
   void _onStore() {
     if (!mounted) return;
     final err = _store.lastError;
-    if (err != null && err.isNotEmpty && err != _shownError) {
+    if (err != null &&
+        err.isNotEmpty &&
+        err != _shownError &&
+        !SoriStore.isNonFatalRemoteNoise(err)) {
       _shownError = err;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

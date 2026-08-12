@@ -952,37 +952,44 @@ class SupabaseSoriRepository implements SoriRepository {
     customer = await upsertCustomer(customer);
     // upsertCustomer → sync_membership_tickets_for_customer 로 티켓 지갑 동기화
 
-    // 리뷰 초안
+    // 리뷰 초안 — 스키마 드리프트/PGRST204 시에도 차트 저장은 성공 유지
     CustomerReview? review;
-    final existingReview = await _db
-        .from('customer_reviews')
-        .select()
-        .eq('chart_id', chart.id)
-        .maybeSingle();
-    if (existingReview == null) {
-      final draftText =
-          '${customer.name}님, ${chart.careName.isNotEmpty ? chart.careName : customer.treatmentType} 후기 초안';
-      final inserted = await _db
+    try {
+      final existingReview = await _db
           .from('customer_reviews')
-          .insert({
-            'chart_id': chart.id,
-            'customer_id': customer.id,
-            'shop_id': customer.shopId,
-            'puzzle_selections': const [
-              '피부 톤이 밝아졌어요',
-              '시술 후 자극이 적었어요',
-            ],
-            'original_text': draftText,
-            'status': 'draft',
-            'naver_registered': false,
-          })
           .select()
-          .single();
-      review =
-          CustomerReview.fromMap(Map<String, dynamic>.from(inserted));
-    } else {
-      review =
-          CustomerReview.fromMap(Map<String, dynamic>.from(existingReview));
+          .eq('chart_id', chart.id)
+          .maybeSingle();
+      if (existingReview == null) {
+        final draftText =
+            '${customer.name}님, ${chart.careName.isNotEmpty ? chart.careName : customer.treatmentType} 후기 초안';
+        final inserted = await _db
+            .from('customer_reviews')
+            .insert({
+              'chart_id': chart.id,
+              'customer_id': customer.id,
+              'shop_id': customer.shopId,
+              'puzzle_selections': const [
+                '피부 톤이 밝아졌어요',
+                '시술 후 자극이 적었어요',
+              ],
+              'original_text': draftText,
+              'status': 'draft',
+              'naver_registered': false,
+            })
+            .select()
+            .single();
+        review =
+            CustomerReview.fromMap(Map<String, dynamic>.from(inserted));
+      } else {
+        review =
+            CustomerReview.fromMap(Map<String, dynamic>.from(existingReview));
+      }
+    } catch (e, st) {
+      debugPrint(
+        'customer_reviews draft skipped (chart already saved): $e\n$st',
+      );
+      review = null;
     }
 
     return SaveChartResult(
@@ -1166,18 +1173,23 @@ class SupabaseSoriRepository implements SoriRepository {
     final payload = review.toMap();
     payload.remove('id');
     payload['updated_at'] = DateTime.now().toUtc().toIso8601String();
-    if (review.id.isNotEmpty && !_isTempId(review.id)) {
-      final row = await _db
-          .from('customer_reviews')
-          .update(payload)
-          .eq('id', review.id)
-          .select()
-          .single();
+    try {
+      if (review.id.isNotEmpty && !_isTempId(review.id)) {
+        final row = await _db
+            .from('customer_reviews')
+            .update(payload)
+            .eq('id', review.id)
+            .select()
+            .single();
+        return CustomerReview.fromMap(Map<String, dynamic>.from(row));
+      }
+      final row =
+          await _db.from('customer_reviews').insert(payload).select().single();
       return CustomerReview.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('upsertReview failed: $e\n$st');
+      rethrow;
     }
-    final row =
-        await _db.from('customer_reviews').insert(payload).select().single();
-    return CustomerReview.fromMap(Map<String, dynamic>.from(row));
   }
 
   @override

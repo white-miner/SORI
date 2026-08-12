@@ -55,7 +55,25 @@ class SoriStore {
     _notify();
   }
 
-  void _setError(Object error) {
+  /// 스키마 드리프트/백그라운드 실패 — UI 전역 빨간 배너에 올리지 않음.
+  static bool isNonFatalRemoteNoise(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('pgrst204') ||
+        (msg.contains('could not find the') && msg.contains('column')) ||
+        msg.contains('schema cache') ||
+        (msg.contains('customer_reviews') && msg.contains('customer_id')) ||
+        msg.contains('postgrestexception');
+  }
+
+  void _logQuiet(Object error, [String label = 'background']) {
+    debugPrint('SoriStore quiet[$label]: $error');
+  }
+
+  void _setError(Object error, {bool userFacing = true}) {
+    if (!userFacing || isNonFatalRemoteNoise(error)) {
+      _logQuiet(error, userFacing ? 'schema' : 'background');
+      return;
+    }
     lastError = error.toString().replaceFirst('Exception: ', '');
     debugPrint('SoriStore error: $lastError');
   }
@@ -147,7 +165,7 @@ class SoriStore {
       bootstrapFailed = false;
     } catch (e, st) {
       debugPrint('bootstrap failed: $e\n$st');
-      _setError(e);
+      _setError(e, userFacing: false);
       bootstrapFailed = true;
       // UI가 죽지 않도록 시드 유지하되, Retry로 원격 재연결 가능
       if (customers.isEmpty) {
@@ -878,7 +896,7 @@ class SoriStore {
           shop = await _repository.upsertShop(shop);
           _notify();
         } catch (e) {
-          _setError(e);
+          _setError(e, userFacing: false);
           _notify();
         }
       }();
@@ -1120,7 +1138,10 @@ class SoriStore {
       }
     }
 
-    _setError(lastFailure ?? StateError('naver_registered sync failed'));
+    _setError(
+      lastFailure ?? StateError('naver_registered sync failed'),
+      userFacing: false,
+    );
     _notify();
     throw lastFailure ?? StateError('naver_registered sync failed');
   }
@@ -1516,7 +1537,7 @@ class SoriStore {
     customers.insert(0, customer);
     _notify();
     if (_repository.isRemote) {
-      // fire-and-forget remote upsert; errors surface via lastError
+      // fire-and-forget remote upsert; 스키마/네트워크 실패는 quiet log
       () async {
         try {
           final saved = await _repository.upsertCustomer(customer);
@@ -1526,7 +1547,7 @@ class SoriStore {
           if (idx >= 0) customers[idx] = saved;
           _notify();
         } catch (e) {
-          _setError(e);
+          _setError(e, userFacing: false);
           _notify();
         }
       }();

@@ -1,3 +1,5 @@
+import '../utils/db_map.dart';
+
 enum AiReplyStatus {
   pending,
   generating,
@@ -76,19 +78,21 @@ class AiReply {
       };
 
   factory AiReply.fromMap(Map<String, dynamic> map) {
+    final id = DbMap.asText(map['id']);
+    final reviewId = DbMap.asText(map['review_id']);
+    final chartId = DbMap.asText(map['chart_id']);
+    if (id.isEmpty || reviewId.isEmpty || chartId.isEmpty) {
+      throw FormatException('ai_replies row missing required fields');
+    }
     return AiReply(
-      id: map['id'] as String,
-      reviewId: map['review_id'] as String,
-      chartId: map['chart_id'] as String,
-      status: AiReplyStatusX.fromDb(map['status'] as String? ?? 'pending'),
-      replyText: map['reply_text'] as String?,
-      isCopied: map['is_copied'] as bool? ?? false,
-      copiedAt: map['copied_at'] != null
-          ? DateTime.parse(map['copied_at'] as String)
-          : null,
-      generatedAt: map['generated_at'] != null
-          ? DateTime.parse(map['generated_at'] as String)
-          : null,
+      id: id,
+      reviewId: reviewId,
+      chartId: chartId,
+      status: AiReplyStatusX.fromDb(DbMap.asText(map['status'], 'pending')),
+      replyText: DbMap.asTextOrNull(map['reply_text']),
+      isCopied: DbMap.asBool(map['is_copied']),
+      copiedAt: DbMap.asDateTime(map['copied_at']),
+      generatedAt: DbMap.asDateTime(map['generated_at']),
     );
   }
 }
