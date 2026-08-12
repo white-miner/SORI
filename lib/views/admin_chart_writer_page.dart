@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
 
@@ -59,7 +60,8 @@ Future<void> openChartWriterForCustomer(
     chartId: existingChart?.id,
     forceQuickChart: forceQuickChart,
   );
-  await Navigator.of(context).pushNamed(location);
+  // 셸 밖 루트 스택으로 열어 하단바와 분리
+  await context.push(location);
 }
 
 /// 원장용 차트 작성 (고객 식별·메디컬 이력·심리 인터뷰·방문 확인).

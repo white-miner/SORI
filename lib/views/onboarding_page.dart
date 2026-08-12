@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/session_user.dart';
-import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import 'my_app.dart';
 
@@ -49,10 +50,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _goApp() {
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      AppRouter.app,
-      (_) => false,
-    );
+    context.go(AppPaths.appHome);
   }
 
   void _selectDirector() {

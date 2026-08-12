@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/customer.dart';
 import '../services/sori_store.dart';
+import '../routing/sori_router.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
 import 'add_customer_sheet.dart';
-import 'admin_chart_page.dart';
 
 enum _CustomerSort { recentVisit, nameAsc, chartNo }
 
@@ -113,14 +114,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
   }
 
   void _openDetail(Customer c) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AdminChartPage(
-          store: widget.store,
-          customerId: c.id,
-        ),
-      ),
-    );
+    context.push(AppPaths.customerDetail(c.id));
   }
 
   void _pickSort() {

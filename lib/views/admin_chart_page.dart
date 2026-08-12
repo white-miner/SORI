@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
@@ -191,17 +193,29 @@ class _AdminChartPageState extends State<AdminChartPage>
     final galleryItems = _galleryItems(timeline);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: const Color(0xFFF4F5F7),
       appBar: AppBar(
-        title: Text('${customer.name} · 고객 관리'),
+        title: Text(customer.name),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D3436),
+        foregroundColor: const Color(0xFF1F2937),
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppPaths.appCustomers);
+            }
+          },
+        ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: MyApp.soriPurple,
-          unselectedLabelColor: Colors.grey.shade600,
-          indicatorColor: MyApp.soriPurple,
+          labelColor: const Color(0xFF1F2937),
+          unselectedLabelColor: const Color(0xFF9CA3AF),
+          indicatorColor: const Color(0xFF1F2937),
+          indicatorWeight: 2.5,
           tabs: const [
             Tab(text: '타임라인'),
             Tab(text: 'Before/After'),
@@ -215,7 +229,7 @@ class _AdminChartPageState extends State<AdminChartPage>
             child: _Header(customer: customer),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: _QuickActionDashboard(
               onMembership: _openMembershipSheet,
               onQuickChart: () => _openWriter(forceQuickChart: true),
@@ -299,22 +313,37 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEDE9FE), Color(0xFFFCE7F3)],
+              ),
+            ),
+            alignment: Alignment.center,
             child: Text(
               customer.name.characters.first,
               style: const TextStyle(
-                color: MyApp.soriPurple,
-                fontWeight: FontWeight.bold,
+                color: Color(0xFF4B5563),
+                fontWeight: FontWeight.w800,
                 fontSize: 18,
               ),
             ),
@@ -329,12 +358,17 @@ class _Header extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   customer.phone,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (customer.isMembershipCustomer) ...[
                   const SizedBox(height: 6),
@@ -342,8 +376,8 @@ class _Header extends StatelessWidget {
                     customer.membershipBadgeLabel,
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: MyApp.soriPurple,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6B7280),
                     ),
                   ),
                 ],
@@ -371,90 +405,223 @@ class _QuickActionDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _QuickActionButton(
-          label: '💳 회원권 등록 / 관리',
-          subtitle: '횟수권 즉시 등록·수정',
-          color: const Color(0xFF5B4B8A),
-          onTap: onMembership,
-        ),
-        const SizedBox(height: 10),
-        _QuickActionButton(
-          label: '📝 1초 간편 차트',
-          subtitle: '서명 없이 바로 차트 작성',
-          color: const Color(0xFF2E7D32),
+        _BentoCard(
+          title: '1초 간편 차트',
+          subtitle: '최근 정보로 바로 작성',
+          icon: Icons.bolt_rounded,
+          iconColors: const [Color(0xFFA7F3D0), Color(0xFF6EE7B7)],
+          iconFg: const Color(0xFF047857),
+          wide: true,
           onTap: onQuickChart,
         ),
-        const SizedBox(height: 10),
-        _QuickActionButton(
-          label: '📸 관리 경과 비교 (B/A)',
-          subtitle: '과거·오늘 사진 슬라이더 비교',
-          color: const Color(0xFF1565C0),
-          onTap: onBeforeAfter,
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _BentoCard(
+                title: '회원권 관리',
+                subtitle: '등록·수정',
+                icon: Icons.card_membership_rounded,
+                iconColors: const [Color(0xFFE9D5FF), Color(0xFFFBCFE8)],
+                iconFg: const Color(0xFF7C3AED),
+                onTap: onMembership,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _BentoCard(
+                title: 'B/A 비교',
+                subtitle: '경과 보기',
+                icon: Icons.compare_rounded,
+                iconColors: const [Color(0xFFBFDBFE), Color(0xFFC7D2FE)],
+                iconFg: const Color(0xFF2563EB),
+                onTap: onBeforeAfter,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.label,
+class _BentoCard extends StatelessWidget {
+  const _BentoCard({
+    required this.title,
     required this.subtitle,
-    required this.color,
+    required this.icon,
+    required this.iconColors,
+    required this.iconFg,
     required this.onTap,
+    this.wide = false,
   });
 
-  final String label;
+  final String title;
   final String subtitle;
-  final Color color;
+  final IconData icon;
+  final List<Color> iconColors;
+  final Color iconFg;
   final VoidCallback onTap;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 1.5,
-      shadowColor: color.withValues(alpha: 0.35),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.045),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: wide ? 20 : 16,
+              vertical: wide ? 20 : 18,
+            ),
+            child: wide
+                ? Row(
+                    children: [
+                      _GlossyIcon(
+                        icon: icon,
+                        colors: iconColors,
+                        fg: iconFg,
+                        size: 48,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _GlossyIcon(
+                        icon: icon,
+                        colors: iconColors,
+                        fg: iconFg,
+                        size: 42,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _GlossyIcon extends StatelessWidget {
+  const _GlossyIcon({
+    required this.icon,
+    required this.colors,
+    required this.fg,
+    required this.size,
+  });
+
+  final IconData icon;
+  final List<Color> colors;
+  final Color fg;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size * 0.34),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colors.last.withValues(alpha: 0.45),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 3,
+            left: 4,
+            right: 4,
+            height: size * 0.38,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.55),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Center(child: Icon(icon, color: fg, size: size * 0.46)),
+        ],
       ),
     );
   }

@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:go_router/go_router.dart';
 
-import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/app_scroll_behavior.dart';
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   static const Color soriPurple = SoriTokens.primary;
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router = createSoriGoRouter();
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: '소통하는 리뷰, SORI',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ko', 'KR'),
@@ -68,8 +76,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return _StoreErrorHost(child: child ?? const SizedBox.shrink());
       },
-      initialRoute: AppRouter.resolveInitialRoute(),
-      onGenerateRoute: AppRouter.onGenerateRoute,
+      routerConfig: _router,
     );
   }
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/session_user.dart';
-import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -379,10 +380,7 @@ class _MyPageState extends State<MyPage> {
                     danger: true,
                     onTap: () {
                       store.logout();
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                        AppRouter.home,
-                        (_) => false,
-                      );
+                      context.go(AppPaths.home);
                     },
                   ),
                 ],

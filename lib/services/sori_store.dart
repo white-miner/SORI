@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
 
 import '../data/memory_sori_repository.dart';
@@ -27,7 +28,7 @@ import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
 /// 앱 Facade — UI는 Store, 데이터는 Repository (Memory | Supabase).
-class SoriStore {
+class SoriStore implements Listenable {
   SoriStore({
     VisitTriggerService? visitTrigger,
     SoriRepository? repository,
@@ -111,7 +112,10 @@ class SoriStore {
   final Map<String, Timer> _missionDebounceTimers = {};
   final Map<String, List<bool>> _pendingMissionChecks = {};
 
+  @override
   void addListener(void Function() listener) => _listeners.add(listener);
+
+  @override
   void removeListener(void Function() listener) => _listeners.remove(listener);
   void _notify() {
     for (final listener in List.of(_listeners)) {

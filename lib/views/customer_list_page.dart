@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/customer.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
-import 'admin_chart_page.dart';
 import 'my_app.dart';
 
 class CustomerListPage extends StatefulWidget {
@@ -154,14 +155,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
   }
 
   void _openDetail(Customer customer) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AdminChartPage(
-          store: widget.store,
-          customerId: customer.id,
-        ),
-      ),
-    );
+    context.push(AppPaths.customerDetail(customer.id));
   }
 
   @override

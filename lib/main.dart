@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'config/env.dart';
 import 'data/repository_factory.dart';
@@ -14,6 +15,8 @@ import 'views/my_app.dart';
 Future<void> main() async {
   await runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // GitHub Pages `/#/...` 딥링크 유지
+    setUrlStrategy(HashUrlStrategy());
 
     // 전역 Error Boundary — 백그라운드/위젯 예외가 빨간 Exception 전체화면으로
     // 차트 작성 State 를 날리지 않도록 흡수한다.

@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/session_user.dart';
-import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_logo.dart';
 import 'chart_customer_picker_sheet.dart';
-import 'customer_care_page.dart';
-import 'customer_home_page.dart';
-import 'customer_management_cases_page.dart';
-import 'customer_review_dashboard_page.dart';
-import 'director_customers_tab.dart';
-import 'director_home_page.dart';
-import 'director_review_manage_page.dart';
 import 'message_history_page.dart';
-import 'my_page.dart';
-import 'success_cases_page.dart';
 
-/// 로그인 후 5탭 앱 셸 — 중앙 리뷰 메인 버튼 복구.
+/// 로그인 후 5탭 앱 셸 — [StatefulShellRoute] 로 하단바 고정.
 class AppShellPage extends StatefulWidget {
-  const AppShellPage({super.key});
+  const AppShellPage({super.key, required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
 
   @override
   State<AppShellPage> createState() => _AppShellPageState();
@@ -27,7 +21,6 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
-  int _tab = 0;
 
   static const _wideBreakpoint = 600.0;
   static const _reviewAccent = Color(0xFF6C5CE7);
@@ -38,10 +31,7 @@ class _AppShellPageState extends State<AppShellPage> {
     _store.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_store.session == null || !_store.session!.onboardingComplete) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRouter.home,
-          (_) => false,
-        );
+        context.go(AppPaths.login);
       }
     });
   }
@@ -54,12 +44,14 @@ class _AppShellPageState extends State<AppShellPage> {
 
   void _onChanged() {
     if (!mounted) return;
-    if (_tab > 4) _tab = 0;
     setState(() {});
   }
 
   void _selectTab(int index) {
-    setState(() => _tab = index);
+    widget.navigationShell.goBranch(
+      index,
+      initialLocation: index == widget.navigationShell.currentIndex,
+    );
   }
 
   Future<void> _openNotifications() async {
@@ -79,9 +71,9 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  String _titleForTab(bool isDirector) {
+  String _titleForTab(bool isDirector, int tab) {
     if (isDirector) {
-      return switch (_tab) {
+      return switch (tab) {
         0 => '홈',
         1 => '고객 관리',
         2 => '리뷰 관리',
@@ -90,7 +82,7 @@ class _AppShellPageState extends State<AppShellPage> {
         _ => 'SORI',
       };
     }
-    return switch (_tab) {
+    return switch (tab) {
       0 => '홈',
       1 => '케어',
       2 => '리뷰 작성',
@@ -98,6 +90,12 @@ class _AppShellPageState extends State<AppShellPage> {
       4 => '마이',
       _ => 'SORI',
     };
+  }
+
+  bool _isCustomerDetailRoute(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    return path.startsWith('${AppPaths.appCustomers}/') &&
+        path.length > AppPaths.appCustomers.length + 1;
   }
 
   @override
@@ -114,77 +112,42 @@ class _AppShellPageState extends State<AppShellPage> {
     final isDirector = session.activeMode == UserRole.director;
     final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
-
-    final pages = isDirector
-        ? <Widget>[
-            DirectorHomePage(key: const ValueKey('d-home'), store: _store),
-            DirectorCustomersTab(key: const ValueKey('d-cust'), store: _store),
-            DirectorReviewManagePage(
-              key: const ValueKey('d-review'),
-              store: _store,
-            ),
-            SuccessCasesPage(key: const ValueKey('d-cases'), store: _store),
-            MyPage(
-              key: const ValueKey('d-my'),
-              store: _store,
-              onSelectTab: _selectTab,
-            ),
-          ]
-        : <Widget>[
-            CustomerHomePage(
-              key: const ValueKey('c-home'),
-              store: _store,
-              onSelectTab: _selectTab,
-            ),
-            CustomerCareTab(key: const ValueKey('c-care'), store: _store),
-            CustomerReviewDashboardPage(
-              key: const ValueKey('c-review'),
-              store: _store,
-            ),
-            CustomerManagementCasesPage(
-              key: const ValueKey('c-cases'),
-              store: _store,
-            ),
-            MyPage(
-              key: const ValueKey('c-my'),
-              store: _store,
-              onSelectTab: _selectTab,
-            ),
-          ];
-
-    final safeIndex = _tab.clamp(0, pages.length - 1);
+    final tab = widget.navigationShell.currentIndex;
+    final hideShellAppBar = _isCustomerDetailRoute(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const SoriLogo(width: 24, height: 24),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                _titleForTab(isDirector),
-                overflow: TextOverflow.ellipsis,
+      appBar: hideShellAppBar
+          ? null
+          : AppBar(
+              title: Row(
+                children: [
+                  const SoriLogo(width: 24, height: 24),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _titleForTab(isDirector, tab),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
+              backgroundColor: Colors.white,
+              foregroundColor: SoriTokens.textPrimary,
+              elevation: 0,
+              actions: [
+                if (tab == 0)
+                  IconButton(
+                    tooltip: '알림',
+                    onPressed: _openNotifications,
+                    icon: const Icon(Icons.notifications_none_rounded),
+                  ),
+                if (isDirector && isWide && tab == 0)
+                  const SizedBox(width: 72),
+              ],
             ),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: SoriTokens.textPrimary,
-        elevation: 0,
-        actions: [
-          if (safeIndex == 0)
-            IconButton(
-              tooltip: '알림',
-              onPressed: _openNotifications,
-              icon: const Icon(Icons.notifications_none_rounded),
-            ),
-          if (isDirector && isWide && safeIndex == 0)
-            const SizedBox(width: 72),
-        ],
-      ),
-      body: IndexedStack(index: safeIndex, children: pages),
-      floatingActionButton: isDirector
+      body: widget.navigationShell,
+      floatingActionButton: isDirector && !hideShellAppBar
           ? FloatingActionButton(
               tooltip: '새 차트 작성',
               onPressed: () => showChartCustomerPickerSheet(
@@ -199,7 +162,7 @@ class _AppShellPageState extends State<AppShellPage> {
           ? FloatingActionButtonLocation.endTop
           : FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _CenterReviewBottomNav(
-        currentIndex: safeIndex,
+        currentIndex: tab,
         isDirector: isDirector,
         reviewLabel: reviewLabel,
         onTap: _selectTab,
@@ -243,7 +206,6 @@ class _CenterReviewBottomNav extends StatelessWidget {
             (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ];
 
-    // side indices map to tabs 0,1,3,4 (center is 2)
     final sideTabIndex = [0, 1, 3, 4];
 
     return SizedBox(

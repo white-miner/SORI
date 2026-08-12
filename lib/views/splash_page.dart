@@ -1,13 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
-import 'entry_home_page.dart';
 import 'onboarding_page.dart';
-import 'app_shell_page.dart';
 
 enum _SplashDest {
   app,
@@ -44,7 +43,6 @@ class _SplashPageState extends State<SplashPage> {
   Future<void> _bootstrapAndRoute() async {
     final token = widget.initialToken?.trim() ?? '';
 
-    // 최소 1.5초 노출 + 백그라운드 세션 체크를 병렬 수행
     late final _SplashDest dest;
     await Future.wait<void>([
       Future<void>.delayed(const Duration(milliseconds: 1500)),
@@ -59,27 +57,28 @@ class _SplashPageState extends State<SplashPage> {
     _navigated = true;
 
     if (dest == _SplashDest.review) {
-      Navigator.of(context).pushReplacementNamed(
-        '${AppRouter.review}?token=${Uri.encodeQueryComponent(token)}',
+      context.go(
+        '${AppPaths.review}?token=${Uri.encodeQueryComponent(token)}',
       );
       return;
     }
 
-    final Widget next = switch (dest) {
-      _SplashDest.app => const AppShellPage(),
-      _SplashDest.onboarding => const OnboardingPage(),
-      _SplashDest.login => const EntryHomePage(),
-      _SplashDest.review => const EntryHomePage(),
-    };
+    if (dest == _SplashDest.onboarding) {
+      await Navigator.of(context).pushReplacement(
+        PageRouteBuilder<void>(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const OnboardingPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 480),
+        ),
+      );
+      return;
+    }
 
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder<void>(
-        pageBuilder: (context, animation, secondaryAnimation) => next,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 480),
-      ),
+    context.go(
+      dest == _SplashDest.app ? AppPaths.appHome : AppPaths.login,
     );
   }
 
@@ -89,18 +88,17 @@ class _SplashPageState extends State<SplashPage> {
       if (supabaseSession != null) {
         final sessionUser =
             await _store.hydrateSessionFromAuth(supabaseSession.user);
-        if (sessionUser.onboardingComplete) {
-          return _SplashDest.app;
-        }
+        if (sessionUser.onboardingComplete) return _SplashDest.app;
         return _SplashDest.onboarding;
       }
     } catch (e) {
-      debugPrint('Splash session hydrate failed: $e');
+      debugPrint('splash auth hydrate skipped: $e');
     }
 
     final local = _store.session;
-    if (local != null && local.onboardingComplete) {
-      return _SplashDest.app;
+    if (local != null && local.onboardingComplete) return _SplashDest.app;
+    if (local != null && !local.onboardingComplete) {
+      return _SplashDest.onboarding;
     }
     return _SplashDest.login;
   }

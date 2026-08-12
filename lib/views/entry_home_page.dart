@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -40,19 +41,16 @@ class _EntryHomePageState extends State<EntryHomePage>
     if (token != null && token.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed(
-          '${AppRouter.review}?token=${Uri.encodeQueryComponent(token)}',
+        context.go(
+          '${AppPaths.review}?token=${Uri.encodeQueryComponent(token)}',
         );
       });
       return;
     }
 
     _authSub = _auth.onAuthStateChange.listen(_onAuthState);
-    // 스플래시에서 세션 라우팅을 담당. 여기서는 OAuth 콜백(signedIn)만 처리해
-    // 로그인 화면 깜빡임을 막는다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // 이미 로그인된 상태로 /login에 직접 진입한 경우만 복구
       final session = _auth.currentSession;
       if (session != null) {
         unawaited(_handleSignedIn(session.user));
@@ -81,21 +79,15 @@ class _EntryHomePageState extends State<EntryHomePage>
     if (_handlingAuth || !mounted) return;
     _handlingAuth = true;
     try {
-      // email null이어도 provider_id 기준으로 세션 구성
       final sessionUser = await _store.hydrateSessionFromAuth(user);
       if (!mounted) return;
 
-      // 원장/고객으로 이미 연결된 계정 → 메인 홈
       if (sessionUser.onboardingComplete) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRouter.app,
-          (_) => false,
-        );
+        context.go(AppPaths.appHome);
         return;
       }
 
       if (!mounted) return;
-      // 신규: 역할 선택 화면으로 (이름/연락처 사전 입력 없음)
       await Navigator.of(context).push(
         PageRouteBuilder<void>(
           pageBuilder: (context, animation, secondaryAnimation) =>
