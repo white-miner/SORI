@@ -8,6 +8,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
+import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -691,18 +692,32 @@ class SupabaseSoriRepository implements SoriRepository {
       final row = includeId
           ? await _db.from('shops').upsert(fullPayload).select().single()
           : await _db.from('shops').insert(fullPayload).select().single();
-      return Shop.fromMap(Map<String, dynamic>.from(row));
+      final map = Map<String, dynamic>.from(row as Map);
+      final parsed = Shop.fromMap(map);
+      return parsed.copyWith(
+        operatingHours: shop.operatingHours,
+        snsBlogUrl: shop.snsBlogUrl,
+        snsInstagramUrl: shop.snsInstagramUrl,
+        serviceMenu: shop.serviceMenu,
+        kakaoPoint:
+            map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
+        isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,
+      );
     } catch (e) {
       debugPrint('upsertShop with hours/SNS failed, retrying base payload: $e');
       final row = includeId
           ? await _db.from('shops').upsert(basePayload).select().single()
           : await _db.from('shops').insert(basePayload).select().single();
-      // 원격에 hours/SNS가 없어도 로컬 값은 유지
-      return Shop.fromMap(Map<String, dynamic>.from(row)).copyWith(
+      final map = Map<String, dynamic>.from(row as Map);
+      final parsed = Shop.fromMap(map);
+      return parsed.copyWith(
         operatingHours: shop.operatingHours,
         snsBlogUrl: shop.snsBlogUrl,
         snsInstagramUrl: shop.snsInstagramUrl,
         serviceMenu: shop.serviceMenu,
+        kakaoPoint:
+            map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
+        isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,
       );
     }
   }
@@ -1175,6 +1190,153 @@ class SupabaseSoriRepository implements SoriRepository {
       }).eq('id', userId);
     } catch (e) {
       debugPrint('linkCustomerUser failed: $e');
+    }
+  }
+
+  @override
+  Future<KakaoAlimtalkSendResult> sendKakaoAlimtalkMock({
+    required String shopId,
+    required String customerPhone,
+    required String templateCode,
+    required String content,
+    int cost = KakaoAlimtalkPricing.sendCostPoint,
+    int marginAmount = KakaoAlimtalkPricing.defaultMarginAmount,
+  }) async {
+    if (shopId.isEmpty || _isTempId(shopId)) {
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'shop_not_found',
+        message: '샵 정보가 없습니다.',
+      );
+    }
+
+    try {
+      final raw = await _db.rpc(
+        'send_kakao_alimtalk_mock',
+        params: {
+          'p_shop_id': shopId,
+          'p_customer_phone': customerPhone,
+          'p_template_code': templateCode,
+          'p_content': content,
+          'p_cost': cost,
+          'p_margin': marginAmount,
+        },
+      );
+      final map = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
+      return KakaoAlimtalkSendResult.success(
+        logId: DbMap.asText(map['log_id'], 'rpc'),
+        remainingPoints: DbMap.asInt(map['kakao_point']),
+      );
+    } catch (e) {
+      debugPrint('send_kakao_alimtalk_mock rpc failed, fallback insert: $e');
+      final msg = e.toString();
+      if (msg.contains('insufficient_kakao_point') ||
+          msg.contains('P0001')) {
+        return KakaoAlimtalkSendResult.fail(
+          errorCode: 'insufficient_kakao_point',
+          message: '알림톡 포인트가 부족합니다. 충전 후 이용해 주세요.',
+        );
+      }
+
+      // 마이그레이션 미적용 환경: 로컬 MOCK 성공 경로 (포인트는 Store에서 차감)
+      try {
+        final row = await _db.from('kakao_msg_logs').insert({
+          'shop_id': shopId,
+          'customer_phone': customerPhone,
+          'template_code': templateCode,
+          'content': content,
+          'status': 'SUCCESS',
+          'margin_amount': marginAmount,
+        }).select('id').maybeSingle();
+
+        // shops.kakao_point 직접 차감 시도
+        try {
+          final shopRow = await _db
+              .from('shops')
+              .select('kakao_point')
+              .eq('id', shopId)
+              .maybeSingle();
+          final current = DbMap.asInt(shopRow?['kakao_point']);
+          if (current < cost) {
+            return KakaoAlimtalkSendResult.fail(
+              errorCode: 'insufficient_kakao_point',
+              message: '알림톡 포인트가 부족합니다. 충전 후 이용해 주세요.',
+              remainingPoints: current,
+            );
+          }
+          final next = current - cost;
+          await _db.from('shops').update({
+            'kakao_point': next,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', shopId);
+          return KakaoAlimtalkSendResult.success(
+            logId: DbMap.asText(row?['id'], 'fallback'),
+            remainingPoints: next,
+          );
+        } catch (e2) {
+          debugPrint('kakao_point column update skipped: $e2');
+          return KakaoAlimtalkSendResult.success(
+            logId: DbMap.asText(row?['id'], 'fallback-local'),
+            remainingPoints: -1,
+          );
+        }
+      } catch (e3) {
+        debugPrint('kakao_msg_logs insert failed: $e3');
+        // 완전 MOCK — DB 없이 성공 처리 (뼈대 UX)
+        return KakaoAlimtalkSendResult.success(
+          logId: 'mock-${DateTime.now().millisecondsSinceEpoch}',
+          remainingPoints: -1,
+        );
+      }
+    }
+  }
+
+  @override
+  Future<PublicCareReport?> loadPublicCareReport(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final chartRow = await _selectChartById(id);
+      if (chartRow == null) return null;
+      final chart = CustomerChart.fromMap(chartRow);
+
+      Shop shop = Shop(
+        id: chart.shopId,
+        name: 'SORI 샵',
+        naverPlaceUrl: '',
+      );
+      try {
+        final shopRow = await _db
+            .from('shops')
+            .select()
+            .eq('id', chart.shopId)
+            .maybeSingle();
+        if (shopRow != null) {
+          shop = Shop.fromMap(Map<String, dynamic>.from(shopRow));
+        }
+      } catch (e) {
+        debugPrint('loadPublicCareReport shop skipped: $e');
+      }
+
+      String? customerName;
+      try {
+        final customerRow = await _db
+            .from('customers')
+            .select('name')
+            .eq('id', chart.customerId)
+            .maybeSingle();
+        customerName = DbMap.asTextOrNull(customerRow?['name']);
+      } catch (_) {}
+
+      return PublicCareReport(
+        chart: chart,
+        shop: shop,
+        customerDisplayName: customerName,
+      );
+    } catch (e, st) {
+      debugPrint('loadPublicCareReport failed: $e\n$st');
+      return null;
     }
   }
 }

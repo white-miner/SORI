@@ -13,6 +13,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
+import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
@@ -900,6 +901,16 @@ class SoriStore {
     }
   }
 
+  CustomerChart? findChartById(String id) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return null;
+    try {
+      return charts.firstWhere((c) => c.id == normalized);
+    } catch (_) {
+      return null;
+    }
+  }
+
   CustomerChart? findChartByToken(String token) {
     final normalized = token.trim();
     if (normalized.isEmpty) return null;
@@ -1039,6 +1050,98 @@ class SoriStore {
   static String buildCustomerReviewUrl(String token) {
     final encoded = Uri.encodeQueryComponent(token);
     return '${_pagesBaseUrl()}#/review?token=$encoded';
+  }
+
+  /// 카카오 알림톡 랜딩: `/#/care-report/:chartId`
+  static String buildCareReportUrl(String chartId) {
+    final id = Uri.encodeComponent(chartId.trim());
+    return '${_pagesBaseUrl()}#/care-report/$id';
+  }
+
+  /// 알림톡 MOCK 발송 — 잔여 포인트 65 이상일 때만 차감·로그.
+  Future<KakaoAlimtalkSendResult> sendKakaoAlimtalk({
+    required String customerPhone,
+    required String content,
+    String templateCode = KakaoAlimtalkPricing.careReportTemplate,
+    int cost = KakaoAlimtalkPricing.sendCostPoint,
+  }) async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) {
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'shop_not_found',
+        message: '샵 정보가 없습니다.',
+      );
+    }
+
+    if (shop.kakaoPoint < cost) {
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'insufficient_kakao_point',
+        message: '알림톡 포인트가 부족합니다. 충전 후 이용해 주세요.',
+        remainingPoints: shop.kakaoPoint,
+      );
+    }
+
+    try {
+      if (!_repository.isRemote) {
+        final next = shop.kakaoPoint - cost;
+        shop = shop.copyWith(kakaoPoint: next);
+        _notify();
+        return KakaoAlimtalkSendResult.success(
+          logId: 'local-${DateTime.now().millisecondsSinceEpoch}',
+          remainingPoints: next,
+        );
+      }
+
+      final result = await _repository.sendKakaoAlimtalkMock(
+        shopId: shopId,
+        customerPhone: normalizePhone(customerPhone),
+        templateCode: templateCode,
+        content: content,
+        cost: cost,
+      );
+
+      if (result.ok) {
+        final next = (result.remainingPoints != null &&
+                result.remainingPoints! >= 0)
+            ? result.remainingPoints!
+            : shop.kakaoPoint - cost;
+        shop = shop.copyWith(kakaoPoint: next);
+        _notify();
+        return KakaoAlimtalkSendResult.success(
+          logId: result.logId ?? 'ok',
+          remainingPoints: next,
+        );
+      }
+      return result;
+    } catch (e, st) {
+      debugPrint('sendKakaoAlimtalk failed: $e\n$st');
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'send_failed',
+        message: e.toString(),
+        remainingPoints: shop.kakaoPoint,
+      );
+    }
+  }
+
+  Future<PublicCareReport?> loadPublicCareReport(String chartId) async {
+    final local = findChartById(chartId);
+    if (local != null) {
+      final customer = findCustomer(local.customerId);
+      // 로컬 샵이 다르면 최소 정보로 구성
+      final localShop =
+          local.shopId == shop.id ? shop : shop.copyWith(id: local.shopId);
+      return PublicCareReport(
+        chart: local,
+        shop: localShop,
+        customerDisplayName: customer?.name,
+      );
+    }
+    try {
+      return await _repository.loadPublicCareReport(chartId);
+    } catch (e, st) {
+      debugPrint('loadPublicCareReport failed: $e\n$st');
+      return null;
+    }
   }
 
   /// 샵 공용 진입 URL (고객 로그인/리뷰 탭).

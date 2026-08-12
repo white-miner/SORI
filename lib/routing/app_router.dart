@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/sori_store.dart';
 import '../views/app_shell_page.dart';
+import '../views/care_report_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_app.dart';
@@ -13,6 +14,7 @@ class AppRouter {
   static const String app = '/app';
   static const String admin = '/admin'; // 하위 호환 → /app
   static const String review = '/review';
+  static const String careReport = '/care-report';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final rawName = settings.name ?? home;
@@ -33,6 +35,18 @@ class AppRouter {
         child: CustomerReviewPage(
           store: SoriStore.instance,
           token: token,
+        ),
+      );
+    }
+
+    // 카카오 알림톡 랜딩 — `/#/care-report/:chartId`
+    final careChartId = _careReportChartId(path, query, settings.arguments);
+    if (careChartId != null) {
+      return _fadeRoute(
+        settings: settings,
+        child: CareReportPage(
+          store: SoriStore.instance,
+          chartId: careChartId,
         ),
       );
     }
@@ -88,6 +102,27 @@ class AppRouter {
         ),
       ),
     );
+  }
+
+  static String? _careReportChartId(
+    String path,
+    Map<String, String> query,
+    Object? arguments,
+  ) {
+    if (query['page'] == 'care-report') {
+      final fromQuery = (query['chartId'] ?? query['id'] ?? '').trim();
+      if (fromQuery.isNotEmpty) return Uri.decodeComponent(fromQuery);
+    }
+    if (path == careReport || path.startsWith('$careReport/')) {
+      final segments = path.split('/').where((s) => s.isNotEmpty).toList();
+      if (segments.length >= 2 && segments[0] == 'care-report') {
+        return Uri.decodeComponent(segments[1]);
+      }
+      if (arguments is String && arguments.trim().isNotEmpty) {
+        return arguments.trim();
+      }
+    }
+    return null;
   }
 
   static PageRouteBuilder<void> _fadeRoute({

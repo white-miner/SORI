@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../models/customer_chart.dart';
+import '../models/kakao_alimtalk.dart';
 import '../services/sori_share.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'kakao_alimtalk_actions.dart';
 import 'my_app.dart';
 
 Future<void> showCustomerLinkPopup(
@@ -16,8 +18,11 @@ Future<void> showCustomerLinkPopup(
   final token = chart.feedbackToken;
   if (token == null) return;
   final url = SoriStore.buildCustomerReviewUrl(token);
+  final careUrl = SoriStore.buildCareReportUrl(chart.id);
   final customer = store.findCustomer(chart.customerId);
   final care = chart.careName.isNotEmpty ? chart.careName : '케어';
+  final customerName = customer?.name ?? '고객';
+  final phone = customer?.phone ?? '';
 
   await showDialog<void>(
     context: context,
@@ -27,6 +32,7 @@ Future<void> showCustomerLinkPopup(
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 '해시 딥링크 (GitHub Pages 404 방지)\n$url',
@@ -49,6 +55,15 @@ Future<void> showCustomerLinkPopup(
                   backgroundColor: Colors.white,
                 ),
               ),
+              const SizedBox(height: 12),
+              Text(
+                '잔여 알림톡 포인트 ${store.shop.kakaoPoint}P · 발송 ${KakaoAlimtalkPricing.sendCostPoint}P',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
             ],
           ),
         ),
@@ -67,11 +82,29 @@ Future<void> showCustomerLinkPopup(
             },
             child: const Text('링크 복사'),
           ),
+          TextButton(
+            onPressed: () async {
+              final body = buildCareReportAlimtalkBody(
+                chart: chart,
+                customerName: customerName,
+                shopName: store.shop.name,
+              );
+              final ok = await sendKakaoAlimtalkWithUi(
+                ctx,
+                store: store,
+                customerPhone: phone,
+                content: '$body\n(케어 리포트: $careUrl)',
+                templateCode: KakaoAlimtalkPricing.careReportTemplate,
+              );
+              if (ok && ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('카카오톡 발송'),
+          ),
           FilledButton.icon(
             onPressed: () async {
               await SoriShare.shareReviewLink(
                 url: url,
-                customerName: customer?.name ?? '고객',
+                customerName: customerName,
                 careName: care,
               );
               if (ctx.mounted) Navigator.pop(ctx);

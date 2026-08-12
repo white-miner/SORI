@@ -13,6 +13,8 @@ class Shop {
     this.snsBlogUrl = '',
     this.snsInstagramUrl = '',
     this.serviceMenu = const [],
+    this.kakaoPoint = 0,
+    this.isPro = false,
   });
 
   final String id;
@@ -31,6 +33,12 @@ class Shop {
 
   /// 샵에서 제공하는 서비스 메뉴 (이름 + 고객 안내 설명).
   final List<ShopServiceItem> serviceMenu;
+
+  /// 잔여 카카오 알림톡 포인트.
+  final int kakaoPoint;
+
+  /// 프로 플랜 여부.
+  final bool isPro;
 
   /// 차트·회원권 드롭다운용 서비스명 목록.
   List<String> get serviceNames => serviceMenu
@@ -60,6 +68,8 @@ class Shop {
     String? snsBlogUrl,
     String? snsInstagramUrl,
     List<ShopServiceItem>? serviceMenu,
+    int? kakaoPoint,
+    bool? isPro,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -72,6 +82,8 @@ class Shop {
       snsBlogUrl: snsBlogUrl ?? this.snsBlogUrl,
       snsInstagramUrl: snsInstagramUrl ?? this.snsInstagramUrl,
       serviceMenu: serviceMenu ?? this.serviceMenu,
+      kakaoPoint: kakaoPoint ?? this.kakaoPoint,
+      isPro: isPro ?? this.isPro,
     );
   }
 
@@ -86,6 +98,8 @@ class Shop {
         'sns_blog_url': snsBlogUrl,
         'sns_instagram_url': snsInstagramUrl,
         'service_menu': serviceMenu.map((e) => e.toMap()).toList(),
+        'kakao_point': kakaoPoint,
+        'is_pro': isPro,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -129,6 +143,11 @@ class Shop {
         snsBlogUrl: snsBlogUrl,
         snsInstagramUrl: snsInstagramUrl,
         serviceMenu: menu,
+        kakaoPoint: (map.containsKey('kakao_point') ||
+                map.containsKey('kakaoPoint'))
+            ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])
+            : 1000,
+        isPro: DbMap.asBool(map['is_pro'] ?? map['isPro']),
       );
     } catch (_) {
       return Shop(
@@ -138,6 +157,11 @@ class Shop {
         phone: DbMap.asTextOrNull(map['phone']),
         naverPlaceUrl: DbMap.asText(map['naver_place_url']),
         address: DbMap.asTextOrNull(map['address']),
+        kakaoPoint: (map.containsKey('kakao_point') ||
+                map.containsKey('kakaoPoint'))
+            ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])
+            : 1000,
+        isPro: DbMap.asBool(map['is_pro'] ?? map['isPro']),
       );
     }
   }

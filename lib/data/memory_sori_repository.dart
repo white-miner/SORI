@@ -3,6 +3,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
+import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -28,6 +29,8 @@ class MemorySoriRepository implements SoriRepository {
       phone: '02-1234-5678',
       naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
       address: '서울시 강남구',
+      kakaoPoint: 1000,
+      isPro: true,
       serviceMenu: [
         ShopServiceItem(
           name: '재생케어',
@@ -143,13 +146,18 @@ class MemorySoriRepository implements SoriRepository {
         customerId: '1',
         visitNumber: 1,
         careName: '재생케어',
-        treatmentSummary: '첫 방문 재생케어',
+        treatmentSummary: '첫 방문 재생케어 — 장벽 진정 및 수분 리페어',
         directorInsight: '두피 민감 — 저자극 제품 권장',
         beforeImageUrl: 'https://picsum.photos/seed/sori-b1/600/800',
         afterImageUrl: 'https://picsum.photos/seed/sori-a1/600/800',
         signatureUrl: 'https://example.com/sig-1.png',
         consentPhoto: true,
         caseShared: true,
+        homeCarePrescriptions: const [
+          'tag_gentle_cleanse',
+          'tag_moisture_pack',
+          'tag_sun',
+        ],
         visitCheckedAt: DateTime.now().subtract(const Duration(days: 2)),
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
@@ -351,4 +359,41 @@ class MemorySoriRepository implements SoriRepository {
     required String customerId,
     required String userId,
   }) async {}
+
+  @override
+  Future<KakaoAlimtalkSendResult> sendKakaoAlimtalkMock({
+    required String shopId,
+    required String customerPhone,
+    required String templateCode,
+    required String content,
+    int cost = KakaoAlimtalkPricing.sendCostPoint,
+    int marginAmount = KakaoAlimtalkPricing.defaultMarginAmount,
+  }) async {
+    return KakaoAlimtalkSendResult.success(
+      logId: 'local-${DateTime.now().millisecondsSinceEpoch}',
+      remainingPoints: -1,
+    );
+  }
+
+  @override
+  Future<PublicCareReport?> loadPublicCareReport(String chartId) async {
+    final snap = createSeedSnapshot();
+    try {
+      final chart = snap.charts.firstWhere((c) => c.id == chartId);
+      String? customerName;
+      for (final c in snap.customers) {
+        if (c.id == chart.customerId) {
+          customerName = c.name;
+          break;
+        }
+      }
+      return PublicCareReport(
+        chart: chart,
+        shop: snap.shop,
+        customerDisplayName: customerName,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

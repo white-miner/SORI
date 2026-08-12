@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/ai_shop_report_mock.dart';
+import '../models/kakao_alimtalk.dart';
+import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'kakao_alimtalk_actions.dart';
 
 /// AI 샵 경영 리포트 — 5대 모듈 + 포트폴리오 옵티마이저.
 class AiShopReportPage extends StatelessWidget {
@@ -803,44 +804,46 @@ class _CareMessageCard extends StatelessWidget {
 
   final AiCareMessageModule data;
 
-  Future<void> _copy(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: data.preview));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('케어 메시지 문구를 복사했어요'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: SoriTokens.primary,
-      ),
-    );
-  }
+  Future<void> _copy(BuildContext context) =>
+      copyKakaoMessage(context, data.preview);
 
   Future<void> _sendKakao(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: data.preview));
-    final uri = Uri.parse('kakaotalk://');
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          launched
-              ? '문구를 복사했어요. 카카오톡에서 붙여넣어 보내 주세요.'
-              : '카카오톡 실행에 실패했어요. 문구는 복사해 두었습니다.',
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: SoriTokens.primary,
-      ),
+    final store = SoriStore.instance;
+    final demoPhone = store.customers.isNotEmpty
+        ? store.customers.first.phone
+        : '01012345678';
+    final chartId =
+        store.charts.isNotEmpty ? store.charts.first.id : 'chart-1';
+    final careUrl = SoriStore.buildCareReportUrl(chartId);
+    final body = '${data.preview}\n\n케어 리포트 보기: $careUrl';
+
+    await sendKakaoAlimtalkWithUi(
+      context,
+      store: store,
+      customerPhone: demoPhone,
+      content: body,
+      templateCode: KakaoAlimtalkPricing.careMessageTemplate,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final points = SoriStore.instance.shop.kakaoPoint;
     return _ModuleShell(
       eyebrow: '모듈 5',
       title: '💬 카카오톡 1:1 자동 케어 메시지',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            '잔여 알림톡 ${points}P · 발송 시 ${KakaoAlimtalkPricing.sendCostPoint}P 차감',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -933,6 +936,7 @@ class _CareMessageCard extends StatelessWidget {
     );
   }
 }
+
 
 String _won(int value) {
   final s = value.toString();

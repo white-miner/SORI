@@ -4,6 +4,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
+import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -205,4 +206,17 @@ abstract class SoriRepository {
     required String customerId,
     required String userId,
   });
+
+  /// 카카오 알림톡 MOCK 발송 — 포인트 차감 + kakao_msg_logs Insert.
+  Future<KakaoAlimtalkSendResult> sendKakaoAlimtalkMock({
+    required String shopId,
+    required String customerPhone,
+    required String templateCode,
+    required String content,
+    int cost = KakaoAlimtalkPricing.sendCostPoint,
+    int marginAmount = KakaoAlimtalkPricing.defaultMarginAmount,
+  });
+
+  /// 로그인 없이 chartId로 케어 리포트 조회.
+  Future<PublicCareReport?> loadPublicCareReport(String chartId);
 }
