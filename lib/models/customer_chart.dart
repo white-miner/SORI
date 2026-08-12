@@ -234,7 +234,8 @@ class CustomerChart {
   Map<String, dynamic> toDbWriteMap({bool includeId = false}) {
     final map = <String, dynamic>{
       'shop_id': shopId,
-      'customer_id': customerId,
+      // NOT NULL FK — 빈 문자열/null 전송 금지 (PGRST strip 후에도 재주입됨)
+      'customer_id': customerId.trim(),
       'visit_number': visitNumber < 1 ? 1 : visitNumber,
       'custom_chart_no': DbMap.asTextOrNull(customChartNo),
       'visit_checked': visitChecked,

@@ -268,12 +268,16 @@ class SoriStore {
     String? guardianPhone,
     bool infoViewConsent = false,
   }) async {
+    final boundCustomerId = customerId.trim();
+    if (boundCustomerId.isEmpty) {
+      throw StateError('customer_id is required for chart save');
+    }
     if (blocksDirectorChartWrites) {
       throw StateError('고객 모드에서는 원장 차트를 저장할 수 없습니다.');
     }
     if (!_repository.isRemote) {
       final chart = saveChartAndConfirmVisit(
-        customerId: customerId,
+        customerId: boundCustomerId,
         visitNumber: visitNumber,
         customChartNo: customChartNo,
         chartId: chartId,
@@ -320,7 +324,7 @@ class SoriStore {
           charts.any((c) => c.id == chartId && c.visitChecked);
       final result = await _repository.saveChartAndConfirmVisit(
         SaveChartRequest(
-          customerId: customerId,
+          customerId: boundCustomerId,
           visitNumber: visitNumber,
           customChartNo: customChartNo,
           chartId: chartId,

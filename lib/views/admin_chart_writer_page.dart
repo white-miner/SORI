@@ -34,8 +34,28 @@ Future<void> openChartWriterForCustomer(
   CustomerChart? existingChart,
   bool forceQuickChart = false,
 }) async {
+  final customerId = customer.id.trim();
+  if (customerId.isEmpty) {
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('고객 정보 유실'),
+        content: const Text(
+          '고객 ID가 없어 차트를 열 수 없습니다. 고객을 다시 선택한 뒤 시도해 주세요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
   final location = AppRouter.buildChartCreateLocation(
-    customerId: customer.id,
+    customerId: customerId,
     chartId: existingChart?.id,
     forceQuickChart: forceQuickChart,
   );
@@ -314,6 +334,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       return true;
     }
     if (!mounted) return false;
+    await _showCustomerIdLostDialog();
+    return false;
+  }
+
+  Future<void> _showCustomerIdLostDialog() async {
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -333,7 +359,18 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     if (mounted) {
       Navigator.of(context).pop();
     }
-    return false;
+  }
+
+  bool _isCustomerIdPayloadError(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('customer not found')) return true;
+    return msg.contains('customer_id') &&
+        (msg.contains('null') ||
+            msg.contains('required') ||
+            msg.contains('empty') ||
+            msg.contains('유실') ||
+            msg.contains('not found') ||
+            msg.contains('missing required'));
   }
 
   @override
@@ -1121,9 +1158,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     final ok = await _focusFirstMissingRequiredField();
     if (!ok) return;
     if (!mounted) return;
-    // 이중 검사: URL/바인딩 customerId 필수
+    // 이중 검사: URL/바인딩 customerId 필수 — 없으면 Request 자체를 보내지 않음
     final hasCustomer = await _ensureCustomerIdForSave();
     if (!hasCustomer) return;
+    final customerIdForSave = _boundCustomerId.trim();
+    if (customerIdForSave.isEmpty) {
+      await _showCustomerIdLostDialog();
+      return;
+    }
     if (!mounted) return;
     if (_beforeUploading || _afterUploading) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1147,7 +1189,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           final uploaded = await ChartSignatureStorage.uploadPng(
             bytes: bytes,
             shopId: widget.store.shop.id,
-            customerId: _boundCustomerId,
+            customerId: customerIdForSave,
           );
           if (uploaded != null) {
             signatureUrl = uploaded;
@@ -1156,7 +1198,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       }
 
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
-        customerId: _boundCustomerId,
+        customerId: customerIdForSave,
         visitNumber: _visitNumber,
         customChartNo: _customNoController.text.trim().isEmpty
             ? null
@@ -1237,16 +1279,18 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       Navigator.pop(context, chart);
     } catch (e) {
       if (!mounted) return;
+      widget.store.clearError();
+      if (_isCustomerIdPayloadError(e)) {
+        await _showCustomerIdLostDialog();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '저장 실패: ${widget.store.lastError ?? e.toString()}',
-          ),
+          content: Text('저장 실패: ${e.toString()}'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
         ),
       );
-      widget.store.clearError();
     } finally {
       if (mounted) setState(() => _saving = false);
     }

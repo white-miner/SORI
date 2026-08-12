@@ -40,6 +40,13 @@ abstract final class ChartDbColumns {
     'updated_at',
   ];
 
+  /// PGRST204 strip 재시도에서도 절대 제거하면 안 되는 NOT NULL FK.
+  /// (제거 시 insert 후 `customer_id: null` FormatException / NOT NULL 위반)
+  static const Set<String> protectedWriteKeys = {
+    'shop_id',
+    'customer_id',
+  };
+
   /// 앱 대면 관계명 (뷰 또는 테이블). 물리 저장은 customer_charts.
   static const String relation = 'chart_records';
 

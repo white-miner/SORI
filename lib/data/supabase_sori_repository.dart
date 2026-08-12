@@ -47,8 +47,9 @@ class SupabaseSoriRepository implements SoriRepository {
   /// PGRST204 방어: 스키마에 없는 컬럼 키를 페이로드에서 제거 후 재시도.
   Map<String, dynamic> _stripUnknownColumn(
     Map<String, dynamic> payload,
-    Object error,
-  ) {
+    Object error, {
+    Set<String> protectedKeys = const {},
+  }) {
     final msg = error.toString();
     final match = RegExp(
       r"Could not find the '([^']+)' column",
@@ -57,6 +58,12 @@ class SupabaseSoriRepository implements SoriRepository {
     if (match == null) return payload;
     final col = match.group(1);
     if (col == null || col.isEmpty) return payload;
+    if (protectedKeys.contains(col)) {
+      debugPrint(
+        'Refusing to strip protected column "$col" (would cause null FK)',
+      );
+      return payload;
+    }
     final next = Map<String, dynamic>.from(payload)..remove(col);
     debugPrint('Removed unknown column from payload: $col');
     return next;
@@ -66,18 +73,57 @@ class SupabaseSoriRepository implements SoriRepository {
     Map<String, dynamic> payload,
     Object error,
   ) =>
-      _stripUnknownColumn(payload, error);
+      _stripUnknownColumn(
+        payload,
+        error,
+        protectedKeys: ChartDbColumns.protectedWriteKeys,
+      );
 
-  /// 차트 insert — chart_records 우선. PGRST204 시 컬럼 strip 후 최대 40회 재시도.
+  /// insert/update 직전 — customer_id / shop_id 강제 주입·검증.
+  void _ensureChartFkPayload(
+    Map<String, dynamic> payload, {
+    required String customerId,
+    required String shopId,
+  }) {
+    final cid = customerId.trim();
+    final sid = shopId.trim();
+    if (cid.isEmpty) {
+      throw StateError('chart payload blocked: customer_id is empty');
+    }
+    if (sid.isEmpty) {
+      throw StateError('chart payload blocked: shop_id is empty');
+    }
+    payload['customer_id'] = cid;
+    payload['shop_id'] = sid;
+  }
+
+  bool _chartPayloadHasCustomerId(Map<String, dynamic> payload) {
+    final raw = payload['customer_id'];
+    if (raw == null) return false;
+    return raw.toString().trim().isNotEmpty;
+  }
+
+  /// 차트 insert — chart_records 우선. PGRST204 시 (보호 컬럼 제외) strip 후 재시도.
   Future<Map<String, dynamic>> _insertChartRow(
-    Map<String, dynamic> payload,
-  ) async {
+    Map<String, dynamic> payload, {
+    required String customerId,
+    required String shopId,
+  }) async {
     var body = Map<String, dynamic>.from(payload);
+    _ensureChartFkPayload(body, customerId: customerId, shopId: shopId);
     Object? lastError;
     for (var attempt = 0; attempt < 40; attempt++) {
       var progressed = false;
       for (final table in [_chartsPrimary, _chartsFallback]) {
         try {
+          _ensureChartFkPayload(
+            body,
+            customerId: customerId,
+            shopId: shopId,
+          );
+          if (!_chartPayloadHasCustomerId(body)) {
+            throw StateError('refusing chart insert without customer_id');
+          }
           final row =
               await _db.from(table).insert(body).select().single();
           return Map<String, dynamic>.from(row);
@@ -86,6 +132,11 @@ class SupabaseSoriRepository implements SoriRepository {
           final stripped = _stripUnknownChartColumn(body, e);
           if (stripped.length != body.length) {
             body = stripped;
+            _ensureChartFkPayload(
+              body,
+              customerId: customerId,
+              shopId: shopId,
+            );
             progressed = true;
             debugPrint(
               'chart insert PGRST204 strip → retry ($table, keys=${body.length})',
@@ -103,13 +154,23 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<Map<String, dynamic>> _updateChartRow({
     required String chartId,
     required Map<String, dynamic> payload,
+    String? customerId,
+    String? shopId,
   }) async {
     var body = Map<String, dynamic>.from(payload);
+    final cid = (customerId ?? body['customer_id']?.toString() ?? '').trim();
+    final sid = (shopId ?? body['shop_id']?.toString() ?? '').trim();
+    if (cid.isNotEmpty && sid.isNotEmpty) {
+      _ensureChartFkPayload(body, customerId: cid, shopId: sid);
+    }
     Object? lastError;
     for (var attempt = 0; attempt < 40; attempt++) {
       var progressed = false;
       for (final table in [_chartsPrimary, _chartsFallback]) {
         try {
+          if (cid.isNotEmpty && sid.isNotEmpty) {
+            _ensureChartFkPayload(body, customerId: cid, shopId: sid);
+          }
           final row = await _db
               .from(table)
               .update(body)
@@ -122,6 +183,9 @@ class SupabaseSoriRepository implements SoriRepository {
           final stripped = _stripUnknownChartColumn(body, e);
           if (stripped.length != body.length) {
             body = stripped;
+            if (cid.isNotEmpty && sid.isNotEmpty) {
+              _ensureChartFkPayload(body, customerId: cid, shopId: sid);
+            }
             progressed = true;
             debugPrint(
               'chart update PGRST204 strip → retry ($table, keys=${body.length})',
@@ -168,7 +232,7 @@ class SupabaseSoriRepository implements SoriRepository {
     return CustomerChart(
       id: id,
       shopId: shopId,
-      customerId: request.customerId,
+      customerId: request.customerId.trim(),
       visitNumber: request.visitNumber < 1 ? 1 : request.visitNumber,
       customChartNo: DbMap.asTextOrNull(request.customChartNo),
       visitChecked: visitChecked,
@@ -245,6 +309,11 @@ class SupabaseSoriRepository implements SoriRepository {
     final map = (includeId && c.id.isNotEmpty && !_isTempId(c.id))
         ? c.toDbWriteMap(includeId: true)
         : c.toDbWriteMap(includeId: false);
+    // 빈 문자열 customer_id 가 JSON null 로 떨어지는 경로 차단
+    final cid = c.customerId.trim();
+    final sid = c.shopId.trim();
+    if (cid.isNotEmpty) map['customer_id'] = cid;
+    if (sid.isNotEmpty) map['shop_id'] = sid;
     assert(() {
       for (final key in map.keys) {
         if (!ChartDbColumns.writeKeys.contains(key)) {
@@ -757,13 +826,18 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<SaveChartResult> saveChartAndConfirmVisit(
     SaveChartRequest request,
   ) async {
+    final boundCustomerId = request.customerId.trim();
+    if (boundCustomerId.isEmpty) {
+      throw StateError('customer_id is required for chart save');
+    }
+
     final existingCustomer = await _db
         .from('customers')
         .select()
-        .eq('id', request.customerId)
+        .eq('id', boundCustomerId)
         .maybeSingle();
     if (existingCustomer == null) {
-      throw StateError('Customer not found: ${request.customerId}');
+      throw StateError('Customer not found: $boundCustomerId');
     }
     var customer =
         Customer.fromMap(Map<String, dynamic>.from(existingCustomer));
@@ -832,6 +906,8 @@ class SupabaseSoriRepository implements SoriRepository {
         final updated = await _updateChartRow(
           chartId: chart.id,
           payload: _chartWriteMap(chart, includeId: false),
+          customerId: boundCustomerId,
+          shopId: customer.shopId,
         );
         chart = CustomerChart.fromMap(updated);
       } else {
@@ -850,6 +926,8 @@ class SupabaseSoriRepository implements SoriRepository {
           'visit_checked_at': DateTime.now().toUtc().toIso8601String(),
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         },
+        customerId: boundCustomerId,
+        shopId: customer.shopId,
       );
       chart = CustomerChart.fromMap(opened);
     }
@@ -961,14 +1039,28 @@ class SupabaseSoriRepository implements SoriRepository {
     SaveChartRequest request,
     String shopId,
   ) async {
-    final draft = _chartFromSaveRequest(request, shopId);
+    final customerId = request.customerId.trim();
+    final sid = shopId.trim();
+    if (customerId.isEmpty) {
+      throw StateError('customer_id is required for chart insert');
+    }
+    if (sid.isEmpty) {
+      throw StateError('shop_id is required for chart insert');
+    }
+    final draft = _chartFromSaveRequest(request, sid);
     final payload = _chartWriteMap(draft, includeId: false);
     // 신규 insert 시 서버가 발급할 토큰/확인 필드는 보내지 않음
     payload.remove('feedback_token');
     payload.remove('feedback_line_opened_at');
     payload['visit_checked'] = false;
     payload['visit_checked_at'] = null;
-    final row = await _insertChartRow(payload);
+    // SSOT: URL/요청의 customer_id 를 맵에 반드시 재주입
+    _ensureChartFkPayload(payload, customerId: customerId, shopId: sid);
+    final row = await _insertChartRow(
+      payload,
+      customerId: customerId,
+      shopId: sid,
+    );
     return CustomerChart.fromMap(row);
   }
 
