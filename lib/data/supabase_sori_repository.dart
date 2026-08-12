@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
+import '../models/chart_db_columns.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -28,9 +29,9 @@ class SupabaseSoriRepository implements SoriRepository {
     return c;
   }
 
-  /// 차트 저장/조회 테이블 — chart_records(뷰) 우선, 실패 시 customer_charts.
-  static const String _chartsPrimary = 'chart_records';
-  static const String _chartsFallback = 'customer_charts';
+  /// 차트 SSOT: `chart_records` (customer_charts 미러 뷰) → 폴백 `customer_charts`.
+  static const String _chartsPrimary = ChartDbColumns.relation;
+  static const String _chartsFallback = ChartDbColumns.physicalTable;
 
   Future<T> _withChartsTable<T>(
     Future<T> Function(String table) run,
@@ -67,12 +68,14 @@ class SupabaseSoriRepository implements SoriRepository {
   ) =>
       _stripUnknownColumn(payload, error);
 
+  /// 차트 insert — chart_records 우선. PGRST204 시 컬럼 strip 후 최대 40회 재시도.
   Future<Map<String, dynamic>> _insertChartRow(
     Map<String, dynamic> payload,
   ) async {
     var body = Map<String, dynamic>.from(payload);
     Object? lastError;
-    for (var attempt = 0; attempt < 4; attempt++) {
+    for (var attempt = 0; attempt < 40; attempt++) {
+      var progressed = false;
       for (final table in [_chartsPrimary, _chartsFallback]) {
         try {
           final row =
@@ -83,11 +86,16 @@ class SupabaseSoriRepository implements SoriRepository {
           final stripped = _stripUnknownChartColumn(body, e);
           if (stripped.length != body.length) {
             body = stripped;
-            break; // retry same attempt with stripped payload
+            progressed = true;
+            debugPrint(
+              'chart insert PGRST204 strip → retry ($table, keys=${body.length})',
+            );
+            break;
           }
           debugPrint('insert chart via $table failed: $e');
         }
       }
+      if (!progressed) break;
     }
     throw lastError ?? StateError('chart insert failed');
   }
@@ -98,7 +106,8 @@ class SupabaseSoriRepository implements SoriRepository {
   }) async {
     var body = Map<String, dynamic>.from(payload);
     Object? lastError;
-    for (var attempt = 0; attempt < 4; attempt++) {
+    for (var attempt = 0; attempt < 40; attempt++) {
+      var progressed = false;
       for (final table in [_chartsPrimary, _chartsFallback]) {
         try {
           final row = await _db
@@ -113,11 +122,16 @@ class SupabaseSoriRepository implements SoriRepository {
           final stripped = _stripUnknownChartColumn(body, e);
           if (stripped.length != body.length) {
             body = stripped;
+            progressed = true;
+            debugPrint(
+              'chart update PGRST204 strip → retry ($table, keys=${body.length})',
+            );
             break;
           }
           debugPrint('update chart via $table failed: $e');
         }
       }
+      if (!progressed) break;
     }
     throw lastError ?? StateError('chart update failed');
   }
@@ -228,10 +242,18 @@ class SupabaseSoriRepository implements SoriRepository {
 
   Map<String, dynamic> _chartWriteMap(CustomerChart c, {bool includeId = true}) {
     // temp id는 DB에 보내지 않음
-    if (includeId && c.id.isNotEmpty && !_isTempId(c.id)) {
-      return c.toDbWriteMap(includeId: true);
-    }
-    return c.toDbWriteMap(includeId: false);
+    final map = (includeId && c.id.isNotEmpty && !_isTempId(c.id))
+        ? c.toDbWriteMap(includeId: true)
+        : c.toDbWriteMap(includeId: false);
+    assert(() {
+      for (final key in map.keys) {
+        if (!ChartDbColumns.writeKeys.contains(key)) {
+          debugPrint('WARN chart payload unknown key vs ChartDbColumns: $key');
+        }
+      }
+      return true;
+    }());
+    return map;
   }
 
   bool _isTempId(String id) =>

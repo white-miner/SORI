@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import 'chart_db_columns.dart';
 import 'home_care_prescriptions.dart';
 
 class CustomerChart {
@@ -228,7 +229,8 @@ class CustomerChart {
 
   Map<String, dynamic> toMap() => toDbWriteMap(includeId: true);
 
-  /// Supabase customer_charts insert/update 전용 안전 페이로드.
+  /// Supabase `chart_records`(= customer_charts) insert/update 전용 안전 페이로드.
+  /// 키 목록은 [ChartDbColumns.writeKeys] / migration 023 과 SSOT.
   Map<String, dynamic> toDbWriteMap({bool includeId = false}) {
     final map = <String, dynamic>{
       'shop_id': shopId,
