@@ -21,6 +21,8 @@ import '../models/shop_gallery_slide.dart';
 import '../models/shop_service_item.dart';
 import '../utils/db_map.dart';
 import '../utils/korean_choseong.dart';
+import 'consent_pdf_generator.dart';
+import 'consent_pdf_storage.dart';
 import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
@@ -270,7 +272,7 @@ class SoriStore {
       throw StateError('고객 모드에서는 원장 차트를 저장할 수 없습니다.');
     }
     if (!_repository.isRemote) {
-      return saveChartAndConfirmVisit(
+      final chart = saveChartAndConfirmVisit(
         customerId: customerId,
         visitNumber: visitNumber,
         customChartNo: customChartNo,
@@ -306,6 +308,8 @@ class SoriStore {
         guardianPhone: guardianPhone,
         infoViewConsent: infoViewConsent,
       );
+      unawaited(_generateConsentPdfInBackground(chart));
+      return chart;
     }
 
     isLoading = true;
@@ -367,6 +371,7 @@ class SoriStore {
           : null;
       lastMembershipDeducted = result.membershipDeducted;
       unawaited(refreshMembershipWallet());
+      unawaited(_generateConsentPdfInBackground(result.chart));
       return result.chart;
     } catch (e, st) {
       debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
@@ -848,6 +853,7 @@ class SoriStore {
     String? snsBlogUrl,
     String? snsInstagramUrl,
     List<ShopServiceItem>? serviceMenu,
+    int? monthlyCapa,
   }) {
     shop = shop.copyWith(
       name: name.trim(),
@@ -859,6 +865,7 @@ class SoriStore {
       snsBlogUrl: snsBlogUrl?.trim(),
       snsInstagramUrl: snsInstagramUrl?.trim(),
       serviceMenu: serviceMenu,
+      monthlyCapa: monthlyCapa,
     );
     _notify();
     if (_repository.isRemote) {
@@ -872,6 +879,82 @@ class SoriStore {
         }
       }();
     }
+  }
+
+  /// 서명 완료 차트 → A4 동의서 PDF 생성·업로드 (비차단).
+  Future<void> _generateConsentPdfInBackground(CustomerChart chart) async {
+    if (!chart.isConsentSigned) return;
+    try {
+      final customer = findCustomer(chart.customerId);
+      final pdfBytes = await ConsentPdfGenerator.buildBytes(
+        shopName: shop.name,
+        customerName: customer?.name ?? '고객',
+        customerPhone: customer?.phone ?? '',
+        chart: chart,
+      );
+      final url = await ConsentPdfStorage.uploadPdf(
+        bytes: pdfBytes,
+        shopId: chart.shopId,
+        customerId: chart.customerId,
+        chartId: chart.id,
+      );
+      if (url == null || url.isEmpty) return;
+
+      final updated = chart.copyWith(consentPdfUrl: url);
+      _mergeChart(updated);
+      _notify();
+
+      if (_repository.isRemote && !_isTempId(chart.id)) {
+        try {
+          await _repository.updateChartConsentPdfUrl(
+            chartId: chart.id,
+            consentPdfUrl: url,
+          );
+        } catch (e) {
+          debugPrint('updateChartConsentPdfUrl failed: $e');
+        }
+      }
+    } catch (e, st) {
+      debugPrint('consent pdf background failed: $e\n$st');
+    }
+  }
+
+  bool _isTempId(String id) =>
+      id.isEmpty || id.startsWith('local-') || id.startsWith('temp-');
+
+  /// 장기 미방문 부채 소거 — 회원권 사용요청 MOCK 발송.
+  Future<KakaoAlimtalkSendResult> sendMembershipUsageRequest({
+    required String customerId,
+  }) async {
+    final customer = findCustomer(customerId);
+    if (customer == null) {
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'customer_not_found',
+        message: '고객을 찾을 수 없습니다.',
+      );
+    }
+    final content =
+        '${customer.name} 고객님, 남겨 두신 회원권 잔여 ${customer.membershipRemainingVisits}회가 있어요. '
+        '일정 잡아 주시면 우선 안내드릴게요.';
+    final result = await sendKakaoAlimtalk(
+      customerPhone: customer.phone,
+      content: content,
+      templateCode: KakaoAlimtalkPricing.membershipUsageTemplate,
+    );
+    if (result.ok) {
+      final now = DateTime.now();
+      final updated = customer.copyWith(lastPromotionSentAt: now);
+      _mergeCustomer(updated);
+      _notify();
+      if (_repository.isRemote) {
+        try {
+          await _repository.upsertCustomer(updated);
+        } catch (e) {
+          debugPrint('last_promotion_sent_at upsert failed: $e');
+        }
+      }
+    }
+    return result;
   }
 
   List<Customer> searchCustomers(String query) {

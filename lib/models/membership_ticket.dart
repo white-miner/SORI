@@ -14,6 +14,8 @@ class MembershipTicket {
     this.expiresAt,
     this.naverPlaceUrl = '',
     this.isActive = true,
+    this.paidAmount = 0,
+    this.perSessionValue = 0,
   });
 
   final String id;
@@ -27,8 +29,20 @@ class MembershipTicket {
   final DateTime? expiresAt;
   final String naverPlaceUrl;
   final bool isActive;
+  final int paidAmount;
+  final int perSessionValue;
 
   int get remainingVisits => (totalVisits - usedVisits).clamp(0, 999);
+
+  int get effectivePerSession {
+    if (perSessionValue > 0) return perSessionValue;
+    if (paidAmount > 0 && totalVisits > 0) {
+      return (paidAmount / totalVisits).round();
+    }
+    return 0;
+  }
+
+  int get laborDebtWon => effectivePerSession * remainingVisits;
 
   bool get isLow => remainingVisits > 0 && remainingVisits <= 2;
 
@@ -51,6 +65,8 @@ class MembershipTicket {
     DateTime? expiresAt,
     String? naverPlaceUrl,
     bool? isActive,
+    int? paidAmount,
+    int? perSessionValue,
     bool clearExpiresAt = false,
   }) {
     return MembershipTicket(
@@ -65,6 +81,8 @@ class MembershipTicket {
       expiresAt: clearExpiresAt ? null : (expiresAt ?? this.expiresAt),
       naverPlaceUrl: naverPlaceUrl ?? this.naverPlaceUrl,
       isActive: isActive ?? this.isActive,
+      paidAmount: paidAmount ?? this.paidAmount,
+      perSessionValue: perSessionValue ?? this.perSessionValue,
     );
   }
 
@@ -73,6 +91,13 @@ class MembershipTicket {
     final rawShop = map['shops'];
     if (rawShop is Map) {
       shop = Map<String, dynamic>.from(rawShop);
+    }
+
+    final total = DbMap.asInt(map['total_visits']);
+    final paid = DbMap.asInt(map['paid_amount']);
+    var per = DbMap.asInt(map['per_session_value']);
+    if (per <= 0 && paid > 0 && total > 0) {
+      per = (paid / total).round();
     }
 
     return MembershipTicket(
@@ -88,13 +113,15 @@ class MembershipTicket {
         map['ticket_name'] ?? map['service_name'],
         '회원권',
       ),
-      totalVisits: DbMap.asInt(map['total_visits']),
+      totalVisits: total,
       usedVisits: DbMap.asInt(map['used_visits']),
       expiresAt: DbMap.asDateTime(map['expires_at']),
       naverPlaceUrl: DbMap.asText(
         map['naver_place_url'] ?? shop?['naver_place_url'],
       ),
       isActive: DbMap.asBool(map['is_active'], true),
+      paidAmount: paid,
+      perSessionValue: per,
     );
   }
 }

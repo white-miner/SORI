@@ -35,6 +35,7 @@ class CustomerChart {
     this.guardianPhone,
     this.infoViewConsent = false,
     this.homeCareMissionChecks = const [false, false, false],
+    this.consentPdfUrl,
   });
 
   final String id;
@@ -73,6 +74,9 @@ class CustomerChart {
   final bool consentMarketing;
   final bool consentOfflineOnly;
   final String? signatureUrl;
+
+  /// 전자 동의서 PDF public URL.
+  final String? consentPdfUrl;
 
   /// 관리 케이스 공개 공유 여부 (동의 서명 완료 차트만 true 가능).
   final bool caseShared;
@@ -133,6 +137,7 @@ class CustomerChart {
     bool? consentMarketing,
     bool? consentOfflineOnly,
     String? signatureUrl,
+    String? consentPdfUrl,
     bool? caseShared,
     List<String>? homeCarePrescriptions,
     String? guardianPhone,
@@ -142,6 +147,7 @@ class CustomerChart {
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
     bool clearSignatureUrl = false,
+    bool clearConsentPdfUrl = false,
     bool clearGuardianPhone = false,
   }) {
     return CustomerChart(
@@ -180,6 +186,8 @@ class CustomerChart {
       consentOfflineOnly: consentOfflineOnly ?? this.consentOfflineOnly,
       signatureUrl:
           clearSignatureUrl ? null : (signatureUrl ?? this.signatureUrl),
+      consentPdfUrl:
+          clearConsentPdfUrl ? null : (consentPdfUrl ?? this.consentPdfUrl),
       caseShared: caseShared ?? this.caseShared,
       homeCarePrescriptions:
           homeCarePrescriptions ?? this.homeCarePrescriptions,
@@ -265,6 +273,7 @@ class CustomerChart {
       'consent_marketing': consentMarketing,
       'consent_offline_only': consentOfflineOnly,
       'signature_url': DbMap.asTextOrNull(signatureUrl),
+      'consent_pdf_url': DbMap.asTextOrNull(consentPdfUrl),
       // DB 컬럼명: is_case_shared (legacy case_shared 미전송 → PGRST204 방지)
       'is_case_shared': caseShared,
       'prescription_tags': HomecareDictionary.sanitizeTagIds(
@@ -324,6 +333,7 @@ class CustomerChart {
       consentMarketing: DbMap.asBool(map['consent_marketing']),
       consentOfflineOnly: DbMap.asBool(map['consent_offline_only']),
       signatureUrl: DbMap.asTextOrNull(map['signature_url']),
+      consentPdfUrl: DbMap.asTextOrNull(map['consent_pdf_url']),
       caseShared: DbMap.asBool(
         map['is_case_shared'] ?? map['case_shared'] ?? map['is_public'],
       ),

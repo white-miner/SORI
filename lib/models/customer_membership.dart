@@ -8,6 +8,8 @@ class CustomerMembership {
     required this.totalVisits,
     this.usedVisits = 0,
     this.expiresAt,
+    this.paidAmount = 0,
+    this.perSessionValue = 0,
   });
 
   final String id;
@@ -16,12 +18,35 @@ class CustomerMembership {
   final int usedVisits;
   final DateTime? expiresAt;
 
+  /// 회원권 결제 총액(원).
+  final int paidAmount;
+
+  /// 1회당 노동 부채(원).
+  final int perSessionValue;
+
   int get remainingVisits =>
       (totalVisits - usedVisits).clamp(0, 999);
+
+  /// 잔여 노동 부채 = per_session_value * remaining (없으면 paid/total 추정).
+  int get effectivePerSession {
+    if (perSessionValue > 0) return perSessionValue;
+    if (paidAmount > 0 && totalVisits > 0) {
+      return (paidAmount / totalVisits).round();
+    }
+    return 0;
+  }
+
+  int get laborDebtWon => effectivePerSession * remainingVisits;
 
   bool get isActive => totalVisits > 0 && remainingVisits > 0;
 
   bool get isLow => isActive && remainingVisits <= 2;
+
+  /// 잔여 비율 (0~1).
+  double get remainingRatio {
+    if (totalVisits <= 0) return 0;
+    return (remainingVisits / totalVisits).clamp(0.0, 1.0);
+  }
 
   CustomerMembership copyWith({
     String? id,
@@ -29,6 +54,8 @@ class CustomerMembership {
     int? totalVisits,
     int? usedVisits,
     DateTime? expiresAt,
+    int? paidAmount,
+    int? perSessionValue,
     bool clearExpiresAt = false,
   }) {
     return CustomerMembership(
@@ -37,6 +64,8 @@ class CustomerMembership {
       totalVisits: totalVisits ?? this.totalVisits,
       usedVisits: usedVisits ?? this.usedVisits,
       expiresAt: clearExpiresAt ? null : (expiresAt ?? this.expiresAt),
+      paidAmount: paidAmount ?? this.paidAmount,
+      perSessionValue: perSessionValue ?? this.perSessionValue,
     );
   }
 
@@ -45,18 +74,29 @@ class CustomerMembership {
         'service_name': serviceName,
         'total_visits': totalVisits,
         'used_visits': usedVisits,
+        'paid_amount': paidAmount,
+        'per_session_value':
+            perSessionValue > 0 ? perSessionValue : effectivePerSession,
         if (expiresAt != null)
           'expires_at':
               '${expiresAt!.year.toString().padLeft(4, '0')}-${expiresAt!.month.toString().padLeft(2, '0')}-${expiresAt!.day.toString().padLeft(2, '0')}',
       };
 
   factory CustomerMembership.fromJson(Map<String, dynamic> map) {
+    final total = DbMap.asInt(map['total_visits']);
+    final paid = DbMap.asInt(map['paid_amount']);
+    var per = DbMap.asInt(map['per_session_value']);
+    if (per <= 0 && paid > 0 && total > 0) {
+      per = (paid / total).round();
+    }
     return CustomerMembership(
       id: DbMap.asText(map['id'], 'm-${DateTime.now().millisecondsSinceEpoch}'),
       serviceName: DbMap.asText(map['service_name']),
-      totalVisits: DbMap.asInt(map['total_visits']),
+      totalVisits: total,
       usedVisits: DbMap.asInt(map['used_visits']),
       expiresAt: DbMap.asDateTime(map['expires_at']),
+      paidAmount: paid,
+      perSessionValue: per,
     );
   }
 

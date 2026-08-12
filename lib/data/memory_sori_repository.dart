@@ -31,6 +31,7 @@ class MemorySoriRepository implements SoriRepository {
       address: '서울시 강남구',
       kakaoPoint: 1000,
       isPro: true,
+      monthlyCapa: 100,
       serviceMenu: [
         ShopServiceItem(
           name: '재생케어',
@@ -87,6 +88,8 @@ class MemorySoriRepository implements SoriRepository {
             serviceName: '수분 케어 10회권',
             totalVisits: 10,
             usedVisits: 8,
+            paidAmount: 900000,
+            perSessionValue: 90000,
             expiresAt: DateTime.now().add(const Duration(days: 120)),
           ),
         ],
@@ -106,13 +109,83 @@ class MemorySoriRepository implements SoriRepository {
         membershipServiceName: '재생 케어 10회권',
         membershipTotalVisits: 10,
         membershipUsedVisits: 4,
+        createdAt: DateTime.now().subtract(const Duration(days: 220)),
         memberships: [
           CustomerMembership(
             id: 'm-regen',
             serviceName: '재생 케어 10회권',
             totalVisits: 10,
             usedVisits: 4,
+            paidAmount: 1200000,
+            perSessionValue: 120000,
             expiresAt: DateTime.now().add(const Duration(days: 200)),
+          ),
+        ],
+      ).withSyncedMembershipMirrors(),
+      Customer(
+        id: '4',
+        shopId: shop.id,
+        name: '정하은',
+        phone: '010-4567-8901',
+        lastTreatmentDate: DateTime.now().subtract(const Duration(days: 75)),
+        treatmentType: '테라노바 복부관리',
+        memo: '장기 미방문 · 잔여 부채',
+        gender: CustomerGender.female,
+        birthDate: DateTime(1992, 4, 2),
+        createdAt: DateTime.now().subtract(const Duration(days: 400)),
+        memberships: [
+          CustomerMembership(
+            id: 'm-theranova-bulk',
+            serviceName: '테라노바 복부 20회권',
+            totalVisits: 20,
+            usedVisits: 5,
+            paidAmount: 2400000,
+            perSessionValue: 120000,
+          ),
+          CustomerMembership(
+            id: 'm-ldm-pack',
+            serviceName: 'LDM 장벽 10회권',
+            totalVisits: 10,
+            usedVisits: 1,
+            paidAmount: 1100000,
+            perSessionValue: 110000,
+          ),
+        ],
+      ).withSyncedMembershipMirrors(),
+      Customer(
+        id: '5',
+        shopId: shop.id,
+        name: '오수빈',
+        phone: '010-5678-9012',
+        lastTreatmentDate: DateTime.now().subtract(const Duration(days: 10)),
+        treatmentType: 'EMS 윤곽케어',
+        memo: '대량 잔여 부채 (Hell-Zone)',
+        gender: CustomerGender.female,
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        memberships: [
+          CustomerMembership(
+            id: 'm-ems-50',
+            serviceName: 'EMS 윤곽 50회권',
+            totalVisits: 50,
+            usedVisits: 8,
+            paidAmount: 4500000,
+            perSessionValue: 90000,
+          ),
+          CustomerMembership(
+            id: 'm-moisture-30',
+            serviceName: '수분 케어 30회권',
+            totalVisits: 30,
+            usedVisits: 4,
+            paidAmount: 2100000,
+            perSessionValue: 70000,
+          ),
+          CustomerMembership(
+            id: 'm-regen-40',
+            serviceName: '재생 케어 40회권',
+            totalVisits: 40,
+            usedVisits: 6,
+            paidAmount: 4000000,
+            perSessionValue: 100000,
           ),
         ],
       ).withSyncedMembershipMirrors(),
@@ -253,6 +326,12 @@ class MemorySoriRepository implements SoriRepository {
   Future<void> updateChartCaseShared({
     required String chartId,
     required bool shared,
+  }) async {}
+
+  @override
+  Future<void> updateChartConsentPdfUrl({
+    required String chartId,
+    required String consentPdfUrl,
   }) async {}
 
   @override

@@ -41,6 +41,8 @@ class Customer {
     this.allergyNotes = '',
     this.medicationHistory = '',
     this.homeCareHabits = '',
+    this.lastPromotionSentAt,
+    this.createdAt,
   });
 
   final String id;
@@ -66,6 +68,12 @@ class Customer {
   final String allergyNotes;
   final String medicationHistory;
   final String homeCareHabits;
+
+  /// 회원권 사용요청/프로모션 마지막 발송.
+  final DateTime? lastPromotionSentAt;
+
+  /// 고객 등록일 (장기 미방문 부채 트리거용).
+  final DateTime? createdAt;
 
   List<CustomerMembership> get activeMemberships =>
       memberships.where((m) => m.totalVisits > 0).toList();
@@ -165,8 +173,11 @@ class Customer {
     String? allergyNotes,
     String? medicationHistory,
     String? homeCareHabits,
+    DateTime? lastPromotionSentAt,
+    DateTime? createdAt,
     bool clearGender = false,
     bool clearBirthDate = false,
+    bool clearLastPromotionSentAt = false,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -190,6 +201,10 @@ class Customer {
       allergyNotes: allergyNotes ?? this.allergyNotes,
       medicationHistory: medicationHistory ?? this.medicationHistory,
       homeCareHabits: homeCareHabits ?? this.homeCareHabits,
+      lastPromotionSentAt: clearLastPromotionSentAt
+          ? null
+          : (lastPromotionSentAt ?? this.lastPromotionSentAt),
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -220,6 +235,8 @@ class Customer {
               '${synced.birthDate!.day.toString().padLeft(2, '0')}',
       'address': synced.address,
       'occupation': synced.occupation,
+      'last_promotion_sent_at':
+          synced.lastPromotionSentAt?.toUtc().toIso8601String(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (includeId && synced.id.isNotEmpty) {
@@ -292,6 +309,8 @@ class Customer {
       allergyNotes: DbMap.asText(map['allergy_notes']),
       medicationHistory: DbMap.asText(map['medication_history']),
       homeCareHabits: DbMap.asText(map['home_care_habits']),
+      lastPromotionSentAt: DbMap.asDateTime(map['last_promotion_sent_at']),
+      createdAt: DbMap.asDateTime(map['created_at']),
     ).withSyncedMembershipMirrors();
   }
 }

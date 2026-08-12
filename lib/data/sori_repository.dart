@@ -166,6 +166,12 @@ abstract class SoriRepository {
     required bool shared,
   });
 
+  /// 전자 동의서 PDF URL 갱신.
+  Future<void> updateChartConsentPdfUrl({
+    required String chartId,
+    required String consentPdfUrl,
+  });
+
   /// 홈케어 3일 미션 체크 갱신.
   Future<void> updateHomeCareMissionChecks({
     required String chartId,

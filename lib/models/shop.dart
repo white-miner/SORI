@@ -15,6 +15,7 @@ class Shop {
     this.serviceMenu = const [],
     this.kakaoPoint = 0,
     this.isPro = false,
+    this.monthlyCapa = 100,
   });
 
   final String id;
@@ -39,6 +40,9 @@ class Shop {
 
   /// 프로 플랜 여부.
   final bool isPro;
+
+  /// 월간 소화 CAPA(회). Hell-Zone = 잔여 총합 > CAPA * 1.2.
+  final int monthlyCapa;
 
   /// 차트·회원권 드롭다운용 서비스명 목록.
   List<String> get serviceNames => serviceMenu
@@ -70,6 +74,7 @@ class Shop {
     List<ShopServiceItem>? serviceMenu,
     int? kakaoPoint,
     bool? isPro,
+    int? monthlyCapa,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -84,6 +89,7 @@ class Shop {
       serviceMenu: serviceMenu ?? this.serviceMenu,
       kakaoPoint: kakaoPoint ?? this.kakaoPoint,
       isPro: isPro ?? this.isPro,
+      monthlyCapa: monthlyCapa ?? this.monthlyCapa,
     );
   }
 
@@ -100,6 +106,7 @@ class Shop {
         'service_menu': serviceMenu.map((e) => e.toMap()).toList(),
         'kakao_point': kakaoPoint,
         'is_pro': isPro,
+        'monthly_capa': monthlyCapa,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -148,6 +155,10 @@ class Shop {
             ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])
             : 1000,
         isPro: DbMap.asBool(map['is_pro'] ?? map['isPro']),
+        monthlyCapa: DbMap.asInt(
+          map['monthly_capa'] ?? map['monthlyCapa'],
+          100,
+        ),
       );
     } catch (_) {
       return Shop(
@@ -162,6 +173,10 @@ class Shop {
             ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])
             : 1000,
         isPro: DbMap.asBool(map['is_pro'] ?? map['isPro']),
+        monthlyCapa: DbMap.asInt(
+          map['monthly_capa'] ?? map['monthlyCapa'],
+          100,
+        ),
       );
     }
   }

@@ -24,6 +24,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   late final TextEditingController _hoursController;
   late final TextEditingController _blogController;
   late final TextEditingController _instagramController;
+  late final TextEditingController _capaController;
 
   @override
   void initState() {
@@ -37,6 +38,8 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _hoursController = TextEditingController(text: shop.operatingHours);
     _blogController = TextEditingController(text: shop.snsBlogUrl);
     _instagramController = TextEditingController(text: shop.snsInstagramUrl);
+    _capaController =
+        TextEditingController(text: '${shop.monthlyCapa <= 0 ? 100 : shop.monthlyCapa}');
   }
 
   @override
@@ -49,6 +52,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _hoursController.dispose();
     _blogController.dispose();
     _instagramController.dispose();
+    _capaController.dispose();
     super.dispose();
   }
 
@@ -76,6 +80,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
       operatingHours: _hoursController.text,
       snsBlogUrl: _blogController.text,
       snsInstagramUrl: _instagramController.text,
+      monthlyCapa: int.tryParse(_capaController.text.trim()) ?? 100,
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -145,6 +150,16 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: '샵 연락처',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _capaController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '월간 소화 CAPA (회)',
+              hintText: '기본 100 · 잔여 > CAPA×1.2 시 Hell-Zone',
               border: OutlineInputBorder(),
             ),
           ),

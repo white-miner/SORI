@@ -531,6 +531,8 @@ class SupabaseSoriRepository implements SoriRepository {
               ? null
               : '${m.expiresAt!.year.toString().padLeft(4, '0')}-${m.expiresAt!.month.toString().padLeft(2, '0')}-${m.expiresAt!.day.toString().padLeft(2, '0')}',
           'is_active': m.remainingVisits > 0,
+          'paid_amount': m.paidAmount,
+          'per_session_value': m.effectivePerSession,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         });
       }
@@ -686,6 +688,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'operating_hours': shop.operatingHours,
       'sns_blog_url': shop.snsBlogUrl,
       'sns_instagram_url': shop.snsInstagramUrl,
+      'monthly_capa': shop.monthlyCapa,
     };
 
     try {
@@ -702,6 +705,9 @@ class SupabaseSoriRepository implements SoriRepository {
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
         isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,
+        monthlyCapa: map.containsKey('monthly_capa')
+            ? parsed.monthlyCapa
+            : shop.monthlyCapa,
       );
     } catch (e) {
       debugPrint('upsertShop with hours/SNS failed, retrying base payload: $e');
@@ -718,6 +724,9 @@ class SupabaseSoriRepository implements SoriRepository {
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
         isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,
+        monthlyCapa: map.containsKey('monthly_capa')
+            ? parsed.monthlyCapa
+            : shop.monthlyCapa,
       );
     }
   }
@@ -967,6 +976,26 @@ class SupabaseSoriRepository implements SoriRepository {
       } catch (e2) {
         debugPrint('updateChartCaseShared skipped: $e2');
       }
+    }
+  }
+
+  @override
+  Future<void> updateChartConsentPdfUrl({
+    required String chartId,
+    required String consentPdfUrl,
+  }) async {
+    final url = consentPdfUrl.trim();
+    if (chartId.isEmpty || url.isEmpty) return;
+    try {
+      await _updateChartRow(
+        chartId: chartId,
+        payload: {
+          'consent_pdf_url': url,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
+    } catch (e) {
+      debugPrint('updateChartConsentPdfUrl skipped: $e');
     }
   }
 

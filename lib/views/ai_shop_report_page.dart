@@ -2,42 +2,127 @@ import 'package:flutter/material.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/kakao_alimtalk.dart';
+import '../models/shop_finance_health.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'kakao_alimtalk_actions.dart';
 
-/// AI 샵 경영 리포트 — 5대 모듈 + 포트폴리오 옵티마이저.
-class AiShopReportPage extends StatelessWidget {
+/// AI 샵 경영 리포트 — 재무 Hell-Zone + 5대 모듈.
+class AiShopReportPage extends StatefulWidget {
   const AiShopReportPage({super.key, this.data});
 
   final AiShopReportMock? data;
 
   @override
+  State<AiShopReportPage> createState() => _AiShopReportPageState();
+}
+
+class _AiShopReportPageState extends State<AiShopReportPage> {
+  final _store = SoriStore.instance;
+  final Set<String> _sendingIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onStore);
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  ShopFinanceHealth get _finance {
+    final live = ShopFinanceAnalyzer.analyze(
+      shop: _store.shop,
+      customers: _store.customers,
+    );
+    // 실데이터가 CAPA를 넘지 않으면 기획 데모 Hell-Zone 오버레이
+    return ShopFinanceAnalyzer.demoOverlay(live);
+  }
+
+  Future<void> _sendUsageRequest(DebtRiskCustomer target) async {
+    if (_sendingIds.contains(target.customerId)) return;
+    setState(() => _sendingIds.add(target.customerId));
+    try {
+      final result = await _store.sendMembershipUsageRequest(
+        customerId: target.customerId,
+      );
+      if (!mounted) return;
+      if (result.isInsufficientPoints) {
+        await showInsufficientKakaoPointDialog(context);
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.ok
+                ? '${target.name}님께 회원권 사용요청을 발송했습니다.'
+                : (result.message ?? '발송 실패'),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor:
+              result.ok ? SoriTokens.primary : Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendingIds.remove(target.customerId));
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final report = data ?? AiShopReportMock.demo();
+    final report = widget.data ?? AiShopReportMock.demo();
+    final finance = _finance;
+    final hell = finance.isHellZone;
+    final borderColor =
+        hell ? const Color(0xFFDC2626) : Colors.transparent;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: hell ? const Color(0xFFFFF5F5) : const Color(0xFFF5F6F8),
       appBar: AppBar(
-        title: const Text('AI 샵 경영 리포트'),
-        backgroundColor: Colors.white,
-        foregroundColor: SoriTokens.textPrimary,
+        title: Text(hell ? '🚨 Hell-Zone · AI 샵 경영 리포트' : 'AI 샵 경영 리포트'),
+        backgroundColor: hell ? const Color(0xFFFEF2F2) : Colors.white,
+        foregroundColor: hell ? const Color(0xFF991B1B) : SoriTokens.textPrimary,
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        children: [
-          _ReportHero(periodLabel: report.periodLabel),
-          const SizedBox(height: 14),
-          _RevenueModuleCard(data: report.revenue),
-          const SizedBox(height: 12),
-          _PortfolioModuleCard(data: report.portfolio),
-          const SizedBox(height: 12),
-          _TargetSegmentCard(data: report.targetSegment),
-          const SizedBox(height: 12),
-          _GoldenTimeCard(data: report.goldenTime),
-          const SizedBox(height: 12),
-          _CareMessageCard(data: report.careMessage),
-        ],
+      body: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: borderColor, width: hell ? 3 : 0),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          children: [
+            _LaborDebtHero(finance: finance),
+            const SizedBox(height: 12),
+            _SplitRevenueCard(finance: finance),
+            const SizedBox(height: 12),
+            _DebtRiskListCard(
+              items: finance.debtRiskCustomers,
+              sendingIds: _sendingIds,
+              onRequest: _sendUsageRequest,
+            ),
+            const SizedBox(height: 14),
+            _ReportHero(periodLabel: report.periodLabel),
+            const SizedBox(height: 14),
+            _RevenueModuleCard(data: report.revenue),
+            const SizedBox(height: 12),
+            _PortfolioModuleCard(data: report.portfolio),
+            const SizedBox(height: 12),
+            _TargetSegmentCard(data: report.targetSegment),
+            const SizedBox(height: 12),
+            _GoldenTimeCard(data: report.goldenTime),
+            const SizedBox(height: 12),
+            _CareMessageCard(data: report.careMessage),
+          ],
+        ),
       ),
     );
   }
@@ -248,6 +333,347 @@ class _EntryChip extends StatelessWidget {
   }
 }
 
+class _LaborDebtHero extends StatelessWidget {
+  const _LaborDebtHero({required this.finance});
+
+  final ShopFinanceHealth finance;
+
+  @override
+  Widget build(BuildContext context) {
+    final hell = finance.isHellZone;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: hell
+              ? const [Color(0xFF991B1B), Color(0xFFDC2626)]
+              : const [Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (hell ? const Color(0xFFDC2626) : Colors.black)
+                .withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: hell
+            ? Border.all(color: const Color(0xFFFCA5A5), width: 2)
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                hell ? 'HELL-ZONE' : '재무 건전성',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'CAPA ${finance.monthlyCapa} · 임계 ${finance.hellZoneThreshold}',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            '현재 갚아야 할 노동 부채(원)',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _won(finance.laborDebtWon),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '잔여 ${finance.totalRemainingSessions}회'
+            ' · CAPA 대비 ${(finance.capaUtilization * 100).toStringAsFixed(0)}%',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (hell) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                '잔여 회차가 CAPA의 120%를 초과했습니다. 신규 회원권 판매를 멈추고 소진 캠페인에 집중하세요.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SplitRevenueCard extends StatelessWidget {
+  const _SplitRevenueCard({required this.finance});
+
+  final ShopFinanceHealth finance;
+
+  @override
+  Widget build(BuildContext context) {
+    final single = finance.singlePayRevenueWon;
+    final membership = finance.membershipPayDebtWon;
+    final total = (single + membership).clamp(1, 1 << 62);
+    final singleW = single / total;
+    final hell = finance.isHellZone;
+
+    return _ModuleShell(
+      eyebrow: '재무',
+      title: '매출 분리 · 단과(순수익) vs 회원권(부채)',
+      accent: hell ? const Color(0xFFDC2626) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: '단과 결제 (순수익)',
+                  value: _won(single),
+                  color: const Color(0xFF059669),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMetric(
+                  label: '회원권 결제 (부채)',
+                  value: _won(membership),
+                  color: hell ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 14,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: (singleW * 1000).round().clamp(1, 999),
+                    child: Container(color: const Color(0xFF059669)),
+                  ),
+                  Expanded(
+                    flex: ((1 - singleW) * 1000).round().clamp(1, 999),
+                    child: Container(
+                      color: hell
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFFF59E0B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '초록=현금성 단과 · ${hell ? '빨강' : '주황'}=선수금(노동 부채)',
+            style: const TextStyle(
+              fontSize: 11,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtRiskListCard extends StatelessWidget {
+  const _DebtRiskListCard({
+    required this.items,
+    required this.sendingIds,
+    required this.onRequest,
+  });
+
+  final List<DebtRiskCustomer> items;
+  final Set<String> sendingIds;
+  final Future<void> Function(DebtRiskCustomer) onRequest;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModuleShell(
+      eyebrow: '부채 소거',
+      title: '장기 미방문 · 잔여 부채 트리거',
+      accent: const Color(0xFFB45309),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '등록 6개월+ & 잔여≥50% 또는 미방문 60일+',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (items.isEmpty)
+            const Text(
+              '현재 조건에 해당하는 고객이 없습니다.',
+              style: TextStyle(
+                fontSize: 13,
+                color: SoriTokens.textSecondary,
+              ),
+            )
+          else
+            ...items.take(6).map((item) {
+              final busy = sendingIds.contains(item.customerId);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _won(item.laborDebtWon),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.reason,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: busy ? null : () => onRequest(item),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFB45309),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        child: Text(
+                          busy ? '발송 중…' : '회원권 사용요청',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
 class _ReportHero extends StatelessWidget {
   const _ReportHero({required this.periodLabel});
 
@@ -306,20 +732,26 @@ class _ModuleShell extends StatelessWidget {
     required this.eyebrow,
     required this.title,
     required this.child,
+    this.accent,
   });
 
   final String eyebrow;
   final String title;
   final Widget child;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
+    final tone = accent ?? SoriTokens.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
+        border: accent != null
+            ? Border.all(color: accent!.withValues(alpha: 0.35), width: 1.5)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -333,10 +765,10 @@ class _ModuleShell extends StatelessWidget {
         children: [
           Text(
             eyebrow,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: SoriTokens.primary,
+              color: tone,
               letterSpacing: 0.2,
             ),
           ),
