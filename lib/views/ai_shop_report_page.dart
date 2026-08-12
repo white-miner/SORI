@@ -1,0 +1,946 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../models/ai_shop_report_mock.dart';
+import '../theme/sori_tokens.dart';
+
+/// AI 샵 경영 리포트 — 5대 모듈 + 포트폴리오 옵티마이저.
+class AiShopReportPage extends StatelessWidget {
+  const AiShopReportPage({super.key, this.data});
+
+  final AiShopReportMock? data;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = data ?? AiShopReportMock.demo();
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F6F8),
+      appBar: AppBar(
+        title: const Text('AI 샵 경영 리포트'),
+        backgroundColor: Colors.white,
+        foregroundColor: SoriTokens.textPrimary,
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        children: [
+          _ReportHero(periodLabel: report.periodLabel),
+          const SizedBox(height: 14),
+          _RevenueModuleCard(data: report.revenue),
+          const SizedBox(height: 12),
+          _PortfolioModuleCard(data: report.portfolio),
+          const SizedBox(height: 12),
+          _TargetSegmentCard(data: report.targetSegment),
+          const SizedBox(height: 12),
+          _GoldenTimeCard(data: report.goldenTime),
+          const SizedBox(height: 12),
+          _CareMessageCard(data: report.careMessage),
+        ],
+      ),
+    );
+  }
+}
+
+/// 마이페이지 노출용 요약 진입 카드.
+class AiShopReportEntryCard extends StatelessWidget {
+  const AiShopReportEntryCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final report = AiShopReportMock.demo();
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => AiShopReportPage(data: report),
+            ),
+          );
+        },
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF5B4CDB), Color(0xFF7C6CF0)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: SoriTokens.primary.withValues(alpha: 0.28),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 16, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'AI LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      report.periodLabel,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'AI 샵 경영 리포트',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '매출·라인업·타깃·골든타임·카톡 케어까지 한눈에',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    _MiniStat(
+                      label: '추정 매출',
+                      value: _won(report.revenue.estimatedSalesWon),
+                    ),
+                    const SizedBox(width: 10),
+                    _MiniStat(
+                      label: '화력 메뉴',
+                      value: report.portfolio.investMenus.first.name,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _EntryChip(
+                            text: '🔥 ${report.portfolio.investMenus.first.tag}',
+                          ),
+                          _EntryChip(
+                            text: '⚠️ ${report.portfolio.cutMenus.first.tag}',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryChip extends StatelessWidget {
+  const _EntryChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportHero extends StatelessWidget {
+  const _ReportHero({required this.periodLabel});
+
+  final String periodLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: SoriTokens.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: SoriTokens.primarySoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.auto_graph_rounded, color: SoriTokens.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '데이터 기반 경영 브리핑',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$periodLabel · MOCK 미리보기 (정산 API 연동 예정)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: SoriTokens.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModuleShell extends StatelessWidget {
+  const _ModuleShell({
+    required this.eyebrow,
+    required this.title,
+    required this.child,
+  });
+
+  final String eyebrow;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eyebrow,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.primary,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _RevenueModuleCard extends StatelessWidget {
+  const _RevenueModuleCard({required this.data});
+
+  final AiRevenueModule data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModuleShell(
+      eyebrow: '모듈 1',
+      title: '실시간 매출 & 회원권 소진 현황',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  label: '추정 매출',
+                  value: _won(data.estimatedSalesWon),
+                  footnote: '전월 대비 +${data.salesDeltaPercent}%',
+                  accent: SoriTokens.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetricTile(
+                  label: '회원권 소진 가치',
+                  value: _won(data.membershipBurnValueWon),
+                  footnote: '소진률 ${data.membershipBurnRatePercent}%',
+                  accent: const Color(0xFF0F766E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: data.membershipBurnRatePercent / 100,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFE8EAF6),
+              color: const Color(0xFF0F766E),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '방문 ${data.visitCount}회 · 티켓 차감 ${data.ticketSessionsUsed}회',
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            data.highlight,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.footnote,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final String footnote;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: accent,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            footnote,
+            style: const TextStyle(
+              fontSize: 11,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PortfolioModuleCard extends StatelessWidget {
+  const _PortfolioModuleCard({required this.data});
+
+  final AiPortfolioModule data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModuleShell(
+      eyebrow: '모듈 2 · Portfolio Optimizer',
+      title: '🔥 집중 투자 메뉴 vs ⚠️ 축소/삭제 추천',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '화력 집중',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          ...data.investMenus.map((m) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _MenuSignalTile(signal: m),
+              )),
+          const SizedBox(height: 4),
+          const Text(
+            '축소 / 삭제 추천',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          ...data.cutMenus.map((m) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _MenuSignalTile(signal: m),
+              )),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SoriTokens.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '💡 AI 신규 제안  ${data.aiProposal}',
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuSignalTile extends StatelessWidget {
+  const _MenuSignalTile({required this.signal});
+
+  final AiMenuSignal signal;
+
+  @override
+  Widget build(BuildContext context) {
+    final invest = signal.tone == AiMenuTone.invest;
+    final badgeColor =
+        invest ? const Color(0xFFFF6B4A) : const Color(0xFF6B7280);
+    final badgeBg =
+        invest ? const Color(0xFFFFF0EC) : const Color(0xFFF3F4F6);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  signal.tag,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: SoriTokens.border),
+                ),
+                child: Text(
+                  signal.metric,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            signal.name,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            signal.reason,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TargetSegmentCard extends StatelessWidget {
+  const _TargetSegmentCard({required this.data});
+
+  final AiTargetSegmentModule data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModuleShell(
+      eyebrow: '모듈 3',
+      title: '🎯 핵심 타깃 고객층 분석',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  data.primaryLabel,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                '${data.sharePercent}%',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: SoriTokens.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '주력 구매 비중',
+            style: TextStyle(
+              fontSize: 11,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: data.traits
+                .map(
+                  (t) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      t,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            data.summary,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoldenTimeCard extends StatelessWidget {
+  const _GoldenTimeCard({required this.data});
+
+  final AiGoldenTimeModule data;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModuleShell(
+      eyebrow: '모듈 4',
+      title: '🚨 재방문 골든타임 & 회원권 임박 알림',
+      child: Column(
+        children: [
+          for (final item in data.items) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: item.urgency == 'imminent'
+                    ? const Color(0xFFFFF4E5)
+                    : const Color(0xFFF0F7FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: item.urgency == 'imminent'
+                      ? const Color(0xFFFFD8A8)
+                      : const Color(0xFFBFDBFE),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        item.customerName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          item.urgency == 'imminent' ? '임박' : '재방문',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: item.urgency == 'imminent'
+                                ? SoriTokens.warningText
+                                : const Color(0xFF1D4ED8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.reason,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '→ ${item.action}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CareMessageCard extends StatelessWidget {
+  const _CareMessageCard({required this.data});
+
+  final AiCareMessageModule data;
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: data.preview));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('케어 메시지 문구를 복사했어요'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: SoriTokens.primary,
+      ),
+    );
+  }
+
+  Future<void> _sendKakao(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: data.preview));
+    final uri = Uri.parse('kakaotalk://');
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          launched
+              ? '문구를 복사했어요. 카카오톡에서 붙여넣어 보내 주세요.'
+              : '카카오톡 실행에 실패했어요. 문구는 복사해 두었습니다.',
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: SoriTokens.primary,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModuleShell(
+      eyebrow: '모듈 5',
+      title: '💬 카카오톡 1:1 자동 케어 메시지',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: data.chartTags
+                .map(
+                  (t) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: SoriTokens.primarySoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '#$t',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.primary,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SoriTokens.border),
+            ),
+            child: Text(
+              data.preview,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _sendKakao(context),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFEE500),
+                    foregroundColor: const Color(0xFF191600),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: const Text(
+                    '카카오톡 즉시 발송',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _copy(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SoriTokens.primary,
+                    side: const BorderSide(color: SoriTokens.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  label: const Text(
+                    '문구 복사',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _won(int value) {
+  final s = value.toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    final fromEnd = s.length - i;
+    buf.write(s[i]);
+    if (fromEnd > 1 && fromEnd % 3 == 1) buf.write(',');
+  }
+  return '₩${buf.toString()}';
+}
