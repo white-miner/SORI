@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chart_interview_chips.dart';
 import '../models/chart_medical_chips.dart';
@@ -24,6 +23,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/db_map.dart';
 import '../utils/sori_scroll_behavior.dart';
 import 'chart_consent_tab.dart';
+import 'consent_pdf_preview_sheet.dart';
 import 'customer_link_popup.dart';
 import 'management_menu_field.dart';
 import 'membership_editor_sheet.dart';
@@ -657,10 +657,21 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   Future<void> _downloadConsentPdf() async {
-    final url = (_annualConsentSource?.consentPdfUrl ??
-            widget.existingChart?.consentPdfUrl)
-        ?.trim();
-    if (url == null || url.isEmpty) {
+    final chart = _annualConsentSource ?? widget.existingChart;
+    final customerId = _boundCustomerId.trim();
+    final customer = widget.store.findCustomer(customerId) ??
+        widget.customer ??
+        Customer(
+          id: customerId.isEmpty ? 'unknown' : customerId,
+          name: _nameController.text.trim().isEmpty
+              ? '고객'
+              : _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          lastTreatmentDate: DateTime.now(),
+          treatmentType: _careNameController.text.trim(),
+          shopId: widget.store.shop.id,
+        );
+    if (chart == null || !chart.isConsentSigned) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -670,9 +681,12 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       );
       return;
     }
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await showConsentPdfPreviewModal(
+      context: context,
+      store: widget.store,
+      customer: customer,
+      chart: chart,
+    );
   }
 
   @override

@@ -8,6 +8,7 @@ import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'consent_pdf_preview_sheet.dart';
 import 'quick_consent_sheet.dart';
 
 /// 고객 상세 정보 / 수정 — `/customer/:id/profile`
@@ -137,8 +138,9 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
   }
 
   Future<void> _openPdf() async {
-    final url = _consentChart?.consentPdfUrl?.trim() ?? '';
-    if (url.isEmpty) {
+    final customer = _customer;
+    final chart = _consentChart;
+    if (customer == null || chart == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -148,9 +150,12 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       );
       return;
     }
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await showConsentPdfPreviewModal(
+      context: context,
+      store: widget.store,
+      customer: customer,
+      chart: chart,
+    );
   }
 
   Future<void> _save() async {
