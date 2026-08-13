@@ -178,7 +178,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       _annualConsentSource != null &&
       _consentValidUntil != null;
 
-  bool get _needsConsentRenewal => !_quickChartMode;
+  /// 이번 작성 세션에서 필수 동의+서명을 완료했는지.
+  bool get _hasSessionConsentComplete {
+    final hasPad = _signatureController.isNotEmpty;
+    final hasSaved =
+        (_existingSignatureUrl?.trim().isNotEmpty ?? false);
+    return _consentMandatory && (hasPad || hasSaved);
+  }
+
+  /// DB 유효 동의 이력 또는 방금 작성 완료한 동의.
+  bool get _hasValidConsent =>
+      _quickChartMode || _hasSessionConsentComplete;
 
   _ChartRequiredField? _firstMissingRequiredField() {
     if (_nameController.text.trim().isEmpty) {
@@ -191,11 +201,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     if (_careNameController.text.trim().isEmpty) {
       return _ChartRequiredField.careName;
     }
-    if (!_quickChartMode) {
+    if (!_hasValidConsent) {
       if (!_consentMandatory) return _ChartRequiredField.consent;
-      if (!_signatureController.isNotEmpty) {
-        return _ChartRequiredField.signature;
-      }
+      return _ChartRequiredField.signature;
     }
     return null;
   }
@@ -211,9 +219,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       case _ChartRequiredField.careName:
         return _careNameController.text.trim().isNotEmpty;
       case _ChartRequiredField.consent:
-        return _quickChartMode || _consentMandatory;
+        return _hasValidConsent;
       case _ChartRequiredField.signature:
-        return _quickChartMode || _signatureController.isNotEmpty;
+        return _hasValidConsent;
     }
   }
 
@@ -385,6 +393,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     super.initState();
     _boundCustomerId = _lockCustomerIdFromSources();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) {
+        setState(() {});
+      }
+    });
     _pageController = PageController();
     _shakeController = AnimationController(
       vsync: this,
@@ -1245,6 +1258,22 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         }
       }
 
+      // 신규 동의 저장 시 signature_url 필수 — 빈 값이면 중단
+      final resolvedSignature = (signatureUrl ?? '').trim();
+      if (!_quickChartMode && resolvedSignature.isEmpty) {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('서명이 저장되지 않았습니다. 전자 동의서 탭에서 다시 서명해 주세요.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        _tabController.animateTo(1);
+        return;
+      }
+
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: customerIdForSave,
         visitNumber: _visitNumber,
@@ -1291,13 +1320,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         memberships: _memberships
             .where((m) => m.serviceName.trim().isNotEmpty && m.totalVisits > 0)
             .toList(),
-        consentMandatory: _quickChartMode
-            ? true
-            : _consentMandatory,
+        consentMandatory: true,
         consentPhoto: _consentPhoto,
         consentMarketing: _consentPhoto && _consentMarketing,
         consentOfflineOnly: _consentPhoto && _consentOfflineOnly,
-        signatureUrl: signatureUrl,
+        signatureUrl: _quickChartMode
+            ? (resolvedSignature.isNotEmpty
+                ? resolvedSignature
+                : (_annualConsentSource?.signatureUrl ??
+                    _existingSignatureUrl))
+            : resolvedSignature,
         homeCarePrescriptions:
             HomecareDictionary.sanitizeTagIds(_homeCarePrescriptions),
         guardianPhone: () {
@@ -1309,6 +1341,19 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       );
 
       if (!mounted) return;
+      // 저장 직후 로컬 동의 상태 동기화 (탭 복귀/재진입 시 노란 바 방지)
+      setState(() {
+        _forceConsentRenewal = false;
+        _existingSignatureUrl =
+            chart.signatureUrl ?? resolvedSignature;
+        _annualConsentSource = chart;
+        _consentValidUntil = SoriStore.consentValidUntil(chart) ??
+            DateTime.now().add(const Duration(days: 365));
+        _consentCareNotice = true;
+        _consentAbnormalReaction = true;
+        _consentRefundPolicy = true;
+      });
+
       final feedback = widget.store.lastVisitFeedback?.trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1515,7 +1560,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 child: FilledButton(
                   onPressed: _saving ? null : _saveAndConfirm,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _quickChartMode
+                    backgroundColor: _hasValidConsent
                         ? const Color(0xFF2E7D32)
                         : MyApp.soriPurple,
                     disabledBackgroundColor: Colors.grey.shade300,
@@ -1567,7 +1612,30 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       ),
                     ),
                   ),
-                ] else if (widget.forceQuickChart || _needsConsentRenewal) ...[
+                ] else if (_hasSessionConsentComplete) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F8EF),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF81C784)),
+                    ),
+                    child: const Text(
+                      '✅ 전자 동의서 작성 완료 — 차트 저장 및 방문 확인을 진행할 수 있습니다.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.35,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ),
+                ] else ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
@@ -1580,9 +1648,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFFFB74D)),
                     ),
-                    child: const Text(
-                      '⚠️ 동의서 갱신 필요 — 서명일로부터 1년이 지났거나 이력이 없습니다. 전자 동의서 탭에서 필수 동의·자필 서명을 완료해야 저장됩니다.',
-                      style: TextStyle(
+                    child: Text(
+                      widget.forceQuickChart
+                          ? '⚠️ 동의서 갱신 필요 — 서명일로부터 1년이 지났거나 이력이 없습니다. 전자 동의서 탭에서 필수 동의·자필 서명을 완료해야 저장됩니다.'
+                          : '⚠️ 전자 동의서 미완료 — 전자 동의서 탭에서 필수 동의·자필 서명을 완료해 주세요.',
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         height: 1.35,

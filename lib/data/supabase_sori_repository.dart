@@ -1063,6 +1063,11 @@ class SupabaseSoriRepository implements SoriRepository {
     payload['visit_checked_at'] = null;
     // SSOT: URL/요청의 customer_id 를 맵에 반드시 재주입
     _ensureChartFkPayload(payload, customerId: customerId, shopId: sid);
+    // 동의 저장 매핑 보장
+    payload['consent_mandatory'] = draft.consentMandatory;
+    if ((draft.signatureUrl ?? '').trim().isNotEmpty) {
+      payload['signature_url'] = draft.signatureUrl!.trim();
+    }
     final row = await _insertChartRow(
       payload,
       customerId: customerId,
