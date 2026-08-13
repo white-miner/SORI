@@ -499,13 +499,11 @@ class _CheckCard extends StatelessWidget {
     required this.title,
     required this.checked,
     required this.onChanged,
-    this.requiredMark = false,
   });
 
   final String title;
   final bool checked;
   final ValueChanged<bool> onChanged;
-  final bool requiredMark;
 
   @override
   Widget build(BuildContext context) {
@@ -528,22 +526,13 @@ class _CheckCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 10),
-                  child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: Color(0xFF1F2937),
-                        fontWeight: FontWeight.w600,
-                      ),
-                      children: [
-                        if (requiredMark)
-                          const TextSpan(
-                            text: '[필수] ',
-                            style: TextStyle(color: Color(0xFFDC2626)),
-                          ),
-                        TextSpan(text: title),
-                      ],
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Color(0xFF1F2937),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
