@@ -298,34 +298,127 @@ class _CenterReviewBottomNav extends StatelessWidget {
             child: Center(
               child: GestureDetector(
                 onTap: () => onTap(2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: _fabSize,
-                  height: _fabSize,
-                  decoration: BoxDecoration(
-                    color: _accent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _accent.withValues(alpha: 0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                    border: currentIndex == 2
-                        ? Border.all(color: Colors.white, width: 3)
-                        : null,
-                  ),
-                  child: const Icon(
-                    Icons.chat_bubble_rounded,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
+                child: _GlossyReviewFab(selected: currentIndex == 2),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 하이그로시 입체 중앙 리뷰 FAB.
+class _GlossyReviewFab extends StatelessWidget {
+  const _GlossyReviewFab({required this.selected});
+
+  final bool selected;
+
+  static const double _size = 58;
+  static const Color _deepViolet = Color(0xFF4A3BCF);
+  static const Color _midViolet = Color(0xFF6C5CE7);
+  static const Color _brightViolet = Color(0xFF8B7CFF);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          center: Alignment(-0.35, -0.45),
+          radius: 1.05,
+          colors: [
+            _brightViolet,
+            _midViolet,
+            _deepViolet,
+          ],
+          stops: [0.0, 0.45, 1.0],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: selected ? 0.42 : 0.28),
+          width: selected ? 2.2 : 1.6,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _midViolet.withValues(alpha: 0.55),
+            blurRadius: 18,
+            spreadRadius: 0,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: _deepViolet.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 14,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 상단 반사광 림
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.34),
+                    Colors.white.withValues(alpha: 0.08),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.38, 0.72],
+                ),
+              ),
+            ),
+            // 좌상단 하이라이트 스페큘러
+            Align(
+              alignment: const Alignment(-0.55, -0.65),
+              child: Container(
+                width: 22,
+                height: 14,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.55),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const Center(
+              child: Icon(
+                Icons.chat_bubble_rounded,
+                color: Colors.white,
+                size: 26,
+                shadows: [
+                  Shadow(
+                    color: Color(0x66000000),
+                    blurRadius: 5,
+                    offset: Offset(0, 1.5),
+                  ),
+                  Shadow(
+                    color: Color(0x33000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 0.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
