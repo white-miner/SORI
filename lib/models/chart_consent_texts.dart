@@ -15,6 +15,10 @@ class ChartConsentTexts {
     '안내받은 홈케어 처방(자외선 차단, 무마찰 세안 등)을 성실히 이행할 것을 약속합니다.',
   ];
 
+  /// 3초 핵심 요약 (주의사항).
+  static const String mandatoryCareSummary =
+      '시술 후 열감/붉은기는 정상 반응이며 24시간 내 사우나 금지';
+
   // —— B. 이상 반응 · 의료적 진단 · 보상 ——
   static const String mandatoryReactionTitle =
       '이상 반응에 대한 의료적 진단 및 보상 규정';
@@ -24,6 +28,10 @@ class ChartConsentTexts {
     '의학적 인과관계가 증명되지 않은 주관적 심증만으로 과도한 합의금을 요구하거나, 허위 사실로 영업을 방해할 경우 강력한 법적 조치가 취해질 수 있음을 인지합니다.',
   ];
 
+  /// 3초 핵심 요약 (보상/진단).
+  static const String mandatoryReactionSummary =
+      '의료적 시술이 아닌 피부 관리이며 이상 반응 시 샵 안내 수칙 준수';
+
   // —— C. 회원권 · 다회권 환불 ——
   static const String mandatoryRefundTitle = '회원권 및 다회권 환불 규정 안내';
 
@@ -32,6 +40,10 @@ class ChartConsentTexts {
     '기본 제공/증정받은 화장품을 개봉 및 사용한 경우, 해당 제품의 소비자가격 전액이 환불금에서 공제됩니다.',
     '회원권의 유효기간은 1년(또는 샵 지정일)이며, 기한 경과 시 미사용 잔여 횟수는 소멸되고 양도 및 환불이 불가합니다.',
   ];
+
+  /// 3초 핵심 요약 (환불 규정).
+  static const String mandatoryRefundSummary =
+      '중도 해지 시 단가(정가) 차감 후 잔여금 환불 규정 적용';
 
   // —— 선택: 사진 ——
   static const String optionalPhotoTitle =

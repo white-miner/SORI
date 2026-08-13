@@ -197,22 +197,28 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 children: [
-                  _CheckCard(
+                  _AccordionConsentCard(
                     title: ChartConsentTexts.mandatoryCareTitle,
+                    summary: ChartConsentTexts.mandatoryCareSummary,
+                    bullets: ChartConsentTexts.mandatoryCareBody,
                     requiredMark: true,
                     checked: _care,
                     onChanged: (v) => setState(() => _care = v),
                   ),
                   const SizedBox(height: 8),
-                  _CheckCard(
+                  _AccordionConsentCard(
                     title: ChartConsentTexts.mandatoryReactionTitle,
+                    summary: ChartConsentTexts.mandatoryReactionSummary,
+                    bullets: ChartConsentTexts.mandatoryReactionBody,
                     requiredMark: true,
                     checked: _reaction,
                     onChanged: (v) => setState(() => _reaction = v),
                   ),
                   const SizedBox(height: 8),
-                  _CheckCard(
+                  _AccordionConsentCard(
                     title: ChartConsentTexts.mandatoryRefundTitle,
+                    summary: ChartConsentTexts.mandatoryRefundSummary,
+                    bullets: ChartConsentTexts.mandatoryRefundBody,
                     requiredMark: true,
                     checked: _refund,
                     onChanged: (v) => setState(() => _refund = v),
@@ -312,6 +318,174 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                         ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccordionConsentCard extends StatefulWidget {
+  const _AccordionConsentCard({
+    required this.title,
+    required this.summary,
+    required this.bullets,
+    required this.checked,
+    required this.onChanged,
+    this.requiredMark = false,
+  });
+
+  final String title;
+  final String summary;
+  final List<String> bullets;
+  final bool checked;
+  final ValueChanged<bool> onChanged;
+  final bool requiredMark;
+
+  @override
+  State<_AccordionConsentCard> createState() => _AccordionConsentCardState();
+}
+
+class _AccordionConsentCardState extends State<_AccordionConsentCard> {
+  bool _expanded = false;
+
+  void _toggleExpanded() => setState(() => _expanded = !_expanded);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: widget.checked ? const Color(0xFFF0FDF4) : const Color(0xFFF9FAFB),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: widget.checked,
+                  onChanged: (v) {
+                    final next = v ?? false;
+                    widget.onChanged(next);
+                    if (next && !_expanded) {
+                      setState(() => _expanded = true);
+                    }
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10, right: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Color(0xFF1F2937),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            children: [
+                              if (widget.requiredMark)
+                                const TextSpan(
+                                  text: '[필수] ',
+                                  style: TextStyle(color: Color(0xFFDC2626)),
+                                ),
+                              TextSpan(text: widget.title),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F0FE),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            widget.summary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF5B6B8C),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: _expanded ? '내용 접기' : '내용 보기',
+                  onPressed: _toggleExpanded,
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < widget.bullets.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '· ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.45,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    widget.bullets[i],
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      height: 1.45,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
