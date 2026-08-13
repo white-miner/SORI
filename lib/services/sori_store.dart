@@ -1046,7 +1046,7 @@ class SoriStore implements Listenable {
       if (normalizePhone(customer.phone) != digits) continue;
       for (final chart in charts.where((c) => c.customerId == customer.id)) {
         if (!chart.isConsentSigned) continue;
-        final signedAt = chart.createdAt ?? chart.visitCheckedAt;
+        final signedAt = chart.consentSignedAt;
         if (signedAt == null || signedAt.isBefore(cutoff)) continue;
         if (bestAt == null || signedAt.isAfter(bestAt)) {
           best = chart;
@@ -1060,9 +1060,48 @@ class SoriStore implements Listenable {
   /// 포괄 동의 유효 만료일 (서명일 + 365일).
   static DateTime? consentValidUntil(CustomerChart? chart) {
     if (chart == null || !chart.isConsentSigned) return null;
-    final signedAt = chart.createdAt ?? chart.visitCheckedAt;
+    final signedAt = chart.consentSignedAt;
     if (signedAt == null) return null;
     return signedAt.add(const Duration(days: 365));
+  }
+
+  /// 고객 프로필(인적·메모) 저장.
+  Future<Customer> saveCustomerProfile(Customer customer) async {
+    final synced = customer.withSyncedMembershipMirrors();
+    if (!_repository.isRemote) {
+      _mergeCustomer(synced);
+      _notify();
+      return synced;
+    }
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      final saved = await _repository.upsertCustomer(synced);
+      _mergeCustomer(saved);
+      return saved;
+    } catch (e) {
+      _setError(e);
+      rethrow;
+    } finally {
+      isLoading = false;
+      _notify();
+    }
+  }
+
+  /// 고객의 가장 유효 동의 차트 (서명/PDF).
+  CustomerChart? latestSignedConsentChart(String customerId) {
+    final list = chartsForCustomer(customerId);
+    for (final c in list) {
+      if (c.isConsentSigned && consentValidUntil(c) != null) {
+        final until = consentValidUntil(c)!;
+        if (!until.isBefore(DateTime.now())) return c;
+      }
+    }
+    for (final c in list) {
+      if (c.isConsentSigned) return c;
+    }
+    return null;
   }
 
   CustomerChart? latestChart(String customerId) {

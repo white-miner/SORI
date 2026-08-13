@@ -25,8 +25,12 @@ class ChartConsentTab extends StatefulWidget {
     required this.onOfflineOnlySelected,
     required this.onClearSignature,
     this.existingSignatureUrl,
+    this.consentPdfUrl,
+    this.consentSignedAt,
     this.quickChartMode = false,
     this.consentValidUntil,
+    this.onRequestRenewal,
+    this.onDownloadPdf,
     this.consentSectionKey,
     this.signatureFieldKey,
     this.shakeAnimation,
@@ -54,10 +58,14 @@ class ChartConsentTab extends StatefulWidget {
   final VoidCallback onOfflineOnlySelected;
   final VoidCallback onClearSignature;
   final String? existingSignatureUrl;
+  final String? consentPdfUrl;
+  final DateTime? consentSignedAt;
 
   /// 최근 1년 이내 서명 이력 → 필수 동의/서명 검증 Bypass.
   final bool quickChartMode;
   final DateTime? consentValidUntil;
+  final VoidCallback? onRequestRenewal;
+  final VoidCallback? onDownloadPdf;
 
   final GlobalKey? consentSectionKey;
   final GlobalKey? signatureFieldKey;
@@ -77,8 +85,180 @@ class ChartConsentTab extends StatefulWidget {
 class _ChartConsentTabState extends State<ChartConsentTab> {
   bool _lockConsentScroll = false;
 
+  String _fmtDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   String _fmtUntil(DateTime d) =>
       '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+
+  Widget _readOnlyViewer() {
+    final signed = widget.consentSignedAt;
+    final until = widget.consentValidUntil;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F8EF),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF81C784)),
+          ),
+          child: Text(
+            signed == null
+                ? '✅ 전자 동의서 작성 완료'
+                : '✅ 전자 동의서 작성 완료 (동의일시: ${_fmtDate(signed)})',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              height: 1.4,
+              color: Color(0xFF2E7D32),
+            ),
+          ),
+        ),
+        if (until != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            '유효기간: ${_fmtUntil(until)} 까지',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+        _ConsentCard(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 10, 4, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '동의 항목 (열람)',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+                const SizedBox(height: 10),
+                _ReadOnlyConsentLine(
+                  label: ChartConsentTexts.mandatoryCareTitle,
+                  checked: true,
+                ),
+                _ReadOnlyConsentLine(
+                  label: ChartConsentTexts.mandatoryReactionTitle,
+                  checked: true,
+                ),
+                _ReadOnlyConsentLine(
+                  label: ChartConsentTexts.mandatoryRefundTitle,
+                  checked: true,
+                ),
+                if (widget.consentPhoto)
+                  _ReadOnlyConsentLine(
+                    label: ChartConsentTexts.optionalPhotoTitle,
+                    checked: true,
+                    optional: true,
+                  ),
+                if (widget.consentMarketing)
+                  _ReadOnlyConsentLine(
+                    label: ChartConsentTexts.photoUseMarketing,
+                    checked: true,
+                    optional: true,
+                  ),
+                if (widget.consentOfflineOnly)
+                  _ReadOnlyConsentLine(
+                    label: ChartConsentTexts.photoUseOffline,
+                    checked: true,
+                    optional: true,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _ConsentCard(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 12, 4, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '체결된 서명',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+                const SizedBox(height: 10),
+                if (widget.existingSignatureUrl != null &&
+                    widget.existingSignatureUrl!.trim().isNotEmpty)
+                  Container(
+                    height: 150,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F7FC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      widget.existingSignatureUrl!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Text(
+                          '서명 이미지를 불러올 수 없습니다',
+                          style: TextStyle(color: SoriTokens.textSecondary),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '서명 이미지 없음 · 동의 PDF만 보관된 이력이거나 간편 재사용 상태입니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: widget.onDownloadPdf,
+          icon: const Icon(Icons.picture_as_pdf_outlined),
+          label: const Text('전자 동의서 PDF 다운로드'),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF1F2937),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: widget.onRequestRenewal,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('동의서 갱신 / 재작성'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFB45309),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            side: const BorderSide(color: Color(0xFFFBBF24)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   void _setSignaturePointerActive(bool active) {
     if (_lockConsentScroll == active) return;
@@ -96,6 +276,10 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.quickChartMode) {
+      return _readOnlyViewer();
+    }
+
     return Column(
       children: [
         Expanded(
@@ -107,77 +291,6 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   : null,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               children: [
-              if (widget.quickChartMode && widget.consentValidUntil != null) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F8EF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF81C784)),
-                  ),
-                  child: Text(
-                    '✅ 1년 포괄적 동의 완료 (유효기간: ${_fmtUntil(widget.consentValidUntil!)} 까지)',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                      color: Color(0xFF2E7D32),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: const Text(
-                    '읽기 전용 동의서 뷰어입니다. 과거 서명을 확인만 할 수 있으며, 차트 저장을 위한 재서명은 필요하지 않습니다.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
-                      color: SoriTokens.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                IgnorePointer(
-                  child: Opacity(
-                    opacity: 0.92,
-                    child: Column(
-                      children: [
-                        _MandatoryAccordion(
-                          title: ChartConsentTexts.mandatoryCareTitle,
-                          bullets: ChartConsentTexts.mandatoryCareBody,
-                          checked: true,
-                          onChanged: (_) {},
-                        ),
-                        const SizedBox(height: 10),
-                        _MandatoryAccordion(
-                          title: ChartConsentTexts.mandatoryReactionTitle,
-                          bullets: ChartConsentTexts.mandatoryReactionBody,
-                          checked: true,
-                          onChanged: (_) {},
-                        ),
-                        const SizedBox(height: 10),
-                        _MandatoryAccordion(
-                          title: ChartConsentTexts.mandatoryRefundTitle,
-                          bullets: ChartConsentTexts.mandatoryRefundBody,
-                          checked: true,
-                          onChanged: (_) {},
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ] else ...[
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -227,218 +340,216 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   ),
                 ),
                 const SizedBox(height: 12),
-              ],
-              _ConsentCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CheckboxListTile(
-                      value: widget.consentPhoto,
-                      onChanged: (v) => widget.onPhotoChanged(v ?? false),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: MyApp.soriPurple,
-                      title: const Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '[선택] ',
-                              style: TextStyle(
-                                color: MyApp.soriPurple,
-                                fontWeight: FontWeight.w800,
+                _ConsentCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CheckboxListTile(
+                        value: widget.consentPhoto,
+                        onChanged: (v) => widget.onPhotoChanged(v ?? false),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: MyApp.soriPurple,
+                        title: const Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '[선택] ',
+                                style: TextStyle(
+                                  color: MyApp.soriPurple,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                            TextSpan(
-                              text: ChartConsentTexts.optionalPhotoTitle,
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (widget.consentPhoto) ...[
-                      const Divider(height: 8),
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8, bottom: 8),
-                        child: Text(
-                          '활용 범위 (택 1)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: SoriTokens.textSecondary,
+                              TextSpan(
+                                text: ChartConsentTexts.optionalPhotoTitle,
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 4,
-                          right: 4,
-                          bottom: 8,
-                        ),
-                        child: Column(
-                          children: [
-                            _PhotoUseOption(
-                              selected: widget.consentMarketing,
-                              title: ChartConsentTexts.photoUseMarketing,
-                              onTap: widget.onMarketingSelected,
+                      if (widget.consentPhoto) ...[
+                        const Divider(height: 8),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8, bottom: 8),
+                          child: Text(
+                            '활용 범위 (택 1)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: SoriTokens.textSecondary,
                             ),
-                            const SizedBox(height: 8),
-                            _PhotoUseOption(
-                              selected: widget.consentOfflineOnly,
-                              title: ChartConsentTexts.photoUseOffline,
-                              onTap: widget.onOfflineOnlySelected,
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 4,
+                            right: 4,
+                            bottom: 8,
+                          ),
+                          child: Column(
+                            children: [
+                              _PhotoUseOption(
+                                selected: widget.consentMarketing,
+                                title: ChartConsentTexts.photoUseMarketing,
+                                onTap: widget.onMarketingSelected,
+                              ),
+                              const SizedBox(height: 8),
+                              _PhotoUseOption(
+                                selected: widget.consentOfflineOnly,
+                                title: ChartConsentTexts.photoUseOffline,
+                                onTap: widget.onOfflineOnlySelected,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (!widget.quickChartMode &&
-                  widget.existingSignatureUrl != null &&
-                  widget.existingSignatureUrl!.trim().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '이전에 저장된 서명이 있습니다. 새로 서명하면 교체됩니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
+                if (widget.existingSignatureUrl != null &&
+                    widget.existingSignatureUrl!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    '이전에 저장된 서명이 있습니다. 새로 서명하면 교체됩니다.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
               ],
-            ],
             ),
           ),
         ),
-        if (!widget.quickChartMode)
-          _ConsentValidationBlock(
-            anchorKey: widget.signatureFieldKey,
-            highlighted: widget.highlightSignature,
-            showError: widget.showSignatureError,
-            errorText: widget.signatureErrorText,
-            shake: widget.shakeAnimation,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        '고객 서명',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 14),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: widget.onClearSignature,
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('다시 쓰기'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    height: 160,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F7FC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: widget.highlightSignature ||
-                                widget.showSignatureError
-                            ? const Color(0xFFE53935)
-                            : Colors.grey.shade300,
-                        width: widget.highlightSignature ||
-                                widget.showSignatureError
-                            ? 1.6
-                            : 1,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _SignatureGestureSurface(
-                      onPointerActive: _setSignaturePointerActive,
-                      child: Signature(
-                        controller: widget.signatureController,
-                        backgroundColor: const Color(0xFFF8F7FC),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '손가락 또는 터치펜으로 서명해 주세요 (필수)',
-                    textAlign: TextAlign.center,
-                    style:
-                        TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          Container(
+        _ConsentValidationBlock(
+          anchorKey: widget.signatureFieldKey,
+          highlighted: widget.highlightSignature,
+          showError: widget.showSignatureError,
+          errorText: widget.signatureErrorText,
+          shake: widget.shakeAnimation,
+          child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  '과거 자필 서명 (읽기 전용)',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                Row(
+                  children: [
+                    const Text(
+                      '고객 서명',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: widget.onClearSignature,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('다시 쓰기'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                if (widget.existingSignatureUrl != null &&
-                    widget.existingSignatureUrl!.trim().isNotEmpty)
-                  Container(
-                    height: 140,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F7FC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.network(
-                      widget.existingSignatureUrl!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Center(
-                        child: Text(
-                          '서명 이미지를 불러올 수 없습니다',
-                          style: TextStyle(color: SoriTokens.textSecondary),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8EF),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      '서명 패드 생략 · 기존 1년 포괄 동의를 재사용합니다',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF2E7D32),
-                      ),
+                const SizedBox(height: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F7FC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: widget.highlightSignature ||
+                              widget.showSignatureError
+                          ? const Color(0xFFE53935)
+                          : Colors.grey.shade300,
+                      width: widget.highlightSignature ||
+                              widget.showSignatureError
+                          ? 1.6
+                          : 1,
                     ),
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _SignatureGestureSurface(
+                    onPointerActive: _setSignaturePointerActive,
+                    child: Signature(
+                      controller: widget.signatureController,
+                      backgroundColor: const Color(0xFFF8F7FC),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '손가락 또는 터치펜으로 서명해 주세요 (필수)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
               ],
             ),
           ),
+        ),
       ],
+    );
+  }
+}
+
+class _ReadOnlyConsentLine extends StatelessWidget {
+  const _ReadOnlyConsentLine({
+    required this.label,
+    required this.checked,
+    this.optional = false,
+  });
+
+  final String label;
+  final bool checked;
+  final bool optional;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            checked ? Icons.check_circle_rounded : Icons.circle_outlined,
+            size: 18,
+            color: checked ? const Color(0xFF2E7D32) : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: optional ? '[선택] ' : '[필수] ',
+                    style: TextStyle(
+                      color: optional
+                          ? MyApp.soriPurple
+                          : const Color(0xFFC62828),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  TextSpan(
+                    text: label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

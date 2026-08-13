@@ -12,6 +12,7 @@ import '../views/customer_home_page.dart';
 import '../views/customer_management_cases_page.dart';
 import '../views/customer_review_dashboard_page.dart';
 import '../views/customer_review_page.dart';
+import '../views/customer_profile_page.dart';
 import '../views/director_customers_tab.dart';
 import '../views/director_home_page.dart';
 import '../views/director_review_manage_page.dart';
@@ -37,6 +38,9 @@ abstract final class AppPaths {
 
   static String customerDetail(String customerId) =>
       '$appCustomers/${Uri.encodeComponent(customerId.trim())}';
+
+  static String customerProfile(String customerId) =>
+      '/customer/${Uri.encodeComponent(customerId.trim())}/profile';
 }
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -52,10 +56,14 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
       final session = store.session;
       final onboarded = session != null && session.onboardingComplete;
 
-      // 딥링크(리뷰/케어/차트)는 셸 밖 — 가드 제외
+      // 딥링크(리뷰/케어/차트/고객프로필)는 셸 밖 — 가드 제외
       if (loc.startsWith(AppPaths.review) ||
           loc.startsWith(AppPaths.careReport) ||
-          loc.startsWith('/chart')) {
+          loc.startsWith('/chart') ||
+          loc.startsWith('/customer/')) {
+        if (loc.startsWith('/customer/') && !onboarded) {
+          return AppPaths.login;
+        }
         return null;
       }
 
@@ -148,6 +156,17 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
             customerId: customerId,
             customer: customer,
           );
+        },
+      ),
+
+      GoRoute(
+        path: '/customer/:customerId/profile',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = Uri.decodeComponent(
+            state.pathParameters['customerId'] ?? '',
+          );
+          return CustomerProfilePage(store: store, customerId: id);
         },
       ),
 

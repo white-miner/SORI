@@ -99,11 +99,16 @@ class CustomerChart {
 
   bool get isFirstVisit => visitNumber <= 1;
 
-  /// 정보 활용 동의서 서명 완료 여부.
+  /// 정보 활용 동의서 서명/PDF 완료 여부.
   bool get isConsentSigned {
     final sig = signatureUrl?.trim() ?? '';
-    return sig.isNotEmpty;
+    final pdf = consentPdfUrl?.trim() ?? '';
+    return sig.isNotEmpty || pdf.isNotEmpty;
   }
+
+  /// 동의 체결 기준일 (표시용).
+  DateTime? get consentSignedAt =>
+      createdAt ?? visitCheckedAt ?? feedbackLineOpenedAt;
 
   String get displayChartNo =>
       (customChartNo != null && customChartNo!.trim().isNotEmpty)

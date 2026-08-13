@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chart_interview_chips.dart';
 import '../models/chart_medical_chips.dart';
@@ -150,6 +151,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   /// 365일 이내 포괄 동의 재사용 차트.
   CustomerChart? _annualConsentSource;
   DateTime? _consentValidUntil;
+  /// 원장이 [동의서 갱신/재작성]을 누른 경우 신규 폼 강제.
+  bool _forceConsentRenewal = false;
 
   final GlobalKey _nameFieldKey = GlobalKey();
   final GlobalKey _genderFieldKey = GlobalKey();
@@ -169,9 +172,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       _consentAbnormalReaction &&
       _consentRefundPolicy;
 
-  /// 365일 이내 포괄 동의만 간편 모드(검증 Bypass). forceQuickChart만으로는 Bypass 불가.
+  /// 365일 이내 포괄 동의만 간편 모드(검증 Bypass). 갱신 강제 시 Bypass 불가.
   bool get _quickChartMode =>
-      _annualConsentSource != null && _consentValidUntil != null;
+      !_forceConsentRenewal &&
+      _annualConsentSource != null &&
+      _consentValidUntil != null;
 
   bool get _needsConsentRenewal => !_quickChartMode;
 
@@ -597,11 +602,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     void apply() {
       _annualConsentSource = covered;
       _consentValidUntil = until;
-      if (covered != null && until != null) {
+      if (!_forceConsentRenewal && covered != null && until != null) {
         // 간편 모드: 기존 포괄 동의 플래그 재사용
         _consentCareNotice = true;
         _consentAbnormalReaction = true;
         _consentRefundPolicy = true;
+        _consentPhoto = covered.consentPhoto;
+        _consentMarketing = covered.consentMarketing;
+        _consentOfflineOnly = covered.consentOfflineOnly;
         if (_existingSignatureUrl == null ||
             _existingSignatureUrl!.trim().isEmpty) {
           _existingSignatureUrl = covered.signatureUrl;
@@ -614,6 +622,44 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     } else {
       apply();
     }
+  }
+
+  void _requestConsentRenewal() {
+    setState(() {
+      _forceConsentRenewal = true;
+      _consentCareNotice = false;
+      _consentAbnormalReaction = false;
+      _consentRefundPolicy = false;
+      _consentPhoto = false;
+      _consentMarketing = false;
+      _consentOfflineOnly = false;
+      _signatureController.clear();
+    });
+    _tabController.animateTo(1);
+    _pageController.animateToPage(
+      1,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _downloadConsentPdf() async {
+    final url = (_annualConsentSource?.consentPdfUrl ??
+            widget.existingChart?.consentPdfUrl)
+        ?.trim();
+    if (url == null || url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('저장된 동의서 PDF가 없습니다. 차트 저장 후 자동 생성됩니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -1385,9 +1431,18 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   consentMarketing: _consentMarketing,
                   consentOfflineOnly: _consentOfflineOnly,
                   signatureController: _signatureController,
-                  existingSignatureUrl: _existingSignatureUrl,
+                  existingSignatureUrl: _quickChartMode
+                      ? (_annualConsentSource?.signatureUrl ??
+                          _existingSignatureUrl)
+                      : _existingSignatureUrl,
+                  consentPdfUrl: _annualConsentSource?.consentPdfUrl ??
+                      widget.existingChart?.consentPdfUrl,
+                  consentSignedAt: _annualConsentSource?.consentSignedAt ??
+                      widget.existingChart?.consentSignedAt,
                   quickChartMode: _quickChartMode,
                   consentValidUntil: _consentValidUntil,
+                  onRequestRenewal: _requestConsentRenewal,
+                  onDownloadPdf: _downloadConsentPdf,
                   consentSectionKey: _consentSectionKey,
                   signatureFieldKey: _signatureFieldKey,
                   shakeAnimation: _shakeOffset,
