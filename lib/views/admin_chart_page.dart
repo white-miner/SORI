@@ -228,6 +228,9 @@ class _AdminChartPageState extends State<AdminChartPage>
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: _Header(
               customer: customer,
+              lastVisitLabel: timeline.isEmpty
+                  ? null
+                  : _formatChartDate(timeline.first),
               onTap: () => context.push(AppPaths.customerProfile(customer.id)),
             ),
           ),
@@ -309,10 +312,15 @@ String _formatChartDate(CustomerChart chart) {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.customer, required this.onTap});
+  const _Header({
+    required this.customer,
+    required this.onTap,
+    this.lastVisitLabel,
+  });
 
   final Customer customer;
   final VoidCallback onTap;
+  final String? lastVisitLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +373,7 @@ class _Header extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        customer.name,
+                        customer.nameWithAge,
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -389,6 +397,17 @@ class _Header extends StatelessWidget {
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                      if (lastVisitLabel != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '최근 방문: $lastVisitLabel',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF9CA3AF),
                           ),
                         ),
                       ],

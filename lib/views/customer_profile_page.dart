@@ -8,6 +8,7 @@ import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'quick_consent_sheet.dart';
 
 /// 고객 상세 정보 / 수정 — `/customer/:id/profile`
 class CustomerProfilePage extends StatefulWidget {
@@ -33,6 +34,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
   CustomerGender? _gender;
   DateTime? _birthDate;
   var _saving = false;
+  var _isEditing = false;
 
   @override
   void initState() {
@@ -89,6 +91,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
   }
 
   Future<void> _pickBirth() async {
+    if (!_isEditing) return;
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -99,6 +102,26 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
     );
     if (picked == null) return;
     setState(() => _birthDate = picked);
+  }
+
+  Future<void> _openQuickConsent() async {
+    final customer = _customer;
+    if (customer == null) return;
+    final chart = await showQuickConsentSheet(
+      context: context,
+      store: widget.store,
+      customer: customer,
+    );
+    if (chart != null && mounted) setState(() {});
+  }
+
+  Future<void> _onAppBarAction() async {
+    if (_saving) return;
+    if (!_isEditing) {
+      setState(() => _isEditing = true);
+      return;
+    }
+    await _save();
   }
 
   Future<void> _call() async {
@@ -159,6 +182,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         ),
       );
       if (!mounted) return;
+      setState(() => _isEditing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('고객 정보가 저장되었습니다.'),
@@ -224,16 +248,16 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         ),
         actions: [
           TextButton(
-            onPressed: _saving ? null : _save,
+            onPressed: _saving ? null : _onAppBarAction,
             child: _saving
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text(
-                    '저장',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                : Text(
+                    _isEditing ? '저장' : '수정',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
           ),
         ],
@@ -247,9 +271,12 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
               children: [
                 TextField(
                   controller: _name,
-                  decoration: const InputDecoration(
+                  readOnly: !_isEditing,
+                  decoration: InputDecoration(
                     labelText: '성명',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -259,9 +286,11 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                       child: DropdownButtonFormField<CustomerGender?>(
                         // ignore: deprecated_member_use
                         value: _gender,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: '성별',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          filled: !_isEditing,
+                          fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
                         ),
                         items: const [
                           DropdownMenuItem(value: null, child: Text('미선택')),
@@ -274,18 +303,23 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                             child: Text('남성'),
                           ),
                         ],
-                        onChanged: (v) => setState(() => _gender = v),
+                        onChanged: _isEditing
+                            ? (v) => setState(() => _gender = v)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: InkWell(
-                        onTap: _pickBirth,
+                        onTap: _isEditing ? _pickBirth : null,
                         borderRadius: BorderRadius.circular(12),
                         child: InputDecorator(
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: '생년월일',
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
+                            filled: !_isEditing,
+                            fillColor:
+                                _isEditing ? null : const Color(0xFFF9FAFB),
                           ),
                           child: Text(
                             age == null
@@ -301,6 +335,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _phone,
+                  readOnly: !_isEditing,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')),
@@ -308,6 +343,8 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   decoration: InputDecoration(
                     labelText: '연락처',
                     border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -328,17 +365,23 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _address,
-                  decoration: const InputDecoration(
+                  readOnly: !_isEditing,
+                  decoration: InputDecoration(
                     labelText: '주소',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _occupation,
-                  decoration: const InputDecoration(
+                  readOnly: !_isEditing,
+                  decoration: InputDecoration(
                     labelText: '직업 / 라이프스타일',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
                   ),
                 ),
                 if (customer.isMembershipCustomer) ...[
@@ -384,12 +427,15 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
             title: '원장 전용 메모',
             child: TextField(
               controller: _memo,
+              readOnly: !_isEditing,
               minLines: 4,
               maxLines: 8,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: '고객 성향·취향·대화 선호도·특이사항을 자유롭게 남겨 주세요.',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
+                filled: !_isEditing,
+                fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
               ),
             ),
           ),
@@ -399,7 +445,9 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (consent != null && until != null && !until.isBefore(DateTime.now()))
+                if (consent != null &&
+                    until != null &&
+                    !until.isBefore(DateTime.now()))
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -439,16 +487,38 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
-                      '미체결 — 차트 작성 시 전자 동의서가 필요합니다.',
+                      '미체결 — 아래에서 퀵 전자 동의서를 작성할 수 있습니다.',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: Color(0xFFC62828),
                       ),
                     ),
                   ),
+                if (consent == null ||
+                    until == null ||
+                    until.isBefore(DateTime.now())) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _openQuickConsent,
+                    icon: const Icon(Icons.bolt_rounded),
+                    label: const Text('퀵 전자 동의서 작성'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF111827),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: _openPdf,
+                  onPressed: (consent != null &&
+                          until != null &&
+                          !until.isBefore(DateTime.now()))
+                      ? _openPdf
+                      : null,
                   icon: const Icon(Icons.picture_as_pdf_outlined),
                   label: const Text('동의서 PDF 다운로드'),
                   style: OutlinedButton.styleFrom(

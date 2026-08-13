@@ -129,6 +129,25 @@ class Customer {
     return '${birthDate!.year}년생';
   }
 
+  /// 만 나이 (생년월일 기준).
+  int? get koreanAge {
+    final b = birthDate;
+    if (b == null) return null;
+    final now = DateTime.now();
+    var age = now.year - b.year;
+    if (now.month < b.month ||
+        (now.month == b.month && now.day < b.day)) {
+      age -= 1;
+    }
+    return age < 0 ? null : age;
+  }
+
+  String get nameWithAge {
+    final age = koreanAge;
+    if (age == null) return name;
+    return '$name (만 $age세)';
+  }
+
   /// 레거시 컬럼과 memberships 리스트를 맞춘 복사본.
   Customer withSyncedMembershipMirrors() {
     final list = memberships.isNotEmpty
