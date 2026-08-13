@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/rendering.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
@@ -11,6 +12,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/consent_pdf_generator.dart';
 import '../services/sori_store.dart';
+import '../utils/web_file_download.dart';
 
 /// 앱 내부 동의서 미리보기 + PDF 저장/인쇄 모달.
 /// 미리보기는 PDF.js 없이 Flutter 정적 문서로 즉시 표시한다.
@@ -48,6 +50,7 @@ class _ConsentPdfPreviewDialog extends StatefulWidget {
 }
 
 class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
+  final GlobalKey _previewKey = GlobalKey();
   Uint8List? _pdfBytes;
   String? _pdfError;
   var _preparingPdf = true;
@@ -56,10 +59,13 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
   @override
   void initState() {
     super.initState();
-    unawaited(_preparePdfBytes());
+    // 미리보기는 즉시 표시. PDF 바이트는 저장/인쇄용으로만 백그라운드 준비.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_preparePdfBytes());
+    });
   }
 
-  String get _fileName {
+  String get _baseFileName {
     final name = _safeFileToken(widget.customer.name, fallback: '고객');
     final dt = widget.chart.consentSignedAt ??
         widget.chart.createdAt ??
@@ -67,8 +73,11 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
     final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');
-    return '${name}_고객정보및관리동의서_$y$m$d.pdf';
+    return '${name}_고객정보및관리동의서_$y$m$d';
   }
+
+  String get _pdfFileName => '$_baseFileName.pdf';
+  String get _pngFileName => '$_baseFileName.png';
 
   String get _careLabel => ConsentPdfGenerator.resolveCareMenuName(
         chartCareName: widget.chart.careName,
@@ -129,21 +138,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
   }
 
   Future<Uint8List?> _resolvePdfBytes() async {
-    // 원격 URL은 CORS/지연으로 먹통이 되기 쉬워 짧게만 시도 후 즉시 재생성.
-    final url = widget.chart.consentPdfUrl?.trim() ?? '';
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      try {
-        final res = await http
-            .get(Uri.parse(url))
-            .timeout(const Duration(seconds: 2));
-        if (res.statusCode >= 200 &&
-            res.statusCode < 300 &&
-            res.bodyBytes.isNotEmpty) {
-          return res.bodyBytes;
-        }
-      } catch (_) {}
-    }
-
+    // 원격 URL fetch는 CORS/지연으로 모달을 멈추게 하므로 항상 로컬 재생성.
     return ConsentPdfGenerator.buildBytes(
       shopName: widget.store.shop.name,
       customerName: widget.customer.name,
@@ -160,12 +155,50 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
     if (bytes == null || bytes.isEmpty || _busy) return;
     setState(() => _busy = true);
     try {
-      await Printing.sharePdf(bytes: bytes, filename: _fileName);
+      await downloadBytesToDevice(
+        bytes: bytes,
+        filename: _pdfFileName,
+        mimeType: 'application/pdf',
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('PDF 저장 실패: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _savePng() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+      final boundary =
+          _previewKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw StateError('미리보기 영역을 캡처할 수 없습니다.');
+      }
+      final image = await boundary.toImage(pixelRatio: 2.5);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final png = byteData?.buffer.asUint8List();
+      if (png == null || png.isEmpty) {
+        throw StateError('PNG 변환에 실패했습니다.');
+      }
+      await downloadBytesToDevice(
+        bytes: png,
+        filename: _pngFileName,
+        mimeType: 'image/png',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('이미지 저장 실패: $e'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -180,7 +213,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
     setState(() => _busy = true);
     try {
       await Printing.layoutPdf(
-        name: _fileName,
+        name: _pdfFileName,
         onLayout: (PdfPageFormat format) async => bytes,
       );
     } catch (e) {
@@ -201,7 +234,8 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
     final size = MediaQuery.sizeOf(context);
     final maxW = size.width >= 900 ? 820.0 : size.width * 0.96;
     final maxH = size.height * 0.92;
-    final canAct = _pdfBytes != null && !_busy && !_preparingPdf;
+    final canPdf = _pdfBytes != null && !_busy && !_preparingPdf;
+    final canPng = !_busy;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
@@ -248,7 +282,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   FilledButton.icon(
-                    onPressed: canAct ? _savePdf : null,
+                    onPressed: canPdf ? _savePdf : null,
                     icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                     label: const Text('PDF 저장'),
                     style: FilledButton.styleFrom(
@@ -260,8 +294,21 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                       ),
                     ),
                   ),
+                  FilledButton.icon(
+                    onPressed: canPng ? _savePng : null,
+                    icon: const Icon(Icons.image_outlined, size: 18),
+                    label: const Text('이미지 저장'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF374151),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
                   OutlinedButton.icon(
-                    onPressed: canAct ? _printPdf : null,
+                    onPressed: canPdf ? _printPdf : null,
                     icon: const Icon(Icons.print_rounded, size: 18),
                     label: const Text('바로 인쇄'),
                     style: OutlinedButton.styleFrom(
@@ -309,18 +356,21 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 680),
-                      child: _ConsentStaticDocument(
-                        shopName: widget.store.shop.name,
-                        shopOwnerName:
-                            (widget.store.shop.ownerName ?? '').trim().isEmpty
-                                ? widget.store.shop.name
-                                : widget.store.shop.ownerName!.trim(),
-                        customerName: widget.customer.name,
-                        customerPhone: widget.customer.phone,
-                        careLabel: _careLabel,
-                        visitLabel: widget.chart.displayChartNo,
-                        dateLabel: _dateLabel,
-                        chart: widget.chart,
+                      child: RepaintBoundary(
+                        key: _previewKey,
+                        child: _ConsentStaticDocument(
+                          shopName: widget.store.shop.name,
+                          shopOwnerName:
+                              (widget.store.shop.ownerName ?? '').trim().isEmpty
+                                  ? widget.store.shop.name
+                                  : widget.store.shop.ownerName!.trim(),
+                          customerName: widget.customer.name,
+                          customerPhone: widget.customer.phone,
+                          careLabel: _careLabel,
+                          visitLabel: widget.chart.displayChartNo,
+                          dateLabel: _dateLabel,
+                          chart: widget.chart,
+                        ),
                       ),
                     ),
                   ),

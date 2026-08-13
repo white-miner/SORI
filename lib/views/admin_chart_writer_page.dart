@@ -28,6 +28,7 @@ import 'customer_link_popup.dart';
 import 'management_menu_field.dart';
 import 'membership_editor_sheet.dart';
 import 'my_app.dart';
+import '../widgets/media_permission_dialogs.dart';
 
 Future<void> openChartWriterForCustomer(
   BuildContext context, {
@@ -996,7 +997,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                     '카메라로 직접 촬영',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: const Text('시술 전후 모습을 바로 촬영합니다'),
+                  subtitle: const Text('관리 전후 모습을 바로 촬영합니다'),
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickAndUploadPhoto(
@@ -1085,9 +1086,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     required ImageSource source,
   }) async {
     try {
-      final picker = ImagePicker();
-      // 1차: picker 단 리사이즈 (원본 메모리 폭주 방지)
-      final file = await picker.pickImage(
+      final file = await pickImageWithPermissionGuards(
+        context: context,
         source: source,
         imageQuality: 85,
         maxWidth: 1600,
@@ -1180,6 +1180,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           _afterUploading = false;
         }
       });
+      if (isMediaPermissionDeniedError(e)) {
+        await showMediaPermissionDeniedDialog(context);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('사진 선택 실패: $e'),
