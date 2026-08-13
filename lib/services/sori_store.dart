@@ -286,6 +286,7 @@ class SoriStore implements Listenable {
     bool consentMarketing = false,
     bool consentOfflineOnly = false,
     String? signatureUrl,
+    Uint8List? signaturePngBytes,
     List<String> homeCarePrescriptions = const [],
     String? guardianPhone,
     bool infoViewConsent = false,
@@ -334,7 +335,12 @@ class SoriStore implements Listenable {
         guardianPhone: guardianPhone,
         infoViewConsent: infoViewConsent,
       );
-      unawaited(_generateConsentPdfInBackground(chart));
+      unawaited(
+        _generateConsentPdfInBackground(
+          chart,
+          signaturePng: signaturePngBytes,
+        ),
+      );
       return chart;
     }
 
@@ -397,7 +403,12 @@ class SoriStore implements Listenable {
           : null;
       lastMembershipDeducted = result.membershipDeducted;
       unawaited(refreshMembershipWallet());
-      unawaited(_generateConsentPdfInBackground(result.chart));
+      unawaited(
+        _generateConsentPdfInBackground(
+          result.chart,
+          signaturePng: signaturePngBytes,
+        ),
+      );
       return result.chart;
     } catch (e, st) {
       debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
@@ -908,8 +919,14 @@ class SoriStore implements Listenable {
   }
 
   /// 서명 완료 차트 → A4 동의서 PDF 생성·업로드 (비차단).
-  Future<void> _generateConsentPdfInBackground(CustomerChart chart) async {
-    if (!chart.isConsentSigned) return;
+  Future<void> _generateConsentPdfInBackground(
+    CustomerChart chart, {
+    Uint8List? signaturePng,
+  }) async {
+    if (!chart.isConsentSigned &&
+        (signaturePng == null || signaturePng.isEmpty)) {
+      return;
+    }
     try {
       final customer = findCustomer(chart.customerId);
       final pdfBytes = await ConsentPdfGenerator.buildBytes(
@@ -917,6 +934,9 @@ class SoriStore implements Listenable {
         customerName: customer?.name ?? '고객',
         customerPhone: customer?.phone ?? '',
         chart: chart,
+        signaturePng: signaturePng,
+        signatureUrl: chart.signatureUrl,
+        shopOwnerName: shop.ownerName,
       );
       final url = await ConsentPdfStorage.uploadPdf(
         bytes: pdfBytes,

@@ -1244,17 +1244,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       String? signatureUrl = _quickChartMode
           ? (_annualConsentSource?.signatureUrl ?? _existingSignatureUrl)
           : _existingSignatureUrl;
+      Uint8List? signaturePngBytes;
       if (!_quickChartMode && _signatureController.isNotEmpty) {
         final bytes = await _signatureController.toPngBytes();
         if (bytes != null && bytes.isNotEmpty) {
-          final uploaded = await ChartSignatureStorage.uploadPng(
+          signaturePngBytes = bytes;
+          signatureUrl = await ChartSignatureStorage.uploadPngOrDataUrl(
             bytes: bytes,
             shopId: widget.store.shop.id,
             customerId: customerIdForSave,
           );
-          if (uploaded != null) {
-            signatureUrl = uploaded;
-          }
         }
       }
 
@@ -1330,6 +1329,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 : (_annualConsentSource?.signatureUrl ??
                     _existingSignatureUrl))
             : resolvedSignature,
+        signaturePngBytes: signaturePngBytes,
         homeCarePrescriptions:
             HomecareDictionary.sanitizeTagIds(_homeCarePrescriptions),
         guardianPhone: () {

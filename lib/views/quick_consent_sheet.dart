@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:signature/signature.dart';
 
 import '../models/chart_consent_texts.dart';
@@ -85,9 +86,11 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
     setState(() => _saving = true);
     try {
       String? signatureUrl;
+      Uint8List? signatureBytes;
       final bytes = await _signature.toPngBytes();
       if (bytes != null && bytes.isNotEmpty) {
-        signatureUrl = await ChartSignatureStorage.uploadPng(
+        signatureBytes = bytes;
+        signatureUrl = await ChartSignatureStorage.uploadPngOrDataUrl(
           bytes: bytes,
           shopId: widget.customer.shopId.isNotEmpty
               ? widget.customer.shopId
@@ -96,8 +99,15 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
         );
       }
       if (signatureUrl == null || signatureUrl.trim().isEmpty) {
-        signatureUrl =
-            'local-signature-${DateTime.now().millisecondsSinceEpoch}';
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('서명을 저장하지 못했습니다. 다시 서명한 뒤 저장해 주세요.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
       }
 
       final visit = widget.store.nextVisitNumber(widget.customer.id);
@@ -121,6 +131,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
         consentMarketing: _photo && _marketing,
         consentOfflineOnly: _photo && _offline,
         signatureUrl: signatureUrl,
+        signaturePngBytes: signatureBytes,
       );
       if (!mounted) return;
       Navigator.pop(context, chart);
