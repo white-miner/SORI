@@ -93,15 +93,25 @@ abstract final class ConsentPdfGenerator {
               fontWeight: pw.FontWeight.bold,
             ),
           ),
-          pw.SizedBox(height: 4),
-          _agreeLine('촬영·영상 동의', chart.consentPhoto),
-          _agreeLine(
-            ChartConsentTexts.photoUseMarketing,
-            chart.consentPhoto && chart.consentMarketing,
-          ),
-          _agreeLine(
-            ChartConsentTexts.photoUseOffline,
-            chart.consentPhoto && chart.consentOfflineOnly,
+          pw.SizedBox(height: 8),
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(left: 14),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _agreeLine('촬영·영상 동의', chart.consentPhoto),
+                pw.SizedBox(height: 4),
+                _agreeLine(
+                  ChartConsentTexts.photoUseMarketing,
+                  chart.consentPhoto && chart.consentMarketing,
+                ),
+                pw.SizedBox(height: 4),
+                _agreeLine(
+                  ChartConsentTexts.photoUseOffline,
+                  chart.consentPhoto && chart.consentOfflineOnly,
+                ),
+              ],
+            ),
           ),
           pw.SizedBox(height: 22),
           pw.Row(
@@ -196,6 +206,10 @@ abstract final class ConsentPdfGenerator {
     }
   }
 
+  /// 유니코드 체크박스(☑/☐)는 한글 폰트에서 글리프 누락 → ASCII 표기.
+  static String _agreeMark(bool agreed) =>
+      agreed ? '[V 동의]' : '[X 미동의]';
+
   static pw.Widget _section(
     String title,
     List<String> body, {
@@ -219,7 +233,7 @@ abstract final class ConsentPdfGenerator {
             ),
             pw.SizedBox(width: 8),
             pw.Text(
-              agreed ? '[☑ 동의]' : '[☐ 미동의]',
+              _agreeMark(agreed),
               style: pw.TextStyle(
                 fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
@@ -231,9 +245,9 @@ abstract final class ConsentPdfGenerator {
         pw.SizedBox(height: 4),
         ...body.map(
           (line) => pw.Padding(
-            padding: const pw.EdgeInsets.only(bottom: 3),
+            padding: const pw.EdgeInsets.only(bottom: 3, left: 4),
             child: pw.Text(
-              '· $line',
+              '- $line',
               style: const pw.TextStyle(fontSize: 9, lineSpacing: 2.5),
             ),
           ),
@@ -244,10 +258,10 @@ abstract final class ConsentPdfGenerator {
 
   static pw.Widget _agreeLine(String title, bool agreed) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 3),
+      padding: const pw.EdgeInsets.only(bottom: 2),
       child: pw.Text(
-        '${agreed ? '[☑ 동의]' : '[☐ 미동의]'}  $title',
-        style: const pw.TextStyle(fontSize: 10, lineSpacing: 2),
+        '${_agreeMark(agreed)}  $title',
+        style: const pw.TextStyle(fontSize: 10, lineSpacing: 2.2),
       ),
     );
   }
