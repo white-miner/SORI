@@ -28,16 +28,6 @@ class CustomerHomePage extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
-          const Text(
-            '소통하는 리뷰, SORI',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              color: SoriTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 14),
           if (hasReviewRequest) ...[
             _ReviewRequestBanner(onTap: () => onSelectTab?.call(2)),
             const SizedBox(height: 12),

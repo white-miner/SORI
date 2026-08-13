@@ -181,31 +181,7 @@ class _DirectorHomePageState extends State<DirectorHomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Text(
-                  '소통하는 리뷰, SORI',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.6,
-                    height: 1.25,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                child: Text(
-                  store.shop.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: SoriTokens.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.34,
                 child: PageView.builder(
