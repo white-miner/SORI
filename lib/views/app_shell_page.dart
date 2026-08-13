@@ -23,9 +23,6 @@ class AppShellPage extends StatefulWidget {
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
 
-  static const _wideBreakpoint = 600.0;
-  static const _reviewAccent = Color(0xFF6C5CE7);
-
   @override
   void initState() {
     super.initState();
@@ -125,10 +122,10 @@ class _AppShellPageState extends State<AppShellPage> {
     }
 
     final isDirector = session.activeMode == UserRole.director;
-    final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
     final tab = widget.navigationShell.currentIndex;
     final hideShellAppBar = _isCustomerDetailRoute(context);
+    final showChartFab = isDirector && !hideShellAppBar;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
@@ -137,24 +134,25 @@ class _AppShellPageState extends State<AppShellPage> {
           : _ShellAppBar(
               title: _titleForTab(isDirector, tab),
               badgeCount: _notificationBadgeCount(session),
-              showFabClearance: isDirector && isWide,
               onNotifications: _openNotifications,
             ),
-      body: widget.navigationShell,
-      floatingActionButton: isDirector && !hideShellAppBar
-          ? FloatingActionButton(
-              tooltip: '새 차트 작성',
+      body: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          widget.navigationShell,
+          if (showChartFab)
+            _DraggableChartWriteFab(
+              bottomInset: 64 + MediaQuery.paddingOf(context).bottom + 22,
+              topInset: MediaQuery.paddingOf(context).top +
+                  _ShellAppBar.toolbarHeight +
+                  8,
               onPressed: () => showChartCustomerPickerSheet(
                 context,
                 store: _store,
               ),
-              backgroundColor: _reviewAccent,
-              child: const Icon(Icons.edit_note_rounded, color: Colors.white),
-            )
-          : null,
-      floatingActionButtonLocation: isWide
-          ? FloatingActionButtonLocation.endTop
-          : FloatingActionButtonLocation.endFloat,
+            ),
+        ],
+      ),
       bottomNavigationBar: _CenterReviewBottomNav(
         currentIndex: tab,
         isDirector: isDirector,
@@ -170,13 +168,11 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _ShellAppBar({
     required this.title,
     required this.badgeCount,
-    required this.showFabClearance,
     required this.onNotifications,
   });
 
   final String title;
   final int badgeCount;
-  final bool showFabClearance;
   final VoidCallback onNotifications;
 
   static const double toolbarHeight = 60;
@@ -220,7 +216,6 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           child: Stack(
             children: [
-              // 상단 하이그로시 림
               Positioned(
                 top: 0,
                 left: 0,
@@ -264,13 +259,194 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                           badgeCount: badgeCount,
                           onPressed: onNotifications,
                         ),
-                        if (showFabClearance) const SizedBox(width: 56),
                       ],
                     ),
                   ),
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 화면 자유 이동 가능한 하이그로시 '차트 작성' 플로팅 버튼.
+class _DraggableChartWriteFab extends StatefulWidget {
+  const _DraggableChartWriteFab({
+    required this.onPressed,
+    required this.topInset,
+    required this.bottomInset,
+  });
+
+  final VoidCallback onPressed;
+  final double topInset;
+  final double bottomInset;
+
+  @override
+  State<_DraggableChartWriteFab> createState() =>
+      _DraggableChartWriteFabState();
+}
+
+class _DraggableChartWriteFabState extends State<_DraggableChartWriteFab> {
+  static const double _width = 132;
+  static const double _height = 52;
+  static const Color _deep = Color(0xFF4A3BCF);
+  static const Color _mid = Color(0xFF6C5CE7);
+  static const Color _bright = Color(0xFF8B7CFF);
+
+  Offset? _pos;
+  Offset? _panStart;
+  bool _moved = false;
+
+  Offset _defaultPos(Size size) {
+    return Offset(
+      (size.width - _width - 16).clamp(8.0, size.width - _width - 8),
+      widget.topInset.clamp(
+        8.0,
+        (size.height - widget.bottomInset - _height).clamp(8.0, size.height),
+      ),
+    );
+  }
+
+  Offset _clamp(Offset raw, Size size) {
+    final maxX = (size.width - _width - 8).clamp(8.0, size.width);
+    final maxY =
+        (size.height - widget.bottomInset - _height).clamp(8.0, size.height);
+    final minY = widget.topInset.clamp(8.0, maxY);
+    return Offset(
+      raw.dx.clamp(8.0, maxX),
+      raw.dy.clamp(minY, maxY),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final pos = _clamp(_pos ?? _defaultPos(size), size);
+
+    return Positioned(
+      left: pos.dx,
+      top: pos.dy,
+      child: GestureDetector(
+        onPanStart: (d) {
+          _panStart = d.globalPosition;
+          _moved = false;
+        },
+        onPanUpdate: (d) {
+          final current = _pos ?? pos;
+          if (_panStart != null &&
+              (d.globalPosition - _panStart!).distance > 6) {
+            _moved = true;
+          }
+          setState(() {
+            _pos = _clamp(current + d.delta, size);
+          });
+        },
+        onPanEnd: (_) {
+          _panStart = null;
+        },
+        onTap: () {
+          if (!_moved) widget.onPressed();
+        },
+        child: Material(
+          color: Colors.transparent,
+          elevation: 0,
+          child: Tooltip(
+            message: '차트 작성',
+            child: Container(
+              width: _width,
+              height: _height,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                gradient: const RadialGradient(
+                  center: Alignment(-0.35, -0.45),
+                  radius: 1.15,
+                  colors: [_bright, _mid, _deep],
+                  stops: [0.0, 0.45, 1.0],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.38),
+                  width: 1.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _mid.withValues(alpha: 0.5),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: _deep.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 12,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.38),
+                            Colors.white.withValues(alpha: 0.06),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.4, 0.75],
+                        ),
+                      ),
+                    ),
+                    const Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.edit_note_rounded,
+                            color: Colors.white,
+                            size: 22,
+                            shadows: [
+                              Shadow(
+                                color: Color(0x55000000),
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            '차트 작성',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x55000000),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

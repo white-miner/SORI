@@ -6,7 +6,7 @@ import '../theme/sori_tokens.dart';
 import 'add_customer_sheet.dart';
 import 'admin_chart_writer_page.dart';
 
-/// FAB용 — 차트 작성할 고객 검색/선택/신규 등록 BottomSheet.
+/// FAB용 — 신규/기존 고객 차트 작성 분기 BottomSheet.
 Future<void> showChartCustomerPickerSheet(
   BuildContext context, {
   required SoriStore store,
@@ -67,28 +67,16 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
     );
   }
 
-  Future<void> _registerAndWrite() async {
-    final digits = SoriStore.normalizePhone(_query);
-    final looksLikePhone = digits.length >= 4;
-    final looksLikeName =
-        _query.trim().isNotEmpty && !RegExp(r'^\d').hasMatch(_query.trim());
-
-    final created = await showAddCustomerSheet(
-      context,
-      store: widget.store,
-      initialName: looksLikeName ? _query.trim() : null,
-      initialPhone: looksLikePhone ? _query.trim() : null,
-      title: '신규 고객 등록',
-      submitLabel: '등록하고 차트 쓰기',
-      openChartAfter: false,
-    );
-    if (created == null || !mounted) return;
+  /// 신규 고객 기본 인적사항 입력 → 첫 차트 작성.
+  Future<void> _openNewCustomerChart() async {
     Navigator.pop(context);
     if (!mounted) return;
-    await openChartWriterForCustomer(
+    await showAddCustomerSheet(
       context,
       store: widget.store,
-      customer: created,
+      title: '신규 고객 기본 정보',
+      submitLabel: '등록하고 첫 차트 작성',
+      openChartAfter: true,
     );
   }
 
@@ -100,7 +88,6 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final results = _results;
     final hasQuery = _query.trim().isNotEmpty;
-    final showCreateCta = results.isEmpty;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
@@ -118,26 +105,113 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text(
-            '차트 작성할 고객 선택',
+            '차트 작성',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            '총 ${widget.store.customers.length}명 · 이름 또는 번호로 검색하세요',
-            style: const TextStyle(
+            '신규 등록 또는 기존 고객을 선택해 바로 작성하세요',
+            style: TextStyle(
               fontSize: 13,
-              color: SoriTokens.textSecondary,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          // —— 신규 고객 CTA ——
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _openNewCustomerChart,
+              borderRadius: BorderRadius.circular(16),
+              child: Ink(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF7B6CFF),
+                      Color(0xFF5B4CDB),
+                      Color(0xFF4A3BCF),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: SoriTokens.primary.withValues(alpha: 0.35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.add_circle_rounded, color: Colors.white, size: 26),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '➕ 신규 고객 차트 작성',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Icon(
+                Icons.bolt_rounded,
+                size: 18,
+                color: Colors.amber.shade700,
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                '⚡ 기존 고객 간편 차트 검색/선택',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '총 ${widget.store.customers.length}명 · 선택 시 1초 간편 차트로 이동',
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             controller: _searchController,
-            autofocus: true,
             onChanged: (v) => setState(() => _query = v),
             decoration: InputDecoration(
               hintText: '이름 · 전화번호 검색',
@@ -153,15 +227,15 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
           const SizedBox(height: 12),
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.42,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.38,
             ),
             child: results.isEmpty
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Text(
                       hasQuery
-                          ? '검색 결과가 없어요'
-                          : '등록된 고객이 없습니다. 아래에서 바로 등록하세요.',
+                          ? '검색 결과가 없어요 · 위에서 신규 고객으로 작성해 보세요'
+                          : '등록된 고객이 없습니다 · 위 버튼으로 첫 차트를 시작하세요',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: SoriTokens.textSecondary,
@@ -204,21 +278,6 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
                     },
                   ),
           ),
-          if (showCreateCta) ...[
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: _registerAndWrite,
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text(
-                '+ 신규 고객 등록하고 차트 쓰기',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: SoriTokens.primary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-          ],
         ],
       ),
     );
