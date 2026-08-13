@@ -33,6 +33,13 @@ class SupabaseSoriRepository implements SoriRepository {
   static const String _chartsPrimary = ChartDbColumns.relation;
   static const String _chartsFallback = ChartDbColumns.physicalTable;
 
+  /// 쓰기 우선순위: 물리 테이블 먼저(트리거·지갑 연동), 이후 뷰/관계명.
+  /// chart_records 가 BASE TABLE 인 환경에서 뷰만 읽고 물리만 쓰는 불일치를 막는다.
+  static const List<String> _chartsWriteOrder = [
+    _chartsFallback,
+    _chartsPrimary,
+  ];
+
   Future<T> _withChartsTable<T>(
     Future<T> Function(String table) run,
   ) async {
@@ -42,6 +49,38 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('$_chartsPrimary failed, fallback $_chartsFallback: $e');
       return run(_chartsFallback);
     }
+  }
+
+  /// 양 테이블/뷰를 병합해 차트 로드 (한쪽만 쓰인 행도 타임라인에 표시).
+  Future<List<Map<String, dynamic>>> _loadMergedChartRows({
+    required String shopId,
+  }) async {
+    final byId = <String, Map<String, dynamic>>{};
+    for (final table in {_chartsPrimary, _chartsFallback}) {
+      try {
+        final rows = await _db
+            .from(table)
+            .select()
+            .eq('shop_id', shopId)
+            .order('visit_number', ascending: false);
+        for (final raw in rows as List) {
+          if (raw is! Map) continue;
+          final map = Map<String, dynamic>.from(raw);
+          final id = map['id']?.toString().trim() ?? '';
+          if (id.isEmpty) continue;
+          byId.putIfAbsent(id, () => map);
+        }
+      } catch (e) {
+        debugPrint('charts load via $table skipped: $e');
+      }
+    }
+    final list = byId.values.toList();
+    list.sort((a, b) {
+      final va = DbMap.asInt(a['visit_number']);
+      final vb = DbMap.asInt(b['visit_number']);
+      return vb.compareTo(va);
+    });
+    return list;
   }
 
   /// PGRST204 방어: 스키마에 없는 컬럼 키를 페이로드에서 제거 후 재시도.
@@ -114,7 +153,7 @@ class SupabaseSoriRepository implements SoriRepository {
     Object? lastError;
     for (var attempt = 0; attempt < 40; attempt++) {
       var progressed = false;
-      for (final table in [_chartsPrimary, _chartsFallback]) {
+      for (final table in _chartsWriteOrder) {
         try {
           _ensureChartFkPayload(
             body,
@@ -166,7 +205,7 @@ class SupabaseSoriRepository implements SoriRepository {
     Object? lastError;
     for (var attempt = 0; attempt < 40; attempt++) {
       var progressed = false;
-      for (final table in [_chartsPrimary, _chartsFallback]) {
+      for (final table in _chartsWriteOrder) {
         try {
           if (cid.isNotEmpty && sid.isNotEmpty) {
             _ensureChartFkPayload(body, customerId: cid, shopId: sid);
@@ -440,17 +479,11 @@ class SupabaseSoriRepository implements SoriRepository {
 
     List<CustomerChart> charts = const [];
     try {
-      final chartRows = await _withChartsTable(
-        (table) => _db
-            .from(table)
-            .select()
-            .eq('shop_id', shop.id)
-            .order('visit_number', ascending: false),
-      );
+      final chartRows = await _loadMergedChartRows(shopId: shop.id);
       charts = _mapRowsSafely(
-        chartRows as List,
+        chartRows,
         CustomerChart.fromMap,
-        label: 'chart_records',
+        label: 'chart_records+customer_charts',
       );
     } catch (e, st) {
       debugPrint('charts load skipped: $e\n$st');
@@ -880,62 +913,71 @@ class SupabaseSoriRepository implements SoriRepository {
           : customer.treatmentType,
     ).withSyncedMembershipMirrors();
 
-    // 차트 upsert (방문 확인 전) — chart_records 우선
+    // 차트 upsert (방문 확인 전) — 물리 테이블 우선 기록
     CustomerChart chart;
     final existingChartId = request.chartId;
     var wasChecked = false;
-    if (existingChartId != null && !_isTempId(existingChartId)) {
-      final existing = await _selectChartById(existingChartId);
-      if (existing != null) {
-        wasChecked = (existing['visit_checked'] as bool?) ?? false;
-        final base = CustomerChart.fromMap(existing);
-        final draft = _chartFromSaveRequest(
-          request,
-          customer.shopId,
-          id: base.id,
-          visitChecked: base.visitChecked,
-          visitCheckedAt: base.visitCheckedAt,
-          feedbackToken: base.feedbackToken,
-          feedbackLineOpenedAt: base.feedbackLineOpenedAt,
-        );
-        // 서명 미갱신 시 기존 signature_url 유지
-        chart = draft.copyWith(
-          signatureUrl: draft.signatureUrl ?? base.signatureUrl,
-          caseShared: base.caseShared,
-        );
-        final updated = await _updateChartRow(
-          chartId: chart.id,
-          payload: _chartWriteMap(chart, includeId: false),
-          customerId: boundCustomerId,
-          shopId: customer.shopId,
-        );
-        chart = CustomerChart.fromMap(updated);
+    try {
+      if (existingChartId != null && !_isTempId(existingChartId)) {
+        final existing = await _selectChartById(existingChartId);
+        if (existing != null) {
+          wasChecked = (existing['visit_checked'] as bool?) ?? false;
+          final base = CustomerChart.fromMap(existing);
+          final draft = _chartFromSaveRequest(
+            request,
+            customer.shopId,
+            id: base.id,
+            visitChecked: base.visitChecked,
+            visitCheckedAt: base.visitCheckedAt,
+            feedbackToken: base.feedbackToken,
+            feedbackLineOpenedAt: base.feedbackLineOpenedAt,
+          );
+          chart = draft.copyWith(
+            signatureUrl: draft.signatureUrl ?? base.signatureUrl,
+            caseShared: base.caseShared,
+          );
+          final updated = await _updateChartRow(
+            chartId: chart.id,
+            payload: _chartWriteMap(chart, includeId: false),
+            customerId: boundCustomerId,
+            shopId: customer.shopId,
+          );
+          chart = CustomerChart.fromMap(updated);
+        } else {
+          chart = await _insertChart(request, customer.shopId);
+        }
       } else {
         chart = await _insertChart(request, customer.shopId);
       }
-    } else {
-      chart = await _insertChart(request, customer.shopId);
+
+      // 방문 확인 → DB trigger가 feedback_token 발급
+      if (!chart.visitChecked) {
+        final opened = await _updateChartRow(
+          chartId: chart.id,
+          payload: {
+            'visit_checked': true,
+            'visit_checked_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          customerId: boundCustomerId,
+          shopId: customer.shopId,
+        );
+        chart = CustomerChart.fromMap(opened);
+      }
+    } catch (e, st) {
+      debugPrint('chart save/visit-check failed — membership untouched: $e\n$st');
+      rethrow;
     }
 
-    // 방문 확인 → DB trigger가 feedback_token 발급
-    if (!chart.visitChecked) {
-      final opened = await _updateChartRow(
-        chartId: chart.id,
-        payload: {
-          'visit_checked': true,
-          'visit_checked_at': DateTime.now().toUtc().toIso8601String(),
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        },
-        customerId: boundCustomerId,
-        shopId: customer.shopId,
-      );
-      chart = CustomerChart.fromMap(opened);
-    }
-
-    // 회원권 차감 (방문 첫 확인 시에만, careName 매칭)
+    // 회원권 차감은 차트 저장 성공 후에만. 실패 시 차감분 롤백.
     var membershipDeducted = false;
     var feedbackMessage = '';
-    if (request.deductMembership && !wasChecked) {
+    final membershipBeforeDeduct = customer.memberships
+        .map((m) => m.copyWith())
+        .toList(growable: false);
+    final shouldDeduct = request.deductMembership && !wasChecked;
+
+    if (shouldDeduct) {
       final deductResult = _smartDeductMembership(
         customer.memberships,
         request.careName,
@@ -949,8 +991,28 @@ class SupabaseSoriRepository implements SoriRepository {
       }
     }
 
-    customer = await upsertCustomer(customer);
-    // upsertCustomer → sync_membership_tickets_for_customer 로 티켓 지갑 동기화
+    try {
+      customer = await upsertCustomer(customer);
+    } catch (e, st) {
+      debugPrint('customer upsert after chart failed: $e\n$st');
+      if (membershipDeducted) {
+        try {
+          final restored = customer
+              .copyWith(memberships: membershipBeforeDeduct)
+              .withSyncedMembershipMirrors();
+          customer = await upsertCustomer(restored);
+          debugPrint('membership deduct rolled back after customer upsert failure');
+        } catch (rollbackError, rst) {
+          debugPrint('membership rollback failed: $rollbackError\n$rst');
+          customer = customer
+              .copyWith(memberships: membershipBeforeDeduct)
+              .withSyncedMembershipMirrors();
+        }
+        membershipDeducted = false;
+      }
+      feedbackMessage =
+          '차트가 저장되었습니다. (고객/회원권 동기화 경고: $e)';
+    }
 
     // 리뷰 초안 — 스키마 드리프트/PGRST204 시에도 차트 저장은 성공 유지
     CustomerReview? review;

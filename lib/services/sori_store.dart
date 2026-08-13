@@ -350,51 +350,58 @@ class SoriStore implements Listenable {
     try {
       final wasAlreadyChecked = chartId != null &&
           charts.any((c) => c.id == chartId && c.visitChecked);
-      final result = await _repository.saveChartAndConfirmVisit(
-        SaveChartRequest(
-          customerId: boundCustomerId,
-          visitNumber: visitNumber,
-          customChartNo: customChartNo,
-          chartId: chartId,
-          careName: careName,
-          treatmentSummary: treatmentSummary,
-          directorInsight: directorInsight,
-          concernChips: concernChips,
-          firstVisitFearChips: firstVisitFearChips,
-          revisitFeedbackChips: revisitFeedbackChips,
-          beforeImageUrl: beforeImageUrl,
-          afterImageUrl: afterImageUrl,
-          customerName: customerName,
-          customerPhone: customerPhone == null
-              ? null
-              : normalizePhone(customerPhone),
-          gender: gender,
-          birthDate: birthDate,
-          address: address,
-          occupation: occupation,
-          allergyNotes: allergyNotes,
-          skinSensitivity: skinSensitivity,
-          sideEffectHistory: sideEffectHistory,
-          memberships: memberships,
-          customerRequests: customerRequests,
-          membershipServiceName: membershipServiceName,
-          membershipTotalVisits: membershipTotalVisits,
-          membershipUsedVisits: membershipUsedVisits,
-          deductMembership: !wasAlreadyChecked,
-          consentMandatory: consentMandatory,
-          consentPhoto: consentPhoto,
-          consentMarketing: consentMarketing,
-          consentOfflineOnly: consentOfflineOnly,
-          signatureUrl: signatureUrl,
-          homeCarePrescriptions:
-              HomecareDictionary.sanitizeTagIds(homeCarePrescriptions),
-          guardianPhone: () {
-            final d = normalizePhone(guardianPhone ?? '');
-            return d.isEmpty ? null : d;
-          }(),
-          infoViewConsent: infoViewConsent,
-        ),
-      );
+      final result = await _repository
+          .saveChartAndConfirmVisit(
+            SaveChartRequest(
+              customerId: boundCustomerId,
+              visitNumber: visitNumber,
+              customChartNo: customChartNo,
+              chartId: chartId,
+              careName: careName,
+              treatmentSummary: treatmentSummary,
+              directorInsight: directorInsight,
+              concernChips: concernChips,
+              firstVisitFearChips: firstVisitFearChips,
+              revisitFeedbackChips: revisitFeedbackChips,
+              beforeImageUrl: beforeImageUrl,
+              afterImageUrl: afterImageUrl,
+              customerName: customerName,
+              customerPhone: customerPhone == null
+                  ? null
+                  : normalizePhone(customerPhone),
+              gender: gender,
+              birthDate: birthDate,
+              address: address,
+              occupation: occupation,
+              allergyNotes: allergyNotes,
+              skinSensitivity: skinSensitivity,
+              sideEffectHistory: sideEffectHistory,
+              memberships: memberships,
+              customerRequests: customerRequests,
+              membershipServiceName: membershipServiceName,
+              membershipTotalVisits: membershipTotalVisits,
+              membershipUsedVisits: membershipUsedVisits,
+              deductMembership: !wasAlreadyChecked,
+              consentMandatory: consentMandatory,
+              consentPhoto: consentPhoto,
+              consentMarketing: consentMarketing,
+              consentOfflineOnly: consentOfflineOnly,
+              signatureUrl: signatureUrl,
+              homeCarePrescriptions:
+                  HomecareDictionary.sanitizeTagIds(homeCarePrescriptions),
+              guardianPhone: () {
+                final d = normalizePhone(guardianPhone ?? '');
+                return d.isEmpty ? null : d;
+              }(),
+              infoViewConsent: infoViewConsent,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 45),
+            onTimeout: () => throw TimeoutException(
+              '차트 저장 응답이 지연되고 있습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+            ),
+          );
       _mergeCustomer(result.customer);
       _mergeChart(result.chart);
       if (result.review != null) _mergeReview(result.review!);

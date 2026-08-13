@@ -15,6 +15,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/home_care_prescriptions.dart';
 import '../routing/app_router.dart';
+import '../routing/sori_router.dart';
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/chart_signature_storage.dart';
@@ -24,7 +25,6 @@ import '../utils/db_map.dart';
 import '../utils/sori_scroll_behavior.dart';
 import 'chart_consent_tab.dart';
 import 'consent_pdf_preview_sheet.dart';
-import 'customer_link_popup.dart';
 import 'management_menu_field.dart';
 import 'membership_editor_sheet.dart';
 import 'my_app.dart';
@@ -1373,21 +1373,25 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       });
 
       final feedback = widget.store.lastVisitFeedback?.trim();
+      final successMsg = (feedback != null && feedback.isNotEmpty)
+          ? '차트가 성공적으로 저장되었습니다.\n$feedback'
+          : '차트가 성공적으로 저장되었습니다.';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            (feedback != null && feedback.isNotEmpty)
-                ? '✅ 차트가 안전하게 저장되었습니다.\n$feedback'
-                : '✅ 차트가 안전하게 저장되었습니다.',
-          ),
+          content: Text(successMsg),
           backgroundColor: SoriTokens.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),
       );
-      await showCustomerLinkPopup(context, chart: chart, store: widget.store);
-      if (!mounted) return;
-      Navigator.pop(context, chart);
+
+      // 링크 팝업은 저장 플로우를 막지 않음 — 대시보드로 즉시 복귀
+      if (context.canPop()) {
+        context.pop(chart);
+      } else {
+        context.go(AppPaths.customerDetail(customerIdForSave));
+      }
     } catch (e) {
       if (!mounted) return;
       widget.store.clearError();
@@ -1397,9 +1401,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('저장 실패: ${e.toString()}'),
+          content: Text('차트 저장에 실패했습니다: $e'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {
