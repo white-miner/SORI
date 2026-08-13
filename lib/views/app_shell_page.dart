@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -127,9 +129,6 @@ class _AppShellPageState extends State<AppShellPage> {
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
     final tab = widget.navigationShell.currentIndex;
     final hideShellAppBar = _isCustomerDetailRoute(context);
-    final shopName = _store.shop.name.trim().isEmpty
-        ? 'SORI'
-        : _store.shop.name.trim();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
@@ -137,7 +136,6 @@ class _AppShellPageState extends State<AppShellPage> {
           ? null
           : _ShellAppBar(
               title: _titleForTab(isDirector, tab),
-              shopName: shopName,
               badgeCount: _notificationBadgeCount(session),
               showFabClearance: isDirector && isWide,
               onNotifications: _openNotifications,
@@ -167,88 +165,112 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 }
 
-/// 통일된 슬림 셸 AppBar — 타이틀 + 샵 서브캡션 / 알림만.
+/// 글래스모피즘 셸 AppBar — 메인 타이틀 + 하이그로시 알림.
 class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _ShellAppBar({
     required this.title,
-    required this.shopName,
     required this.badgeCount,
     required this.showFabClearance,
     required this.onNotifications,
   });
 
   final String title;
-  final String shopName;
   final int badgeCount;
   final bool showFabClearance;
   final VoidCallback onNotifications;
 
   static const double toolbarHeight = 60;
-  static const Color _border = Color(0xFFF0F0F0);
 
   @override
   Size get preferredSize => const Size.fromHeight(toolbarHeight);
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 0,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            bottom: BorderSide(color: _border, width: 1),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withValues(alpha: 0.88),
+                Colors.white.withValues(alpha: 0.72),
+              ],
+            ),
+            border: Border(
+              bottom: BorderSide(
+                color: Color.lerp(
+                      Colors.white,
+                      const Color(0xFF6C5CE7),
+                      0.15,
+                    ) ??
+                    Colors.white.withValues(alpha: 0.55),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6C5CE7).withValues(alpha: 0.07),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: SizedBox(
-            height: toolbarHeight,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            height: 1.15,
-                            letterSpacing: -0.3,
-                            color: Colors.black.withValues(alpha: 0.8),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          shopName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            height: 1.1,
-                            color: Colors.purple.shade300,
-                          ),
-                        ),
+          child: Stack(
+            children: [
+              // 상단 하이그로시 림
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 1.2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.2),
+                        Colors.white.withValues(alpha: 0.7),
+                        Colors.white.withValues(alpha: 0.25),
                       ],
                     ),
                   ),
-                  _NotificationBellButton(
-                    badgeCount: badgeCount,
-                    onPressed: onNotifications,
-                  ),
-                  if (showFabClearance) const SizedBox(width: 56),
-                ],
+                ),
               ),
-            ),
+              SafeArea(
+                bottom: false,
+                child: SizedBox(
+                  height: toolbarHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              height: 1.15,
+                              letterSpacing: -0.35,
+                              color: Colors.black.withValues(alpha: 0.82),
+                            ),
+                          ),
+                        ),
+                        _GlossyNotificationButton(
+                          badgeCount: badgeCount,
+                          onPressed: onNotifications,
+                        ),
+                        if (showFabClearance) const SizedBox(width: 56),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -256,14 +278,18 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-class _NotificationBellButton extends StatelessWidget {
-  const _NotificationBellButton({
+/// 하이그로시 원형 알림 버튼 + 3D 젤리 뱃지.
+class _GlossyNotificationButton extends StatelessWidget {
+  const _GlossyNotificationButton({
     required this.badgeCount,
     required this.onPressed,
   });
 
   final int badgeCount;
   final VoidCallback onPressed;
+
+  static const Color _violet = Color(0xFF6C5CE7);
+  static const Color _violetDeep = Color(0xFF4A3BCF);
 
   @override
   Widget build(BuildContext context) {
@@ -272,25 +298,195 @@ class _NotificationBellButton extends StatelessWidget {
 
     return Tooltip(
       message: '알림',
-      child: IconButton(
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-        icon: Badge(
-          isLabelVisible: showBadge,
-          backgroundColor: const Color(0xFFFF5F6D),
-          label: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      center: const Alignment(-0.35, -0.4),
+                      radius: 1.05,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.95),
+                        const Color(0xFFEDE9FF),
+                        const Color(0xFFD9D2FF),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      width: 1.6,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _violet.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 5),
+                      ),
+                      BoxShadow(
+                        color: _violetDeep.withValues(alpha: 0.18),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.55),
+                                Colors.white.withValues(alpha: 0.08),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.4, 0.75],
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: const Alignment(-0.5, -0.55),
+                          child: Container(
+                            width: 16,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.7),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Center(
+                          child: Icon(
+                            Icons.notifications_rounded,
+                            size: 22,
+                            color: Color(0xFF4A3BCF),
+                            shadows: [
+                              Shadow(
+                                color: Color(0x33000000),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (showBadge)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 18),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(99),
+                        gradient: const RadialGradient(
+                          center: Alignment(-0.3, -0.45),
+                          radius: 1.1,
+                          colors: [
+                            Color(0xFFFF8A95),
+                            Color(0xFFFF4D6A),
+                            Color(0xFFE11D48),
+                          ],
+                          stops: [0.0, 0.45, 1.0],
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF4D6A).withValues(
+                              alpha: 0.55,
+                            ),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // 젤리 하이라이트
+                          Positioned(
+                            top: 1,
+                            left: 3,
+                            right: 3,
+                            height: 5,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(99),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.55),
+                                    Colors.white.withValues(alpha: 0.0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              height: 1.15,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x44000000),
+                                  blurRadius: 2,
+                                  offset: Offset(0, 0.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-          child: Icon(
-            Icons.notifications_none_rounded,
-            size: 24,
-            color: Colors.black.withValues(alpha: 0.75),
           ),
         ),
       ),
