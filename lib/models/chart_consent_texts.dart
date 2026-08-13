@@ -17,7 +17,7 @@ class ChartConsentTexts {
 
   /// 3초 핵심 요약 (주의사항).
   static const String mandatoryCareSummary =
-      '시술 후 열감/붉은기는 정상 반응이며 24시간 내 사우나 금지';
+      '관리 후 열감/붉은기는 정상 반응이며 24시간 내 사우나 금지';
 
   // —— B. 이상 반응 · 의료적 진단 · 보상 ——
   static const String mandatoryReactionTitle =
@@ -30,7 +30,7 @@ class ChartConsentTexts {
 
   /// 3초 핵심 요약 (보상/진단).
   static const String mandatoryReactionSummary =
-      '의료적 시술이 아닌 피부 관리이며 이상 반응 시 샵 안내 수칙 준수';
+      '의료 행위가 아닌 피부 관리이며 이상 반응 시 샵 안내 수칙 준수';
 
   // —— C. 회원권 · 다회권 환불 ——
   static const String mandatoryRefundTitle = '회원권 및 다회권 환불 규정 안내';
@@ -46,12 +46,22 @@ class ChartConsentTexts {
       '중도 해지 시 단가(정가) 차감 후 잔여금 환불 규정 적용';
 
   // —— 선택: 사진 ——
-  static const String optionalPhotoTitle =
-      '관리 케이스 전/중/후 사진 및 영상 촬영 동의';
+  static const String documentTitle = '고객 정보 및 관리 동의서';
 
+  static const String optionalPhotoTitle =
+      '관리 전/중/후 사진 및 영상 촬영 동의';
+
+  /// UI용 짧은 활용 옵션 라벨.
   static const String photoUseMarketing =
-      '관리 케이스 공유 및 활용 (SNS 등 / 눈 가림 처리)';
+      '마케팅 및 사례 공유 (SNS, 블로그 / 눈 가림)';
 
   static const String photoUseOffline =
-      '오프라인 상담 전용 (원내부 차트 기록용)';
+      '원내 상담 및 차트 기록용 (외부 유출 불가)';
+
+  /// PDF 인쇄용 단일 활용 범위 문구.
+  static const String photoScopeMarketing =
+      '활용 범위: 마케팅 및 사례 공유 (SNS, 블로그 / 눈 가림 비식별 처리)';
+
+  static const String photoScopeOffline =
+      '활용 범위: 원내 상담 및 차트 기록용 (외부 유출 불가)';
 }

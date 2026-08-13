@@ -158,15 +158,11 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                     checked: true,
                     optional: true,
                   ),
-                if (widget.consentMarketing)
+                if (widget.consentPhoto)
                   _ReadOnlyConsentLine(
-                    label: ChartConsentTexts.photoUseMarketing,
-                    checked: true,
-                    optional: true,
-                  ),
-                if (widget.consentOfflineOnly)
-                  _ReadOnlyConsentLine(
-                    label: ChartConsentTexts.photoUseOffline,
+                    label: widget.consentMarketing
+                        ? ChartConsentTexts.photoScopeMarketing
+                        : ChartConsentTexts.photoScopeOffline,
                     checked: true,
                     optional: true,
                   ),

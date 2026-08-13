@@ -929,6 +929,13 @@ class SoriStore implements Listenable {
     }
     try {
       final customer = findCustomer(chart.customerId);
+      final careFallback = () {
+        final t = customer?.treatmentType.trim() ?? '';
+        if (t.isNotEmpty) return t;
+        final m = customer?.primaryMembership?.serviceName.trim() ?? '';
+        if (m.isNotEmpty) return m;
+        return null;
+      }();
       final pdfBytes = await ConsentPdfGenerator.buildBytes(
         shopName: shop.name,
         customerName: customer?.name ?? '고객',
@@ -937,6 +944,7 @@ class SoriStore implements Listenable {
         signaturePng: signaturePng,
         signatureUrl: chart.signatureUrl,
         shopOwnerName: shop.ownerName,
+        careMenuName: careFallback,
       );
       final url = await ConsentPdfStorage.uploadPdf(
         bytes: pdfBytes,

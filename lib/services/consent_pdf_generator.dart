@@ -20,6 +20,7 @@ abstract final class ConsentPdfGenerator {
     Uint8List? signaturePng,
     String? signatureUrl,
     String? shopOwnerName,
+    String? careMenuName,
   }) async {
     final bytes = await resolveSignatureBytes(
       signaturePng: signaturePng,
@@ -40,6 +41,10 @@ abstract final class ConsentPdfGenerator {
     final owner = (shopOwnerName ?? '').trim().isEmpty
         ? shopName
         : shopOwnerName!.trim();
+    final careLabel = resolveCareMenuName(
+      chartCareName: chart.careName,
+      fallbackCareName: careMenuName,
+    );
 
     doc.addPage(
       pw.MultiPage(
@@ -56,16 +61,16 @@ abstract final class ConsentPdfGenerator {
           ),
           pw.SizedBox(height: 8),
           pw.Text(
-            '케어 전자 동의서',
+            ChartConsentTexts.documentTitle,
             style: pw.TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
           pw.SizedBox(height: 6),
           pw.Text(
             '고객: $customerName  ·  연락처: $customerPhone\n'
-            '회차: ${chart.displayChartNo}  ·  케어: ${chart.careName.isEmpty ? '-' : chart.careName}\n'
+            '회차: ${chart.displayChartNo}  ·  관리: $careLabel\n'
             '작성일: $dateLabel',
             style: const pw.TextStyle(fontSize: 10, lineSpacing: 3),
           ),
@@ -87,7 +92,7 @@ abstract final class ConsentPdfGenerator {
           ),
           pw.SizedBox(height: 10),
           pw.Text(
-            ChartConsentTexts.optionalPhotoTitle,
+            '[촬영 동의] ${ChartConsentTexts.optionalPhotoTitle}',
             style: pw.TextStyle(
               fontSize: 12,
               fontWeight: pw.FontWeight.bold,
@@ -99,17 +104,14 @@ abstract final class ConsentPdfGenerator {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                _agreeLine('촬영·영상 동의', chart.consentPhoto),
-                pw.SizedBox(height: 4),
-                _agreeLine(
-                  ChartConsentTexts.photoUseMarketing,
-                  chart.consentPhoto && chart.consentMarketing,
-                ),
-                pw.SizedBox(height: 4),
-                _agreeLine(
-                  ChartConsentTexts.photoUseOffline,
-                  chart.consentPhoto && chart.consentOfflineOnly,
-                ),
+                _agreeLine('촬영 동의', chart.consentPhoto),
+                if (chart.consentPhoto) ...[
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    _photoScopeLine(chart),
+                    style: const pw.TextStyle(fontSize: 10, lineSpacing: 2.2),
+                  ),
+                ],
               ],
             ),
           ),
@@ -160,7 +162,7 @@ abstract final class ConsentPdfGenerator {
           ),
           pw.SizedBox(height: 14),
           pw.Text(
-            '본 문서는 SORI 전자 동의서 자동 생성본이며, 원본 서명 픽셀을 포함합니다.',
+            '본 문서는 SORI ${ChartConsentTexts.documentTitle} 자동 생성본이며, 원본 서명 픽셀을 포함합니다.',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
           ),
         ],
@@ -168,6 +170,38 @@ abstract final class ConsentPdfGenerator {
     );
 
     return doc.save();
+  }
+
+  /// 차트 careName이 플레이스홀더면 고객 관리 메뉴명으로 대체.
+  static String resolveCareMenuName({
+    required String chartCareName,
+    String? fallbackCareName,
+  }) {
+    final raw = chartCareName.trim();
+    if (raw.isNotEmpty && !_isPlaceholderCareName(raw)) return raw;
+    final fb = fallbackCareName?.trim() ?? '';
+    if (fb.isNotEmpty && !_isPlaceholderCareName(fb)) return fb;
+    return '-';
+  }
+
+  static bool _isPlaceholderCareName(String value) {
+    final v = value.trim();
+    return v.isEmpty ||
+        v == '전자 동의서' ||
+        v == '퀵 전자 동의서' ||
+        v == '동의서';
+  }
+
+  static String _photoScopeLine(CustomerChart chart) {
+    // 마케팅이 우선(둘 다 true인 레거시 데이터 대비), 아니면 원내 전용.
+    if (chart.consentMarketing) {
+      return ChartConsentTexts.photoScopeMarketing;
+    }
+    if (chart.consentOfflineOnly) {
+      return ChartConsentTexts.photoScopeOffline;
+    }
+    // 촬영만 동의하고 범위 미선택 → 원내 기본
+    return ChartConsentTexts.photoScopeOffline;
   }
 
   /// PNG 바이트 / data-URL / http(s) URL 순으로 서명 이미지 복원.

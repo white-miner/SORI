@@ -51,15 +51,43 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
   bool _reaction = false;
   bool _refund = false;
   bool _photo = false;
-  bool _marketing = false;
-  bool _offline = false;
+  /// null = 미선택, true = 마케팅, false = 원내 전용
+  bool? _photoScopeMarketing;
   var _saving = false;
+  late final TextEditingController _careName;
 
   bool get _mandatory => _care && _reaction && _refund;
 
   @override
+  void initState() {
+    super.initState();
+    _careName = TextEditingController(text: _suggestCareName());
+  }
+
+  String _suggestCareName() {
+    final c = widget.customer;
+    final membership = c.primaryMembership?.serviceName.trim() ?? '';
+    if (membership.isNotEmpty) return membership;
+    final treatment = c.treatmentType.trim();
+    if (treatment.isNotEmpty &&
+        treatment != '전자 동의서' &&
+        treatment != '퀵 전자 동의서') {
+      return treatment;
+    }
+    final latest = widget.store.latestChart(c.id);
+    final care = latest?.careName.trim() ?? '';
+    if (care.isNotEmpty &&
+        care != '전자 동의서' &&
+        care != '퀵 전자 동의서') {
+      return care;
+    }
+    return '';
+  }
+
+  @override
   void dispose() {
     _signature.dispose();
+    _careName.dispose();
     super.dispose();
   }
 
@@ -77,6 +105,15 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('자필 서명을 완료해 주세요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_photo && _photoScopeMarketing == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('촬영 동의 시 활용 범위를 하나 선택해 주세요.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -110,12 +147,15 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
         return;
       }
 
+      final careName = _careName.text.trim().isEmpty
+          ? _suggestCareName()
+          : _careName.text.trim();
       final visit = widget.store.nextVisitNumber(widget.customer.id);
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: widget.customer.id,
         visitNumber: visit,
-        careName: '전자 동의서',
-        treatmentSummary: '퀵 전자 동의서 체결',
+        careName: careName.isEmpty ? '관리' : careName,
+        treatmentSummary: '고객 정보 및 관리 동의서 체결',
         directorInsight: '',
         concernChips: const [],
         firstVisitFearChips: const [],
@@ -128,8 +168,8 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
         occupation: widget.customer.occupation,
         consentMandatory: true,
         consentPhoto: _photo,
-        consentMarketing: _photo && _marketing,
-        consentOfflineOnly: _photo && _offline,
+        consentMarketing: _photo && _photoScopeMarketing == true,
+        consentOfflineOnly: _photo && _photoScopeMarketing == false,
         signatureUrl: signatureUrl,
         signaturePngBytes: signatureBytes,
       );
@@ -208,6 +248,15 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 children: [
+                  TextField(
+                    controller: _careName,
+                    decoration: const InputDecoration(
+                      labelText: '관리 메뉴명',
+                      hintText: '예: 테라노바 에너지 복부관리',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   _AccordionConsentCard(
                     title: ChartConsentTexts.mandatoryCareTitle,
                     summary: ChartConsentTexts.mandatoryCareSummary,
@@ -236,7 +285,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    ChartConsentTexts.optionalPhotoTitle,
+                    '[촬영 동의] ${ChartConsentTexts.optionalPhotoTitle}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -250,23 +299,40 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                     onChanged: (v) => setState(() {
                       _photo = v;
                       if (!v) {
-                        _marketing = false;
-                        _offline = false;
+                        _photoScopeMarketing = null;
+                      } else if (_photoScopeMarketing == null) {
+                        _photoScopeMarketing = false; // 기본: 원내
                       }
                     }),
                   ),
                   if (_photo) ...[
-                    const SizedBox(height: 8),
-                    _CheckCard(
-                      title: ChartConsentTexts.photoUseMarketing,
-                      checked: _marketing,
-                      onChanged: (v) => setState(() => _marketing = v),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        '[활용 범위] 택 1',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     _CheckCard(
                       title: ChartConsentTexts.photoUseOffline,
-                      checked: _offline,
-                      onChanged: (v) => setState(() => _offline = v),
+                      checked: _photoScopeMarketing == false,
+                      onChanged: (_) => setState(() {
+                        _photoScopeMarketing = false;
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    _CheckCard(
+                      title: ChartConsentTexts.photoUseMarketing,
+                      checked: _photoScopeMarketing == true,
+                      onChanged: (_) => setState(() {
+                        _photoScopeMarketing = true;
+                      }),
                     ),
                   ],
                   const SizedBox(height: 16),
