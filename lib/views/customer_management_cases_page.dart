@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_case_item.dart';
@@ -6,6 +7,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
@@ -13,6 +15,55 @@ import '../widgets/case_review_inline.dart';
 import '../widgets/sori_logo.dart';
 
 enum _FeedScope { favoriteShop, nationwideHot }
+
+enum _CaseCategory {
+  all,
+  poreAcne,
+  contourLift,
+  bodyShape,
+  flushMoisture,
+}
+
+extension on _CaseCategory {
+  String get label => switch (this) {
+        _CaseCategory.all => '전체',
+        _CaseCategory.poreAcne => '#모공·여드름',
+        _CaseCategory.contourLift => '#윤곽·리프팅',
+        _CaseCategory.bodyShape => '#복부·체형',
+        _CaseCategory.flushMoisture => '#홍조·수분',
+      };
+
+  List<String> get keywords => switch (this) {
+        _CaseCategory.all => const [],
+        _CaseCategory.poreAcne => const [
+            '모공',
+            '피지',
+            '여드름',
+            '트러블',
+          ],
+        _CaseCategory.contourLift => const [
+            '윤곽',
+            '리프팅',
+            '탄력',
+            '리프트',
+          ],
+        _CaseCategory.bodyShape => const [
+            '복부',
+            '체형',
+            '바디',
+            '셀룰라이트',
+            '부종',
+          ],
+        _CaseCategory.flushMoisture => const [
+            '홍조',
+            '수분',
+            '민감',
+            '건조',
+            '장벽',
+            '재생',
+          ],
+      };
+}
 
 /// 고객 모드 전용 — 공유된 관리 케이스 소셜 피드.
 class CustomerManagementCasesPage extends StatefulWidget {
@@ -27,11 +78,14 @@ class CustomerManagementCasesPage extends StatefulWidget {
 
 class _CustomerManagementCasesPageState
     extends State<CustomerManagementCasesPage> {
+  final _searchController = TextEditingController();
   final _liked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_CaseComment>>{};
   int _visibleCount = 8;
   _FeedScope _scope = _FeedScope.favoriteShop;
+  _CaseCategory _category = _CaseCategory.all;
+  String _query = '';
 
   @override
   void initState() {
@@ -45,6 +99,7 @@ class _CustomerManagementCasesPageState
   @override
   void dispose() {
     widget.store.removeListener(_onStore);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -52,12 +107,55 @@ class _CustomerManagementCasesPageState
     if (mounted) setState(() {});
   }
 
+  List<String> _searchTokens(String raw) {
+    return raw
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'[\s,]+'))
+        .map((t) => t.replaceFirst(RegExp(r'^#+'), '').trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+  }
+
+  String _haystack(CommunityCaseItem item) {
+    final chart = item.chart;
+    final customer = widget.store.findCustomer(chart.customerId);
+    final review = item.review ?? widget.store.reviewForChart(chart.id);
+    return [
+      chart.careName,
+      chart.treatmentSummary,
+      chart.directorInsight,
+      ...chart.concernChips,
+      item.shop.name,
+      if (customer != null) customer.name,
+      if (customer != null) customer.treatmentType,
+      if (review != null) review.displayText,
+    ].join(' ').toLowerCase();
+  }
+
+  bool _matchesCategory(CommunityCaseItem item) {
+    final keys = _category.keywords;
+    if (keys.isEmpty) return true;
+    final hay = _haystack(item);
+    return keys.any((k) => hay.contains(k.toLowerCase()));
+  }
+
   List<CommunityCaseItem> get _feed {
+    List<CommunityCaseItem> base;
     if (_scope == _FeedScope.nationwideHot) {
       final hot = widget.store.communityHotCases;
-      if (hot.isNotEmpty) return hot;
+      base = hot.isNotEmpty ? hot : widget.store.favoriteShopCaseItems();
+    } else {
+      base = widget.store.favoriteShopCaseItems();
     }
-    return widget.store.favoriteShopCaseItems();
+
+    final tokens = _searchTokens(_query);
+    return base.where((item) {
+      if (!_matchesCategory(item)) return false;
+      if (tokens.isEmpty) return true;
+      final hay = _haystack(item);
+      return tokens.every((t) => hay.contains(t));
+    }).toList();
   }
 
   String _anonymize(String? name) {
@@ -155,6 +253,8 @@ class _CustomerManagementCasesPageState
   Widget build(BuildContext context) {
     final feed = _feed;
     final shown = feed.take(_visibleCount).toList();
+    final loading = widget.store.communityHotCasesLoading &&
+        _scope == _FeedScope.nationwideHot;
 
     return ColoredBox(
       color: const Color(0xFFF5F6F8),
@@ -212,23 +312,73 @@ class _CustomerManagementCasesPageState
                 ),
               ),
             ),
-            Expanded(
-              child: shown.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(28),
-                        child: Text(
-                          widget.store.communityHotCasesLoading
-                              ? '핫 케이스를 불러오는 중…'
-                              : '아직 공유된 관리 케이스가 없어요.\n곧 다양한 Before/After 사례가 올라올 예정이에요.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: SoriTokens.textSecondary,
-                            height: 1.45,
-                            fontWeight: FontWeight.w600,
-                          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() {
+                  _query = v;
+                  _visibleCount = 8;
+                }),
+                decoration: InputDecoration(
+                  hintText: '#홍조 #테라노바 증상·시술명 검색',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 42,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                children: _CaseCategory.values.map((cat) {
+                  final selected = _category == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(
+                        cat.label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          color: selected
+                              ? SoriTokens.primary
+                              : Colors.grey.shade700,
                         ),
                       ),
+                      selected: selected,
+                      onSelected: (_) => setState(() {
+                        _category = cat;
+                        _visibleCount = 8;
+                      }),
+                      selectedColor: SoriTokens.primarySoft,
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: selected
+                            ? SoriTokens.primary.withValues(alpha: 0.35)
+                            : const Color(0xFFE5E7EB),
+                      ),
+                      showCheckmark: false,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            Expanded(
+              child: shown.isEmpty
+                  ? _CasesEmptyState(
+                      loading: loading,
+                      onGoHome: () => context.go(AppPaths.appHome),
                     )
                   : NotificationListener<ScrollNotification>(
                       onNotification: (n) {
@@ -273,6 +423,104 @@ class _CustomerManagementCasesPageState
                         },
                       ),
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CasesEmptyState extends StatelessWidget {
+  const _CasesEmptyState({
+    required this.loading,
+    required this.onGoHome,
+  });
+
+  final bool loading;
+  final VoidCallback onGoHome;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: SoriTokens.primary),
+            SizedBox(height: 14),
+            Text(
+              '핫 케이스를 불러오는 중…',
+              style: TextStyle(
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: SoriTokens.primarySoft.withValues(alpha: 0.65),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.auto_awesome_outlined,
+                size: 40,
+                color: SoriTokens.primary.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              '등록된 B/A 케이스를 준비 중입니다 ✨',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.textPrimary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '곧 다양한 Before/After와 리얼 후기가 올라올 예정이에요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onGoHome,
+              style: FilledButton.styleFrom(
+                backgroundColor: SoriTokens.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.home_rounded, size: 18),
+              label: const Text(
+                '홈으로 가기',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ],
         ),

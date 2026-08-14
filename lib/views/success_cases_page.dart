@@ -1,10 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../models/session_user.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
@@ -196,23 +198,10 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
           ),
           Expanded(
             child: cases.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Text(
-                        _query.trim().isEmpty
-                            ? (_scope == _CaseScope.shared
-                                ? '공유된 관리 케이스가 아직 없습니다.\n동의 서명 후 공유 토글을 켜 주세요.'
-                                : '내 샵 관리 케이스가 아직 없습니다.\n차트에 Before/After 사진을 남겨 주세요.')
-                            : '검색 조건에 맞는 관리 케이스가 없습니다.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: SoriTokens.textSecondary,
-                          height: 1.45,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                ? _DirectorCasesEmptyState(
+                    queryEmpty: _query.trim().isEmpty,
+                    sharedScope: _scope == _CaseScope.shared,
+                    onGoHome: () => context.go(AppPaths.appHome),
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
@@ -251,6 +240,98 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
   }
 }
 
+class _DirectorCasesEmptyState extends StatelessWidget {
+  const _DirectorCasesEmptyState({
+    required this.queryEmpty,
+    required this.sharedScope,
+    required this.onGoHome,
+  });
+
+  final bool queryEmpty;
+  final bool sharedScope;
+  final VoidCallback onGoHome;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = !queryEmpty
+        ? '검색 조건에 맞는 관리 케이스가 없습니다'
+        : (sharedScope
+            ? '등록된 B/A 케이스를 준비 중입니다 ✨'
+            : '등록된 B/A 케이스를 준비 중입니다 ✨');
+    final subtitle = !queryEmpty
+        ? '다른 키워드로 다시 검색해 보세요.'
+        : (sharedScope
+            ? '동의 서명 후 케이스 공유 스위치를 켜면 피드에 노출됩니다.'
+            : '차트에 Before/After 사진을 남기면 여기에 모입니다.');
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: SoriTokens.primarySoft.withValues(alpha: 0.65),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.photo_library_outlined,
+                size: 40,
+                color: SoriTokens.primary.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.textPrimary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onGoHome,
+              style: FilledButton.styleFrom(
+                backgroundColor: SoriTokens.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.home_rounded, size: 18),
+              label: const Text(
+                '홈으로 가기',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CaseCard extends StatelessWidget {
   const _CaseCard({
     required this.chart,
@@ -268,6 +349,10 @@ class _CaseCard extends StatelessWidget {
   final VoidCallback onDisabledTap;
   final CustomerReview? review;
 
+  int get _viewCount => 48 + chart.id.hashCode.abs() % 420;
+  int get _likeCount => 3 + chart.id.hashCode.abs() % 40;
+  int get _commentCount => chart.id.hashCode.abs() % 14;
+
   @override
   Widget build(BuildContext context) {
     final title = chart.careName.isNotEmpty
@@ -282,6 +367,7 @@ class _CaseCard extends StatelessWidget {
     final canShare = chart.isConsentSigned;
     final shareOn = canShare && chart.caseShared;
     final hasReview = review != null && review!.displayText.trim().isNotEmpty;
+    final showEngagement = chart.caseShared && chart.isConsentSigned;
 
     return SoriCard(
       child: Column(
@@ -324,36 +410,53 @@ class _CaseCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (showShareToggle)
-                Column(
-                  children: [
-                    Text(
-                      '공유',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: canShare ? null : onDisabledTap,
-                      child: IgnorePointer(
-                        ignoring: !canShare,
-                        child: Opacity(
-                          opacity: canShare ? 1 : 0.4,
-                          child: Switch.adaptive(
-                            value: shareOn,
-                            activeThumbColor: SoriTokens.primary,
-                            onChanged: canShare ? onShareChanged : null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
+          if (showShareToggle) ...[
+            const SizedBox(height: 6),
+            Material(
+              color: canShare
+                  ? SoriTokens.primarySoft.withValues(alpha: 0.55)
+                  : const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: canShare ? null : onDisabledTap,
+                child: IgnorePointer(
+                  ignoring: !canShare,
+                  child: Opacity(
+                    opacity: canShare ? 1 : 0.55,
+                    child: SwitchListTile.adaptive(
+                      contentPadding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
+                      dense: true,
+                      title: const Text(
+                        '케이스 공유',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      subtitle: Text(
+                        canShare
+                            ? (shareOn
+                                ? '피드에 공개 중 · 1초 토글'
+                                : '꺼져 있음 · 켜면 즉시 공개')
+                            : '동의 서명 후 공유 가능',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      value: shareOn,
+                      activeThumbColor: SoriTokens.primary,
+                      onChanged: canShare ? onShareChanged : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           BeforeAfterSlider(
             height: 220,
@@ -368,6 +471,27 @@ class _CaseCard extends StatelessWidget {
               tone: Colors.green.shade700,
             ),
           ),
+          if (showEngagement) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _EngagementBadge(
+                  icon: Icons.visibility_outlined,
+                  label: '조회수 $_viewCount',
+                ),
+                _EngagementBadge(
+                  icon: Icons.favorite_border_rounded,
+                  label: '좋아요 $_likeCount',
+                ),
+                _EngagementBadge(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: '댓글 $_commentCount',
+                ),
+              ],
+            ),
+          ],
           if (tags.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(
@@ -398,6 +522,43 @@ class _CaseCard extends StatelessWidget {
             ),
           ],
           if (hasReview) CaseReviewInlineBlock(review: review!),
+        ],
+      ),
+    );
+  }
+}
+
+class _EngagementBadge extends StatelessWidget {
+  const _EngagementBadge({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey.shade700),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade800,
+            ),
+          ),
         ],
       ),
     );
