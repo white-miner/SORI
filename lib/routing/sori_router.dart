@@ -8,18 +8,17 @@ import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
 import '../views/care_report_page.dart';
 import '../views/customer_care_page.dart';
-import '../views/customer_home_page.dart';
 import '../views/customer_management_cases_page.dart';
 import '../views/customer_review_dashboard_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/customer_profile_page.dart';
 import '../views/director_customers_tab.dart';
-import '../views/director_home_page.dart';
 import '../views/director_review_manage_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_page.dart';
 import '../views/splash_page.dart';
 import '../views/success_cases_page.dart';
+import '../views/unified_home_feed_page.dart';
 import 'app_router.dart';
 
 /// go_router 경로 SSOT (해시 URL `/#/...` 과 호환).
@@ -283,11 +282,8 @@ class _RoleHome extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final isDirector = store.session?.activeMode == UserRole.director;
-        if (isDirector) {
-          return DirectorHomePage(store: store);
-        }
-        return CustomerHomePage(
+        // 원장·고객 공통 통합 커뮤니티 홈 피드
+        return UnifiedHomeFeedPage(
           store: store,
           onSelectTab: (i) => _goShellTab(context, i),
         );

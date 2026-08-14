@@ -1,0 +1,431 @@
+import 'package:flutter/material.dart';
+
+import '../models/customer.dart';
+import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
+import '../widgets/sori_card.dart';
+import '../views/admin_chart_writer_page.dart';
+
+/// 오늘 케어 일정 — 고객 관리 탭 상단용 캘린더·방문 리스트.
+class TodayCareSchedulePanel extends StatefulWidget {
+  const TodayCareSchedulePanel({super.key, required this.store});
+
+  final SoriStore store;
+
+  @override
+  State<TodayCareSchedulePanel> createState() => _TodayCareSchedulePanelState();
+}
+
+class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
+  late DateTime _selectedDay;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedDay = DateTime(now.year, now.month, now.day);
+    widget.store.addListener(_onStore);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  List<DateTime> get _weekDays {
+    final monday =
+        _selectedDay.subtract(Duration(days: _selectedDay.weekday - 1));
+    return List.generate(7, (i) => monday.add(Duration(days: i)));
+  }
+
+  List<Customer> get _dayCustomers =>
+      widget.store.customersForDate(_selectedDay);
+
+  List<Customer> get _listCustomers {
+    final list = _dayCustomers;
+    if (list.isNotEmpty) return list;
+    return widget.store.customers;
+  }
+
+  void _openMonthlyCalendar() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _MonthlyCalendarDialog(
+        initialMonth: _selectedDay,
+        visitDaysBuilder: (y, m) => widget.store.visitDaysInMonth(y, m),
+        onDaySelected: (day) {
+          setState(() => _selectedDay = day);
+          Navigator.pop(ctx);
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final dayCustomers = _dayCustomers;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '오늘 케어 일정',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _openMonthlyCalendar,
+                    icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                    label: const Text('전체 캘린더'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: SoriTokens.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: SoriTokens.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              child: Row(
+                children: _weekDays.map((day) {
+                  final selected = day.year == _selectedDay.year &&
+                      day.month == _selectedDay.month &&
+                      day.day == _selectedDay.day;
+                  final count = store.customersForDate(day).length;
+                  const labels = ['월', '화', '수', '목', '금', '토', '일'];
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedDay = day),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? SoriTokens.primary
+                              : SoriTokens.primarySoft,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              labels[day.weekday - 1],
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: selected
+                                    ? Colors.white70
+                                    : SoriTokens.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              '${day.day}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: selected
+                                    ? Colors.white
+                                    : SoriTokens.textPrimary,
+                              ),
+                            ),
+                            if (count > 0)
+                              Container(
+                                width: 5,
+                                height: 5,
+                                margin: const EdgeInsets.only(top: 2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: selected
+                                      ? Colors.white
+                                      : SoriTokens.primary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+              child: Text(
+                dayCustomers.isEmpty
+                    ? '선택한 날 일정이 없어 전체 고객을 보여드려요'
+                    : '${_selectedDay.month}/${_selectedDay.day} 방문 ${dayCustomers.length}명',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+            ),
+            ..._listCustomers.take(8).map((c) {
+              final chart = store.latestChart(c.id);
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: SoriCard(
+                  onTap: () => openChartWriterForCustomer(
+                    context,
+                    store: store,
+                    customer: c,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: SoriTokens.primarySoft,
+                        child: Text(
+                          c.name.characters.first,
+                          style: const TextStyle(
+                            color: SoriTokens.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.name,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              c.phone,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: SoriTokens.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        chart == null ? '신규' : '${chart.visitNumber}회차',
+                        style: const TextStyle(
+                          color: SoriTokens.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 4),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyCalendarDialog extends StatefulWidget {
+  const _MonthlyCalendarDialog({
+    required this.initialMonth,
+    required this.visitDaysBuilder,
+    required this.onDaySelected,
+  });
+
+  final DateTime initialMonth;
+  final Set<int> Function(int year, int month) visitDaysBuilder;
+  final ValueChanged<DateTime> onDaySelected;
+
+  @override
+  State<_MonthlyCalendarDialog> createState() => _MonthlyCalendarDialogState();
+}
+
+class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
+  late DateTime _month;
+
+  @override
+  void initState() {
+    super.initState();
+    _month = DateTime(widget.initialMonth.year, widget.initialMonth.month);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visitDays = widget.visitDaysBuilder(_month.year, _month.month);
+    final first = DateTime(_month.year, _month.month, 1);
+    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
+    final leading = first.weekday - 1;
+    final totalCells = leading + daysInMonth;
+    final rows = (totalCells / 7).ceil();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _month = DateTime(_month.year, _month.month - 1);
+                    });
+                  },
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Expanded(
+                  child: Text(
+                    '${_month.year}년 ${_month.month}월',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _month = DateTime(_month.year, _month.month + 1);
+                    });
+                  },
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: const ['월', '화', '수', '목', '금', '토', '일']
+                  .map(
+                    (d) => Expanded(
+                      child: Center(
+                        child: Text(
+                          d,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: SoriTokens.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            ...List.generate(rows, (row) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: List.generate(7, (col) {
+                    final cell = row * 7 + col;
+                    final dayNum = cell - leading + 1;
+                    if (dayNum < 1 || dayNum > daysInMonth) {
+                      return const Expanded(child: SizedBox(height: 40));
+                    }
+                    final hasVisit = visitDays.contains(dayNum);
+                    final isToday = DateTime.now().year == _month.year &&
+                        DateTime.now().month == _month.month &&
+                        DateTime.now().day == dayNum;
+                    return Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          widget.onDaySelected(
+                            DateTime(_month.year, _month.month, dayNum),
+                          );
+                        },
+                        child: Container(
+                          height: 40,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? SoriTokens.primarySoft
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$dayNum',
+                                style: TextStyle(
+                                  fontWeight: isToday
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: SoriTokens.textPrimary,
+                                ),
+                              ),
+                              if (hasVisit)
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: const BoxDecoration(
+                                    color: SoriTokens.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              );
+            }),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('닫기'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

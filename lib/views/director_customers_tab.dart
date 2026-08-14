@@ -6,6 +6,7 @@ import '../services/sori_store.dart';
 import '../routing/sori_router.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
+import '../widgets/today_care_schedule_panel.dart';
 import 'add_customer_sheet.dart';
 
 enum _CustomerSort { recentVisit, nameAsc, chartNo }
@@ -176,8 +177,9 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          TodayCareSchedulePanel(store: widget.store),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+            padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
             child: Row(
               children: [
                 const Spacer(),
