@@ -243,9 +243,9 @@ class MemorySoriRepository implements SoriRepository {
         visitNumber: 6,
         customChartNo: 'A-106',
         careName: '수분케어',
-        treatmentSummary: '회원권 6회차 수분케어',
-        directorInsight: '보습 유지 양호, 홈케어 루틴 점검',
-        concernChips: const ['모공/피지', '건조/장벽'],
+        treatmentSummary: '회원권 6회차 테라노바 수분케어',
+        directorInsight: '테라노바 저자극 세션 후 장벽 크림 레이어링을 권장합니다.',
+        concernChips: const ['모공/피지', '건조/장벽', '여드름'],
         beforeImageUrl: 'https://picsum.photos/seed/sori-b2/600/800',
         afterImageUrl: 'https://picsum.photos/seed/sori-a2/600/800',
         signatureUrl: 'https://example.com/sig-2.png',
@@ -548,7 +548,8 @@ class MemorySoriRepository implements SoriRepository {
       visitNumber: 3,
       careName: '리프팅 집중 케어',
       treatmentSummary: '얼굴 라인 리프팅 · 탄력 집중',
-      directorInsight: '전국 인기 케이스',
+      directorInsight: 'EMS + 림프 드레인 후 쿨링 마스크로 마무리하면 붓기 재발이 줄어요.',
+      concernChips: const ['탄력/리프팅', '윤곽'],
       beforeImageUrl: 'https://picsum.photos/seed/sori-hot-b/600/800',
       afterImageUrl: 'https://picsum.photos/seed/sori-hot-a/600/800',
       signatureUrl: 'https://example.com/sig-hot.png',
@@ -589,6 +590,34 @@ class MemorySoriRepository implements SoriRepository {
         chart: partnerChart,
         shop: partnerShop,
         review: partnerReview,
+      ),
+    );
+    final bodyShop = const Shop(
+      id: 'shop-body-atelier',
+      name: '바디아틀리에 청담',
+      ownerName: '김하은',
+      naverPlaceUrl: 'https://m.place.naver.com/place/body-demo',
+    );
+    out.add(
+      CommunityCaseItem(
+        chart: CustomerChart(
+          id: 'chart-hot-2',
+          shopId: bodyShop.id,
+          customerId: 'hot-c2',
+          visitNumber: 5,
+          careName: '복부 체형 케어',
+          treatmentSummary: '복부·옆구리 순환 집중 프로그램',
+          directorInsight: '식후 2시간 뒤 림프 패들 + 온열 랩핑 조합이 붓기 해소에 효과적입니다.',
+          concernChips: const ['바디 셀룰라이트', '복부', '부종/순환'],
+          beforeImageUrl: 'https://picsum.photos/seed/sori-hot-body-b/600/800',
+          afterImageUrl: 'https://picsum.photos/seed/sori-hot-body-a/600/800',
+          signatureUrl: 'https://example.com/sig-hot-2.png',
+          consentPhoto: true,
+          caseShared: true,
+          visitCheckedAt: DateTime.now().subtract(const Duration(days: 3)),
+          createdAt: DateTime.now().subtract(const Duration(days: 3)),
+        ),
+        shop: bodyShop,
       ),
     );
     out.sort((a, b) {
