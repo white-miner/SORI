@@ -25,6 +25,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   late final TextEditingController _blogController;
   late final TextEditingController _instagramController;
   late final TextEditingController _capaController;
+  late final TextEditingController _bioController;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _instagramController = TextEditingController(text: shop.snsInstagramUrl);
     _capaController =
         TextEditingController(text: '${shop.monthlyCapa <= 0 ? 100 : shop.monthlyCapa}');
+    _bioController = TextEditingController(text: shop.bio);
   }
 
   @override
@@ -53,6 +55,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _blogController.dispose();
     _instagramController.dispose();
     _capaController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
 
@@ -80,6 +83,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
       operatingHours: _hoursController.text,
       snsBlogUrl: _blogController.text,
       snsInstagramUrl: _instagramController.text,
+      bio: _bioController.text,
       monthlyCapa: int.tryParse(_capaController.text.trim()) ?? 100,
     );
 
@@ -169,6 +173,27 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
             decoration: const InputDecoration(
               labelText: '주소',
               border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            '샵 소개말 (Bio)',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '마이페이지·팬덤 프로필에 노출되는 소개 문구입니다',
+            style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _bioController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: '샵 소개말',
+              hintText: '예: 피부 장벽과 라인 케어를 섬세하게 다루는 아티스트 샵입니다.',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
             ),
           ),
           const SizedBox(height: 24),

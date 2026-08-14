@@ -12,6 +12,8 @@ class Shop {
     this.operatingHours = '',
     this.snsBlogUrl = '',
     this.snsInstagramUrl = '',
+    this.bio = '',
+    this.profileImageUrl,
     this.serviceMenu = const [],
     this.kakaoPoint = 0,
     this.isPro = false,
@@ -31,6 +33,12 @@ class Shop {
   /// SNS — 블로그 / 인스타그램.
   final String snsBlogUrl;
   final String snsInstagramUrl;
+
+  /// 샵 소개말(Bio).
+  final String bio;
+
+  /// 프로필 아바타 public URL.
+  final String? profileImageUrl;
 
   /// 샵에서 제공하는 서비스 메뉴 (이름 + 고객 안내 설명).
   final List<ShopServiceItem> serviceMenu;
@@ -52,6 +60,9 @@ class Shop {
 
   bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
 
+  bool get hasProfileImage =>
+      profileImageUrl != null && profileImageUrl!.trim().isNotEmpty;
+
   /// 네이버 플레이스 리뷰 작성에 가까운 URL로 정규화.
   String get naverReviewDeepLink {
     final url = naverPlaceUrl.trim();
@@ -71,6 +82,9 @@ class Shop {
     String? operatingHours,
     String? snsBlogUrl,
     String? snsInstagramUrl,
+    String? bio,
+    String? profileImageUrl,
+    bool clearProfileImageUrl = false,
     List<ShopServiceItem>? serviceMenu,
     int? kakaoPoint,
     bool? isPro,
@@ -86,6 +100,10 @@ class Shop {
       operatingHours: operatingHours ?? this.operatingHours,
       snsBlogUrl: snsBlogUrl ?? this.snsBlogUrl,
       snsInstagramUrl: snsInstagramUrl ?? this.snsInstagramUrl,
+      bio: bio ?? this.bio,
+      profileImageUrl: clearProfileImageUrl
+          ? null
+          : (profileImageUrl ?? this.profileImageUrl),
       serviceMenu: serviceMenu ?? this.serviceMenu,
       kakaoPoint: kakaoPoint ?? this.kakaoPoint,
       isPro: isPro ?? this.isPro,
@@ -103,6 +121,8 @@ class Shop {
         'operating_hours': operatingHours,
         'sns_blog_url': snsBlogUrl,
         'sns_instagram_url': snsInstagramUrl,
+        'bio': bio,
+        'profile_image_url': profileImageUrl,
         'service_menu': serviceMenu.map((e) => e.toMap()).toList(),
         'kakao_point': kakaoPoint,
         'is_pro': isPro,
@@ -125,7 +145,6 @@ class Shop {
         }
       }
 
-      // null/누락·별칭(sns_insta_url) 모두 ''로 흡수
       final operatingHours = DbMap.asText(
         map['operating_hours'] ?? map['operatingHours'],
       );
@@ -138,6 +157,12 @@ class Shop {
             map['snsInstagramUrl'] ??
             map['snsInstaUrl'],
       );
+      final bio = DbMap.asText(
+        map['bio'] ?? map['description'] ?? map['shop_bio'],
+      );
+      final profileImageUrl = DbMap.asTextOrNull(
+        map['profile_image_url'] ?? map['profileImageUrl'],
+      );
 
       return Shop(
         id: DbMap.asText(map['id']),
@@ -149,6 +174,8 @@ class Shop {
         operatingHours: operatingHours,
         snsBlogUrl: snsBlogUrl,
         snsInstagramUrl: snsInstagramUrl,
+        bio: bio,
+        profileImageUrl: profileImageUrl,
         serviceMenu: menu,
         kakaoPoint: (map.containsKey('kakao_point') ||
                 map.containsKey('kakaoPoint'))
@@ -168,6 +195,8 @@ class Shop {
         phone: DbMap.asTextOrNull(map['phone']),
         naverPlaceUrl: DbMap.asText(map['naver_place_url']),
         address: DbMap.asTextOrNull(map['address']),
+        bio: DbMap.asText(map['bio'] ?? map['description']),
+        profileImageUrl: DbMap.asTextOrNull(map['profile_image_url']),
         kakaoPoint: (map.containsKey('kakao_point') ||
                 map.containsKey('kakaoPoint'))
             ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])

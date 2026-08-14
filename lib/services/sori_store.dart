@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +28,7 @@ import '../utils/db_map.dart';
 import '../utils/korean_choseong.dart';
 import 'consent_pdf_generator.dart';
 import 'consent_pdf_storage.dart';
+import 'shop_profile_storage.dart';
 import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
@@ -904,6 +907,8 @@ class SoriStore implements Listenable {
     String? operatingHours,
     String? snsBlogUrl,
     String? snsInstagramUrl,
+    String? bio,
+    String? profileImageUrl,
     List<ShopServiceItem>? serviceMenu,
     int? monthlyCapa,
   }) {
@@ -916,6 +921,8 @@ class SoriStore implements Listenable {
       operatingHours: operatingHours?.trim(),
       snsBlogUrl: snsBlogUrl?.trim(),
       snsInstagramUrl: snsInstagramUrl?.trim(),
+      bio: bio?.trim(),
+      profileImageUrl: profileImageUrl?.trim(),
       serviceMenu: serviceMenu,
       monthlyCapa: monthlyCapa,
     );
@@ -931,6 +938,37 @@ class SoriStore implements Listenable {
         }
       }();
     }
+  }
+
+  /// 샵 프로필 아바타 업로드 → Storage → shops.profile_image_url.
+  Future<bool> uploadShopProfileImage(Uint8List bytes) async {
+    if (bytes.isEmpty) return false;
+    final shopId = shop.id.trim().isEmpty ? 'local-shop' : shop.id.trim();
+    final url = await ShopProfileStorage.uploadAvatar(
+      bytes: bytes,
+      shopId: shopId,
+    );
+    if (url == null || url.trim().isEmpty) {
+      // 로컬/스토리지 미연결 시 data URL로 즉시 미리보기
+      if (!_repository.isRemote) {
+        final b64 = base64Encode(bytes);
+        shop = shop.copyWith(profileImageUrl: 'data:image/jpeg;base64,$b64');
+        _notify();
+        return true;
+      }
+      return false;
+    }
+    shop = shop.copyWith(profileImageUrl: url.trim());
+    _notify();
+    if (_repository.isRemote) {
+      try {
+        shop = await _repository.upsertShop(shop);
+        _notify();
+      } catch (e) {
+        debugPrint('uploadShopProfileImage upsert failed: $e');
+      }
+    }
+    return true;
   }
 
   /// 서명 완료 차트 → A4 동의서 PDF 생성·업로드 (비차단).

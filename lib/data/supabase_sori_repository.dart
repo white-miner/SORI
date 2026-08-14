@@ -815,6 +815,8 @@ class SupabaseSoriRepository implements SoriRepository {
       'sns_blog_url': shop.snsBlogUrl,
       'sns_instagram_url': shop.snsInstagramUrl,
       'monthly_capa': shop.monthlyCapa,
+      'bio': shop.bio,
+      'profile_image_url': shop.profileImageUrl,
     };
 
     try {
@@ -827,6 +829,10 @@ class SupabaseSoriRepository implements SoriRepository {
         operatingHours: shop.operatingHours,
         snsBlogUrl: shop.snsBlogUrl,
         snsInstagramUrl: shop.snsInstagramUrl,
+        bio: map.containsKey('bio') ? parsed.bio : shop.bio,
+        profileImageUrl: map.containsKey('profile_image_url')
+            ? parsed.profileImageUrl
+            : shop.profileImageUrl,
         serviceMenu: shop.serviceMenu,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
@@ -836,7 +842,39 @@ class SupabaseSoriRepository implements SoriRepository {
             : shop.monthlyCapa,
       );
     } catch (e) {
-      debugPrint('upsertShop with hours/SNS failed, retrying base payload: $e');
+      debugPrint('upsertShop with hours/SNS/bio failed, retrying base: $e');
+      // bio/profile 컬럼 미적용 환경 — 제외 후 재시도
+      final midPayload = <String, dynamic>{
+        ...basePayload,
+        'operating_hours': shop.operatingHours,
+        'sns_blog_url': shop.snsBlogUrl,
+        'sns_instagram_url': shop.snsInstagramUrl,
+        'monthly_capa': shop.monthlyCapa,
+      };
+      try {
+        final row = includeId
+            ? await _db.from('shops').upsert(midPayload).select().single()
+            : await _db.from('shops').insert(midPayload).select().single();
+        final map = Map<String, dynamic>.from(row as Map);
+        final parsed = Shop.fromMap(map);
+        return parsed.copyWith(
+          operatingHours: shop.operatingHours,
+          snsBlogUrl: shop.snsBlogUrl,
+          snsInstagramUrl: shop.snsInstagramUrl,
+          bio: shop.bio,
+          profileImageUrl: shop.profileImageUrl,
+          serviceMenu: shop.serviceMenu,
+          kakaoPoint: map.containsKey('kakao_point')
+              ? parsed.kakaoPoint
+              : shop.kakaoPoint,
+          isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,
+          monthlyCapa: map.containsKey('monthly_capa')
+              ? parsed.monthlyCapa
+              : shop.monthlyCapa,
+        );
+      } catch (e2) {
+        debugPrint('upsertShop mid failed, retrying base payload: $e2');
+      }
       final row = includeId
           ? await _db.from('shops').upsert(basePayload).select().single()
           : await _db.from('shops').insert(basePayload).select().single();
@@ -846,6 +884,8 @@ class SupabaseSoriRepository implements SoriRepository {
         operatingHours: shop.operatingHours,
         snsBlogUrl: shop.snsBlogUrl,
         snsInstagramUrl: shop.snsInstagramUrl,
+        bio: shop.bio,
+        profileImageUrl: shop.profileImageUrl,
         serviceMenu: shop.serviceMenu,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,

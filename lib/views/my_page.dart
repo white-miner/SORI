@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
@@ -6,6 +9,7 @@ import '../models/session_user.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/media_permission_dialogs.dart';
 import '../widgets/membership_ticket_wallet.dart';
 import '../widgets/sori_logo.dart';
 import 'ai_shop_report_page.dart';
@@ -73,7 +77,7 @@ class _MyPageState extends State<MyPage> {
 }
 
 /// 원장 모드 — Instagram형 시각적 프로필 대시보드.
-class _DirectorVisualMyPage extends StatelessWidget {
+class _DirectorVisualMyPage extends StatefulWidget {
   const _DirectorVisualMyPage({
     required this.store,
     this.onSelectTab,
@@ -81,6 +85,15 @@ class _DirectorVisualMyPage extends StatelessWidget {
 
   final SoriStore store;
   final ValueChanged<int>? onSelectTab;
+
+  @override
+  State<_DirectorVisualMyPage> createState() => _DirectorVisualMyPageState();
+}
+
+class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
+  SoriStore get store => widget.store;
+  ValueChanged<int>? get onSelectTab => widget.onSelectTab;
+  bool _avatarUploading = false;
 
   List<CustomerChart> get _baCases {
     final out = <CustomerChart>[];
@@ -108,20 +121,59 @@ class _DirectorVisualMyPage extends StatelessWidget {
     return out;
   }
 
+  /// DB 샵 Bio 우선 — 홈케어 팁 더미는 사용하지 않음.
   String get _bio {
     final shop = store.shop;
-    final tip = store.todayHomecareTip.trim();
+    final bio = shop.bio.trim();
+    if (bio.isNotEmpty) return bio;
     final hours = shop.operatingHours.trim();
     final parts = <String>[];
-    if (tip.isNotEmpty) parts.add(tip);
     if (hours.isNotEmpty) parts.add('영업 $hours');
     if (shop.address != null && shop.address!.trim().isNotEmpty) {
       parts.add(shop.address!.trim());
     }
     if (parts.isEmpty) {
-      return '샵 소개와 영업시간을 프로필 편집에서 등록해 주세요.';
+      return '샵 소개말을 프로필 편집에서 등록해 주세요.';
     }
     return parts.join('\n');
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    if (_avatarUploading) return;
+    final file = await pickImageWithPermissionGuards(
+      context: context,
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 88,
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _avatarUploading = true);
+    try {
+      final bytes = await file.readAsBytes();
+      final ok = await store.uploadShopProfileImage(bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok ? '프로필 사진이 업데이트되었어요' : '업로드에 실패했어요. 스토리지 권한을 확인해 주세요.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('사진 업로드 오류: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _avatarUploading = false);
+    }
   }
 
   @override
@@ -137,6 +189,24 @@ class _DirectorVisualMyPage extends StatelessWidget {
         .length;
     final chartCount = store.charts.length;
     final cases = _baCases;
+    final avatarUrl = shop.profileImageUrl?.trim() ?? '';
+    DecorationImage? avatarImage;
+    if (avatarUrl.startsWith('data:image')) {
+      try {
+        final b64 = avatarUrl.split(',').last;
+        avatarImage = DecorationImage(
+          image: MemoryImage(base64Decode(b64)),
+          fit: BoxFit.cover,
+        );
+      } catch (_) {
+        avatarImage = null;
+      }
+    } else if (avatarUrl.isNotEmpty) {
+      avatarImage = DecorationImage(
+        image: NetworkImage(avatarUrl),
+        fit: BoxFit.cover,
+      );
+    }
 
     return ColoredBox(
       color: Colors.white,
@@ -151,27 +221,86 @@ class _DirectorVisualMyPage extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 86,
-                          height: 86,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8B7CFF), Color(0xFF4A3BCF)],
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _avatarUploading ? null : _pickAndUploadAvatar,
+                            customBorder: const CircleBorder(),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 86,
+                                  height: 86,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF8B7CFF),
+                                        Color(0xFF4A3BCF),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: SoriTokens.primary
+                                            .withValues(alpha: 0.22),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                    image: avatarImage,
+                                  ),
+                                  child: avatarImage == null
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(18),
+                                          child: SoriLogo(width: 50, height: 50),
+                                        )
+                                      : null,
+                                ),
+                                if (_avatarUploading)
+                                  Container(
+                                    width: 86,
+                                    height: 86,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withValues(alpha: 0.4),
+                                    ),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(28),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: SoriTokens.primary,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt_rounded,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    SoriTokens.primary.withValues(alpha: 0.22),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Padding(
-                            padding: EdgeInsets.all(18),
-                            child: SoriLogo(width: 50, height: 50),
                           ),
                         ),
                         const SizedBox(width: 16),

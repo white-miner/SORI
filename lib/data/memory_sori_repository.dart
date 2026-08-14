@@ -34,6 +34,7 @@ class MemorySoriRepository implements SoriRepository {
       phone: '02-1234-5678',
       naverPlaceUrl: 'https://m.place.naver.com/place/sori-demo',
       address: '서울시 강남구',
+      bio: '피부 장벽과 라인 케어를 섬세하게 다루는 아티스트 샵입니다. 단골 팬과 가까이 소통해요.',
       kakaoPoint: 1000,
       isPro: true,
       monthlyCapa: 100,
