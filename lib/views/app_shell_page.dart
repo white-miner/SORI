@@ -9,6 +9,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'chart_customer_picker_sheet.dart';
+import 'app_settings_page.dart';
 import 'message_history_page.dart';
 
 /// 로그인 후 5탭 앱 셸 — [StatefulShellRoute] 로 하단바 고정.
@@ -66,6 +67,14 @@ class _AppShellPageState extends State<AppShellPage> {
           ),
           body: const MessageHistoryPage(embedded: true),
         ),
+      ),
+    );
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppSettingsPage(store: _store),
       ),
     );
   }
@@ -136,6 +145,7 @@ class _AppShellPageState extends State<AppShellPage> {
               title: _titleForTab(isDirector, tab),
               badgeCount: _notificationBadgeCount(session),
               onNotifications: _openNotifications,
+              onSettings: _openSettings,
             ),
       body: Stack(
         clipBehavior: Clip.none,
@@ -170,11 +180,13 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     required this.badgeCount,
     required this.onNotifications,
+    required this.onSettings,
   });
 
   final String title;
   final int badgeCount;
   final VoidCallback onNotifications;
+  final VoidCallback onSettings;
 
   static const double toolbarHeight = 60;
 
@@ -259,6 +271,12 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                         _GlossyNotificationButton(
                           badgeCount: badgeCount,
                           onPressed: onNotifications,
+                        ),
+                        const SizedBox(width: 8),
+                        _GlossyIconButton(
+                          icon: Icons.settings_rounded,
+                          onPressed: onSettings,
+                          tooltip: '설정',
                         ),
                       ],
                     ),
@@ -580,6 +598,98 @@ class _PulseWavePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PulseWavePainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+/// 하이그로시 원형 아이콘 버튼 (설정 등).
+class _GlossyIconButton extends StatelessWidget {
+  const _GlossyIconButton({
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String tooltip;
+
+  static const Color _violet = Color(0xFF6C5CE7);
+  static const Color _violetDeep = Color(0xFF4A3BCF);
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF3F0FF),
+                    Color(0xFFE8E4FB),
+                    Color(0xFFDCD6F7),
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  width: 1.6,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _violet.withValues(alpha: 0.28),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: _violetDeep.withValues(alpha: 0.12),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.55),
+                            Colors.white.withValues(alpha: 0.08),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.4, 0.75],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Icon(
+                        icon,
+                        size: 22,
+                        color: const Color(0xFF4A3BCF),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 하이그로시 원형 알림 버튼 + 3D 젤리 뱃지.
