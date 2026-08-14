@@ -1240,22 +1240,87 @@ class SupabaseSoriRepository implements SoriRepository {
     final payload = review.toMap();
     payload.remove('id');
     payload['updated_at'] = DateTime.now().toUtc().toIso8601String();
+    // 구스키마에 rating/director_reply 없을 수 있어 단계적 재시도
     try {
-      if (review.id.isNotEmpty && !_isTempId(review.id)) {
-        final row = await _db
-            .from('customer_reviews')
-            .update(payload)
-            .eq('id', review.id)
-            .select()
-            .single();
-        return CustomerReview.fromMap(Map<String, dynamic>.from(row));
-      }
-      final row =
-          await _db.from('customer_reviews').insert(payload).select().single();
+      return await _upsertReviewPayload(review.id, payload);
+    } catch (e) {
+      debugPrint('upsertReview full payload failed, retry slim: $e');
+      payload.remove('rating');
+      payload.remove('director_reply');
+      payload.remove('director_replied_at');
+      return _upsertReviewPayload(review.id, payload);
+    }
+  }
+
+  Future<CustomerReview> _upsertReviewPayload(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    if (id.isNotEmpty && !_isTempId(id)) {
+      final row = await _db
+          .from('customer_reviews')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .single();
+      return CustomerReview.fromMap(Map<String, dynamic>.from(row));
+    }
+    final row =
+        await _db.from('customer_reviews').insert(payload).select().single();
+    return CustomerReview.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<CustomerReview> saveDirectorReviewReply({
+    required String reviewId,
+    required String shopId,
+    required String body,
+  }) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('답글 내용이 비어 있습니다.');
+    }
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    try {
+      await _db.from('review_replies').insert({
+        'review_id': reviewId,
+        'shop_id': shopId,
+        'author_role': 'director',
+        'body': trimmed,
+        'created_at': now,
+      });
+    } catch (e, st) {
+      debugPrint('review_replies insert skipped: $e\n$st');
+    }
+
+    try {
+      final row = await _db
+          .from('customer_reviews')
+          .update({
+            'director_reply': trimmed,
+            'director_replied_at': now,
+            'updated_at': now,
+          })
+          .eq('id', reviewId)
+          .select()
+          .single();
       return CustomerReview.fromMap(Map<String, dynamic>.from(row));
     } catch (e, st) {
-      debugPrint('upsertReview failed: $e\n$st');
-      rethrow;
+      debugPrint('director_reply column update failed: $e\n$st');
+      // 컬럼 미적용 환경: edited 메타 없이 기존 행 재조회
+      final existing = await _db
+          .from('customer_reviews')
+          .select()
+          .eq('id', reviewId)
+          .maybeSingle();
+      if (existing == null) rethrow;
+      final review =
+          CustomerReview.fromMap(Map<String, dynamic>.from(existing));
+      return review.copyWith(
+        directorReply: trimmed,
+        directorRepliedAt: DateTime.now(),
+      );
     }
   }
 

@@ -1170,6 +1170,83 @@ class SoriStore implements Listenable {
     }
   }
 
+  CustomerReview? reviewById(String reviewId) {
+    try {
+      return reviews.firstWhere((r) => r.id == reviewId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 원장 리뷰 인박스용 조인 행 (리뷰 + 고객 + 차트).
+  List<DirectorReviewInboxItem> directorReviewInboxItems() {
+    final items = <DirectorReviewInboxItem>[];
+    for (final review in reviews) {
+      if (!review.isInboxVisible) continue;
+      final customer = findCustomer(review.customerId);
+      CustomerChart? chart;
+      try {
+        chart = charts.firstWhere((c) => c.id == review.chartId);
+      } catch (_) {
+        chart = null;
+      }
+      items.add(
+        DirectorReviewInboxItem(
+          review: review,
+          customer: customer,
+          chart: chart,
+        ),
+      );
+    }
+    return items;
+  }
+
+  /// 원장 답글 저장 (DB 반영 + 로컬 미러).
+  Future<CustomerReview> saveDirectorReviewReply({
+    required String reviewId,
+    required String body,
+  }) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('답글 내용을 입력해 주세요.');
+    }
+    final local = reviewById(reviewId);
+    if (local == null) {
+      throw StateError('리뷰를 찾을 수 없습니다.');
+    }
+    final optimistic = local.copyWith(
+      directorReply: trimmed,
+      directorRepliedAt: DateTime.now(),
+    );
+    _mergeReview(optimistic);
+    _notify();
+
+    try {
+      final remote = await _repository.saveDirectorReviewReply(
+        reviewId: reviewId,
+        shopId: local.shopId.isNotEmpty ? local.shopId : shop.id,
+        body: trimmed,
+      );
+      // 원격이 최소 필드만 돌려줄 수 있어 로컬과 병합
+      _mergeReview(
+        local.copyWith(
+          directorReply: remote.directorReply ?? trimmed,
+          directorRepliedAt: remote.directorRepliedAt ?? DateTime.now(),
+          rating: remote.rating ?? local.rating,
+          status: remote.status,
+        ),
+      );
+      lastError = null;
+      _notify();
+      return reviewById(reviewId)!;
+    } catch (e, st) {
+      debugPrint('saveDirectorReviewReply failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      rethrow;
+    }
+  }
+
   /// 네이버 플레이스 리뷰 등록 트래킹 (clipboard CTA 후).
   /// 원격 동기화 실패 시 1회 재시도 후 예외를 다시 던져 UI가 상태를 구분하게 한다.
   Future<CustomerReview?> markNaverRegistered({
@@ -2068,5 +2145,67 @@ class SoriStore implements Listenable {
   void saveToSkinJournal(String text) {
     skinJournalEntries.insert(0, text);
     _notify();
+  }
+}
+
+/// 원장 리뷰 인박스 조인 뷰모델.
+class DirectorReviewInboxItem {
+  const DirectorReviewInboxItem({
+    required this.review,
+    this.customer,
+    this.chart,
+  });
+
+  final CustomerReview review;
+  final Customer? customer;
+  final CustomerChart? chart;
+
+  String get displayName {
+    final n = customer?.name.trim() ?? '';
+    return n.isEmpty ? '고객' : n;
+  }
+
+  String get careName {
+    final c = chart?.careName.trim() ?? '';
+    if (c.isNotEmpty) return c;
+    final t = customer?.treatmentType.trim() ?? '';
+    return t.isEmpty ? '케어' : t;
+  }
+
+  List<String> get bodyTags {
+    final tags = <String>[];
+    final chips = chart?.concernChips ?? const <String>[];
+    for (final chip in chips) {
+      final t = chip.trim();
+      if (t.isNotEmpty) tags.add(t);
+    }
+    return tags;
+  }
+
+  DateTime get sortDate =>
+      review.acceptedAt ??
+      review.createdAt ??
+      review.naverRegisteredAt ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  int? get age => customer?.koreanAge;
+
+  CustomerGender? get gender => customer?.gender;
+
+  String? get ageBand {
+    final a = age;
+    if (a == null) return null;
+    if (a < 20) return '10대';
+    if (a < 30) return '20대';
+    if (a < 40) return '30대';
+    if (a < 50) return '40대';
+    return '50대 이상';
+  }
+
+  bool matchesBodyPart(String part) {
+    final p = part.trim();
+    if (p.isEmpty) return true;
+    final hay = '$careName ${bodyTags.join(' ')}';
+    return hay.contains(p);
   }
 }

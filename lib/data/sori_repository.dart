@@ -192,6 +192,13 @@ abstract class SoriRepository {
 
   Future<CustomerReview> upsertReview(CustomerReview review);
 
+  /// 원장 답글 저장 — review_replies insert + customer_reviews 미러 컬럼 갱신.
+  Future<CustomerReview> saveDirectorReviewReply({
+    required String reviewId,
+    required String shopId,
+    required String body,
+  });
+
   /// 네이버 리뷰 등록 트래킹.
   Future<CustomerReview?> markNaverRegistered({
     required String chartId,

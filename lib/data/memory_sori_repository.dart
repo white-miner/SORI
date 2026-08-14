@@ -405,6 +405,24 @@ class MemorySoriRepository implements SoriRepository {
   Future<CustomerReview> upsertReview(CustomerReview review) async => review;
 
   @override
+  Future<CustomerReview> saveDirectorReviewReply({
+    required String reviewId,
+    required String shopId,
+    required String body,
+  }) async {
+    return CustomerReview(
+      id: reviewId,
+      chartId: 'local-chart',
+      customerId: 'local',
+      shopId: shopId,
+      originalText: '',
+      status: ReviewStatus.published,
+      directorReply: body.trim(),
+      directorRepliedAt: DateTime.now(),
+    );
+  }
+
+  @override
   Future<CustomerReview?> markNaverRegistered({
     required String chartId,
     String? composedText,
