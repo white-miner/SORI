@@ -8,11 +8,15 @@ import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_highlight.dart';
 import '../models/shop_service_item.dart';
 import 'sori_repository.dart';
 
 /// 로컬 더미 데이터 (UI 하드코딩 분리용).
 class MemorySoriRepository implements SoriRepository {
+  /// shopId → customerIds 팔로우 셋 (프로세스 내 유지).
+  static final Map<String, Set<String>> _followersByShop = {};
+
   @override
   bool get isRemote => false;
 
@@ -630,5 +634,80 @@ class MemorySoriRepository implements SoriRepository {
       return bd.compareTo(ad);
     });
     return out.take(limit).toList();
+  }
+
+  @override
+  Future<List<ShopHighlight>> loadShopHighlights(String shopId) async {
+    final id = shopId.trim().isEmpty ? 'shop-demo' : shopId.trim();
+    return [
+      ShopHighlight(
+        id: 'hl-barrier',
+        shopId: id,
+        title: '장벽케어',
+        coverImageUrl: 'https://picsum.photos/seed/sori-hl-barrier/400/400',
+        createdAt: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+      ShopHighlight(
+        id: 'hl-lift',
+        shopId: id,
+        title: '리프팅',
+        coverImageUrl: 'https://picsum.photos/seed/sori-hl-lift/400/400',
+        createdAt: DateTime.now().subtract(const Duration(days: 5)),
+      ),
+      ShopHighlight(
+        id: 'hl-body',
+        shopId: id,
+        title: '바디',
+        coverImageUrl: 'https://picsum.photos/seed/sori-hl-body/400/400',
+        createdAt: DateTime.now().subtract(const Duration(days: 8)),
+      ),
+      ShopHighlight(
+        id: 'hl-daily',
+        shopId: id,
+        title: '일상',
+        coverImageUrl: 'https://picsum.photos/seed/sori-hl-daily/400/400',
+        createdAt: DateTime.now().subtract(const Duration(days: 12)),
+      ),
+      ShopHighlight(
+        id: 'hl-nova',
+        shopId: id,
+        title: '테라노바',
+        coverImageUrl: 'https://picsum.photos/seed/sori-hl-nova/400/400',
+        createdAt: DateTime.now().subtract(const Duration(days: 14)),
+      ),
+    ];
+  }
+
+  @override
+  Future<int> countShopFollowers(String shopId) async {
+    final id = shopId.trim();
+    final extra = _followersByShop[id]?.length ?? 0;
+    return 128 + extra;
+  }
+
+  @override
+  Future<bool> isShopFollowed({
+    required String shopId,
+    required String customerId,
+  }) async {
+    final set = _followersByShop[shopId.trim()];
+    return set != null && set.contains(customerId.trim());
+  }
+
+  @override
+  Future<void> setShopFollow({
+    required String shopId,
+    required String customerId,
+    required bool following,
+  }) async {
+    final sid = shopId.trim();
+    final cid = customerId.trim();
+    if (sid.isEmpty || cid.isEmpty) return;
+    final set = _followersByShop.putIfAbsent(sid, () => <String>{});
+    if (following) {
+      set.add(cid);
+    } else {
+      set.remove(cid);
+    }
   }
 }

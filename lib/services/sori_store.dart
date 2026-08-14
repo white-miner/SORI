@@ -20,6 +20,7 @@ import '../models/membership_ticket.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_highlight.dart';
 import '../models/shop_service_item.dart';
 import '../utils/db_map.dart';
 import '../utils/korean_choseong.dart';
@@ -93,6 +94,9 @@ class SoriStore implements Listenable {
   final List<ShopGallerySlide> gallerySlides = [];
   final Set<String> reviewRequestedCustomerIds = {};
   final Set<String> followedShopIds = {};
+  final List<ShopHighlight> shopHighlights = [];
+  int shopFollowerCount = 0;
+  bool shopFandomMetaLoading = false;
   final List<CommunityCaseItem> communityHotCases = [];
   bool communityHotCasesLoading = false;
   String todayHomecareTip =
@@ -1448,13 +1452,71 @@ class SoriStore implements Listenable {
   bool toggleFollowShop([String? shopId]) {
     final id = (shopId ?? shop.id).trim();
     if (id.isEmpty) return false;
-    if (followedShopIds.contains(id)) {
+    final wasFollowing = followedShopIds.contains(id);
+    if (wasFollowing) {
       followedShopIds.remove(id);
+      shopFollowerCount = (shopFollowerCount - 1).clamp(0, 999999);
     } else {
       followedShopIds.add(id);
+      shopFollowerCount += 1;
     }
     _notify();
+
+    final customerId = session?.customerId?.trim() ?? '';
+    if (customerId.isNotEmpty) {
+      unawaited(() async {
+        try {
+          await _repository.setShopFollow(
+            shopId: id,
+            customerId: customerId,
+            following: !wasFollowing,
+          );
+          final count = await _repository.countShopFollowers(id);
+          if (count > 0 || _repository.isRemote) {
+            shopFollowerCount = count;
+            _notify();
+          }
+        } catch (e) {
+          debugPrint('toggleFollowShop remote failed: $e');
+        }
+      }());
+    }
     return followedShopIds.contains(id);
+  }
+
+  /// 하이라이트 · 팔로워 수 · 내 팔로우 상태 동기화.
+  Future<void> refreshShopFandomMeta() async {
+    if (shopFandomMetaLoading) return;
+    shopFandomMetaLoading = true;
+    _notify();
+    final shopId = shop.id.trim();
+    try {
+      if (shopId.isNotEmpty) {
+        final highlights = await _repository.loadShopHighlights(shopId);
+        shopHighlights
+          ..clear()
+          ..addAll(highlights);
+        shopFollowerCount = await _repository.countShopFollowers(shopId);
+        final customerId = session?.customerId?.trim() ?? '';
+        if (customerId.isNotEmpty) {
+          final following = await _repository.isShopFollowed(
+            shopId: shopId,
+            customerId: customerId,
+          );
+          if (following) {
+            followedShopIds.add(shopId);
+          } else {
+            followedShopIds.remove(shopId);
+          }
+        }
+      }
+      lastError = null;
+    } catch (e, st) {
+      debugPrint('refreshShopFandomMeta failed: $e\n$st');
+    } finally {
+      shopFandomMetaLoading = false;
+      _notify();
+    }
   }
 
   /// 전국 핫 케이스 피드 로드 (오픈 커뮤니티).

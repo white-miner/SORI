@@ -9,6 +9,7 @@ import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_highlight.dart';
 import 'auth_role_resolution.dart';
 
 export 'auth_role_resolution.dart';
@@ -236,4 +237,23 @@ abstract class SoriRepository {
 
   /// 전국 공유 B/A 핫 케이스 (오픈 커뮤니티 피드).
   Future<List<CommunityCaseItem>> loadCommunityHotCases({int limit = 40});
+
+  /// 샵 스토리 하이라이트.
+  Future<List<ShopHighlight>> loadShopHighlights(String shopId);
+
+  /// 샵 단골 팬 수.
+  Future<int> countShopFollowers(String shopId);
+
+  /// 고객이 해당 샵을 팔로우 중인지.
+  Future<bool> isShopFollowed({
+    required String shopId,
+    required String customerId,
+  });
+
+  /// 단골 팬 등록/해제.
+  Future<void> setShopFollow({
+    required String shopId,
+    required String customerId,
+    required bool following,
+  });
 }

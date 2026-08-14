@@ -14,6 +14,7 @@ import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_highlight.dart';
 import '../services/supabase_client.dart';
 import '../utils/db_map.dart';
 import 'sori_repository.dart';
@@ -1731,6 +1732,94 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('loadCommunityHotCases failed: $e\n$st');
       return const [];
+    }
+  }
+
+  @override
+  Future<List<ShopHighlight>> loadShopHighlights(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('shop_highlights')
+          .select()
+          .eq('shop_id', id)
+          .order('created_at', ascending: false);
+      return (rows as List)
+          .map((e) => ShopHighlight.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadShopHighlights failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<int> countShopFollowers(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return 0;
+    try {
+      final rows = await _db
+          .from('shop_followers')
+          .select('id')
+          .eq('shop_id', id);
+      return (rows as List).length;
+    } catch (e, st) {
+      debugPrint('countShopFollowers failed: $e\n$st');
+      return 0;
+    }
+  }
+
+  @override
+  Future<bool> isShopFollowed({
+    required String shopId,
+    required String customerId,
+  }) async {
+    final sid = shopId.trim();
+    final cid = customerId.trim();
+    if (sid.isEmpty || cid.isEmpty) return false;
+    try {
+      final rows = await _db
+          .from('shop_followers')
+          .select('id')
+          .eq('shop_id', sid)
+          .eq('customer_id', cid)
+          .limit(1);
+      return (rows as List).isNotEmpty;
+    } catch (e, st) {
+      debugPrint('isShopFollowed failed: $e\n$st');
+      return false;
+    }
+  }
+
+  @override
+  Future<void> setShopFollow({
+    required String shopId,
+    required String customerId,
+    required bool following,
+  }) async {
+    final sid = shopId.trim();
+    final cid = customerId.trim();
+    if (sid.isEmpty || cid.isEmpty) return;
+    try {
+      if (following) {
+        await _db.from('shop_followers').upsert(
+          {
+            'shop_id': sid,
+            'customer_id': cid,
+          },
+          onConflict: 'shop_id,customer_id',
+        );
+      } else {
+        await _db
+            .from('shop_followers')
+            .delete()
+            .eq('shop_id', sid)
+            .eq('customer_id', cid);
+      }
+    } catch (e, st) {
+      debugPrint('setShopFollow failed: $e\n$st');
+      rethrow;
     }
   }
 }
