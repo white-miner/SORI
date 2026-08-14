@@ -280,13 +280,18 @@ class _RoleHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDirector = store.session?.activeMode == UserRole.director;
-    if (isDirector) {
-      return DirectorHomePage(store: store);
-    }
-    return CustomerHomePage(
-      store: store,
-      onSelectTab: (i) => _goShellTab(context, i),
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final isDirector = store.session?.activeMode == UserRole.director;
+        if (isDirector) {
+          return DirectorHomePage(store: store);
+        }
+        return CustomerHomePage(
+          store: store,
+          onSelectTab: (i) => _goShellTab(context, i),
+        );
+      },
     );
   }
 }
@@ -297,11 +302,16 @@ class _RoleSecondTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDirector = store.session?.activeMode == UserRole.director;
-    if (isDirector) {
-      return DirectorCustomersTab(store: store);
-    }
-    return CustomerCareTab(store: store);
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final isDirector = store.session?.activeMode == UserRole.director;
+        if (isDirector) {
+          return DirectorCustomersTab(store: store);
+        }
+        return CustomerCareTab(store: store);
+      },
+    );
   }
 }
 
@@ -311,11 +321,16 @@ class _RoleReviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDirector = store.session?.activeMode == UserRole.director;
-    if (isDirector) {
-      return DirectorReviewManagePage(store: store);
-    }
-    return CustomerReviewDashboardPage(store: store);
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final isDirector = store.session?.activeMode == UserRole.director;
+        if (isDirector) {
+          return DirectorReviewManagePage(store: store);
+        }
+        return CustomerReviewDashboardPage(store: store);
+      },
+    );
   }
 }
 
@@ -325,11 +340,16 @@ class _RoleCasesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDirector = store.session?.activeMode == UserRole.director;
-    if (isDirector) {
-      return SuccessCasesPage(store: store);
-    }
-    return CustomerManagementCasesPage(store: store);
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final isDirector = store.session?.activeMode == UserRole.director;
+        if (isDirector) {
+          return SuccessCasesPage(store: store);
+        }
+        return CustomerManagementCasesPage(store: store);
+      },
+    );
   }
 }
 
@@ -339,9 +359,14 @@ class _RoleMyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MyPage(
-      store: store,
-      onSelectTab: (i) => _goShellTab(context, i),
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        return MyPage(
+          store: store,
+          onSelectTab: (i) => _goShellTab(context, i),
+        );
+      },
     );
   }
 }

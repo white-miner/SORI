@@ -91,6 +91,7 @@ class SoriStore implements Listenable {
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
   final Set<String> reviewRequestedCustomerIds = {};
+  final Set<String> followedShopIds = {};
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
@@ -1435,6 +1436,23 @@ class SoriStore implements Listenable {
 
   bool isReviewRequested(String customerId) =>
       reviewRequestedCustomerIds.contains(customerId);
+
+  bool isFollowingShop([String? shopId]) {
+    final id = (shopId ?? shop.id).trim();
+    return id.isNotEmpty && followedShopIds.contains(id);
+  }
+
+  bool toggleFollowShop([String? shopId]) {
+    final id = (shopId ?? shop.id).trim();
+    if (id.isEmpty) return false;
+    if (followedShopIds.contains(id)) {
+      followedShopIds.remove(id);
+    } else {
+      followedShopIds.add(id);
+    }
+    _notify();
+    return followedShopIds.contains(id);
+  }
 
   void updateHomecareTip(String tip) {
     todayHomecareTip = tip.trim();
