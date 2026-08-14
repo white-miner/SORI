@@ -1,4 +1,5 @@
 import '../models/care_diary_note.dart';
+import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -265,11 +266,40 @@ class MemorySoriRepository implements SoriRepository {
       ),
     ];
 
+    final reviews = [
+      CustomerReview(
+        id: 'rev-1',
+        chartId: 'chart-1',
+        customerId: '1',
+        shopId: shop.id,
+        originalText: '시술 후 자극이 거의 없고 다음 날 피부가 촉촉했어요. 설명도 친절하셨습니다.',
+        status: ReviewStatus.published,
+        rating: 5,
+        acceptedAt: DateTime.now().subtract(const Duration(days: 1)),
+        directorReply: '첫 방문부터 잘 따라와 주셔서 감사해요. 홈케어만 꾸준히 이어가 주세요!',
+        directorRepliedAt: DateTime.now().subtract(const Duration(hours: 20)),
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+      CustomerReview(
+        id: 'rev-2',
+        chartId: 'chart-2',
+        customerId: '2',
+        shopId: shop.id,
+        originalText: '수분감이 오래가고 화장 먹음이 좋아졌어요. 회원권 하길 잘했습니다.',
+        status: ReviewStatus.published,
+        rating: 5,
+        acceptedAt: DateTime.now().subtract(const Duration(days: 4)),
+        directorReply: '6회차까지 꾸준히 와주신 덕분에 변화가 보이네요. 다음에도 기대할게요!',
+        directorRepliedAt: DateTime.now().subtract(const Duration(days: 3)),
+        createdAt: DateTime.now().subtract(const Duration(days: 4)),
+      ),
+    ];
+
     return SoriSnapshot(
       shop: shop,
       customers: customers,
       charts: charts,
-      reviews: const [],
+      reviews: reviews,
       aiReplies: const [],
       gallerySlides: gallerySlides,
     );
@@ -492,5 +522,81 @@ class MemorySoriRepository implements SoriRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<List<CommunityCaseItem>> loadCommunityHotCases({int limit = 40}) async {
+    final snap = createSeedSnapshot();
+    final byChartReview = <String, CustomerReview>{};
+    for (final r in snap.reviews) {
+      byChartReview[r.chartId] = r;
+    }
+
+    final partnerShop = const Shop(
+      id: 'shop-gangnam-glow',
+      name: '글로우핏 강남',
+      ownerName: '이서연',
+      naverPlaceUrl: 'https://m.place.naver.com/place/glow-demo',
+    );
+    final partnerChart = CustomerChart(
+      id: 'chart-hot-1',
+      shopId: partnerShop.id,
+      customerId: 'hot-c1',
+      visitNumber: 3,
+      careName: '리프팅 집중 케어',
+      treatmentSummary: '얼굴 라인 리프팅 · 탄력 집중',
+      directorInsight: '전국 인기 케이스',
+      beforeImageUrl: 'https://picsum.photos/seed/sori-hot-b/600/800',
+      afterImageUrl: 'https://picsum.photos/seed/sori-hot-a/600/800',
+      signatureUrl: 'https://example.com/sig-hot.png',
+      consentPhoto: true,
+      caseShared: true,
+      visitCheckedAt: DateTime.now().subtract(const Duration(days: 1)),
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    );
+    final partnerReview = CustomerReview(
+      id: 'rev-hot-1',
+      chartId: partnerChart.id,
+      customerId: 'hot-c1',
+      shopId: partnerShop.id,
+      originalText: '라인 변화가 눈에 보여서 놀랐어요. 상담이 꼼꼼했습니다.',
+      status: ReviewStatus.published,
+      rating: 5,
+      directorReply: '와주셔서 감사해요. 유지 케어만 잘 따라와 주세요!',
+      directorRepliedAt: DateTime.now().subtract(const Duration(hours: 8)),
+      acceptedAt: DateTime.now().subtract(const Duration(hours: 12)),
+    );
+
+    final out = <CommunityCaseItem>[];
+    for (final chart in snap.charts) {
+      if (!chart.caseShared || !chart.isConsentSigned) continue;
+      final b = chart.beforeImageUrl?.trim() ?? '';
+      final a = chart.afterImageUrl?.trim() ?? '';
+      if (b.isEmpty && a.isEmpty) continue;
+      out.add(
+        CommunityCaseItem(
+          chart: chart,
+          shop: snap.shop,
+          review: byChartReview[chart.id],
+        ),
+      );
+    }
+    out.add(
+      CommunityCaseItem(
+        chart: partnerChart,
+        shop: partnerShop,
+        review: partnerReview,
+      ),
+    );
+    out.sort((a, b) {
+      final ad = a.chart.visitCheckedAt ??
+          a.chart.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.chart.visitCheckedAt ??
+          b.chart.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return out.take(limit).toList();
   }
 }

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
 import '../models/chart_db_columns.dart';
+import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -1624,6 +1625,112 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('loadPublicCareReport failed: $e\n$st');
       return null;
+    }
+  }
+
+  @override
+  Future<List<CommunityCaseItem>> loadCommunityHotCases({int limit = 40}) async {
+    try {
+      List<dynamic> rows = const [];
+      try {
+        rows = await _db
+            .from(_chartsPrimary)
+            .select()
+            .eq('is_case_shared', true)
+            .order('created_at', ascending: false)
+            .limit(limit);
+      } catch (_) {
+        try {
+          rows = await _db
+              .from(_chartsFallback)
+              .select()
+              .eq('case_shared', true)
+              .order('created_at', ascending: false)
+              .limit(limit);
+        } catch (e) {
+          rows = await _db
+              .from(_chartsFallback)
+              .select()
+              .eq('is_case_shared', true)
+              .order('created_at', ascending: false)
+              .limit(limit);
+        }
+      }
+
+      final charts = _mapRowsSafely(
+        rows,
+        CustomerChart.fromMap,
+        label: 'community_charts',
+      ).where((c) {
+        final b = c.beforeImageUrl?.trim() ?? '';
+        final a = c.afterImageUrl?.trim() ?? '';
+        return c.caseShared &&
+            c.isConsentSigned &&
+            (b.isNotEmpty || a.isNotEmpty);
+      }).toList();
+
+      final shopIds = charts.map((c) => c.shopId).toSet().toList();
+      final shopById = <String, Shop>{};
+      if (shopIds.isNotEmpty) {
+        try {
+          final shopRows =
+              await _db.from('shops').select().inFilter('id', shopIds);
+          for (final s in _mapRowsSafely(
+            shopRows as List,
+            Shop.fromMap,
+            label: 'community_shops',
+          )) {
+            shopById[s.id] = s;
+          }
+        } catch (e) {
+          debugPrint('community shops load skipped: $e');
+        }
+      }
+
+      final chartIds = charts.map((c) => c.id).toList();
+      final reviewByChart = <String, CustomerReview>{};
+      if (chartIds.isNotEmpty) {
+        try {
+          final reviewRows = await _db
+              .from('customer_reviews')
+              .select()
+              .inFilter('chart_id', chartIds);
+          for (final r in _mapRowsSafely(
+            reviewRows as List,
+            CustomerReview.fromMap,
+            label: 'community_reviews',
+          )) {
+            if (!r.isInboxVisible) continue;
+            final prev = reviewByChart[r.chartId];
+            if (prev == null ||
+                (r.acceptedAt ?? r.createdAt ?? DateTime(2000)).isAfter(
+                  prev.acceptedAt ?? prev.createdAt ?? DateTime(2000),
+                )) {
+              reviewByChart[r.chartId] = r;
+            }
+          }
+        } catch (e) {
+          debugPrint('community reviews load skipped: $e');
+        }
+      }
+
+      return charts
+          .map(
+            (c) => CommunityCaseItem(
+              chart: c,
+              shop: shopById[c.shopId] ??
+                  Shop(
+                    id: c.shopId,
+                    name: 'SORI 샵',
+                    naverPlaceUrl: '',
+                  ),
+              review: reviewByChart[c.id],
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadCommunityHotCases failed: $e\n$st');
+      return const [];
     }
   }
 }

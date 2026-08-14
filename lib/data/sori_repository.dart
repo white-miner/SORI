@@ -1,5 +1,6 @@
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
+import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -232,4 +233,7 @@ abstract class SoriRepository {
 
   /// 로그인 없이 chartId로 케어 리포트 조회.
   Future<PublicCareReport?> loadPublicCareReport(String chartId);
+
+  /// 전국 공유 B/A 핫 케이스 (오픈 커뮤니티 피드).
+  Future<List<CommunityCaseItem>> loadCommunityHotCases({int limit = 40});
 }

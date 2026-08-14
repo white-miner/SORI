@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../models/customer.dart';
+import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/case_review_inline.dart';
 import '../widgets/sori_logo.dart';
+
+enum _FeedScope { favoriteShop, nationwideHot }
 
 /// 고객 모드 전용 — 공유된 관리 케이스 소셜 피드.
 class CustomerManagementCasesPage extends StatefulWidget {
@@ -27,11 +31,15 @@ class _CustomerManagementCasesPageState
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_CaseComment>>{};
   int _visibleCount = 8;
+  _FeedScope _scope = _FeedScope.favoriteShop;
 
   @override
   void initState() {
     super.initState();
     widget.store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.store.refreshCommunityHotCases();
+    });
   }
 
   @override
@@ -44,29 +52,12 @@ class _CustomerManagementCasesPageState
     if (mounted) setState(() {});
   }
 
-  List<({CustomerChart chart, Customer? customer, Shop shop})> get _feed {
-    final out = <({CustomerChart chart, Customer? customer, Shop shop})>[];
-    for (final chart in widget.store.charts) {
-      if (!chart.caseShared || !chart.isConsentSigned) continue;
-      final b = chart.beforeImageUrl?.trim() ?? '';
-      final a = chart.afterImageUrl?.trim() ?? '';
-      if (b.isEmpty && a.isEmpty) continue;
-      out.add((
-        chart: chart,
-        customer: widget.store.findCustomer(chart.customerId),
-        shop: widget.store.shop,
-      ));
+  List<CommunityCaseItem> get _feed {
+    if (_scope == _FeedScope.nationwideHot) {
+      final hot = widget.store.communityHotCases;
+      if (hot.isNotEmpty) return hot;
     }
-    out.sort((a, b) {
-      final ad = a.chart.visitCheckedAt ??
-          a.chart.createdAt ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      final bd = b.chart.visitCheckedAt ??
-          b.chart.createdAt ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      return bd.compareTo(ad);
-    });
-    return out;
+    return widget.store.favoriteShopCaseItems();
   }
 
   String _anonymize(String? name) {
@@ -143,8 +134,7 @@ class _CustomerManagementCasesPageState
             final author = session?.name.trim().isNotEmpty == true
                 ? session!.name.trim()
                 : '고객';
-            final isDirector =
-                session?.activeMode == UserRole.director;
+            final isDirector = session?.activeMode == UserRole.director;
             setState(() {
               list.add(
                 _CaseComment(
@@ -169,58 +159,123 @@ class _CustomerManagementCasesPageState
     return ColoredBox(
       color: const Color(0xFFF5F6F8),
       child: SafeArea(
-        child: shown.isEmpty
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(28),
-                  child: Text(
-                    '아직 공유된 관리 케이스가 없어요.\n곧 다양한 Before/After 사례가 올라올 예정이에요.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: SoriTokens.textSecondary,
-                      height: 1.45,
-                      fontWeight: FontWeight.w600,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text(
+                      '단골 샵 케이스',
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
+                    selected: _scope == _FeedScope.favoriteShop,
+                    onSelected: (_) => setState(() {
+                      _scope = _FeedScope.favoriteShop;
+                      _visibleCount = 8;
+                    }),
+                    selectedColor: SoriTokens.primarySoft,
+                    checkmarkColor: SoriTokens.primary,
                   ),
-                ),
-              )
-            : NotificationListener<ScrollNotification>(
-                onNotification: (n) {
-                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 120) {
-                    if (_visibleCount < feed.length) {
+                  FilterChip(
+                    label: const Text(
+                      '전국 뷰티 샵 핫 케이스',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    selected: _scope == _FeedScope.nationwideHot,
+                    onSelected: (_) {
                       setState(() {
-                        _visibleCount =
-                            (_visibleCount + 6).clamp(0, feed.length);
+                        _scope = _FeedScope.nationwideHot;
+                        _visibleCount = 8;
                       });
-                    }
-                  }
-                  return false;
-                },
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                  itemCount: shown.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) {
-                    final item = shown[index];
-                    final id = item.chart.id;
-                    final likes =
-                        _likeCounts[id] ?? (3 + id.hashCode.abs() % 40);
-                    final liked = _liked.contains(id);
-                    final comments = _comments[id] ?? const <_CaseComment>[];
-                    return _CustomerCaseCard(
-                      shop: item.shop,
-                      chart: item.chart,
-                      anonymousCustomer: _anonymize(item.customer?.name),
-                      liked: liked,
-                      likeCount: likes,
-                      commentCount: comments.length,
-                      onLike: () => _toggleLike(id),
-                      onComment: () => _openComments(item.chart),
-                      onBook: () => _openNaver(item.shop),
-                    );
-                  },
+                      widget.store.refreshCommunityHotCases();
+                    },
+                    selectedColor: SoriTokens.primarySoft,
+                    checkmarkColor: SoriTokens.primary,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                _scope == _FeedScope.favoriteShop
+                    ? '내가 팔로우·방문하는 샵의 공유 B/A 케이스'
+                    : '미방문 고객도 둘러볼 수 있는 전국 오픈 커뮤니티 피드',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
+            ),
+            Expanded(
+              child: shown.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Text(
+                          widget.store.communityHotCasesLoading
+                              ? '핫 케이스를 불러오는 중…'
+                              : '아직 공유된 관리 케이스가 없어요.\n곧 다양한 Before/After 사례가 올라올 예정이에요.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: SoriTokens.textSecondary,
+                            height: 1.45,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: (n) {
+                        if (n.metrics.pixels >=
+                            n.metrics.maxScrollExtent - 120) {
+                          if (_visibleCount < feed.length) {
+                            setState(() {
+                              _visibleCount =
+                                  (_visibleCount + 6).clamp(0, feed.length);
+                            });
+                          }
+                        }
+                        return false;
+                      },
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                        itemCount: shown.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) {
+                          final item = shown[index];
+                          final id = item.chart.id;
+                          final likes = _likeCounts[id] ??
+                              (3 + id.hashCode.abs() % 40);
+                          final liked = _liked.contains(id);
+                          final comments =
+                              _comments[id] ?? const <_CaseComment>[];
+                          final customer =
+                              widget.store.findCustomer(item.chart.customerId);
+                          return _CustomerCaseCard(
+                            shop: item.shop,
+                            chart: item.chart,
+                            anonymousCustomer: _anonymize(customer?.name),
+                            review: item.review ??
+                                widget.store.reviewForChart(item.chart.id),
+                            liked: liked,
+                            likeCount: likes,
+                            commentCount: comments.length,
+                            onLike: () => _toggleLike(id),
+                            onComment: () => _openComments(item.chart),
+                            onBook: () => _openNaver(item.shop),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -237,6 +292,7 @@ class _CustomerCaseCard extends StatelessWidget {
     required this.onLike,
     required this.onComment,
     required this.onBook,
+    this.review,
   });
 
   final Shop shop;
@@ -248,6 +304,7 @@ class _CustomerCaseCard extends StatelessWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onBook;
+  final CustomerReview? review;
 
   @override
   Widget build(BuildContext context) {
@@ -264,6 +321,7 @@ class _CustomerCaseCard extends StatelessWidget {
     final owner = (shop.ownerName ?? '').trim().isEmpty
         ? '원장'
         : shop.ownerName!.trim();
+    final hasReview = review != null && review!.displayText.trim().isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -316,6 +374,7 @@ class _CustomerCaseCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (hasReview) const VerifiedReviewBadge(small: true),
               ],
             ),
           ),
@@ -362,6 +421,7 @@ class _CustomerCaseCard extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (hasReview) CaseReviewInlineBlock(review: review!),
               ],
             ),
           ),

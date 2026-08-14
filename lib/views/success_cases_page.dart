@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/case_review_inline.dart';
 import '../widgets/sori_card.dart';
 import 'customer_management_cases_page.dart';
 
@@ -221,6 +223,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                       return _CaseCard(
                         chart: item.chart,
                         customer: item.customer,
+                        review: widget.store.reviewForChart(item.chart.id),
                         showShareToggle: _scope == _CaseScope.myShop,
                         onShareChanged: (v) => _onShareToggle(item.chart, v),
                         onDisabledTap: _onDisabledToggleTap,
@@ -255,6 +258,7 @@ class _CaseCard extends StatelessWidget {
     required this.showShareToggle,
     required this.onShareChanged,
     required this.onDisabledTap,
+    this.review,
   });
 
   final CustomerChart chart;
@@ -262,6 +266,7 @@ class _CaseCard extends StatelessWidget {
   final bool showShareToggle;
   final ValueChanged<bool> onShareChanged;
   final VoidCallback onDisabledTap;
+  final CustomerReview? review;
 
   @override
   Widget build(BuildContext context) {
@@ -276,6 +281,7 @@ class _CaseCard extends StatelessWidget {
     ];
     final canShare = chart.isConsentSigned;
     final shareOn = canShare && chart.caseShared;
+    final hasReview = review != null && review!.displayText.trim().isNotEmpty;
 
     return SoriCard(
       child: Column(
@@ -288,12 +294,19 @@ class _CaseCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (hasReview) const VerifiedReviewBadge(small: true),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -384,6 +397,7 @@ class _CaseCard extends StatelessWidget {
                   .toList(),
             ),
           ],
+          if (hasReview) CaseReviewInlineBlock(review: review!),
         ],
       ),
     );

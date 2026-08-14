@@ -9,6 +9,7 @@ import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
+import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
@@ -92,6 +93,8 @@ class SoriStore implements Listenable {
   final List<ShopGallerySlide> gallerySlides = [];
   final Set<String> reviewRequestedCustomerIds = {};
   final Set<String> followedShopIds = {};
+  final List<CommunityCaseItem> communityHotCases = [];
+  bool communityHotCasesLoading = false;
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
@@ -1452,6 +1455,59 @@ class SoriStore implements Listenable {
     }
     _notify();
     return followedShopIds.contains(id);
+  }
+
+  /// 전국 핫 케이스 피드 로드 (오픈 커뮤니티).
+  Future<void> refreshCommunityHotCases() async {
+    if (communityHotCasesLoading) return;
+    communityHotCasesLoading = true;
+    _notify();
+    try {
+      final items = await _repository.loadCommunityHotCases();
+      communityHotCases
+        ..clear()
+        ..addAll(items);
+      // 단골 샵 리뷰 미러도 보강
+      for (final item in items) {
+        final r = item.review;
+        if (r != null) _mergeReview(r);
+      }
+      lastError = null;
+    } catch (e, st) {
+      debugPrint('refreshCommunityHotCases failed: $e\n$st');
+    } finally {
+      communityHotCasesLoading = false;
+      _notify();
+    }
+  }
+
+  /// 단골 샵 공유 케이스 (현재 샵).
+  List<CommunityCaseItem> favoriteShopCaseItems() {
+    final out = <CommunityCaseItem>[];
+    for (final chart in charts) {
+      if (chart.shopId != shop.id && chart.shopId.isNotEmpty) continue;
+      if (!chart.caseShared || !chart.isConsentSigned) continue;
+      final b = chart.beforeImageUrl?.trim() ?? '';
+      final a = chart.afterImageUrl?.trim() ?? '';
+      if (b.isEmpty && a.isEmpty) continue;
+      out.add(
+        CommunityCaseItem(
+          chart: chart,
+          shop: shop,
+          review: reviewForChart(chart.id),
+        ),
+      );
+    }
+    out.sort((a, b) {
+      final ad = a.chart.visitCheckedAt ??
+          a.chart.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.chart.visitCheckedAt ??
+          b.chart.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return out;
   }
 
   void updateHomecareTip(String tip) {

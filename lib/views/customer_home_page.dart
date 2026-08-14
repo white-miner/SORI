@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/case_review_inline.dart';
 import '../widgets/sori_logo.dart';
 import 'director_fandom_profile_page.dart';
+
+enum _HomeCaseScope { favorite, nationwide }
 
 /// 고객 모드 전용 홈 — 원장 팬덤 프로필 · B/A 소통 피드 · AI 후기 CTA.
 /// 원장 관리 일정/사진 등록 UI는 절대 포함하지 않음.
@@ -28,6 +33,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
   final _liked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_HomeComment>>{};
+  _HomeCaseScope _caseScope = _HomeCaseScope.favorite;
 
   SoriStore get store => widget.store;
 
@@ -35,6 +41,9 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
   void initState() {
     super.initState();
     store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      store.refreshCommunityHotCases();
+    });
   }
 
   @override
@@ -47,25 +56,12 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
     if (mounted) setState(() {});
   }
 
-  List<CustomerChart> get _sharedCases {
-    final out = <CustomerChart>[];
-    for (final chart in store.charts) {
-      if (!chart.caseShared || !chart.isConsentSigned) continue;
-      final b = chart.beforeImageUrl?.trim() ?? '';
-      final a = chart.afterImageUrl?.trim() ?? '';
-      if (b.isEmpty && a.isEmpty) continue;
-      out.add(chart);
+  List<CommunityCaseItem> get _sharedCases {
+    if (_caseScope == _HomeCaseScope.nationwide) {
+      final hot = store.communityHotCases;
+      if (hot.isNotEmpty) return hot;
     }
-    out.sort((a, b) {
-      final ad = a.visitCheckedAt ??
-          a.createdAt ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      final bd = b.visitCheckedAt ??
-          b.createdAt ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      return bd.compareTo(ad);
-    });
-    return out;
+    return store.favoriteShopCaseItems();
   }
 
   CustomerChart? get _latestMyCare {
@@ -392,6 +388,38 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text(
+                    '단골 샵 케이스',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                  selected: _caseScope == _HomeCaseScope.favorite,
+                  onSelected: (_) =>
+                      setState(() => _caseScope = _HomeCaseScope.favorite),
+                  selectedColor: SoriTokens.primarySoft,
+                  checkmarkColor: SoriTokens.primary,
+                  visualDensity: VisualDensity.compact,
+                ),
+                FilterChip(
+                  label: const Text(
+                    '전국 뷰티 샵 핫 케이스',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                  selected: _caseScope == _HomeCaseScope.nationwide,
+                  onSelected: (_) {
+                    setState(() => _caseScope = _HomeCaseScope.nationwide);
+                    store.refreshCommunityHotCases();
+                  },
+                  selectedColor: SoriTokens.primarySoft,
+                  checkmarkColor: SoriTokens.primary,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             if (cases.isEmpty)
               Container(
@@ -400,10 +428,12 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  '아직 공유된 관리 케이스가 없어요.\n곧 다양한 Before/After가 올라올 예정이에요.',
+                child: Text(
+                  store.communityHotCasesLoading
+                      ? '핫 케이스를 불러오는 중…'
+                      : '아직 공유된 관리 케이스가 없어요.\n곧 다양한 Before/After가 올라올 예정이에요.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: SoriTokens.textSecondary,
                     height: 1.45,
                     fontWeight: FontWeight.w600,
@@ -412,21 +442,26 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
               )
             else
               SizedBox(
-                height: 360,
+                height: 420,
                 child: PageView.builder(
                   controller: PageController(viewportFraction: 0.9),
                   itemCount: cases.length.clamp(0, 12),
                   itemBuilder: (context, index) {
-                    final chart = cases[index];
+                    final item = cases[index];
+                    final chart = item.chart;
                     final id = chart.id;
                     final likes =
                         _likeCounts[id] ?? (3 + id.hashCode.abs() % 40);
                     final liked = _liked.contains(id);
                     final comments = _comments[id] ?? const <_HomeComment>[];
+                    final review =
+                        item.review ?? store.reviewForChart(chart.id);
                     return Padding(
                       padding: const EdgeInsets.only(right: 10),
                       child: _BaCaseSlideCard(
                         chart: chart,
+                        shopName: item.shop.name,
+                        review: review,
                         liked: liked,
                         likeCount: likes,
                         commentCount: comments.length,
@@ -526,9 +561,13 @@ class _BaCaseSlideCard extends StatelessWidget {
     required this.commentCount,
     required this.onLike,
     required this.onComment,
+    this.shopName,
+    this.review,
   });
 
   final CustomerChart chart;
+  final String? shopName;
+  final CustomerReview? review;
   final bool liked;
   final int likeCount;
   final int commentCount;
@@ -538,6 +577,7 @@ class _BaCaseSlideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final care = chart.careName.trim().isEmpty ? '관리 케어' : chart.careName.trim();
+    final hasReview = review != null && review!.displayText.trim().isNotEmpty;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -556,7 +596,7 @@ class _BaCaseSlideCard extends StatelessWidget {
         children: [
           Expanded(
             child: BeforeAfterSlider(
-              height: 220,
+              height: 200,
               before: ChartImagePane(
                 url: chart.beforeImageUrl,
                 fallbackLabel: 'Before',
@@ -574,16 +614,35 @@ class _BaCaseSlideCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  care,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        care,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (hasReview) const VerifiedReviewBadge(small: true),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                if ((shopName ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    shopName!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (hasReview) CaseReviewInlineBlock(review: review!, compact: true),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     TextButton.icon(
