@@ -169,6 +169,18 @@ abstract class SoriRepository {
     required bool shared,
   });
 
+  /// 차트 본문/사진 부분 업데이트 (수정 모드·After 패치).
+  Future<CustomerChart> updateCustomerChartFields({
+    required String chartId,
+    String? careName,
+    String? treatmentSummary,
+    String? directorInsight,
+    String? beforeImageUrl,
+    String? afterImageUrl,
+    List<String>? concernChips,
+    bool clearAfterImageUrl = false,
+  });
+
   /// 전자 동의서 PDF URL 갱신.
   Future<void> updateChartConsentPdfUrl({
     required String chartId,

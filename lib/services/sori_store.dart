@@ -1688,6 +1688,74 @@ class SoriStore implements Listenable {
     return true;
   }
 
+  /// 차트 관리 화면 — 텍스트/사진 부분 업데이트.
+  Future<CustomerChart> updateCustomerChartFields({
+    required String chartId,
+    String? careName,
+    String? treatmentSummary,
+    String? directorInsight,
+    String? beforeImageUrl,
+    String? afterImageUrl,
+    List<String>? concernChips,
+    bool clearAfterImageUrl = false,
+  }) async {
+    final id = chartId.trim();
+    final existing = findChartById(id);
+    if (existing == null) {
+      throw StateError('차트를 찾을 수 없습니다.');
+    }
+
+    if (!_repository.isRemote) {
+      final next = existing.copyWith(
+        careName: careName ?? existing.careName,
+        treatmentSummary: treatmentSummary ?? existing.treatmentSummary,
+        directorInsight: directorInsight ?? existing.directorInsight,
+        beforeImageUrl: beforeImageUrl ?? existing.beforeImageUrl,
+        afterImageUrl: clearAfterImageUrl
+            ? null
+            : (afterImageUrl ?? existing.afterImageUrl),
+        concernChips: concernChips ?? existing.concernChips,
+        clearAfterImageUrl: clearAfterImageUrl,
+      );
+      _mergeChart(next);
+      _notify();
+      return next;
+    }
+
+    try {
+      final remote = await _repository.updateCustomerChartFields(
+        chartId: id,
+        careName: careName,
+        treatmentSummary: treatmentSummary,
+        directorInsight: directorInsight,
+        beforeImageUrl: beforeImageUrl,
+        afterImageUrl: afterImageUrl,
+        concernChips: concernChips,
+        clearAfterImageUrl: clearAfterImageUrl,
+      );
+      _mergeChart(remote);
+      lastError = null;
+      _notify();
+      return findChartById(id) ?? remote;
+    } catch (e, st) {
+      debugPrint('updateCustomerChartFields failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      rethrow;
+    }
+  }
+
+  /// After 사진만 즉시 덧붙이기 (Before-only 차트 Finalize).
+  Future<CustomerChart> patchChartAfterImage({
+    required String chartId,
+    required String afterImageUrl,
+  }) {
+    return updateCustomerChartFields(
+      chartId: chartId,
+      afterImageUrl: afterImageUrl,
+    );
+  }
+
   /// 세션 고객의 스마트 회원권 지갑 (다중 샵).
   Future<void> refreshMembershipWallet() async {
     final session = this.session;

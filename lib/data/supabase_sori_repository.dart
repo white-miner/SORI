@@ -1217,6 +1217,40 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<CustomerChart> updateCustomerChartFields({
+    required String chartId,
+    String? careName,
+    String? treatmentSummary,
+    String? directorInsight,
+    String? beforeImageUrl,
+    String? afterImageUrl,
+    List<String>? concernChips,
+    bool clearAfterImageUrl = false,
+  }) async {
+    final id = chartId.trim();
+    if (id.isEmpty) throw ArgumentError('chartId required');
+
+    final payload = <String, dynamic>{
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      if (careName != null) 'care_name': careName.trim(),
+      if (treatmentSummary != null)
+        'treatment_summary': treatmentSummary.trim(),
+      if (directorInsight != null) 'director_insight': directorInsight.trim(),
+      if (beforeImageUrl != null)
+        'before_image_url': _imageUrlOrNull(beforeImageUrl),
+      if (clearAfterImageUrl)
+        'after_image_url': null
+      else if (afterImageUrl != null)
+        'after_image_url': _imageUrlOrNull(afterImageUrl),
+      if (concernChips != null)
+        'concern_chips': DbMap.sanitizeStringList(concernChips),
+    };
+
+    final row = await _updateChartRow(chartId: id, payload: payload);
+    return CustomerChart.fromMap(row);
+  }
+
+  @override
   Future<void> updateChartConsentPdfUrl({
     required String chartId,
     required String consentPdfUrl,

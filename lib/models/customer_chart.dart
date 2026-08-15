@@ -94,6 +94,15 @@ class CustomerChart {
   /// 시술 후 3일 미션 체크 상태.
   final List<bool> homeCareMissionChecks;
 
+  bool get hasBeforeImage =>
+      beforeImageUrl != null && beforeImageUrl!.trim().isNotEmpty;
+
+  bool get hasAfterImage =>
+      afterImageUrl != null && afterImageUrl!.trim().isNotEmpty;
+
+  /// Before만 있고 After 미등록 — 단계별 업로드 Finalize 대상.
+  bool get needsAfterPhoto => hasBeforeImage && !hasAfterImage;
+
   bool get hasFeedbackLine =>
       feedbackToken != null && feedbackLineOpenedAt != null;
 

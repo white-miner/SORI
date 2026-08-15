@@ -9,6 +9,7 @@ import '../services/sori_store.dart';
 import '../widgets/case_review_inline.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
+import 'chart_management_page.dart';
 import 'customer_link_popup.dart';
 import 'membership_editor_sheet.dart';
 import 'my_app.dart';
@@ -56,6 +57,19 @@ class _AdminChartPageState extends State<AdminChartPage>
 
   List<CustomerChart> get _timeline =>
       widget.store.chartsForCustomer(widget.customerId);
+
+  Future<void> _openChartManagement({String? chartId}) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChartManagementPage(
+          store: widget.store,
+          customerId: widget.customerId,
+          initialChartId: chartId,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
 
   Future<void> _openWriter({
     CustomerChart? chart,
@@ -177,6 +191,16 @@ class _AdminChartPageState extends State<AdminChartPage>
                       Navigator.pop(ctx);
                       _confirmVisit(chart);
                     },
+              onAddAfterPhoto: chart.needsAfterPhoto
+                  ? () {
+                      Navigator.pop(ctx);
+                      _openChartManagement(chartId: chart.id);
+                    }
+                  : null,
+              onOpenManage: () {
+                Navigator.pop(ctx);
+                _openChartManagement(chartId: chart.id);
+              },
             );
           },
         );
@@ -258,6 +282,7 @@ class _AdminChartPageState extends State<AdminChartPage>
             child: _QuickActionDashboard(
               onMembership: _openMembershipSheet,
               onQuickChart: () => _openWriter(forceQuickChart: true),
+              onChartManage: _openChartManagement,
               onBeforeAfter: _openBeforeAfterCompare,
             ),
           ),
@@ -278,6 +303,10 @@ class _AdminChartPageState extends State<AdminChartPage>
                     chart: chart,
                     store: widget.store,
                   ),
+                  onAddAfterPhoto: (chart) =>
+                      _openChartManagement(chartId: chart.id),
+                  onOpenManage: (chart) =>
+                      _openChartManagement(chartId: chart.id),
                 ),
                 _GalleryTab(items: galleryItems),
               ],
@@ -452,25 +481,43 @@ class _QuickActionDashboard extends StatelessWidget {
   const _QuickActionDashboard({
     required this.onMembership,
     required this.onQuickChart,
+    required this.onChartManage,
     required this.onBeforeAfter,
   });
 
   final VoidCallback onMembership;
   final VoidCallback onQuickChart;
+  final VoidCallback onChartManage;
   final VoidCallback onBeforeAfter;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _BentoCard(
-          title: '1초 간편 차트',
-          subtitle: '최근 정보로 바로 작성',
-          icon: Icons.bolt_rounded,
-          iconColors: const [Color(0xFFA7F3D0), Color(0xFF6EE7B7)],
-          iconFg: const Color(0xFF047857),
-          wide: true,
-          onTap: onQuickChart,
+        Row(
+          children: [
+            Expanded(
+              child: _BentoCard(
+                title: '⚡ 1초 간편 차트',
+                subtitle: '신규 회차 작성',
+                icon: Icons.bolt_rounded,
+                iconColors: const [Color(0xFFA7F3D0), Color(0xFF6EE7B7)],
+                iconFg: const Color(0xFF047857),
+                onTap: onQuickChart,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _BentoCard(
+                title: '📋 차트 관리',
+                subtitle: '열람 · 수정',
+                icon: Icons.folder_open_rounded,
+                iconColors: const [Color(0xFFDDD6FE), Color(0xFFC4B5FD)],
+                iconFg: const Color(0xFF5B21B6),
+                onTap: onChartManage,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         Row(
@@ -511,7 +558,6 @@ class _BentoCard extends StatelessWidget {
     required this.iconColors,
     required this.iconFg,
     required this.onTap,
-    this.wide = false,
   });
 
   final String title;
@@ -520,7 +566,6 @@ class _BentoCard extends StatelessWidget {
   final List<Color> iconColors;
   final Color iconFg;
   final VoidCallback onTap;
-  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -543,80 +588,36 @@ class _BentoCard extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: wide ? 20 : 16,
-              vertical: wide ? 20 : 18,
-            ),
-            child: wide
-                ? Row(
-                    children: [
-                      _GlossyIcon(
-                        icon: icon,
-                        colors: iconColors,
-                        fg: iconFg,
-                        size: 48,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF111827),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              subtitle,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 14,
-                        color: Colors.grey.shade400,
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _GlossyIcon(
-                        icon: icon,
-                        colors: iconColors,
-                        fg: iconFg,
-                        size: 42,
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF9CA3AF),
-                        ),
-                      ),
-                    ],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _GlossyIcon(
+                  icon: icon,
+                  colors: iconColors,
+                  fg: iconFg,
+                  size: 42,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -695,6 +696,8 @@ class _TimelineTab extends StatelessWidget {
     required this.onEdit,
     required this.onConfirm,
     required this.onShowLink,
+    required this.onAddAfterPhoto,
+    required this.onOpenManage,
   });
 
   final SoriStore store;
@@ -705,6 +708,8 @@ class _TimelineTab extends StatelessWidget {
   final ValueChanged<CustomerChart> onEdit;
   final ValueChanged<CustomerChart> onConfirm;
   final ValueChanged<CustomerChart> onShowLink;
+  final ValueChanged<CustomerChart> onAddAfterPhoto;
+  final ValueChanged<CustomerChart> onOpenManage;
 
   @override
   Widget build(BuildContext context) {
@@ -753,6 +758,10 @@ class _TimelineTab extends StatelessWidget {
                 chart.visitChecked ? null : () => onConfirm(chart),
             onShowLink:
                 chart.hasFeedbackLine ? () => onShowLink(chart) : null,
+            onAddAfterPhoto: chart.needsAfterPhoto
+                ? () => onAddAfterPhoto(chart)
+                : null,
+            onOpenManage: () => onOpenManage(chart),
           ),
         );
       },
@@ -770,6 +779,8 @@ class _TimelineSummaryCard extends StatelessWidget {
     this.onEdit,
     this.onShowLink,
     this.onConfirmOnly,
+    this.onAddAfterPhoto,
+    this.onOpenManage,
   });
 
   final SoriStore store;
@@ -780,6 +791,8 @@ class _TimelineSummaryCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onShowLink;
   final VoidCallback? onConfirmOnly;
+  final VoidCallback? onAddAfterPhoto;
+  final VoidCallback? onOpenManage;
 
   @override
   Widget build(BuildContext context) {
@@ -851,6 +864,28 @@ class _TimelineSummaryCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (chart.needsAfterPhoto)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'After 대기',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (chart.visitChecked)
                       Icon(
                         Icons.check_circle,
@@ -877,6 +912,8 @@ class _TimelineSummaryCard extends StatelessWidget {
                     onShowLink: onShowLink,
                     onConfirmOnly: onConfirmOnly,
                     onOpenFullDetail: onOpenDetail,
+                    onAddAfterPhoto: onAddAfterPhoto,
+                    onOpenManage: onOpenManage,
                   ),
                 ],
               ],
@@ -898,6 +935,8 @@ class _ChartDetailBody extends StatelessWidget {
     this.onShowLink,
     this.onConfirmOnly,
     this.onOpenFullDetail,
+    this.onAddAfterPhoto,
+    this.onOpenManage,
   });
 
   final CustomerChart chart;
@@ -908,6 +947,8 @@ class _ChartDetailBody extends StatelessWidget {
   final VoidCallback? onShowLink;
   final VoidCallback? onConfirmOnly;
   final VoidCallback? onOpenFullDetail;
+  final VoidCallback? onAddAfterPhoto;
+  final VoidCallback? onOpenManage;
 
   @override
   Widget build(BuildContext context) {
@@ -1028,6 +1069,21 @@ class _ChartDetailBody extends StatelessWidget {
         spacing: 8,
         runSpacing: 8,
         children: [
+          if (onAddAfterPhoto != null)
+            FilledButton.icon(
+              onPressed: onAddAfterPhoto,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF047857),
+              ),
+              icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+              label: const Text('+ After 사진 등록'),
+            ),
+          if (onOpenManage != null)
+            OutlinedButton.icon(
+              onPressed: onOpenManage,
+              icon: const Icon(Icons.folder_open_rounded, size: 18),
+              label: const Text('차트 관리'),
+            ),
           if (onEdit != null)
             OutlinedButton(
               onPressed: onEdit,

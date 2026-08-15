@@ -368,6 +368,20 @@ class MemorySoriRepository implements SoriRepository {
   }) async {}
 
   @override
+  Future<CustomerChart> updateCustomerChartFields({
+    required String chartId,
+    String? careName,
+    String? treatmentSummary,
+    String? directorInsight,
+    String? beforeImageUrl,
+    String? afterImageUrl,
+    List<String>? concernChips,
+    bool clearAfterImageUrl = false,
+  }) async {
+    throw UnsupportedError('Use SoriStore.updateCustomerChartFields for memory');
+  }
+
+  @override
   Future<void> updateChartConsentPdfUrl({
     required String chartId,
     required String consentPdfUrl,

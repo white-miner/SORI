@@ -2195,7 +2195,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                           const SizedBox(width: 10),
                           Expanded(
                             child: _PhotoAttachBox(
-                              title: 'After',
+                              title: 'After (선택)',
                               previewBytes: _afterPreviewBytes,
                               networkUrl: _afterUrl,
                               uploading: _afterUploading,
@@ -2204,6 +2204,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Before만 먼저 저장해도 됩니다. After는 관리 후 「차트 관리」에서 바로 덧붙일 수 있어요.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       TextField(
