@@ -817,6 +817,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'monthly_capa': shop.monthlyCapa,
       'bio': shop.bio,
       'profile_image_url': shop.profileImageUrl,
+      'naver_review_write_url': shop.naverReviewWriteUrl,
     };
 
     try {
@@ -833,6 +834,9 @@ class SupabaseSoriRepository implements SoriRepository {
         profileImageUrl: map.containsKey('profile_image_url')
             ? parsed.profileImageUrl
             : shop.profileImageUrl,
+        naverReviewWriteUrl: map.containsKey('naver_review_write_url')
+            ? parsed.naverReviewWriteUrl
+            : shop.naverReviewWriteUrl,
         serviceMenu: shop.serviceMenu,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
@@ -863,6 +867,7 @@ class SupabaseSoriRepository implements SoriRepository {
           snsInstagramUrl: shop.snsInstagramUrl,
           bio: shop.bio,
           profileImageUrl: shop.profileImageUrl,
+          naverReviewWriteUrl: shop.naverReviewWriteUrl,
           serviceMenu: shop.serviceMenu,
           kakaoPoint: map.containsKey('kakao_point')
               ? parsed.kakaoPoint
@@ -886,6 +891,7 @@ class SupabaseSoriRepository implements SoriRepository {
         snsInstagramUrl: shop.snsInstagramUrl,
         bio: shop.bio,
         profileImageUrl: shop.profileImageUrl,
+        naverReviewWriteUrl: shop.naverReviewWriteUrl,
         serviceMenu: shop.serviceMenu,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,

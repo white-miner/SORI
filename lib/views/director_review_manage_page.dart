@@ -9,6 +9,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/review_qr_modal.dart';
 import '../widgets/sori_card.dart';
 import 'customer_link_popup.dart';
+import 'request_customer_review.dart';
 
 enum _ReviewSort { recent, ratingHigh, ratingLow }
 
@@ -130,16 +131,14 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     return list;
   }
 
-  void _requestReview(Customer customer) {
+  Future<void> _requestReview(Customer customer) async {
     setState(() => _requestedIds.add(customer.id));
-    widget.store.markReviewRequested(customer.id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${customer.name}님께 후기 요청을 보냈어요'),
-        backgroundColor: SoriTokens.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
+    await requestCustomerReviewWithQr(
+      context,
+      store: widget.store,
+      customer: customer,
     );
+    if (mounted) setState(() {});
   }
 
   Future<void> _shareCustomerLink(Customer customer) async {

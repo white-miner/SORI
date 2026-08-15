@@ -28,14 +28,14 @@ Future<void> showCustomerLinkPopup(
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        title: const Text('고객 전용 1:1 링크'),
+        title: const Text('후기 요청 QR'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '해시 딥링크 (GitHub Pages 404 방지)\n$url',
+                '고객 휴대폰으로 스캔하면 카카오 로그인 후 후기 작성으로 이동합니다\n$url',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade700,

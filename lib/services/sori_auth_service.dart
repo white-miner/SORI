@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
 import '../models/session_user.dart';
+import 'pending_review_return.dart';
 import 'supabase_client.dart';
 
 /// Supabase Auth — 카카오 OAuth 단일 로그인.
@@ -34,8 +35,24 @@ class SoriAuthService {
     return Env.siteUrl;
   }
 
+  /// OAuth 복귀 URL — [reviewToken]이 있으면 쿼리에 보존해 홈이 아닌 후기 작성으로 복귀.
+  String redirectToForReview([String? reviewToken]) {
+    final token = (reviewToken ?? '').trim();
+    if (token.isEmpty) return redirectTo;
+    PendingReviewReturn.save(token);
+    if (!kIsWeb) return nativeRedirectTo;
+    final base = Uri.parse(Env.siteUrl);
+    return base.replace(
+      queryParameters: {
+        ...base.queryParameters,
+        PendingReviewReturn.queryKey: token,
+      },
+    ).toString();
+  }
+
   /// 카카오 OAuth — 이메일 스코프 없이 닉네임/프로필만 요청.
-  Future<bool> signInWithKakao() async {
+  /// [reviewToken]이 있으면 로그인 후 `/#/review?token=` 으로 직행할 수 있게 redirect를 보존한다.
+  Future<bool> signInWithKakao({String? reviewToken}) async {
     if (!isAvailable) {
       throw const AuthException(
         'Supabase가 설정되지 않았어요. 환경 변수를 확인해 주세요.',
@@ -43,7 +60,7 @@ class SoriAuthService {
     }
     return _client.auth.signInWithOAuth(
       OAuthProvider.kakao,
-      redirectTo: redirectTo,
+      redirectTo: redirectToForReview(reviewToken),
       scopes: 'profile_nickname profile_image',
       queryParams: const {
         'scope': 'profile_nickname profile_image',

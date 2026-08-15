@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routing/sori_router.dart';
+import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import 'onboarding_page.dart';
@@ -41,11 +42,14 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _bootstrapAndRoute() async {
-    final token = widget.initialToken?.trim() ?? '';
+    final tokenFromQuery = PendingReviewReturn.peek() ?? '';
+    final token = widget.initialToken?.trim().isNotEmpty == true
+        ? widget.initialToken!.trim()
+        : tokenFromQuery;
 
     late final _SplashDest dest;
     await Future.wait<void>([
-      Future<void>.delayed(const Duration(milliseconds: 1500)),
+      Future<void>.delayed(const Duration(milliseconds: 800)),
       () async {
         dest = token.isNotEmpty
             ? _SplashDest.review
@@ -57,10 +61,14 @@ class _SplashPageState extends State<SplashPage> {
     _navigated = true;
 
     if (dest == _SplashDest.review) {
-      context.go(
-        '${AppPaths.review}?token=${Uri.encodeQueryComponent(token)}',
-      );
-      return;
+      final reviewToken = token.isNotEmpty
+          ? token
+          : (PendingReviewReturn.take() ?? '');
+      if (reviewToken.isNotEmpty) {
+        PendingReviewReturn.save(reviewToken);
+        context.go(PendingReviewReturn.reviewLocation(reviewToken));
+        return;
+      }
     }
 
     if (dest == _SplashDest.onboarding) {
@@ -83,6 +91,9 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<_SplashDest> _resolveDestination() async {
+    if ((PendingReviewReturn.peek() ?? '').isNotEmpty) {
+      return _SplashDest.review;
+    }
     try {
       final supabaseSession = _auth.currentSession;
       if (supabaseSession != null) {

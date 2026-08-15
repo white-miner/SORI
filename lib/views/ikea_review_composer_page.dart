@@ -192,7 +192,19 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
       }
 
       final uri = Uri.tryParse(widget.store.shop.naverReviewDeepLink);
-      if (uri != null) {
+      if (uri == null || uri.toString().trim().isEmpty) {
+        if (mounted) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text(
+                '네이버 리뷰 작성 URL이 없어요. 샵 정보에서 직행 링크를 등록해 주세요.',
+              ),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      } else {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {

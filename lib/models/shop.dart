@@ -6,6 +6,7 @@ class Shop {
     required this.id,
     required this.name,
     required this.naverPlaceUrl,
+    this.naverReviewWriteUrl = '',
     this.ownerName,
     this.phone,
     this.address,
@@ -23,6 +24,9 @@ class Shop {
   final String id;
   final String name;
   final String naverPlaceUrl;
+
+  /// 네이버 플레이스 리뷰 작성 직행 URL (계산대 1분 컷 CTA).
+  final String naverReviewWriteUrl;
   final String? ownerName;
   final String? phone;
   final String? address;
@@ -60,11 +64,15 @@ class Shop {
 
   bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
 
+  bool get hasNaverReviewWriteUrl => naverReviewWriteUrl.trim().isNotEmpty;
+
   bool get hasProfileImage =>
       profileImageUrl != null && profileImageUrl!.trim().isNotEmpty;
 
-  /// 네이버 플레이스 리뷰 작성에 가까운 URL로 정규화.
+  /// 리뷰 작성 직행 URL — 명시 필드 우선, 없으면 플레이스 URL 휴리스틱.
   String get naverReviewDeepLink {
+    final write = naverReviewWriteUrl.trim();
+    if (write.isNotEmpty) return write;
     final url = naverPlaceUrl.trim();
     if (url.isEmpty) return url;
     if (url.contains('review')) return url;
@@ -76,6 +84,7 @@ class Shop {
     String? id,
     String? name,
     String? naverPlaceUrl,
+    String? naverReviewWriteUrl,
     String? ownerName,
     String? phone,
     String? address,
@@ -94,6 +103,7 @@ class Shop {
       id: id ?? this.id,
       name: name ?? this.name,
       naverPlaceUrl: naverPlaceUrl ?? this.naverPlaceUrl,
+      naverReviewWriteUrl: naverReviewWriteUrl ?? this.naverReviewWriteUrl,
       ownerName: ownerName ?? this.ownerName,
       phone: phone ?? this.phone,
       address: address ?? this.address,
@@ -117,6 +127,7 @@ class Shop {
         'owner_name': ownerName,
         'phone': phone,
         'naver_place_url': naverPlaceUrl,
+        'naver_review_write_url': naverReviewWriteUrl,
         'address': address,
         'operating_hours': operatingHours,
         'sns_blog_url': snsBlogUrl,
@@ -163,6 +174,9 @@ class Shop {
       final profileImageUrl = DbMap.asTextOrNull(
         map['profile_image_url'] ?? map['profileImageUrl'],
       );
+      final naverReviewWriteUrl = DbMap.asText(
+        map['naver_review_write_url'] ?? map['naverReviewWriteUrl'],
+      );
 
       return Shop(
         id: DbMap.asText(map['id']),
@@ -170,6 +184,7 @@ class Shop {
         ownerName: DbMap.asTextOrNull(map['owner_name']),
         phone: DbMap.asTextOrNull(map['phone']),
         naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+        naverReviewWriteUrl: naverReviewWriteUrl,
         address: DbMap.asTextOrNull(map['address']),
         operatingHours: operatingHours,
         snsBlogUrl: snsBlogUrl,
@@ -194,6 +209,9 @@ class Shop {
         ownerName: DbMap.asTextOrNull(map['owner_name']),
         phone: DbMap.asTextOrNull(map['phone']),
         naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+        naverReviewWriteUrl: DbMap.asText(
+          map['naver_review_write_url'] ?? map['naverReviewWriteUrl'],
+        ),
         address: DbMap.asTextOrNull(map['address']),
         bio: DbMap.asText(map['bio'] ?? map['description']),
         profileImageUrl: DbMap.asTextOrNull(map['profile_image_url']),

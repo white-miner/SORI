@@ -901,6 +901,7 @@ class SoriStore implements Listenable {
   void updateShopProfile({
     required String name,
     required String naverPlaceUrl,
+    String? naverReviewWriteUrl,
     String? ownerName,
     String? address,
     String? phone,
@@ -915,6 +916,7 @@ class SoriStore implements Listenable {
     shop = shop.copyWith(
       name: name.trim(),
       naverPlaceUrl: naverPlaceUrl.trim(),
+      naverReviewWriteUrl: naverReviewWriteUrl?.trim(),
       ownerName: ownerName?.trim(),
       address: address?.trim(),
       phone: phone?.trim(),

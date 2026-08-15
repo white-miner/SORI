@@ -19,6 +19,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _ownerController;
   late final TextEditingController _naverController;
+  late final TextEditingController _naverReviewWriteController;
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
   late final TextEditingController _hoursController;
@@ -34,6 +35,8 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _nameController = TextEditingController(text: shop.name);
     _ownerController = TextEditingController(text: shop.ownerName ?? '');
     _naverController = TextEditingController(text: shop.naverPlaceUrl);
+    _naverReviewWriteController =
+        TextEditingController(text: shop.naverReviewWriteUrl);
     _addressController = TextEditingController(text: shop.address ?? '');
     _phoneController = TextEditingController(text: shop.phone ?? '');
     _hoursController = TextEditingController(text: shop.operatingHours);
@@ -49,6 +52,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _nameController.dispose();
     _ownerController.dispose();
     _naverController.dispose();
+    _naverReviewWriteController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _hoursController.dispose();
@@ -78,6 +82,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
       name: _nameController.text,
       ownerName: _ownerController.text,
       naverPlaceUrl: naver,
+      naverReviewWriteUrl: _naverReviewWriteController.text,
       address: _addressController.text,
       phone: _phoneController.text,
       operatingHours: _hoursController.text,
@@ -146,6 +151,16 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
               labelText: '네이버 플레이스 URL *',
               hintText: 'https://m.place.naver.com/...',
               border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _naverReviewWriteController,
+            decoration: const InputDecoration(
+              labelText: '네이버 플레이스 리뷰 작성 URL (직행 링크)',
+              hintText: '리뷰 작성창으로 바로 열리는 URL',
+              border: OutlineInputBorder(),
+              helperText: '계산대 후기 CTA가 이 링크로 외부 브라우저를 엽니다',
             ),
           ),
           const SizedBox(height: 12),

@@ -9,6 +9,7 @@ import '../widgets/sori_card.dart';
 import '../widgets/today_care_schedule_panel.dart';
 import 'add_customer_sheet.dart';
 import 'chart_customer_picker_sheet.dart';
+import 'request_customer_review.dart';
 
 enum _CustomerSort { recentVisit, nameAsc, chartNo }
 
@@ -117,6 +118,14 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
 
   void _openDetail(Customer c) {
     context.push(AppPaths.customerDetail(c.id));
+  }
+
+  Future<void> _requestReview(Customer c) async {
+    await requestCustomerReviewWithQr(
+      context,
+      store: widget.store,
+      customer: c,
+    );
   }
 
   void _pickSort() {
@@ -301,6 +310,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                           showDormantHint: false,
                           onAdd: _addCustomer,
                           onOpen: _openDetail,
+                          onRequestReview: _requestReview,
                         ),
                         _CustomerListBody(
                           list: focusList,
@@ -311,6 +321,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                           showDormantHint: true,
                           onAdd: _addCustomer,
                           onOpen: _openDetail,
+                          onRequestReview: _requestReview,
                         ),
                       ],
                     ),
@@ -332,6 +343,7 @@ class _CustomerListBody extends StatelessWidget {
     required this.showDormantHint,
     required this.onAdd,
     required this.onOpen,
+    required this.onRequestReview,
   });
 
   final List<Customer> list;
@@ -342,6 +354,7 @@ class _CustomerListBody extends StatelessWidget {
   final bool showDormantHint;
   final VoidCallback onAdd;
   final ValueChanged<Customer> onOpen;
+  final ValueChanged<Customer> onRequestReview;
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +418,7 @@ class _CustomerListBody extends StatelessWidget {
           remainUrgent: ticketingUrgent,
           remainWarn: hasMembership && c.isMembershipLow && !ticketingUrgent,
           onTap: () => onOpen(c),
+          onRequestReview: () => onRequestReview(c),
         );
       },
     );
@@ -492,6 +506,7 @@ class _DenseCustomerTile extends StatelessWidget {
     required this.lastVisitLabel,
     required this.remainLabel,
     required this.onTap,
+    required this.onRequestReview,
     this.dormantDays = 0,
     this.remainUrgent = false,
     this.remainWarn = false,
@@ -505,6 +520,7 @@ class _DenseCustomerTile extends StatelessWidget {
   final bool remainUrgent;
   final bool remainWarn;
   final VoidCallback onTap;
+  final VoidCallback onRequestReview;
 
   @override
   Widget build(BuildContext context) {
@@ -605,10 +621,22 @@ class _DenseCustomerTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: SoriTokens.textSecondary,
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: onRequestReview,
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.primary,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  '후기 요청',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ],
           ),

@@ -6,6 +6,7 @@ import 'package:sori/models/customer.dart';
 import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/session_user.dart';
 import 'package:sori/models/shop.dart';
+import 'package:sori/services/pending_review_return.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/services/visit_trigger_service.dart';
 import 'package:sori/views/admin_chart_page.dart';
@@ -104,6 +105,25 @@ void main() {
       revisitFeedbackChips: const ['시술 후 건조함'],
     );
     expect(SoriStore.buildCustomerReviewUrl(chart.feedbackToken!), contains('#/review?token='));
+  });
+
+  test('pending review return and naver write url deep link', () {
+    PendingReviewReturn.save('tok-abc');
+    expect(PendingReviewReturn.peek(), 'tok-abc');
+    expect(
+      PendingReviewReturn.reviewLocation('tok-abc'),
+      '/review?token=tok-abc',
+    );
+    expect(PendingReviewReturn.take(), 'tok-abc');
+    expect(PendingReviewReturn.peek(), isNull);
+
+    final shop = Shop(
+      id: 's1',
+      name: '테스트',
+      naverPlaceUrl: 'https://m.place.naver.com/place/demo',
+      naverReviewWriteUrl: 'https://m.place.naver.com/place/demo/review/write',
+    );
+    expect(shop.naverReviewDeepLink, contains('review/write'));
   });
 
   test('VisitTriggerService generates token on check', () {

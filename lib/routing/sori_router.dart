@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/session_user.dart';
+import '../services/pending_review_return.dart';
 import '../services/sori_store.dart';
 import '../views/admin_chart_page.dart';
 import '../views/admin_chart_writer_page.dart';
@@ -259,6 +260,11 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
 }
 
 String _resolveInitialLocation() {
+  final pendingReview = PendingReviewReturn.peek();
+  if (pendingReview != null && pendingReview.isNotEmpty) {
+    return PendingReviewReturn.reviewLocation(pendingReview);
+  }
+
   final fromLegacy = AppRouter.resolveInitialRoute();
   if (fromLegacy == AppRouter.app || fromLegacy == AppRouter.admin) {
     return AppPaths.appHome;

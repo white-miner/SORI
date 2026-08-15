@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../routing/sori_router.dart';
+import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -81,6 +82,12 @@ class _EntryHomePageState extends State<EntryHomePage>
     try {
       final sessionUser = await _store.hydrateSessionFromAuth(user);
       if (!mounted) return;
+
+      final pendingReview = PendingReviewReturn.take();
+      if (pendingReview != null && pendingReview.isNotEmpty) {
+        context.go(PendingReviewReturn.reviewLocation(pendingReview));
+        return;
+      }
 
       if (sessionUser.onboardingComplete) {
         context.go(AppPaths.appHome);

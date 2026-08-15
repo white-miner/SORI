@@ -11,6 +11,7 @@ import 'before_after_compare_sheet.dart';
 import 'customer_link_popup.dart';
 import 'membership_editor_sheet.dart';
 import 'my_app.dart';
+import 'request_customer_review.dart';
 
 /// 원장용: 타임라인 요약 + 상세 펼침 + Before/After 갤러리.
 class AdminChartPage extends StatefulWidget {
@@ -210,6 +211,20 @@ class _AdminChartPageState extends State<AdminChartPage>
             }
           },
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => requestCustomerReviewWithQr(
+              context,
+              store: widget.store,
+              customer: customer,
+            ),
+            icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+            label: const Text(
+              '후기 요청',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF1F2937),
