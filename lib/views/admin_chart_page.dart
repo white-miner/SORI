@@ -70,6 +70,8 @@ class _AdminChartPageState extends State<AdminChartPage>
       existingChart: chart,
       forceQuickChart: forceQuickChart,
     );
+    // Store 리스너가 타임라인을 갱신하지만, 복귀 직후 한 번 더 보장.
+    if (mounted) setState(() {});
   }
 
   Future<void> _openMembershipSheet() async {

@@ -62,8 +62,8 @@ Future<void> openChartWriterForCustomer(
     chartId: existingChart?.id,
     forceQuickChart: forceQuickChart,
   );
-  // 셸 밖 루트 스택으로 열어 하단바와 분리
-  await context.push(location);
+  // 셸 밖 루트 스택으로 열어 하단바와 분리. 저장 성공 시 pop(true).
+  await context.push<Object?>(location);
 }
 
 /// 원장용 차트 작성 (고객 식별·메디컬 이력·심리 인터뷰·방문 확인).
@@ -1370,6 +1370,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         _consentCareNotice = true;
         _consentAbnormalReaction = true;
         _consentRefundPolicy = true;
+        _saving = false;
       });
 
       final feedback = widget.store.lastVisitFeedback?.trim();
@@ -1377,21 +1378,29 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           ? '차트가 성공적으로 저장되었습니다.\n$feedback'
           : '차트가 성공적으로 저장되었습니다.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(successMsg),
-          backgroundColor: SoriTokens.primary,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-
-      // 링크 팝업은 저장 플로우를 막지 않음 — 대시보드로 즉시 복귀
-      if (context.canPop()) {
-        context.pop(chart);
+      // DB 성공 응답 직후 — 작성 화면을 즉시 닫고 이전 화면(대시보드/목록)으로 복귀.
+      // Store listener가 차트 리스트를 자동 갱신한다.
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) {
+        nav.pop(true);
+      } else if (context.canPop()) {
+        context.pop(true);
       } else {
         context.go(AppPaths.customerDetail(customerIdForSave));
       }
+
+      // Pop 이후에도 보이도록 전역 Messenger에 Toast
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(successMsg),
+            backgroundColor: SoriTokens.primary,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      });
+      return;
     } catch (e) {
       if (!mounted) return;
       widget.store.clearError();
@@ -1408,7 +1417,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         ),
       );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted && _saving) setState(() => _saving = false);
     }
   }
 

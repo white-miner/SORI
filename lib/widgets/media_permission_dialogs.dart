@@ -1,8 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// 1차: 시스템 권한 팝업 직전 사전 안내.
+import 'media_permission_query.dart';
+
+/// 세션 내 미디어 사전 안내 수락 여부 (허용 후 재프롬프트 방지).
+class MediaPermissionSession {
+  MediaPermissionSession._();
+
+  static bool guideAccepted = false;
+}
+
+/// 1차: 시스템 권한 팝업 직전 사전 안내 (미허용·미안내 시에만).
 Future<bool> showMediaPermissionGuideDialog(BuildContext context) async {
   final result = await showDialog<bool>(
     context: context,
@@ -109,15 +119,36 @@ bool isMediaPermissionDeniedError(Object error) {
       text.contains('not allowed');
 }
 
-/// 사전 안내 → ImagePicker → 거부 시 2차 안내.
+/// 이미 허용되었거나 세션에서 안내를 수락했다면 사전 다이얼로그를 건너뛴다.
+Future<bool> _shouldSkipPermissionGuide(ImageSource source) async {
+  if (MediaPermissionSession.guideAccepted) return true;
+
+  // 웹 갤러리(파일 선택기)는 브라우저가 별도 권한 세션을 요구하지 않음.
+  if (kIsWeb && source == ImageSource.gallery) return true;
+
+  final state = await queryMediaPermissionState(source);
+  if (state == MediaPermissionState.granted) {
+    MediaPermissionSession.guideAccepted = true;
+    return true;
+  }
+  return false;
+}
+
+/// 사전 안내(필요 시만) → ImagePicker → 거부 시 2차 안내.
+/// 권한을 앱에서 reset/revoke 하지 않으며, Granted면 즉시 피커를 연다.
 Future<XFile?> pickImageWithPermissionGuards({
   required BuildContext context,
   required ImageSource source,
   double? maxWidth,
   int? imageQuality,
 }) async {
-  final proceed = await showMediaPermissionGuideDialog(context);
-  if (!proceed) return null;
+  final skipGuide = await _shouldSkipPermissionGuide(source);
+  if (!skipGuide) {
+    if (!context.mounted) return null;
+    final proceed = await showMediaPermissionGuideDialog(context);
+    if (!proceed) return null;
+    MediaPermissionSession.guideAccepted = true;
+  }
   if (!context.mounted) return null;
 
   try {
@@ -130,6 +161,8 @@ Future<XFile?> pickImageWithPermissionGuards({
   } catch (e) {
     if (!context.mounted) return null;
     if (isMediaPermissionDeniedError(e)) {
+      // 거부 시에만 세션 캐시 무효화 — 다음번에 안내를 다시 보여줄 수 있음
+      MediaPermissionSession.guideAccepted = false;
       await showMediaPermissionDeniedDialog(context);
       return null;
     }

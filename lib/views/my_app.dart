@@ -12,6 +12,10 @@ class MyApp extends StatefulWidget {
 
   static const Color soriPurple = SoriTokens.primary;
 
+  /// 라우트 Pop 이후에도 Toast를 남기기 위한 전역 ScaffoldMessenger.
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -24,6 +28,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp.router(
       title: '소통하는 리뷰, SORI',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: MyApp.scaffoldMessengerKey,
       locale: const Locale('ko', 'KR'),
       supportedLocales: const [
         Locale('ko', 'KR'),

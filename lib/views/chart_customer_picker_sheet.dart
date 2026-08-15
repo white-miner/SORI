@@ -64,6 +64,7 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
       context,
       store: widget.store,
       customer: customer,
+      forceQuickChart: true,
     );
   }
 
