@@ -139,6 +139,22 @@ class SoriAuthService {
     return '카카오 회원';
   }
 
+  /// 카카오/소셜 프로필 이미지 URL.
+  static String avatarUrlFromUser(User user) {
+    final meta = user.userMetadata ?? {};
+    for (final key in [
+      'avatar_url',
+      'picture',
+      'profile_image',
+      'profile_image_url',
+      'thumbnail_image',
+    ]) {
+      final v = meta[key];
+      if (v is String && v.trim().isNotEmpty) return v.trim();
+    }
+    return '';
+  }
+
   static String phoneFromUser(User user) {
     final meta = user.userMetadata ?? {};
     final phone = meta['phone'] ?? meta['phone_number'] ?? user.phone;

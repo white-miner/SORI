@@ -150,10 +150,10 @@ class CustomerReview {
     final chartId = DbMap.asText(map['chart_id']);
     final customerId = DbMap.asText(map['customer_id']);
     final shopId = DbMap.asText(map['shop_id']);
-    if (id.isEmpty || chartId.isEmpty || customerId.isEmpty || shopId.isEmpty) {
+    if (id.isEmpty || chartId.isEmpty || shopId.isEmpty) {
       throw FormatException(
         'customer_reviews row missing required fields '
-        '(id/chart_id/customer_id/shop_id)',
+        '(id/chart_id/shop_id)',
       );
     }
     final rawRating = map['rating'];

@@ -12,6 +12,7 @@ class SessionUser {
     this.authUserId,
     this.providerId,
     this.email = '',
+    this.avatarUrl = '',
     this.onboardingComplete = false,
     this.shopSetupComplete = false,
     this.activeMode = UserRole.customer,
@@ -28,6 +29,9 @@ class SessionUser {
   /// OAuth provider 고유 ID (카카오 id 등). 이메일 없이도 매핑에 사용.
   final String? providerId;
   final String email;
+
+  /// 소셜 프로필 사진 URL.
+  final String avatarUrl;
   final bool onboardingComplete;
   final bool shopSetupComplete;
 
@@ -48,6 +52,8 @@ class SessionUser {
   bool get needsProfileCompletion =>
       name.trim().isEmpty || phoneDigits.length < 10;
 
+  bool get hasAvatar => avatarUrl.trim().isNotEmpty;
+
   String get providerLabel => switch (provider) {
         SocialProvider.kakao => '카카오',
         SocialProvider.naver => '네이버',
@@ -65,6 +71,7 @@ class SessionUser {
     String? authUserId,
     String? providerId,
     String? email,
+    String? avatarUrl,
     bool? onboardingComplete,
     bool? shopSetupComplete,
     UserRole? activeMode,
@@ -79,6 +86,7 @@ class SessionUser {
       authUserId: authUserId ?? this.authUserId,
       providerId: providerId ?? this.providerId,
       email: email ?? this.email,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       shopSetupComplete: shopSetupComplete ?? this.shopSetupComplete,
       activeMode: activeMode ?? this.activeMode,

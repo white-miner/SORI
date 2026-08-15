@@ -34,6 +34,9 @@ abstract final class SoriSupabase {
       publishableKey: Env.supabaseAnonKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
+        // 웹: localStorage / 네이티브: SharedPreferences 에 JWT·Refresh 영속화
+        autoRefreshToken: true,
+        persistSession: true,
       ),
     );
     _initialized = true;

@@ -783,13 +783,20 @@ class _CustomerMyPage extends StatelessWidget {
                   CircleAvatar(
                     radius: 28,
                     backgroundColor: SoriTokens.primarySoft,
-                    child: const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: Opacity(
-                        opacity: 0.85,
-                        child: SoriLogo(width: 36, height: 36),
-                      ),
-                    ),
+                    backgroundImage: session.hasAvatar &&
+                            !session.avatarUrl.startsWith('data:')
+                        ? NetworkImage(session.avatarUrl)
+                        : null,
+                    child: session.hasAvatar &&
+                            !session.avatarUrl.startsWith('data:')
+                        ? null
+                        : const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Opacity(
+                              opacity: 0.85,
+                              child: SoriLogo(width: 36, height: 36),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(

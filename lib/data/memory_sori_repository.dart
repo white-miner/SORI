@@ -6,6 +6,7 @@ import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
+import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_highlight.dart';
@@ -496,6 +497,19 @@ class MemorySoriRepository implements SoriRepository {
   }) async {}
 
   @override
+  Future<void> upsertAuthProfile({
+    required String userId,
+    String name = '',
+    String avatarUrl = '',
+    String phone = '',
+  }) async {}
+
+  @override
+  Future<List<ReviewReply>> loadReviewReplies(String reviewId) async {
+    return const [];
+  }
+
+  @override
   Future<KakaoAlimtalkSendResult> sendKakaoAlimtalkMock({
     required String shopId,
     required String customerPhone,
@@ -584,9 +598,9 @@ class MemorySoriRepository implements SoriRepository {
       if (b.isEmpty && a.isEmpty) continue;
       out.add(
         CommunityCaseItem(
-          chart: chart,
+          chart: chart.asPublicFeedProjection(),
           shop: snap.shop,
-          review: byChartReview[chart.id],
+          review: byChartReview[chart.id]?.copyWith(customerId: ''),
         ),
       );
     }

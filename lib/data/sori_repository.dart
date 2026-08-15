@@ -7,6 +7,7 @@ import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
+import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_highlight.dart';
@@ -221,6 +222,17 @@ abstract class SoriRepository {
     required String customerId,
     required String userId,
   });
+
+  /// Auth metadata → public.profiles upsert (이름/아바타).
+  Future<void> upsertAuthProfile({
+    required String userId,
+    String name = '',
+    String avatarUrl = '',
+    String phone = '',
+  });
+
+  /// 리뷰 답글 히스토리 (review_id 스레드).
+  Future<List<ReviewReply>> loadReviewReplies(String reviewId);
 
   /// 카카오 알림톡 MOCK 발송 — 포인트 차감 + kakao_msg_logs Insert.
   Future<KakaoAlimtalkSendResult> sendKakaoAlimtalkMock({

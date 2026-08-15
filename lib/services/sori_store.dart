@@ -19,6 +19,7 @@ import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
+import '../models/review_reply.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
@@ -471,6 +472,7 @@ class SoriStore implements Listenable {
     String? authUserId,
     String? providerId,
     String email = '',
+    String avatarUrl = '',
   }) {
     session = SessionUser(
       role: UserRole.guest,
@@ -480,6 +482,7 @@ class SoriStore implements Listenable {
       authUserId: authUserId,
       providerId: providerId,
       email: email.trim(), // 카카오는 빈 문자열 허용
+      avatarUrl: avatarUrl.trim(),
       onboardingComplete: false,
       shopSetupComplete: false,
       activeMode: UserRole.customer,
@@ -493,6 +496,8 @@ class SoriStore implements Listenable {
   SessionUser syncFromAuthUser(User user) {
     final authId = user.id;
     final providerId = SoriAuthService.providerIdFromUser(user);
+    final avatarUrl = SoriAuthService.avatarUrlFromUser(user);
+    final displayName = SoriAuthService.displayNameFromUser(user);
     final existing = session;
 
     if (existing != null && existing.onboardingComplete) {
@@ -506,6 +511,10 @@ class SoriStore implements Listenable {
           email: SoriAuthService.emailFromUser(user).isNotEmpty
               ? SoriAuthService.emailFromUser(user)
               : existing.email,
+          name: existing.name.trim().isNotEmpty
+              ? existing.name
+              : displayName,
+          avatarUrl: avatarUrl.isNotEmpty ? avatarUrl : existing.avatarUrl,
         );
         _notify();
         return session!;
@@ -518,23 +527,24 @@ class SoriStore implements Listenable {
       session = existing.copyWith(
         authUserId: authId,
         providerId: providerId,
+        avatarUrl: avatarUrl.isNotEmpty ? avatarUrl : existing.avatarUrl,
       );
       _notify();
       return session!;
     }
 
     final provider = SoriAuthService.providerFromUser(user);
-    final name = SoriAuthService.displayNameFromUser(user);
     final phone = SoriAuthService.phoneFromUser(user);
     final email = SoriAuthService.emailFromUser(user);
 
     return beginSocialLogin(
       provider: provider,
-      name: name,
+      name: displayName,
       phone: phone,
       authUserId: authId,
       providerId: providerId,
       email: email,
+      avatarUrl: avatarUrl,
     );
   }
 
@@ -544,6 +554,19 @@ class SoriStore implements Listenable {
     if (session == null) {
       throw StateError('No session after syncFromAuthUser');
     }
+
+    // Auth metadata → public.profiles upsert (이름/아바타)
+    try {
+      await _repository.upsertAuthProfile(
+        userId: user.id,
+        name: SoriAuthService.displayNameFromUser(user),
+        avatarUrl: SoriAuthService.avatarUrlFromUser(user),
+        phone: SoriAuthService.phoneFromUser(user),
+      );
+    } catch (e) {
+      debugPrint('upsertAuthProfile skipped: $e');
+    }
+
     if (session!.onboardingComplete) {
       return session!;
     }
@@ -1295,6 +1318,11 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// 특정 리뷰의 원장 답글 히스토리 (chart → review → replies 스레드).
+  Future<List<ReviewReply>> loadReviewReplies(String reviewId) {
+    return _repository.loadReviewReplies(reviewId);
+  }
+
   /// 네이버 플레이스 리뷰 등록 트래킹 (clipboard CTA 후).
   /// 원격 동기화 실패 시 1회 재시도 후 예외를 다시 던져 UI가 상태를 구분하게 한다.
   Future<CustomerReview?> markNaverRegistered({
@@ -1594,9 +1622,9 @@ class SoriStore implements Listenable {
       if (b.isEmpty && a.isEmpty) continue;
       out.add(
         CommunityCaseItem(
-          chart: chart,
+          chart: chart.asPublicFeedProjection(),
           shop: shop,
-          review: reviewForChart(chart.id),
+          review: reviewForChart(chart.id)?.copyWith(customerId: ''),
         ),
       );
     }

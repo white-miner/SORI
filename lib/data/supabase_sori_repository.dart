@@ -12,6 +12,7 @@ import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
+import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_highlight.dart';
@@ -1529,6 +1530,62 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<void> upsertAuthProfile({
+    required String userId,
+    String name = '',
+    String avatarUrl = '',
+    String phone = '',
+  }) async {
+    final uid = userId.trim();
+    if (uid.isEmpty) return;
+    try {
+      await _db.rpc(
+        'upsert_my_profile',
+        params: {
+          'p_name': name.trim(),
+          'p_avatar_url': avatarUrl.trim(),
+          'p_phone': phone.trim(),
+        },
+      );
+      return;
+    } catch (e) {
+      debugPrint('upsert_my_profile rpc skipped: $e');
+    }
+    try {
+      await _db.from('profiles').upsert({
+        'id': uid,
+        if (name.trim().isNotEmpty) 'name': name.trim(),
+        if (avatarUrl.trim().isNotEmpty) 'avatar_url': avatarUrl.trim(),
+        if (phone.trim().isNotEmpty) 'phone': phone.trim(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('profiles upsert fallback failed: $e');
+    }
+  }
+
+  @override
+  Future<List<ReviewReply>> loadReviewReplies(String reviewId) async {
+    final id = reviewId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('review_replies')
+          .select()
+          .eq('review_id', id)
+          .order('created_at', ascending: true);
+      return _mapRowsSafely(
+        rows as List,
+        ReviewReply.fromMap,
+        label: 'review_replies',
+      );
+    } catch (e) {
+      debugPrint('loadReviewReplies failed: $e');
+      return const [];
+    }
+  }
+
+  @override
   Future<KakaoAlimtalkSendResult> sendKakaoAlimtalkMock({
     required String shopId,
     required String customerPhone,
@@ -1678,11 +1735,88 @@ class SupabaseSoriRepository implements SoriRepository {
   @override
   Future<List<CommunityCaseItem>> loadCommunityHotCases({int limit = 40}) async {
     try {
+      // Prefer PII-safe projection view (migration 029).
+      try {
+        final rows = await _db
+            .from('community_shared_cases')
+            .select()
+            .order('created_at', ascending: false)
+            .limit(limit);
+        final items = <CommunityCaseItem>[];
+        for (final raw in rows as List) {
+          if (raw is! Map) continue;
+          final map = Map<String, dynamic>.from(raw);
+          final chartId = DbMap.asText(map['chart_id']);
+          final shopId = DbMap.asText(map['shop_id']);
+          if (chartId.isEmpty || shopId.isEmpty) continue;
+
+          final chart = CustomerChart(
+            id: chartId,
+            shopId: shopId,
+            customerId: '',
+            visitNumber: DbMap.asInt(map['visit_number'], 1),
+            careName: DbMap.asText(map['care_name']),
+            treatmentSummary: '',
+            concernChips: DbMap.asStringList(map['concern_chips']),
+            beforeImageUrl: DbMap.asTextOrNull(map['before_image_url']),
+            afterImageUrl: DbMap.asTextOrNull(map['after_image_url']),
+            caseShared: true,
+            createdAt: DbMap.asDateTime(map['created_at']),
+            consentMandatory: true,
+            signatureUrl: 'signed',
+          );
+
+          final shop = Shop(
+            id: shopId,
+            name: DbMap.asText(map['shop_name'], 'SORI 샵'),
+            naverPlaceUrl: DbMap.asText(map['shop_naver_place_url']),
+            ownerName: DbMap.asTextOrNull(map['shop_owner_name']),
+            profileImageUrl: DbMap.asTextOrNull(map['shop_profile_image_url']),
+          );
+
+          CustomerReview? review;
+          final reviewId = DbMap.asText(map['review_id']);
+          final reviewText = DbMap.asText(
+            map['review_edited_text'] ?? map['review_original_text'],
+          );
+          if (reviewId.isNotEmpty && reviewText.trim().isNotEmpty) {
+            review = CustomerReview(
+              id: reviewId,
+              chartId: chartId,
+              customerId: '',
+              shopId: shopId,
+              originalText: DbMap.asText(map['review_original_text']),
+              editedText: DbMap.asTextOrNull(map['review_edited_text']),
+              status: ReviewStatusX.fromDb(DbMap.asText(map['review_status'])),
+              rating: map['review_rating'] == null
+                  ? null
+                  : DbMap.asInt(map['review_rating']),
+              directorReply: DbMap.asTextOrNull(map['director_reply']),
+              directorRepliedAt: DbMap.asDateTime(map['director_replied_at']),
+              acceptedAt: DbMap.asDateTime(map['review_accepted_at']),
+              createdAt: DbMap.asDateTime(map['review_created_at']),
+            );
+          }
+
+          final b = chart.beforeImageUrl?.trim() ?? '';
+          final a = chart.afterImageUrl?.trim() ?? '';
+          if (b.isEmpty && a.isEmpty) continue;
+          items.add(CommunityCaseItem(chart: chart, shop: shop, review: review));
+        }
+        if (items.isNotEmpty) return items;
+      } catch (e) {
+        debugPrint('community_shared_cases view skipped: $e');
+      }
+
       List<dynamic> rows = const [];
       try {
         rows = await _db
             .from(_chartsPrimary)
-            .select()
+            .select(
+              'id, shop_id, visit_number, care_name, concern_chips, '
+              'before_image_url, after_image_url, is_case_shared, created_at, '
+              'signature_url, consent_pdf_url',
+            )
             .eq('is_case_shared', true)
             .order('created_at', ascending: false)
             .limit(limit);
@@ -1690,15 +1824,23 @@ class SupabaseSoriRepository implements SoriRepository {
         try {
           rows = await _db
               .from(_chartsFallback)
-              .select()
-              .eq('case_shared', true)
+              .select(
+                'id, shop_id, visit_number, care_name, concern_chips, '
+                'before_image_url, after_image_url, is_case_shared, created_at, '
+                'signature_url, consent_pdf_url',
+              )
+              .eq('is_case_shared', true)
               .order('created_at', ascending: false)
               .limit(limit);
         } catch (e) {
           rows = await _db
               .from(_chartsFallback)
-              .select()
-              .eq('is_case_shared', true)
+              .select(
+                'id, shop_id, visit_number, care_name, concern_chips, '
+                'before_image_url, after_image_url, case_shared, created_at, '
+                'signature_url, consent_pdf_url',
+              )
+              .eq('case_shared', true)
               .order('created_at', ascending: false)
               .limit(limit);
         }
@@ -1708,20 +1850,24 @@ class SupabaseSoriRepository implements SoriRepository {
         rows,
         CustomerChart.fromMap,
         label: 'community_charts',
-      ).where((c) {
-        final b = c.beforeImageUrl?.trim() ?? '';
-        final a = c.afterImageUrl?.trim() ?? '';
-        return c.caseShared &&
-            c.isConsentSigned &&
-            (b.isNotEmpty || a.isNotEmpty);
-      }).toList();
+      )
+          .where((c) {
+            final b = c.beforeImageUrl?.trim() ?? '';
+            final a = c.afterImageUrl?.trim() ?? '';
+            return c.caseShared &&
+                c.isConsentSigned &&
+                (b.isNotEmpty || a.isNotEmpty);
+          })
+          .map((c) => c.asPublicFeedProjection())
+          .toList();
 
       final shopIds = charts.map((c) => c.shopId).toSet().toList();
       final shopById = <String, Shop>{};
       if (shopIds.isNotEmpty) {
         try {
-          final shopRows =
-              await _db.from('shops').select().inFilter('id', shopIds);
+          final shopRows = await _db.from('shops').select(
+                'id, name, owner_name, profile_image_url, naver_place_url',
+              ).inFilter('id', shopIds);
           for (final s in _mapRowsSafely(
             shopRows as List,
             Shop.fromMap,
@@ -1740,7 +1886,10 @@ class SupabaseSoriRepository implements SoriRepository {
         try {
           final reviewRows = await _db
               .from('customer_reviews')
-              .select()
+              .select(
+                'id, chart_id, shop_id, original_text, edited_text, status, '
+                'rating, director_reply, director_replied_at, accepted_at, created_at',
+              )
               .inFilter('chart_id', chartIds);
           for (final r in _mapRowsSafely(
             reviewRows as List,
@@ -1748,12 +1897,13 @@ class SupabaseSoriRepository implements SoriRepository {
             label: 'community_reviews',
           )) {
             if (!r.isInboxVisible) continue;
+            final publicReview = r.copyWith(customerId: '');
             final prev = reviewByChart[r.chartId];
             if (prev == null ||
                 (r.acceptedAt ?? r.createdAt ?? DateTime(2000)).isAfter(
                   prev.acceptedAt ?? prev.createdAt ?? DateTime(2000),
                 )) {
-              reviewByChart[r.chartId] = r;
+              reviewByChart[r.chartId] = publicReview;
             }
           }
         } catch (e) {

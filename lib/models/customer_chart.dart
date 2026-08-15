@@ -115,6 +115,44 @@ class CustomerChart {
           ? customChartNo!.trim()
           : '$visitNumber';
 
+  /// 오픈 피드용 — PII/토큰/메디컬 메모를 제거한 투영.
+  CustomerChart asPublicFeedProjection() {
+    return CustomerChart(
+      id: id,
+      shopId: shopId,
+      customerId: '',
+      visitNumber: visitNumber,
+      visitChecked: visitChecked,
+      visitCheckedAt: visitCheckedAt,
+      beforeImageUrl: beforeImageUrl,
+      afterImageUrl: afterImageUrl,
+      careName: careName,
+      treatmentSummary: '',
+      directorInsight: '',
+      allergyNotes: '',
+      skinSensitivity: '',
+      sideEffectHistory: '',
+      customerRequests: '',
+      concernChips: concernChips,
+      firstVisitFearChips: const [],
+      revisitFeedbackChips: const [],
+      feedbackToken: null,
+      feedbackLineOpenedAt: null,
+      createdAt: createdAt,
+      consentMandatory: false,
+      consentPhoto: false,
+      consentMarketing: false,
+      consentOfflineOnly: false,
+      signatureUrl: null,
+      consentPdfUrl: null,
+      caseShared: true,
+      homeCarePrescriptions: const [],
+      guardianPhone: null,
+      infoViewConsent: false,
+      homeCareMissionChecks: const [false, false, false],
+    );
+  }
+
   CustomerChart copyWith({
     String? id,
     String? shopId,
@@ -309,7 +347,7 @@ class CustomerChart {
     final id = DbMap.asText(map['id']);
     final shopId = DbMap.asText(map['shop_id']);
     final customerId = DbMap.asText(map['customer_id']);
-    if (id.isEmpty || shopId.isEmpty || customerId.isEmpty) {
+    if (id.isEmpty || shopId.isEmpty) {
       throw FormatException('customer_chart row missing required fields: $map');
     }
 

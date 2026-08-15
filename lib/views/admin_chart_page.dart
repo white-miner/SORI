@@ -6,6 +6,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../widgets/case_review_inline.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
 import 'customer_link_popup.dart';
@@ -150,6 +151,7 @@ class _AdminChartPageState extends State<AdminChartPage>
           builder: (_, scrollController) {
             return _ChartDetailBody(
               chart: chart,
+              store: widget.store,
               scrollController: scrollController,
               onEdit: chart.visitChecked
                   ? null
@@ -262,6 +264,7 @@ class _AdminChartPageState extends State<AdminChartPage>
               controller: _tabController,
               children: [
                 _TimelineTab(
+                  store: widget.store,
                   timeline: timeline,
                   expandedChartId: _expandedChartId,
                   onToggle: _toggleExpanded,
@@ -682,6 +685,7 @@ class _GlossyIcon extends StatelessWidget {
 
 class _TimelineTab extends StatelessWidget {
   const _TimelineTab({
+    required this.store,
     required this.timeline,
     required this.expandedChartId,
     required this.onToggle,
@@ -691,6 +695,7 @@ class _TimelineTab extends StatelessWidget {
     required this.onShowLink,
   });
 
+  final SoriStore store;
   final List<CustomerChart> timeline;
   final String? expandedChartId;
   final ValueChanged<String> onToggle;
@@ -736,6 +741,7 @@ class _TimelineTab extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: _TimelineSummaryCard(
+            store: store,
             chart: chart,
             expanded: expanded,
             onTap: () => onToggle(chart.id),
@@ -754,6 +760,7 @@ class _TimelineTab extends StatelessWidget {
 
 class _TimelineSummaryCard extends StatelessWidget {
   const _TimelineSummaryCard({
+    required this.store,
     required this.chart,
     required this.expanded,
     required this.onTap,
@@ -763,6 +770,7 @@ class _TimelineSummaryCard extends StatelessWidget {
     this.onConfirmOnly,
   });
 
+  final SoriStore store;
   final CustomerChart chart;
   final bool expanded;
   final VoidCallback onTap;
@@ -861,6 +869,7 @@ class _TimelineSummaryCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   _ChartDetailBody(
                     chart: chart,
+                    store: store,
                     compact: true,
                     onEdit: onEdit,
                     onShowLink: onShowLink,
@@ -880,6 +889,7 @@ class _TimelineSummaryCard extends StatelessWidget {
 class _ChartDetailBody extends StatelessWidget {
   const _ChartDetailBody({
     required this.chart,
+    required this.store,
     this.scrollController,
     this.compact = false,
     this.onEdit,
@@ -889,6 +899,7 @@ class _ChartDetailBody extends StatelessWidget {
   });
 
   final CustomerChart chart;
+  final SoriStore store;
   final ScrollController? scrollController;
   final bool compact;
   final VoidCallback? onEdit;
@@ -903,6 +914,7 @@ class _ChartDetailBody extends StatelessWidget {
         : (chart.treatmentSummary.isNotEmpty
             ? chart.treatmentSummary
             : '시술 기록');
+    final review = store.reviewForChart(chart.id);
 
     final children = <Widget>[
       if (!compact) ...[
@@ -964,6 +976,51 @@ class _ChartDetailBody extends StatelessWidget {
             if (chart.afterImageUrl != null) 'After: ${chart.afterImageUrl}',
           ].join('\n'),
         ),
+      if (review != null && review.displayText.trim().isNotEmpty) ...[
+        const SizedBox(height: 8),
+        const Text(
+          '리뷰 스레드',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        CaseReviewInlineBlock(review: review),
+        FutureBuilder(
+          future: store.loadReviewReplies(review.id),
+          builder: (context, snap) {
+            final replies = snap.data ?? const [];
+            if (replies.length <= 1) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '답글 히스토리 ${replies.length}건',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...replies.map(
+                    (r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '↳ ${r.body}',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
       const SizedBox(height: 12),
       Wrap(
         spacing: 8,
