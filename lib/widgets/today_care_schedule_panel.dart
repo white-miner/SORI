@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../models/customer.dart';
+import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
 import '../views/admin_chart_writer_page.dart';
 
-/// 오늘 케어 일정 — 고객 관리 탭 상단용 캘린더·방문 리스트.
+/// 날짜별 케어 기록 — 차트 created_at 기준 이력 조회 (예약 아님).
 class TodayCareSchedulePanel extends StatefulWidget {
   const TodayCareSchedulePanel({super.key, required this.store});
 
@@ -18,7 +18,7 @@ class TodayCareSchedulePanel extends StatefulWidget {
 
 class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
   late DateTime _selectedDay;
-  bool _expanded = false;
+  bool _expanded = true;
 
   @override
   void initState() {
@@ -44,23 +44,21 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
     return List.generate(7, (i) => monday.add(Duration(days: i)));
   }
 
-  List<Customer> get _dayCustomers =>
-      widget.store.customersForDate(_selectedDay);
-
-  List<Customer> get _listCustomers {
-    final list = _dayCustomers;
-    if (list.isNotEmpty) return list;
-    return widget.store.customers;
-  }
+  List<CustomerChart> get _dayCharts =>
+      widget.store.chartsCreatedOnDate(_selectedDay);
 
   void _openMonthlyCalendar() {
     showDialog<void>(
       context: context,
       builder: (ctx) => _MonthlyCalendarDialog(
         initialMonth: _selectedDay,
-        visitDaysBuilder: (y, m) => widget.store.visitDaysInMonth(y, m),
+        visitDaysBuilder: (y, m) =>
+            widget.store.chartCreatedDaysInMonth(y, m),
         onDaySelected: (day) {
-          setState(() => _selectedDay = day);
+          setState(() {
+            _selectedDay = day;
+            _expanded = true;
+          });
           Navigator.pop(ctx);
         },
       ),
@@ -70,7 +68,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
-    final dayCustomers = _dayCustomers;
+    final dayCharts = _dayCharts;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -97,7 +95,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                 children: [
                   const Expanded(
                     child: Text(
-                      '오늘 케어 일정',
+                      '날짜별 케어 기록',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -123,139 +121,185 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
               ),
             ),
           ),
-          if (_expanded) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-              child: Row(
-                children: _weekDays.map((day) {
-                  final selected = day.year == _selectedDay.year &&
-                      day.month == _selectedDay.month &&
-                      day.day == _selectedDay.day;
-                  final count = store.customersForDate(day).length;
-                  const labels = ['월', '화', '수', '목', '금', '토', '일'];
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedDay = day),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? SoriTokens.primary
-                              : SoriTokens.primarySoft,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              labels[day.weekday - 1],
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: selected
-                                    ? Colors.white70
-                                    : SoriTokens.textSecondary,
-                              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+            child: Row(
+              children: _weekDays.map((day) {
+                final selected = day.year == _selectedDay.year &&
+                    day.month == _selectedDay.month &&
+                    day.day == _selectedDay.day;
+                final count = store.chartsCreatedOnDate(day).length;
+                const labels = ['월', '화', '수', '목', '금', '토', '일'];
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _selectedDay = day;
+                      _expanded = true;
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? SoriTokens.primary
+                            : SoriTokens.primarySoft,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            labels[day.weekday - 1],
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: selected
+                                  ? Colors.white70
+                                  : SoriTokens.textSecondary,
                             ),
-                            Text(
-                              '${day.day}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
+                          ),
+                          Text(
+                            '${day.day}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: selected
+                                  ? Colors.white
+                                  : SoriTokens.textPrimary,
+                            ),
+                          ),
+                          if (count > 0)
+                            Container(
+                              width: 5,
+                              height: 5,
+                              margin: const EdgeInsets.only(top: 2),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
                                 color: selected
                                     ? Colors.white
-                                    : SoriTokens.textPrimary,
+                                    : SoriTokens.primary,
                               ),
                             ),
-                            if (count > 0)
-                              Container(
-                                width: 5,
-                                height: 5,
-                                margin: const EdgeInsets.only(top: 2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: selected
-                                      ? Colors.white
-                                      : SoriTokens.primary,
-                                ),
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                );
+              }).toList(),
             ),
+          ),
+          if (_expanded) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
               child: Text(
-                dayCustomers.isEmpty
-                    ? '선택한 날 일정이 없어 전체 고객을 보여드려요'
-                    : '${_selectedDay.month}/${_selectedDay.day} 방문 ${dayCustomers.length}명',
+                dayCharts.isEmpty
+                    ? '${_selectedDay.month}/${_selectedDay.day}에 작성된 차트가 없어요'
+                    : '${_selectedDay.month}/${_selectedDay.day} 작성 차트 ${dayCharts.length}건',
                 style: const TextStyle(
                   fontSize: 12,
                   color: SoriTokens.textSecondary,
                 ),
               ),
             ),
-            ..._listCustomers.take(8).map((c) {
-              final chart = store.latestChart(c.id);
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                child: SoriCard(
-                  onTap: () => openChartWriterForCustomer(
-                    context,
-                    store: store,
-                    customer: c,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: SoriTokens.primarySoft,
-                        child: Text(
-                          c.name.characters.first,
-                          style: const TextStyle(
-                            color: SoriTokens.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              c.name,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            Text(
-                              c.phone,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: SoriTokens.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        chart == null ? '신규' : '${chart.visitNumber}회차',
-                        style: const TextStyle(
-                          color: SoriTokens.primary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+            if (dayCharts.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
+                child: Text(
+                  '과거·오늘 작성된 케어 차트가 이 날짜에 모입니다.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              );
-            }),
+              )
+            else
+              ...dayCharts.take(12).map((chart) {
+                final customer = store.findCustomer(chart.customerId);
+                final care = chart.careName.trim().isNotEmpty
+                    ? chart.careName.trim()
+                    : (chart.treatmentSummary.trim().isNotEmpty
+                        ? chart.treatmentSummary.trim()
+                        : '케어 차트');
+                final time = chart.createdAt;
+                final timeLabel = time == null
+                    ? ''
+                    : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                  child: SoriCard(
+                    onTap: customer == null
+                        ? null
+                        : () => openChartWriterForCustomer(
+                              context,
+                              store: store,
+                              customer: customer,
+                            ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: SoriTokens.primarySoft,
+                          child: Text(
+                            (customer?.name.trim().isNotEmpty == true)
+                                ? customer!.name.characters.first
+                                : 'C',
+                            style: const TextStyle(
+                              color: SoriTokens.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                customer?.name ?? '고객',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                care,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${chart.visitNumber}회차',
+                              style: const TextStyle(
+                                color: SoriTokens.primary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (timeLabel.isNotEmpty)
+                              Text(
+                                timeLabel,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             const SizedBox(height: 4),
           ],
         ],

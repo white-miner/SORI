@@ -1862,6 +1862,33 @@ class SoriStore implements Listenable {
         .toSet();
   }
 
+  /// 해당 날짜에 작성된 케어 차트 (created_at 기준, 예약이 아님).
+  List<CustomerChart> chartsCreatedOnDate(DateTime day) {
+    final out = charts.where((c) {
+      final d = c.createdAt;
+      if (d == null) return false;
+      return d.year == day.year && d.month == day.month && d.day == day.day;
+    }).toList();
+    out.sort((a, b) {
+      final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return out;
+  }
+
+  /// 월별 차트 작성일이 있는 day 집합 (캘린더 닷 표시).
+  Set<int> chartCreatedDaysInMonth(int year, int month) {
+    return charts
+        .where((c) {
+          final d = c.createdAt;
+          if (d == null) return false;
+          return d.year == year && d.month == month;
+        })
+        .map((c) => c.createdAt!.day)
+        .toSet();
+  }
+
   void addCustomer(Customer customer) {
     customers.insert(0, customer);
     _notify();

@@ -8,6 +8,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
 import '../widgets/today_care_schedule_panel.dart';
 import 'add_customer_sheet.dart';
+import 'chart_customer_picker_sheet.dart';
 
 enum _CustomerSort { recentVisit, nameAsc, chartNo }
 
@@ -173,132 +174,149 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
     final focusList = _listForTab(focusCare: true);
     final focusCount = all.where(_isDormant).length;
 
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TodayCareSchedulePanel(store: widget.store),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-            child: Row(
-              children: [
-                const Spacer(),
-                if (!isEmptyDb)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Text(
-                      '${all.length}명',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: SoriTokens.textSecondary,
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showChartCustomerPickerSheet(
+          context,
+          store: widget.store,
+        ),
+        backgroundColor: SoriTokens.primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.edit_note_rounded),
+        label: const Text(
+          '차트 작성',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TodayCareSchedulePanel(store: widget.store),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  if (!isEmptyDb)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Text(
+                        '${all.length}명',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: SoriTokens.textSecondary,
+                        ),
                       ),
                     ),
+                  IconButton(
+                    tooltip: '정렬',
+                    onPressed: isEmptyDb ? null : _pickSort,
+                    icon: const Icon(Icons.filter_list_rounded),
+                    color: SoriTokens.primary,
                   ),
-                IconButton(
-                  tooltip: '정렬',
-                  onPressed: isEmptyDb ? null : _pickSort,
-                  icon: const Icon(Icons.filter_list_rounded),
-                  color: SoriTokens.primary,
-                ),
-                IconButton(
-                  tooltip: '고객 추가',
-                  onPressed: _addCustomer,
-                  icon: const Icon(Icons.person_add_alt_1_rounded),
-                  color: SoriTokens.primary,
-                ),
-              ],
+                  IconButton(
+                    tooltip: '고객 추가',
+                    onPressed: _addCustomer,
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    color: SoriTokens.primary,
+                  ),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => setState(() => _query = v),
-              enabled: !isEmptyDb,
-              decoration: InputDecoration(
-                hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
-                prefixIcon: const Icon(Icons.search_rounded),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _query = v),
+                enabled: !isEmptyDb,
+                decoration: InputDecoration(
+                  hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: SoriTokens.primary,
-              unselectedLabelColor: SoriTokens.textSecondary,
-              indicatorColor: SoriTokens.primary,
-              tabs: [
-                const Tab(text: '전체 고객'),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('🔥 집중 케어'),
-                      if (focusCount > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFEBEE),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            '$focusCount',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFFC62828),
+            Material(
+              color: Colors.transparent,
+              child: TabBar(
+                controller: _tabController,
+                labelColor: SoriTokens.primary,
+                unselectedLabelColor: SoriTokens.textSecondary,
+                indicatorColor: SoriTokens.primary,
+                tabs: [
+                  const Tab(text: '전체 고객'),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🔥 집중 케어'),
+                        if (focusCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFEBEE),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '$focusCount',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFC62828),
+                              ),
                             ),
                           ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: isEmptyDb
+                  ? _EmptyCustomersState(onAdd: _addCustomer)
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _CustomerListBody(
+                          list: allList,
+                          emptyLabel: '검색 결과가 없습니다',
+                          formatDate: _formatDate,
+                          lastVisitOf: _lastVisitOf,
+                          daysSince: _daysSinceVisit,
+                          showDormantHint: false,
+                          onAdd: _addCustomer,
+                          onOpen: _openDetail,
+                        ),
+                        _CustomerListBody(
+                          list: focusList,
+                          emptyLabel: '90일 이상 미방문 고객이 없습니다',
+                          formatDate: _formatDate,
+                          lastVisitOf: _lastVisitOf,
+                          daysSince: _daysSinceVisit,
+                          showDormantHint: true,
+                          onAdd: _addCustomer,
+                          onOpen: _openDetail,
                         ),
                       ],
-                    ],
-                  ),
-                ),
-              ],
+                    ),
             ),
-          ),
-          Expanded(
-            child: isEmptyDb
-                ? _EmptyCustomersState(onAdd: _addCustomer)
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _CustomerListBody(
-                        list: allList,
-                        emptyLabel: '검색 결과가 없습니다',
-                        formatDate: _formatDate,
-                        lastVisitOf: _lastVisitOf,
-                        daysSince: _daysSinceVisit,
-                        showDormantHint: false,
-                        onAdd: _addCustomer,
-                        onOpen: _openDetail,
-                      ),
-                      _CustomerListBody(
-                        list: focusList,
-                        emptyLabel: '90일 이상 미방문 고객이 없습니다',
-                        formatDate: _formatDate,
-                        lastVisitOf: _lastVisitOf,
-                        daysSince: _daysSinceVisit,
-                        showDormantHint: true,
-                        onAdd: _addCustomer,
-                        onOpen: _openDetail,
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
