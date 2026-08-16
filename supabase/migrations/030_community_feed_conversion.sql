@@ -1,4 +1,6 @@
 -- 030: 커뮤니티 피드 전환율 — 예약 URL · care_tags · 후기 텍스트 별칭
+-- NOTE: CREATE OR REPLACE VIEW 는 기존 컬럼 순서/이름 변경 시 42P16 오류가 나므로
+--       뷰를 DROP 후 재생성한다.
 
 alter table public.shops
   add column if not exists naver_booking_url text not null default '';
@@ -19,7 +21,10 @@ where care_tags = '[]'::jsonb
 comment on column public.customer_charts.care_tags is
   '피드 해시태그용 태그 배열. 작성 시 concern_chips 와 동일하게 유지 권장';
 
-create or replace view public.community_shared_cases
+-- 컬럼 삽입/이름 변경 시 OR REPLACE 불가 → DROP 후 CREATE
+drop view if exists public.community_shared_cases;
+
+create view public.community_shared_cases
 with (security_invoker = true)
 as
 select
