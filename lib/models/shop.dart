@@ -6,6 +6,7 @@ class Shop {
     required this.id,
     required this.name,
     required this.naverPlaceUrl,
+    this.naverBookingUrl = '',
     this.naverReviewWriteUrl = '',
     this.ownerName,
     this.phone,
@@ -24,6 +25,9 @@ class Shop {
   final String id;
   final String name;
   final String naverPlaceUrl;
+
+  /// 네이버 예약 직행 URL (피드 CTA). 비어 있으면 [naverPlaceUrl] Fallback.
+  final String naverBookingUrl;
 
   /// 네이버 플레이스 리뷰 작성 직행 URL (계산대 1분 컷 CTA).
   final String naverReviewWriteUrl;
@@ -64,6 +68,15 @@ class Shop {
 
   bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
 
+  bool get hasNaverBookingUrl => naverBookingUrl.trim().isNotEmpty;
+
+  /// 피드 「네이버 예약」 CTA — booking 우선, 없으면 place.
+  String get naverBookingOrPlaceUrl {
+    final booking = naverBookingUrl.trim();
+    if (booking.isNotEmpty) return booking;
+    return naverPlaceUrl.trim();
+  }
+
   bool get hasNaverReviewWriteUrl => naverReviewWriteUrl.trim().isNotEmpty;
 
   bool get hasProfileImage =>
@@ -84,6 +97,7 @@ class Shop {
     String? id,
     String? name,
     String? naverPlaceUrl,
+    String? naverBookingUrl,
     String? naverReviewWriteUrl,
     String? ownerName,
     String? phone,
@@ -103,6 +117,7 @@ class Shop {
       id: id ?? this.id,
       name: name ?? this.name,
       naverPlaceUrl: naverPlaceUrl ?? this.naverPlaceUrl,
+      naverBookingUrl: naverBookingUrl ?? this.naverBookingUrl,
       naverReviewWriteUrl: naverReviewWriteUrl ?? this.naverReviewWriteUrl,
       ownerName: ownerName ?? this.ownerName,
       phone: phone ?? this.phone,
@@ -127,6 +142,7 @@ class Shop {
         'owner_name': ownerName,
         'phone': phone,
         'naver_place_url': naverPlaceUrl,
+        'naver_booking_url': naverBookingUrl,
         'naver_review_write_url': naverReviewWriteUrl,
         'address': address,
         'operating_hours': operatingHours,
@@ -177,6 +193,11 @@ class Shop {
       final naverReviewWriteUrl = DbMap.asText(
         map['naver_review_write_url'] ?? map['naverReviewWriteUrl'],
       );
+      final naverBookingUrl = DbMap.asText(
+        map['naver_booking_url'] ??
+            map['naverBookingUrl'] ??
+            map['shop_naver_booking_url'],
+      );
 
       return Shop(
         id: DbMap.asText(map['id']),
@@ -184,6 +205,7 @@ class Shop {
         ownerName: DbMap.asTextOrNull(map['owner_name']),
         phone: DbMap.asTextOrNull(map['phone']),
         naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+        naverBookingUrl: naverBookingUrl,
         naverReviewWriteUrl: naverReviewWriteUrl,
         address: DbMap.asTextOrNull(map['address']),
         operatingHours: operatingHours,
@@ -209,6 +231,11 @@ class Shop {
         ownerName: DbMap.asTextOrNull(map['owner_name']),
         phone: DbMap.asTextOrNull(map['phone']),
         naverPlaceUrl: DbMap.asText(map['naver_place_url']),
+        naverBookingUrl: DbMap.asText(
+          map['naver_booking_url'] ??
+              map['naverBookingUrl'] ??
+              map['shop_naver_booking_url'],
+        ),
         naverReviewWriteUrl: DbMap.asText(
           map['naver_review_write_url'] ?? map['naverReviewWriteUrl'],
         ),

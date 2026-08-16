@@ -19,6 +19,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _ownerController;
   late final TextEditingController _naverController;
+  late final TextEditingController _naverBookingController;
   late final TextEditingController _naverReviewWriteController;
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
@@ -35,6 +36,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _nameController = TextEditingController(text: shop.name);
     _ownerController = TextEditingController(text: shop.ownerName ?? '');
     _naverController = TextEditingController(text: shop.naverPlaceUrl);
+    _naverBookingController = TextEditingController(text: shop.naverBookingUrl);
     _naverReviewWriteController =
         TextEditingController(text: shop.naverReviewWriteUrl);
     _addressController = TextEditingController(text: shop.address ?? '');
@@ -52,6 +54,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
     _nameController.dispose();
     _ownerController.dispose();
     _naverController.dispose();
+    _naverBookingController.dispose();
     _naverReviewWriteController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
@@ -82,6 +85,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
       name: _nameController.text,
       ownerName: _ownerController.text,
       naverPlaceUrl: naver,
+      naverBookingUrl: _naverBookingController.text,
       naverReviewWriteUrl: _naverReviewWriteController.text,
       address: _addressController.text,
       phone: _phoneController.text,
@@ -151,6 +155,16 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
               labelText: '네이버 플레이스 URL *',
               hintText: 'https://m.place.naver.com/...',
               border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _naverBookingController,
+            decoration: const InputDecoration(
+              labelText: '네이버 예약 URL',
+              hintText: '예약 직행 링크 (피드 CTA)',
+              border: OutlineInputBorder(),
+              helperText: '비어 있으면 플레이스 URL로 열고, 그것도 없으면 샵 프로필로 이동합니다',
             ),
           ),
           const SizedBox(height: 12),

@@ -924,6 +924,7 @@ class SoriStore implements Listenable {
   void updateShopProfile({
     required String name,
     required String naverPlaceUrl,
+    String? naverBookingUrl,
     String? naverReviewWriteUrl,
     String? ownerName,
     String? address,
@@ -939,6 +940,7 @@ class SoriStore implements Listenable {
     shop = shop.copyWith(
       name: name.trim(),
       naverPlaceUrl: naverPlaceUrl.trim(),
+      naverBookingUrl: naverBookingUrl?.trim(),
       naverReviewWriteUrl: naverReviewWriteUrl?.trim(),
       ownerName: ownerName?.trim(),
       address: address?.trim(),
@@ -1625,6 +1627,7 @@ class SoriStore implements Listenable {
           chart: chart.asPublicFeedProjection(),
           shop: shop,
           review: reviewForChart(chart.id)?.copyWith(customerId: ''),
+          careTags: chart.careTags,
         ),
       );
     }

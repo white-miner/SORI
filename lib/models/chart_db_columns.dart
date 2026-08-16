@@ -21,6 +21,7 @@ abstract final class ChartDbColumns {
     'side_effect_history',
     'customer_requests',
     'concern_chips',
+    'care_tags',
     'first_visit_fear_chips',
     'revisit_feedback_chips',
     'feedback_token',

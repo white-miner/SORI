@@ -103,6 +103,10 @@ class CustomerChart {
   /// Before만 있고 After 미등록 — 단계별 업로드 Finalize 대상.
   bool get needsAfterPhoto => hasBeforeImage && !hasAfterImage;
 
+  /// 피드 해시태그 — care_tags 우선, 없으면 concern_chips.
+  List<String> get careTags =>
+      concernChips.where((e) => e.trim().isNotEmpty).toList(growable: false);
+
   bool get hasFeedbackLine =>
       feedbackToken != null && feedbackLineOpenedAt != null;
 
@@ -316,6 +320,7 @@ class CustomerChart {
       'side_effect_history': sideEffectHistory.trim(),
       'customer_requests': customerRequests.trim(),
       'concern_chips': DbMap.sanitizeStringList(concernChips),
+      'care_tags': DbMap.sanitizeStringList(concernChips),
       'first_visit_fear_chips': DbMap.sanitizeStringList(firstVisitFearChips),
       'revisit_feedback_chips':
           DbMap.sanitizeStringList(revisitFeedbackChips),
@@ -377,7 +382,11 @@ class CustomerChart {
       skinSensitivity: DbMap.asText(map['skin_sensitivity']),
       sideEffectHistory: DbMap.asText(map['side_effect_history']),
       customerRequests: DbMap.asText(map['customer_requests']),
-      concernChips: DbMap.asStringList(map['concern_chips']),
+      concernChips: () {
+        final tags = DbMap.asStringList(map['care_tags']);
+        if (tags.isNotEmpty) return tags;
+        return DbMap.asStringList(map['concern_chips']);
+      }(),
       firstVisitFearChips: DbMap.asStringList(map['first_visit_fear_chips']),
       revisitFeedbackChips: DbMap.asStringList(map['revisit_feedback_chips']),
       feedbackToken: DbMap.asTextOrNull(map['feedback_token']),

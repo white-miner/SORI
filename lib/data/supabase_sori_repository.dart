@@ -819,6 +819,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'bio': shop.bio,
       'profile_image_url': shop.profileImageUrl,
       'naver_review_write_url': shop.naverReviewWriteUrl,
+      'naver_booking_url': shop.naverBookingUrl,
     };
 
     try {
@@ -838,6 +839,9 @@ class SupabaseSoriRepository implements SoriRepository {
         naverReviewWriteUrl: map.containsKey('naver_review_write_url')
             ? parsed.naverReviewWriteUrl
             : shop.naverReviewWriteUrl,
+        naverBookingUrl: map.containsKey('naver_booking_url')
+            ? parsed.naverBookingUrl
+            : shop.naverBookingUrl,
         serviceMenu: shop.serviceMenu,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
@@ -1791,7 +1795,11 @@ class SupabaseSoriRepository implements SoriRepository {
             visitNumber: DbMap.asInt(map['visit_number'], 1),
             careName: DbMap.asText(map['care_name']),
             treatmentSummary: '',
-            concernChips: DbMap.asStringList(map['concern_chips']),
+            concernChips: () {
+              final tags = DbMap.asStringList(map['care_tags']);
+              if (tags.isNotEmpty) return tags;
+              return DbMap.asStringList(map['concern_chips']);
+            }(),
             beforeImageUrl: DbMap.asTextOrNull(map['before_image_url']),
             afterImageUrl: DbMap.asTextOrNull(map['after_image_url']),
             caseShared: true,
@@ -1804,6 +1812,7 @@ class SupabaseSoriRepository implements SoriRepository {
             id: shopId,
             name: DbMap.asText(map['shop_name'], 'SORI 샵'),
             naverPlaceUrl: DbMap.asText(map['shop_naver_place_url']),
+            naverBookingUrl: DbMap.asText(map['shop_naver_booking_url']),
             ownerName: DbMap.asTextOrNull(map['shop_owner_name']),
             profileImageUrl: DbMap.asTextOrNull(map['shop_profile_image_url']),
           );
@@ -1811,7 +1820,9 @@ class SupabaseSoriRepository implements SoriRepository {
           CustomerReview? review;
           final reviewId = DbMap.asText(map['review_id']);
           final reviewText = DbMap.asText(
-            map['review_edited_text'] ?? map['review_original_text'],
+            map['customer_review_text'] ??
+                map['review_edited_text'] ??
+                map['review_original_text'],
           );
           if (reviewId.isNotEmpty && reviewText.trim().isNotEmpty) {
             review = CustomerReview(
@@ -1819,7 +1830,9 @@ class SupabaseSoriRepository implements SoriRepository {
               chartId: chartId,
               customerId: '',
               shopId: shopId,
-              originalText: DbMap.asText(map['review_original_text']),
+              originalText: DbMap.asText(
+                map['review_original_text'] ?? map['customer_review_text'],
+              ),
               editedText: DbMap.asTextOrNull(map['review_edited_text']),
               status: ReviewStatusX.fromDb(DbMap.asText(map['review_status'])),
               rating: map['review_rating'] == null
@@ -1835,7 +1848,14 @@ class SupabaseSoriRepository implements SoriRepository {
           final b = chart.beforeImageUrl?.trim() ?? '';
           final a = chart.afterImageUrl?.trim() ?? '';
           if (b.isEmpty && a.isEmpty) continue;
-          items.add(CommunityCaseItem(chart: chart, shop: shop, review: review));
+          items.add(
+            CommunityCaseItem(
+              chart: chart,
+              shop: shop,
+              review: review,
+              careTags: chart.careTags,
+            ),
+          );
         }
         if (items.isNotEmpty) return items;
       } catch (e) {
@@ -1900,7 +1920,8 @@ class SupabaseSoriRepository implements SoriRepository {
       if (shopIds.isNotEmpty) {
         try {
           final shopRows = await _db.from('shops').select(
-                'id, name, owner_name, profile_image_url, naver_place_url',
+                'id, name, owner_name, profile_image_url, naver_place_url, '
+                'naver_booking_url',
               ).inFilter('id', shopIds);
           for (final s in _mapRowsSafely(
             shopRows as List,
@@ -1956,6 +1977,7 @@ class SupabaseSoriRepository implements SoriRepository {
                     naverPlaceUrl: '',
                   ),
               review: reviewByChart[c.id],
+              careTags: c.careTags,
             ),
           )
           .toList();

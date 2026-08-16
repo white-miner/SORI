@@ -3,22 +3,37 @@ import 'package:flutter/material.dart';
 import '../models/customer_review.dart';
 import '../theme/sori_tokens.dart';
 
-/// B/A 케이스 카드용 — 고객 후기 + 원장 답글 인라인 블록.
-class CaseReviewInlineBlock extends StatelessWidget {
+/// B/A 케이스 카드용 — 고객 후기 + 원장 답글 인라인 스토리텔링.
+class CaseReviewInlineBlock extends StatefulWidget {
   const CaseReviewInlineBlock({
     super.key,
     required this.review,
     this.compact = false,
+    this.previewMaxLines = 3,
   });
 
   final CustomerReview review;
   final bool compact;
 
+  /// 피드 미리보기 줄 수 (더 보기 / 팝업 연결).
+  final int previewMaxLines;
+
+  @override
+  State<CaseReviewInlineBlock> createState() => _CaseReviewInlineBlockState();
+}
+
+class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
+  bool _expanded = false;
+
   @override
   Widget build(BuildContext context) {
-    final body = review.displayText.trim();
+    final body = widget.review.displayText.trim();
     if (body.isEmpty) return const SizedBox.shrink();
-    final reply = review.directorReply?.trim() ?? '';
+    final reply = widget.review.directorReply?.trim();
+    final directorReply =
+        (reply != null && reply.isNotEmpty) ? reply : null;
+    final compact = widget.compact;
+    final maxLines = widget.previewMaxLines.clamp(2, 6);
 
     return Container(
       width: double.infinity,
@@ -33,7 +48,18 @@ class CaseReviewInlineBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '💬 고객 리얼 후기: $body',
+            '💬 고객 후기',
+            style: TextStyle(
+              fontSize: compact ? 11.5 : 12,
+              fontWeight: FontWeight.w800,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            maxLines: _expanded ? null : maxLines,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: compact ? 12.5 : 13.5,
               height: 1.4,
@@ -41,20 +67,145 @@ class CaseReviewInlineBlock extends StatelessWidget {
               color: SoriTokens.textPrimary,
             ),
           ),
-          if (reply.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              '↳ 👑 원장님 답글: $reply',
-              style: TextStyle(
-                fontSize: compact ? 12 : 13,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: SoriTokens.primary.withValues(alpha: 0.95),
+          if (!_expanded && body.length > 70)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => _showFullReview(context, body, directorReply),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: SoriTokens.primary,
+                ),
+                child: const Text(
+                  '더 보기',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+                ),
+              ),
+            ),
+          if (directorReply != null) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDE9FE),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFDDD6FE)),
+                ),
+                child: Text(
+                  '↳ 👑 원장님: $directorReply',
+                  style: TextStyle(
+                    fontSize: compact ? 12 : 13,
+                    height: 1.4,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.primary.withValues(alpha: 0.95),
+                  ),
+                ),
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _showFullReview(
+    BuildContext context,
+    String body,
+    String? directorReply,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const Text(
+                '고객 후기',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(ctx).height * 0.45,
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    body,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              if (directorReply != null) ...[
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDE9FE),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '↳ 👑 원장님: $directorReply',
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    setState(() => _expanded = true);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('인라인으로 펼치기'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
