@@ -11,6 +11,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
+import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
@@ -838,6 +839,43 @@ class MemorySoriRepository implements SoriRepository {
     );
     _seminarClasses.add(created);
     return created;
+  }
+
+  @override
+  Future<SeminarClassDetail?> loadSeminarClassDetail(String classId) async {
+    final id = classId.trim();
+    if (id.isEmpty) return null;
+
+    SeminarClass? cls;
+    for (final item in _seminarClasses) {
+      if (item.id == id) {
+        cls = item;
+        break;
+      }
+    }
+    if (cls == null) return null;
+
+    final snap = createSeedSnapshot();
+    final shop = snap.shop.id == cls.directorShopId
+        ? snap.shop
+        : snap.shop.copyWith(id: cls.directorShopId);
+
+    CustomerChart? chart;
+    final caseId = cls.targetCaseId?.trim();
+    if (caseId != null && caseId.isNotEmpty) {
+      for (final c in snap.charts) {
+        if (c.id == caseId) {
+          chart = c;
+          break;
+        }
+      }
+    }
+
+    return SeminarClassDetail(
+      seminarClass: cls,
+      directorShop: shop,
+      targetChart: chart,
+    );
   }
 
   @override

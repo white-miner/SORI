@@ -18,6 +18,7 @@ import '../views/director_review_manage_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_page.dart';
 import '../views/splash_page.dart';
+import '../views/seminar_class_detail_page.dart';
 import '../views/success_cases_page.dart';
 import '../views/unified_home_feed_page.dart';
 import 'app_router.dart';
@@ -41,6 +42,9 @@ abstract final class AppPaths {
 
   static String customerProfile(String customerId) =>
       '/customer/${Uri.encodeComponent(customerId.trim())}/profile';
+
+  static String seminarClass(String classId) =>
+      '/seminar/${Uri.encodeComponent(classId.trim())}';
 }
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -60,7 +64,8 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
       if (loc.startsWith(AppPaths.review) ||
           loc.startsWith(AppPaths.careReport) ||
           loc.startsWith('/chart') ||
-          loc.startsWith('/customer/')) {
+          loc.startsWith('/customer/') ||
+          loc.startsWith('/seminar/')) {
         if (loc.startsWith('/customer/') && !onboarded) {
           return AppPaths.login;
         }
@@ -167,6 +172,17 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
             state.pathParameters['customerId'] ?? '',
           );
           return CustomerProfilePage(store: store, customerId: id);
+        },
+      ),
+
+      GoRoute(
+        path: '/seminar/:classId',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = Uri.decodeComponent(
+            state.pathParameters['classId'] ?? '',
+          );
+          return SeminarClassDetailPage(store: store, classId: id);
         },
       ),
 

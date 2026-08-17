@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/seminar_class.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'seminar_class_detail_page.dart';
 
 /// 원장 — 세미나 클래스 등록 폼.
 class SeminarClassOpenPage extends StatefulWidget {
@@ -95,7 +96,13 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
         backgroundColor: SoriTokens.primary,
       ),
     );
-    Navigator.pop(context, created);
+    Navigator.pop(context);
+    if (!context.mounted) return;
+    await SeminarClassDetailPage.open(
+      context,
+      store: widget.store,
+      classId: created.id,
+    );
   }
 
   @override

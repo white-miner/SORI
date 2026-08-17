@@ -30,6 +30,7 @@ class SeminarClass {
     this.maxCapacity = 20,
     this.currentEnrollment = 0,
     this.status = SeminarClassStatus.open,
+    this.description = '',
     this.createdAt,
   });
 
@@ -43,6 +44,9 @@ class SeminarClass {
   final int maxCapacity;
   final int currentEnrollment;
   final SeminarClassStatus status;
+
+  /// 강사가 작성한 세미나 상세 설명.
+  final String description;
   final DateTime? createdAt;
 
   bool get isEnrollable =>
@@ -60,6 +64,7 @@ class SeminarClass {
       maxCapacity: DbMap.asInt(map['max_capacity'], 20),
       currentEnrollment: DbMap.asInt(map['current_enrollment']),
       status: SeminarClassStatus.fromDb(DbMap.asText(map['status'])),
+      description: DbMap.asText(map['description']),
       createdAt: DbMap.asDateTime(map['created_at']),
     );
   }
@@ -74,6 +79,7 @@ class SeminarClass {
         'price': price,
         'max_capacity': maxCapacity,
         'status': status.dbValue,
+        if (description.trim().isNotEmpty) 'description': description.trim(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 }

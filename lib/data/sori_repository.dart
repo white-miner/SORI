@@ -12,6 +12,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
+import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
 import 'auth_role_resolution.dart';
@@ -298,6 +299,9 @@ abstract class SoriRepository {
 
   /// 세미나 클래스 등록.
   Future<SeminarClass> createSeminarClass(SeminarClass draft);
+
+  /// 세미나 클래스 랜딩 상세 (강사·근원 차트 포함).
+  Future<SeminarClassDetail?> loadSeminarClassDetail(String classId);
 
   /// 세미나 수강 등록 — 에스크로 held.
   Future<String> enrollSeminarClass({

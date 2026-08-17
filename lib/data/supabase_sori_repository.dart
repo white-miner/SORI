@@ -17,6 +17,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
+import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
@@ -2193,6 +2194,59 @@ class SupabaseSoriRepository implements SoriRepository {
         .select()
         .single();
     return SeminarClass.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<SeminarClassDetail?> loadSeminarClassDetail(String classId) async {
+    final id = classId.trim();
+    if (id.isEmpty) return null;
+
+    try {
+      final row = await _db
+          .from('seminar_classes')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (row == null) return null;
+
+      final cls = SeminarClass.fromMap(Map<String, dynamic>.from(row as Map));
+
+      final shopRow = await _db
+          .from('shops')
+          .select()
+          .eq('id', cls.directorShopId)
+          .maybeSingle();
+      if (shopRow == null) return null;
+      final shop = Shop.fromMap(Map<String, dynamic>.from(shopRow as Map));
+
+      CustomerChart? chart;
+      final caseId = cls.targetCaseId?.trim();
+      if (caseId != null && caseId.isNotEmpty) {
+        try {
+          final chartRow = await _db
+              .from('customer_charts')
+              .select()
+              .eq('id', caseId)
+              .maybeSingle();
+          if (chartRow != null) {
+            chart = CustomerChart.fromMap(
+              Map<String, dynamic>.from(chartRow as Map),
+            );
+          }
+        } catch (e, st) {
+          debugPrint('loadSeminarClassDetail chart failed: $e\n$st');
+        }
+      }
+
+      return SeminarClassDetail(
+        seminarClass: cls,
+        directorShop: shop,
+        targetChart: chart,
+      );
+    } catch (e, st) {
+      debugPrint('loadSeminarClassDetail failed: $e\n$st');
+      return null;
+    }
   }
 
   @override

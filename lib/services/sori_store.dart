@@ -25,6 +25,7 @@ import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
+import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
@@ -1719,6 +1720,20 @@ class SoriStore implements Listenable {
       debugPrint('createSeminarClass failed: $e\n$st');
       _setError(e, userFacing: true);
       _notify();
+      return null;
+    }
+  }
+
+  Future<SeminarClassDetail?> loadSeminarClassDetail(String classId) async {
+    final id = classId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final detail = await _repository.loadSeminarClassDetail(id);
+      lastError = null;
+      return detail;
+    } catch (e, st) {
+      debugPrint('loadSeminarClassDetail failed: $e\n$st');
+      _setError(e, userFacing: true);
       return null;
     }
   }
