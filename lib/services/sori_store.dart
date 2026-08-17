@@ -27,6 +27,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
@@ -113,6 +114,8 @@ class SoriStore implements Listenable {
   bool seminarEducationLoading = false;
   List<SeminarEnrollment> mySeminarEnrollments = [];
   bool mySeminarEnrollmentsLoading = false;
+  List<SeminarFeedbackReport> seminarFeedbackReports = [];
+  bool seminarFeedbackReportsLoading = false;
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
@@ -1825,6 +1828,47 @@ class SoriStore implements Listenable {
       _setError(e, userFacing: true);
       _notify();
       return false;
+    }
+  }
+
+  Future<void> refreshSeminarFeedbackReports() async {
+    if (seminarFeedbackReportsLoading) return;
+    seminarFeedbackReportsLoading = true;
+    _notify();
+    final sid = shop.id.trim();
+    try {
+      seminarFeedbackReports = sid.isEmpty
+          ? const []
+          : await _repository.loadSeminarFeedbackReports(sid);
+      lastError = null;
+    } catch (e, st) {
+      debugPrint('refreshSeminarFeedbackReports failed: $e\n$st');
+    } finally {
+      seminarFeedbackReportsLoading = false;
+      _notify();
+    }
+  }
+
+  Future<SeminarFeedbackReport?> loadSeminarFeedbackReportDetail(
+    String reportId,
+  ) async {
+    try {
+      final detail = await _repository.loadSeminarFeedbackReportDetail(reportId);
+      lastError = null;
+      return detail;
+    } catch (e, st) {
+      debugPrint('loadSeminarFeedbackReportDetail failed: $e\n$st');
+      _setError(e, userFacing: true);
+      return null;
+    }
+  }
+
+  Future<void> refreshSeminarFeedbackReport(String classId) async {
+    try {
+      await _repository.refreshSeminarFeedbackReport(classId);
+      lastError = null;
+    } catch (e, st) {
+      debugPrint('refreshSeminarFeedbackReport failed: $e\n$st');
     }
   }
 

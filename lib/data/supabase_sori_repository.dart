@@ -19,6 +19,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
@@ -2336,5 +2337,103 @@ class SupabaseSoriRepository implements SoriRepository {
         'p_comment': comment.trim(),
       },
     );
+  }
+
+  @override
+  Future<void> refreshSeminarFeedbackReport(String classId) async {
+    final cid = classId.trim();
+    if (cid.isEmpty) return;
+    try {
+      await _db.rpc(
+        'refresh_seminar_feedback_report',
+        params: {'p_class_id': cid},
+      );
+    } catch (e, st) {
+      debugPrint('refreshSeminarFeedbackReport failed: $e\n$st');
+    }
+  }
+
+  @override
+  Future<List<SeminarFeedbackReport>> loadSeminarFeedbackReports(
+    String shopId,
+  ) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+
+    try {
+      final rows = await _db
+          .from('seminar_feedback_reports')
+          .select(
+            'id, class_id, shop_id, top_insight_tags, ai_summary_strength, '
+            'ai_summary_improvement, raw_feedback_count, created_at, updated_at, '
+            'seminar_classes(title, event_date)',
+          )
+          .eq('shop_id', sid)
+          .order('updated_at', ascending: false);
+
+      return (rows as List).map((raw) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final cls = map['seminar_classes'];
+        final classMap = cls is Map ? Map<String, dynamic>.from(cls) : <String, dynamic>{};
+        classMap['completed_enrollment_count'] = map['raw_feedback_count'];
+        map['seminar_classes'] = classMap;
+        return SeminarFeedbackReport.fromMap(map);
+      }).toList(growable: false);
+    } catch (e, st) {
+      debugPrint('loadSeminarFeedbackReports failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<SeminarFeedbackReport?> loadSeminarFeedbackReportDetail(
+    String reportId,
+  ) async {
+    final id = reportId.trim();
+    if (id.isEmpty) return null;
+
+    try {
+      final row = await _db
+          .from('seminar_feedback_reports')
+          .select(
+            'id, class_id, shop_id, top_insight_tags, ai_summary_strength, '
+            'ai_summary_improvement, raw_feedback_count, created_at, updated_at, '
+            'seminar_classes(title, event_date)',
+          )
+          .eq('id', id)
+          .maybeSingle();
+      if (row == null) return null;
+
+      final map = Map<String, dynamic>.from(row as Map);
+      final classId = DbMap.asText(map['class_id']);
+
+      final enrollRows = await _db
+          .from('seminar_enrollments')
+          .select('id')
+          .eq('class_id', classId);
+      final enrollIds = (enrollRows as List)
+          .map((e) => DbMap.asText((e as Map)['id']))
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      final comments = <String>[];
+      if (enrollIds.isNotEmpty) {
+        final commentRows = await _db
+            .from('seminar_enrollment_reviews')
+            .select('comment')
+            .inFilter('enrollment_id', enrollIds);
+        for (final raw in commentRows as List) {
+          final c = DbMap.asText((raw as Map)['comment']).trim();
+          if (c.isNotEmpty) comments.add(c);
+        }
+      }
+      map['positive_comments'] = comments;
+      map['completed_enrollment_count'] = map['raw_feedback_count'];
+
+      return SeminarFeedbackReport.fromMap(map);
+    } catch (e, st) {
+      debugPrint('loadSeminarFeedbackReportDetail failed: $e\n$st');
+      return null;
+    }
   }
 }

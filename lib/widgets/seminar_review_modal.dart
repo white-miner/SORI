@@ -9,11 +9,13 @@ class SeminarReviewModal extends StatefulWidget {
     super.key,
     required this.store,
     required this.enrollmentId,
+    required this.classId,
     required this.classTitle,
   });
 
   final SoriStore store;
   final String enrollmentId;
+  final String classId;
   final String classTitle;
 
   static const insightTagOptions = [
@@ -31,6 +33,7 @@ class SeminarReviewModal extends StatefulWidget {
     BuildContext context, {
     required SoriStore store,
     required String enrollmentId,
+    required String classId,
     required String classTitle,
   }) {
     return showDialog<bool>(
@@ -39,6 +42,7 @@ class SeminarReviewModal extends StatefulWidget {
       builder: (_) => SeminarReviewModal(
         store: store,
         enrollmentId: enrollmentId,
+        classId: classId,
         classTitle: classTitle,
       ),
     ).then((v) => v == true);
@@ -113,6 +117,9 @@ class _SeminarReviewModalState extends State<SeminarReviewModal> {
       );
       return;
     }
+
+    await widget.store.refreshSeminarFeedbackReport(widget.classId);
+    await widget.store.refreshSeminarFeedbackReports();
 
     Navigator.pop(context, true);
   }

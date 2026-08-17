@@ -21,6 +21,7 @@ import 'customer_review_history_page.dart';
 import 'director_profile_edit_page.dart';
 import 'my_info_edit_page.dart';
 import 'seminar_class_open_page.dart';
+import 'seminar_feedback_inbox_page.dart';
 
 /// 마이페이지 전용 쿨그레이 배경.
 const Color _myPageBg = Color(0xFFF5F6F8);
@@ -53,6 +54,7 @@ class _MyPageState extends State<MyPage> {
       store.refreshMySeminarEnrollments();
       if (store.session?.activeMode == UserRole.director) {
         store.refreshSeminarEducationInsight();
+        store.refreshSeminarFeedbackReports();
       }
     });
   }
@@ -433,6 +435,17 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '교육 대시보드',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     _SeminarEducationInsightCard(
                       loading: store.seminarEducationLoading,
                       totalRequests:
@@ -452,6 +465,47 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                           ),
                         );
                       },
+                    ),
+                    const SizedBox(height: 8),
+                    Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text('📊', style: TextStyle(fontSize: 18)),
+                        ),
+                        title: const Text(
+                          'AI 세미나 피드백 보관함',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                        subtitle: Text(
+                          store.seminarFeedbackReportsLoading
+                              ? '리포트 불러오는 중…'
+                              : '완료 리포트 ${store.seminarFeedbackReports.length}건',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => SeminarFeedbackInboxPage.open(
+                          context,
+                          store: store,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     _MySeminarEnrollmentsSection(store: store),
@@ -1110,6 +1164,7 @@ class _MySeminarEnrollmentsSection extends StatelessWidget {
       context,
       store: store,
       enrollmentId: enrollment.id,
+      classId: enrollment.classId,
       classTitle: enrollment.classTitle,
     );
     if (!context.mounted || !ok) return;

@@ -14,6 +14,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import 'auth_role_resolution.dart';
@@ -322,4 +323,13 @@ abstract class SoriRepository {
     required List<String> insightTags,
     String comment = '',
   });
+
+  /// 클래스 리뷰 집계 → AI 피드백 리포트 갱신.
+  Future<void> refreshSeminarFeedbackReport(String classId);
+
+  /// 원장 샵 AI 세미나 피드백 보관함 목록.
+  Future<List<SeminarFeedbackReport>> loadSeminarFeedbackReports(String shopId);
+
+  /// 리포트 상세 (긍정 코멘트 포함).
+  Future<SeminarFeedbackReport?> loadSeminarFeedbackReportDetail(String reportId);
 }

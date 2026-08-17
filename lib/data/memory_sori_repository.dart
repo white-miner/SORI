@@ -13,6 +13,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../utils/db_map.dart';
 import '../models/shop_highlight.dart';
@@ -31,6 +32,8 @@ class MemorySoriRepository implements SoriRepository {
   static final Map<String, int> _shopCashBalance = {};
   static final List<Map<String, dynamic>> _enrollments = [];
   static final Map<String, Map<String, dynamic>> _enrollmentReviews = {};
+  static final List<Map<String, dynamic>> _feedbackReports = [];
+  static bool _seededDemoFeedback = false;
 
   @override
   bool get isRemote => false;
@@ -993,6 +996,11 @@ class MemorySoriRepository implements SoriRepository {
       'comment': comment.trim(),
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
+
+    final classId = DbMap.asText(
+      _enrollments.firstWhere((e) => DbMap.asText(e['id']) == id)['class_id'],
+    );
+    await refreshSeminarFeedbackReport(classId);
   }
 
   @override
@@ -1037,6 +1045,152 @@ class MemorySoriRepository implements SoriRepository {
     _shopCashBalance[cls.directorShopId] =
         (_shopCashBalance[cls.directorShopId] ?? 0) + net;
 
+    await refreshSeminarFeedbackReport(classId);
+
     return net;
+  }
+
+  void _ensureDemoFeedbackReports() {
+    if (_seededDemoFeedback) return;
+    _seededDemoFeedback = true;
+    final snap = createSeedSnapshot();
+    _feedbackReports.add({
+      'id': 'feedback-demo-1',
+      'class_id': 'class-demo-1',
+      'shop_id': snap.shop.id,
+      'class_title': '재생케어 임상 마스터 클래스',
+      'event_date': DateTime(2026, 7, 12).toUtc().toIso8601String(),
+      'completed_enrollment_count': 8,
+      'top_insight_tags': [
+        '#이해쏙쏙',
+        '#실무적용도100%',
+        '#케이스분석탁월',
+      ],
+      'ai_summary_strength':
+          '수강생 8명의 피드백에서 #이해쏙쏙, #실무적용도100% 인사이트가 두드러졌습니다. '
+          '현장 설명력과 임상 케이스 전달력이 높게 평가됐습니다.',
+      'ai_summary_improvement':
+          '다음 기수에서는 Q&A·실습 비중을 15~20% 늘리고, 초급·중급 맞춤 블록을 분리하면 '
+          '만족도가 더 올라갈 것으로 보입니다.',
+      'raw_feedback_count': 8,
+      'positive_comments': [
+        'Before/After 비교 설명이 현장에서 바로 써먹을 수 있었어요.',
+        '케이스 흐름이 논리적이라 메모하기 좋았습니다.',
+      ],
+      'created_at': DateTime(2026, 7, 15).toUtc().toIso8601String(),
+      'updated_at': DateTime(2026, 7, 15).toUtc().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> refreshSeminarFeedbackReport(String classId) async {
+    final cid = classId.trim();
+    if (cid.isEmpty) return;
+
+    SeminarClass? cls;
+    for (final c in _seminarClasses) {
+      if (c.id == cid) {
+        cls = c;
+        break;
+      }
+    }
+    if (cls == null) return;
+
+    final tagCounts = <String, int>{};
+    final comments = <String>[];
+    var reviewCount = 0;
+    var completedCount = 0;
+
+    for (final row in _enrollments) {
+      if (DbMap.asText(row['class_id']) != cid) continue;
+      if (DbMap.asText(row['status']) == 'completed') {
+        completedCount++;
+      }
+      final enrollId = DbMap.asText(row['id']);
+      final review = _enrollmentReviews[enrollId];
+      if (review == null) continue;
+      reviewCount++;
+      final tags = review['insight_tags'];
+      if (tags is List) {
+        for (final t in tags) {
+          final tag = t.toString().trim();
+          if (tag.isEmpty) continue;
+          tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+        }
+      }
+      final comment = DbMap.asText(review['comment']);
+      if (comment.isNotEmpty) comments.add(comment);
+    }
+
+    if (reviewCount < 1) return;
+
+    final sortedTags = tagCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topTags = sortedTags.map((e) => e.key).take(8).toList();
+    final top1 = topTags.isNotEmpty ? topTags.first : '#이해쏙쏙';
+    final top2 = topTags.length > 1 ? topTags[1] : '#실무적용도100%';
+
+    final report = {
+      'id': 'feedback-$cid',
+      'class_id': cid,
+      'shop_id': cls.directorShopId,
+      'class_title': cls.title,
+      'event_date': cls.eventDate?.toUtc().toIso8601String(),
+      'completed_enrollment_count':
+          completedCount > 0 ? completedCount : reviewCount,
+      'top_insight_tags': topTags,
+      'ai_summary_strength':
+          '수강생 $reviewCount명의 피드백에서 $top1, $top2 인사이트가 두드러졌습니다. '
+          '현장 설명력과 임상 케이스 전달력이 높게 평가됐습니다.',
+      'ai_summary_improvement':
+          '다음 기수에서는 Q&A·실습 비중을 늘리고, 초급·중급 맞춤 블록을 분리하면 '
+          '만족도가 더 올라갈 것으로 보입니다.',
+      'raw_feedback_count': reviewCount,
+      'positive_comments': comments,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    final idx = _feedbackReports.indexWhere(
+      (r) => DbMap.asText(r['class_id']) == cid,
+    );
+    if (idx >= 0) {
+      report['id'] = _feedbackReports[idx]['id'];
+      report['created_at'] = _feedbackReports[idx]['created_at'];
+      _feedbackReports[idx] = report;
+    } else {
+      _feedbackReports.add(report);
+    }
+  }
+
+  @override
+  Future<List<SeminarFeedbackReport>> loadSeminarFeedbackReports(
+    String shopId,
+  ) async {
+    _ensureDemoFeedbackReports();
+    final sid = shopId.trim();
+    return _feedbackReports
+        .where((r) => DbMap.asText(r['shop_id']) == sid)
+        .map((r) => SeminarFeedbackReport.fromMap(r))
+        .toList()
+      ..sort((a, b) {
+        final ad = a.updatedAt ?? a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.updatedAt ?? b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
+      });
+  }
+
+  @override
+  Future<SeminarFeedbackReport?> loadSeminarFeedbackReportDetail(
+    String reportId,
+  ) async {
+    _ensureDemoFeedbackReports();
+    final id = reportId.trim();
+    for (final r in _feedbackReports) {
+      if (DbMap.asText(r['id']) == id) {
+        return SeminarFeedbackReport.fromMap(r);
+      }
+    }
+    return null;
   }
 }
