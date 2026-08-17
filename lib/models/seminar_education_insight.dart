@@ -5,12 +5,16 @@ class SeminarEducationInsight {
     required this.requestsByCase,
     this.soriCashBalance = 0,
     this.tierBadgeLabel = '',
+    this.totalSeminarCount = 0,
+    this.totalFundingAmount = 0,
   });
 
   final int totalRequests;
   final Map<String, int> requestsByCase;
   final int soriCashBalance;
   final String tierBadgeLabel;
+  final int totalSeminarCount;
+  final int totalFundingAmount;
 
   int requestsForCase(String caseId) => requestsByCase[caseId.trim()] ?? 0;
 }

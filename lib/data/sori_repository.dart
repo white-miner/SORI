@@ -14,6 +14,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import 'auth_role_resolution.dart';
 
@@ -311,4 +312,14 @@ abstract class SoriRepository {
 
   /// 수강 완료 정산 — 원장 sori_cash_balance 적립.
   Future<int> settleSeminarEnrollment(String enrollmentId);
+
+  /// 내 샵(수강생) held 세미나 등록 목록.
+  Future<List<SeminarEnrollment>> loadMySeminarEnrollments(String enrollorShopId);
+
+  /// 인사이트 태그 리뷰 제출 (정산 전 필수).
+  Future<void> submitSeminarEnrollmentReview({
+    required String enrollmentId,
+    required List<String> insightTags,
+    String comment = '',
+  });
 }

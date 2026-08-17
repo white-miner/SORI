@@ -228,6 +228,17 @@ class _SeminarCheckoutBottomSheetState extends State<SeminarCheckoutBottomSheet>
                       ),
                     ),
             ),
+            const SizedBox(height: 10),
+            Text(
+              'SORI는 통신판매중개자이며, 세미나의 내용과 품질에 대한 책임은 호스트에게 있습니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.4,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

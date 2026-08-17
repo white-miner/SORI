@@ -13,6 +13,8 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_enrollment.dart';
+import '../utils/db_map.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
@@ -27,6 +29,8 @@ class MemorySoriRepository implements SoriRepository {
   static int _seminarClassSeq = 0;
   static int _enrollmentSeq = 0;
   static final Map<String, int> _shopCashBalance = {};
+  static final List<Map<String, dynamic>> _enrollments = [];
+  static final Map<String, Map<String, dynamic>> _enrollmentReviews = {};
 
   @override
   bool get isRemote => false;
@@ -49,6 +53,9 @@ class MemorySoriRepository implements SoriRepository {
       kakaoPoint: 1000,
       isPro: true,
       monthlyCapa: 100,
+      tierBadge: ShopTierBadge.silver,
+      totalSeminarCount: 3,
+      totalFundingAmount: 4500000,
       serviceMenu: [
         ShopServiceItem(
           name: '재생케어',
@@ -819,6 +826,8 @@ class MemorySoriRepository implements SoriRepository {
       requestsByCase: byCase,
       soriCashBalance: _shopCashBalance[directorShopId] ?? 0,
       tierBadgeLabel: ShopTierBadge.silver.label,
+      totalSeminarCount: snap.shop.totalSeminarCount,
+      totalFundingAmount: snap.shop.totalFundingAmount,
     );
   }
 
@@ -905,11 +914,129 @@ class MemorySoriRepository implements SoriRepository {
     );
 
     _enrollmentSeq++;
-    return 'enroll-local-$_enrollmentSeq';
+    final enrollId = 'enroll-local-$_enrollmentSeq';
+    _enrollments.add({
+      'id': enrollId,
+      'class_id': id,
+      'enrollor_shop_id': enrollorShopId.trim(),
+      'amount': cls.price,
+      'status': 'held',
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    return enrollId;
+  }
+
+  static double _platformFeePct(ShopTierBadge tier) {
+    final reduction = switch (tier) {
+      ShopTierBadge.master => 0.07,
+      ShopTierBadge.gold => 0.05,
+      ShopTierBadge.silver => 0.03,
+      ShopTierBadge.bronze => 0.01,
+      ShopTierBadge.none => 0.0,
+    };
+    return (0.15 - reduction).clamp(0.08, 0.15);
+  }
+
+  @override
+  Future<List<SeminarEnrollment>> loadMySeminarEnrollments(
+    String enrollorShopId,
+  ) async {
+    final sid = enrollorShopId.trim();
+    final out = <SeminarEnrollment>[];
+    for (final raw in _enrollments) {
+      if (DbMap.asText(raw['enrollor_shop_id']) != sid) continue;
+      final classId = DbMap.asText(raw['class_id']);
+      SeminarClass? cls;
+      for (final c in _seminarClasses) {
+        if (c.id == classId) {
+          cls = c;
+          break;
+        }
+      }
+      out.add(
+        SeminarEnrollment.fromMap({
+          ...raw,
+          if (cls != null)
+            'seminar_classes': {
+              'id': cls.id,
+              'title': cls.title,
+              'event_date': cls.eventDate?.toUtc().toIso8601String(),
+            },
+        }),
+      );
+    }
+    out.sort((a, b) {
+      final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return out;
+  }
+
+  @override
+  Future<void> submitSeminarEnrollmentReview({
+    required String enrollmentId,
+    required List<String> insightTags,
+    String comment = '',
+  }) async {
+    final id = enrollmentId.trim();
+    if (id.isEmpty) throw ArgumentError('enrollmentId required');
+    final tags = insightTags.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (tags.isEmpty) throw StateError('at least one insight tag required');
+
+    final exists = _enrollments.any((e) => DbMap.asText(e['id']) == id);
+    if (!exists) throw StateError('enrollment not found');
+
+    _enrollmentReviews[id] = {
+      'enrollment_id': id,
+      'insight_tags': tags,
+      'comment': comment.trim(),
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    };
   }
 
   @override
   Future<int> settleSeminarEnrollment(String enrollmentId) async {
-    return 0;
+    final id = enrollmentId.trim();
+    final idx = _enrollments.indexWhere((e) => DbMap.asText(e['id']) == id);
+    if (idx < 0) throw StateError('enrollment not found');
+    if (_enrollmentReviews[id] == null) {
+      throw StateError('review required before settlement');
+    }
+
+    final row = _enrollments[idx];
+    if (DbMap.asText(row['status']) != 'held') {
+      throw StateError('enrollment not in held status');
+    }
+
+    final classId = DbMap.asText(row['class_id']);
+    SeminarClass? cls;
+    for (final c in _seminarClasses) {
+      if (c.id == classId) {
+        cls = c;
+        break;
+      }
+    }
+    if (cls == null) throw StateError('class not found');
+
+    final snap = createSeedSnapshot();
+    final directorShop = snap.shop.id == cls.directorShopId
+        ? snap.shop
+        : snap.shop.copyWith(id: cls.directorShopId);
+
+    final feePct = _platformFeePct(directorShop.tierBadge);
+    final amount = DbMap.asInt(row['amount']);
+    final net = (amount * (1 - feePct)).floor();
+
+    _enrollments[idx] = {
+      ...row,
+      'status': 'completed',
+      'completed_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    _shopCashBalance[cls.directorShopId] =
+        (_shopCashBalance[cls.directorShopId] ?? 0) + net;
+
+    return net;
   }
 }

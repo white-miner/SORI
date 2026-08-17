@@ -23,6 +23,8 @@ class Shop {
     this.monthlyCapa = 100,
     this.tierBadge = ShopTierBadge.none,
     this.soriCashBalance = 0,
+    this.totalSeminarCount = 0,
+    this.totalFundingAmount = 0,
   });
 
   final String id;
@@ -68,6 +70,12 @@ class Shop {
 
   /// 세미나 정산 SORI Cash 잔액 (원).
   final int soriCashBalance;
+
+  /// 완료된 누적 세미나 클래스 수.
+  final int totalSeminarCount;
+
+  /// 완료 클래스 기준 누적 펀딩 금액 (원).
+  final int totalFundingAmount;
 
   /// 차트·회원권 드롭다운용 서비스명 목록.
   List<String> get serviceNames => serviceMenu
@@ -123,6 +131,8 @@ class Shop {
     int? monthlyCapa,
     ShopTierBadge? tierBadge,
     int? soriCashBalance,
+    int? totalSeminarCount,
+    int? totalFundingAmount,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -146,6 +156,8 @@ class Shop {
       monthlyCapa: monthlyCapa ?? this.monthlyCapa,
       tierBadge: tierBadge ?? this.tierBadge,
       soriCashBalance: soriCashBalance ?? this.soriCashBalance,
+      totalSeminarCount: totalSeminarCount ?? this.totalSeminarCount,
+      totalFundingAmount: totalFundingAmount ?? this.totalFundingAmount,
     );
   }
 
@@ -169,6 +181,8 @@ class Shop {
         'monthly_capa': monthlyCapa,
         'tier_badge': tierBadge.dbValue,
         'sori_cash_balance': soriCashBalance,
+        'total_seminar_count': totalSeminarCount,
+        'total_funding_amount': totalFundingAmount,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -244,6 +258,12 @@ class Shop {
         soriCashBalance: DbMap.asInt(
           map['sori_cash_balance'] ?? map['soriCashBalance'],
         ),
+        totalSeminarCount: DbMap.asInt(
+          map['total_seminar_count'] ?? map['totalSeminarCount'],
+        ),
+        totalFundingAmount: DbMap.asInt(
+          map['total_funding_amount'] ?? map['totalFundingAmount'],
+        ),
       );
     } catch (_) {
       return Shop(
@@ -277,6 +297,12 @@ class Shop {
         ),
         soriCashBalance: DbMap.asInt(
           map['sori_cash_balance'] ?? map['soriCashBalance'],
+        ),
+        totalSeminarCount: DbMap.asInt(
+          map['total_seminar_count'] ?? map['totalSeminarCount'],
+        ),
+        totalFundingAmount: DbMap.asInt(
+          map['total_funding_amount'] ?? map['totalFundingAmount'],
         ),
       );
     }

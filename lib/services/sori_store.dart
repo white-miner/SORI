@@ -27,6 +27,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
@@ -110,6 +111,8 @@ class SoriStore implements Listenable {
   bool communityHotCasesLoading = false;
   SeminarEducationInsight? seminarEducationInsight;
   bool seminarEducationLoading = false;
+  List<SeminarEnrollment> mySeminarEnrollments = [];
+  bool mySeminarEnrollmentsLoading = false;
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
@@ -1699,6 +1702,12 @@ class SoriStore implements Listenable {
           tierBadge: insight.tierBadgeLabel.isNotEmpty
               ? ShopTierBadge.fromDb(insight.tierBadgeLabel)
               : shop.tierBadge,
+          totalSeminarCount: insight.totalSeminarCount > 0
+              ? insight.totalSeminarCount
+              : shop.totalSeminarCount,
+          totalFundingAmount: insight.totalFundingAmount > 0
+              ? insight.totalFundingAmount
+              : shop.totalFundingAmount,
         );
       }
       lastError = null;
@@ -1750,6 +1759,7 @@ class SoriStore implements Listenable {
         enrollorShopId: sid,
       );
       lastError = null;
+      await refreshMySeminarEnrollments();
       _notify();
       return enrollId;
     } catch (e, st) {
@@ -1763,8 +1773,10 @@ class SoriStore implements Listenable {
   Future<int> settleSeminarEnrollment(String enrollmentId) async {
     try {
       final net = await _repository.settleSeminarEnrollment(enrollmentId);
-      shop = shop.copyWith(soriCashBalance: shop.soriCashBalance + net);
-      await refreshSeminarEducationInsight();
+      await refreshMySeminarEnrollments();
+      if (net > 0) {
+        await refreshSeminarEducationInsight();
+      }
       lastError = null;
       _notify();
       return net;
@@ -1773,6 +1785,46 @@ class SoriStore implements Listenable {
       _setError(e, userFacing: true);
       _notify();
       return 0;
+    }
+  }
+
+  Future<void> refreshMySeminarEnrollments() async {
+    if (mySeminarEnrollmentsLoading) return;
+    mySeminarEnrollmentsLoading = true;
+    _notify();
+    final sid = shop.id.trim();
+    try {
+      mySeminarEnrollments = sid.isEmpty
+          ? const []
+          : await _repository.loadMySeminarEnrollments(sid);
+      lastError = null;
+    } catch (e, st) {
+      debugPrint('refreshMySeminarEnrollments failed: $e\n$st');
+    } finally {
+      mySeminarEnrollmentsLoading = false;
+      _notify();
+    }
+  }
+
+  Future<bool> submitSeminarEnrollmentReview({
+    required String enrollmentId,
+    required List<String> insightTags,
+    String comment = '',
+  }) async {
+    try {
+      await _repository.submitSeminarEnrollmentReview(
+        enrollmentId: enrollmentId,
+        insightTags: insightTags,
+        comment: comment,
+      );
+      lastError = null;
+      _notify();
+      return true;
+    } catch (e, st) {
+      debugPrint('submitSeminarEnrollmentReview failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return false;
     }
   }
 

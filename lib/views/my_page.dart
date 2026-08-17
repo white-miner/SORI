@@ -5,13 +5,16 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
+import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/media_permission_dialogs.dart';
 import '../widgets/membership_ticket_wallet.dart';
+import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/shop_tier_badge_chip.dart';
+import '../widgets/seminar_review_modal.dart';
 import '../widgets/sori_logo.dart';
 import 'ai_shop_report_page.dart';
 import 'customer_review_history_page.dart';
@@ -47,6 +50,7 @@ class _MyPageState extends State<MyPage> {
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshMembershipWallet();
+      store.refreshMySeminarEnrollments();
       if (store.session?.activeMode == UserRole.director) {
         store.refreshSeminarEducationInsight();
       }
@@ -371,7 +375,24 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                     ),
                     if (shop.tierBadge.isVisible) ...[
                       const SizedBox(height: 8),
-                      ShopTierBadgeChip(badge: shop.tierBadge),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          ShopTierBadgeChip(badge: shop.tierBadge),
+                          ShopFundingProofChip(
+                            totalSeminarCount: shop.totalSeminarCount,
+                            totalFundingAmount: shop.totalFundingAmount,
+                          ),
+                        ],
+                      ),
+                    ] else if (shop.totalSeminarCount > 0 ||
+                        shop.totalFundingAmount > 0) ...[
+                      const SizedBox(height: 8),
+                      ShopFundingProofChip(
+                        totalSeminarCount: shop.totalSeminarCount,
+                        totalFundingAmount: shop.totalFundingAmount,
+                      ),
                     ],
                     const SizedBox(height: 8),
                     Text(
@@ -432,6 +453,8 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                         );
                       },
                     ),
+                    const SizedBox(height: 16),
+                    _MySeminarEnrollmentsSection(store: store),
                     const SizedBox(height: 16),
                     _AiReportSummaryCard(
                       report: AiShopReportMock.demo(),
@@ -1030,6 +1053,8 @@ class _CustomerMyPage extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _MySeminarEnrollmentsSection(store: store),
             const SizedBox(height: 22),
             Row(
               children: [
@@ -1071,6 +1096,109 @@ class _CustomerMyPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MySeminarEnrollmentsSection extends StatelessWidget {
+  const _MySeminarEnrollmentsSection({required this.store});
+
+  final SoriStore store;
+
+  Future<void> _complete(BuildContext context, SeminarEnrollment enrollment) async {
+    final ok = await SeminarReviewModal.show(
+      context,
+      store: store,
+      enrollmentId: enrollment.id,
+      classTitle: enrollment.classTitle,
+    );
+    if (!context.mounted || !ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('「${enrollment.classTitle}」 수강 완료 · 에스크로 정산이 진행됐어요'),
+        backgroundColor: SoriTokens.success,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final held = store.mySeminarEnrollments.where((e) => e.isHeld).toList();
+    if (store.mySeminarEnrollmentsLoading && held.isEmpty) {
+      return const _FloatCard(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (held.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          '내 세미나 수강',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...held.map(
+          (e) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _FloatCard(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e.classTitle,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '에스크로 보관 중 · ${e.amount > 0 ? '${e.amount}원' : '수강료 결제 완료'}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: () => _complete(context, e),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SoriTokens.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                    ),
+                    child: const Text(
+                      '수강 완료',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

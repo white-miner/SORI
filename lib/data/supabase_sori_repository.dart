@@ -19,6 +19,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
+import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../services/supabase_client.dart';
@@ -2158,16 +2159,20 @@ class SupabaseSoriRepository implements SoriRepository {
 
       int cash = 0;
       String tier = '';
+      int seminarCount = 0;
+      int fundingAmount = 0;
       try {
         final shopRow = await _db
             .from('shops')
-            .select('sori_cash_balance, tier_badge')
+            .select('sori_cash_balance, tier_badge, total_seminar_count, total_funding_amount')
             .eq('id', sid)
             .maybeSingle();
         if (shopRow != null) {
           final map = Map<String, dynamic>.from(shopRow as Map);
           cash = DbMap.asInt(map['sori_cash_balance']);
           tier = DbMap.asText(map['tier_badge']);
+          seminarCount = DbMap.asInt(map['total_seminar_count']);
+          fundingAmount = DbMap.asInt(map['total_funding_amount']);
         }
       } catch (_) {}
 
@@ -2176,6 +2181,8 @@ class SupabaseSoriRepository implements SoriRepository {
         requestsByCase: byCase,
         soriCashBalance: cash,
         tierBadgeLabel: tier,
+        totalSeminarCount: seminarCount,
+        totalFundingAmount: fundingAmount,
       );
     } catch (e, st) {
       debugPrint('loadSeminarEducationInsight failed: $e\n$st');
@@ -2274,5 +2281,60 @@ class SupabaseSoriRepository implements SoriRepository {
       return DbMap.asInt(result['net_amount']);
     }
     return 0;
+  }
+
+  @override
+  Future<List<SeminarEnrollment>> loadMySeminarEnrollments(
+    String enrollorShopId,
+  ) async {
+    final sid = enrollorShopId.trim();
+    if (sid.isEmpty) return const [];
+
+    try {
+      final rows = await _db
+          .from('seminar_enrollments')
+          .select(
+            'id, class_id, enrollor_shop_id, amount, status, created_at, '
+            'seminar_classes(id, title, event_date)',
+          )
+          .eq('enrollor_shop_id', sid)
+          .eq('status', 'held')
+          .order('created_at', ascending: false);
+
+      return (rows as List)
+          .map(
+            (e) => SeminarEnrollment.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(growable: false);
+    } catch (e, st) {
+      debugPrint('loadMySeminarEnrollments failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> submitSeminarEnrollmentReview({
+    required String enrollmentId,
+    required List<String> insightTags,
+    String comment = '',
+  }) async {
+    final tags = insightTags
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    if (tags.isEmpty) {
+      throw ArgumentError('at least one insight tag required');
+    }
+
+    await _db.rpc(
+      'submit_seminar_enrollment_review',
+      params: {
+        'p_enrollment_id': enrollmentId.trim(),
+        'p_insight_tags': tags,
+        'p_comment': comment.trim(),
+      },
+    );
   }
 }

@@ -7,6 +7,7 @@ import '../models/shop.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/seminar_checkout_bottom_sheet.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 
@@ -468,10 +469,20 @@ class _DirectorProfileSection extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (shop.tierBadge.isVisible) ...[
-                      const SizedBox(width: 6),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (shop.tierBadge.isVisible)
                       ShopTierBadgeChip(badge: shop.tierBadge, compact: true),
-                    ],
+                    ShopFundingProofChip(
+                      totalSeminarCount: shop.totalSeminarCount,
+                      totalFundingAmount: shop.totalFundingAmount,
+                      compact: true,
+                    ),
                   ],
                 ),
               ],

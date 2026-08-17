@@ -29,6 +29,35 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
   final _capacityCtrl = TextEditingController(text: '12');
   DateTime? _eventDate;
   bool _saving = false;
+  List<String> _titleSuggestions = [];
+
+  List<String> _suggestionsForPrice(int price) {
+    if (price <= 0) return const [];
+    if (price <= 50000) {
+      return const ['원포인트 팁', '베이직 노하우'];
+    }
+    if (price >= 200000) {
+      return const ['마스터 테크닉 전수', 'VVIP 프라이빗'];
+    }
+    return const [];
+  }
+
+  void _onPriceChanged(String raw) {
+    final price = int.tryParse(raw.replaceAll(',', '')) ?? 0;
+    final next = _suggestionsForPrice(price);
+    if (next.length != _titleSuggestions.length ||
+        !_listEquals(next, _titleSuggestions)) {
+      setState(() => _titleSuggestions = next);
+    }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 
   @override
   void initState() {
@@ -37,6 +66,9 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
         ? '임상 케이스 라이브 세미나'
         : widget.initialTitle.trim();
     _eventDate = DateTime.now().add(const Duration(days: 14));
+    _titleSuggestions = _suggestionsForPrice(
+      int.tryParse(_priceCtrl.text.replaceAll(',', '')) ?? 0,
+    );
   }
 
   @override
@@ -166,11 +198,42 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
           TextField(
             controller: _priceCtrl,
             keyboardType: TextInputType.number,
+            onChanged: _onPriceChanged,
             decoration: const InputDecoration(
               labelText: '수강료 (원)',
               border: OutlineInputBorder(),
             ),
           ),
+          if (_titleSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '추천 클래스명',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: _titleSuggestions.map((label) {
+                return ActionChip(
+                  label: Text(label),
+                  onPressed: () => setState(() => _titleCtrl.text = label),
+                  backgroundColor: SoriTokens.primarySoft,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.primary,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _capacityCtrl,
