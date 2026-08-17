@@ -848,21 +848,6 @@ class _FeedPostCard extends StatelessWidget {
                   ),
                 ),
                 if (hasReview) const VerifiedReviewBadge(small: true),
-                const SizedBox(width: 4),
-                ActionChip(
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  label: Text(
-                    hasBooking ? '[네이버 예약]' : '[샵 프로필 보기]',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  onPressed: hasBooking ? onBookingCta : onShopProfile,
-                  side: BorderSide(color: Colors.grey.shade300),
-                  backgroundColor: Colors.white,
-                ),
               ],
             ),
           ),
@@ -884,26 +869,32 @@ class _FeedPostCard extends StatelessWidget {
           ),
           if (tags.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Wrap(
                 spacing: 6,
-                runSpacing: 6,
+                runSpacing: 4,
                 children: tags.take(8).map((raw) {
                   final label = raw.trim().startsWith('#')
                       ? raw.trim()
                       : '#${raw.trim()}';
-                  return Chip(
+                  return InputChip(
                     label: Text(
                       label,
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: Colors.grey.shade700,
+                        height: 1.1,
                       ),
                     ),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onPressed: () {},
+                    visualDensity: const VisualDensity(
+                      horizontal: -4,
+                      vertical: -4,
+                    ),
+                    materialTapTargetSize: MaterialTapTargetSize.padded,
                     padding: const EdgeInsets.symmetric(horizontal: 2),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                     backgroundColor: Colors.transparent,
                     side: BorderSide(color: Colors.grey.shade300),
                     shape: RoundedRectangleBorder(
@@ -941,17 +932,29 @@ class _FeedPostCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 const Spacer(),
-                TextButton(
+                FilledButton(
                   onPressed: hasBooking ? onBookingCta : onShopProfile,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: const StadiumBorder(),
+                  ),
                   child: Text(
-                    hasBooking ? '[네이버 예약]' : '[샵 프로필 보기]',
-                    style: TextStyle(
+                    hasBooking ? '네이버 예약' : '샵 프로필 보기',
+                    style: const TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: SoriTokens.primary,
                       fontSize: 12.5,
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
               ],
             ),
           ),

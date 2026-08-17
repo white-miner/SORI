@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/session_user.dart';
@@ -142,7 +141,7 @@ class _AppShellPageState extends State<AppShellPage> {
               title: _titleForTab(isDirector, tab),
               badgeCount: _notificationBadgeCount(session),
               onNotifications: _openNotifications,
-              onSettings: _openSettings,
+              onSettings: tab == 4 ? _openSettings : null,
             ),
       body: widget.navigationShell,
       bottomNavigationBar: _CenterReviewBottomNav(
@@ -161,13 +160,13 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     required this.badgeCount,
     required this.onNotifications,
-    required this.onSettings,
+    this.onSettings,
   });
 
   final String title;
   final int badgeCount;
   final VoidCallback onNotifications;
-  final VoidCallback onSettings;
+  final VoidCallback? onSettings;
 
   static const double toolbarHeight = 60;
 
@@ -253,12 +252,14 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                           badgeCount: badgeCount,
                           onPressed: onNotifications,
                         ),
-                        const SizedBox(width: 8),
-                        _GlossyIconButton(
-                          icon: Icons.settings_rounded,
-                          onPressed: onSettings,
-                          tooltip: '설정',
-                        ),
+                        if (onSettings != null) ...[
+                          const SizedBox(width: 8),
+                          _GlossyIconButton(
+                            icon: Icons.settings_rounded,
+                            onPressed: onSettings!,
+                            tooltip: '설정',
+                          ),
+                        ],
                       ],
                     ),
                   ),
