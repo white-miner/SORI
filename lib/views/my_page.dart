@@ -11,11 +11,13 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/media_permission_dialogs.dart';
 import '../widgets/membership_ticket_wallet.dart';
+import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/sori_logo.dart';
 import 'ai_shop_report_page.dart';
 import 'customer_review_history_page.dart';
 import 'director_profile_edit_page.dart';
 import 'my_info_edit_page.dart';
+import 'seminar_class_open_page.dart';
 
 /// 마이페이지 전용 쿨그레이 배경.
 const Color _myPageBg = Color(0xFFF5F6F8);
@@ -45,6 +47,9 @@ class _MyPageState extends State<MyPage> {
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshMembershipWallet();
+      if (store.session?.activeMode == UserRole.director) {
+        store.refreshSeminarEducationInsight();
+      }
     });
   }
 
@@ -94,6 +99,22 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
   SoriStore get store => widget.store;
   ValueChanged<int>? get onSelectTab => widget.onSelectTab;
   bool _avatarUploading = false;
+
+  String? _topRequestedCaseId() {
+    final insight = store.seminarEducationInsight;
+    if (insight == null || insight.requestsByCase.isEmpty) return null;
+    var bestId = '';
+    var bestCount = -1;
+    for (final e in insight.requestsByCase.entries) {
+      if (e.value > bestCount) {
+        bestCount = e.value;
+        bestId = e.key;
+      }
+    }
+    return bestId.isEmpty ? null : bestId;
+  }
+
+  CustomerChart? _chartById(String id) => store.findChartById(id);
 
   List<CustomerChart> get _baCases {
     final out = <CustomerChart>[];
@@ -348,6 +369,10 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                         color: Colors.grey.shade600,
                       ),
                     ),
+                    if (shop.tierBadge.isVisible) ...[
+                      const SizedBox(height: 8),
+                      ShopTierBadgeChip(badge: shop.tierBadge),
+                    ],
                     const SizedBox(height: 8),
                     Text(
                       _bio,
@@ -385,6 +410,27 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                           ),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    _SeminarEducationInsightCard(
+                      loading: store.seminarEducationLoading,
+                      totalRequests:
+                          store.seminarEducationInsight?.totalRequests ?? 0,
+                      soriCashBalance: shop.soriCashBalance,
+                      onOpenClass: () {
+                        final topCase = _topRequestedCaseId();
+                        final chart =
+                            topCase == null ? null : _chartById(topCase);
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => SeminarClassOpenPage(
+                              store: store,
+                              targetCaseId: topCase,
+                              initialTitle: chart?.careName ?? '',
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     _AiReportSummaryCard(
@@ -531,6 +577,106 @@ class _ProfileStat extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: child,
+      ),
+    );
+  }
+}
+
+class _SeminarEducationInsightCard extends StatelessWidget {
+  const _SeminarEducationInsightCard({
+    required this.loading,
+    required this.totalRequests,
+    required this.soriCashBalance,
+    required this.onOpenClass,
+  });
+
+  final bool loading;
+  final int totalRequests;
+  final int soriCashBalance;
+  final VoidCallback onOpenClass;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8E4F8)),
+        boxShadow: [
+          BoxShadow(
+            color: SoriTokens.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: SoriTokens.primarySoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  color: SoriTokens.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  '교육 수요 인사이트',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (loading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '내 게시물 세미나 요청 $totalRequests건',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: SoriTokens.primary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'SORI Cash 잔액 ${soriCashBalance.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}원',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: onOpenClass,
+            style: FilledButton.styleFrom(
+              backgroundColor: SoriTokens.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: const Text(
+              '클래스 오픈하기',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
       ),
     );
   }

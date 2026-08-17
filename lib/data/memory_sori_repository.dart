@@ -1,4 +1,5 @@
 import '../models/care_diary_note.dart';
+import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
@@ -9,7 +10,10 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/seminar_class.dart';
+import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
+import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
 import 'sori_repository.dart';
 
@@ -17,6 +21,11 @@ import 'sori_repository.dart';
 class MemorySoriRepository implements SoriRepository {
   /// shopId → customerIds 팔로우 셋 (프로세스 내 유지).
   static final Map<String, Set<String>> _followersByShop = {};
+  static final Map<String, Set<String>> _seminarRequestsByCase = {};
+  static final List<SeminarClass> _seminarClasses = [];
+  static int _seminarClassSeq = 0;
+  static int _enrollmentSeq = 0;
+  static final Map<String, int> _shopCashBalance = {};
 
   @override
   bool get isRemote => false;
@@ -738,5 +747,110 @@ class MemorySoriRepository implements SoriRepository {
     } else {
       set.remove(cid);
     }
+  }
+
+  @override
+  Future<List<CaseTimelineEntry>> loadCaseTimelineGroup(String chartId) async {
+    final snap = createSeedSnapshot();
+    CustomerChart? anchor;
+    for (final c in snap.charts) {
+      if (c.id == chartId) {
+        anchor = c;
+        break;
+      }
+    }
+    if (anchor == null) return const [];
+
+    final tags = anchor.careTags.toSet();
+    final out = <CaseTimelineEntry>[];
+    for (final c in snap.charts) {
+      if (c.customerId != anchor.customerId || c.shopId != anchor.shopId) {
+        continue;
+      }
+      if (!c.caseShared) continue;
+      final overlap = tags.isEmpty ||
+          c.careTags.any(tags.contains) ||
+          c.id == chartId;
+      if (!overlap) continue;
+      out.add(
+        CaseTimelineEntry(
+          chartId: c.id,
+          visitNumber: c.visitNumber,
+          careName: c.careName,
+          beforeImageUrl: c.beforeImageUrl,
+          afterImageUrl: c.afterImageUrl,
+          careTags: c.careTags,
+          createdAt: c.createdAt,
+        ),
+      );
+    }
+    out.sort((a, b) => a.visitNumber.compareTo(b.visitNumber));
+    return out;
+  }
+
+  @override
+  Future<void> insertSeminarRequest({
+    required String caseId,
+    required String requestorShopId,
+  }) async {
+    final key = caseId.trim();
+    final req = requestorShopId.trim();
+    if (key.isEmpty || req.isEmpty) return;
+    _seminarRequestsByCase.putIfAbsent(key, () => <String>{}).add(req);
+  }
+
+  @override
+  Future<SeminarEducationInsight> loadSeminarEducationInsight(
+    String directorShopId,
+  ) async {
+    final snap = createSeedSnapshot();
+    final myChartIds = snap.charts
+        .where((c) => c.shopId == directorShopId)
+        .map((c) => c.id)
+        .toSet();
+    final byCase = <String, int>{};
+    for (final entry in _seminarRequestsByCase.entries) {
+      if (!myChartIds.contains(entry.key)) continue;
+      byCase[entry.key] = entry.value.length;
+    }
+    return SeminarEducationInsight(
+      totalRequests: byCase.values.fold(0, (a, b) => a + b),
+      requestsByCase: byCase,
+      soriCashBalance: _shopCashBalance[directorShopId] ?? 0,
+      tierBadgeLabel: ShopTierBadge.silver.label,
+    );
+  }
+
+  @override
+  Future<SeminarClass> createSeminarClass(SeminarClass draft) async {
+    _seminarClassSeq++;
+    final created = SeminarClass(
+      id: 'sem-local-$_seminarClassSeq',
+      directorShopId: draft.directorShopId,
+      targetCaseId: draft.targetCaseId,
+      title: draft.title,
+      eventDate: draft.eventDate,
+      location: draft.location,
+      price: draft.price,
+      maxCapacity: draft.maxCapacity,
+      status: draft.status,
+      createdAt: DateTime.now(),
+    );
+    _seminarClasses.add(created);
+    return created;
+  }
+
+  @override
+  Future<String> enrollSeminarClass({
+    required String classId,
+    required String enrollorShopId,
+  }) async {
+    _enrollmentSeq++;
+    return 'enroll-local-$_enrollmentSeq';
+  }
+
+  @override
+  Future<int> settleSeminarEnrollment(String enrollmentId) async {
+    return 0;
   }
 }

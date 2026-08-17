@@ -11,6 +11,7 @@ import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
+import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
@@ -23,7 +24,10 @@ import '../models/review_reply.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/seminar_class.dart';
+import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
+import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
 import '../utils/db_map.dart';
 import '../utils/korean_choseong.dart';
@@ -103,6 +107,8 @@ class SoriStore implements Listenable {
   bool shopFandomMetaLoading = false;
   final List<CommunityCaseItem> communityHotCases = [];
   bool communityHotCasesLoading = false;
+  SeminarEducationInsight? seminarEducationInsight;
+  bool seminarEducationLoading = false;
   String todayHomecareTip =
       '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.';
 
@@ -1610,6 +1616,148 @@ class SoriStore implements Listenable {
     } finally {
       communityHotCasesLoading = false;
       _notify();
+    }
+  }
+
+  /// 동일 고객·태그 회차 타임라인.
+  Future<List<CaseTimelineEntry>> loadCaseTimelineGroup(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return const [];
+
+    final local = findChartById(id);
+    if (local != null && local.customerId.trim().isNotEmpty) {
+      final tags = local.careTags.toSet();
+      final grouped = charts
+          .where((c) {
+            if (c.customerId != local.customerId || c.shopId != local.shopId) {
+              return false;
+            }
+            if (!c.caseShared) return false;
+            if (c.id == id) return true;
+            if (tags.isEmpty) return true;
+            return c.careTags.any(tags.contains);
+          })
+          .map(
+            (c) => CaseTimelineEntry(
+              chartId: c.id,
+              visitNumber: c.visitNumber,
+              careName: c.careName,
+              beforeImageUrl: c.beforeImageUrl,
+              afterImageUrl: c.afterImageUrl,
+              careTags: c.careTags,
+              createdAt: c.createdAt ?? c.visitCheckedAt,
+            ),
+          )
+          .toList()
+        ..sort((a, b) => a.visitNumber.compareTo(b.visitNumber));
+      if (grouped.isNotEmpty) return grouped;
+    }
+
+    try {
+      return await _repository.loadCaseTimelineGroup(id);
+    } catch (e, st) {
+      debugPrint('loadCaseTimelineGroup failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  Future<bool> requestSeminar({
+    required String caseId,
+    required String requestorShopId,
+  }) async {
+    try {
+      await _repository.insertSeminarRequest(
+        caseId: caseId,
+        requestorShopId: requestorShopId,
+      );
+      lastError = null;
+      _notify();
+      return true;
+    } catch (e, st) {
+      debugPrint('requestSeminar failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return false;
+    }
+  }
+
+  Future<void> refreshSeminarEducationInsight() async {
+    if (seminarEducationLoading) return;
+    seminarEducationLoading = true;
+    _notify();
+    final shopId = shop.id.trim();
+    try {
+      seminarEducationInsight =
+          await _repository.loadSeminarEducationInsight(shopId);
+      final insight = seminarEducationInsight;
+      if (insight != null) {
+        shop = shop.copyWith(
+          soriCashBalance: insight.soriCashBalance > 0
+              ? insight.soriCashBalance
+              : shop.soriCashBalance,
+          tierBadge: insight.tierBadgeLabel.isNotEmpty
+              ? ShopTierBadge.fromDb(insight.tierBadgeLabel)
+              : shop.tierBadge,
+        );
+      }
+      lastError = null;
+    } catch (e, st) {
+      debugPrint('refreshSeminarEducationInsight failed: $e\n$st');
+    } finally {
+      seminarEducationLoading = false;
+      _notify();
+    }
+  }
+
+  Future<SeminarClass?> createSeminarClass(SeminarClass draft) async {
+    try {
+      final created = await _repository.createSeminarClass(draft);
+      lastError = null;
+      _notify();
+      return created;
+    } catch (e, st) {
+      debugPrint('createSeminarClass failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return null;
+    }
+  }
+
+  Future<String?> enrollSeminarClass({
+    required String classId,
+    String? enrollorShopId,
+  }) async {
+    final sid = (enrollorShopId ?? shop.id).trim();
+    if (sid.isEmpty) return null;
+    try {
+      final enrollId = await _repository.enrollSeminarClass(
+        classId: classId,
+        enrollorShopId: sid,
+      );
+      lastError = null;
+      _notify();
+      return enrollId;
+    } catch (e, st) {
+      debugPrint('enrollSeminarClass failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return null;
+    }
+  }
+
+  Future<int> settleSeminarEnrollment(String enrollmentId) async {
+    try {
+      final net = await _repository.settleSeminarEnrollment(enrollmentId);
+      shop = shop.copyWith(soriCashBalance: shop.soriCashBalance + net);
+      await refreshSeminarEducationInsight();
+      lastError = null;
+      _notify();
+      return net;
+    } catch (e, st) {
+      debugPrint('settleSeminarEnrollment failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return 0;
     }
   }
 

@@ -1,5 +1,6 @@
 import '../utils/db_map.dart';
 import 'shop_service_item.dart';
+import 'shop_tier_badge.dart';
 
 class Shop {
   const Shop({
@@ -20,6 +21,8 @@ class Shop {
     this.kakaoPoint = 0,
     this.isPro = false,
     this.monthlyCapa = 100,
+    this.tierBadge = ShopTierBadge.none,
+    this.soriCashBalance = 0,
   });
 
   final String id;
@@ -59,6 +62,12 @@ class Shop {
 
   /// 월간 소화 CAPA(회). Hell-Zone = 잔여 총합 > CAPA * 1.2.
   final int monthlyCapa;
+
+  /// 누적 공유 케이스 기반 B2B 티어.
+  final ShopTierBadge tierBadge;
+
+  /// 세미나 정산 SORI Cash 잔액 (원).
+  final int soriCashBalance;
 
   /// 차트·회원권 드롭다운용 서비스명 목록.
   List<String> get serviceNames => serviceMenu
@@ -112,6 +121,8 @@ class Shop {
     int? kakaoPoint,
     bool? isPro,
     int? monthlyCapa,
+    ShopTierBadge? tierBadge,
+    int? soriCashBalance,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -133,6 +144,8 @@ class Shop {
       kakaoPoint: kakaoPoint ?? this.kakaoPoint,
       isPro: isPro ?? this.isPro,
       monthlyCapa: monthlyCapa ?? this.monthlyCapa,
+      tierBadge: tierBadge ?? this.tierBadge,
+      soriCashBalance: soriCashBalance ?? this.soriCashBalance,
     );
   }
 
@@ -154,6 +167,8 @@ class Shop {
         'kakao_point': kakaoPoint,
         'is_pro': isPro,
         'monthly_capa': monthlyCapa,
+        'tier_badge': tierBadge.dbValue,
+        'sori_cash_balance': soriCashBalance,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -223,6 +238,12 @@ class Shop {
           map['monthly_capa'] ?? map['monthlyCapa'],
           100,
         ),
+        tierBadge: ShopTierBadge.fromDb(
+          DbMap.asText(map['tier_badge'] ?? map['shop_tier_badge']),
+        ),
+        soriCashBalance: DbMap.asInt(
+          map['sori_cash_balance'] ?? map['soriCashBalance'],
+        ),
       );
     } catch (_) {
       return Shop(
@@ -250,6 +271,12 @@ class Shop {
         monthlyCapa: DbMap.asInt(
           map['monthly_capa'] ?? map['monthlyCapa'],
           100,
+        ),
+        tierBadge: ShopTierBadge.fromDb(
+          DbMap.asText(map['tier_badge'] ?? map['shop_tier_badge']),
+        ),
+        soriCashBalance: DbMap.asInt(
+          map['sori_cash_balance'] ?? map['soriCashBalance'],
         ),
       );
     }

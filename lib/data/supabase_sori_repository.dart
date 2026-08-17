@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
 import '../models/chart_db_columns.dart';
+import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
@@ -15,7 +16,10 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/seminar_class.dart';
+import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
+import '../models/shop_tier_badge.dart';
 import '../services/supabase_client.dart';
 import '../utils/db_map.dart';
 import 'sori_repository.dart';
@@ -1815,6 +1819,9 @@ class SupabaseSoriRepository implements SoriRepository {
             naverBookingUrl: DbMap.asText(map['shop_naver_booking_url']),
             ownerName: DbMap.asTextOrNull(map['shop_owner_name']),
             profileImageUrl: DbMap.asTextOrNull(map['shop_profile_image_url']),
+            tierBadge: ShopTierBadge.fromDb(
+              DbMap.asText(map['shop_tier_badge']),
+            ),
           );
 
           CustomerReview? review;
@@ -1921,7 +1928,7 @@ class SupabaseSoriRepository implements SoriRepository {
         try {
           final shopRows = await _db.from('shops').select(
                 'id, name, owner_name, profile_image_url, naver_place_url, '
-                'naver_booking_url',
+                'naver_booking_url, tier_badge, sori_cash_balance',
               ).inFilter('id', shopIds);
           for (final s in _mapRowsSafely(
             shopRows as List,
@@ -2073,5 +2080,145 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('setShopFollow failed: $e\n$st');
       rethrow;
     }
+  }
+
+  @override
+  Future<List<CaseTimelineEntry>> loadCaseTimelineGroup(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db.rpc(
+        'get_case_timeline_group',
+        params: {'p_chart_id': id},
+      );
+      if (rows is! List) return const [];
+      return rows
+          .whereType<Map>()
+          .map((e) => CaseTimelineEntry.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadCaseTimelineGroup failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> insertSeminarRequest({
+    required String caseId,
+    required String requestorShopId,
+  }) async {
+    final cid = caseId.trim();
+    final sid = requestorShopId.trim();
+    if (cid.isEmpty || sid.isEmpty) {
+      throw ArgumentError('caseId and requestorShopId required');
+    }
+    await _db.from('seminar_requests').upsert(
+      {
+        'case_id': cid,
+        'requestor_shop_id': sid,
+      },
+      onConflict: 'case_id,requestor_shop_id',
+    );
+  }
+
+  @override
+  Future<SeminarEducationInsight> loadSeminarEducationInsight(
+    String directorShopId,
+  ) async {
+    final sid = directorShopId.trim();
+    if (sid.isEmpty) {
+      return const SeminarEducationInsight(
+        totalRequests: 0,
+        requestsByCase: {},
+      );
+    }
+    try {
+      final chartRows = await _db
+          .from('customer_charts')
+          .select('id')
+          .eq('shop_id', sid);
+      final chartIds = (chartRows as List)
+          .map((e) => DbMap.asText((e as Map)['id']))
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      final byCase = <String, int>{};
+      if (chartIds.isNotEmpty) {
+        final reqRows = await _db
+            .from('seminar_requests')
+            .select('case_id')
+            .inFilter('case_id', chartIds);
+        for (final raw in reqRows as List) {
+          final caseId = DbMap.asText((raw as Map)['case_id']);
+          if (caseId.isEmpty) continue;
+          byCase[caseId] = (byCase[caseId] ?? 0) + 1;
+        }
+      }
+
+      int cash = 0;
+      String tier = '';
+      try {
+        final shopRow = await _db
+            .from('shops')
+            .select('sori_cash_balance, tier_badge')
+            .eq('id', sid)
+            .maybeSingle();
+        if (shopRow != null) {
+          final map = Map<String, dynamic>.from(shopRow as Map);
+          cash = DbMap.asInt(map['sori_cash_balance']);
+          tier = DbMap.asText(map['tier_badge']);
+        }
+      } catch (_) {}
+
+      return SeminarEducationInsight(
+        totalRequests: byCase.values.fold(0, (a, b) => a + b),
+        requestsByCase: byCase,
+        soriCashBalance: cash,
+        tierBadgeLabel: tier,
+      );
+    } catch (e, st) {
+      debugPrint('loadSeminarEducationInsight failed: $e\n$st');
+      return const SeminarEducationInsight(
+        totalRequests: 0,
+        requestsByCase: {},
+      );
+    }
+  }
+
+  @override
+  Future<SeminarClass> createSeminarClass(SeminarClass draft) async {
+    final row = await _db
+        .from('seminar_classes')
+        .insert(draft.toInsertMap())
+        .select()
+        .single();
+    return SeminarClass.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<String> enrollSeminarClass({
+    required String classId,
+    required String enrollorShopId,
+  }) async {
+    final result = await _db.rpc(
+      'enroll_seminar_class',
+      params: {
+        'p_class_id': classId.trim(),
+        'p_enrollor_shop_id': enrollorShopId.trim(),
+      },
+    );
+    return DbMap.asText(result);
+  }
+
+  @override
+  Future<int> settleSeminarEnrollment(String enrollmentId) async {
+    final result = await _db.rpc(
+      'settle_seminar_enrollment',
+      params: {'p_enrollment_id': enrollmentId.trim()},
+    );
+    if (result is Map) {
+      return DbMap.asInt(result['net_amount']);
+    }
+    return 0;
   }
 }

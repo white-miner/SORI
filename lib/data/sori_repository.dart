@@ -1,5 +1,6 @@
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
+import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
@@ -10,6 +11,8 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/seminar_class.dart';
+import '../models/seminar_education_insight.dart';
 import '../models/shop_highlight.dart';
 import 'auth_role_resolution.dart';
 
@@ -280,4 +283,28 @@ abstract class SoriRepository {
     required String customerId,
     required bool following,
   });
+
+  /// 동일 고객·관리 태그 회차 타임라인 (RPC).
+  Future<List<CaseTimelineEntry>> loadCaseTimelineGroup(String chartId);
+
+  /// B2B 세미나 요청 Insert.
+  Future<void> insertSeminarRequest({
+    required String caseId,
+    required String requestorShopId,
+  });
+
+  /// 내 샵 케이스에 쌓인 세미나 요청 인사이트.
+  Future<SeminarEducationInsight> loadSeminarEducationInsight(String directorShopId);
+
+  /// 세미나 클래스 등록.
+  Future<SeminarClass> createSeminarClass(SeminarClass draft);
+
+  /// 세미나 수강 등록 — 에스크로 held.
+  Future<String> enrollSeminarClass({
+    required String classId,
+    required String enrollorShopId,
+  });
+
+  /// 수강 완료 정산 — 원장 sori_cash_balance 적립.
+  Future<int> settleSeminarEnrollment(String enrollmentId);
 }

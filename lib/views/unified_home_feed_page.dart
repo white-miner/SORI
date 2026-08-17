@@ -15,6 +15,8 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/case_review_inline.dart';
+import '../widgets/case_timeline_modal.dart';
+import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/sori_logo.dart';
 import 'ba_reels_detail_page.dart';
 
@@ -232,6 +234,52 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       ),
     );
   }
+
+  Future<void> _openCaseTimeline(CommunityCaseItem item, int feedIndex) async {
+    final care = item.chart.careName.trim().isNotEmpty
+        ? item.chart.careName.trim()
+        : '관리 케이스';
+    await CaseTimelineModal.show(
+      context,
+      store: store,
+      chartId: item.chart.id,
+      careLabel: care,
+      onOpenFullScreen: () => _openReels(feedIndex),
+    );
+  }
+
+  Future<void> _requestSeminar(CommunityCaseItem item) async {
+    final myShopId = store.shop.id.trim();
+    if (myShopId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('샵 정보가 없어 요청할 수 없습니다.')),
+      );
+      return;
+    }
+    if (item.shop.id == myShopId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('내 샵 케이스에는 세미나 요청이 필요 없습니다.')),
+      );
+      return;
+    }
+
+    final ok = await store.requestSeminar(
+      caseId: item.chart.id,
+      requestorShopId: myShopId,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok ? '🎓 세미나 요청이 전달됐어요' : '요청에 실패했습니다. 다시 시도해 주세요.',
+        ),
+        backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
+      ),
+    );
+  }
+
+  bool get _isDirectorB2B =>
+      store.session?.activeMode == UserRole.director;
 
   Future<void> _markStoryViewed(String shopId) async {
     final id = shopId.trim();
@@ -555,9 +603,13 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                           liked: _liked.contains(id),
                           likeCount: likes,
                           commentCount: comments.length,
+                          showSeminarRequest: _isDirectorB2B &&
+                              item.shop.id != store.shop.id,
                           onLike: () => _toggleLike(id),
                           onComment: () => _openComments(item.chart),
-                          onOpenMedia: () => _openReels(index),
+                          onOpenMedia: () => _openCaseTimeline(item, index),
+                          onOpenFullScreen: () => _openReels(index),
+                          onSeminarRequest: () => _requestSeminar(item),
                           onBookingCta: () =>
                               _openNaverBookingOrProfile(item.shop),
                           onShopProfile: () => _openShopProfile(item.shop),
@@ -763,6 +815,9 @@ class _FeedPostCard extends StatelessWidget {
     required this.onOpenMedia,
     required this.onBookingCta,
     required this.onShopProfile,
+    this.onOpenFullScreen,
+    this.onSeminarRequest,
+    this.showSeminarRequest = false,
     this.review,
   });
 
@@ -771,9 +826,12 @@ class _FeedPostCard extends StatelessWidget {
   final bool liked;
   final int likeCount;
   final int commentCount;
+  final bool showSeminarRequest;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onOpenMedia;
+  final VoidCallback? onOpenFullScreen;
+  final VoidCallback? onSeminarRequest;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
 
@@ -848,11 +906,16 @@ class _FeedPostCard extends StatelessWidget {
                   ),
                 ),
                 if (hasReview) const VerifiedReviewBadge(small: true),
+                if (shop.tierBadge.isVisible) ...[
+                  const SizedBox(width: 6),
+                  ShopTierBadgeChip(badge: shop.tierBadge, compact: true),
+                ],
               ],
             ),
           ),
           GestureDetector(
             onTap: onOpenMedia,
+            onLongPress: onOpenFullScreen,
             child: BeforeAfterSlider(
               height: 320,
               before: ChartImagePane(
@@ -932,6 +995,32 @@ class _FeedPostCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 const Spacer(),
+                if (showSeminarRequest && onSeminarRequest != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: OutlinedButton.icon(
+                      onPressed: onSeminarRequest,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SoriTokens.primary,
+                        side: BorderSide(color: SoriTokens.primary.withValues(alpha: 0.45)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        minimumSize: const Size(0, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: const StadiumBorder(),
+                      ),
+                      icon: const Icon(Icons.school_outlined, size: 16),
+                      label: const Text(
+                        '🎓 세미나 요청',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  ),
                 FilledButton(
                   onPressed: hasBooking ? onBookingCta : onShopProfile,
                   style: FilledButton.styleFrom(
