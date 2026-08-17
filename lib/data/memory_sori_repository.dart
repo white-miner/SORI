@@ -883,6 +883,27 @@ class MemorySoriRepository implements SoriRepository {
     required String classId,
     required String enrollorShopId,
   }) async {
+    final id = classId.trim();
+    final idx = _seminarClasses.indexWhere((c) => c.id == id);
+    if (idx < 0) {
+      throw StateError('class not found');
+    }
+    final cls = _seminarClasses[idx];
+    if (!cls.isEnrollable) {
+      throw StateError('class not enrollable');
+    }
+    if (cls.currentEnrollment >= cls.maxCapacity) {
+      throw StateError('class full');
+    }
+
+    final nextEnrollment = cls.currentEnrollment + 1;
+    _seminarClasses[idx] = cls.copyWith(
+      currentEnrollment: nextEnrollment,
+      status: nextEnrollment >= cls.maxCapacity
+          ? SeminarClassStatus.held
+          : cls.status,
+    );
+
     _enrollmentSeq++;
     return 'enroll-local-$_enrollmentSeq';
   }

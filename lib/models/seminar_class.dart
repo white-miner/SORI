@@ -82,4 +82,24 @@ class SeminarClass {
         if (description.trim().isNotEmpty) 'description': description.trim(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
+
+  SeminarClass copyWith({
+    int? currentEnrollment,
+    SeminarClassStatus? status,
+  }) {
+    return SeminarClass(
+      id: id,
+      directorShopId: directorShopId,
+      targetCaseId: targetCaseId,
+      title: title,
+      eventDate: eventDate,
+      location: location,
+      price: price,
+      maxCapacity: maxCapacity,
+      currentEnrollment: currentEnrollment ?? this.currentEnrollment,
+      status: status ?? this.status,
+      description: description,
+      createdAt: createdAt,
+    );
+  }
 }

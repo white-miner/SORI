@@ -7,6 +7,7 @@ import '../models/shop.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/seminar_checkout_bottom_sheet.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 
 /// B2B 세미나 클래스 모집 랜딩 — SliverAppBar + 에스크로 CTA.
@@ -76,69 +77,53 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
     });
   }
 
-  void _onEscrowPaymentTap() {
-    // 향후 PG / 에스크로 결제 모달 연동 지점.
-    showModalBottomSheet<void>(
+  Future<void> _onEscrowPaymentTap() async {
+    final detail = _detail;
+    if (detail == null || !detail.seminarClass.isEnrollable) return;
+    if (detail.remainingSeats <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('모집이 마감되었습니다.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final paid = await SeminarCheckoutBottomSheet.show(
+      context,
+      store: widget.store,
+      detail: detail,
+      dateFmt: _dateFmt,
+      priceFmt: _priceFmt,
+    );
+    if (!mounted || !paid) return;
+
+    await _load();
+    if (!mounted) return;
+
+    await showDialog<void>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Icon(Icons.lock_outline_rounded, size: 44, color: SoriTokens.primary),
-              const SizedBox(height: 12),
-              const Text(
-                'SORI 에스크로 결제',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '결제 Flow(PG·카드·에스크로 held)는 곧 연동됩니다.\n'
-                '현재는 UI 뼈대만 준비되어 있습니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.45,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text(
-                    '확인',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.check_circle_rounded, color: SoriTokens.success, size: 48),
+        title: const Text(
+          '결제 완료',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          '수강료가 SORI 에스크로(held)로 안전하게 보관되었습니다.\n'
+          '교육 일정에 맞춰 참석해 주세요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(height: 1.45),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(backgroundColor: SoriTokens.primary),
+            child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w800)),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
