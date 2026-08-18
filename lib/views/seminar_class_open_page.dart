@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/seminar_class.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import 'seminar_class_detail_page.dart';
 
@@ -62,9 +63,7 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl.text = widget.initialTitle.trim().isEmpty
-        ? '임상 케이스 라이브 세미나'
-        : widget.initialTitle.trim();
+    _titleCtrl.text = widget.initialTitle.trim();
     _eventDate = DateTime.now().add(const Duration(days: 14));
     _titleSuggestions = _suggestionsForPrice(
       int.tryParse(_priceCtrl.text.replaceAll(',', '')) ?? 0,
@@ -82,11 +81,12 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await SoriDatePickerTheme.show(
       context: context,
       initialDate: _eventDate ?? now.add(const Duration(days: 7)),
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
+      helpText: '세미나 일정',
     );
     if (picked != null) setState(() => _eventDate = picked);
   }
@@ -174,6 +174,7 @@ class _SeminarClassOpenPageState extends State<SeminarClassOpenPage> {
             controller: _titleCtrl,
             decoration: const InputDecoration(
               labelText: '클래스 제목',
+              hintText: '시그니처 관리 케이스 세미나',
               border: OutlineInputBorder(),
             ),
           ),

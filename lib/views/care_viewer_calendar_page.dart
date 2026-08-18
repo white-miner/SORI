@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/care_diary_note.dart';
 import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 
 /// 케어 히스토리 뷰어 캘린더 — 방문(파란점) / 턴오버 권장일(빨간점) + 다이어리.
@@ -182,12 +183,9 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
-          Container(
+          SoriGlassPanel(
+            borderRadius: 20,
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
             child: Column(
               children: [
                 Row(

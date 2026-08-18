@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/customer.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import 'my_app.dart';
 
 class CustomerListPage extends StatefulWidget {
@@ -95,11 +96,12 @@ class _CustomerListPageState extends State<CustomerListPage> {
                       subtitle: Text(_formatDate(selectedDate)),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
-                        final picked = await showDatePicker(
+                        final picked = await SoriDatePickerTheme.show(
                           context: context,
                           initialDate: selectedDate,
                           firstDate: DateTime(2020),
                           lastDate: DateTime.now(),
+                          helpText: '최근 시술일',
                         );
                         if (picked != null) {
                           setDialogState(() {

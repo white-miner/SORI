@@ -20,6 +20,7 @@ import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/db_map.dart';
 import '../utils/sori_scroll_behavior.dart';
@@ -883,59 +884,67 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     var temp = _birthDate ?? DateTime(DateTime.now().year - 30, 1, 1);
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
       builder: (ctx) {
         return SafeArea(
-          child: SizedBox(
-            height: 320,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                  child: Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('취소'),
-                      ),
-                      const Expanded(
-                        child: Text(
-                          '생년월일',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, temp),
-                        child: const Text(
-                          '확인',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: MyApp.soriPurple,
+          child: SoriGlassPanel(
+            borderRadius: 24,
+            clipTopOnly: true,
+            child: SizedBox(
+              height: 320,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                    child: Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text(
+                            '취소',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: SoriTokens.textSecondary,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Localizations.override(
-                    context: ctx,
-                    locale: const Locale('ko', 'KR'),
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.date,
-                      dateOrder: DatePickerDateOrder.ymd,
-                      initialDateTime: temp,
-                      minimumDate: DateTime(1940),
-                      maximumDate: DateTime.now(),
-                      onDateTimeChanged: (value) => temp = value,
+                        const Expanded(
+                          child: Text(
+                            '생년월일',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, temp),
+                          child: const Text(
+                            '확인',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: MyApp.soriPurple,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Localizations.override(
+                      context: ctx,
+                      locale: const Locale('ko', 'KR'),
+                      child: CupertinoDatePicker(
+                        mode: CupertinoDatePickerMode.date,
+                        dateOrder: DatePickerDateOrder.ymd,
+                        initialDateTime: temp,
+                        minimumDate: DateTime(1940),
+                        maximumDate: DateTime.now(),
+                        onDateTimeChanged: (value) => temp = value,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

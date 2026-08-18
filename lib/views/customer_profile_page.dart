@@ -7,6 +7,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import 'consent_pdf_preview_sheet.dart';
 import 'quick_consent_sheet.dart';
@@ -94,12 +95,12 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
   Future<void> _pickBirth() async {
     if (!_isEditing) return;
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await SoriDatePickerTheme.show(
       context: context,
       initialDate: _birthDate ?? DateTime(now.year - 30),
       firstDate: DateTime(1920),
       lastDate: now,
-      locale: const Locale('ko', 'KR'),
+      helpText: '생년월일',
     );
     if (picked == null) return;
     setState(() => _birthDate = picked);

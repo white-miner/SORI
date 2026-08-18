@@ -60,6 +60,6 @@ class SeminarClassDetail {
     if (summary.isNotEmpty) return summary;
     final bio = directorShop.bio.trim();
     if (bio.isNotEmpty) return bio;
-    return '이번 세미나에서는 실제 임상 B/A 케이스를 바탕으로 핵심 테크닉과 시술 포인트를 라이브로 공유합니다.';
+    return '이번 세미나에서는 실제 관리 케이스 B/A를 바탕으로 핵심 테크닉과 시술 포인트를 라이브로 공유합니다.';
   }
 }

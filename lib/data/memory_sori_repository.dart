@@ -1059,7 +1059,7 @@ class MemorySoriRepository implements SoriRepository {
       'id': 'feedback-demo-1',
       'class_id': 'class-demo-1',
       'shop_id': snap.shop.id,
-      'class_title': '재생케어 임상 마스터 클래스',
+      'class_title': '재생케어 관리 마스터 클래스',
       'event_date': DateTime(2026, 7, 12).toUtc().toIso8601String(),
       'completed_enrollment_count': 8,
       'top_insight_tags': [
@@ -1069,7 +1069,7 @@ class MemorySoriRepository implements SoriRepository {
       ],
       'ai_summary_strength':
           '수강생 8명의 피드백에서 #이해쏙쏙, #실무적용도100% 인사이트가 두드러졌습니다. '
-          '현장 설명력과 임상 케이스 전달력이 높게 평가됐습니다.',
+          '현장 설명력과 관리 케이스 전달력이 높게 평가됐습니다.',
       'ai_summary_improvement':
           '다음 기수에서는 Q&A·실습 비중을 15~20% 늘리고, 초급·중급 맞춤 블록을 분리하면 '
           '만족도가 더 올라갈 것으로 보입니다.',
@@ -1142,7 +1142,7 @@ class MemorySoriRepository implements SoriRepository {
       'top_insight_tags': topTags,
       'ai_summary_strength':
           '수강생 $reviewCount명의 피드백에서 $top1, $top2 인사이트가 두드러졌습니다. '
-          '현장 설명력과 임상 케이스 전달력이 높게 평가됐습니다.',
+          '현장 설명력과 관리 케이스 전달력이 높게 평가됐습니다.',
       'ai_summary_improvement':
           '다음 기수에서는 Q&A·실습 비중을 늘리고, 초급·중급 맞춤 블록을 분리하면 '
           '만족도가 더 올라갈 것으로 보입니다.',

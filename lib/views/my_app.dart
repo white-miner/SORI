@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/app_scroll_behavior.dart';
 
@@ -77,6 +78,7 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         ),
+        datePickerTheme: SoriDatePickerTheme.data,
       ),
       builder: (context, child) {
         return _StoreErrorHost(child: child ?? const SizedBox.shrink());

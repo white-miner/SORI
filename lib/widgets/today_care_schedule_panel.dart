@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
 import '../views/admin_chart_writer_page.dart';
@@ -50,6 +51,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
   void _openMonthlyCalendar() {
     showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
       builder: (ctx) => _MonthlyCalendarDialog(
         initialMonth: _selectedDay,
         visitDaysBuilder: (y, m) =>
@@ -342,9 +344,10 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
     final rows = (totalCells / 7).ceil();
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Padding(
+      child: SoriGlassPanel(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -366,6 +369,7 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
                     ),
                   ),
                 ),
@@ -390,7 +394,7 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
                           style: TextStyle(
                             fontSize: 12,
                             color: SoriTokens.textSecondary,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -415,7 +419,7 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
                         DateTime.now().day == dayNum;
                     return Expanded(
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(20),
                         onTap: () {
                           widget.onDaySelected(
                             DateTime(_month.year, _month.month, dayNum),
@@ -426,9 +430,9 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: isToday
-                                ? SoriTokens.primarySoft
+                                ? SoriTokens.primary
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
+                            shape: BoxShape.circle,
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -439,15 +443,19 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
                                   fontWeight: isToday
                                       ? FontWeight.w800
                                       : FontWeight.w600,
-                                  color: SoriTokens.textPrimary,
+                                  color: isToday
+                                      ? Colors.white
+                                      : SoriTokens.textPrimary,
                                 ),
                               ),
                               if (hasVisit)
                                 Container(
                                   width: 5,
                                   height: 5,
-                                  decoration: const BoxDecoration(
-                                    color: SoriTokens.primary,
+                                  decoration: BoxDecoration(
+                                    color: isToday
+                                        ? Colors.white
+                                        : SoriTokens.primary,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -464,7 +472,13 @@ class _MonthlyCalendarDialogState extends State<_MonthlyCalendarDialog> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('닫기'),
+                child: const Text(
+                  '닫기',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.primary,
+                  ),
+                ),
               ),
             ),
           ],
