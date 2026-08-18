@@ -163,6 +163,7 @@ class _AppShellPageState extends State<AppShellPage> {
         if (!wide) {
           return Scaffold(
             backgroundColor: const Color(0xFFF5F6F8),
+            extendBody: true,
             appBar: appBar,
             body: widget.navigationShell,
             bottomNavigationBar: _CenterReviewBottomNav(
@@ -187,7 +188,6 @@ class _AppShellPageState extends State<AppShellPage> {
                 isDirector: isDirector,
                 onTap: _selectTab,
               ),
-              const VerticalDivider(width: 1, thickness: 1),
               Expanded(
                 child: Stack(
                   children: [
@@ -318,37 +318,53 @@ class _SoriNavigationRail extends StatelessWidget {
             ),
           ];
 
-    return NavigationRail(
-      selectedIndex: currentIndex,
-      onDestinationSelected: onTap,
-      labelType: NavigationRailLabelType.all,
-      backgroundColor: Colors.white,
-      indicatorColor: SoriTokens.primarySoft,
-      selectedIconTheme: const IconThemeData(color: SoriTokens.primary),
-      unselectedIconTheme: IconThemeData(color: Colors.grey.shade600),
-      selectedLabelTextStyle: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: SoriTokens.primary,
-      ),
-      unselectedLabelTextStyle: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
-        color: Colors.grey.shade600,
-      ),
-      leading: Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 16),
-        child: Text(
-          'SORI',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: SoriTokens.primary,
-            letterSpacing: -0.5,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.75),
+            border: Border(
+              right: BorderSide(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: NavigationRail(
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTap,
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: Colors.transparent,
+            indicatorColor: SoriTokens.primarySoft.withValues(alpha: 0.72),
+            selectedIconTheme: const IconThemeData(color: SoriTokens.primary),
+            unselectedIconTheme: IconThemeData(color: Colors.grey.shade600),
+            selectedLabelTextStyle: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.primary,
+            ),
+            unselectedLabelTextStyle: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+            leading: const Padding(
+              padding: EdgeInsets.only(top: 8, bottom: 16),
+              child: Text(
+                'SORI',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: SoriTokens.primary,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+            destinations: destinations,
           ),
         ),
       ),
-      destinations: destinations,
     );
   }
 }
@@ -826,22 +842,24 @@ class _CenterReviewBottomNav extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
-              height: _barHeight + MediaQuery.paddingOf(context).bottom,
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.paddingOf(context).bottom,
-              ),
-              decoration: BoxDecoration(
-                color: SoriTokens.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  height: _barHeight + MediaQuery.paddingOf(context).bottom,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.paddingOf(context).bottom,
                   ),
-                ],
-              ),
-              child: Row(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
                 children: [
                   _NavItem(
                     icon: side[0].$1,
@@ -897,6 +915,8 @@ class _CenterReviewBottomNav extends StatelessWidget {
                     onTap: () => onTap(sideTabIndex[3]),
                   ),
                 ],
+              ),
+                ),
               ),
             ),
           ),
