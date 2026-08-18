@@ -174,7 +174,9 @@ class _AppShellPageState extends State<AppShellPage> {
           );
         }
 
-        // PC/Tablet: NavigationRail + optional RightSidebar
+        // PC/Tablet: NavigationRail + Feed+CommentDrawer + optional RightSidebar
+        final hasComment = _store.activeCommentPostId != null;
+
         return Scaffold(
           backgroundColor: const Color(0xFFF5F6F8),
           appBar: appBar,
@@ -188,15 +190,38 @@ class _AppShellPageState extends State<AppShellPage> {
               const VerticalDivider(width: 1, thickness: 1),
               Expanded(
                 child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: widget.navigationShell,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 720),
+                        child: SizedBox(
+                          width: 720,
+                          child: widget.navigationShell,
+                        ),
+                      ),
+                      // Slide-out comment drawer attached to feed
+                      ClipRect(
+                        child: AnimatedSize(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: hasComment ? 380 : 0,
+                            child: hasComment
+                                ? const RightSidebar()
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              if (extraWide) ...[
+              if (extraWide && !hasComment) ...[
                 const VerticalDivider(width: 1, thickness: 1),
-                const RightSidebar(),
+                const RightSidebar(dashboardOnly: true),
               ],
             ],
           ),

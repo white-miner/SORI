@@ -5,10 +5,12 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 
-/// PC 와이드 뷰포트(>=1200px)에서 피드 우측에 고정되는 대시보드/댓글 사이드바.
+/// PC 와이드 뷰포트에서 피드 우측에 고정되는 대시보드/댓글 사이드바.
+/// [dashboardOnly] true이면 항상 대시보드만 표시 (우측 끝단용).
 class RightSidebar extends StatefulWidget {
-  const RightSidebar({super.key});
+  const RightSidebar({super.key, this.dashboardOnly = false});
 
+  final bool dashboardOnly;
   static const double width = 320;
 
   @override
@@ -36,16 +38,20 @@ class _RightSidebarState extends State<RightSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.dashboardOnly) {
+      return const SizedBox(
+        width: RightSidebar.width,
+        child: _DashboardPanel(),
+      );
+    }
+
     final postId = _store.activeCommentPostId;
 
     return SizedBox(
-      width: RightSidebar.width,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: postId != null
-            ? _CommentPanel(key: ValueKey(postId), postId: postId)
-            : const _DashboardPanel(key: ValueKey('dashboard')),
-      ),
+      width: postId != null ? 380 : RightSidebar.width,
+      child: postId != null
+          ? _CommentPanel(key: ValueKey(postId), postId: postId)
+          : const _DashboardPanel(key: ValueKey('dashboard')),
     );
   }
 }
@@ -115,6 +121,13 @@ class _CommentPanelState extends State<_CommentPanel> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(left: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(-2, 0),
+          ),
+        ],
       ),
       child: Column(
         children: [
