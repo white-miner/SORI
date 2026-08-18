@@ -183,23 +183,32 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
     final focusList = _listForTab(focusCare: true);
     final focusCount = all.where(_isDormant).length;
 
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showChartCustomerPickerSheet(
-          context,
-          store: widget.store,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(
+          bottom: 85 + bottomInset,
+          right: 8,
         ),
-        backgroundColor: SoriTokens.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        icon: const Icon(Icons.edit_note_rounded),
-        label: const Text(
-          '차트 작성',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        child: FloatingActionButton.extended(
+          onPressed: () => showChartCustomerPickerSheet(
+            context,
+            store: widget.store,
+          ),
+          backgroundColor: SoriTokens.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          icon: const Icon(Icons.edit_note_rounded),
+          label: const Text(
+            '차트 작성',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
         ),
       ),
       body: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -382,7 +391,12 @@ class _CustomerListBody extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        100 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: list.length + (showDormantHint ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
