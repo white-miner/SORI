@@ -189,34 +189,51 @@ class _AppShellPageState extends State<AppShellPage> {
               ),
               const VerticalDivider(width: 1, thickness: 1),
               Expanded(
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
-                        child: SizedBox(
-                          width: 720,
-                          child: widget.navigationShell,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () {
+                          if (_store.activeCommentPostId != null) {
+                            _store.closeCommentPanel();
+                          }
+                        },
+                      ),
+                    ),
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 720),
+                              child: SizedBox(
+                                width: 720,
+                                child: widget.navigationShell,
+                              ),
+                            ),
+                            // Slide-out comment drawer attached to feed
+                            ClipRect(
+                              child: AnimatedSize(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  width: hasComment ? 380 : 0,
+                                  child: hasComment
+                                      ? const RightSidebar()
+                                      : const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      // Slide-out comment drawer attached to feed
-                      ClipRect(
-                        child: AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          alignment: Alignment.centerLeft,
-                          child: SizedBox(
-                            width: hasComment ? 380 : 0,
-                            child: hasComment
-                                ? const RightSidebar()
-                                : const SizedBox.shrink(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               if (extraWide && !hasComment) ...[

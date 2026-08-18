@@ -275,7 +275,11 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
   void _openComments(CustomerChart chart) {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= 1200) {
-      widget.store.openCommentPanel(chart.id);
+      if (widget.store.activeCommentPostId == chart.id) {
+        widget.store.closeCommentPanel();
+      } else {
+        widget.store.openCommentPanel(chart.id);
+      }
       return;
     }
     final list = _comments.putIfAbsent(chart.id, () => []);

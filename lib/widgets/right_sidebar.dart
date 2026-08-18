@@ -117,20 +117,22 @@ class _CommentPanelState extends State<_CommentPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(left: BorderSide(color: Colors.grey.shade200)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(-2, 0),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(left: BorderSide(color: Colors.grey.shade200)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(-2, 0),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
           // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
@@ -244,7 +246,8 @@ class _CommentPanelState extends State<_CommentPanel> {
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
