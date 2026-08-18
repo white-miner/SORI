@@ -175,7 +175,7 @@ class _AppShellPageState extends State<AppShellPage> {
           );
         }
 
-        // PC/Tablet: NavigationRail + Feed+CommentDrawer + optional RightSidebar
+        // PC/Tablet: rail + stacked feed (fixed center) + comment drawer
         final hasComment = _store.activeCommentPostId != null;
 
         return Scaffold(
@@ -189,57 +189,72 @@ class _AppShellPageState extends State<AppShellPage> {
                 onTap: _selectTab,
               ),
               Expanded(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: () {
-                          if (_store.activeCommentPostId != null) {
-                            _store.closeCommentPanel();
-                          }
-                        },
-                      ),
-                    ),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 720),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const feedMaxWidth = 720.0;
+                    const feedHalf = feedMaxWidth / 2;
+                    const drawerTarget = 380.0;
+                    final remainingRight =
+                        (constraints.maxWidth / 2) - feedHalf;
+                    final drawerWidth = remainingRight.clamp(0.0, drawerTarget);
+
+                    return Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTap: () {
+                              if (_store.activeCommentPostId != null) {
+                                _store.closeCommentPanel();
+                              }
+                            },
+                          ),
+                        ),
+                        if (extraWide && !hasComment)
+                          const Positioned(
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: RightSidebar(dashboardOnly: true),
+                          ),
+                        Center(
+                          child: GestureDetector(
+                            onTap: () {},
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: feedMaxWidth,
+                              ),
                               child: SizedBox(
-                                width: 720,
+                                width: feedMaxWidth,
                                 child: widget.navigationShell,
                               ),
                             ),
-                            // Slide-out comment drawer attached to feed
-                            ClipRect(
-                              child: AnimatedSize(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  width: hasComment ? 380 : 0,
-                                  child: hasComment
-                                      ? const RightSidebar()
-                                      : const SizedBox.shrink(),
-                                ),
+                          ),
+                        ),
+                        Positioned(
+                          left: (constraints.maxWidth / 2) + feedHalf,
+                          top: 0,
+                          bottom: 0,
+                          child: ClipRect(
+                            child: AnimatedSize(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: hasComment ? drawerWidth : 0,
+                                child: hasComment
+                                    ? const RightSidebar()
+                                    : const SizedBox.shrink(),
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
-              if (extraWide && !hasComment) ...[
-                const VerticalDivider(width: 1, thickness: 1),
-                const RightSidebar(dashboardOnly: true),
-              ],
             ],
           ),
         );

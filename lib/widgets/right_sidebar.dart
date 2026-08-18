@@ -48,7 +48,7 @@ class _RightSidebarState extends State<RightSidebar> {
     final postId = _store.activeCommentPostId;
 
     return SizedBox(
-      width: postId != null ? 380 : RightSidebar.width,
+      width: postId != null ? double.infinity : RightSidebar.width,
       child: postId != null
           ? _CommentPanel(key: ValueKey(postId), postId: postId)
           : const _DashboardPanel(key: ValueKey('dashboard')),
