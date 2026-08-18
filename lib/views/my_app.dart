@@ -230,10 +230,12 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
             left: 0,
             right: 0,
             top: 0,
-            child: LinearProgressIndicator(
-              minHeight: 2,
-              color: SoriTokens.primary,
-              backgroundColor: Colors.transparent,
+            child: IgnorePointer(
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: SoriTokens.primary,
+                backgroundColor: Colors.transparent,
+              ),
             ),
           ),
       ],

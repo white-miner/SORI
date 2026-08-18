@@ -185,11 +185,91 @@ class _EntryHomePageState extends State<EntryHomePage>
 
   bool get _showLoading => _busy || _store.authHydrating || _routing;
 
+  Widget _buildContent(BuildContext context, {required bool isWide}) {
+    final logoWidth = isWide ? 160.0 : MediaQuery.sizeOf(context).width * 0.38;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Image.asset(
+          'assets/images/sori_logo.png',
+          width: logoWidth,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          '소통하는 리뷰',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF6C5CE7),
+            height: 1.3,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '에스테틱 원장과 고객이 시술 차트와 후기로\n1:1 소통하는 CRM',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Colors.grey.shade600,
+            height: 1.45,
+          ),
+        ),
+        SizedBox(height: isWide ? 40 : 32),
+        if (_showLoading)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              children: [
+                const CircularProgressIndicator(color: SoriTokens.primary),
+                const SizedBox(height: 10),
+                Text(
+                  _store.authHydrating
+                      ? '프로필을 불러오는 중…'
+                      : '카카오 로그인 연결 중…',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        _KakaoLoginButton(
+          enabled: !_showLoading,
+          onPressed: _kakaoLogin,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '로그인 시 이용약관·개인정보 처리에 동의하게 됩니다',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade500,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final viewPadding = MediaQuery.paddingOf(context);
+    final viewportHeight =
+        MediaQuery.sizeOf(context).height - viewPadding.vertical;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -204,94 +284,102 @@ class _EntryHomePageState extends State<EntryHomePage>
         child: SafeArea(
           child: FadeTransition(
             opacity: _fade,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 48, 28, 32),
-              child: Column(
-                children: [
-                  const Spacer(flex: 2),
-                  Image.asset(
-                    'assets/images/sori_logo.png',
-                    width: MediaQuery.of(context).size.width * 0.38,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final horizontalPad = isWide ? 32.0 : 28.0;
+                final verticalPad = isWide ? 40.0 : 24.0;
+
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPad,
+                      verticalPad,
+                      horizontalPad,
+                      verticalPad,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isWide ? 440 : double.infinity,
+                        minHeight: viewportHeight - verticalPad * 2,
+                      ),
+                      child: isWide
+                          ? DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.72),
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 40,
+                                ),
+                                child: _buildContent(context, isWide: true),
+                              ),
+                            )
+                          : _buildContent(context, isWide: false),
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    '소통하는 리뷰',
-                    textAlign: TextAlign.center,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 카카오 로그인 — 전체 54px 영역 히트 테스트 + PC hover 커서.
+class _KakaoLoginButton extends StatelessWidget {
+  const _KakaoLoginButton({
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  static const Color _kakaoYellow = Color(0xFFFEE500);
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: '카카오로 시작하기',
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: Material(
+            color: enabled ? _kakaoYellow : _kakaoYellow.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: enabled ? onPressed : null,
+              borderRadius: BorderRadius.circular(14),
+              splashColor: Colors.black.withValues(alpha: 0.08),
+              highlightColor: Colors.black.withValues(alpha: 0.04),
+              child: const SizedBox.expand(
+                child: Center(
+                  child: Text(
+                    '카카오로 시작하기',
                     style: TextStyle(
-                      fontSize: 22,
+                      color: Color(0xFF191919),
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF6C5CE7),
-                      height: 1.3,
-                      letterSpacing: -0.2,
+                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '에스테틱 원장과 고객이 시술 차트와 후기로\n1:1 소통하는 CRM',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.grey.shade600,
-                      height: 1.45,
-                    ),
-                  ),
-                  const Spacer(flex: 3),
-                  if (_showLoading)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        children: [
-                          const CircularProgressIndicator(
-                            color: SoriTokens.primary,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _store.authHydrating
-                                ? '프로필을 불러오는 중…'
-                                : '카카오 로그인 연결 중…',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: Material(
-                      color: const Color(0xFFFEE500),
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        onTap: _showLoading ? null : _kakaoLogin,
-                        borderRadius: BorderRadius.circular(14),
-                        child: const Center(
-                          child: Text(
-                            '카카오로 시작하기',
-                            style: TextStyle(
-                              color: Color(0xFF191919),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    '로그인 시 이용약관·개인정보 처리에 동의하게 됩니다',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
