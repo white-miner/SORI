@@ -11,9 +11,9 @@ import 'add_customer_sheet.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'request_customer_review.dart';
 
-enum _CustomerSort { recentVisit, nameAsc, chartNo }
+enum _CustomerSort { recentVisit, nameAsc, chartNo, dormantDaysDesc }
 
-/// 원장 모드 [고객] 탭 — CRM 대시보드 (초성검색·정렬·집중케어).
+/// 원장 모드 [고객] 탭 — CRM 대시보드 (초성검색·정렬).
 class DirectorCustomersTab extends StatefulWidget {
   const DirectorCustomersTab({super.key, required this.store});
 
@@ -23,35 +23,46 @@ class DirectorCustomersTab extends StatefulWidget {
   State<DirectorCustomersTab> createState() => _DirectorCustomersTabState();
 }
 
-class _DirectorCustomersTabState extends State<DirectorCustomersTab>
-    with SingleTickerProviderStateMixin {
+class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   final _searchController = TextEditingController();
-  late final TabController _tabController;
+  final _scrollController = ScrollController();
   String _query = '';
   _CustomerSort _sort = _CustomerSort.recentVisit;
+  bool _fabVisible = true;
+  double _lastScrollOffset = 0;
 
   static const _dormantDays = 90;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) setState(() {});
-    });
+    _scrollController.addListener(_onScroll);
     widget.store.addListener(_onStore);
   }
 
   @override
   void dispose() {
     widget.store.removeListener(_onStore);
-    _tabController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   void _onStore() {
     if (mounted) setState(() {});
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final offset = _scrollController.offset;
+    final delta = offset - _lastScrollOffset;
+    _lastScrollOffset = offset;
+    if (delta > 6 && _fabVisible) {
+      setState(() => _fabVisible = false);
+    } else if (delta < -6 && !_fabVisible) {
+      setState(() => _fabVisible = true);
+    }
   }
 
   String _formatDate(DateTime d) =>
@@ -87,16 +98,8 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
     return maxNo;
   }
 
-  List<Customer> _baseFiltered() {
-    return widget.store.searchCustomers(_query);
-  }
-
-  List<Customer> _listForTab({required bool focusCare}) {
-    var list = _baseFiltered();
-    if (focusCare) {
-      list = list.where(_isDormant).toList();
-    }
-    list = List<Customer>.of(list);
+  List<Customer> _sortedList() {
+    final list = List<Customer>.of(widget.store.searchCustomers(_query));
     switch (_sort) {
       case _CustomerSort.recentVisit:
         list.sort((a, b) => _lastVisitOf(b).compareTo(_lastVisitOf(a)));
@@ -107,6 +110,13 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
           final cmp = _chartNumberOf(b).compareTo(_chartNumberOf(a));
           if (cmp != 0) return cmp;
           return a.name.compareTo(b.name);
+        });
+      case _CustomerSort.dormantDaysDesc:
+        list.sort((a, b) {
+          final dormantCmp =
+              (_isDormant(b) ? 1 : 0).compareTo(_isDormant(a) ? 1 : 0);
+          if (dormantCmp != 0) return dormantCmp;
+          return _daysSinceVisit(b).compareTo(_daysSinceVisit(a));
         });
     }
     return list;
@@ -155,6 +165,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                   _CustomerSort.recentVisit => '최근 방문순',
                   _CustomerSort.nameAsc => '가나다순',
                   _CustomerSort.chartNo => '차트 번호순',
+                  _CustomerSort.dormantDaysDesc => '장기 미방문순',
                 };
                 return ListTile(
                   title: Text(label),
@@ -179,9 +190,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
   Widget build(BuildContext context) {
     final all = widget.store.customers;
     final isEmptyDb = all.isEmpty;
-    final allList = _listForTab(focusCare: false);
-    final focusList = _listForTab(focusCare: true);
-    final focusCount = all.where(_isDormant).length;
+    final list = _sortedList();
 
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
@@ -192,18 +201,30 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
           bottom: 85 + bottomInset,
           right: 8,
         ),
-        child: FloatingActionButton.extended(
-          onPressed: () => showChartCustomerPickerSheet(
-            context,
-            store: widget.store,
-          ),
-          backgroundColor: SoriTokens.primary,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          icon: const Icon(Icons.edit_note_rounded),
-          label: const Text(
-            '차트 작성',
-            style: TextStyle(fontWeight: FontWeight.w800),
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeInOut,
+          offset: _fabVisible ? Offset.zero : const Offset(0, 1.4),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: _fabVisible ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !_fabVisible,
+              child: FloatingActionButton.extended(
+                onPressed: () => showChartCustomerPickerSheet(
+                  context,
+                  store: widget.store,
+                ),
+                backgroundColor: SoriTokens.primary,
+                foregroundColor: Colors.white,
+                elevation: 4,
+                icon: const Icon(Icons.edit_note_rounded),
+                label: const Text(
+                  '차트 작성',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -263,76 +284,21 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                 ),
               ),
             ),
-            Material(
-              color: Colors.transparent,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: SoriTokens.primary,
-                unselectedLabelColor: SoriTokens.textSecondary,
-                indicatorColor: SoriTokens.primary,
-                tabs: [
-                  const Tab(text: '전체 고객'),
-                  Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('🔥 집중 케어'),
-                        if (focusCount > 0) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFEBEE),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '$focusCount',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFFC62828),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Expanded(
               child: isEmptyDb
                   ? _EmptyCustomersState(onAdd: _addCustomer)
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _CustomerListBody(
-                          list: allList,
-                          emptyLabel: '검색 결과가 없습니다',
-                          formatDate: _formatDate,
-                          lastVisitOf: _lastVisitOf,
-                          daysSince: _daysSinceVisit,
-                          showDormantHint: false,
-                          onAdd: _addCustomer,
-                          onOpen: _openDetail,
-                          onRequestReview: _requestReview,
-                        ),
-                        _CustomerListBody(
-                          list: focusList,
-                          emptyLabel: '90일 이상 미방문 고객이 없습니다',
-                          formatDate: _formatDate,
-                          lastVisitOf: _lastVisitOf,
-                          daysSince: _daysSinceVisit,
-                          showDormantHint: true,
-                          onAdd: _addCustomer,
-                          onOpen: _openDetail,
-                          onRequestReview: _requestReview,
-                        ),
-                      ],
+                  : _CustomerListBody(
+                      list: list,
+                      controller: _scrollController,
+                      emptyLabel: '검색 결과가 없습니다',
+                      formatDate: _formatDate,
+                      lastVisitOf: _lastVisitOf,
+                      daysSince: _daysSinceVisit,
+                      showDormantHint:
+                          _sort == _CustomerSort.dormantDaysDesc,
+                      onAdd: _addCustomer,
+                      onOpen: _openDetail,
+                      onRequestReview: _requestReview,
                     ),
             ),
           ],
@@ -345,6 +311,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
 class _CustomerListBody extends StatelessWidget {
   const _CustomerListBody({
     required this.list,
+    required this.controller,
     required this.emptyLabel,
     required this.formatDate,
     required this.lastVisitOf,
@@ -356,6 +323,7 @@ class _CustomerListBody extends StatelessWidget {
   });
 
   final List<Customer> list;
+  final ScrollController controller;
   final String emptyLabel;
   final String Function(DateTime) formatDate;
   final DateTime Function(Customer) lastVisitOf;
@@ -391,11 +359,12 @@ class _CustomerListBody extends StatelessWidget {
     }
 
     return ListView.separated(
+      controller: controller,
       padding: EdgeInsets.fromLTRB(
         16,
         12,
         16,
-        100 + MediaQuery.paddingOf(context).bottom,
+        120 + MediaQuery.paddingOf(context).bottom,
       ),
       itemCount: list.length + (showDormantHint ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -409,7 +378,7 @@ class _CustomerListBody extends StatelessWidget {
               border: Border.all(color: const Color(0xFFFFE082)),
             ),
             child: const Text(
-              '마지막 방문 기준 90일 이상 미방문 고객입니다. 케어 리마인드·티켓팅 제안 타이밍을 확인해 주세요.',
+              '90일 이상 미방문 고객이 위에 모여 있습니다. 케어 리마인드·티켓팅 제안 타이밍을 확인해 주세요.',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.4,
