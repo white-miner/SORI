@@ -381,6 +381,7 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
       color: Colors.white,
       child: SafeArea(
         child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(

@@ -530,6 +530,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
             return false;
           },
           child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
                 child: SizedBox(

@@ -405,6 +405,7 @@ class _CustomerManagementCasesPageState
                         return false;
                       },
                       child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                         itemCount: shown.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 14),

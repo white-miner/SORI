@@ -219,16 +219,13 @@ class _AppShellPageState extends State<AppShellPage> {
                             child: RightSidebar(dashboardOnly: true),
                           ),
                         Center(
-                          child: GestureDetector(
-                            onTap: () {},
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: feedMaxWidth,
-                              ),
-                              child: SizedBox(
-                                width: feedMaxWidth,
-                                child: widget.navigationShell,
-                              ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: feedMaxWidth,
+                            ),
+                            child: SizedBox(
+                              width: feedMaxWidth,
+                              child: widget.navigationShell,
                             ),
                           ),
                         ),

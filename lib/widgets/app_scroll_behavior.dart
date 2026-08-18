@@ -1,7 +1,8 @@
-import 'package:flutter/gestures.dart';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
-/// PC 웹에서도 캐러셀·리스트를 마우스 드래그로 스와이프할 수 있게 합니다.
+/// 전역 스크롤 동작 — PC 웹 마우스 휠·트랙패드 스크롤을 허용한다.
 class AppScrollBehavior extends MaterialScrollBehavior {
   const AppScrollBehavior();
 
@@ -9,5 +10,15 @@ class AppScrollBehavior extends MaterialScrollBehavior {
   Set<PointerDeviceKind> get dragDevices => {
         PointerDeviceKind.touch,
         PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.unknown,
       };
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const AlwaysScrollableScrollPhysics(
+      parent: RangeMaintainingScrollPhysics(),
+    );
+  }
 }

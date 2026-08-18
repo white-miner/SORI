@@ -360,6 +360,7 @@ class _CustomerListBody extends StatelessWidget {
 
     return ListView.separated(
       controller: controller,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         16,
         12,
