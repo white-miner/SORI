@@ -205,11 +205,38 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
     }
   }
 
-  void _openAiReport() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AiShopReportPage(data: AiShopReportMock.demo()),
-      ),
+  Future<void> _openAiReport() async {
+    final report = AiShopReportMock.demo();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _SoriQuickSheet(
+          title: 'AI 샵 경영 리포트',
+          child: _AiManagementSheetBody(
+            report: report,
+            onApply: () {
+              Navigator.pop(ctx);
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AiShopReportPage(data: report),
+                ),
+              );
+            },
+            onDownload: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('8월 경영 리포트 요약이 준비되었어요'),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: SoriTokens.primary,
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -233,48 +260,9 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(ctx).bottom,
-          ),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '내 등급 · 티어 프로그레스',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ShopTierProgressCard(shop: shop),
-                  ],
-                ),
-              ),
-            ),
-          ),
+        return _SoriQuickSheet(
+          title: '내 등급 · 티어 프로그레스',
+          child: ShopTierProgressCard(shop: shop),
         );
       },
     );
@@ -286,103 +274,72 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.72,
-          minChildSize: 0.46,
-          maxChildSize: 0.94,
-          builder: (ctx, scroll) {
-            return DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Color(0xFFF5F6F8),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        return _SoriQuickSheet(
+          title: '세미나 센터',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SeminarEducationInsightCard(
+                loading: store.seminarEducationLoading,
+                totalRequests:
+                    store.seminarEducationInsight?.totalRequests ?? 0,
+                soriCashBalance: store.shop.soriCashBalance,
+                onOpenClass: () {
+                  Navigator.pop(ctx);
+                  _openClass();
+                },
               ),
-              child: ListView(
-                controller: scroll,
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                  ),
-                  const Text(
-                    '세미나 센터',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _SeminarEducationInsightCard(
-                    loading: store.seminarEducationLoading,
-                    totalRequests:
-                        store.seminarEducationInsight?.totalRequests ?? 0,
-                    soriCashBalance: store.shop.soriCashBalance,
-                    onOpenClass: () {
-                      Navigator.pop(ctx);
-                      _openClass();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Material(
-                    color: Colors.white,
+              const SizedBox(height: 8),
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
-                    child: ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          '📊',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                      ),
-                      title: const Text(
-                        'AI 세미나 피드백 보관함',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                      subtitle: Text(
-                        store.seminarFeedbackReportsLoading
-                            ? '리포트 불러오는 중…'
-                            : '완료 리포트 ${store.seminarFeedbackReports.length}건',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        SeminarFeedbackInboxPage.open(
-                          context,
-                          store: store,
-                        );
-                      },
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      '📊',
+                      style: TextStyle(fontSize: 18),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _MySeminarEnrollmentsSection(store: store),
-                ],
+                  title: const Text(
+                    'AI 세미나 피드백 보관함',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                  subtitle: Text(
+                    store.seminarFeedbackReportsLoading
+                        ? '리포트 불러오는 중…'
+                        : '완료 리포트 ${store.seminarFeedbackReports.length}건',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    SeminarFeedbackInboxPage.open(
+                      context,
+                      store: store,
+                    );
+                  },
+                ),
               ),
-            );
-          },
+              const SizedBox(height: 12),
+              _MySeminarEnrollmentsSection(store: store),
+            ],
+          ),
         );
       },
     );
@@ -727,6 +684,325 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 퀵 대시보드 공통 바텀시트 — 화이트, 상단 라운드 24, PC maxWidth 500.
+class _SoriQuickSheet extends StatelessWidget {
+  const _SoriQuickSheet({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final maxH = MediaQuery.sizeOf(context).height * 0.88;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 500, maxHeight: maxH),
+          child: Material(
+            color: Colors.white,
+            elevation: 8,
+            shadowColor: Colors.black.withValues(alpha: 0.12),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '닫기',
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    child,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiManagementSheetBody extends StatelessWidget {
+  const _AiManagementSheetBody({
+    required this.report,
+    required this.onApply,
+    required this.onDownload,
+  });
+
+  final AiShopReportMock report;
+  final VoidCallback onApply;
+  final VoidCallback onDownload;
+
+  String get _salesLabel {
+    final won = report.revenue.estimatedSalesWon;
+    if (won >= 100000000) {
+      return '${(won / 100000000).toStringAsFixed(1)}억';
+    }
+    if (won >= 10000) {
+      return '${_comma((won / 10000).round())}만원';
+    }
+    return '${_comma(won)}원';
+  }
+
+  String _comma(int n) {
+    final s = '$n';
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      final fromEnd = s.length - i;
+      buf.write(s[i]);
+      if (fromEnd > 1 && fromEnd % 3 == 1) buf.write(',');
+    }
+    return buf.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = report.revenue.salesDeltaPercent;
+    final deltaLabel = delta >= 0
+        ? '+${delta.toStringAsFixed(1)}%'
+        : '${delta.toStringAsFixed(1)}%';
+    final menus = report.portfolio.investMenus.take(2).toList();
+    final month = DateTime.now().month;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F7FC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE8E4F8)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$month월 추정 성과',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _salesLabel,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: SoriTokens.primary,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: delta >= 0
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      '전월 대비 $deltaLabel',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: delta >= 0
+                            ? const Color(0xFF166534)
+                            : const Color(0xFF991B1B),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      report.periodLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                report.revenue.highlight,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE6E8EC)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'AI 맞춤 제안',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '이번 달 추천 집중 메뉴',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...menus.map(
+                (m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: SoriTokens.primarySoft,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          m.tag,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: SoriTokens.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          m.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Text(
+                report.targetSegment.summary,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        FilledButton(
+          onPressed: onApply,
+          style: FilledButton.styleFrom(
+            backgroundColor: SoriTokens.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            'AI 솔루션 적용하기',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: onDownload,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: SoriTokens.textPrimary,
+            side: const BorderSide(color: Color(0xFFE6E8EC)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            '상세 리포트 다운로드',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
     );
   }
 }
