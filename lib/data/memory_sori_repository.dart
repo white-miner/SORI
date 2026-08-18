@@ -58,7 +58,12 @@ class MemorySoriRepository implements SoriRepository {
       monthlyCapa: 100,
       tierBadge: ShopTierBadge.silver,
       totalSeminarCount: 3,
+      completedSeminarCount: 3,
       totalFundingAmount: 4500000,
+      sharedCaseCount: 28,
+      totalLikes: 160,
+      followerCount: 62,
+      seminarRequestCount: 8,
       serviceMenu: [
         ShopServiceItem(
           name: '재생케어',
@@ -828,9 +833,14 @@ class MemorySoriRepository implements SoriRepository {
       totalRequests: byCase.values.fold(0, (a, b) => a + b),
       requestsByCase: byCase,
       soriCashBalance: _shopCashBalance[directorShopId] ?? 0,
-      tierBadgeLabel: ShopTierBadge.silver.label,
+      tierBadgeLabel: snap.shop.tierBadge.dbValue,
       totalSeminarCount: snap.shop.totalSeminarCount,
       totalFundingAmount: snap.shop.totalFundingAmount,
+      totalLikes: snap.shop.totalLikes,
+      sharedCaseCount: snap.shop.sharedCaseCount,
+      seminarRequestCount: snap.shop.seminarRequestCount,
+      completedSeminarCount: snap.shop.completedSeminarCount,
+      followerCount: snap.shop.followerCount,
     );
   }
 
@@ -929,16 +939,7 @@ class MemorySoriRepository implements SoriRepository {
     return enrollId;
   }
 
-  static double _platformFeePct(ShopTierBadge tier) {
-    final reduction = switch (tier) {
-      ShopTierBadge.master => 0.07,
-      ShopTierBadge.gold => 0.05,
-      ShopTierBadge.silver => 0.03,
-      ShopTierBadge.bronze => 0.01,
-      ShopTierBadge.none => 0.0,
-    };
-    return (0.15 - reduction).clamp(0.08, 0.15);
-  }
+  static double _platformFeePct(ShopTierBadge tier) => tier.platformFeePct;
 
   @override
   Future<List<SeminarEnrollment>> loadMySeminarEnrollments(

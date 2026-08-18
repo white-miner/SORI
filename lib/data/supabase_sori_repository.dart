@@ -2162,10 +2162,19 @@ class SupabaseSoriRepository implements SoriRepository {
       String tier = '';
       int seminarCount = 0;
       int fundingAmount = 0;
+      int likes = 0;
+      int shared = 0;
+      int requests = 0;
+      int completed = 0;
+      int followers = 0;
       try {
         final shopRow = await _db
             .from('shops')
-            .select('sori_cash_balance, tier_badge, total_seminar_count, total_funding_amount')
+            .select(
+              'sori_cash_balance, tier_badge, total_seminar_count, '
+              'total_funding_amount, total_likes, shared_case_count, '
+              'seminar_request_count, completed_seminar_count, follower_count',
+            )
             .eq('id', sid)
             .maybeSingle();
         if (shopRow != null) {
@@ -2174,6 +2183,11 @@ class SupabaseSoriRepository implements SoriRepository {
           tier = DbMap.asText(map['tier_badge']);
           seminarCount = DbMap.asInt(map['total_seminar_count']);
           fundingAmount = DbMap.asInt(map['total_funding_amount']);
+          likes = DbMap.asInt(map['total_likes']);
+          shared = DbMap.asInt(map['shared_case_count']);
+          requests = DbMap.asInt(map['seminar_request_count']);
+          completed = DbMap.asInt(map['completed_seminar_count']);
+          followers = DbMap.asInt(map['follower_count']);
         }
       } catch (_) {}
 
@@ -2184,6 +2198,11 @@ class SupabaseSoriRepository implements SoriRepository {
         tierBadgeLabel: tier,
         totalSeminarCount: seminarCount,
         totalFundingAmount: fundingAmount,
+        totalLikes: likes,
+        sharedCaseCount: shared,
+        seminarRequestCount: requests,
+        completedSeminarCount: completed,
+        followerCount: followers,
       );
     } catch (e, st) {
       debugPrint('loadSeminarEducationInsight failed: $e\n$st');

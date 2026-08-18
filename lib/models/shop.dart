@@ -25,6 +25,11 @@ class Shop {
     this.soriCashBalance = 0,
     this.totalSeminarCount = 0,
     this.totalFundingAmount = 0,
+    this.totalLikes = 0,
+    this.sharedCaseCount = 0,
+    this.seminarRequestCount = 0,
+    this.completedSeminarCount = 0,
+    this.followerCount = 0,
   });
 
   final String id;
@@ -76,6 +81,25 @@ class Shop {
 
   /// 완료 클래스 기준 누적 펀딩 금액 (원).
   final int totalFundingAmount;
+
+  final int totalLikes;
+  final int sharedCaseCount;
+  final int seminarRequestCount;
+  final int completedSeminarCount;
+  final int followerCount;
+
+  ShopTierProgressSnapshot get tierProgress =>
+      ShopTierProgressSnapshot.fromMetrics(
+        current: tierBadge,
+        shared: sharedCaseCount,
+        likes: totalLikes,
+        followers: followerCount,
+        requests: seminarRequestCount,
+        seminars: completedSeminarCount > 0
+            ? completedSeminarCount
+            : totalSeminarCount,
+        funding: totalFundingAmount,
+      );
 
   /// 차트·회원권 드롭다운용 서비스명 목록.
   List<String> get serviceNames => serviceMenu
@@ -133,6 +157,11 @@ class Shop {
     int? soriCashBalance,
     int? totalSeminarCount,
     int? totalFundingAmount,
+    int? totalLikes,
+    int? sharedCaseCount,
+    int? seminarRequestCount,
+    int? completedSeminarCount,
+    int? followerCount,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -158,6 +187,12 @@ class Shop {
       soriCashBalance: soriCashBalance ?? this.soriCashBalance,
       totalSeminarCount: totalSeminarCount ?? this.totalSeminarCount,
       totalFundingAmount: totalFundingAmount ?? this.totalFundingAmount,
+      totalLikes: totalLikes ?? this.totalLikes,
+      sharedCaseCount: sharedCaseCount ?? this.sharedCaseCount,
+      seminarRequestCount: seminarRequestCount ?? this.seminarRequestCount,
+      completedSeminarCount:
+          completedSeminarCount ?? this.completedSeminarCount,
+      followerCount: followerCount ?? this.followerCount,
     );
   }
 
@@ -183,6 +218,11 @@ class Shop {
         'sori_cash_balance': soriCashBalance,
         'total_seminar_count': totalSeminarCount,
         'total_funding_amount': totalFundingAmount,
+        'total_likes': totalLikes,
+        'shared_case_count': sharedCaseCount,
+        'seminar_request_count': seminarRequestCount,
+        'completed_seminar_count': completedSeminarCount,
+        'follower_count': followerCount,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -264,6 +304,21 @@ class Shop {
         totalFundingAmount: DbMap.asInt(
           map['total_funding_amount'] ?? map['totalFundingAmount'],
         ),
+        totalLikes: DbMap.asInt(map['total_likes'] ?? map['totalLikes']),
+        sharedCaseCount: DbMap.asInt(
+          map['shared_case_count'] ?? map['sharedCaseCount'],
+        ),
+        seminarRequestCount: DbMap.asInt(
+          map['seminar_request_count'] ?? map['seminarRequestCount'],
+        ),
+        completedSeminarCount: DbMap.asInt(
+          map['completed_seminar_count'] ??
+              map['completedSeminarCount'] ??
+              map['total_seminar_count'],
+        ),
+        followerCount: DbMap.asInt(
+          map['follower_count'] ?? map['followerCount'],
+        ),
       );
     } catch (_) {
       return Shop(
@@ -303,6 +358,21 @@ class Shop {
         ),
         totalFundingAmount: DbMap.asInt(
           map['total_funding_amount'] ?? map['totalFundingAmount'],
+        ),
+        totalLikes: DbMap.asInt(map['total_likes'] ?? map['totalLikes']),
+        sharedCaseCount: DbMap.asInt(
+          map['shared_case_count'] ?? map['sharedCaseCount'],
+        ),
+        seminarRequestCount: DbMap.asInt(
+          map['seminar_request_count'] ?? map['seminarRequestCount'],
+        ),
+        completedSeminarCount: DbMap.asInt(
+          map['completed_seminar_count'] ??
+              map['completedSeminarCount'] ??
+              map['total_seminar_count'],
+        ),
+        followerCount: DbMap.asInt(
+          map['follower_count'] ?? map['followerCount'],
         ),
       );
     }

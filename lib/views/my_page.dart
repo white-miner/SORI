@@ -14,6 +14,7 @@ import '../widgets/media_permission_dialogs.dart';
 import '../widgets/membership_ticket_wallet.dart';
 import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/shop_tier_badge_chip.dart';
+import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/seminar_review_modal.dart';
 import '../widgets/sori_logo.dart';
 import 'ai_shop_report_page.dart';
@@ -396,6 +397,8 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                         totalFundingAmount: shop.totalFundingAmount,
                       ),
                     ],
+                    const SizedBox(height: 10),
+                    ShopTierProgressCard(shop: shop),
                     const SizedBox(height: 8),
                     Text(
                       _bio,

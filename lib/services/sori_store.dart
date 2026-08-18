@@ -1711,7 +1711,19 @@ class SoriStore implements Listenable {
           totalFundingAmount: insight.totalFundingAmount > 0
               ? insight.totalFundingAmount
               : shop.totalFundingAmount,
+          totalLikes: insight.totalLikes,
+          sharedCaseCount: insight.sharedCaseCount,
+          seminarRequestCount: insight.seminarRequestCount,
+          completedSeminarCount: insight.completedSeminarCount > 0
+              ? insight.completedSeminarCount
+              : shop.completedSeminarCount,
+          followerCount: insight.followerCount > 0
+              ? insight.followerCount
+              : shop.followerCount,
         );
+        if (insight.followerCount > 0) {
+          shopFollowerCount = insight.followerCount;
+        }
       }
       lastError = null;
     } catch (e, st) {
