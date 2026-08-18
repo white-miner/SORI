@@ -10,11 +10,17 @@ class BeforeAfterSlider extends StatefulWidget {
     required this.before,
     required this.after,
     this.height = 240,
+    this.aspectRatio,
+    this.maxHeight = 520,
   });
 
   final Widget before;
   final Widget after;
   final double height;
+
+  /// 설정 시 [height] 대신 가로 대비 비율로 높이를 계산한다. (예: 4/3)
+  final double? aspectRatio;
+  final double maxHeight;
 
   @override
   State<BeforeAfterSlider> createState() => _BeforeAfterSliderState();
@@ -31,14 +37,20 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.height,
-      width: double.infinity,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          final split = w * _ratio;
-          return GestureDetector(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final ratio = widget.aspectRatio;
+        final h = ratio != null && ratio > 0
+            ? (w / ratio).clamp(180.0, widget.maxHeight)
+            : widget.height;
+        final split = w * _ratio;
+        return SizedBox(
+          height: h,
+          width: double.infinity,
+          child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onHorizontalDragUpdate: (d) {
               _updateFromLocalDx(d.localPosition.dx, w);
@@ -49,14 +61,11 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // After (full)
                   widget.after,
-                  // Before clipped to left
                   ClipRect(
                     clipper: _LeftClipper(split),
                     child: widget.before,
                   ),
-                  // Divider handle
                   Positioned(
                     left: split - 18,
                     top: 0,
@@ -111,9 +120,9 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
                 ],
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

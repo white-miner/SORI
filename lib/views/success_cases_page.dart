@@ -12,6 +12,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/case_feed_viewport.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/sori_card.dart';
 import '../widgets/sori_logo.dart';
@@ -317,7 +318,8 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
         _scope == _CaseScope.nationwide;
 
     return SafeArea(
-      child: Column(
+      child: CaseFeedViewport(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -448,6 +450,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                 : _buildMyShopList(myShop),
           ),
         ],
+        ),
       ),
     );
   }
@@ -754,7 +757,8 @@ class _NationwideCaseCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           BeforeAfterSlider(
-            height: 220,
+            aspectRatio: 4 / 3,
+            maxHeight: 520,
             before: ChartImagePane(
               url: chart.beforeImageUrl,
               fallbackLabel: 'Before',
@@ -980,7 +984,8 @@ class _MyShopCaseCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           BeforeAfterSlider(
-            height: 220,
+            aspectRatio: 4 / 3,
+            maxHeight: 520,
             before: ChartImagePane(
               url: chart.beforeImageUrl,
               fallbackLabel: 'Before',

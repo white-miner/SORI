@@ -11,6 +11,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/case_feed_viewport.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/sori_logo.dart';
 
@@ -259,7 +260,8 @@ class _CustomerManagementCasesPageState
     return ColoredBox(
       color: const Color(0xFFF5F6F8),
       child: SafeArea(
-        child: Column(
+        child: CaseFeedViewport(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -425,6 +427,7 @@ class _CustomerManagementCasesPageState
                     ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -627,7 +630,8 @@ class _CustomerCaseCard extends StatelessWidget {
             ),
           ),
           BeforeAfterSlider(
-            height: 240,
+            aspectRatio: 4 / 3,
+            maxHeight: 520,
             before: ChartImagePane(
               url: chart.beforeImageUrl,
               fallbackLabel: 'Before',
