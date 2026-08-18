@@ -137,6 +137,23 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
         _store.clearError();
       });
     }
+    final authErr = _store.authError;
+    if (authErr != null &&
+        authErr.isNotEmpty &&
+        authErr != _shownError) {
+      _shownError = authErr;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authErr),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        _store.clearAuthError();
+      });
+    }
     setState(() {});
   }
 

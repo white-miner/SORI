@@ -17,6 +17,7 @@ import '../views/director_customers_tab.dart';
 import '../views/director_review_manage_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_page.dart';
+import '../views/onboarding_page.dart';
 import '../views/splash_page.dart';
 import '../views/seminar_class_detail_page.dart';
 import '../views/success_cases_page.dart';
@@ -27,6 +28,7 @@ import 'app_router.dart';
 abstract final class AppPaths {
   static const home = '/';
   static const login = '/login';
+  static const onboarding = '/onboarding';
   static const app = '/app';
   static const appHome = '/app/home';
   static const appCustomers = '/app/customers';
@@ -59,6 +61,10 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
       final loc = state.matchedLocation;
       final session = store.session;
       final onboarded = session != null && session.onboardingComplete;
+      final hydrating = store.authHydrating;
+
+      // OAuth/PKCE 세션 교환 중에는 리다이렉트 보류
+      if (hydrating) return null;
 
       // 딥링크(리뷰/케어/차트/고객프로필)는 셸 밖 — 가드 제외
       if (loc.startsWith(AppPaths.review) ||
@@ -76,8 +82,19 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
         return AppPaths.appHome;
       }
 
+      if (loc == AppPaths.login && onboarded) {
+        return AppPaths.appHome;
+      }
+
+      if (loc == AppPaths.onboarding) {
+        if (session == null) return AppPaths.login;
+        if (onboarded) return AppPaths.appHome;
+        return null;
+      }
+
       final inShell = loc.startsWith(AppPaths.app);
       if (inShell && !onboarded) {
+        if (session != null) return AppPaths.onboarding;
         return AppPaths.login;
       }
       return null;
@@ -99,6 +116,10 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
             initialToken: page == 'review' ? null : token,
           );
         },
+      ),
+      GoRoute(
+        path: AppPaths.onboarding,
+        builder: (context, state) => const OnboardingPage(),
       ),
       GoRoute(
         path: AppPaths.review,

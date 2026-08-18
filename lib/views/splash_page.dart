@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../routing/sori_router.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
-import 'onboarding_page.dart';
 
 enum _SplashDest {
   app,
@@ -66,44 +66,50 @@ class _SplashPageState extends State<SplashPage> {
           : (PendingReviewReturn.take() ?? '');
       if (reviewToken.isNotEmpty) {
         PendingReviewReturn.save(reviewToken);
+        debugPrint('[Auth] Splash → review');
         context.go(PendingReviewReturn.reviewLocation(reviewToken));
         return;
       }
     }
 
-    if (dest == _SplashDest.onboarding) {
-      await Navigator.of(context).pushReplacement(
-        PageRouteBuilder<void>(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const OnboardingPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 480),
-        ),
-      );
-      return;
-    }
-
-    context.go(
-      dest == _SplashDest.app ? AppPaths.appHome : AppPaths.login,
-    );
+    final target = switch (dest) {
+      _SplashDest.app => AppPaths.appHome,
+      _SplashDest.onboarding => AppPaths.onboarding,
+      _ => AppPaths.login,
+    };
+    debugPrint('[Auth] Splash → $target');
+    context.go(target);
   }
 
   Future<_SplashDest> _resolveDestination() async {
     if ((PendingReviewReturn.peek() ?? '').isNotEmpty) {
       return _SplashDest.review;
     }
+
+    // AuthCoordinator가 PKCE/스토리지 세션 복구를 마칠 때까지 대기
+    var waited = 0;
+    while (_store.authHydrating && waited < 60) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      waited++;
+    }
+
     try {
       final supabaseSession = _auth.currentSession;
       if (supabaseSession != null) {
-        final sessionUser =
+        debugPrint('[Auth] Splash found supabase session');
+        if (_store.session?.onboardingComplete == true) {
+          return _SplashDest.app;
+        }
+        final sessionUser = _store.session ??
             await _store.hydrateSessionFromAuth(supabaseSession.user);
         if (sessionUser.onboardingComplete) return _SplashDest.app;
         return _SplashDest.onboarding;
       }
+    } on AuthException catch (e) {
+      debugPrint('[Auth] Splash auth expired: ${e.message}');
+      _store.clearAuthSession(localOnly: true);
     } catch (e) {
-      debugPrint('splash auth hydrate skipped: $e');
+      debugPrint('[Auth] Splash auth hydrate skipped: $e');
     }
 
     final local = _store.session;

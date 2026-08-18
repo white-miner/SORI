@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -50,6 +52,47 @@ class SoriAuthService {
     ).toString();
   }
 
+  /// Supabase/네트워크 예외 → 사용자 친화 메시지.
+  static String userMessage(Object error) {
+    if (error is AuthException) {
+      final msg = error.message.toLowerCase();
+      if (msg.contains('invalid login credentials') ||
+          (msg.contains('invalid') && msg.contains('password'))) {
+        return '비밀번호가 일치하지 않아요.';
+      }
+      if (msg.contains('user not found') ||
+          msg.contains('no user') ||
+          msg.contains('not registered')) {
+        return '존재하지 않는 계정이에요.';
+      }
+      if (msg.contains('email not confirmed')) {
+        return '이메일 인증이 필요해요.';
+      }
+      if (msg.contains('network') ||
+          msg.contains('socket') ||
+          msg.contains('connection') ||
+          msg.contains('timeout') ||
+          msg.contains('failed host lookup')) {
+        return '네트워크 오류가 발생했어요. 연결을 확인해 주세요.';
+      }
+      if (msg.contains('code verifier') || msg.contains('pkce')) {
+        return '로그인 세션이 만료되었어요. 다시 시도해 주세요.';
+      }
+      if (error.message.trim().isNotEmpty) return error.message;
+    }
+    final raw = error.toString().toLowerCase();
+    if (raw.contains('network') ||
+        raw.contains('socket') ||
+        raw.contains('timeout') ||
+        raw.contains('connection')) {
+      return '네트워크 오류가 발생했어요. 연결을 확인해 주세요.';
+    }
+    if (error is TimeoutException) {
+      return '요청 시간이 초과되었어요. 다시 시도해 주세요.';
+    }
+    return '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+  }
+
   /// 카카오 OAuth — 이메일 스코프 없이 닉네임/프로필만 요청.
   /// [reviewToken]이 있으면 로그인 후 `/#/review?token=` 으로 직행할 수 있게 redirect를 보존한다.
   Future<bool> signInWithKakao({String? reviewToken}) async {
@@ -58,7 +101,8 @@ class SoriAuthService {
         'Supabase가 설정되지 않았어요. 환경 변수를 확인해 주세요.',
       );
     }
-    return _client.auth.signInWithOAuth(
+    debugPrint('[Auth] signInWithKakao start redirectTo=${redirectToForReview(reviewToken)}');
+    final launched = await _client.auth.signInWithOAuth(
       OAuthProvider.kakao,
       redirectTo: redirectToForReview(reviewToken),
       scopes: 'profile_nickname profile_image',
@@ -69,11 +113,14 @@ class SoriAuthService {
           ? LaunchMode.platformDefault
           : LaunchMode.externalApplication,
     );
+    debugPrint('[Auth] signInWithKakao launched=$launched');
+    return launched;
   }
 
   Future<void> signOut() async {
     final client = SoriSupabase.clientOrNull;
     if (client == null) return;
+    debugPrint('[Auth] signOut');
     await client.auth.signOut();
   }
 

@@ -8,6 +8,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'config/env.dart';
 import 'data/repository_factory.dart';
+import 'services/sori_auth_coordinator.dart';
 import 'services/sori_store.dart';
 import 'services/supabase_client.dart';
 import 'views/my_app.dart';
@@ -73,6 +74,7 @@ Future<void> main() async {
     final store = SoriStore.instance;
     store.bindRepository(createSoriRepository());
     await store.bootstrap();
+    await SoriAuthCoordinator.instance.start();
 
     // Hash routing 기본값 유지 → GitHub Pages `/#/review?token=...` 404 방지
     runApp(const MyApp());

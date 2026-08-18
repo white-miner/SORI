@@ -37,10 +37,11 @@ abstract final class SoriSupabase {
         // 웹: localStorage / 네이티브: SharedPreferences 에 JWT·Refresh 영속화
         autoRefreshToken: true,
         persistSession: true,
+        detectSessionInUri: true,
       ),
     );
     _initialized = true;
-    debugPrint('SoriSupabase: initialized.');
+    debugPrint('SoriSupabase: initialized (siteUrl=${Env.siteUrl}).');
     return true;
   }
 }

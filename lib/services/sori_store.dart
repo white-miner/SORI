@@ -58,7 +58,9 @@ class SoriStore implements Listenable {
   bool isLoading = false;
   bool bootstrapComplete = false;
   bool bootstrapFailed = false;
+  bool authHydrating = false;
   String? lastError;
+  String? authError;
 
   bool get isRemoteEnabled => _repository.isRemote;
   bool get hasError => lastError != null && lastError!.isNotEmpty;
@@ -67,6 +69,36 @@ class SoriStore implements Listenable {
     if (lastError == null) return;
     lastError = null;
     _notify();
+  }
+
+  void setAuthHydrating(bool value) {
+    if (authHydrating == value) return;
+    authHydrating = value;
+    _notify();
+  }
+
+  void setAuthError(String? message) {
+    final trimmed = message?.trim();
+    authError = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    _notify();
+  }
+
+  void clearAuthError() {
+    if (authError == null) return;
+    authError = null;
+    _notify();
+  }
+
+  /// Supabase signedOut 등 — 원격 signOut은 호출하지 않음.
+  void clearAuthSession({bool localOnly = false}) {
+    debugPrint('[Auth] clearAuthSession localOnly=$localOnly');
+    session = null;
+    authError = null;
+    authHydrating = false;
+    _notify();
+    if (!localOnly && SoriAuthService.instance.isAvailable) {
+      unawaited(SoriAuthService.instance.signOut());
+    }
   }
 
   /// 스키마 드리프트/백그라운드 실패 — UI 전역 빨간 배너에 올리지 않음.
@@ -563,13 +595,19 @@ class SoriStore implements Listenable {
 
   /// 로그인 성공 후 shops/customers 판별로 원장·고객 홈 세션을 구성.
   Future<SessionUser> hydrateSessionFromAuth(User user) async {
+    debugPrint('[Auth] hydrateSessionFromAuth start uid=${user.id}');
     syncFromAuthUser(user);
+    if (session == null) {
+      debugPrint('[Auth] syncFromAuthUser produced null session — creating guest');
+      syncFromAuthUser(user);
+    }
     if (session == null) {
       throw StateError('No session after syncFromAuthUser');
     }
 
     // Auth metadata → public.profiles upsert (이름/아바타)
     try {
+      debugPrint('[Auth] upsertAuthProfile');
       await _repository.upsertAuthProfile(
         userId: user.id,
         name: SoriAuthService.displayNameFromUser(user),
@@ -577,26 +615,33 @@ class SoriStore implements Listenable {
         phone: SoriAuthService.phoneFromUser(user),
       );
     } catch (e) {
-      debugPrint('upsertAuthProfile skipped: $e');
+      debugPrint('[Auth] upsertAuthProfile skipped: $e');
     }
 
     if (session!.onboardingComplete) {
+      debugPrint('[Auth] session already onboarded');
       return session!;
     }
 
     try {
+      debugPrint('[Auth] resolveAuthRole');
       final resolved = await _repository.resolveAuthRole(user.id);
+      debugPrint(
+        '[Auth] resolveAuthRole director=${resolved.isDirector} '
+        'customer=${resolved.isCustomer}',
+      );
       if (resolved.isDirector && resolved.shop != null) {
         shop = resolved.shop!;
         shopRegisteredByUser = true;
         // 소유 샵 기준으로 데이터 재로드
         if (_repository.isRemote) {
           try {
+            debugPrint('[Auth] reload initial data for director');
             final snapshot = await _repository.loadInitialData();
             _applySnapshot(snapshot);
             shop = resolved.shop!;
           } catch (e) {
-            debugPrint('hydrate reload after director resolve: $e');
+            debugPrint('[Auth] hydrate reload after director resolve: $e');
           }
         }
         final ownerName = shop.ownerName?.trim();
@@ -613,6 +658,7 @@ class SoriStore implements Listenable {
           showFirstChartTutorial: false,
         );
         _notify();
+        debugPrint('[Auth] director session ready shopId=${shop.id}');
         return session!;
       }
 
@@ -635,12 +681,14 @@ class SoriStore implements Listenable {
           showFirstChartTutorial: false,
         );
         _notify();
+        debugPrint('[Auth] customer session ready customerId=${c.id}');
         return session!;
       }
     } catch (e, st) {
-      debugPrint('hydrateSessionFromAuth resolve failed: $e\n$st');
+      debugPrint('[Auth] hydrateSessionFromAuth resolve failed: $e\n$st');
     }
 
+    debugPrint('[Auth] hydrate complete — onboarding required');
     _notify();
     return session!;
   }
@@ -920,11 +968,8 @@ class SoriStore implements Listenable {
   }
 
   void logout() {
-    session = null;
-    _notify();
-    if (SoriAuthService.instance.isAvailable) {
-      unawaited(SoriAuthService.instance.signOut());
-    }
+    debugPrint('[Auth] logout requested');
+    clearAuthSession();
   }
 
   bool verifyPhoneLast4({

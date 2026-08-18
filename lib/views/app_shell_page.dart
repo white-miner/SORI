@@ -28,6 +28,7 @@ class _AppShellPageState extends State<AppShellPage> {
     super.initState();
     _store.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_store.authHydrating) return;
       if (_store.session == null || !_store.session!.onboardingComplete) {
         context.go(AppPaths.login);
       }
@@ -42,6 +43,14 @@ class _AppShellPageState extends State<AppShellPage> {
 
   void _onChanged() {
     if (!mounted) return;
+    if (_store.authHydrating) {
+      setState(() {});
+      return;
+    }
+    if (_store.session == null || !_store.session!.onboardingComplete) {
+      context.go(AppPaths.login);
+      return;
+    }
     setState(() {});
   }
 
@@ -121,7 +130,9 @@ class _AppShellPageState extends State<AppShellPage> {
   @override
   Widget build(BuildContext context) {
     final session = _store.session;
-    if (session == null || !session.onboardingComplete) {
+    if (_store.authHydrating ||
+        session == null ||
+        !session.onboardingComplete) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: SoriTokens.primary),
