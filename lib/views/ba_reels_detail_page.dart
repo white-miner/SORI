@@ -59,6 +59,11 @@ class _BaReelsDetailPageState extends State<BaReelsDetailPage> {
   }
 
   void _openComments(String chartId) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 1200) {
+      widget.store.openCommentPanel(chartId);
+      return;
+    }
     final list = _comments.putIfAbsent(chartId, () => []);
     showModalBottomSheet<void>(
       context: context,

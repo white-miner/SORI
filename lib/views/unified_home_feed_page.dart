@@ -188,6 +188,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   }
 
   void _openComments(CustomerChart chart) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 1200) {
+      store.openCommentPanel(chart.id);
+      return;
+    }
     final list = _comments.putIfAbsent(chart.id, () => []);
     showModalBottomSheet<void>(
       context: context,
