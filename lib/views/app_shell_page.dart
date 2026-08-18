@@ -7,6 +7,7 @@ import '../models/session_user.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/right_sidebar.dart';
 import 'app_settings_page.dart';
 import 'message_history_page.dart';
 
@@ -144,23 +145,168 @@ class _AppShellPageState extends State<AppShellPage> {
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
     final tab = widget.navigationShell.currentIndex;
     final hideShellAppBar = _isCustomerDetailRoute(context);
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
-      appBar: hideShellAppBar
-          ? null
-          : _ShellAppBar(
-              title: _titleForTab(isDirector, tab),
-              badgeCount: _notificationBadgeCount(session),
-              onNotifications: _openNotifications,
-              onSettings: tab == 4 ? _openSettings : null,
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        final extraWide = constraints.maxWidth >= 1200;
+
+        final appBar = hideShellAppBar
+            ? null
+            : _ShellAppBar(
+                title: _titleForTab(isDirector, tab),
+                badgeCount: _notificationBadgeCount(session),
+                onNotifications: _openNotifications,
+                onSettings: tab == 4 ? _openSettings : null,
+              );
+
+        if (!wide) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF5F6F8),
+            appBar: appBar,
+            body: widget.navigationShell,
+            bottomNavigationBar: _CenterReviewBottomNav(
+              currentIndex: tab,
+              isDirector: isDirector,
+              reviewLabel: reviewLabel,
+              onTap: _selectTab,
             ),
-      body: widget.navigationShell,
-      bottomNavigationBar: _CenterReviewBottomNav(
-        currentIndex: tab,
-        isDirector: isDirector,
-        reviewLabel: reviewLabel,
-        onTap: _selectTab,
+          );
+        }
+
+        // PC/Tablet: NavigationRail + optional RightSidebar
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F6F8),
+          appBar: appBar,
+          body: Row(
+            children: [
+              _SoriNavigationRail(
+                currentIndex: tab,
+                isDirector: isDirector,
+                onTap: _selectTab,
+              ),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: widget.navigationShell,
+                  ),
+                ),
+              ),
+              if (extraWide) ...[
+                const VerticalDivider(width: 1, thickness: 1),
+                const RightSidebar(),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// PC/태블릿용 좌측 네비게이션 레일.
+class _SoriNavigationRail extends StatelessWidget {
+  const _SoriNavigationRail({
+    required this.currentIndex,
+    required this.isDirector,
+    required this.onTap,
+  });
+
+  final int currentIndex;
+  final bool isDirector;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final destinations = isDirector
+        ? const [
+            NavigationRailDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: Text('홈'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: Text('고객 관리'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.rate_review_outlined),
+              selectedIcon: Icon(Icons.rate_review_rounded),
+              label: Text('리뷰 관리'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.photo_library_outlined),
+              selectedIcon: Icon(Icons.photo_library_rounded),
+              label: Text('관리 케이스'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: Text('마이페이지'),
+            ),
+          ]
+        : const [
+            NavigationRailDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: Text('홈'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.spa_outlined),
+              selectedIcon: Icon(Icons.spa_rounded),
+              label: Text('케어'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.rate_review_outlined),
+              selectedIcon: Icon(Icons.rate_review_rounded),
+              label: Text('리뷰 작성'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.photo_library_outlined),
+              selectedIcon: Icon(Icons.photo_library_rounded),
+              label: Text('관리 케이스'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: Text('마이페이지'),
+            ),
+          ];
+
+    return NavigationRail(
+      selectedIndex: currentIndex,
+      onDestinationSelected: onTap,
+      labelType: NavigationRailLabelType.all,
+      backgroundColor: Colors.white,
+      indicatorColor: SoriTokens.primarySoft,
+      selectedIconTheme: const IconThemeData(color: SoriTokens.primary),
+      unselectedIconTheme: IconThemeData(color: Colors.grey.shade600),
+      selectedLabelTextStyle: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: SoriTokens.primary,
       ),
+      unselectedLabelTextStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: Colors.grey.shade600,
+      ),
+      leading: Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 16),
+        child: Text(
+          'SORI',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: SoriTokens.primary,
+            letterSpacing: -0.5,
+          ),
+        ),
+      ),
+      destinations: destinations,
     );
   }
 }
