@@ -7,6 +7,7 @@ import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
+import '../models/shop.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -204,6 +205,189 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
     }
   }
 
+  void _openAiReport() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AiShopReportPage(data: AiShopReportMock.demo()),
+      ),
+    );
+  }
+
+  void _openClass() {
+    final topCase = _topRequestedCaseId();
+    final chart = topCase == null ? null : _chartById(topCase);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SeminarClassOpenPage(
+          store: store,
+          targetCaseId: topCase,
+          initialTitle: chart?.careName ?? '',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTierSheet(Shop shop) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '내 등급 · 티어 프로그레스',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ShopTierProgressCard(shop: shop),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSeminarSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.46,
+          maxChildSize: 0.94,
+          builder: (ctx, scroll) {
+            return DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5F6F8),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+              ),
+              child: ListView(
+                controller: scroll,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    '세미나 센터',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _SeminarEducationInsightCard(
+                    loading: store.seminarEducationLoading,
+                    totalRequests:
+                        store.seminarEducationInsight?.totalRequests ?? 0,
+                    soriCashBalance: store.shop.soriCashBalance,
+                    onOpenClass: () {
+                      Navigator.pop(ctx);
+                      _openClass();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          '📊',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      ),
+                      title: const Text(
+                        'AI 세미나 피드백 보관함',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                      subtitle: Text(
+                        store.seminarFeedbackReportsLoading
+                            ? '리포트 불러오는 중…'
+                            : '완료 리포트 ${store.seminarFeedbackReports.length}건',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        SeminarFeedbackInboxPage.open(
+                          context,
+                          store: store,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _MySeminarEnrollmentsSection(store: store),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final shop = store.shop;
@@ -397,11 +581,11 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                         totalFundingAmount: shop.totalFundingAmount,
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    ShopTierProgressCard(shop: shop),
                     const SizedBox(height: 8),
                     Text(
                       _bio,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13.5,
                         height: 1.4,
@@ -437,86 +621,16 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '교육 대시보드',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _SeminarEducationInsightCard(
-                      loading: store.seminarEducationLoading,
-                      totalRequests:
+                    const SizedBox(height: 12),
+                    _QuickDashboardRow(
+                      shop: shop,
+                      seminarRequestCount:
                           store.seminarEducationInsight?.totalRequests ?? 0,
-                      soriCashBalance: shop.soriCashBalance,
-                      onOpenClass: () {
-                        final topCase = _topRequestedCaseId();
-                        final chart =
-                            topCase == null ? null : _chartById(topCase);
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => SeminarClassOpenPage(
-                              store: store,
-                              targetCaseId: topCase,
-                              initialTitle: chart?.careName ?? '',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      child: ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text('📊', style: TextStyle(fontSize: 18)),
-                        ),
-                        title: const Text(
-                          'AI 세미나 피드백 보관함',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14.5,
-                          ),
-                        ),
-                        subtitle: Text(
-                          store.seminarFeedbackReportsLoading
-                              ? '리포트 불러오는 중…'
-                              : '완료 리포트 ${store.seminarFeedbackReports.length}건',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => SeminarFeedbackInboxPage.open(
-                          context,
-                          store: store,
-                        ),
-                      ),
+                      onTierTap: () => _openTierSheet(shop),
+                      onSeminarTap: () => _openSeminarSheet(),
+                      onAiTap: () => _openAiReport(),
                     ),
                     const SizedBox(height: 16),
-                    _MySeminarEnrollmentsSection(store: store),
-                    const SizedBox(height: 16),
-                    _AiReportSummaryCard(
-                      report: AiShopReportMock.demo(),
-                    ),
-                    const SizedBox(height: 18),
                     Row(
                       children: [
                         const Expanded(
@@ -611,6 +725,165 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickDashboardRow extends StatelessWidget {
+  const _QuickDashboardRow({
+    required this.shop,
+    required this.seminarRequestCount,
+    required this.onTierTap,
+    required this.onSeminarTap,
+    required this.onAiTap,
+  });
+
+  final Shop shop;
+  final int seminarRequestCount;
+  final VoidCallback onTierTap;
+  final VoidCallback onSeminarTap;
+  final VoidCallback onAiTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final snap = shop.tierProgress;
+    final progressPct =
+        ((snap.socialRatio > snap.businessRatio
+                    ? snap.socialRatio
+                    : snap.businessRatio) *
+                100)
+            .round()
+            .clamp(0, 100);
+    final tierLabel = shop.tierBadge.label.trim();
+    final tierSub = tierLabel.isNotEmpty ? tierLabel : '달성률 $progressPct%';
+    final month = DateTime.now().month;
+
+    return SizedBox(
+      height: 92,
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickDashCard(
+              icon: Icons.military_tech_rounded,
+              iconColor: const Color(0xFFB7791F),
+              iconBg: const Color(0xFFFFF4E5),
+              title: '내 등급',
+              subtitle: tierSub,
+              onTap: onTierTap,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _QuickDashCard(
+              icon: Icons.school_rounded,
+              iconColor: SoriTokens.primary,
+              iconBg: SoriTokens.primarySoft,
+              title: '세미나 센터',
+              subtitle: '요청 $seminarRequestCount건',
+              onTap: onSeminarTap,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _QuickDashCard(
+              icon: Icons.auto_graph_rounded,
+              iconColor: const Color(0xFF0F766E),
+              iconBg: const Color(0xFFCCFBF1),
+              title: 'AI 경영',
+              subtitle: '$month월 리포트',
+              onTap: onAiTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickDashCard extends StatelessWidget {
+  const _QuickDashCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFBFBFC),
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFBFBFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE6E8EC)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 18, color: iconColor),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -758,216 +1031,6 @@ class _SeminarEducationInsightCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AiReportSummaryCard extends StatelessWidget {
-  const _AiReportSummaryCard({required this.report});
-
-  final AiShopReportMock report;
-
-  String get _salesLabel {
-    final won = report.revenue.estimatedSalesWon;
-    if (won >= 100000000) {
-      return '${(won / 100000000).toStringAsFixed(1)}억';
-    }
-    if (won >= 10000) {
-      final man = (won / 10000).round();
-      return '${_comma(man)}만원';
-    }
-    return '${_comma(won)}원';
-  }
-
-  String _comma(int n) {
-    final s = '$n';
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      final fromEnd = s.length - i;
-      buf.write(s[i]);
-      if (fromEnd > 1 && fromEnd % 3 == 1) buf.write(',');
-    }
-    return buf.toString();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final recommend = report.portfolio.investMenus.isNotEmpty
-        ? report.portfolio.investMenus.first.name
-        : '추천 메뉴 분석 중';
-    final delta = report.revenue.salesDeltaPercent;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => AiShopReportPage(data: report),
-            ),
-          );
-        },
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF1F2937), Color(0xFF374151)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981)
-                                  .withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: const Text(
-                              'AI 리포트',
-                              style: TextStyle(
-                                color: Color(0xFF34D399),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            report.periodLabel,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'AI 샵 경영 리포트',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _SummaryMetric(
-                              label: '추정 매출',
-                              value: _salesLabel,
-                              hint: delta >= 0
-                                  ? '+${delta.toStringAsFixed(1)}%'
-                                  : '${delta.toStringAsFixed(1)}%',
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 36,
-                            color: Colors.white24,
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 12),
-                              child: _SummaryMetric(
-                                label: '이번 달 추천',
-                                value: recommend,
-                                hint: '투자 메뉴',
-                                compact: true,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.hint,
-    this.compact = false,
-  });
-
-  final String label;
-  final String value;
-  final String hint;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.55),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          maxLines: compact ? 2 : 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: compact ? 13 : 18,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          hint,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.55),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }
