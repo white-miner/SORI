@@ -62,6 +62,19 @@ class SoriStore implements Listenable {
   String? lastError;
   String? authError;
 
+  /// PC 우측 패널에 표시할 댓글 대상 게시물 ID (null이면 대시보드 표시).
+  String? activeCommentPostId;
+
+  void openCommentPanel(String postId) {
+    activeCommentPostId = postId;
+    _notify();
+  }
+
+  void closeCommentPanel() {
+    activeCommentPostId = null;
+    _notify();
+  }
+
   bool get isRemoteEnabled => _repository.isRemote;
   bool get hasError => lastError != null && lastError!.isNotEmpty;
 

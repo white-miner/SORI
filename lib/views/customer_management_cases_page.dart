@@ -217,6 +217,11 @@ class _CustomerManagementCasesPageState
   }
 
   void _openComments(CustomerChart chart) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 1200) {
+      widget.store.openCommentPanel(chart.id);
+      return;
+    }
     final list = _comments.putIfAbsent(chart.id, () => []);
     showModalBottomSheet<void>(
       context: context,
