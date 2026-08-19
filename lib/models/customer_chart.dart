@@ -147,7 +147,7 @@ class CustomerChart {
       treatmentSummary: '',
       directorInsight: '',
       allergyNotes: '',
-      skinSensitivity: '',
+      skinSensitivity: skinSensitivity,
       sideEffectHistory: '',
       customerRequests: '',
       concernChips: concernChips,

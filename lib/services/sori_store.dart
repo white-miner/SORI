@@ -1954,12 +1954,21 @@ class SoriStore implements Listenable {
       final b = chart.beforeImageUrl?.trim() ?? '';
       final a = chart.afterImageUrl?.trim() ?? '';
       if (b.isEmpty && a.isEmpty) continue;
+      Customer? cust;
+      for (final c in customers) {
+        if (c.id == chart.customerId) {
+          cust = c;
+          break;
+        }
+      }
       out.add(
         CommunityCaseItem(
           chart: chart.asPublicFeedProjection(),
           shop: shop,
           review: reviewForChart(chart.id)?.copyWith(customerId: ''),
           careTags: chart.careTags,
+          customerAge: cust?.koreanAge,
+          customerGenderLabel: cust?.gender?.label,
         ),
       );
     }

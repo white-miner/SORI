@@ -267,7 +267,17 @@ class SupabaseSoriRepository implements SoriRepository {
 
   /// TEXT 컬럼용: null/공백 → '' (스키마 default '' 와 호환, 에러 방지).
   static String _textOrEmpty(String? value) =>
-      value == null ? '' : value.trim();
+      (value ?? '').trim();
+
+  static int? _communityAge(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is int) return raw > 0 ? raw : null;
+    if (raw is num) {
+      final v = raw.toInt();
+      return v > 0 ? v : null;
+    }
+    return int.tryParse('$raw');
+  }
 
   CustomerChart _chartFromSaveRequest(
     SaveChartRequest request,
@@ -1814,6 +1824,8 @@ class SupabaseSoriRepository implements SoriRepository {
             createdAt: DbMap.asDateTime(map['created_at']),
             consentMandatory: true,
             signatureUrl: 'signed',
+            deviceInfo: DbMap.asTextOrNull(map['device_info']),
+            skinSensitivity: DbMap.asText(map['skin_sensitivity']),
           );
 
           final shop = Shop(
@@ -1865,6 +1877,9 @@ class SupabaseSoriRepository implements SoriRepository {
               shop: shop,
               review: review,
               careTags: chart.careTags,
+              customerAge: _communityAge(map['customer_age']),
+              customerGenderLabel:
+                  DbMap.asTextOrNull(map['customer_gender_label']),
             ),
           );
         }
@@ -1880,7 +1895,7 @@ class SupabaseSoriRepository implements SoriRepository {
             .select(
               'id, shop_id, visit_number, care_name, concern_chips, '
               'before_image_url, after_image_url, is_case_shared, created_at, '
-              'signature_url, consent_pdf_url',
+              'signature_url, consent_pdf_url, device_info, skin_sensitivity',
             )
             .eq('is_case_shared', true)
             .order('created_at', ascending: false)
@@ -1892,7 +1907,7 @@ class SupabaseSoriRepository implements SoriRepository {
               .select(
                 'id, shop_id, visit_number, care_name, concern_chips, '
                 'before_image_url, after_image_url, is_case_shared, created_at, '
-                'signature_url, consent_pdf_url',
+                'signature_url, consent_pdf_url, device_info, skin_sensitivity',
               )
               .eq('is_case_shared', true)
               .order('created_at', ascending: false)
@@ -1903,7 +1918,7 @@ class SupabaseSoriRepository implements SoriRepository {
               .select(
                 'id, shop_id, visit_number, care_name, concern_chips, '
                 'before_image_url, after_image_url, case_shared, created_at, '
-                'signature_url, consent_pdf_url',
+                'signature_url, consent_pdf_url, device_info, skin_sensitivity',
               )
               .eq('case_shared', true)
               .order('created_at', ascending: false)

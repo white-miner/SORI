@@ -257,6 +257,8 @@ class MemorySoriRepository implements SoriRepository {
         treatmentSummary: '첫 방문 재생케어 — 장벽 진정 및 수분 리페어',
         directorInsight: '두피 민감 — 저자극 제품 권장',
         concernChips: const ['홍조/민감', '건조/장벽'],
+        skinSensitivity: '수부지',
+        deviceInfo: '테라노바',
         beforeImageUrl: 'https://picsum.photos/seed/sori-b1/600/800',
         afterImageUrl: 'https://picsum.photos/seed/sori-a1/600/800',
         signatureUrl: 'https://example.com/sig-1.png',
@@ -280,6 +282,8 @@ class MemorySoriRepository implements SoriRepository {
         treatmentSummary: '회원권 6회차 테라노바 수분케어',
         directorInsight: '테라노바 저자극 세션 후 장벽 크림 레이어링을 권장합니다.',
         concernChips: const ['모공/피지', '건조/장벽', '여드름'],
+        skinSensitivity: '지성',
+        deviceInfo: '테라노바',
         beforeImageUrl: 'https://picsum.photos/seed/sori-b2/600/800',
         afterImageUrl: 'https://picsum.photos/seed/sori-a2/600/800',
         signatureUrl: 'https://example.com/sig-2.png',
@@ -297,6 +301,7 @@ class MemorySoriRepository implements SoriRepository {
         treatmentSummary: '회원권 4회차 재생케어',
         directorInsight: '트리트먼트 업셀 가능',
         concernChips: const ['탄력/리프팅'],
+        skinSensitivity: '건성',
         beforeImageUrl: 'https://picsum.photos/seed/sori-b3/600/800',
         afterImageUrl: 'https://picsum.photos/seed/sori-a3/600/800',
         createdAt: DateTime.now().subtract(const Duration(days: 40)),
@@ -632,25 +637,34 @@ class MemorySoriRepository implements SoriRepository {
       acceptedAt: DateTime.now().subtract(const Duration(hours: 12)),
     );
 
+    final byCustomer = {for (final c in snap.customers) c.id: c};
     final out = <CommunityCaseItem>[];
     for (final chart in snap.charts) {
       if (!chart.caseShared || !chart.isConsentSigned) continue;
       final b = chart.beforeImageUrl?.trim() ?? '';
       final a = chart.afterImageUrl?.trim() ?? '';
       if (b.isEmpty && a.isEmpty) continue;
+      final cust = byCustomer[chart.customerId];
       out.add(
         CommunityCaseItem(
           chart: chart.asPublicFeedProjection(),
           shop: snap.shop,
           review: byChartReview[chart.id]?.copyWith(customerId: ''),
+          customerAge: cust?.koreanAge,
+          customerGenderLabel: cust?.gender?.label,
         ),
       );
     }
     out.add(
       CommunityCaseItem(
-        chart: partnerChart,
+        chart: partnerChart.copyWith(
+          skinSensitivity: '수부지',
+          deviceInfo: 'EMS 리프팅',
+        ),
         shop: partnerShop,
         review: partnerReview,
+        customerAge: 38,
+        customerGenderLabel: '여성',
       ),
     );
     final bodyShop = const Shop(
@@ -670,6 +684,8 @@ class MemorySoriRepository implements SoriRepository {
           treatmentSummary: '복부·옆구리 순환 집중 프로그램',
           directorInsight: '식후 2시간 뒤 림프 패들 + 온열 랩핑 조합이 붓기 해소에 효과적입니다.',
           concernChips: const ['바디 셀룰라이트', '복부', '부종/순환'],
+          skinSensitivity: '중성',
+          deviceInfo: '고주파 바디',
           beforeImageUrl: 'https://picsum.photos/seed/sori-hot-body-b/600/800',
           afterImageUrl: 'https://picsum.photos/seed/sori-hot-body-a/600/800',
           signatureUrl: 'https://example.com/sig-hot-2.png',
@@ -679,6 +695,8 @@ class MemorySoriRepository implements SoriRepository {
           createdAt: DateTime.now().subtract(const Duration(days: 3)),
         ),
         shop: bodyShop,
+        customerAge: 42,
+        customerGenderLabel: '여성',
       ),
     );
     out.sort((a, b) {

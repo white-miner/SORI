@@ -12,15 +12,19 @@ class BeforeAfterSlider extends StatefulWidget {
     this.height = 240,
     this.aspectRatio,
     this.maxHeight = 520,
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
 
   final Widget before;
   final Widget after;
   final double height;
 
-  /// 설정 시 [height] 대신 가로 대비 비율로 높이를 계산한다. (예: 4/3)
+  /// 설정 시 [height] 대신 가로 대비 비율로 높이를 계산한다. (예: 1.0, 4/5)
   final double? aspectRatio;
   final double maxHeight;
+
+  /// 홈 피드 몰입형은 [BorderRadius.zero]로 각진 Edge-to-Edge.
+  final BorderRadius borderRadius;
 
   @override
   State<BeforeAfterSlider> createState() => _BeforeAfterSliderState();
@@ -57,7 +61,7 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
             },
             onTapDown: (d) => _updateFromLocalDx(d.localPosition.dx, w),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: widget.borderRadius,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

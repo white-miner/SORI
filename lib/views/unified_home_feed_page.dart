@@ -7,16 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
-import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/before_after_slider.dart';
-import '../widgets/case_review_inline.dart';
 import '../widgets/case_timeline_modal.dart';
-import '../widgets/shop_tier_badge_chip.dart';
+import '../widgets/home_feed_card.dart';
 import '../widgets/sori_logo.dart';
 import 'ba_reels_detail_page.dart';
 
@@ -39,6 +36,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   static const _viewedStoriesPrefsKey = 'sori_story_ring_viewed_v1';
 
   final _liked = <String>{};
+  final _bookmarked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_FeedComment>>{};
 
@@ -218,6 +216,12 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
         _liked.add(chartId);
         _likeCounts[chartId] = base + 1;
       }
+    });
+  }
+
+  void _toggleBookmark(String chartId) {
+    setState(() {
+      if (!_bookmarked.remove(chartId)) _bookmarked.add(chartId);
     });
   }
 
@@ -605,7 +609,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
               ),
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 46,
+                  height: 48,
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
                     scrollDirection: Axis.horizontal,
@@ -615,28 +619,54 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                       final tag = _homeTags[i];
                       final selected = _activeTag == tag;
                       final rising = _homeRisingTags.contains(tag);
-                      return ActionChip(
-                        avatar: rising
-                            ? const Text('🔥', style: TextStyle(fontSize: 12))
-                            : null,
-                        label: Text('#$tag'),
-                        onPressed: () => setState(() {
-                          _activeTag = selected ? null : tag;
-                          _visibleCount = 10;
-                        }),
-                        backgroundColor:
-                            selected ? SoriTokens.primarySoft : Colors.white,
-                        side: BorderSide(
-                          color: selected
-                              ? SoriTokens.primary.withValues(alpha: 0.4)
-                              : const Color(0xFFE5E7EB),
-                        ),
-                        labelStyle: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          color: selected
-                              ? SoriTokens.primary
-                              : Colors.grey.shade800,
+                      return Material(
+                        color: selected
+                            ? SoriTokens.primarySoft
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          onTap: () => setState(() {
+                            _activeTag = selected ? null : tag;
+                            _visibleCount = 10;
+                          }),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: selected
+                                    ? SoriTokens.primary.withValues(alpha: 0.4)
+                                    : const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (rising) ...[
+                                  const Text(
+                                    '🔥',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  '#$tag',
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    color: selected
+                                        ? SoriTokens.primary
+                                        : Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -680,17 +710,19 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                             _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
                         final comments =
                             _comments[id] ?? const <_FeedComment>[];
-                        return _FeedPostCard(
+                        return HomeFeedCard(
                           item: item,
                           review: item.review ??
                               store.reviewForChart(item.chart.id),
                           liked: _liked.contains(id),
                           likeCount: likes,
                           commentCount: comments.length,
+                          bookmarked: _bookmarked.contains(id),
                           showSeminarRequest: _isDirectorB2B &&
                               item.shop.id != store.shop.id,
                           onLike: () => _toggleLike(id),
                           onComment: () => _openComments(item.chart),
+                          onBookmark: () => _toggleBookmark(id),
                           onOpenMedia: () => _openCaseTimeline(item, index),
                           onOpenFullScreen: () => _openReels(index),
                           onSeminarRequest: () => _requestSeminar(item),
@@ -883,266 +915,6 @@ class _StoryRingState extends State<_StoryRing>
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _FeedPostCard extends StatelessWidget {
-  const _FeedPostCard({
-    required this.item,
-    required this.liked,
-    required this.likeCount,
-    required this.commentCount,
-    required this.onLike,
-    required this.onComment,
-    required this.onOpenMedia,
-    required this.onBookingCta,
-    required this.onShopProfile,
-    this.onOpenFullScreen,
-    this.onSeminarRequest,
-    this.showSeminarRequest = false,
-    this.review,
-  });
-
-  final CommunityCaseItem item;
-  final CustomerReview? review;
-  final bool liked;
-  final int likeCount;
-  final int commentCount;
-  final bool showSeminarRequest;
-  final VoidCallback onLike;
-  final VoidCallback onComment;
-  final VoidCallback onOpenMedia;
-  final VoidCallback? onOpenFullScreen;
-  final VoidCallback? onSeminarRequest;
-  final VoidCallback onBookingCta;
-  final VoidCallback onShopProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    final shop = item.shop;
-    final chart = item.chart;
-    final care = chart.careName.trim().isNotEmpty
-        ? chart.careName.trim()
-        : '관리 케이스';
-    final owner = (shop.ownerName ?? '').trim().isEmpty
-        ? '원장'
-        : shop.ownerName!.trim();
-    final hasReview =
-        review != null && review!.displayText.trim().isNotEmpty;
-    final avatar = shop.profileImageUrl?.trim() ?? '';
-    final tags = item.displayCareTags;
-    final hasBooking = shop.naverBookingOrPlaceUrl.isNotEmpty;
-
-    return Container(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: onShopProfile,
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: SoriTokens.primarySoft,
-                    backgroundImage:
-                        avatar.isNotEmpty && !avatar.startsWith('data:')
-                            ? NetworkImage(avatar)
-                            : null,
-                    child: avatar.isEmpty || avatar.startsWith('data:')
-                        ? const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: SoriLogo(width: 22, height: 22),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        shop.name.trim().isEmpty ? 'SORI' : shop.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        '원장 $owner · $care',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (hasReview) const VerifiedReviewBadge(small: true),
-                if (shop.tierBadge.isVisible) ...[
-                  const SizedBox(width: 6),
-                  ShopTierBadgeChip(badge: shop.tierBadge, compact: true),
-                ],
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onOpenMedia,
-            onLongPress: onOpenFullScreen,
-            child: BeforeAfterSlider(
-              height: 320,
-              before: ChartImagePane(
-                url: chart.beforeImageUrl,
-                fallbackLabel: 'Before',
-                tone: SoriTokens.primary,
-              ),
-              after: ChartImagePane(
-                url: chart.afterImageUrl,
-                fallbackLabel: 'After',
-                tone: Colors.green.shade700,
-              ),
-            ),
-          ),
-          if (tags.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: tags.take(8).map((raw) {
-                  final label = raw.trim().startsWith('#')
-                      ? raw.trim()
-                      : '#${raw.trim()}';
-                  return InputChip(
-                    label: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade700,
-                        height: 1.1,
-                      ),
-                    ),
-                    onPressed: () {},
-                    visualDensity: const VisualDensity(
-                      horizontal: -4,
-                      vertical: -4,
-                    ),
-                    materialTapTargetSize: MaterialTapTargetSize.padded,
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                    backgroundColor: Colors.transparent,
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: onLike,
-                  icon: Icon(
-                    liked ? Icons.favorite : Icons.favorite_border,
-                    color: liked ? const Color(0xFFE53935) : Colors.grey[800],
-                  ),
-                ),
-                Text(
-                  '$likeCount',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: onComment,
-                  icon: Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                Text(
-                  '$commentCount',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const Spacer(),
-                if (showSeminarRequest && onSeminarRequest != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: OutlinedButton.icon(
-                      onPressed: onSeminarRequest,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: SoriTokens.primary,
-                        side: BorderSide(color: SoriTokens.primary.withValues(alpha: 0.45)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        minimumSize: const Size(0, 36),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: const StadiumBorder(),
-                      ),
-                      icon: const Icon(Icons.school_outlined, size: 16),
-                      label: const Text(
-                        '🎓 세미나 요청',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                FilledButton(
-                  onPressed: hasBooking ? onBookingCta : onShopProfile,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    minimumSize: const Size(0, 36),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: Text(
-                    hasBooking ? '네이버 예약' : '샵 프로필 보기',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-          ),
-          if (hasReview)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: CaseReviewInlineBlock(
-                review: review!,
-                compact: true,
-                previewMaxLines: 3,
-              ),
-            )
-          else
-            const SizedBox(height: 8),
-        ],
       ),
     );
   }
