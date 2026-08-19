@@ -35,14 +35,12 @@ class CommunityCaseItem {
     return chart.careTags;
   }
 
-  /// 본문 요약 — 차트 join 필드 기준.
-  String get personaLine => chart.metadataSummaryLine.isNotEmpty
-      ? chart.metadataSummaryLine
-      : CasePersona.line(
-          chart: chart,
-          age: customerAge ?? chart.age,
-          genderLabel: customerGenderLabel ?? chart.gender,
-        );
+  /// 본문 요약 — 보관함과 동일한 페르소나 한 줄.
+  String get personaLine => CasePersona.feedLine(
+        chart: chart,
+        age: customerAge ?? chart.age,
+        genderLabel: customerGenderLabel ?? chart.gender,
+      );
 
   /// 작성자 auth id — 차트 필드 우선, 없으면 샵 원장.
   String? get authorId {

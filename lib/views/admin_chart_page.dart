@@ -1025,7 +1025,7 @@ class _ChartDetailBody extends StatelessWidget {
           '리뷰 스레드',
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
         ),
-        CaseReviewInlineBlock(review: review),
+        CaseReviewInlineBlock(review: review, anonymizeNames: false),
         FutureBuilder(
           future: store.loadReviewReplies(review.id),
           builder: (context, snap) {

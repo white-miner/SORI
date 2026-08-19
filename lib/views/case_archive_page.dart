@@ -67,7 +67,14 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
           }
         }
         if (hit != null) {
-          out.add((chart: hit.chart, customer: null));
+          out.add((
+            chart: hit.chart.copyWith(
+              feedAge: hit.customerAge ?? hit.chart.feedAge,
+              feedGenderLabel:
+                  hit.customerGenderLabel ?? hit.chart.feedGenderLabel,
+            ),
+            customer: null,
+          ));
         }
       }
     } else {

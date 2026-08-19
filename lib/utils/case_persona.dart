@@ -54,4 +54,18 @@ abstract final class CasePersona {
       ?concern,
     ].join(' · ');
   }
+
+  /// 보관함/홈/탐색 공통 메타 한 줄.
+  static String feedLine({
+    required CustomerChart chart,
+    int? age,
+    String? genderLabel,
+    Customer? customer,
+  }) =>
+      line(
+        chart: chart,
+        age: age ?? chart.age,
+        genderLabel: genderLabel ?? chart.gender,
+        customer: customer,
+      );
 }

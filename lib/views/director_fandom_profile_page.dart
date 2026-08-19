@@ -4,6 +4,7 @@ import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/feed_ba_frame.dart';
 import '../widgets/sori_logo.dart';
 
 /// 원장 브랜드 팬덤 프로필 — 소식 · B/A 케이스 · 스토리.
@@ -267,17 +268,21 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      BeforeAfterSlider(
-                        height: 200,
-                        before: ChartImagePane(
-                          url: chart.beforeImageUrl,
-                          fallbackLabel: 'Before',
-                          tone: SoriTokens.primary,
-                        ),
-                        after: ChartImagePane(
-                          url: chart.afterImageUrl,
-                          fallbackLabel: 'After',
-                          tone: const Color(0xFF03C75A),
+                      FeedBaFrame(
+                        child: BeforeAfterSlider(
+                          aspectRatio: 1.0,
+                          maxHeight: FeedBaFrame.maxSide,
+                          borderRadius: BorderRadius.zero,
+                          before: ChartImagePane(
+                            url: chart.beforeImageUrl,
+                            fallbackLabel: 'Before',
+                            tone: SoriTokens.primary,
+                          ),
+                          after: ChartImagePane(
+                            url: chart.afterImageUrl,
+                            fallbackLabel: 'After',
+                            tone: const Color(0xFF03C75A),
+                          ),
                         ),
                       ),
                       Padding(

@@ -8,8 +8,10 @@ import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../services/instagram_quick_post.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
+import 'feed_ba_frame.dart';
 import 'sori_logo.dart';
 
 /// 홈 탐색 피드 카드 — 인스타그램형 Edge-to-Edge 블록.
@@ -71,7 +73,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
         authorId: item.authorId ?? item.chart.authorId,
       );
 
-  Widget _baSlider(CustomerChart chart, {double maxHeight = 900}) {
+  Widget _baSlider(CustomerChart chart, {double maxHeight = FeedBaFrame.maxSide}) {
     return BeforeAfterSlider(
       aspectRatio: 1.0,
       maxHeight: maxHeight,
@@ -169,7 +171,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
           item.customerGenderLabel ?? item.chart.feedGenderLabel,
     );
     final care = chart.serviceMenuLabel;
-    final meta = chart.metadataSummaryLine;
+    final meta = CasePersona.feedLine(
+      chart: chart,
+      age: item.customerAge ?? chart.age,
+      genderLabel: item.customerGenderLabel ?? chart.gender,
+    );
     final reviewText = review?.displayText.trim() ?? '';
     final hasReview = reviewText.isNotEmpty;
     final avatar = shop.profileImageUrl?.trim() ?? '';
@@ -246,12 +252,14 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          Screenshot(
-            controller: _shot,
-            child: GestureDetector(
-              onTap: widget.onOpenMedia,
-              onLongPress: widget.onOpenFullScreen,
-              child: _baSlider(chart),
+          FeedBaFrame(
+            child: Screenshot(
+              controller: _shot,
+              child: GestureDetector(
+                onTap: widget.onOpenMedia,
+                onLongPress: widget.onOpenFullScreen,
+                child: _baSlider(chart),
+              ),
             ),
           ),
           Padding(
@@ -449,6 +457,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     review: review!,
                     compact: true,
                     previewMaxLines: 3,
+                    anonymizeNames: true,
                   )
                 : Text(
                     '후기 미작성',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/customer_review.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/pii_mask.dart';
 
 /// B/A 케이스 카드용 — 고객 후기 + 원장 답글 인라인 스토리텔링.
 class CaseReviewInlineBlock extends StatefulWidget {
@@ -10,10 +11,14 @@ class CaseReviewInlineBlock extends StatefulWidget {
     required this.review,
     this.compact = false,
     this.previewMaxLines = 3,
+    this.anonymizeNames = true,
   });
 
   final CustomerReview review;
   final bool compact;
+
+  /// 공개 피드에서는 고객 실명을 마스킹한다.
+  final bool anonymizeNames;
 
   /// 피드 미리보기 줄 수 (더 보기 / 팝업 연결).
   final int previewMaxLines;
@@ -27,9 +32,15 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
 
   @override
   Widget build(BuildContext context) {
-    final body = widget.review.displayText.trim();
+    var body = widget.review.displayText.trim();
     if (body.isEmpty) return const SizedBox.shrink();
-    final reply = widget.review.directorReply?.trim();
+    var reply = widget.review.directorReply?.trim();
+    if (widget.anonymizeNames) {
+      body = PiiMask.customerNames(body);
+      if (reply != null && reply.isNotEmpty) {
+        reply = PiiMask.customerNames(reply);
+      }
+    }
     final directorReply =
         (reply != null && reply.isNotEmpty) ? reply : null;
     final compact = widget.compact;

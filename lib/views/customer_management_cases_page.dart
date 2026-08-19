@@ -13,6 +13,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/case_feed_viewport.dart';
 import '../widgets/case_review_inline.dart';
+import '../widgets/feed_ba_frame.dart';
 import '../widgets/sori_logo.dart';
 
 enum _CaseCategory {
@@ -590,18 +591,21 @@ class _CustomerCaseCard extends StatelessWidget {
               ],
             ),
           ),
-          BeforeAfterSlider(
-            aspectRatio: 4 / 3,
-            maxHeight: 520,
-            before: ChartImagePane(
-              url: chart.beforeImageUrl,
-              fallbackLabel: 'Before',
-              tone: SoriTokens.primary,
-            ),
-            after: ChartImagePane(
-              url: chart.afterImageUrl,
-              fallbackLabel: 'After',
-              tone: Colors.green.shade700,
+          FeedBaFrame(
+            child: BeforeAfterSlider(
+              aspectRatio: 1.0,
+              maxHeight: FeedBaFrame.maxSide,
+              borderRadius: BorderRadius.zero,
+              before: ChartImagePane(
+                url: chart.beforeImageUrl,
+                fallbackLabel: 'Before',
+                tone: SoriTokens.primary,
+              ),
+              after: ChartImagePane(
+                url: chart.afterImageUrl,
+                fallbackLabel: 'After',
+                tone: Colors.green.shade700,
+              ),
             ),
           ),
           Padding(
@@ -634,7 +638,11 @@ class _CustomerCaseCard extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                if (hasReview) CaseReviewInlineBlock(review: review!),
+                if (hasReview)
+                  CaseReviewInlineBlock(
+                    review: review!,
+                    anonymizeNames: false,
+                  ),
               ],
             ),
           ),

@@ -258,6 +258,9 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                                 chart: item.chart,
                                 customer: widget.store
                                     .findCustomer(item.chart.customerId),
+                                feedAge: item.customerAge ?? item.chart.age,
+                                feedGenderLabel: item.customerGenderLabel ??
+                                    item.chart.gender,
                                 liked: _liked.contains(id),
                                 likeCount: _likeCounts[id] ??
                                     (3 + id.hashCode.abs() % 40),

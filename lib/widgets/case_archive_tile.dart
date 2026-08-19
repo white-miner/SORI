@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/case_persona.dart';
 
 /// 고밀도 가로형 케이스 타일 (높이 ~120px, 썸네일 100x100).
 class CaseArchiveTile extends StatelessWidget {
@@ -18,10 +19,14 @@ class CaseArchiveTile extends StatelessWidget {
     this.onLike,
     this.onBookmark,
     this.onShareChanged,
+    this.feedAge,
+    this.feedGenderLabel,
   });
 
   final CustomerChart chart;
   final Customer? customer;
+  final int? feedAge;
+  final String? feedGenderLabel;
   final int likeCount;
   final bool liked;
   final bool bookmarked;
@@ -31,28 +36,12 @@ class CaseArchiveTile extends StatelessWidget {
   final VoidCallback? onBookmark;
   final ValueChanged<bool>? onShareChanged;
 
-  String get _demoLine {
-    final age = customer?.koreanAge;
-    final gender = customer?.gender?.label;
-    final skin = _skinTypeLabel;
-    return [
-      if (age != null) '만 $age세',
-      if (gender != null) gender,
-      if (skin != null) skin,
-    ].join(' · ');
-  }
-
-  String? get _skinTypeLabel {
-    final fromChart = chart.skinSensitivity.trim();
-    if (fromChart.isNotEmpty) return fromChart;
-    const types = ['수부지', '건성', '지성', '복합성', '민감', '중성'];
-    for (final chip in chart.careTags) {
-      for (final t in types) {
-        if (chip.contains(t)) return t;
-      }
-    }
-    return null;
-  }
+  String get _demoLine => CasePersona.feedLine(
+        chart: chart,
+        age: feedAge ?? chart.age,
+        genderLabel: feedGenderLabel ?? chart.gender,
+        customer: customer,
+      );
 
   @override
   Widget build(BuildContext context) {

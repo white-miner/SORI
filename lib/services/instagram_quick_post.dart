@@ -6,6 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
+import '../utils/case_persona.dart';
+import '../utils/pii_mask.dart';
 
 /// 작성자 본인 한정 인스타그램 퀵 게시 (캡션 복사 + B/A 이미지 공유).
 abstract final class InstagramQuickPost {
@@ -24,8 +26,12 @@ abstract final class InstagramQuickPost {
     CustomerReview? review,
   }) {
     final care = chart.serviceMenuLabel;
-    final meta = chart.metadataSummaryLine;
-    final reviewText = review?.displayText.trim() ?? '';
+    final meta = CasePersona.feedLine(
+      chart: chart,
+      age: item.customerAge ?? chart.age,
+      genderLabel: item.customerGenderLabel ?? chart.gender,
+    );
+    final reviewText = PiiMask.customerNames(review?.displayText.trim() ?? '');
     final tags = item.displayCareTags
         .map((t) => t.trim().startsWith('#') ? t.trim() : '#${t.trim()}')
         .where((t) => t.length > 1)

@@ -173,10 +173,10 @@ class CustomerChart {
     return '${(diff.inDays / 365).floor()}년 전';
   }
 
-  /// 본문 요약 — `${age}세 · ${gender} · ${skinType} · ${concerns} 고민`.
+  /// 본문 요약 — `만 38세 · 여성 · 수부지 · 홍조 고민`.
   String get metadataSummaryLine {
     return [
-      if (age != null) '$age세',
+      if (age != null) '만 $age세',
       if (gender.isNotEmpty) gender,
       if (skinType.isNotEmpty) skinType,
       if (concerns.isNotEmpty) '$concerns 고민',
