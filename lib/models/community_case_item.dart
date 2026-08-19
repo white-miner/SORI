@@ -35,10 +35,12 @@ class CommunityCaseItem {
     return chart.careTags;
   }
 
-  /// 본문 요약 — 예: `만 38세 · 여성 · 수부지 · 홍조/탄력 저하 고민`.
-  String get personaLine => CasePersona.line(
-        chart: chart,
-        age: customerAge ?? chart.feedAge,
-        genderLabel: customerGenderLabel ?? chart.feedGenderLabel,
-      );
+  /// 본문 요약 — 차트 join 필드 기준.
+  String get personaLine => chart.metadataSummaryLine.isNotEmpty
+      ? chart.metadataSummaryLine
+      : CasePersona.line(
+          chart: chart,
+          age: customerAge ?? chart.age,
+          genderLabel: customerGenderLabel ?? chart.gender,
+        );
 }

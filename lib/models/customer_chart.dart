@@ -106,10 +106,77 @@ class CustomerChart {
   /// 공개 피드용 성별 라벨 (`customers.gender` join).
   final String? feedGenderLabel;
 
+  static const _skinTypes = ['수부지', '건성', '지성', '복합성', '민감', '중성'];
+
+  /// 피드 메타 — 만 나이 (`customers` join).
+  int? get age => feedAge;
+
+  /// 피드 메타 — 성별 (`customers.gender` join).
+  String get gender => feedGenderLabel?.trim() ?? '';
+
+  /// 피드 메타 — 피부 타입 (`skin_sensitivity` / care tags).
+  String get skinType {
+    final fromChart = skinSensitivity.trim();
+    if (fromChart.isNotEmpty) {
+      for (final t in _skinTypes) {
+        if (fromChart.contains(t)) return t;
+      }
+      return fromChart;
+    }
+    for (final chip in careTags) {
+      for (final t in _skinTypes) {
+        if (chip.contains(t)) return t;
+      }
+    }
+    return '';
+  }
+
+  /// 피드 메타 — 주요 고민 (`concern_chips` / `care_tags`, '고민' 접미 제외).
+  String get concerns {
+    final skin = skinType;
+    final parts = <String>[];
+    for (final raw in careTags) {
+      var t = raw.replaceFirst('#', '').trim();
+      if (t.isEmpty) continue;
+      if (skin.isNotEmpty && (t == skin || t.contains(skin))) continue;
+      if (t.endsWith(' 고민')) t = t.substring(0, t.length - 3).trim();
+      if (t.endsWith('고민')) t = t.substring(0, t.length - 2).trim();
+      if (t.isEmpty) continue;
+      parts.add(t);
+    }
+    return parts.join('/');
+  }
+
   /// 서비스 메뉴(케어명) — 피드 본문 강조용.
   String get serviceMenuLabel {
     final name = careName.trim();
     return name.isEmpty ? '관리 케이스' : name;
+  }
+
+  DateTime? get feedPostedAt => createdAt ?? visitCheckedAt;
+
+  /// 헤더용 상대 시각 (예: `3일 전`).
+  String get relativeTimeLabel {
+    final at = feedPostedAt;
+    if (at == null) return '';
+    final diff = DateTime.now().difference(at);
+    if (diff.inMinutes < 1) return '방금';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
+    if (diff.inHours < 24) return '${diff.inHours}시간 전';
+    if (diff.inDays < 7) return '${diff.inDays}일 전';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}주 전';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}개월 전';
+    return '${(diff.inDays / 365).floor()}년 전';
+  }
+
+  /// 본문 요약 — `${age}세 · ${gender} · ${skinType} · ${concerns} 고민`.
+  String get metadataSummaryLine {
+    return [
+      if (age != null) '$age세',
+      if (gender.isNotEmpty) gender,
+      if (skinType.isNotEmpty) skinType,
+      if (concerns.isNotEmpty) '$concerns 고민',
+    ].join(' · ');
   }
 
   bool get hasBeforeImage =>

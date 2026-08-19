@@ -7,7 +7,7 @@ import 'before_after_slider.dart';
 import 'case_review_inline.dart';
 import 'sori_logo.dart';
 
-/// 홈 탐색 피드 카드 — 헤더는 샵만, 본문에 차트 메타데이터.
+/// 홈 탐색 피드 카드 — 인스타그램형 Edge-to-Edge 블록.
 class HomeFeedCard extends StatelessWidget {
   const HomeFeedCard({
     super.key,
@@ -25,6 +25,7 @@ class HomeFeedCard extends StatelessWidget {
     this.onOpenFullScreen,
     this.onSeminarRequest,
     this.showSeminarRequest = false,
+    this.showDivider = true,
     this.review,
   });
 
@@ -35,6 +36,7 @@ class HomeFeedCard extends StatelessWidget {
   final int commentCount;
   final bool bookmarked;
   final bool showSeminarRequest;
+  final bool showDivider;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onBookmark;
@@ -47,23 +49,27 @@ class HomeFeedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shop = item.shop;
-    final chart = item.chart;
+    final chart = item.chart.copyWith(
+      feedAge: item.customerAge ?? item.chart.feedAge,
+      feedGenderLabel:
+          item.customerGenderLabel ?? item.chart.feedGenderLabel,
+    );
     final care = chart.serviceMenuLabel;
-    final meta = item.personaLine;
+    final meta = chart.metadataSummaryLine;
     final reviewText = review?.displayText.trim() ?? '';
     final hasReview = reviewText.isNotEmpty;
     final avatar = shop.profileImageUrl?.trim() ?? '';
     final tags = item.displayCareTags;
     final hasBooking = shop.naverBookingOrPlaceUrl.isNotEmpty;
+    final relative = chart.relativeTimeLabel;
 
-    return Container(
+    return ColoredBox(
       color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
             child: Row(
               children: [
                 GestureDetector(
@@ -93,7 +99,33 @@ class HomeFeedCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
                       height: 1.2,
+                      color: Colors.black,
                     ),
+                  ),
+                ),
+                if (relative.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      relative,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  onPressed: () => _openMore(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    color: Colors.grey[800],
+                    size: 22,
                   ),
                 ),
               ],
@@ -194,42 +226,17 @@ class HomeFeedCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 12, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    care,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15.5,
-                      height: 1.25,
-                      color: SoriTokens.textPrimary,
-                    ),
-                  ),
-                ),
-                if (hasBooking)
-                  TextButton(
-                    onPressed: onBookingCta,
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF03C75A),
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: const Size(0, 28),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text(
-                      '네이버 예약',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-              ],
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+            child: Text(
+              care,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                height: 1.25,
+                color: Colors.black,
+              ),
             ),
           ),
           if (meta.isNotEmpty)
@@ -240,62 +247,76 @@ class HomeFeedCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   height: 1.3,
-                  color: Colors.grey.shade800,
-                ),
-              ),
-            ),
-          if (showSeminarRequest && onSeminarRequest != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onSeminarRequest,
-                  style: TextButton.styleFrom(
-                    foregroundColor: SoriTokens.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    minimumSize: const Size(0, 28),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.school_outlined, size: 15),
-                  label: const Text(
-                    '세미나 요청',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                    ),
-                  ),
+                  color: Colors.grey[600],
                 ),
               ),
             ),
           if (tags.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               child: Wrap(
-                spacing: 8,
-                runSpacing: 2,
+                spacing: 6,
+                runSpacing: 4,
                 children: tags.take(8).map((raw) {
                   final label = raw.trim().startsWith('#')
                       ? raw.trim()
                       : '#${raw.trim()}';
-                  return Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: SoriTokens.primary.withValues(alpha: 0.85),
-                      height: 1.2,
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6D28D9),
+                        height: 1.2,
+                      ),
                     ),
                   );
                 }).toList(),
               ),
             ),
+          if (hasBooking)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onBookingCta,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF03C75A),
+                    backgroundColor: const Color(0xFFE8F8EE),
+                    side: const BorderSide(color: Color(0xFF03C75A), width: 1.2),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    minimumSize: const Size(double.infinity, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                  label: const Text(
+                    '네이버 예약',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
             child: hasReview
                 ? CaseReviewInlineBlock(
                     review: review!,
@@ -313,8 +334,63 @@ class HomeFeedCard extends StatelessWidget {
                     ),
                   ),
           ),
+          if (showDivider)
+            Divider(height: 1, thickness: 1, color: Colors.grey[200]),
         ],
       ),
+    );
+  }
+
+  void _openMore(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.storefront_outlined),
+                title: const Text('샵 프로필 보기'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onShopProfile();
+                },
+              ),
+              if (item.shop.naverBookingOrPlaceUrl.isNotEmpty)
+                ListTile(
+                  leading: const Icon(
+                    Icons.calendar_month_outlined,
+                    color: Color(0xFF03C75A),
+                  ),
+                  title: const Text('네이버 예약'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onBookingCta();
+                  },
+                ),
+              if (showSeminarRequest && onSeminarRequest != null)
+                ListTile(
+                  leading: const Icon(Icons.school_outlined),
+                  title: const Text('세미나 요청'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onSeminarRequest!();
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('닫기'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
