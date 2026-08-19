@@ -22,18 +22,16 @@ abstract final class CasePersona {
   }
 
   static String? concernLabel(CustomerChart chart) {
-    final skin = skinTypeLabel(chart);
+    final parts = <String>[];
     for (final raw in chart.careTags) {
-      var t = raw.replaceFirst('#', '').trim();
+      final t = raw.replaceFirst('#', '').trim();
       if (t.isEmpty) continue;
-      if (skin != null && (t == skin || t.contains(skin))) continue;
-      if (t.endsWith('고민')) return t;
-      final head = t.split(RegExp(r'[/,]')).first.trim();
-      if (head.isEmpty) continue;
-      if (skin != null && head.contains(skin)) continue;
-      return '$head 고민';
+      if (skinTypes.contains(t)) continue;
+      parts.add(t);
     }
-    return null;
+    if (parts.isEmpty) return null;
+    final joined = parts.join('/');
+    return joined.endsWith('고민') ? joined : '$joined 고민';
   }
 
   static String line({

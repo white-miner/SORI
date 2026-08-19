@@ -647,7 +647,10 @@ class MemorySoriRepository implements SoriRepository {
       final cust = byCustomer[chart.customerId];
       out.add(
         CommunityCaseItem(
-          chart: chart.asPublicFeedProjection(),
+          chart: chart.asPublicFeedProjection().copyWith(
+            feedAge: cust?.koreanAge,
+            feedGenderLabel: cust?.gender?.label,
+          ),
           shop: snap.shop,
           review: byChartReview[chart.id]?.copyWith(customerId: ''),
           customerAge: cust?.koreanAge,
@@ -660,6 +663,8 @@ class MemorySoriRepository implements SoriRepository {
         chart: partnerChart.copyWith(
           skinSensitivity: '수부지',
           deviceInfo: 'EMS 리프팅',
+          feedAge: 38,
+          feedGenderLabel: '여성',
         ),
         shop: partnerShop,
         review: partnerReview,
@@ -686,6 +691,8 @@ class MemorySoriRepository implements SoriRepository {
           concernChips: const ['바디 셀룰라이트', '복부', '부종/순환'],
           skinSensitivity: '중성',
           deviceInfo: '고주파 바디',
+          feedAge: 42,
+          feedGenderLabel: '여성',
           beforeImageUrl: 'https://picsum.photos/seed/sori-hot-body-b/600/800',
           afterImageUrl: 'https://picsum.photos/seed/sori-hot-body-a/600/800',
           signatureUrl: 'https://example.com/sig-hot-2.png',

@@ -37,8 +37,8 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
 
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.only(top: compact ? 8 : 10),
-      padding: EdgeInsets.all(compact ? 10 : 12),
+      margin: EdgeInsets.only(top: compact ? 0 : 10),
+      padding: EdgeInsets.all(compact ? 8 : 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F7FC),
         borderRadius: BorderRadius.circular(12),

@@ -38,6 +38,8 @@ class CustomerChart {
     this.homeCareMissionChecks = const [false, false, false],
     this.consentPdfUrl,
     this.deviceInfo,
+    this.feedAge,
+    this.feedGenderLabel,
   });
 
   final String id;
@@ -97,6 +99,18 @@ class CustomerChart {
 
   /// 선택한 서비스 메뉴의 사용 기기 (없으면 null).
   final String? deviceInfo;
+
+  /// 공개 피드용 익명 만 나이 (`customers.birth_date` join, 생년월일 미저장).
+  final int? feedAge;
+
+  /// 공개 피드용 성별 라벨 (`customers.gender` join).
+  final String? feedGenderLabel;
+
+  /// 서비스 메뉴(케어명) — 피드 본문 강조용.
+  String get serviceMenuLabel {
+    final name = careName.trim();
+    return name.isEmpty ? '관리 케이스' : name;
+  }
 
   bool get hasBeforeImage =>
       beforeImageUrl != null && beforeImageUrl!.trim().isNotEmpty;
@@ -168,6 +182,8 @@ class CustomerChart {
       infoViewConsent: false,
       homeCareMissionChecks: const [false, false, false],
       deviceInfo: deviceInfo,
+      feedAge: feedAge,
+      feedGenderLabel: feedGenderLabel,
     );
   }
 
@@ -206,6 +222,8 @@ class CustomerChart {
     bool? infoViewConsent,
     List<bool>? homeCareMissionChecks,
     String? deviceInfo,
+    int? feedAge,
+    String? feedGenderLabel,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
@@ -261,6 +279,8 @@ class CustomerChart {
       homeCareMissionChecks:
           homeCareMissionChecks ?? this.homeCareMissionChecks,
       deviceInfo: deviceInfo ?? this.deviceInfo,
+      feedAge: feedAge ?? this.feedAge,
+      feedGenderLabel: feedGenderLabel ?? this.feedGenderLabel,
     );
   }
 
@@ -427,6 +447,30 @@ class CustomerChart {
       homeCareMissionChecks:
           missionChecksFromDynamic(map['home_care_mission_checks']),
       deviceInfo: DbMap.asTextOrNull(map['device_info'] ?? map['deviceInfo']),
+      feedAge: () {
+        final v = map['customer_age'] ?? map['feed_age'];
+        if (v == null) return null;
+        if (v is int) return v > 0 ? v : null;
+        if (v is num) {
+          final n = v.toInt();
+          return n > 0 ? n : null;
+        }
+        return int.tryParse('$v');
+      }(),
+      feedGenderLabel: () {
+        final raw = DbMap.asTextOrNull(
+          map['customer_gender_label'] ?? map['feed_gender_label'],
+        );
+        if (raw == null || raw.isEmpty) return null;
+        switch (raw.toLowerCase()) {
+          case 'female':
+            return '여성';
+          case 'male':
+            return '남성';
+          default:
+            return raw;
+        }
+      }(),
     );
   }
 }

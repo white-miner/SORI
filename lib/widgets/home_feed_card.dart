@@ -5,10 +5,9 @@ import '../models/customer_review.dart';
 import '../theme/sori_tokens.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
-import 'shop_tier_badge_chip.dart';
 import 'sori_logo.dart';
 
-/// 홈 탐색 피드 카드 — Edge-to-Edge 1:1 B/A + 페르소나 헤더.
+/// 홈 탐색 피드 카드 — 헤더는 샵만, 본문에 차트 메타데이터.
 class HomeFeedCard extends StatelessWidget {
   const HomeFeedCard({
     super.key,
@@ -49,32 +48,28 @@ class HomeFeedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final shop = item.shop;
     final chart = item.chart;
-    final care = chart.careName.trim().isNotEmpty
-        ? chart.careName.trim()
-        : '관리 케이스';
-    final device = chart.deviceInfo?.trim() ?? '';
-    final hasReview =
-        review != null && review!.displayText.trim().isNotEmpty;
+    final care = chart.serviceMenuLabel;
+    final meta = item.personaLine;
+    final reviewText = review?.displayText.trim() ?? '';
+    final hasReview = reviewText.isNotEmpty;
     final avatar = shop.profileImageUrl?.trim() ?? '';
     final tags = item.displayCareTags;
     final hasBooking = shop.naverBookingOrPlaceUrl.isNotEmpty;
-    final persona = item.personaLine;
 
     return Container(
       color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 GestureDetector(
                   onTap: onShopProfile,
                   child: CircleAvatar(
-                    radius: 18,
+                    radius: 16,
                     backgroundColor: SoriTokens.primarySoft,
                     backgroundImage:
                         avatar.isNotEmpty && !avatar.startsWith('data:')
@@ -82,39 +77,25 @@ class HomeFeedCard extends StatelessWidget {
                             : null,
                     child: avatar.isEmpty || avatar.startsWith('data:')
                         ? const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: SoriLogo(width: 22, height: 22),
+                            padding: EdgeInsets.all(5),
+                            child: SoriLogo(width: 20, height: 20),
                           )
                         : null,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        shop.name.trim().isEmpty ? 'SORI' : shop.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14.5,
-                          height: 1.2,
-                        ),
-                      ),
-                      if (persona.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        _PersonaBadge(text: persona),
-                      ],
-                    ],
+                  child: Text(
+                    shop.name.trim().isEmpty ? 'SORI' : shop.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      height: 1.2,
+                    ),
                   ),
                 ),
-                if (hasReview) const VerifiedReviewBadge(small: true),
-                if (shop.tierBadge.isVisible) ...[
-                  const SizedBox(width: 6),
-                  ShopTierBadgeChip(badge: shop.tierBadge, compact: true),
-                ],
               ],
             ),
           ),
@@ -138,7 +119,7 @@ class HomeFeedCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -146,10 +127,15 @@ class HomeFeedCard extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: onLike,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                       visualDensity: VisualDensity.compact,
                       icon: Icon(
                         liked ? Icons.favorite : Icons.favorite_border,
-                        size: 26,
+                        size: 24,
                         color: liked
                             ? const Color(0xFFE53935)
                             : Colors.grey[800],
@@ -159,15 +145,20 @@ class HomeFeedCard extends StatelessWidget {
                       '$likeCount',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                        fontSize: 12.5,
                       ),
                     ),
                     IconButton(
                       onPressed: onComment,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                       visualDensity: VisualDensity.compact,
                       icon: Icon(
                         Icons.chat_bubble_outline_rounded,
-                        size: 24,
+                        size: 22,
                         color: Colors.grey[800],
                       ),
                     ),
@@ -175,20 +166,25 @@ class HomeFeedCard extends StatelessWidget {
                       '$commentCount',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                        fontSize: 12.5,
                       ),
                     ),
                   ],
                 ),
                 IconButton(
                   onPressed: onBookmark,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                   visualDensity: VisualDensity.compact,
                   tooltip: bookmarked ? '보관함에서 제거' : '보관함에 저장',
                   icon: Icon(
                     bookmarked
                         ? Icons.bookmark_rounded
                         : Icons.bookmark_border_rounded,
-                    size: 26,
+                    size: 24,
                     color: bookmarked
                         ? SoriTokens.primary
                         : Colors.grey[800],
@@ -198,37 +194,21 @@ class HomeFeedCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 2, 12, 0),
+            padding: const EdgeInsets.fromLTRB(14, 0, 12, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: care,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14.5,
-                            height: 1.35,
-                            color: SoriTokens.textPrimary,
-                          ),
-                        ),
-                        if (device.isNotEmpty)
-                          TextSpan(
-                            text: '  ·  $device 사용',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              height: 1.35,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                      ],
-                    ),
-                    maxLines: 2,
+                  child: Text(
+                    care,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15.5,
+                      height: 1.25,
+                      color: SoriTokens.textPrimary,
+                    ),
                   ),
                 ),
                 if (hasBooking)
@@ -236,11 +216,8 @@ class HomeFeedCard extends StatelessWidget {
                     onPressed: onBookingCta,
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF03C75A),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 0,
-                      ),
-                      minimumSize: const Size(0, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 28),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
                     ),
@@ -248,34 +225,28 @@ class HomeFeedCard extends StatelessWidget {
                       '네이버 예약',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  )
-                else
-                  TextButton(
-                    onPressed: onShopProfile,
-                    style: TextButton.styleFrom(
-                      foregroundColor: SoriTokens.primary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 0,
-                      ),
-                      minimumSize: const Size(0, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text(
-                      '샵 프로필',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12.5,
+                        fontSize: 12,
                       ),
                     ),
                   ),
               ],
             ),
           ),
+          if (meta.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+              child: Text(
+                meta,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ),
           if (showSeminarRequest && onSeminarRequest != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
@@ -286,11 +257,11 @@ class HomeFeedCard extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: SoriTokens.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    minimumSize: const Size(0, 32),
+                    minimumSize: const Size(0, 28),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                   ),
-                  icon: const Icon(Icons.school_outlined, size: 16),
+                  icon: const Icon(Icons.school_outlined, size: 15),
                   label: const Text(
                     '세미나 요청',
                     style: TextStyle(
@@ -305,79 +276,44 @@ class HomeFeedCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
               child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
+                spacing: 8,
+                runSpacing: 2,
                 children: tags.take(8).map((raw) {
                   final label = raw.trim().startsWith('#')
                       ? raw.trim()
                       : '#${raw.trim()}';
-                  return InputChip(
-                    label: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade700,
-                        height: 1.1,
-                      ),
-                    ),
-                    onPressed: () {},
-                    visualDensity: const VisualDensity(
-                      horizontal: -4,
-                      vertical: -4,
-                    ),
-                    materialTapTargetSize: MaterialTapTargetSize.padded,
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                    backgroundColor: Colors.transparent,
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(99),
+                  return Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: SoriTokens.primary.withValues(alpha: 0.85),
+                      height: 1.2,
                     ),
                   );
                 }).toList(),
               ),
             ),
-          if (hasReview)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-              child: CaseReviewInlineBlock(
-                review: review!,
-                compact: true,
-                previewMaxLines: 3,
-              ),
-            )
-          else
-            const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+            child: hasReview
+                ? CaseReviewInlineBlock(
+                    review: review!,
+                    compact: true,
+                    previewMaxLines: 3,
+                  )
+                : Text(
+                    '후기 미작성',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade400,
+                      height: 1.2,
+                    ),
+                  ),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _PersonaBadge extends StatelessWidget {
-  const _PersonaBadge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: SoriTokens.primarySoft,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-          color: SoriTokens.primary,
-        ),
       ),
     );
   }

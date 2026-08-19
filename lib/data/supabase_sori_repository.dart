@@ -279,6 +279,46 @@ class SupabaseSoriRepository implements SoriRepository {
     return int.tryParse('$raw');
   }
 
+  static int? _ageFromBirth(DateTime? birth) {
+    if (birth == null) return null;
+    final now = DateTime.now();
+    var age = now.year - birth.year;
+    if (now.month < birth.month ||
+        (now.month == birth.month && now.day < birth.day)) {
+      age -= 1;
+    }
+    return age < 0 ? null : age;
+  }
+
+  Future<Map<String, ({int? age, String? gender})>> _loadCustomerFeedPersona(
+    Iterable<String> customerIds,
+  ) async {
+    final ids =
+        customerIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    final out = <String, ({int? age, String? gender})>{};
+    if (ids.isEmpty) return out;
+    try {
+      final rows = await _db
+          .from('customers')
+          .select('id, gender, birth_date')
+          .inFilter('id', ids.toList());
+      for (final raw in rows as List) {
+        if (raw is! Map) continue;
+        final map = Map<String, dynamic>.from(raw);
+        final id = DbMap.asText(map['id']);
+        if (id.isEmpty) continue;
+        final gender = CustomerGenderX.fromDb(DbMap.asTextOrNull(map['gender']));
+        out[id] = (
+          age: _ageFromBirth(DbMap.asDateTime(map['birth_date'])),
+          gender: gender?.label,
+        );
+      }
+    } catch (e) {
+      debugPrint('community customer persona join skipped: $e');
+    }
+    return out;
+  }
+
   CustomerChart _chartFromSaveRequest(
     SaveChartRequest request,
     String shopId, {
@@ -1826,6 +1866,9 @@ class SupabaseSoriRepository implements SoriRepository {
             signatureUrl: 'signed',
             deviceInfo: DbMap.asTextOrNull(map['device_info']),
             skinSensitivity: DbMap.asText(map['skin_sensitivity']),
+            feedAge: _communityAge(map['customer_age']),
+            feedGenderLabel:
+                DbMap.asTextOrNull(map['customer_gender_label']),
           );
 
           final shop = Shop(
@@ -1877,9 +1920,8 @@ class SupabaseSoriRepository implements SoriRepository {
               shop: shop,
               review: review,
               careTags: chart.careTags,
-              customerAge: _communityAge(map['customer_age']),
-              customerGenderLabel:
-                  DbMap.asTextOrNull(map['customer_gender_label']),
+              customerAge: chart.feedAge,
+              customerGenderLabel: chart.feedGenderLabel,
             ),
           );
         }
@@ -1893,7 +1935,7 @@ class SupabaseSoriRepository implements SoriRepository {
         rows = await _db
             .from(_chartsPrimary)
             .select(
-              'id, shop_id, visit_number, care_name, concern_chips, '
+              'id, shop_id, customer_id, visit_number, care_name, concern_chips, '
               'before_image_url, after_image_url, is_case_shared, created_at, '
               'signature_url, consent_pdf_url, device_info, skin_sensitivity',
             )
@@ -1905,7 +1947,7 @@ class SupabaseSoriRepository implements SoriRepository {
           rows = await _db
               .from(_chartsFallback)
               .select(
-                'id, shop_id, visit_number, care_name, concern_chips, '
+                'id, shop_id, customer_id, visit_number, care_name, concern_chips, '
                 'before_image_url, after_image_url, is_case_shared, created_at, '
                 'signature_url, consent_pdf_url, device_info, skin_sensitivity',
               )
@@ -1916,7 +1958,7 @@ class SupabaseSoriRepository implements SoriRepository {
           rows = await _db
               .from(_chartsFallback)
               .select(
-                'id, shop_id, visit_number, care_name, concern_chips, '
+                'id, shop_id, customer_id, visit_number, care_name, concern_chips, '
                 'before_image_url, after_image_url, case_shared, created_at, '
                 'signature_url, consent_pdf_url, device_info, skin_sensitivity',
               )
@@ -1926,7 +1968,7 @@ class SupabaseSoriRepository implements SoriRepository {
         }
       }
 
-      final charts = _mapRowsSafely(
+      final rawCharts = _mapRowsSafely(
         rows,
         CustomerChart.fromMap,
         label: 'community_charts',
@@ -1938,8 +1980,19 @@ class SupabaseSoriRepository implements SoriRepository {
                 c.isConsentSigned &&
                 (b.isNotEmpty || a.isNotEmpty);
           })
-          .map((c) => c.asPublicFeedProjection())
           .toList();
+      final personas = await _loadCustomerFeedPersona(
+        rawCharts.map((c) => c.customerId),
+      );
+      final charts = rawCharts.map((c) {
+        final p = personas[c.customerId];
+        return c
+            .copyWith(
+              feedAge: p?.age,
+              feedGenderLabel: p?.gender,
+            )
+            .asPublicFeedProjection();
+      }).toList();
 
       final shopIds = charts.map((c) => c.shopId).toSet().toList();
       final shopById = <String, Shop>{};
@@ -2004,6 +2057,8 @@ class SupabaseSoriRepository implements SoriRepository {
                   ),
               review: reviewByChart[c.id],
               careTags: c.careTags,
+              customerAge: c.feedAge,
+              customerGenderLabel: c.feedGenderLabel,
             ),
           )
           .toList();

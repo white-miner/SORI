@@ -35,10 +35,10 @@ class CommunityCaseItem {
     return chart.careTags;
   }
 
-  /// 헤더 부제 — 예: `만 38세 · 여성 · 수부지 · 홍조 고민`.
+  /// 본문 요약 — 예: `만 38세 · 여성 · 수부지 · 홍조/탄력 저하 고민`.
   String get personaLine => CasePersona.line(
         chart: chart,
-        age: customerAge,
-        genderLabel: customerGenderLabel,
+        age: customerAge ?? chart.feedAge,
+        genderLabel: customerGenderLabel ?? chart.feedGenderLabel,
       );
 }

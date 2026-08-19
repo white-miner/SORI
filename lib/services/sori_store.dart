@@ -1963,7 +1963,10 @@ class SoriStore implements Listenable {
       }
       out.add(
         CommunityCaseItem(
-          chart: chart.asPublicFeedProjection(),
+          chart: chart.asPublicFeedProjection().copyWith(
+            feedAge: cust?.koreanAge,
+            feedGenderLabel: cust?.gender?.label,
+          ),
           shop: shop,
           review: reviewForChart(chart.id)?.copyWith(customerId: ''),
           careTags: chart.careTags,
