@@ -650,6 +650,7 @@ class MemorySoriRepository implements SoriRepository {
           chart: chart.asPublicFeedProjection().copyWith(
             feedAge: cust?.koreanAge,
             feedGenderLabel: cust?.gender?.label,
+            authorId: snap.shop.ownerUserId,
           ),
           shop: snap.shop,
           review: byChartReview[chart.id]?.copyWith(customerId: ''),

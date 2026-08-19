@@ -1869,6 +1869,7 @@ class SupabaseSoriRepository implements SoriRepository {
             feedAge: _communityAge(map['customer_age']),
             feedGenderLabel:
                 DbMap.asTextOrNull(map['customer_gender_label']),
+            authorId: DbMap.asTextOrNull(map['shop_owner_user_id']),
           );
 
           final shop = Shop(
@@ -1878,6 +1879,7 @@ class SupabaseSoriRepository implements SoriRepository {
             naverBookingUrl: DbMap.asText(map['shop_naver_booking_url']),
             ownerName: DbMap.asTextOrNull(map['shop_owner_name']),
             profileImageUrl: DbMap.asTextOrNull(map['shop_profile_image_url']),
+            ownerUserId: DbMap.asTextOrNull(map['shop_owner_user_id']),
             tierBadge: ShopTierBadge.fromDb(
               DbMap.asText(map['shop_tier_badge']),
             ),
@@ -2000,7 +2002,7 @@ class SupabaseSoriRepository implements SoriRepository {
         try {
           final shopRows = await _db.from('shops').select(
                 'id, name, owner_name, profile_image_url, naver_place_url, '
-                'naver_booking_url, tier_badge, sori_cash_balance',
+                'naver_booking_url, tier_badge, sori_cash_balance, owner_user_id',
               ).inFilter('id', shopIds);
           for (final s in _mapRowsSafely(
             shopRows as List,
@@ -2047,19 +2049,22 @@ class SupabaseSoriRepository implements SoriRepository {
 
       return charts
           .map(
-            (c) => CommunityCaseItem(
-              chart: c,
-              shop: shopById[c.shopId] ??
+            (c) {
+              final shop = shopById[c.shopId] ??
                   Shop(
                     id: c.shopId,
                     name: 'SORI 샵',
                     naverPlaceUrl: '',
-                  ),
-              review: reviewByChart[c.id],
-              careTags: c.careTags,
-              customerAge: c.feedAge,
-              customerGenderLabel: c.feedGenderLabel,
-            ),
+                  );
+              return CommunityCaseItem(
+                chart: c.copyWith(authorId: c.authorId ?? shop.ownerUserId),
+                shop: shop,
+                review: reviewByChart[c.id],
+                careTags: c.careTags,
+                customerAge: c.feedAge,
+                customerGenderLabel: c.feedGenderLabel,
+              );
+            },
           )
           .toList();
     } catch (e, st) {

@@ -39,6 +39,9 @@ class SessionUser {
   final UserRole activeMode;
   final bool showFirstChartTutorial;
 
+  /// 현재 로그인 유저 ID (`auth.users.id` / `session.authUserId`).
+  String get id => (authUserId ?? '').trim();
+
   String get phoneDigits => phone.replaceAll(RegExp(r'[^0-9]'), '');
 
   String get phoneLast4 {

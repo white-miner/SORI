@@ -1,14 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:screenshot/screenshot.dart';
 
 import '../models/community_case_item.dart';
+import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
+import '../services/instagram_quick_post.dart';
 import '../theme/sori_tokens.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
 import 'sori_logo.dart';
 
 /// 홈 탐색 피드 카드 — 인스타그램형 Edge-to-Edge 블록.
-class HomeFeedCard extends StatelessWidget {
+class HomeFeedCard extends StatefulWidget {
   const HomeFeedCard({
     super.key,
     required this.item,
@@ -22,6 +27,7 @@ class HomeFeedCard extends StatelessWidget {
     required this.onOpenMedia,
     required this.onBookingCta,
     required this.onShopProfile,
+    this.currentUserId,
     this.onOpenFullScreen,
     this.onSeminarRequest,
     this.showSeminarRequest = false,
@@ -31,6 +37,9 @@ class HomeFeedCard extends StatelessWidget {
 
   final CommunityCaseItem item;
   final CustomerReview? review;
+
+  /// 로그인한 유저 ID (`SessionUser.id` / `auth.users.id`).
+  final String? currentUserId;
   final bool liked;
   final int likeCount;
   final int commentCount;
@@ -45,6 +54,111 @@ class HomeFeedCard extends StatelessWidget {
   final VoidCallback? onSeminarRequest;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
+
+  @override
+  State<HomeFeedCard> createState() => _HomeFeedCardState();
+}
+
+class _HomeFeedCardState extends State<HomeFeedCard> {
+  final _shot = ScreenshotController();
+  bool _sharing = false;
+
+  CommunityCaseItem get item => widget.item;
+  CustomerReview? get review => widget.review;
+
+  bool get _isAuthor => InstagramQuickPost.canShare(
+        currentUserId: widget.currentUserId,
+        authorId: item.authorId ?? item.chart.authorId,
+      );
+
+  Widget _baSlider(CustomerChart chart, {double maxHeight = 900}) {
+    return BeforeAfterSlider(
+      aspectRatio: 1.0,
+      maxHeight: maxHeight,
+      borderRadius: BorderRadius.zero,
+      before: ChartImagePane(
+        url: chart.beforeImageUrl,
+        fallbackLabel: 'Before',
+        tone: SoriTokens.primary,
+      ),
+      after: ChartImagePane(
+        url: chart.afterImageUrl,
+        fallbackLabel: 'After',
+        tone: Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<Uint8List?> _captureBa(CustomerChart chart) async {
+    try {
+      final onScreen = await _shot.capture(
+        pixelRatio: MediaQuery.devicePixelRatioOf(context).clamp(2.0, 3.0),
+        delay: const Duration(milliseconds: 16),
+      );
+      if (onScreen != null && onScreen.isNotEmpty) return onScreen;
+    } catch (_) {}
+
+    if (!mounted) return null;
+    try {
+      const size = Size(1080, 1080);
+      return await _shot.captureFromWidget(
+        MediaQuery(
+          data: const MediaQueryData(size: size, devicePixelRatio: 2),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Material(
+              color: Colors.black,
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: _baSlider(chart, maxHeight: size.height),
+              ),
+            ),
+          ),
+        ),
+        context: context,
+        delay: const Duration(milliseconds: 180),
+        pixelRatio: 2,
+        targetSize: size,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _quickPost(CustomerChart chart) async {
+    if (!_isAuthor || _sharing) return;
+    setState(() => _sharing = true);
+    try {
+      final caption = InstagramQuickPost.buildCaption(
+        item: item,
+        chart: chart,
+        review: review,
+      );
+      await InstagramQuickPost.copyCaption(caption);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('게시물 내용이 복사되었습니다. 인스타그램에 붙여넣기 하세요!'),
+        ),
+      );
+
+      final bytes = await _captureBa(chart);
+      if (bytes != null && bytes.isNotEmpty) {
+        await InstagramQuickPost.shareCapturedImage(
+          bytes,
+          fileName: 'sori-ba-${chart.id}.png',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('공유에 실패했습니다. 다시 시도해 주세요. ($e)')),
+      );
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +176,7 @@ class HomeFeedCard extends StatelessWidget {
     final tags = item.displayCareTags;
     final hasBooking = shop.naverBookingOrPlaceUrl.isNotEmpty;
     final relative = chart.relativeTimeLabel;
+    final canShare = _isAuthor;
 
     return ColoredBox(
       color: Colors.white,
@@ -73,7 +188,7 @@ class HomeFeedCard extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: onShopProfile,
+                  onTap: widget.onShopProfile,
                   child: CircleAvatar(
                     radius: 16,
                     backgroundColor: SoriTokens.primarySoft,
@@ -116,7 +231,7 @@ class HomeFeedCard extends StatelessWidget {
                     ),
                   ),
                 IconButton(
-                  onPressed: () => _openMore(context),
+                  onPressed: _openMore,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 36,
@@ -131,23 +246,12 @@ class HomeFeedCard extends StatelessWidget {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onOpenMedia,
-            onLongPress: onOpenFullScreen,
-            child: BeforeAfterSlider(
-              aspectRatio: 1.0,
-              maxHeight: 900,
-              borderRadius: BorderRadius.zero,
-              before: ChartImagePane(
-                url: chart.beforeImageUrl,
-                fallbackLabel: 'Before',
-                tone: SoriTokens.primary,
-              ),
-              after: ChartImagePane(
-                url: chart.afterImageUrl,
-                fallbackLabel: 'After',
-                tone: Colors.green.shade700,
-              ),
+          Screenshot(
+            controller: _shot,
+            child: GestureDetector(
+              onTap: widget.onOpenMedia,
+              onLongPress: widget.onOpenFullScreen,
+              child: _baSlider(chart),
             ),
           ),
           Padding(
@@ -158,7 +262,7 @@ class HomeFeedCard extends StatelessWidget {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: onLike,
+                      onPressed: widget.onLike,
                       padding: const EdgeInsets.all(6),
                       constraints: const BoxConstraints(
                         minWidth: 36,
@@ -166,22 +270,24 @@ class HomeFeedCard extends StatelessWidget {
                       ),
                       visualDensity: VisualDensity.compact,
                       icon: Icon(
-                        liked ? Icons.favorite : Icons.favorite_border,
+                        widget.liked
+                            ? Icons.favorite
+                            : Icons.favorite_border,
                         size: 24,
-                        color: liked
+                        color: widget.liked
                             ? const Color(0xFFE53935)
                             : Colors.grey[800],
                       ),
                     ),
                     Text(
-                      '$likeCount',
+                      '${widget.likeCount}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,
                       ),
                     ),
                     IconButton(
-                      onPressed: onComment,
+                      onPressed: widget.onComment,
                       padding: const EdgeInsets.all(6),
                       constraints: const BoxConstraints(
                         minWidth: 36,
@@ -195,29 +301,47 @@ class HomeFeedCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '$commentCount',
+                      '${widget.commentCount}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,
                       ),
                     ),
+                    if (canShare)
+                      IconButton(
+                        onPressed: _sharing ? null : () => _quickPost(chart),
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: '인스타그램 퀵 게시',
+                        icon: Icon(
+                          _sharing
+                              ? Icons.hourglass_top_rounded
+                              : Icons.send_outlined,
+                          size: 22,
+                          color: Colors.grey[800],
+                        ),
+                      ),
                   ],
                 ),
                 IconButton(
-                  onPressed: onBookmark,
+                  onPressed: widget.onBookmark,
                   padding: const EdgeInsets.all(6),
                   constraints: const BoxConstraints(
                     minWidth: 36,
                     minHeight: 36,
                   ),
                   visualDensity: VisualDensity.compact,
-                  tooltip: bookmarked ? '보관함에서 제거' : '보관함에 저장',
+                  tooltip: widget.bookmarked ? '보관함에서 제거' : '보관함에 저장',
                   icon: Icon(
-                    bookmarked
+                    widget.bookmarked
                         ? Icons.bookmark_rounded
                         : Icons.bookmark_border_rounded,
                     size: 24,
-                    color: bookmarked
+                    color: widget.bookmarked
                         ? SoriTokens.primary
                         : Colors.grey[800],
                   ),
@@ -292,11 +416,14 @@ class HomeFeedCard extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: onBookingCta,
+                  onPressed: widget.onBookingCta,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF03C75A),
                     backgroundColor: const Color(0xFFE8F8EE),
-                    side: const BorderSide(color: Color(0xFF03C75A), width: 1.2),
+                    side: const BorderSide(
+                      color: Color(0xFF03C75A),
+                      width: 1.2,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     minimumSize: const Size(double.infinity, 40),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -334,14 +461,14 @@ class HomeFeedCard extends StatelessWidget {
                     ),
                   ),
           ),
-          if (showDivider)
+          if (widget.showDivider)
             Divider(height: 1, thickness: 1, color: Colors.grey[200]),
         ],
       ),
     );
   }
 
-  void _openMore(BuildContext context) {
+  void _openMore() {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -358,7 +485,7 @@ class HomeFeedCard extends StatelessWidget {
                 title: const Text('샵 프로필 보기'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  onShopProfile();
+                  widget.onShopProfile();
                 },
               ),
               if (item.shop.naverBookingOrPlaceUrl.isNotEmpty)
@@ -370,16 +497,16 @@ class HomeFeedCard extends StatelessWidget {
                   title: const Text('네이버 예약'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    onBookingCta();
+                    widget.onBookingCta();
                   },
                 ),
-              if (showSeminarRequest && onSeminarRequest != null)
+              if (widget.showSeminarRequest && widget.onSeminarRequest != null)
                 ListTile(
                   leading: const Icon(Icons.school_outlined),
                   title: const Text('세미나 요청'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    onSeminarRequest!();
+                    widget.onSeminarRequest!();
                   },
                 ),
               ListTile(

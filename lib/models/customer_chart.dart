@@ -40,6 +40,7 @@ class CustomerChart {
     this.deviceInfo,
     this.feedAge,
     this.feedGenderLabel,
+    this.authorId,
   });
 
   final String id;
@@ -105,6 +106,9 @@ class CustomerChart {
 
   /// 공개 피드용 성별 라벨 (`customers.gender` join).
   final String? feedGenderLabel;
+
+  /// 차트 작성자(샵 원장) auth user id (`shops.owner_user_id`).
+  final String? authorId;
 
   static const _skinTypes = ['수부지', '건성', '지성', '복합성', '민감', '중성'];
 
@@ -251,6 +255,7 @@ class CustomerChart {
       deviceInfo: deviceInfo,
       feedAge: feedAge,
       feedGenderLabel: feedGenderLabel,
+      authorId: authorId,
     );
   }
 
@@ -291,6 +296,7 @@ class CustomerChart {
     String? deviceInfo,
     int? feedAge,
     String? feedGenderLabel,
+    String? authorId,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
@@ -348,6 +354,7 @@ class CustomerChart {
       deviceInfo: deviceInfo ?? this.deviceInfo,
       feedAge: feedAge ?? this.feedAge,
       feedGenderLabel: feedGenderLabel ?? this.feedGenderLabel,
+      authorId: authorId ?? this.authorId,
     );
   }
 
@@ -538,6 +545,11 @@ class CustomerChart {
             return raw;
         }
       }(),
+      authorId: DbMap.asTextOrNull(
+        map['author_id'] ??
+            map['shop_owner_user_id'] ??
+            map['owner_user_id'],
+      ),
     );
   }
 }

@@ -30,6 +30,7 @@ class Shop {
     this.seminarRequestCount = 0,
     this.completedSeminarCount = 0,
     this.followerCount = 0,
+    this.ownerUserId,
   });
 
   final String id;
@@ -87,6 +88,9 @@ class Shop {
   final int seminarRequestCount;
   final int completedSeminarCount;
   final int followerCount;
+
+  /// 샵 원장 auth user id (`shops.owner_user_id`).
+  final String? ownerUserId;
 
   ShopTierProgressSnapshot get tierProgress =>
       ShopTierProgressSnapshot.fromMetrics(
@@ -175,6 +179,7 @@ class Shop {
     int? seminarRequestCount,
     int? completedSeminarCount,
     int? followerCount,
+    String? ownerUserId,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -206,6 +211,7 @@ class Shop {
       completedSeminarCount:
           completedSeminarCount ?? this.completedSeminarCount,
       followerCount: followerCount ?? this.followerCount,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
     );
   }
 
@@ -236,6 +242,7 @@ class Shop {
         'seminar_request_count': seminarRequestCount,
         'completed_seminar_count': completedSeminarCount,
         'follower_count': followerCount,
+        'owner_user_id': ownerUserId,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -332,6 +339,11 @@ class Shop {
         followerCount: DbMap.asInt(
           map['follower_count'] ?? map['followerCount'],
         ),
+        ownerUserId: DbMap.asTextOrNull(
+          map['owner_user_id'] ??
+              map['shop_owner_user_id'] ??
+              map['ownerUserId'],
+        ),
       );
     } catch (_) {
       return Shop(
@@ -386,6 +398,11 @@ class Shop {
         ),
         followerCount: DbMap.asInt(
           map['follower_count'] ?? map['followerCount'],
+        ),
+        ownerUserId: DbMap.asTextOrNull(
+          map['owner_user_id'] ??
+              map['shop_owner_user_id'] ??
+              map['ownerUserId'],
         ),
       );
     }

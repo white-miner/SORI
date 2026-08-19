@@ -1966,6 +1966,7 @@ class SoriStore implements Listenable {
           chart: chart.asPublicFeedProjection().copyWith(
             feedAge: cust?.koreanAge,
             feedGenderLabel: cust?.gender?.label,
+            authorId: shop.ownerUserId,
           ),
           shop: shop,
           review: reviewForChart(chart.id)?.copyWith(customerId: ''),

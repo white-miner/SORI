@@ -611,6 +611,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                             _comments[id] ?? const <_FeedComment>[];
                         return HomeFeedCard(
                           item: item,
+                          currentUserId: store.session?.id,
                           review: item.review ??
                               store.reviewForChart(item.chart.id),
                           liked: _liked.contains(id),

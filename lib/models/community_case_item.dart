@@ -43,4 +43,19 @@ class CommunityCaseItem {
           age: customerAge ?? chart.age,
           genderLabel: customerGenderLabel ?? chart.gender,
         );
+
+  /// 작성자 auth id — 차트 필드 우선, 없으면 샵 원장.
+  String? get authorId {
+    final fromChart = chart.authorId?.trim() ?? '';
+    if (fromChart.isNotEmpty) return fromChart;
+    final fromShop = shop.ownerUserId?.trim() ?? '';
+    return fromShop.isEmpty ? null : fromShop;
+  }
+
+  /// 현재 로그인 유저가 이 차트 작성자인지 (둘 다 비어 있으면 false).
+  bool isAuthoredBy(String? currentUserId) {
+    final uid = currentUserId?.trim() ?? '';
+    final aid = authorId ?? '';
+    return uid.isNotEmpty && aid.isNotEmpty && uid == aid;
+  }
 }
