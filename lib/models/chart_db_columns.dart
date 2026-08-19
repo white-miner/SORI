@@ -14,6 +14,7 @@ abstract final class ChartDbColumns {
     'after_image_url',
     'photo_meta',
     'care_name',
+    'device_info',
     'treatment_summary',
     'director_insight',
     'allergy_notes',

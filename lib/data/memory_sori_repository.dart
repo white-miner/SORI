@@ -68,6 +68,7 @@ class MemorySoriRepository implements SoriRepository {
         ShopServiceItem(
           name: '재생케어',
           description: '피부 장벽을 편안하게 회복시키는 집중 케어예요.',
+          deviceInfo: '셀큐어 프로',
         ),
         ShopServiceItem(
           name: '수분케어',
@@ -76,10 +77,12 @@ class MemorySoriRepository implements SoriRepository {
         ShopServiceItem(
           name: 'EMS 윤곽케어',
           description: '탄력과 라인 정리를 돕는 EMS 기반 윤곽 케어예요.',
+          deviceInfo: 'EMS 리프팅 기기',
         ),
         ShopServiceItem(
           name: '테라노바 복부관리',
           description: '복부 순환과 컨디션을 가볍게 풀어주는 관리예요.',
+          deviceInfo: '테라노바',
         ),
       ],
     );

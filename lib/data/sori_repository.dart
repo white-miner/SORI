@@ -85,6 +85,7 @@ class SaveChartRequest {
     this.homeCarePrescriptions = const [],
     this.guardianPhone,
     this.infoViewConsent = false,
+    this.deviceInfo,
   });
 
   final String customerId;
@@ -129,6 +130,7 @@ class SaveChartRequest {
   final List<String> homeCarePrescriptions;
   final String? guardianPhone;
   final bool infoViewConsent;
+  final String? deviceInfo;
 }
 
 class SaveChartResult {

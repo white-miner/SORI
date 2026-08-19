@@ -127,6 +127,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   Uint8List? _afterPreviewBytes;
   String? _beforeUrl;
   String? _afterUrl;
+  String? _deviceInfo;
   bool _beforeUploading = false;
   bool _afterUploading = false;
 
@@ -508,6 +509,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _careNameController = TextEditingController(
       text: existing?.careName ?? '',
     );
+    _deviceInfo = existing?.deviceInfo ??
+        widget.store.shop.deviceInfoForMenu(_careNameController.text);
     _careNameController.addListener(_onFormBasicsChanged);
     _nameController.addListener(_onFormBasicsChanged);
     _requestsController = TextEditingController(
@@ -1308,6 +1311,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
             : _customNoController.text.trim(),
         chartId: widget.existingChart?.id,
         careName: _careNameController.text.trim(),
+        deviceInfo: _deviceInfo ??
+            widget.store.shop.deviceInfoForMenu(_careNameController.text),
         customerRequests: _requestsController.text.trim(),
         treatmentSummary: _summaryController.text.trim().isEmpty
             ? '$_visitNumber회차 ${_careNameController.text.trim()}'
@@ -1972,7 +1977,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                           value: _careNameController.text,
                           options: _serviceOptions,
                           onChanged: (v) {
-                            setState(() => _careNameController.text = v);
+                            setState(() {
+                              _careNameController.text = v;
+                              _deviceInfo =
+                                  widget.store.shop.deviceInfoForMenu(v);
+                            });
                             _pruneResolvedValidationErrors();
                           },
                           hasError: _inlineErrorField ==

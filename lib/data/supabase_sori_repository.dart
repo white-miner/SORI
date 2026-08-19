@@ -289,6 +289,7 @@ class SupabaseSoriRepository implements SoriRepository {
       beforeImageUrl: _imageUrlOrNull(request.beforeImageUrl),
       afterImageUrl: _imageUrlOrNull(request.afterImageUrl),
       careName: _textOrEmpty(request.careName),
+      deviceInfo: DbMap.asTextOrNull(request.deviceInfo),
       treatmentSummary: _textOrEmpty(request.treatmentSummary),
       directorInsight: _textOrEmpty(request.directorInsight),
       allergyNotes: _textOrEmpty(request.allergyNotes),

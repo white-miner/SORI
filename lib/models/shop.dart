@@ -107,6 +107,19 @@ class Shop {
       .where((e) => e.isNotEmpty)
       .toList(growable: false);
 
+  /// 서비스명으로 등록된 사용 기기 (없으면 null).
+  String? deviceInfoForMenu(String careName) {
+    final key = careName.trim().toLowerCase();
+    if (key.isEmpty) return null;
+    for (final item in serviceMenu) {
+      if (item.name.trim().toLowerCase() == key) {
+        final d = item.deviceInfo?.trim() ?? '';
+        return d.isEmpty ? null : d;
+      }
+    }
+    return null;
+  }
+
   bool get hasNaverPlace => naverPlaceUrl.trim().isNotEmpty;
 
   bool get hasNaverBookingUrl => naverBookingUrl.trim().isNotEmpty;

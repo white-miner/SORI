@@ -37,6 +37,7 @@ class CustomerChart {
     this.infoViewConsent = false,
     this.homeCareMissionChecks = const [false, false, false],
     this.consentPdfUrl,
+    this.deviceInfo,
   });
 
   final String id;
@@ -93,6 +94,9 @@ class CustomerChart {
 
   /// 시술 후 3일 미션 체크 상태.
   final List<bool> homeCareMissionChecks;
+
+  /// 선택한 서비스 메뉴의 사용 기기 (없으면 null).
+  final String? deviceInfo;
 
   bool get hasBeforeImage =>
       beforeImageUrl != null && beforeImageUrl!.trim().isNotEmpty;
@@ -163,6 +167,7 @@ class CustomerChart {
       guardianPhone: null,
       infoViewConsent: false,
       homeCareMissionChecks: const [false, false, false],
+      deviceInfo: deviceInfo,
     );
   }
 
@@ -200,6 +205,7 @@ class CustomerChart {
     String? guardianPhone,
     bool? infoViewConsent,
     List<bool>? homeCareMissionChecks,
+    String? deviceInfo,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
@@ -254,6 +260,7 @@ class CustomerChart {
       infoViewConsent: infoViewConsent ?? this.infoViewConsent,
       homeCareMissionChecks:
           homeCareMissionChecks ?? this.homeCareMissionChecks,
+      deviceInfo: deviceInfo ?? this.deviceInfo,
     );
   }
 
@@ -313,6 +320,10 @@ class CustomerChart {
           },
       },
       'care_name': careName.trim(),
+      'device_info': () {
+        final d = deviceInfo?.trim() ?? '';
+        return d.isEmpty ? null : d;
+      }(),
       'treatment_summary': treatmentSummary.trim(),
       'director_insight': directorInsight.trim(),
       'allergy_notes': allergyNotes.trim(),
@@ -415,6 +426,7 @@ class CustomerChart {
       infoViewConsent: DbMap.asBool(map['info_view_consent']),
       homeCareMissionChecks:
           missionChecksFromDynamic(map['home_care_mission_checks']),
+      deviceInfo: DbMap.asTextOrNull(map['device_info'] ?? map['deviceInfo']),
     );
   }
 }

@@ -45,6 +45,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   /// shopId → 열람 시각(ms). 이후 생성된 스토리만 Active.
   final Map<String, int> _storyViewedAtMs = {};
   int _visibleCount = 10;
+  String? _activeTag;
+
+  static const _homeRisingTags = {'윤곽', '스페셜웨딩'};
 
   SoriStore get store => widget.store;
 
@@ -107,8 +110,39 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
 
   List<CommunityCaseItem> get _feed {
     final hot = store.communityHotCases;
-    if (hot.isNotEmpty) return hot;
-    return store.favoriteShopCaseItems();
+    var items = hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
+    final tag = _activeTag?.toLowerCase();
+    if (tag != null && tag.isNotEmpty) {
+      items = items.where((item) {
+        final hay = [
+          item.chart.careName,
+          item.chart.deviceInfo ?? '',
+          ...item.chart.careTags,
+        ].join(' ').toLowerCase();
+        return hay.contains(tag);
+      }).toList();
+    }
+    return items;
+  }
+
+  List<String> get _homeTags {
+    final counts = <String, int>{};
+    for (final item in store.communityHotCases) {
+      for (final tag in item.chart.careTags) {
+        final key = tag.replaceFirst('#', '').trim();
+        if (key.isEmpty) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+    final seeded = ['윤곽', '스페셜웨딩', '리프팅', '재생', '수분'];
+    final out = <String>[...seeded];
+    final keys = counts.keys.toList()
+      ..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
+    for (final k in keys) {
+      if (!out.contains(k)) out.add(k);
+      if (out.length >= 10) break;
+    }
+    return out;
   }
 
   DateTime? _latestStoryAtForShop(String shopId) {
@@ -568,6 +602,46 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
               ),
               const SliverToBoxAdapter(
                 child: Divider(height: 1, thickness: 0.6),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 46,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _homeTags.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                    itemBuilder: (context, i) {
+                      final tag = _homeTags[i];
+                      final selected = _activeTag == tag;
+                      final rising = _homeRisingTags.contains(tag);
+                      return ActionChip(
+                        avatar: rising
+                            ? const Text('🔥', style: TextStyle(fontSize: 12))
+                            : null,
+                        label: Text('#$tag'),
+                        onPressed: () => setState(() {
+                          _activeTag = selected ? null : tag;
+                          _visibleCount = 10;
+                        }),
+                        backgroundColor:
+                            selected ? SoriTokens.primarySoft : Colors.white,
+                        side: BorderSide(
+                          color: selected
+                              ? SoriTokens.primary.withValues(alpha: 0.4)
+                              : const Color(0xFFE5E7EB),
+                        ),
+                        labelStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          color: selected
+                              ? SoriTokens.primary
+                              : Colors.grey.shade800,
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
               if (loading)
                 const SliverFillRemaining(

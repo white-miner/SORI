@@ -29,6 +29,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
           (e) => _ServiceDraft(
             name: TextEditingController(text: e.name),
             description: TextEditingController(text: e.description),
+            device: TextEditingController(text: e.deviceInfo ?? ''),
           ),
         )
         .toList();
@@ -49,6 +50,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
         _ServiceDraft(
           name: TextEditingController(),
           description: TextEditingController(),
+          device: TextEditingController(),
         ),
       ];
     });
@@ -149,6 +151,10 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
         ShopServiceItem(
           name: name,
           description: item.description.text.trim(),
+          deviceInfo: () {
+            final d = item.device.text.trim();
+            return d.isEmpty ? null : d;
+          }(),
         ),
       );
     }
@@ -314,6 +320,16 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
+                      TextField(
+                        controller: item.device,
+                        decoration: const InputDecoration(
+                          labelText: '사용 기기 (선택 사항)',
+                          hintText: '예: 테라노바, EMS 리프팅, 셀큐어',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerRight,
                         child: OutlinedButton.icon(
@@ -379,15 +395,18 @@ class _ServiceDraft {
   _ServiceDraft({
     required this.name,
     required this.description,
+    required this.device,
   });
 
   final TextEditingController name;
   final TextEditingController description;
+  final TextEditingController device;
   final Set<String> selectedChips = {};
   bool polishing = false;
 
   void dispose() {
     name.dispose();
     description.dispose();
+    device.dispose();
   }
 }

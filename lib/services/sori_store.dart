@@ -360,6 +360,7 @@ class SoriStore implements Listenable {
     List<String> homeCarePrescriptions = const [],
     String? guardianPhone,
     bool infoViewConsent = false,
+    String? deviceInfo,
   }) async {
     final boundCustomerId = customerId.trim();
     if (boundCustomerId.isEmpty) {
@@ -404,6 +405,7 @@ class SoriStore implements Listenable {
         homeCarePrescriptions: homeCarePrescriptions,
         guardianPhone: guardianPhone,
         infoViewConsent: infoViewConsent,
+        deviceInfo: deviceInfo,
       );
       unawaited(
         _generateConsentPdfInBackground(
@@ -464,6 +466,7 @@ class SoriStore implements Listenable {
                 return d.isEmpty ? null : d;
               }(),
               infoViewConsent: infoViewConsent,
+              deviceInfo: deviceInfo,
             ),
           )
           .timeout(
@@ -2439,6 +2442,7 @@ class SoriStore implements Listenable {
     List<String> homeCarePrescriptions = const [],
     String? guardianPhone,
     bool infoViewConsent = false,
+    String? deviceInfo,
   }) {
     if (blocksDirectorChartWrites) {
       throw StateError('고객 모드에서는 원장 차트를 저장할 수 없습니다.');
@@ -2496,6 +2500,7 @@ class SoriStore implements Listenable {
         guardianPhone: guardian,
         clearGuardianPhone: guardian == null,
         infoViewConsent: infoViewConsent,
+        deviceInfo: deviceInfo,
       );
       charts[index] = chart;
     } else {
@@ -2527,6 +2532,7 @@ class SoriStore implements Listenable {
         homeCarePrescriptions: prescriptions,
         guardianPhone: guardian,
         infoViewConsent: infoViewConsent,
+        deviceInfo: deviceInfo,
       );
       charts.insert(0, chart);
     }

@@ -15,8 +15,6 @@ import '../widgets/case_feed_viewport.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/sori_logo.dart';
 
-enum _FeedScope { favoriteShop, nationwideHot }
-
 enum _CaseCategory {
   all,
   poreAcne,
@@ -84,7 +82,6 @@ class _CustomerManagementCasesPageState
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_CaseComment>>{};
   int _visibleCount = 8;
-  _FeedScope _scope = _FeedScope.favoriteShop;
   _CaseCategory _category = _CaseCategory.all;
   String _query = '';
 
@@ -142,13 +139,7 @@ class _CustomerManagementCasesPageState
   }
 
   List<CommunityCaseItem> get _feed {
-    List<CommunityCaseItem> base;
-    if (_scope == _FeedScope.nationwideHot) {
-      final hot = widget.store.communityHotCases;
-      base = hot.isNotEmpty ? hot : widget.store.favoriteShopCaseItems();
-    } else {
-      base = widget.store.favoriteShopCaseItems();
-    }
+    final base = widget.store.favoriteShopCaseItems();
 
     final tokens = _searchTokens(_query);
     return base.where((item) {
@@ -263,8 +254,7 @@ class _CustomerManagementCasesPageState
   Widget build(BuildContext context) {
     final feed = _feed;
     final shown = feed.take(_visibleCount).toList();
-    final loading = widget.store.communityHotCasesLoading &&
-        _scope == _FeedScope.nationwideHot;
+    final loading = widget.store.communityHotCasesLoading && shown.isEmpty;
 
     return ColoredBox(
       color: const Color(0xFFF5F6F8),
@@ -275,47 +265,8 @@ class _CustomerManagementCasesPageState
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text(
-                      '단골 샵 케이스',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    selected: _scope == _FeedScope.favoriteShop,
-                    onSelected: (_) => setState(() {
-                      _scope = _FeedScope.favoriteShop;
-                      _visibleCount = 8;
-                    }),
-                    selectedColor: SoriTokens.primarySoft,
-                    checkmarkColor: SoriTokens.primary,
-                  ),
-                  FilterChip(
-                    label: const Text(
-                      '전국 뷰티 샵 핫 케이스',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    selected: _scope == _FeedScope.nationwideHot,
-                    onSelected: (_) {
-                      setState(() {
-                        _scope = _FeedScope.nationwideHot;
-                        _visibleCount = 8;
-                      });
-                      widget.store.refreshCommunityHotCases();
-                    },
-                    selectedColor: SoriTokens.primarySoft,
-                    checkmarkColor: SoriTokens.primary,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                _scope == _FeedScope.favoriteShop
-                    ? '내가 팔로우·방문하는 샵의 공유 B/A 케이스'
-                    : '미방문 고객도 둘러볼 수 있는 전국 오픈 커뮤니티 피드',
+                '단골 샵의 공유 B/A 케이스 · 전국 탐색은 홈 탭에서',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
