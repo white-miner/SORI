@@ -4,7 +4,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../theme/sori_tokens.dart';
 
-/// 고밀도 가로형 케이스 아카이브 타일 (높이 ~108px).
+/// 고밀도 가로형 케이스 타일 (높이 ~120px, 썸네일 100x100).
 class CaseArchiveTile extends StatelessWidget {
   const CaseArchiveTile({
     super.key,
@@ -31,17 +31,40 @@ class CaseArchiveTile extends StatelessWidget {
   final VoidCallback? onBookmark;
   final ValueChanged<bool>? onShareChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    final care = chart.careName.trim().isEmpty ? '관리 케이스' : chart.careName.trim();
+  String get _demoLine {
     final age = customer?.koreanAge;
     final gender = customer?.gender?.label;
-    final demo = [
+    final skin = _skinTypeLabel;
+    return [
       if (age != null) '만 $age세',
       if (gender != null) gender,
+      if (skin != null) skin,
     ].join(' · ');
+  }
+
+  String? get _skinTypeLabel {
+    final fromChart = chart.skinSensitivity.trim();
+    if (fromChart.isNotEmpty) return fromChart;
+    const types = ['수부지', '건성', '지성', '복합성', '민감', '중성'];
+    for (final chip in chart.careTags) {
+      for (final t in types) {
+        if (chip.contains(t)) return t;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final care =
+        chart.careName.trim().isEmpty ? '관리 케이스' : chart.careName.trim();
+    final demo = _demoLine;
     final device = chart.deviceInfo?.trim() ?? '';
-    final tag = chart.careTags.isNotEmpty ? '#${chart.careTags.first}' : '';
+    final tags = chart.careTags
+        .map((t) => t.replaceFirst('#', '').trim())
+        .where((t) => t.isNotEmpty)
+        .map((t) => '#$t')
+        .toList();
     final shared = chart.caseShared && chart.isConsentSigned;
 
     return Material(
@@ -51,19 +74,20 @@ class CaseArchiveTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 108,
+          constraints: const BoxConstraints(minHeight: 120),
           padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE8E4F8)),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _BaThumb(
                 beforeUrl: chart.beforeImageUrl,
                 afterUrl: chart.afterImageUrl,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,26 +98,57 @@ class CaseArchiveTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                         height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        if (demo.isNotEmpty) _MiniBadge(demo),
-                        if (device.isNotEmpty)
-                          _MiniBadge(device, icon: Icons.precision_manufacturing_outlined),
-                        if (tag.isNotEmpty)
-                          _MiniBadge(tag, tint: SoriTokens.primarySoft),
-                      ],
-                    ),
+                    if (demo.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        demo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                    if (device.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '$device 사용',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade800,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        tags.join('  '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: SoriTokens.primary,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              const SizedBox(width: 4),
               if (showShareSwitch)
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -116,54 +171,55 @@ class CaseArchiveTile extends StatelessWidget {
                   ],
                 )
               else
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    InkWell(
-                      onTap: onLike,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Column(
-                          children: [
-                            Icon(
-                              liked
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              size: 18,
-                              color: liked
-                                  ? const Color(0xFFE11D48)
-                                  : Colors.grey.shade600,
-                            ),
-                            Text(
-                              '$likeCount',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.grey.shade700,
+                SizedBox(
+                  width: 36,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      InkWell(
+                        onTap: onLike,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Column(
+                            children: [
+                              Icon(
+                                liked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 20,
+                                color: liked
+                                    ? const Color(0xFFE11D48)
+                                    : Colors.grey.shade600,
                               ),
-                            ),
-                          ],
+                              Text(
+                                '$likeCount',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    InkWell(
-                      onTap: onBookmark,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
+                      const SizedBox(height: 6),
+                      InkWell(
+                        onTap: onBookmark,
+                        borderRadius: BorderRadius.circular(20),
                         child: Icon(
                           bookmarked
                               ? Icons.bookmark_rounded
                               : Icons.bookmark_border_rounded,
-                          size: 18,
+                          size: 20,
                           color: bookmarked
                               ? SoriTokens.primary
                               : Colors.grey.shade600,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -181,14 +237,18 @@ class _BaThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       child: SizedBox(
-        width: 80,
-        height: 80,
+        width: 100,
+        height: 100,
         child: Row(
           children: [
-            Expanded(child: _Shot(url: beforeUrl, fallback: Icons.image_outlined)),
-            Expanded(child: _Shot(url: afterUrl, fallback: Icons.auto_awesome)),
+            Expanded(
+              child: _Shot(url: beforeUrl, fallback: Icons.image_outlined),
+            ),
+            Expanded(
+              child: _Shot(url: afterUrl, fallback: Icons.auto_awesome),
+            ),
           ],
         ),
       ),
@@ -207,50 +267,18 @@ class _Shot extends StatelessWidget {
     if (src.isEmpty) {
       return ColoredBox(
         color: const Color(0xFFF3F0FA),
-        child: Icon(fallback, size: 16, color: SoriTokens.primary),
+        child: Icon(fallback, size: 18, color: SoriTokens.primary),
       );
     }
     return Image.network(
       src,
       fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      alignment: Alignment.center,
       errorBuilder: (_, _, _) => ColoredBox(
         color: const Color(0xFFF3F0FA),
-        child: Icon(fallback, size: 16, color: SoriTokens.primary),
-      ),
-    );
-  }
-}
-
-class _MiniBadge extends StatelessWidget {
-  const _MiniBadge(this.text, {this.icon, this.tint});
-  final String text;
-  final IconData? icon;
-  final Color? tint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: tint ?? const Color(0xFFF4F4F5),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 11, color: Colors.grey.shade700),
-            const SizedBox(width: 3),
-          ],
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey.shade800,
-            ),
-          ),
-        ],
+        child: Icon(fallback, size: 18, color: SoriTokens.primary),
       ),
     );
   }

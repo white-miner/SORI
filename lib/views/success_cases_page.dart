@@ -165,37 +165,58 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                 ),
               ),
               SizedBox(
-                height: 42,
+                height: 48,
                 child: ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
                   itemCount: _popularTags.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (context, i) {
                     final tag = _popularTags[i];
                     final selected = _activeTag == tag;
                     final rising = _risingTags.contains(tag);
-                    return ActionChip(
-                      avatar: rising
-                          ? const Text('🔥', style: TextStyle(fontSize: 12))
-                          : null,
-                      label: Text('#$tag'),
-                      onPressed: () => setState(() {
-                        _activeTag = selected ? null : tag;
-                      }),
-                      backgroundColor:
-                          selected ? SoriTokens.primarySoft : Colors.white,
-                      side: BorderSide(
-                        color: selected
-                            ? SoriTokens.primary.withValues(alpha: 0.4)
-                            : const Color(0xFFE5E7EB),
-                      ),
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: selected
-                            ? SoriTokens.primary
-                            : Colors.grey.shade800,
+                    return Material(
+                      color: selected ? SoriTokens.primarySoft : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        onTap: () => setState(() {
+                          _activeTag = selected ? null : tag;
+                        }),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: selected
+                                  ? SoriTokens.primary.withValues(alpha: 0.4)
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (rising) ...[
+                                const Text('🔥', style: TextStyle(fontSize: 13)),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                '#$tag',
+                                softWrap: false,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: selected
+                                      ? SoriTokens.primary
+                                      : Colors.grey.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
