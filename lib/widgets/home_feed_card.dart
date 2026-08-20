@@ -8,6 +8,7 @@ import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../services/instagram_quick_post.dart';
 import '../theme/sori_tokens.dart';
+import '../pages/case_detail_page.dart';
 import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
@@ -25,11 +26,10 @@ class HomeFeedCard extends StatefulWidget {
     required this.onLike,
     required this.onComment,
     required this.onBookmark,
-    required this.onOpenMedia,
+    required this.onOpenDetail,
     required this.onBookingCta,
     required this.onShopProfile,
     this.currentUserId,
-    this.onOpenFullScreen,
     this.onSeminarRequest,
     this.showSeminarRequest = false,
     this.showDivider = true,
@@ -50,8 +50,7 @@ class HomeFeedCard extends StatefulWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onBookmark;
-  final VoidCallback onOpenMedia;
-  final VoidCallback? onOpenFullScreen;
+  final VoidCallback onOpenDetail;
   final VoidCallback? onSeminarRequest;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
@@ -255,12 +254,18 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
             constraints: const BoxConstraints(maxHeight: 380),
             child: AspectRatio(
               aspectRatio: 4 / 3,
-              child: Screenshot(
-                controller: _shot,
-                child: GestureDetector(
-                  onTap: widget.onOpenMedia,
-                  onLongPress: widget.onOpenFullScreen,
-                  child: _baSlider(chart),
+              child: Hero(
+                tag: CaseDetailPage.imageHeroTag(chart.id),
+                child: Material(
+                  color: Colors.black,
+                  child: Screenshot(
+                    controller: _shot,
+                    child: GestureDetector(
+                      onDoubleTap: widget.onOpenDetail,
+                      behavior: HitTestBehavior.deferToChild,
+                      child: _baSlider(chart),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -360,6 +365,12 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
+          GestureDetector(
+            onTap: widget.onOpenDetail,
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
             child: Text(
@@ -472,6 +483,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       height: 1.2,
                     ),
                   ),
+          ),
+              ],
+            ),
           ),
           if (widget.showDivider)
             Divider(height: 1, thickness: 1, color: Colors.grey[200]),

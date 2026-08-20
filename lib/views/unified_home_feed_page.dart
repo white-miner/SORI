@@ -9,13 +9,12 @@ import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
+import '../pages/case_detail_page.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/case_timeline_modal.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/sori_logo.dart';
-import 'ba_reels_detail_page.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 피드 (스토리 링 + 세로 무한 피드).
 class UnifiedHomeFeedPage extends StatefulWidget {
@@ -231,32 +230,26 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     );
   }
 
-  void _openReels(int index) {
-    final items = _feed;
-    if (items.isEmpty) return;
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => BaReelsDetailPage(
-          store: store,
-          items: items,
-          initialIndex: index.clamp(0, items.length - 1),
-        ),
-        transitionsBuilder: (_, animation, _, child) =>
-            FadeTransition(opacity: animation, child: child),
-      ),
-    );
-  }
-
-  Future<void> _openCaseTimeline(CommunityCaseItem item, int feedIndex) async {
-    final care = item.chart.careName.trim().isNotEmpty
-        ? item.chart.careName.trim()
-        : '관리 케이스';
-    await CaseTimelineModal.show(
+  void _openCaseDetail(CommunityCaseItem item, int feedIndex) {
+    final id = item.chart.id;
+    final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
+    final comments = _comments[id] ?? const <_FeedComment>[];
+    CaseDetailPage.push(
       context,
-      store: store,
-      chartId: item.chart.id,
-      careLabel: care,
-      onOpenFullScreen: () => _openReels(feedIndex),
+      page: CaseDetailPage(
+        item: item,
+        review: item.review ?? store.reviewForChart(item.chart.id),
+        currentUserId: store.session?.id,
+        liked: _liked.contains(id),
+        likeCount: likes,
+        commentCount: comments.length,
+        bookmarked: _bookmarked.contains(id),
+        onLike: () => _toggleLike(id),
+        onComment: () => _openComments(item.chart),
+        onBookmark: () => _toggleBookmark(id),
+        onShopProfile: () => _openShopProfile(item.shop),
+        onBookingCta: () => _openNaverBookingOrProfile(item.shop),
+      ),
     );
   }
 
@@ -624,8 +617,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                           onLike: () => _toggleLike(id),
                           onComment: () => _openComments(item.chart),
                           onBookmark: () => _toggleBookmark(id),
-                          onOpenMedia: () => _openCaseTimeline(item, index),
-                          onOpenFullScreen: () => _openReels(index),
+                          onOpenDetail: () => _openCaseDetail(item, index),
                           onSeminarRequest: () => _requestSeminar(item),
                           onBookingCta: () =>
                               _openNaverBookingOrProfile(item.shop),

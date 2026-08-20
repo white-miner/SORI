@@ -26,8 +26,18 @@ select
   c.device_info,
   coalesce(c.skin_sensitivity, '') as skin_sensitivity,
   case
-    when cu.birth_date is null then null
-    else (extract(year from age(current_date, cu.birth_date)))::int
+    when nullif(trim(cu.birth_date::text), '') is null then null
+    when nullif(trim(cu.birth_date::text), '')
+      !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+      then null
+    else (
+      extract(
+        year from age(
+          current_date,
+          nullif(trim(cu.birth_date::text), '')::date
+        )
+      )
+    )::int
   end as customer_age,
   case cu.gender
     when 'female' then '여성'

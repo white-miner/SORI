@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../pages/case_detail_page.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/case_persona.dart';
 
@@ -73,6 +74,7 @@ class CaseArchiveTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _BaThumb(
+                heroTag: CaseDetailPage.imageHeroTag(chart.id),
                 beforeUrl: chart.beforeImageUrl,
                 afterUrl: chart.afterImageUrl,
               ),
@@ -219,26 +221,37 @@ class CaseArchiveTile extends StatelessWidget {
 }
 
 class _BaThumb extends StatelessWidget {
-  const _BaThumb({this.beforeUrl, this.afterUrl});
+  const _BaThumb({
+    required this.heroTag,
+    this.beforeUrl,
+    this.afterUrl,
+  });
+  final String heroTag;
   final String? beforeUrl;
   final String? afterUrl;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 100,
-        height: 100,
-        child: Row(
-          children: [
-            Expanded(
-              child: _Shot(url: beforeUrl, fallback: Icons.image_outlined),
+    return Hero(
+      tag: heroTag,
+      child: Material(
+        color: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 100,
+            height: 100,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Shot(url: beforeUrl, fallback: Icons.image_outlined),
+                ),
+                Expanded(
+                  child: _Shot(url: afterUrl, fallback: Icons.auto_awesome),
+                ),
+              ],
             ),
-            Expanded(
-              child: _Shot(url: afterUrl, fallback: Icons.auto_awesome),
-            ),
-          ],
+          ),
         ),
       ),
     );

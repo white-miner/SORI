@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../models/community_case_item.dart';
+import '../models/shop.dart';
+import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/case_archive_tile.dart';
 import '../widgets/case_feed_viewport.dart';
-import '../widgets/case_timeline_modal.dart';
 
 /// 관리 케이스 탐색 피드 — 전국 원장님 공개 차트.
 class SuccessCasesPage extends StatefulWidget {
@@ -130,6 +133,101 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     setState(() {
       if (!_bookmarked.remove(id)) _bookmarked.add(id);
     });
+  }
+
+  void _openCaseDetail(CommunityCaseItem item) {
+    final id = item.chart.id;
+    CaseDetailPage.push(
+      context,
+      page: CaseDetailPage(
+        item: item,
+        review: item.review ?? widget.store.reviewForChart(item.chart.id),
+        currentUserId: widget.store.session?.id,
+        liked: _liked.contains(id),
+        likeCount: _likeCounts[id] ?? (3 + id.hashCode.abs() % 40),
+        commentCount: 0,
+        bookmarked: _bookmarked.contains(id),
+        onLike: () => _toggleLike(id),
+        onBookmark: () => _toggleBookmark(id),
+        onShopProfile: () => _openShopProfile(item.shop),
+        onBookingCta: () => _openNaverBooking(item.shop),
+      ),
+    );
+  }
+
+  Future<void> _openNaverBooking(Shop shop) async {
+    final url = shop.naverBookingOrPlaceUrl;
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openShopProfile(Shop shop) async {
+    if (!mounted) return;
+    final avatar = shop.profileImageUrl?.trim() ?? '';
+    final bio = shop.bio.trim();
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              CircleAvatar(
+                radius: 36,
+                backgroundColor: SoriTokens.primarySoft,
+                backgroundImage:
+                    avatar.isNotEmpty && !avatar.startsWith('data:')
+                        ? NetworkImage(avatar)
+                        : null,
+                child: avatar.isEmpty || avatar.startsWith('data:')
+                    ? const Icon(Icons.storefront, size: 32)
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                shop.name.trim().isEmpty ? 'SORI' : shop.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+              if (bio.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  bio,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -267,14 +365,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                                 bookmarked: _bookmarked.contains(id),
                                 onLike: () => _toggleLike(id),
                                 onBookmark: () => _toggleBookmark(id),
-                                onTap: () {
-                                  CaseTimelineModal.show(
-                                    context,
-                                    store: widget.store,
-                                    chartId: item.chart.id,
-                                    careLabel: item.chart.careName,
-                                  );
-                                },
+                                onTap: () => _openCaseDetail(item),
                               );
                             },
                           ),
