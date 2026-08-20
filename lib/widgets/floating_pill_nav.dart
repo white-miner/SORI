@@ -50,16 +50,20 @@ class FloatingPillNav extends StatelessWidget {
     ];
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottom),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: 24 + bottom,
+      ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
             height: 64,
             decoration: BoxDecoration(
               color: _barBg,
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(32),
               border: Border.all(
                 color: SoriTokens.outlinePurple,
                 width: SoriTokens.outlineWidth,

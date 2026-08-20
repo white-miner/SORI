@@ -25,9 +25,9 @@ import 'my_info_edit_page.dart';
 import 'seminar_class_open_page.dart';
 import 'seminar_feedback_inbox_page.dart';
 
-/// 마이페이지 전용 쿨그레이 배경.
-const Color _myPageBg = Color(0xFFF5F6F8);
-const Color _mutedText = Color(0xFF757575);
+/// 마이페이지 — 전역 다크 캔버스.
+const Color _myPageBg = SoriTokens.background;
+const Color _mutedText = SoriTokens.textSecondary;
 
 class MyPage extends StatefulWidget {
   const MyPage({
@@ -291,17 +291,17 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
               ),
               const SizedBox(height: 8),
               Material(
-                color: Colors.white,
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.circular(14),
                 child: ListTile(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Colors.grey.shade200),
+                    side: const BorderSide(color: SoriTokens.outlinePurple),
                   ),
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: SoriTokens.primarySoft,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Text(
@@ -314,15 +314,18 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14.5,
+                      color: SoriTokens.textPrimary,
                     ),
                   ),
                   subtitle: Text(
-                    store.seminarFeedbackReportsLoading
-                        ? '리포트 불러오는 중…'
-                        : '완료 리포트 ${store.seminarFeedbackReports.length}건',
-                    style: TextStyle(
+                    store.seminarFeedbackReports.isEmpty
+                        ? '세미나 후기 AI 인사이트를 모아보세요'
+                        : (store.seminarFeedbackReportsLoading
+                            ? '리포트 불러오는 중…'
+                            : '완료 리포트 ${store.seminarFeedbackReports.length}건'),
+                    style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: SoriTokens.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -378,7 +381,7 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
     }
 
     return ColoredBox(
-      color: Colors.white,
+      color: SoriTokens.background,
       child: SafeArea(
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -507,15 +510,16 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       ownerLabel,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                     if (shop.tierBadge.isVisible) ...[
@@ -651,7 +655,7 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
                       final before = chart.beforeImageUrl?.trim() ?? '';
                       final url = after.isNotEmpty ? after : before;
                       return Material(
-                        color: const Color(0xFFF0F1F3),
+                        color: const Color(0xFF111113),
                         child: InkWell(
                           onTap: () => onSelectTab?.call(3),
                           child: url.isEmpty
@@ -711,9 +715,9 @@ class _SoriQuickSheet extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 500, maxHeight: maxH),
           child: Material(
-            color: Colors.white,
+            color: SoriTokens.surface,
             elevation: 8,
-            shadowColor: Colors.black.withValues(alpha: 0.12),
+            shadowColor: Colors.black.withValues(alpha: 0.4),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
@@ -729,7 +733,7 @@ class _SoriQuickSheet extends StatelessWidget {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
+                          color: SoriTokens.border,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -745,6 +749,7 @@ class _SoriQuickSheet extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
+                              color: SoriTokens.textPrimary,
                             ),
                           ),
                         ),
@@ -814,20 +819,16 @@ class _AiManagementSheetBody extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8E4F8)),
-          ),
+          decoration: SoriTokens.card(radius: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 '$month월 추정 성과',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: Colors.grey.shade700,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -850,8 +851,8 @@ class _AiManagementSheetBody extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: delta >= 0
-                          ? const Color(0xFFDCFCE7)
-                          : const Color(0xFFFEE2E2),
+                          ? const Color(0x3322C55E)
+                          : const Color(0x33EF4444),
                       borderRadius: BorderRadius.circular(99),
                     ),
                     child: Text(
@@ -860,8 +861,8 @@ class _AiManagementSheetBody extends StatelessWidget {
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: delta >= 0
-                            ? const Color(0xFF166534)
-                            : const Color(0xFF991B1B),
+                            ? const Color(0xFF86EFAC)
+                            : const Color(0xFFFCA5A5),
                       ),
                     ),
                   ),
@@ -871,10 +872,10 @@ class _AiManagementSheetBody extends StatelessWidget {
                       report.periodLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                   ),
@@ -883,11 +884,11 @@ class _AiManagementSheetBody extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 report.revenue.highlight,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12.5,
                   height: 1.45,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade800,
+                  color: SoriTokens.textPrimary,
                 ),
               ),
             ],
@@ -896,11 +897,7 @@ class _AiManagementSheetBody extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE6E8EC)),
-          ),
+          decoration: SoriTokens.card(radius: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -909,15 +906,16 @@ class _AiManagementSheetBody extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
+                  color: SoriTokens.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 '이번 달 추천 집중 메뉴',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -1099,7 +1097,7 @@ class _QuickDashCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFFBFBFC),
+      color: SoriTokens.surface,
       elevation: 0,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
@@ -1107,12 +1105,12 @@ class _QuickDashCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
-            color: const Color(0xFFFBFBFC),
+            color: SoriTokens.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE6E8EC)),
+            border: SoriTokens.signatureBorder,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withValues(alpha: 0.25),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -1151,11 +1149,11 @@ class _QuickDashCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     height: 1.15,
-                    color: Colors.grey.shade600,
+                    color: SoriTokens.textSecondary,
                   ),
                 ),
               ],
@@ -1187,14 +1185,15 @@ class _ProfileStat extends StatelessWidget {
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
+            color: SoriTokens.textPrimary,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade600,
+            color: SoriTokens.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1229,18 +1228,7 @@ class _SeminarEducationInsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E4F8)),
-        boxShadow: [
-          BoxShadow(
-            color: SoriTokens.primary.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: SoriTokens.card(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1265,6 +1253,7 @@ class _SeminarEducationInsightCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
               ),
@@ -1375,6 +1364,7 @@ class _CustomerMyPage extends StatelessWidget {
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
                             height: 1.3,
+                            color: SoriTokens.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -1614,9 +1604,9 @@ class _FloatCard extends StatelessWidget {
 
   static final List<BoxShadow> _shadow = [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.03),
-      blurRadius: 10,
-      offset: const Offset(0, 4),
+      color: Colors.black.withValues(alpha: 0.35),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
     ),
   ];
 
@@ -1626,8 +1616,9 @@ class _FloatCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: SoriTokens.signatureBorder,
         boxShadow: _shadow,
       ),
       child: child,
@@ -1637,7 +1628,7 @@ class _FloatCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: content,
       ),
     );
@@ -1657,10 +1648,10 @@ class _MiniStat extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,
-            color: Colors.grey[600],
+            color: SoriTokens.textSecondary,
           ),
         ),
         const SizedBox(height: 8),

@@ -356,7 +356,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                       )
                     else
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
+                        padding: const EdgeInsets.fromLTRB(0, 16, 0, 110),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {

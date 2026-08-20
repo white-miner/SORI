@@ -16,11 +16,7 @@ class ShopTierProgressCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E4F8)),
-      ),
+      decoration: SoriTokens.card(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -31,6 +27,7 @@ class ShopTierProgressCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
+                  color: SoriTokens.textPrimary,
                 ),
               ),
               const Spacer(),

@@ -179,8 +179,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     final canShare = _isAuthor;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-      decoration: SoriTokens.card(),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: SoriTokens.card(radius: 20),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

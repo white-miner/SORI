@@ -222,7 +222,7 @@ class _CustomerManagementCasesPageState
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -258,7 +258,7 @@ class _CustomerManagementCasesPageState
     final loading = widget.store.communityHotCasesLoading && shown.isEmpty;
 
     return ColoredBox(
-      color: const Color(0xFFF5F6F8),
+      color: SoriTokens.background,
       child: SafeArea(
         child: CaseFeedViewport(
           child: Column(
@@ -268,9 +268,9 @@ class _CustomerManagementCasesPageState
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: Text(
                 '단골 샵의 공유 B/A 케이스 · 전국 탐색은 홈 탭에서',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: SoriTokens.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -283,14 +283,36 @@ class _CustomerManagementCasesPageState
                   _query = v;
                   _visibleCount = 8;
                 }),
+                style: const TextStyle(color: SoriTokens.textPrimary),
                 decoration: InputDecoration(
                   hintText: '#홍조 #테라노바 증상·시술명 검색',
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: SoriTokens.textSecondary,
+                  ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: SoriTokens.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(
+                      color: SoriTokens.outlinePurple,
+                      width: 1.2,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: SoriTokens.outlinePurple,
+                      width: 1.2,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: SoriTokens.primary,
+                      width: 1.2,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -316,7 +338,7 @@ class _CustomerManagementCasesPageState
                           fontSize: 12,
                           color: selected
                               ? SoriTokens.primary
-                              : Colors.grey.shade700,
+                              : SoriTokens.textSecondary,
                         ),
                       ),
                       selected: selected,
@@ -325,11 +347,11 @@ class _CustomerManagementCasesPageState
                         _visibleCount = 8;
                       }),
                       selectedColor: SoriTokens.primarySoft,
-                      backgroundColor: Colors.white,
+                      backgroundColor: SoriTokens.surface,
                       side: BorderSide(
                         color: selected
-                            ? SoriTokens.primary.withValues(alpha: 0.35)
-                            : const Color(0xFFE5E7EB),
+                            ? SoriTokens.primary.withValues(alpha: 0.45)
+                            : SoriTokens.outlinePurple,
                       ),
                       showCheckmark: false,
                     ),
@@ -537,17 +559,9 @@ class _CustomerCaseCard extends StatelessWidget {
     final hasReview = review != null && review!.displayText.trim().isNotEmpty;
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: SoriTokens.card(radius: 20),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -573,14 +587,15 @@ class _CustomerCaseCard extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 15,
+                          color: SoriTokens.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '원장 $owner',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: SoriTokens.textSecondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -862,7 +877,7 @@ class _CommentSheetState extends State<_CommentSheet> {
                       decoration: InputDecoration(
                         hintText: '댓글을 입력하세요',
                         filled: true,
-                        fillColor: const Color(0xFFF5F6F8),
+                        fillColor: SoriTokens.background,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,

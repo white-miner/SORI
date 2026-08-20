@@ -274,7 +274,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
-      color: const Color(0xFFF5F6F8),
+      color: SoriTokens.background,
       child: SafeArea(
         bottom: false,
         child: CaseFeedViewport(
@@ -286,14 +286,36 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: (v) => setState(() => _query = v),
+                  style: const TextStyle(color: SoriTokens.textPrimary),
                   decoration: InputDecoration(
                     hintText: '케어명, 태그, 샵, 기기로 탐색',
-                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: SoriTokens.textSecondary,
+                    ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: SoriTokens.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                        color: SoriTokens.outlinePurple,
+                        width: 1.2,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(
+                        color: SoriTokens.outlinePurple,
+                        width: 1.2,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(
+                        color: SoriTokens.primary,
+                        width: 1.2,
+                      ),
                     ),
                     isDense: true,
                   ),
@@ -311,7 +333,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                     final selected = _activeTag == tag;
                     final rising = _risingTags.contains(tag);
                     return Material(
-                      color: selected ? SoriTokens.primarySoft : Colors.white,
+                      color: selected ? SoriTokens.primarySoft : SoriTokens.surface,
                       borderRadius: BorderRadius.circular(20),
                       child: InkWell(
                         onTap: () => setState(() {
@@ -327,8 +349,8 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: selected
-                                  ? SoriTokens.primary.withValues(alpha: 0.4)
-                                  : const Color(0xFFE5E7EB),
+                                  ? SoriTokens.primary.withValues(alpha: 0.45)
+                                  : SoriTokens.outlinePurple,
                             ),
                           ),
                           child: Row(
@@ -346,7 +368,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                                   fontSize: 13,
                                   color: selected
                                       ? SoriTokens.primary
-                                      : Colors.grey.shade800,
+                                      : SoriTokens.textSecondary,
                                 ),
                               ),
                             ],

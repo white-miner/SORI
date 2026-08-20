@@ -98,27 +98,7 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  /// 셸 메인 탭 타이틀 — 전 페이지 동일 규격.
-  String _titleForTab(bool isDirector, int tab) {
-    if (isDirector) {
-      return switch (tab) {
-        0 => '홈',
-        1 => '고객 관리',
-        2 => '리뷰 관리',
-        3 => '관리 케이스',
-        4 => '마이페이지',
-        _ => 'SORI',
-      };
-    }
-    return switch (tab) {
-      0 => '홈',
-      1 => '케어',
-      2 => '리뷰 작성',
-      3 => '관리 케이스',
-      4 => '마이페이지',
-      _ => 'SORI',
-    };
-  }
+  String _brandTitle() => 'Sori';
 
   int _notificationBadgeCount(SessionUser session) {
     final now = DateTime.now();
@@ -165,7 +145,7 @@ class _AppShellPageState extends State<AppShellPage> {
         final appBar = hideShellAppBar
             ? null
             : _ShellAppBar(
-                title: _titleForTab(isDirector, tab),
+                title: _brandTitle(),
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
                 onPostFirst: (tab == 0 || tab == 4)
@@ -481,23 +461,24 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.italic,
                               height: 1.15,
-                              letterSpacing: -0.35,
-                              color: SoriTokens.textPrimary,
+                              letterSpacing: -0.4,
+                              color: Colors.white,
                             ),
                           ),
                         ),
                         if (onPostFirst != null)
                           _FlatAppBarIcon(
                             tooltip: '새 게시물',
-                            icon: Icons.add_box_outlined,
+                            icon: Icons.add_outlined,
                             onPressed: onPostFirst!,
                           ),
                         _FlatAppBarIcon(
                           tooltip: '알림',
-                          icon: Icons.notifications_outlined,
+                          icon: Icons.notifications_none_outlined,
                           onPressed: onNotifications,
                           badgeCount: badgeCount,
                         ),
@@ -542,7 +523,7 @@ class _FlatAppBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = Icon(icon, size: 24, color: SoriTokens.textPrimary);
+    final iconWidget = Icon(icon, size: 22, color: Colors.white);
     return Tooltip(
       message: tooltip,
       child: IconButton(
@@ -552,7 +533,7 @@ class _FlatAppBarIcon extends StatelessWidget {
         splashRadius: 20,
         style: IconButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: SoriTokens.textPrimary,
+          foregroundColor: Colors.white,
           shadowColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
