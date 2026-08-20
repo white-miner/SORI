@@ -8,6 +8,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/right_sidebar.dart';
+import '../widgets/floating_pill_nav.dart';
 import 'app_settings_page.dart';
 import 'case_archive_page.dart';
 import 'message_history_page.dart';
@@ -176,11 +177,11 @@ class _AppShellPageState extends State<AppShellPage> {
 
         if (!wide) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF5F6F8),
+            backgroundColor: const Color(0xFFF0F1F3),
             extendBody: true,
             appBar: appBar,
             body: widget.navigationShell,
-            bottomNavigationBar: _CenterReviewBottomNav(
+            bottomNavigationBar: FloatingPillNav(
               currentIndex: tab,
               isDirector: isDirector,
               reviewLabel: reviewLabel,
@@ -193,7 +194,7 @@ class _AppShellPageState extends State<AppShellPage> {
         final hasComment = _store.activeCommentPostId != null;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF5F6F8),
+          backgroundColor: const Color(0xFFF0F1F3),
           appBar: appBar,
           body: Row(
             children: [
@@ -574,306 +575,6 @@ class _FlatAppBarIcon extends StatelessWidget {
                 child: iconWidget,
               )
             : iconWidget,
-      ),
-    );
-  }
-}
-
-/// 중앙 리뷰 버튼이 바 위로 돌출되는 5탭 네비.
-class _CenterReviewBottomNav extends StatelessWidget {
-  const _CenterReviewBottomNav({
-    required this.currentIndex,
-    required this.isDirector,
-    required this.reviewLabel,
-    required this.onTap,
-  });
-
-  final int currentIndex;
-  final bool isDirector;
-  final String reviewLabel;
-  final ValueChanged<int> onTap;
-
-  static const double _barHeight = 64;
-  static const double _fabSize = 58;
-  static const double _protrude = 22;
-  static const Color _accent = Color(0xFF6C5CE7);
-
-  @override
-  Widget build(BuildContext context) {
-    final side = isDirector
-        ? const [
-            (Icons.home_outlined, Icons.home_rounded, '홈'),
-            (Icons.people_outline, Icons.people, '고객 관리'),
-            (Icons.photo_library_outlined, Icons.photo_library_rounded, '관리 케이스'),
-            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
-          ]
-        : const [
-            (Icons.home_outlined, Icons.home_rounded, '홈'),
-            (Icons.spa_outlined, Icons.spa_rounded, '케어'),
-            (Icons.photo_library_outlined, Icons.photo_library_rounded, '관리 케이스'),
-            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
-          ];
-
-    final sideTabIndex = [0, 1, 3, 4];
-
-    return SizedBox(
-      height: _barHeight + _protrude + MediaQuery.paddingOf(context).bottom,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  height: _barHeight + MediaQuery.paddingOf(context).bottom,
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.paddingOf(context).bottom,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    border: Border(
-                      top: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        width: 0.5,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                children: [
-                  _NavItem(
-                    icon: side[0].$1,
-                    activeIcon: side[0].$2,
-                    label: side[0].$3,
-                    selected: currentIndex == sideTabIndex[0],
-                    onTap: () => onTap(sideTabIndex[0]),
-                  ),
-                  _NavItem(
-                    icon: side[1].$1,
-                    activeIcon: side[1].$2,
-                    label: side[1].$3,
-                    selected: currentIndex == sideTabIndex[1],
-                    onTap: () => onTap(sideTabIndex[1]),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onTap(2),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          SizedBox(height: _fabSize / 2),
-                          Text(
-                            reviewLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: currentIndex == 2
-                                  ? _accent
-                                  : SoriTokens.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _NavItem(
-                    icon: side[2].$1,
-                    activeIcon: side[2].$2,
-                    label: side[2].$3,
-                    selected: currentIndex == sideTabIndex[2],
-                    onTap: () => onTap(sideTabIndex[2]),
-                  ),
-                  _NavItem(
-                    icon: side[3].$1,
-                    activeIcon: side[3].$2,
-                    label: side[3].$3,
-                    selected: currentIndex == sideTabIndex[3],
-                    onTap: () => onTap(sideTabIndex[3]),
-                  ),
-                ],
-              ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () => onTap(2),
-                child: _GlossyReviewFab(selected: currentIndex == 2),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 하이그로시 입체 중앙 리뷰 FAB.
-class _GlossyReviewFab extends StatelessWidget {
-  const _GlossyReviewFab({required this.selected});
-
-  final bool selected;
-
-  static const double _size = 58;
-  static const Color _deepViolet = Color(0xFF4A3BCF);
-  static const Color _midViolet = Color(0xFF6C5CE7);
-  static const Color _brightViolet = Color(0xFF8B7CFF);
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const RadialGradient(
-          center: Alignment(-0.35, -0.45),
-          radius: 1.05,
-          colors: [
-            _brightViolet,
-            _midViolet,
-            _deepViolet,
-          ],
-          stops: [0.0, 0.45, 1.0],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: selected ? 0.42 : 0.28),
-          width: selected ? 2.2 : 1.6,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _midViolet.withValues(alpha: 0.55),
-            blurRadius: 18,
-            spreadRadius: 0,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: _deepViolet.withValues(alpha: 0.35),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 14,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 상단 반사광 림
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.34),
-                    Colors.white.withValues(alpha: 0.08),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.38, 0.72],
-                ),
-              ),
-            ),
-            // 좌상단 하이라이트 스페큘러
-            Align(
-              alignment: const Alignment(-0.55, -0.65),
-              child: Container(
-                width: 22,
-                height: 14,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.55),
-                      Colors.white.withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const Center(
-              child: Icon(
-                Icons.chat_bubble_rounded,
-                color: Colors.white,
-                size: 26,
-                shadows: [
-                  Shadow(
-                    color: Color(0x66000000),
-                    blurRadius: 5,
-                    offset: Offset(0, 1.5),
-                  ),
-                  Shadow(
-                    color: Color(0x33000000),
-                    blurRadius: 2,
-                    offset: Offset(0, 0.5),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF6C5CE7) : SoriTokens.textSecondary;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(selected ? activeIcon : icon, color: color, size: 22),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: color,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

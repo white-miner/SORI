@@ -300,7 +300,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
     return ColoredBox(
-      color: Colors.white,
+      color: const Color(0xFFF0F1F3),
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -308,10 +308,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
           children: [
             // 스크롤 뷰 밖 고정 헤더 — 높이 제약으로 증발 방지
             const Material(
-              color: Colors.white,
+              color: Color(0xFFF0F1F3),
               child: _HomeInsightStrip(),
             ),
-            const Divider(height: 1, thickness: 0.6),
             Expanded(
               child: NotificationListener<ScrollNotification>(
                 onNotification: (n) {
@@ -357,7 +356,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                       )
                     else
                       SliverPadding(
-                        padding: const EdgeInsets.only(bottom: 88),
+                        padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
@@ -376,7 +375,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                                 likeCount: likes,
                                 commentCount: comments.length,
                                 bookmarked: _bookmarked.contains(id),
-                                showDivider: index < shown.length - 1,
                                 onLike: () => _toggleLike(id),
                                 onComment: () => _openComments(item.chart),
                                 onBookmark: () => _toggleBookmark(id),

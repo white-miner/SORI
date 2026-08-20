@@ -14,7 +14,7 @@ import 'before_after_slider.dart';
 import 'case_review_inline.dart';
 import 'sori_logo.dart';
 
-/// 홈 탐색 피드 카드 — 인스타그램형 Edge-to-Edge 블록.
+/// 홈 탐색 피드 카드 — 모듈형 둥근 카드.
 class HomeFeedCard extends StatefulWidget {
   const HomeFeedCard({
     super.key,
@@ -31,7 +31,6 @@ class HomeFeedCard extends StatefulWidget {
     required this.onShopProfile,
     required this.onSeminarRequest,
     this.currentUserId,
-    this.showDivider = true,
     this.review,
   });
 
@@ -44,7 +43,6 @@ class HomeFeedCard extends StatefulWidget {
   final int likeCount;
   final int commentCount;
   final bool bookmarked;
-  final bool showDivider;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onBookmark;
@@ -180,8 +178,20 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     final relative = chart.relativeTimeLabel;
     final canShare = _isAuthor;
 
-    return ColoredBox(
-      color: Colors.white,
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -494,8 +504,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                   )
                 : _seminarRequestButton(fullWidth: true),
           ),
-          if (widget.showDivider)
-            Divider(height: 1, thickness: 1, color: Colors.grey[200]),
         ],
       ),
     );
