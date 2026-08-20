@@ -11,7 +11,6 @@ import '../theme/sori_tokens.dart';
 import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
-import 'feed_ba_frame.dart';
 import 'sori_logo.dart';
 
 /// 홈 탐색 피드 카드 — 인스타그램형 Edge-to-Edge 블록.
@@ -73,9 +72,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
         authorId: item.authorId ?? item.chart.authorId,
       );
 
-  Widget _baSlider(CustomerChart chart, {double maxHeight = FeedBaFrame.maxSide}) {
+  Widget _baSlider(CustomerChart chart, {double maxHeight = 380}) {
     return BeforeAfterSlider(
-      aspectRatio: 1.0,
+      aspectRatio: 4 / 3,
       maxHeight: maxHeight,
       borderRadius: BorderRadius.zero,
       before: ChartImagePane(
@@ -102,7 +101,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
 
     if (!mounted) return null;
     try {
-      const size = Size(1080, 1080);
+      const size = Size(1080, 810);
       return await _shot.captureFromWidget(
         MediaQuery(
           data: const MediaQueryData(size: size, devicePixelRatio: 2),
@@ -252,13 +251,17 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          FeedBaFrame(
-            child: Screenshot(
-              controller: _shot,
-              child: GestureDetector(
-                onTap: widget.onOpenMedia,
-                onLongPress: widget.onOpenFullScreen,
-                child: _baSlider(chart),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 380),
+            child: AspectRatio(
+              aspectRatio: 4 / 3,
+              child: Screenshot(
+                controller: _shot,
+                child: GestureDetector(
+                  onTap: widget.onOpenMedia,
+                  onLongPress: widget.onOpenFullScreen,
+                  child: _baSlider(chart),
+                ),
               ),
             ),
           ),
