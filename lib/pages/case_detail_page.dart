@@ -30,8 +30,7 @@ class CaseDetailPage extends StatefulWidget {
     this.onBookmark,
     this.onShopProfile,
     this.onBookingCta,
-    this.onSeminarRequest,
-    this.showSeminarRequest = false,
+    required this.onSeminarRequest,
   });
 
   final CommunityCaseItem item;
@@ -41,13 +40,12 @@ class CaseDetailPage extends StatefulWidget {
   final int likeCount;
   final int commentCount;
   final bool bookmarked;
-  final bool showSeminarRequest;
   final VoidCallback? onLike;
   final VoidCallback? onComment;
   final VoidCallback? onBookmark;
   final VoidCallback? onShopProfile;
   final VoidCallback? onBookingCta;
-  final VoidCallback? onSeminarRequest;
+  final VoidCallback onSeminarRequest;
 
   static String imageHeroTag(String chartId) => 'case_image_$chartId';
 
@@ -245,17 +243,14 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                     _openBooking();
                   },
                 ),
-              if (widget.showSeminarRequest &&
-                  widget.onSeminarRequest != null &&
-                  !_isAuthor)
-                ListTile(
-                  leading: const Icon(Icons.school_outlined),
-                  title: const Text('🎓 세미나 요청하기'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    widget.onSeminarRequest!();
-                  },
-                ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined),
+                title: const Text('🎓 세미나 요청'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onSeminarRequest();
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('닫기'),
@@ -349,10 +344,8 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: EdgeInsets.only(bottom: hasBooking ? 88 + bottomInset : 24),
+      body: SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: 24 + bottomInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -424,37 +417,47 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                     ],
                   ),
                 ),
-                if (widget.showSeminarRequest &&
-                    widget.onSeminarRequest != null &&
-                    !_isAuthor)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: widget.onSeminarRequest,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: SoriTokens.primary,
-                          backgroundColor: SoriTokens.primarySoft,
-                          side: BorderSide(
-                            color: SoriTokens.primary.withValues(alpha: 0.45),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Text('🎓', style: TextStyle(fontSize: 16)),
-                        label: const Text(
-                          '세미나 요청하기',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: hasBooking
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _openBooking,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF03C75A),
+                                  backgroundColor: const Color(0xFFE8F8EE),
+                                  side: const BorderSide(
+                                    color: Color(0xFF03C75A),
+                                    width: 1.2,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.calendar_month_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text(
+                                  '네이버 예약',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: _seminarRequestButton()),
+                          ],
+                        )
+                      : _seminarRequestButton(fullWidth: true),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: Text(
@@ -554,46 +557,33 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 ),
               ],
             ),
+      ),
+    );
+  }
+
+  Widget _seminarRequestButton({bool fullWidth = false}) {
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      child: OutlinedButton.icon(
+        onPressed: widget.onSeminarRequest,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF6D28D9),
+          backgroundColor: const Color(0xFFF3E8FF),
+          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.2),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          minimumSize: Size(fullWidth ? double.infinity : 0, 44),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-          if (hasBooking)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Material(
-                elevation: 8,
-                color: Colors.white,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _openBooking,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF03C75A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.calendar_month_outlined, size: 20),
-                        label: const Text(
-                          '네이버 예약',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+        ),
+        icon: const Text('🎓', style: TextStyle(fontSize: 15)),
+        label: const Text(
+          '세미나 요청',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+          ),
+        ),
       ),
     );
   }

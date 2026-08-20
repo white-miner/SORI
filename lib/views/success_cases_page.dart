@@ -151,6 +151,43 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBooking(item.shop),
+        onSeminarRequest: () => _requestSeminar(item),
+      ),
+    );
+  }
+
+  Future<void> _requestSeminar(CommunityCaseItem item) async {
+    final store = widget.store;
+    final session = store.session;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 세미나 요청을 보낼 수 있어요.')),
+      );
+      return;
+    }
+    final myShopId = store.shop.id.trim();
+    final userId = session.id.trim();
+    if (myShopId.isEmpty && userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('요청자 정보가 없어 세미나 요청을 보낼 수 없습니다.')),
+      );
+      return;
+    }
+    final ok = await store.requestSeminar(
+      caseId: item.chart.id,
+      requestorShopId: myShopId.isEmpty ? null : myShopId,
+      requestorUserId: userId.isEmpty ? null : userId,
+      caseOwnerShopId: item.shop.id,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? '해당 케이스의 세미나 개설을 요청했습니다. 원장님이 클래스를 오픈하면 알림을 보내드립니다.'
+              : '요청에 실패했습니다. 다시 시도해 주세요.',
+        ),
+        backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
       ),
     );
   }

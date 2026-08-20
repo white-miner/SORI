@@ -834,14 +834,35 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   @override
-  Future<void> insertSeminarRequest({
+  Future<int> insertSeminarRequest({
     required String caseId,
-    required String requestorShopId,
+    String? requestorShopId,
+    String? requestorUserId,
   }) async {
     final key = caseId.trim();
-    final req = requestorShopId.trim();
-    if (key.isEmpty || req.isEmpty) return;
-    _seminarRequestsByCase.putIfAbsent(key, () => <String>{}).add(req);
+    final shop = requestorShopId?.trim() ?? '';
+    final user = requestorUserId?.trim() ?? '';
+    if (key.isEmpty) return 0;
+    final token = shop.isNotEmpty ? 'shop:$shop' : 'user:$user';
+    if (token == 'shop:' || token == 'user:') return 0;
+    _seminarRequestsByCase.putIfAbsent(key, () => <String>{}).add(token);
+
+    final snap = createSeedSnapshot();
+    final ownerShopId = snap.charts
+        .where((c) => c.id == key)
+        .map((c) => c.shopId)
+        .cast<String?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (ownerShopId == null || ownerShopId.isEmpty) {
+      return _seminarRequestsByCase[key]?.length ?? 0;
+    }
+    var total = 0;
+    final myChartIds =
+        snap.charts.where((c) => c.shopId == ownerShopId).map((c) => c.id);
+    for (final id in myChartIds) {
+      total += _seminarRequestsByCase[id]?.length ?? 0;
+    }
+    return total;
   }
 
   @override

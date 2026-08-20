@@ -29,9 +29,8 @@ class HomeFeedCard extends StatefulWidget {
     required this.onOpenDetail,
     required this.onBookingCta,
     required this.onShopProfile,
+    required this.onSeminarRequest,
     this.currentUserId,
-    this.onSeminarRequest,
-    this.showSeminarRequest = false,
     this.showDivider = true,
     this.review,
   });
@@ -45,13 +44,12 @@ class HomeFeedCard extends StatefulWidget {
   final int likeCount;
   final int commentCount;
   final bool bookmarked;
-  final bool showSeminarRequest;
   final bool showDivider;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onBookmark;
   final VoidCallback onOpenDetail;
-  final VoidCallback? onSeminarRequest;
+  final VoidCallback onSeminarRequest;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
 
@@ -365,39 +363,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          if (widget.showSeminarRequest &&
-              widget.onSeminarRequest != null &&
-              !canShare)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: widget.onSeminarRequest,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: SoriTokens.primary,
-                    backgroundColor: SoriTokens.primarySoft,
-                    side: BorderSide(
-                      color: SoriTokens.primary.withValues(alpha: 0.45),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    minimumSize: const Size(double.infinity, 40),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Text('🎓', style: TextStyle(fontSize: 15)),
-                  label: const Text(
-                    '세미나 요청하기',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           GestureDetector(
             onTap: widget.onOpenDetail,
             behavior: HitTestBehavior.opaque,
@@ -465,38 +430,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 }).toList(),
               ),
             ),
-          if (hasBooking)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: widget.onBookingCta,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF03C75A),
-                    backgroundColor: const Color(0xFFE8F8EE),
-                    side: const BorderSide(
-                      color: Color(0xFF03C75A),
-                      width: 1.2,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    minimumSize: const Size(double.infinity, 40),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Icon(Icons.calendar_month_outlined, size: 16),
-                  label: const Text(
-                    '네이버 예약',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
             child: hasReview
@@ -520,9 +453,78 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            child: hasBooking
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onBookingCta,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF03C75A),
+                            backgroundColor: const Color(0xFFE8F8EE),
+                            side: const BorderSide(
+                              color: Color(0xFF03C75A),
+                              width: 1.2,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            minimumSize: const Size(0, 40),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.calendar_month_outlined,
+                            size: 16,
+                          ),
+                          label: const Text(
+                            '네이버 예약',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: _seminarRequestButton()),
+                    ],
+                  )
+                : _seminarRequestButton(fullWidth: true),
+          ),
           if (widget.showDivider)
             Divider(height: 1, thickness: 1, color: Colors.grey[200]),
         ],
+      ),
+    );
+  }
+
+  Widget _seminarRequestButton({bool fullWidth = false}) {
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      child: OutlinedButton.icon(
+        onPressed: widget.onSeminarRequest,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF6D28D9),
+          backgroundColor: const Color(0xFFF3E8FF),
+          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.2),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          minimumSize: Size(fullWidth ? double.infinity : 0, 40),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        icon: const Text('🎓', style: TextStyle(fontSize: 14)),
+        label: const Text(
+          '세미나 요청',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
@@ -559,15 +561,14 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     widget.onBookingCta();
                   },
                 ),
-              if (widget.showSeminarRequest && widget.onSeminarRequest != null)
-                ListTile(
-                  leading: const Icon(Icons.school_outlined),
-                  title: const Text('세미나 요청'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    widget.onSeminarRequest!();
-                  },
-                ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined),
+                title: const Text('🎓 세미나 요청'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onSeminarRequest();
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('닫기'),

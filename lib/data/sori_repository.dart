@@ -292,10 +292,11 @@ abstract class SoriRepository {
   /// 동일 고객·관리 태그 회차 타임라인 (RPC).
   Future<List<CaseTimelineEntry>> loadCaseTimelineGroup(String chartId);
 
-  /// B2B 세미나 요청 Insert.
-  Future<void> insertSeminarRequest({
+  /// B2B 세미나 관심(요청) — 결제/수강 아님. 작성자 샵 카운트 증가.
+  Future<int> insertSeminarRequest({
     required String caseId,
-    required String requestorShopId,
+    String? requestorShopId,
+    String? requestorUserId,
   });
 
   /// 내 샵 케이스에 쌓인 세미나 요청 인사이트.

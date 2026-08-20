@@ -1731,14 +1731,44 @@ class SoriStore implements Listenable {
 
   Future<bool> requestSeminar({
     required String caseId,
-    required String requestorShopId,
+    String? requestorShopId,
+    String? requestorUserId,
+    String? caseOwnerShopId,
   }) async {
     try {
-      await _repository.insertSeminarRequest(
+      final count = await _repository.insertSeminarRequest(
         caseId: caseId,
         requestorShopId: requestorShopId,
+        requestorUserId: requestorUserId,
       );
       lastError = null;
+      final owner = caseOwnerShopId?.trim() ?? '';
+      if (owner.isNotEmpty && owner == shop.id.trim() && count > 0) {
+        shop = shop.copyWith(seminarRequestCount: count);
+        final insight = seminarEducationInsight;
+        if (insight != null) {
+          final byCase = Map<String, int>.from(insight.requestsByCase);
+          byCase[caseId.trim()] = (byCase[caseId.trim()] ?? 0) + 1;
+          seminarEducationInsight = SeminarEducationInsight(
+            totalRequests: count,
+            requestsByCase: byCase,
+            soriCashBalance: insight.soriCashBalance,
+            tierBadgeLabel: insight.tierBadgeLabel,
+            totalSeminarCount: insight.totalSeminarCount,
+            totalFundingAmount: insight.totalFundingAmount,
+            totalLikes: insight.totalLikes,
+            sharedCaseCount: insight.sharedCaseCount,
+            seminarRequestCount: count,
+            completedSeminarCount: insight.completedSeminarCount,
+            followerCount: insight.followerCount,
+          );
+        }
+      }
+      // 사이드바 실시간 반영을 위해 내 인사이트 재조회
+      if (owner.isEmpty || owner == shop.id.trim()) {
+        seminarEducationLoading = false;
+        await refreshSeminarEducationInsight();
+      }
       _notify();
       return true;
     } catch (e, st) {

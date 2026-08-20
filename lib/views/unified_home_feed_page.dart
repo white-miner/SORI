@@ -249,48 +249,47 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBookingOrProfile(item.shop),
-        showSeminarRequest:
-            _isDirectorB2B && item.shop.id != store.shop.id && !item.isAuthoredBy(store.session?.id),
         onSeminarRequest: () => _requestSeminar(item),
       ),
     );
   }
 
   Future<void> _requestSeminar(CommunityCaseItem item) async {
-    final myShopId = store.shop.id.trim();
-    if (myShopId.isEmpty) {
+    final session = store.session;
+    if (session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('샵 정보가 없어 요청할 수 없습니다.')),
+        const SnackBar(content: Text('로그인 후 세미나 요청을 보낼 수 있어요.')),
       );
       return;
     }
-    if (item.shop.id == myShopId) {
+
+    final myShopId = store.shop.id.trim();
+    final userId = session.id.trim();
+    if (myShopId.isEmpty && userId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('내 샵 케이스에는 세미나 요청이 필요 없습니다.')),
+        const SnackBar(content: Text('요청자 정보가 없어 세미나 요청을 보낼 수 없습니다.')),
       );
       return;
     }
 
     final ok = await store.requestSeminar(
       caseId: item.chart.id,
-      requestorShopId: myShopId,
+      requestorShopId: myShopId.isEmpty ? null : myShopId,
+      requestorUserId: userId.isEmpty ? null : userId,
+      caseOwnerShopId: item.shop.id,
     );
-    if (ok) {
-      store.refreshSeminarEducationInsight();
-    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          ok ? '🎓 세미나 요청이 전달됐어요' : '요청에 실패했습니다. 다시 시도해 주세요.',
+          ok
+              ? '해당 케이스의 세미나 개설을 요청했습니다. 원장님이 클래스를 오픈하면 알림을 보내드립니다.'
+              : '요청에 실패했습니다. 다시 시도해 주세요.',
         ),
         backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
       ),
     );
   }
-
-  bool get _isDirectorB2B =>
-      store.session?.activeMode == UserRole.director;
 
   Future<void> _markStoryViewed(String shopId) async {
     final id = shopId.trim();
@@ -617,9 +616,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                           likeCount: likes,
                           commentCount: comments.length,
                           bookmarked: _bookmarked.contains(id),
-                          showSeminarRequest: _isDirectorB2B &&
-                              item.shop.id != store.shop.id &&
-                              !item.isAuthoredBy(store.session?.id),
                           showDivider: index < shown.length - 1,
                           onLike: () => _toggleLike(id),
                           onComment: () => _openComments(item.chart),

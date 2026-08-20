@@ -2188,22 +2188,52 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
-  Future<void> insertSeminarRequest({
+  Future<int> insertSeminarRequest({
     required String caseId,
-    required String requestorShopId,
+    String? requestorShopId,
+    String? requestorUserId,
   }) async {
     final cid = caseId.trim();
-    final sid = requestorShopId.trim();
-    if (cid.isEmpty || sid.isEmpty) {
-      throw ArgumentError('caseId and requestorShopId required');
+    final sid = requestorShopId?.trim() ?? '';
+    final uid = requestorUserId?.trim() ?? '';
+    if (cid.isEmpty) {
+      throw ArgumentError('caseId required');
     }
-    await _db.from('seminar_requests').upsert(
-      {
+    if (sid.isEmpty && uid.isEmpty) {
+      throw ArgumentError('requestorShopId or requestorUserId required');
+    }
+
+    try {
+      final raw = await _db.rpc(
+        'request_seminar_interest',
+        params: {
+          'p_case_id': cid,
+          'p_requestor_shop_id': sid.isEmpty ? null : sid,
+          'p_requestor_user_id': uid.isEmpty ? null : uid,
+        },
+      );
+      if (raw is int) return raw;
+      if (raw is num) return raw.toInt();
+      return int.tryParse('$raw') ?? 0;
+    } catch (e, st) {
+      debugPrint(
+        'request_seminar_interest RPC failed, fallback upsert: $e\n$st',
+      );
+      final row = <String, dynamic>{
         'case_id': cid,
-        'requestor_shop_id': sid,
-      },
-      onConflict: 'case_id,requestor_shop_id',
-    );
+        if (sid.isNotEmpty) 'requestor_shop_id': sid,
+        if (uid.isNotEmpty) 'requestor_user_id': uid,
+      };
+      if (sid.isNotEmpty) {
+        await _db.from('seminar_requests').upsert(
+              row,
+              onConflict: 'case_id,requestor_shop_id',
+            );
+      } else {
+        await _db.from('seminar_requests').insert(row);
+      }
+      return 0;
+    }
   }
 
   @override

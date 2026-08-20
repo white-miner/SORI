@@ -88,6 +88,7 @@ class _DashboardPanelState extends State<_DashboardPanel> {
     final shop = store.shop;
     final month = DateTime.now().month;
     final reqCount = store.seminarEducationInsight?.totalRequests ??
+        store.seminarEducationInsight?.seminarRequestCount ??
         shop.seminarRequestCount;
 
     return ListView(
