@@ -18,6 +18,7 @@ import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/seminar_review_modal.dart';
 import '../widgets/sori_logo.dart';
+import '../utils/case_persona.dart';
 import 'ai_shop_report_page.dart';
 import 'customer_review_history_page.dart';
 import 'director_profile_edit_page.dart';
@@ -103,10 +104,24 @@ class _DirectorVisualMyPage extends StatefulWidget {
   State<_DirectorVisualMyPage> createState() => _DirectorVisualMyPageState();
 }
 
-class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
+class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage>
+    with SingleTickerProviderStateMixin {
   SoriStore get store => widget.store;
   ValueChanged<int>? get onSelectTab => widget.onSelectTab;
   bool _avatarUploading = false;
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   String? _topRequestedCaseId() {
     final insight = store.seminarEducationInsight;
@@ -380,315 +395,553 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage> {
       );
     }
 
+    final report = AiShopReportMock.demo();
+
     return ColoredBox(
       color: SoriTokens.background,
       child: SafeArea(
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _avatarUploading ? null : _pickAndUploadAvatar,
-                            customBorder: const CircleBorder(),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap:
+                              _avatarUploading ? null : _pickAndUploadAvatar,
+                          customBorder: const CircleBorder(),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 78,
+                                height: 78,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF8B7CFF),
+                                      Color(0xFF4A3BCF),
+                                    ],
+                                  ),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2.5,
+                                  ),
+                                  image: avatarImage,
+                                ),
+                                child: avatarImage == null
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child:
+                                            SoriLogo(width: 44, height: 44),
+                                      )
+                                    : null,
+                              ),
+                              if (_avatarUploading)
                                 Container(
-                                  width: 86,
-                                  height: 86,
+                                  width: 78,
+                                  height: 78,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF8B7CFF),
-                                        Color(0xFF4A3BCF),
-                                      ],
-                                    ),
-                                    border: Border.all(
+                                    color:
+                                        Colors.black.withValues(alpha: 0.4),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
                                       color: Colors.white,
-                                      width: 3,
                                     ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: SoriTokens.primary
-                                            .withValues(alpha: 0.22),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                    image: avatarImage,
                                   ),
-                                  child: avatarImage == null
-                                      ? const Padding(
-                                          padding: EdgeInsets.all(18),
-                                          child: SoriLogo(width: 50, height: 50),
-                                        )
-                                      : null,
-                                ),
-                                if (_avatarUploading)
-                                  Container(
-                                    width: 86,
-                                    height: 86,
+                                )
+                              else
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
                                     decoration: BoxDecoration(
+                                      color: SoriTokens.primary,
                                       shape: BoxShape.circle,
-                                      color: Colors.black.withValues(alpha: 0.4),
-                                    ),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(28),
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
+                                      border: Border.all(
                                         color: Colors.white,
+                                        width: 2,
                                       ),
                                     ),
-                                  )
-                                else
-                                  Positioned(
-                                    right: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        color: SoriTokens.primary,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt_rounded,
-                                        size: 14,
-                                        color: Colors.white,
-                                      ),
+                                    child: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 13,
+                                      color: Colors.white,
                                     ),
                                   ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _ProfileStat(
-                                  value: '$reviewCount',
-                                  label: '소통 리뷰',
                                 ),
-                              ),
-                              Expanded(
-                                child: _ProfileStat(
-                                  value: '${store.customers.length}',
-                                  label: '등록 고객',
-                                  onTap: () => onSelectTab?.call(1),
-                                ),
-                              ),
-                              Expanded(
-                                child: _ProfileStat(
-                                  value: '$chartCount',
-                                  label: '차트 작성',
-                                ),
-                              ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      shopName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: SoriTokens.textPrimary,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      ownerLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                    if (shop.tierBadge.isVisible) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          ShopTierBadgeChip(badge: shop.tierBadge),
-                          ShopFundingProofChip(
-                            totalSeminarCount: shop.totalSeminarCount,
-                            totalFundingAmount: shop.totalFundingAmount,
-                          ),
-                        ],
-                      ),
-                    ] else if (shop.totalSeminarCount > 0 ||
-                        shop.totalFundingAmount > 0) ...[
-                      const SizedBox(height: 8),
-                      ShopFundingProofChip(
-                        totalSeminarCount: shop.totalSeminarCount,
-                        totalFundingAmount: shop.totalFundingAmount,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _ProfileStat(
+                                value: '$reviewCount',
+                                label: '소통 리뷰',
+                              ),
+                            ),
+                            Expanded(
+                              child: _ProfileStat(
+                                value: '${store.customers.length}',
+                                label: '등록 고객',
+                                onTap: () => onSelectTab?.call(1),
+                              ),
+                            ),
+                            Expanded(
+                              child: _ProfileStat(
+                                value: '$chartCount',
+                                label: '차트 작성',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    shopName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    ownerLabel,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                  if (shop.tierBadge.isVisible) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      _bio,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        height: 1.4,
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 42,
-                      child: FilledButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const DirectorProfileEditPage(),
-                            ),
-                          );
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFEEF2F7),
-                          foregroundColor: SoriTokens.textPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          '프로필 편집',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _QuickDashboardRow(
-                      shop: shop,
-                      seminarRequestCount:
-                          store.seminarEducationInsight?.totalRequests ?? 0,
-                      onTierTap: () => _openTierSheet(shop),
-                      onSeminarTap: () => _openSeminarSheet(),
-                      onAiTap: () => _openAiReport(),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
-                        const Expanded(
-                          child: Text(
-                            '내 샵 관리 케이스',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => onSelectTab?.call(3),
-                          child: const Text(
-                            '전체 보기',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: SoriTokens.primary,
-                            ),
-                          ),
+                        ShopTierBadgeChip(badge: shop.tierBadge),
+                        ShopFundingProofChip(
+                          totalSeminarCount: shop.totalSeminarCount,
+                          totalFundingAmount: shop.totalFundingAmount,
                         ),
                       ],
                     ),
                   ],
-                ),
-              ),
-            ),
-            if (cases.isEmpty)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(28),
-                    child: Text(
-                      '등록된 B/A 케이스를 준비 중입니다 ✨\n차트에 Before/After를 남기면 여기에 모여요.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        height: 1.45,
+                  const SizedBox(height: 8),
+                  Text(
+                    _bio,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DirectorProfileEditPage(),
+                          ),
+                        );
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SoriTokens.surface,
+                        foregroundColor: SoriTokens.textPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(
+                            color: SoriTokens.outlinePurple,
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        '프로필 편집',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(2, 0, 2, 88),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 2,
-                    crossAxisSpacing: 2,
-                    childAspectRatio: 1,
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: Colors.white,
+              unselectedLabelColor: SoriTokens.textSecondary,
+              labelStyle: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w500,
+              ),
+              indicatorColor: Colors.white,
+              indicatorSize: TabBarIndicatorSize.label,
+              indicatorWeight: 2.4,
+              dividerColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+              tabs: const [
+                Tab(text: '내 케이스'),
+                Tab(text: '내 등급'),
+                Tab(text: '세미나 센터'),
+                Tab(text: 'AI 경영'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _MyCasesHorizontalFeed(
+                    cases: cases,
+                    store: store,
+                    onOpenCasesTab: () => onSelectTab?.call(3),
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final chart = cases[index];
-                      final after = chart.afterImageUrl?.trim() ?? '';
-                      final before = chart.beforeImageUrl?.trim() ?? '';
-                      final url = after.isNotEmpty ? after : before;
-                      return Material(
-                        color: const Color(0xFF111113),
-                        child: InkWell(
-                          onTap: () => onSelectTab?.call(3),
-                          child: url.isEmpty
-                              ? const Center(
-                                  child: Icon(
-                                    Icons.image_outlined,
-                                    color: Colors.grey,
-                                  ),
-                                )
-                              : Image.network(
-                                  url,
-                                  fit: BoxFit.cover,
-                                  gaplessPlayback: true,
-                                  filterQuality: FilterQuality.low,
-                                  errorBuilder: (_, _, _) => const Center(
-                                    child: Icon(
-                                      Icons.broken_image_outlined,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ),
+                  _MyTierTabBody(shop: shop),
+                  _MySeminarTabBody(
+                    store: store,
+                    onOpenClass: _openClass,
+                  ),
+                  _MyAiTabBody(
+                    report: report,
+                    onApply: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => AiShopReportPage(data: report),
                         ),
                       );
                     },
-                    childCount: cases.length,
-                    addAutomaticKeepAlives: false,
-                    addRepaintBoundaries: true,
+                    onDownload: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('경영 리포트 요약이 준비되었어요'),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: SoriTokens.primary,
+                        ),
+                      );
+                    },
                   ),
-                ),
+                ],
               ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Weverse형 3행 가로 스와이프 케이스 피드.
+class _MyCasesHorizontalFeed extends StatelessWidget {
+  const _MyCasesHorizontalFeed({
+    required this.cases,
+    required this.store,
+    required this.onOpenCasesTab,
+  });
+
+  final List<CustomerChart> cases;
+  final SoriStore store;
+  final VoidCallback onOpenCasesTab;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cases.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(28),
+          child: Text(
+            '등록된 B/A 케이스를 준비 중입니다 ✨\n차트에 Before/After를 남기면 여기에 모여요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 96),
+      child: GridView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 14, 20, 8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 18,
+          crossAxisSpacing: 14,
+          childAspectRatio: 0.36,
+        ),
+        itemCount: cases.length,
+        itemBuilder: (context, index) {
+          final chart = cases[index];
+          return _WeverseCaseTile(
+            chart: chart,
+            store: store,
+            onTap: onOpenCasesTab,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WeverseCaseTile extends StatelessWidget {
+  const _WeverseCaseTile({
+    required this.chart,
+    required this.store,
+    required this.onTap,
+  });
+
+  final CustomerChart chart;
+  final SoriStore store;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final after = chart.afterImageUrl?.trim() ?? '';
+    final before = chart.beforeImageUrl?.trim() ?? '';
+    final url = after.isNotEmpty ? after : before;
+    final care = chart.serviceMenuLabel;
+    final customer = store.findCustomer(chart.customerId);
+    final meta = CasePersona.feedLine(
+      chart: chart,
+      customer: customer,
+      age: chart.feedAge ?? chart.age,
+      genderLabel: chart.feedGenderLabel ?? chart.gender,
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 72,
+              height: 72,
+              child: ClipPath(
+                clipper: ShapeBorderClipper(
+                  shape: ContinuousRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                child: ColoredBox(
+                  color: const Color(0xFF111113),
+                  child: url.isEmpty
+                      ? const Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: SoriTokens.textSecondary,
+                            size: 22,
+                          ),
+                        )
+                      : Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.low,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: SoriTokens.textSecondary,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    care,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
+                      height: 1.2,
+                    ),
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      meta,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: SoriTokens.textSecondary,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MyTierTabBody extends StatelessWidget {
+  const _MyTierTabBody({required this.shop});
+
+  final Shop shop;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+      children: [
+        ShopTierProgressCard(shop: shop),
+        const SizedBox(height: 14),
+        if (shop.tierBadge.isVisible)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ShopTierBadgeChip(badge: shop.tierBadge),
+          ),
+      ],
+    );
+  }
+}
+
+class _MySeminarTabBody extends StatelessWidget {
+  const _MySeminarTabBody({
+    required this.store,
+    required this.onOpenClass,
+  });
+
+  final SoriStore store;
+  final VoidCallback onOpenClass;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+      children: [
+        _SeminarEducationInsightCard(
+          loading: store.seminarEducationLoading,
+          totalRequests: store.seminarEducationInsight?.totalRequests ?? 0,
+          soriCashBalance: store.shop.soriCashBalance,
+          onOpenClass: onOpenClass,
+        ),
+        const SizedBox(height: 12),
+        Material(
+          color: SoriTokens.surface,
+          borderRadius: BorderRadius.circular(14),
+          child: ListTile(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: SoriTokens.outlinePurple),
+            ),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: SoriTokens.primarySoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text('📊', style: TextStyle(fontSize: 18)),
+            ),
+            title: const Text(
+              'AI 세미나 피드백 보관함',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14.5,
+                color: SoriTokens.textPrimary,
+              ),
+            ),
+            subtitle: Text(
+              store.seminarFeedbackReportsLoading
+                  ? '리포트 불러오는 중…'
+                  : '완료 리포트 ${store.seminarFeedbackReports.length}건',
+              style: const TextStyle(
+                fontSize: 12,
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: SoriTokens.textSecondary,
+            ),
+            onTap: () => SeminarFeedbackInboxPage.open(context, store: store),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _MySeminarEnrollmentsSection(store: store),
+      ],
+    );
+  }
+}
+
+class _MyAiTabBody extends StatelessWidget {
+  const _MyAiTabBody({
+    required this.report,
+    required this.onApply,
+    required this.onDownload,
+  });
+
+  final AiShopReportMock report;
+  final VoidCallback onApply;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+      children: [
+        _AiManagementSheetBody(
+          report: report,
+          onApply: onApply,
+          onDownload: onDownload,
+        ),
+      ],
     );
   }
 }
@@ -1301,8 +1554,8 @@ class _SeminarEducationInsightCard extends StatelessWidget {
   }
 }
 
-/// 고객 모드 마이 — 지갑·리뷰 중심 (시스템 설정은 ⚙️).
-class _CustomerMyPage extends StatelessWidget {
+/// 고객 모드 마이 — Weverse형 탭 + 가로 케이스 피드.
+class _CustomerMyPage extends StatefulWidget {
   const _CustomerMyPage({
     required this.store,
     required this.session,
@@ -1310,6 +1563,29 @@ class _CustomerMyPage extends StatelessWidget {
 
   final SoriStore store;
   final SessionUser session;
+
+  @override
+  State<_CustomerMyPage> createState() => _CustomerMyPageState();
+}
+
+class _CustomerMyPageState extends State<_CustomerMyPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  SoriStore get store => widget.store;
+  SessionUser get session => widget.session;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1329,93 +1605,127 @@ class _CustomerMyPage extends StatelessWidget {
     return ColoredBox(
       color: _myPageBg,
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _FloatCard(
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: SoriTokens.primarySoft,
-                    backgroundImage: session.hasAvatar &&
-                            !session.avatarUrl.startsWith('data:')
-                        ? NetworkImage(session.avatarUrl)
-                        : null,
-                    child: session.hasAvatar &&
-                            !session.avatarUrl.startsWith('data:')
-                        ? null
-                        : const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: Opacity(
-                              opacity: 0.85,
-                              child: SoriLogo(width: 36, height: 36),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: _FloatCard(
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: SoriTokens.primarySoft,
+                      backgroundImage: session.hasAvatar &&
+                              !session.avatarUrl.startsWith('data:')
+                          ? NetworkImage(session.avatarUrl)
+                          : null,
+                      child: session.hasAvatar &&
+                              !session.avatarUrl.startsWith('data:')
+                          ? null
+                          : const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Opacity(
+                                opacity: 0.85,
+                                child: SoriLogo(width: 36, height: 36),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              height: 1.3,
+                              color: SoriTokens.textPrimary,
                             ),
                           ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            height: 1.3,
-                            color: SoriTokens.textPrimary,
+                          const SizedBox(height: 6),
+                          Text(
+                            '${session.phone} · ${session.providerLabel}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: _mutedText,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${session.phone} · ${session.providerLabel}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: _mutedText,
+                        ],
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const MyInfoEditPage(),
                           ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SoriTokens.primary,
+                        side: const BorderSide(color: SoriTokens.primary),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const MyInfoEditPage(),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: SoriTokens.primary,
-                      side: const BorderSide(color: SoriTokens.primary),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        visualDensity: VisualDensity.compact,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text(
-                      '프로필',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                      child: const Text(
+                        '프로필',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _FloatCard(
-                    onTap: () {
+            const SizedBox(height: 8),
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: Colors.white,
+              unselectedLabelColor: SoriTokens.textSecondary,
+              labelStyle: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w500,
+              ),
+              indicatorColor: Colors.white,
+              indicatorSize: TabBarIndicatorSize.label,
+              indicatorWeight: 2.4,
+              dividerColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+              tabs: const [
+                Tab(text: '내 케이스'),
+                Tab(text: '내 등급'),
+                Tab(text: '세미나 센터'),
+                Tab(text: 'AI 경영'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _MyCasesHorizontalFeed(
+                    cases: charts,
+                    store: store,
+                    onOpenCasesTab: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) =>
@@ -1423,61 +1733,93 @@ class _CustomerMyPage extends StatelessWidget {
                         ),
                       );
                     },
-                    child: _MiniStat(
-                      label: '내 소통 리뷰',
-                      value: '$reviewCount',
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FloatCard(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        CustomerReviewHistoryPage(
+                                      store: store,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _MiniStat(
+                                label: '내 소통 리뷰',
+                                value: '$reviewCount',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _FloatCard(
+                              child: _MiniStat(
+                                label: '보유 티켓',
+                                value: '${wallet.length}',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '스마트 회원권 지갑',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: SoriTokens.textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (remain > 0)
+                            Text(
+                              '잔여 합계 $remain회',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: SoriTokens.primary,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      MembershipTicketWallet(
+                        tickets: wallet,
+                        onRefresh: store.refreshMembershipWallet,
+                      ),
+                    ],
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+                    children: [
+                      _MySeminarEnrollmentsSection(store: store),
+                    ],
+                  ),
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(28),
+                      child: Text(
+                        'AI 경영 리포트는 원장 모드에서 확인할 수 있어요.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: SoriTokens.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          height: 1.45,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _FloatCard(
-                    child: _MiniStat(
-                      label: '보유 티켓',
-                      value: '${wallet.length}',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _MySeminarEnrollmentsSection(store: store),
-            const SizedBox(height: 22),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '스마트 회원권 지갑',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                if (remain > 0)
-                  Text(
-                    '잔여 합계 $remain회',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6C5CE7),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            MembershipTicketWallet(
-              tickets: wallet,
-              onRefresh: store.refreshMembershipWallet,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '모드 전환 · 로그아웃은 상단 ⚙️ 설정에서 관리합니다',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
+                ],
               ),
             ),
           ],
