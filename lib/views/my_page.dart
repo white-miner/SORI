@@ -616,7 +616,7 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               labelPadding: const EdgeInsets.symmetric(horizontal: 14),
               tabs: const [
-                Tab(text: '내 케이스'),
+                Tab(text: 'My 케이스'),
                 Tab(text: '내 등급'),
                 Tab(text: '세미나 센터'),
                 Tab(text: 'AI 경영'),
@@ -665,7 +665,7 @@ class _DirectorVisualMyPageState extends State<_DirectorVisualMyPage>
   }
 }
 
-/// Weverse형 3행 가로 스와이프 케이스 피드.
+/// Weverse형 3행 가로 스와이프 케이스 피드 — 고정 높이 카드로 TabBarView 제스처 분리.
 class _MyCasesHorizontalFeed extends StatelessWidget {
   const _MyCasesHorizontalFeed({
     required this.cases,
@@ -677,45 +677,65 @@ class _MyCasesHorizontalFeed extends StatelessWidget {
   final SoriStore store;
   final VoidCallback onOpenCasesTab;
 
+  static const double _cardHeight = 320;
+
   @override
   Widget build(BuildContext context) {
-    if (cases.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(28),
-          child: Text(
-            '등록된 B/A 케이스를 준비 중입니다 ✨\n차트에 Before/After를 남기면 여기에 모여요.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-              height: 1.45,
-            ),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        height: _cardHeight,
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: SoriTokens.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: SoriTokens.outlinePurple,
+            width: 1,
           ),
         ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 96),
-      child: GridView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 14, 20, 8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 18,
-          crossAxisSpacing: 14,
-          childAspectRatio: 0.36,
-        ),
-        itemCount: cases.length,
-        itemBuilder: (context, index) {
-          final chart = cases[index];
-          return _WeverseCaseTile(
-            chart: chart,
-            store: store,
-            onTap: onOpenCasesTab,
-          );
-        },
+        child: cases.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    '등록된 B/A 케이스를 준비 중입니다 ✨\n차트에 Before/After를 남기면 여기에 모여요.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              )
+            : NotificationListener<ScrollNotification>(
+                // 피드 내부 가로 스크롤이 TabBarView로 버블링되지 않게 흡수.
+                onNotification: (notification) => true,
+                child: GridView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 0.35,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                  ),
+                  itemCount: cases.length,
+                  itemBuilder: (context, index) {
+                    final chart = cases[index];
+                    return _WeverseCaseTile(
+                      chart: chart,
+                      store: store,
+                      onTap: onOpenCasesTab,
+                    );
+                  },
+                ),
+              ),
       ),
     );
   }
@@ -1712,7 +1732,7 @@ class _CustomerMyPageState extends State<_CustomerMyPage>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               labelPadding: const EdgeInsets.symmetric(horizontal: 14),
               tabs: const [
-                Tab(text: '내 케이스'),
+                Tab(text: 'My 케이스'),
                 Tab(text: '내 등급'),
                 Tab(text: '세미나 센터'),
                 Tab(text: 'AI 경영'),
