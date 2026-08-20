@@ -11,6 +11,7 @@ import '../widgets/right_sidebar.dart';
 import 'app_settings_page.dart';
 import 'case_archive_page.dart';
 import 'message_history_page.dart';
+import 'post_first_creation_page.dart';
 
 /// 로그인 후 5탭 앱 셸 — [StatefulShellRoute] 로 하단바 고정.
 class AppShellPage extends StatefulWidget {
@@ -166,6 +167,9 @@ class _AppShellPageState extends State<AppShellPage> {
                 title: _titleForTab(isDirector, tab),
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
+                onPostFirst: (tab == 0 || tab == 4)
+                    ? () => PostFirstCreationPage.open(context)
+                    : null,
                 onArchive: tab == 3 ? _openArchive : null,
                 onSettings: tab == 4 ? _openSettings : null,
               );
@@ -397,6 +401,7 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     required this.badgeCount,
     required this.onNotifications,
+    this.onPostFirst,
     this.onArchive,
     this.onSettings,
   });
@@ -404,6 +409,7 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final int badgeCount;
   final VoidCallback onNotifications;
+  final VoidCallback? onPostFirst;
   final VoidCallback? onArchive;
   final VoidCallback? onSettings;
 
@@ -487,6 +493,14 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                             ),
                           ),
                         ),
+                        if (onPostFirst != null) ...[
+                          _GlossyIconButton(
+                            icon: Icons.add_box_outlined,
+                            onPressed: onPostFirst!,
+                            tooltip: '새 게시물',
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         _GlossyNotificationButton(
                           badgeCount: badgeCount,
                           onPressed: onNotifications,
