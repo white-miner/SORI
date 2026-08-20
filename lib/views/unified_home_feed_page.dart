@@ -1,8 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_case_item.dart';
@@ -16,7 +13,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/sori_logo.dart';
 
-/// 원장·고객 공통 통합 커뮤니티 홈 피드 (스토리 링 + 세로 무한 피드).
+/// 원장·고객 공통 통합 커뮤니티 홈 피드.
 class UnifiedHomeFeedPage extends StatefulWidget {
   const UnifiedHomeFeedPage({
     super.key,
@@ -32,15 +29,10 @@ class UnifiedHomeFeedPage extends StatefulWidget {
 }
 
 class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
-  static const _viewedStoriesPrefsKey = 'sori_story_ring_viewed_v1';
-
   final _liked = <String>{};
   final _bookmarked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_FeedComment>>{};
-
-  /// shopId → 열람 시각(ms). 이후 생성된 스토리만 Active.
-  final Map<String, int> _storyViewedAtMs = {};
   int _visibleCount = 10;
 
   SoriStore get store => widget.store;
@@ -52,7 +44,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityHotCases();
       store.refreshShopFandomMeta();
-      _loadViewedStories();
     });
   }
 
@@ -66,108 +57,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadViewedStories() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_viewedStoriesPrefsKey);
-      if (raw == null || raw.isEmpty) return;
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return;
-      final next = <String, int>{};
-      for (final e in decoded.entries) {
-        final id = e.key.toString();
-        final v = e.value;
-        if (v is int) {
-          next[id] = v;
-        } else if (v is num) {
-          next[id] = v.toInt();
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _storyViewedAtMs
-          ..clear()
-          ..addAll(next);
-      });
-    } catch (_) {}
-  }
-
-  Future<void> _persistViewedStories() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _viewedStoriesPrefsKey,
-        jsonEncode(_storyViewedAtMs),
-      );
-    } catch (_) {}
-  }
-
   List<CommunityCaseItem> get _feed {
     final hot = store.communityHotCases;
     return hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
-  }
-
-  DateTime? _latestStoryAtForShop(String shopId) {
-    DateTime? latest;
-    void consider(DateTime? dt) {
-      if (dt == null) return;
-      if (latest == null || dt.isAfter(latest!)) latest = dt;
-    }
-
-    if (shopId == store.shop.id) {
-      for (final h in store.shopHighlights) {
-        consider(h.createdAt);
-      }
-    }
-    for (final item in _feed) {
-      if (item.shop.id != shopId && item.chart.shopId != shopId) continue;
-      consider(item.chart.createdAt ?? item.chart.visitCheckedAt);
-    }
-    return latest;
-  }
-
-  bool _hasNewStory(String shopId) {
-    final latest = _latestStoryAtForShop(shopId);
-    if (latest == null) return false;
-    final age = DateTime.now().difference(latest);
-    if (age > const Duration(hours: 24) || age.isNegative) return false;
-    final viewedMs = _storyViewedAtMs[shopId];
-    if (viewedMs == null) return true;
-    return latest.millisecondsSinceEpoch > viewedMs;
-  }
-
-  List<_StoryShop> get _storyShops {
-    final byId = <String, _StoryShop>{};
-    void addShop(Shop shop) {
-      final id = shop.id.trim().isEmpty ? shop.name : shop.id;
-      byId.putIfAbsent(
-        id,
-        () => _StoryShop(
-          shop: shop,
-          hasNewStory: _hasNewStory(id),
-        ),
-      );
-    }
-
-    addShop(store.shop);
-    for (final item in store.communityHotCases) {
-      addShop(item.shop);
-    }
-    for (final id in store.followedShopIds) {
-      if (id == store.shop.id) continue;
-      byId.putIfAbsent(
-        id,
-        () => _StoryShop(
-          shop: Shop(
-            id: id,
-            name: '단골 샵',
-            naverPlaceUrl: '',
-          ),
-          hasNewStory: _hasNewStory(id),
-        ),
-      );
-    }
-    return byId.values.toList();
   }
 
   void _toggleLike(String chartId) {
@@ -291,114 +183,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     );
   }
 
-  Future<void> _markStoryViewed(String shopId) async {
-    final id = shopId.trim();
-    if (id.isEmpty) return;
-    setState(() {
-      _storyViewedAtMs[id] = DateTime.now().millisecondsSinceEpoch;
-    });
-    await _persistViewedStories();
-  }
-
-  Future<void> _openStory(_StoryShop story) async {
-    final shop = story.shop;
-    final highlights = shop.id == store.shop.id
-        ? store.shopHighlights
-        : const [];
-    final cases = _feed
-        .where((e) => e.shop.id == shop.id || e.chart.shopId == shop.id)
-        .take(3)
-        .toList();
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF111827),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        shop.name.trim().isEmpty ? '샵 스토리' : shop.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (highlights.isNotEmpty)
-                  ...highlights.take(4).map(
-                        (h) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            '✨ ${h.title}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      )
-                else if (cases.isNotEmpty)
-                  ...cases.map(
-                    (c) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        '📸 ${c.chart.careName.trim().isEmpty ? '관리 케이스' : c.chart.careName}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  const Text(
-                    '최근 24시간 내 새 소식이 곧 올라올 예정이에요.',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _openShopProfile(shop);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SoriTokens.primary,
-                    ),
-                    child: const Text('샵 프로필 보기'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    await _markStoryViewed(shop.id);
-  }
-
   Future<void> _openNaverBookingOrProfile(Shop shop) async {
     final url = shop.naverBookingOrPlaceUrl;
     if (url.isNotEmpty) {
@@ -513,7 +297,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   Widget build(BuildContext context) {
     final feed = _feed;
     final shown = feed.take(_visibleCount).toList();
-    final stories = _storyShops;
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
     return ColoredBox(
@@ -531,45 +314,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
             return false;
           },
           child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 112,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: stories.isEmpty ? 1 : stories.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 14),
-                    itemBuilder: (context, index) {
-                      if (stories.isEmpty) {
-                        final shop = store.shop;
-                        return _StoryRing(
-                          title: shop.name.trim().isEmpty ? '내 샵' : shop.name,
-                          imageUrl: shop.profileImageUrl,
-                          hasNewStory: _hasNewStory(shop.id),
-                          onTap: () => _openStory(
-                            _StoryShop(
-                              shop: shop,
-                              hasNewStory: _hasNewStory(shop.id),
-                            ),
-                          ),
-                        );
-                      }
-                      final s = stories[index];
-                      return _StoryRing(
-                        title: s.shop.name.trim().isEmpty ? '샵' : s.shop.name,
-                        imageUrl: s.shop.profileImageUrl,
-                        hasNewStory: s.hasNewStory,
-                        onTap: () => _openStory(s),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Divider(height: 1, thickness: 0.6),
-              ),
               if (loading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
@@ -635,181 +381,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StoryShop {
-  const _StoryShop({required this.shop, required this.hasNewStory});
-
-  final Shop shop;
-  final bool hasNewStory;
-}
-
-class _StoryRing extends StatefulWidget {
-  const _StoryRing({
-    required this.title,
-    required this.hasNewStory,
-    required this.onTap,
-    this.imageUrl,
-  });
-
-  final String title;
-  final String? imageUrl;
-  final bool hasNewStory;
-  final VoidCallback onTap;
-
-  @override
-  State<_StoryRing> createState() => _StoryRingState();
-}
-
-class _StoryRingState extends State<_StoryRing>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _spin;
-
-  @override
-  void initState() {
-    super.initState();
-    _spin = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    );
-    if (widget.hasNewStory) {
-      _spin.repeat();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _StoryRing oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.hasNewStory && !_spin.isAnimating) {
-      _spin.repeat();
-    } else if (!widget.hasNewStory && _spin.isAnimating) {
-      _spin.stop();
-      _spin.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _spin.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final url = widget.imageUrl?.trim() ?? '';
-    final active = widget.hasNewStory;
-
-    return SizedBox(
-      width: 74,
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: [
-            SizedBox(
-              width: 68,
-              height: 68,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedBuilder(
-                    animation: _spin,
-                    builder: (context, child) {
-                      return Container(
-                        width: 68,
-                        height: 68,
-                        padding: EdgeInsets.all(active ? 2.8 : 1.5),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: active
-                              ? SweepGradient(
-                                  transform: GradientRotation(
-                                    _spin.value * 6.28318530718,
-                                  ),
-                                  colors: const [
-                                    Color(0xFFF58529),
-                                    Color(0xFFDD2A7B),
-                                    Color(0xFF8134AF),
-                                    Color(0xFF515BD4),
-                                    Color(0xFFF58529),
-                                  ],
-                                )
-                              : null,
-                          border: active
-                              ? null
-                              : Border.all(
-                                  color: const Color(0xFFD1D5DB),
-                                  width: 1.5,
-                                ),
-                          color: active ? null : Colors.transparent,
-                        ),
-                        child: child,
-                      );
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        border: Border.all(color: Colors.white, width: 2.5),
-                        image: url.isNotEmpty && !url.startsWith('data:')
-                            ? DecorationImage(
-                                image: NetworkImage(url),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: url.isEmpty || url.startsWith('data:')
-                          ? const Padding(
-                              padding: EdgeInsets.all(14),
-                              child: SoriLogo(width: 36, height: 36),
-                            )
-                          : null,
-                    ),
-                  ),
-                  if (active)
-                    Positioned(
-                      right: -2,
-                      top: -2,
-                      child: Container(
-                        width: 18,
-                        height: 18,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE11D48),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                        child: const Text(
-                          'N',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              widget.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );
