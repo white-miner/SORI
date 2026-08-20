@@ -365,6 +365,39 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
+          if (widget.showSeminarRequest &&
+              widget.onSeminarRequest != null &&
+              !canShare)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: widget.onSeminarRequest,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SoriTokens.primary,
+                    backgroundColor: SoriTokens.primarySoft,
+                    side: BorderSide(
+                      color: SoriTokens.primary.withValues(alpha: 0.45),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    minimumSize: const Size(double.infinity, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  icon: const Text('🎓', style: TextStyle(fontSize: 15)),
+                  label: const Text(
+                    '세미나 요청하기',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           GestureDetector(
             onTap: widget.onOpenDetail,
             behavior: HitTestBehavior.opaque,

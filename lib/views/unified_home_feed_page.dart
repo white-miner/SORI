@@ -249,6 +249,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBookingOrProfile(item.shop),
+        showSeminarRequest:
+            _isDirectorB2B && item.shop.id != store.shop.id && !item.isAuthoredBy(store.session?.id),
+        onSeminarRequest: () => _requestSeminar(item),
       ),
     );
   }
@@ -272,6 +275,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       caseId: item.chart.id,
       requestorShopId: myShopId,
     );
+    if (ok) {
+      store.refreshSeminarEducationInsight();
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -612,7 +618,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                           commentCount: comments.length,
                           bookmarked: _bookmarked.contains(id),
                           showSeminarRequest: _isDirectorB2B &&
-                              item.shop.id != store.shop.id,
+                              item.shop.id != store.shop.id &&
+                              !item.isAuthoredBy(store.session?.id),
                           showDivider: index < shown.length - 1,
                           onLike: () => _toggleLike(id),
                           onComment: () => _openComments(item.chart),

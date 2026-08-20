@@ -30,6 +30,8 @@ class CaseDetailPage extends StatefulWidget {
     this.onBookmark,
     this.onShopProfile,
     this.onBookingCta,
+    this.onSeminarRequest,
+    this.showSeminarRequest = false,
   });
 
   final CommunityCaseItem item;
@@ -39,11 +41,13 @@ class CaseDetailPage extends StatefulWidget {
   final int likeCount;
   final int commentCount;
   final bool bookmarked;
+  final bool showSeminarRequest;
   final VoidCallback? onLike;
   final VoidCallback? onComment;
   final VoidCallback? onBookmark;
   final VoidCallback? onShopProfile;
   final VoidCallback? onBookingCta;
+  final VoidCallback? onSeminarRequest;
 
   static String imageHeroTag(String chartId) => 'case_image_$chartId';
 
@@ -241,6 +245,17 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                     _openBooking();
                   },
                 ),
+              if (widget.showSeminarRequest &&
+                  widget.onSeminarRequest != null &&
+                  !_isAuthor)
+                ListTile(
+                  leading: const Icon(Icons.school_outlined),
+                  title: const Text('🎓 세미나 요청하기'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onSeminarRequest!();
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('닫기'),
@@ -409,6 +424,37 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                     ],
                   ),
                 ),
+                if (widget.showSeminarRequest &&
+                    widget.onSeminarRequest != null &&
+                    !_isAuthor)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onSeminarRequest,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: SoriTokens.primary,
+                          backgroundColor: SoriTokens.primarySoft,
+                          side: BorderSide(
+                            color: SoriTokens.primary.withValues(alpha: 0.45),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Text('🎓', style: TextStyle(fontSize: 16)),
+                        label: const Text(
+                          '세미나 요청하기',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: Text(

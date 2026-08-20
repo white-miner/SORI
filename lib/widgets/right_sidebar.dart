@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../views/seminar_management_page.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 
 /// PC 와이드 뷰포트에서 피드 우측에 고정되는 대시보드/댓글 사이드바.
@@ -58,8 +60,24 @@ class _RightSidebarState extends State<RightSidebar> {
 
 // ─── Dashboard (default state) ───────────────────────────────────────────────
 
-class _DashboardPanel extends StatelessWidget {
+class _DashboardPanel extends StatefulWidget {
   const _DashboardPanel({super.key});
+
+  @override
+  State<_DashboardPanel> createState() => _DashboardPanelState();
+}
+
+class _DashboardPanelState extends State<_DashboardPanel> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final store = SoriStore.instance;
+      if (store.session?.activeMode == UserRole.director) {
+        store.refreshSeminarEducationInsight();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +87,8 @@ class _DashboardPanel extends StatelessWidget {
 
     final shop = store.shop;
     final month = DateTime.now().month;
-    final reqCount = store.seminarEducationInsight?.totalRequests ?? 0;
+    final reqCount = store.seminarEducationInsight?.totalRequests ??
+        shop.seminarRequestCount;
 
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -78,7 +97,10 @@ class _DashboardPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _AiSummaryCard(month: month),
         const SizedBox(height: 12),
-        _SeminarCard(count: reqCount),
+        _SeminarCard(
+          count: reqCount,
+          onTap: () => SeminarManagementPage.open(context, store: store),
+        ),
       ],
     );
   }
@@ -367,38 +389,68 @@ class _AiSummaryCard extends StatelessWidget {
 }
 
 class _SeminarCard extends StatelessWidget {
-  const _SeminarCard({required this.count});
+  const _SeminarCard({required this.count, required this.onTap});
   final int count;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE6E8EC)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE6E8EC)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.school_rounded, size: 20, color: SoriTokens.primary),
-              const SizedBox(width: 6),
-              const Text('추천 세미나',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+              Row(
+                children: [
+                  Icon(Icons.school_rounded, size: 20, color: SoriTokens.primary),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      '추천 세미나',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: Colors.grey.shade500,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '세미나 요청 $count건 · 탭하여 관리',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '클래스 개설 · 받은 요청 · 피드백',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: SoriTokens.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '세미나 요청 $count건',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
