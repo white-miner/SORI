@@ -6,7 +6,7 @@ import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/seminar_review_modal.dart';
-import 'seminar_class_open_page.dart';
+import 'seminar_create_page.dart';
 import 'seminar_feedback_inbox_page.dart';
 
 /// B2B 세미나 센터 — 요청 인사이트 · 클래스 개설 · 수강/피드백 관리.
@@ -83,7 +83,7 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
     final chart = topCase == null ? null : _chartById(topCase);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SeminarClassOpenPage(
+        builder: (_) => SeminarCreatePage(
           store: store,
           targetCaseId: topCase,
           initialTitle: chart?.careName ?? '',
@@ -172,7 +172,7 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => SeminarClassOpenPage(
+                            builder: (_) => SeminarCreatePage(
                               store: store,
                               targetCaseId: row.key,
                               initialTitle: chart?.careName ?? '',

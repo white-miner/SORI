@@ -31,6 +31,7 @@ class SeminarClass {
     this.currentEnrollment = 0,
     this.status = SeminarClassStatus.open,
     this.description = '',
+    this.classFormat = 'oneday',
     this.createdAt,
   });
 
@@ -47,10 +48,27 @@ class SeminarClass {
 
   /// 강사가 작성한 세미나 상세 설명.
   final String description;
+
+  /// oneday | regular | one_on_one | demo
+  final String classFormat;
   final DateTime? createdAt;
 
   bool get isEnrollable =>
       status == SeminarClassStatus.open || status == SeminarClassStatus.held;
+
+  static const formatOptions = <({String value, String label})>[
+    (value: 'oneday', label: '원데이'),
+    (value: 'regular', label: '정규'),
+    (value: 'one_on_one', label: '1:1 밀착'),
+    (value: 'demo', label: '데모 참관'),
+  ];
+
+  String get classFormatLabel {
+    for (final o in formatOptions) {
+      if (o.value == classFormat) return o.label;
+    }
+    return classFormat;
+  }
 
   factory SeminarClass.fromMap(Map<String, dynamic> map) {
     return SeminarClass(
@@ -65,6 +83,7 @@ class SeminarClass {
       currentEnrollment: DbMap.asInt(map['current_enrollment']),
       status: SeminarClassStatus.fromDb(DbMap.asText(map['status'])),
       description: DbMap.asText(map['description']),
+      classFormat: DbMap.asText(map['class_format'], 'oneday'),
       createdAt: DbMap.asDateTime(map['created_at']),
     );
   }
@@ -80,12 +99,15 @@ class SeminarClass {
         'max_capacity': maxCapacity,
         'status': status.dbValue,
         if (description.trim().isNotEmpty) 'description': description.trim(),
+        'class_format': classFormat.trim().isEmpty ? 'oneday' : classFormat.trim(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
   SeminarClass copyWith({
     int? currentEnrollment,
     SeminarClassStatus? status,
+    String? classFormat,
+    String? description,
   }) {
     return SeminarClass(
       id: id,
@@ -98,7 +120,8 @@ class SeminarClass {
       maxCapacity: maxCapacity,
       currentEnrollment: currentEnrollment ?? this.currentEnrollment,
       status: status ?? this.status,
-      description: description,
+      description: description ?? this.description,
+      classFormat: classFormat ?? this.classFormat,
       createdAt: createdAt,
     );
   }

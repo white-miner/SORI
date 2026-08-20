@@ -8,8 +8,8 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/shop_funding_proof_chip.dart';
-import '../widgets/seminar_checkout_bottom_sheet.dart';
 import '../widgets/shop_tier_badge_chip.dart';
+import 'seminar_apply_page.dart';
 
 /// B2B 세미나 클래스 모집 랜딩 — SliverAppBar + 에스크로 CTA.
 class SeminarClassDetailPage extends StatefulWidget {
@@ -91,41 +91,13 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
       return;
     }
 
-    final paid = await SeminarCheckoutBottomSheet.show(
+    await SeminarApplyPage.open(
       context,
       store: widget.store,
+      classId: widget.classId,
       detail: detail,
-      dateFmt: _dateFmt,
-      priceFmt: _priceFmt,
     );
-    if (!mounted || !paid) return;
-
-    await _load();
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.check_circle_rounded, color: SoriTokens.success, size: 48),
-        title: const Text(
-          '결제 완료',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: const Text(
-          '수강료가 SORI 에스크로(held)로 안전하게 보관되었습니다.\n'
-          '교육 일정에 맞춰 참석해 주세요.',
-          textAlign: TextAlign.center,
-          style: TextStyle(height: 1.45),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: FilledButton.styleFrom(backgroundColor: SoriTokens.primary),
-            child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-        ],
-      ),
-    );
+    if (mounted) await _load();
   }
 
   @override
@@ -873,7 +845,7 @@ class _StickyEscrowBar extends StatelessWidget {
                 onPressed: enabled ? onPay : null,
                 icon: const Icon(Icons.verified_user_outlined, size: 20),
                 label: const Text(
-                  'SORI 에스크로 안전 결제하기',
+                  '수강 신청하기',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14.5,

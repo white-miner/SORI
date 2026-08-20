@@ -17,6 +17,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
+import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/seminar_feedback_report.dart';
@@ -2333,6 +2334,18 @@ class SupabaseSoriRepository implements SoriRepository {
         .select()
         .single();
     return SeminarClass.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<SeminarApplication> submitSeminarApplication(
+    SeminarApplication draft,
+  ) async {
+    final row = await _db
+        .from('seminar_applications')
+        .insert(draft.toInsertMap())
+        .select()
+        .single();
+    return SeminarApplication.fromMap(Map<String, dynamic>.from(row as Map));
   }
 
   @override

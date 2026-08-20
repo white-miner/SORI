@@ -11,6 +11,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/seminar_class.dart';
+import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/seminar_feedback_report.dart';
@@ -907,9 +908,35 @@ class MemorySoriRepository implements SoriRepository {
       price: draft.price,
       maxCapacity: draft.maxCapacity,
       status: draft.status,
+      description: draft.description,
+      classFormat: draft.classFormat,
       createdAt: DateTime.now(),
     );
     _seminarClasses.add(created);
+    return created;
+  }
+
+  static final List<SeminarApplication> _seminarApplications = [];
+
+  @override
+  Future<SeminarApplication> submitSeminarApplication(
+    SeminarApplication draft,
+  ) async {
+    final created = SeminarApplication(
+      id: 'sapp-local-${_seminarApplications.length + 1}',
+      classId: draft.classId,
+      applicantShopId: draft.applicantShopId,
+      applicantUserId: draft.applicantUserId,
+      applicantName: draft.applicantName,
+      shopName: draft.shopName,
+      contactPhone: draft.contactPhone,
+      careerType: draft.careerType,
+      question: draft.question,
+      refundAgreed: draft.refundAgreed,
+      status: 'submitted',
+      createdAt: DateTime.now(),
+    );
+    _seminarApplications.add(created);
     return created;
   }
 
