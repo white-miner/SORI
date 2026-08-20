@@ -493,348 +493,77 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                             ),
                           ),
                         ),
-                        if (onPostFirst != null) ...[
-                          _GlossyIconButton(
-                            icon: Icons.add_box_outlined,
-                            onPressed: onPostFirst!,
+                        if (onPostFirst != null)
+                          IconButton(
+                            onPressed: onPostFirst,
                             tooltip: '새 게시물',
+                            icon: const Icon(Icons.add_box_outlined),
+                            color: const Color(0xFF1C1C1E),
+                            iconSize: 24,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(
+                              minWidth: 40,
+                              minHeight: 40,
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                        ],
-                        _GlossyNotificationButton(
-                          badgeCount: badgeCount,
+                        IconButton(
                           onPressed: onNotifications,
+                          tooltip: '알림',
+                          icon: Badge(
+                            isLabelVisible: badgeCount > 0,
+                            label: Text(
+                              badgeCount > 9 ? '9+' : '$badgeCount',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            child: const Icon(Icons.notifications_outlined),
+                          ),
+                          color: const Color(0xFF1C1C1E),
+                          iconSize: 24,
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(8),
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
                         ),
-                        if (onArchive != null) ...[
-                          const SizedBox(width: 8),
-                          _GlossyIconButton(
-                            icon: Icons.inventory_2_rounded,
-                            onPressed: onArchive!,
+                        if (onArchive != null)
+                          IconButton(
+                            onPressed: onArchive,
                             tooltip: '보관함',
+                            icon: const Icon(Icons.inventory_2_outlined),
+                            color: const Color(0xFF1C1C1E),
+                            iconSize: 24,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(
+                              minWidth: 40,
+                              minHeight: 40,
+                            ),
                           ),
-                        ],
-                        if (onSettings != null) ...[
-                          const SizedBox(width: 8),
-                          _GlossyIconButton(
-                            icon: Icons.settings_rounded,
-                            onPressed: onSettings!,
+                        if (onSettings != null)
+                          IconButton(
+                            onPressed: onSettings,
                             tooltip: '설정',
+                            icon: const Icon(Icons.settings_outlined),
+                            color: const Color(0xFF1C1C1E),
+                            iconSize: 24,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(
+                              minWidth: 40,
+                              minHeight: 40,
+                            ),
                           ),
-                        ],
                       ],
                     ),
                   ),
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 하이그로시 원형 아이콘 버튼 (설정 등).
-class _GlossyIconButton extends StatelessWidget {
-  const _GlossyIconButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-
-  static const Color _violet = Color(0xFF6C5CE7);
-  static const Color _violetDeep = Color(0xFF4A3BCF);
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 42,
-            height: 42,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFF3F0FF),
-                    Color(0xFFE8E4FB),
-                    Color(0xFFDCD6F7),
-                  ],
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  width: 1.6,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _violet.withValues(alpha: 0.28),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                  BoxShadow(
-                    color: _violetDeep.withValues(alpha: 0.12),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.55),
-                            Colors.white.withValues(alpha: 0.08),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.4, 0.75],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Icon(
-                        icon,
-                        size: 22,
-                        color: const Color(0xFF4A3BCF),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 하이그로시 원형 알림 버튼 + 3D 젤리 뱃지.
-class _GlossyNotificationButton extends StatelessWidget {
-  const _GlossyNotificationButton({
-    required this.badgeCount,
-    required this.onPressed,
-  });
-
-  final int badgeCount;
-  final VoidCallback onPressed;
-
-  static const Color _violet = Color(0xFF6C5CE7);
-  static const Color _violetDeep = Color(0xFF4A3BCF);
-
-  @override
-  Widget build(BuildContext context) {
-    final showBadge = badgeCount > 0;
-    final label = badgeCount > 9 ? '9+' : '$badgeCount';
-
-    return Tooltip(
-      message: '알림',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 42,
-            height: 42,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      center: const Alignment(-0.35, -0.4),
-                      radius: 1.05,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.95),
-                        const Color(0xFFEDE9FF),
-                        const Color(0xFFD9D2FF),
-                      ],
-                      stops: const [0.0, 0.45, 1.0],
-                    ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      width: 1.6,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _violet.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
-                      ),
-                      BoxShadow(
-                        color: _violetDeep.withValues(alpha: 0.18),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.55),
-                                Colors.white.withValues(alpha: 0.08),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.4, 0.75],
-                            ),
-                          ),
-                        ),
-                        Align(
-                          alignment: const Alignment(-0.5, -0.55),
-                          child: Container(
-                            width: 16,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0.7),
-                                  Colors.white.withValues(alpha: 0.0),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const Center(
-                          child: Icon(
-                            Icons.notifications_rounded,
-                            size: 22,
-                            color: Color(0xFF4A3BCF),
-                            shadows: [
-                              Shadow(
-                                color: Color(0x33000000),
-                                blurRadius: 3,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (showBadge)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      constraints: const BoxConstraints(minWidth: 18),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(99),
-                        gradient: const RadialGradient(
-                          center: Alignment(-0.3, -0.45),
-                          radius: 1.1,
-                          colors: [
-                            Color(0xFFFF8A95),
-                            Color(0xFFFF4D6A),
-                            Color(0xFFE11D48),
-                          ],
-                          stops: [0.0, 0.45, 1.0],
-                        ),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF4D6A).withValues(
-                              alpha: 0.55,
-                            ),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 3,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // 젤리 하이라이트
-                          Positioned(
-                            top: 1,
-                            left: 3,
-                            right: 3,
-                            height: 5,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(99),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0.55),
-                                    Colors.white.withValues(alpha: 0.0),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Text(
-                            label,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                              shadows: [
-                                Shadow(
-                                  color: Color(0x44000000),
-                                  blurRadius: 2,
-                                  offset: Offset(0, 0.5),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
           ),
         ),
       ),

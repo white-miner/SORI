@@ -316,6 +316,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
           child: CustomScrollView(
             physics: const ClampingScrollPhysics(),
             slivers: [
+              const SliverToBoxAdapter(
+                child: _HomeInsightStrip(),
+              ),
               if (loading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
@@ -382,6 +385,145 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 홈 최상단 — AI 브리핑 + 명예의 전당 가로 스크롤.
+class _HomeInsightStrip extends StatelessWidget {
+  const _HomeInsightStrip();
+
+  static const _hallOfFame = <({String name, String initial, int rank})>[
+    (name: '김서연 원장', initial: '김', rank: 1),
+    (name: '박지훈 원장', initial: '박', rank: 2),
+    (name: '이하늘 원장', initial: '이', rank: 3),
+    (name: '최민정 원장', initial: '최', rank: 4),
+    (name: '정우성 원장', initial: '정', rank: 5),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 118,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        children: [
+          const _AiBriefingCard(),
+          const SizedBox(width: 12),
+          ..._hallOfFame.map(
+            (e) => Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: _HallOfFameAvatar(
+                name: e.name,
+                initial: e.initial,
+                rank: e.rank,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiBriefingCard extends StatelessWidget {
+  const _AiBriefingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E8FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE9D5FF)),
+      ),
+      alignment: Alignment.centerLeft,
+      child: const Text(
+        '✨ 원장님, 작성 대기 중인 임시 차트가 2건 있습니다. 완성하고 프로 뱃지를 획득하세요!',
+        style: TextStyle(
+          fontSize: 13,
+          height: 1.35,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF5B21B6),
+        ),
+      ),
+    );
+  }
+}
+
+class _HallOfFameAvatar extends StatelessWidget {
+  const _HallOfFameAvatar({
+    required this.name,
+    required this.initial,
+    required this.rank,
+  });
+
+  final String name;
+  final String initial;
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: CircleAvatar(
+                    backgroundColor: SoriTokens.primarySoft,
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: SoriTokens.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  top: -4,
+                  right: -2,
+                  child: Text('👑', style: TextStyle(fontSize: 16)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$rank위',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Colors.grey.shade800,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              height: 1.15,
+            ),
+          ),
+        ],
       ),
     );
   }
