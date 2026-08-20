@@ -5,6 +5,7 @@ import '../models/customer_chart.dart';
 import '../pages/case_detail_page.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/case_persona.dart';
+import '../utils/storage_image_url.dart';
 
 /// 고밀도 가로형 케이스 타일 (높이 ~120px, 썸네일 100x100).
 class CaseArchiveTile extends StatelessWidget {
@@ -265,8 +266,8 @@ class _Shot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final src = url?.trim() ?? '';
-    if (src.isEmpty) {
+    final src = StorageImageUrl.resolve(url);
+    if (src == null || !StorageImageUrl.isNetworkUrl(src)) {
       return ColoredBox(
         color: const Color(0xFFF3F0FA),
         child: Icon(fallback, size: 18, color: SoriTokens.primary),
@@ -278,10 +279,30 @@ class _Shot extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       alignment: Alignment.center,
-      errorBuilder: (_, _, _) => ColoredBox(
-        color: const Color(0xFFF3F0FA),
-        child: Icon(fallback, size: 18, color: SoriTokens.primary),
-      ),
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return const ColoredBox(
+          color: Color(0xFFF3F0FA),
+          child: Center(
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('CaseArchiveThumb: load failed url=$src error=$error');
+        return ColoredBox(
+          color: const Color(0xFFF3F0FA),
+          child: Icon(
+            Icons.broken_image_outlined,
+            size: 18,
+            color: SoriTokens.primary,
+          ),
+        );
+      },
     );
   }
 }

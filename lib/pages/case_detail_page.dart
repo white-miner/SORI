@@ -344,7 +344,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 Hero(
                   tag: CaseDetailPage.imageHeroTag(chart.id),
                   child: Material(
-                    color: Colors.black,
+                    color: const Color(0xFFF3F0FA),
                     child: Screenshot(
                       controller: _shot,
                       child: _baSlider(chart),

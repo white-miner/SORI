@@ -257,7 +257,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               child: Hero(
                 tag: CaseDetailPage.imageHeroTag(chart.id),
                 child: Material(
-                  color: Colors.black,
+                  color: const Color(0xFFF3F0FA),
                   child: Screenshot(
                     controller: _shot,
                     child: GestureDetector(

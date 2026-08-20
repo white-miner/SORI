@@ -25,6 +25,7 @@ import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../services/supabase_client.dart';
 import '../utils/db_map.dart';
+import '../utils/storage_image_url.dart';
 import 'sori_repository.dart';
 
 /// Supabase SDK 실연동 Repository.
@@ -263,7 +264,8 @@ class SupabaseSoriRepository implements SoriRepository {
   static String _digits(String phone) => phone.replaceAll(RegExp(r'\D'), '');
 
   /// Before/After 미첨부·빈 문자열은 DB null로 고정.
-  static String? _imageUrlOrNull(String? value) => DbMap.asTextOrNull(value);
+  static String? _imageUrlOrNull(String? value) =>
+      StorageImageUrl.resolve(DbMap.asTextOrNull(value));
 
   /// TEXT 컬럼용: null/공백 → '' (스키마 default '' 와 호환, 에러 방지).
   static String _textOrEmpty(String? value) =>
@@ -1858,8 +1860,12 @@ class SupabaseSoriRepository implements SoriRepository {
               if (tags.isNotEmpty) return tags;
               return DbMap.asStringList(map['concern_chips']);
             }(),
-            beforeImageUrl: DbMap.asTextOrNull(map['before_image_url']),
-            afterImageUrl: DbMap.asTextOrNull(map['after_image_url']),
+            beforeImageUrl: StorageImageUrl.resolve(
+              DbMap.asTextOrNull(map['before_image_url']),
+            ),
+            afterImageUrl: StorageImageUrl.resolve(
+              DbMap.asTextOrNull(map['after_image_url']),
+            ),
             caseShared: true,
             createdAt: DbMap.asDateTime(map['created_at']),
             consentMandatory: true,

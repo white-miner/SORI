@@ -1,7 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/sori_tokens.dart';
+import '../utils/storage_image_url.dart';
 
 /// Before/After 오버랩 비교 슬라이더 (터치 드래그).
 class BeforeAfterSlider extends StatefulWidget {
@@ -169,7 +170,7 @@ class _CornerTag extends StatelessWidget {
   }
 }
 
-/// URL이 없거나 파일이면 플레이스홀더.
+/// URL이 없거나 로드 실패 시 플레이스홀더. 웹은 [Image.network]로 CORS 호환.
 class ChartImagePane extends StatelessWidget {
   const ChartImagePane({
     super.key,
@@ -182,40 +183,61 @@ class ChartImagePane extends StatelessWidget {
   final String fallbackLabel;
   final Color tone;
 
-  bool get _isNetwork {
-    final u = url?.trim() ?? '';
-    return u.startsWith('http://') || u.startsWith('https://');
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isNetwork) {
-      return CachedNetworkImage(
-        imageUrl: url!.trim(),
-        fit: BoxFit.cover,
-        memCacheWidth: 1200,
-        fadeInDuration: const Duration(milliseconds: 180),
-        placeholder: (_, _) => ColoredBox(
+    final resolved = StorageImageUrl.resolve(url);
+    if (resolved == null || !StorageImageUrl.isNetworkUrl(resolved)) {
+      if ((url?.trim() ?? '').isNotEmpty) {
+        debugPrint(
+          'ChartImagePane[$fallbackLabel]: invalid/empty URL raw="$url"',
+        );
+      }
+      return _Placeholder(label: fallbackLabel, tone: tone);
+    }
+
+    return Image.network(
+      resolved,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.medium,
+      // Request-side CORS header는 무효(응답 헤더). 웹은 브라우저 기본 fetch 사용.
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return ColoredBox(
           color: tone.withValues(alpha: 0.12),
           child: const Center(
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-        ),
-        errorWidget: (_, _, _) => _Placeholder(
-          label: fallbackLabel,
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint(
+          'ChartImagePane[$fallbackLabel]: load failed url=$resolved '
+          'error=$error'
+          '${kIsWeb ? ' (check Supabase Storage CORS / 403)' : ''}',
+        );
+        return _Placeholder(
+          label: '$fallbackLabel 로드 실패',
           tone: tone,
-        ),
-      );
-    }
-    return _Placeholder(label: fallbackLabel, tone: tone);
+          icon: Icons.broken_image_outlined,
+        );
+      },
+    );
   }
 }
 
 class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.label, required this.tone});
+  const _Placeholder({
+    required this.label,
+    required this.tone,
+    this.icon = Icons.photo_outlined,
+  });
 
   final String label;
   final Color tone;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -225,10 +247,11 @@ class _Placeholder extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.photo_outlined, size: 40, color: tone),
+            Icon(icon, size: 40, color: tone),
             const SizedBox(height: 8),
             Text(
               label,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: tone,

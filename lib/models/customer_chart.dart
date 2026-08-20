@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import '../utils/storage_image_url.dart';
 import 'chart_db_columns.dart';
 import 'home_care_prescriptions.dart';
 
@@ -478,8 +479,12 @@ class CustomerChart {
       customChartNo: DbMap.asTextOrNull(map['custom_chart_no']),
       visitChecked: DbMap.asBool(map['visit_checked']),
       visitCheckedAt: DbMap.asDateTime(map['visit_checked_at']),
-      beforeImageUrl: DbMap.asTextOrNull(map['before_image_url']),
-      afterImageUrl: DbMap.asTextOrNull(map['after_image_url']),
+      beforeImageUrl: StorageImageUrl.resolve(
+        DbMap.asTextOrNull(map['before_image_url']),
+      ),
+      afterImageUrl: StorageImageUrl.resolve(
+        DbMap.asTextOrNull(map['after_image_url']),
+      ),
       careName: DbMap.asText(map['care_name']),
       treatmentSummary: DbMap.asText(map['treatment_summary']),
       directorInsight: DbMap.asText(map['director_insight']),
