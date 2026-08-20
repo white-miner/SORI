@@ -2,7 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// Weverse 스타일 플로팅 알약(Pill) 바텀 네비게이션.
+import '../theme/sori_tokens.dart';
+
+/// Weverse-style floating pill bottom navigation (dark).
 class FloatingPillNav extends StatelessWidget {
   const FloatingPillNav({
     super.key,
@@ -17,8 +19,8 @@ class FloatingPillNav extends StatelessWidget {
   final String reviewLabel;
   final ValueChanged<int> onTap;
 
-  static const Color _barBg = Color(0xE61C1C1E);
-  static const Color _accent = Color(0xFF8B7CFF);
+  /// #121214 @ 90%
+  static const Color _barBg = Color(0xE6121214);
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +41,6 @@ class FloatingPillNav extends StatelessWidget {
             (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
           ];
 
-    // 고객/원장 모두 중앙은 reviewLabel 사용
     final labels = [
       items[0].$3,
       items[1].$3,
@@ -60,13 +61,14 @@ class FloatingPillNav extends StatelessWidget {
               color: _barBg,
               borderRadius: BorderRadius.circular(30),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.12),
+                color: SoriTokens.outlinePurple,
+                width: SoriTokens.outlineWidth,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
                 ),
               ],
             ),
@@ -116,17 +118,25 @@ class _PillNavItem extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: selected
+                  ? Border.all(
+                      color: SoriTokens.outlinePurple,
+                      width: 1.4,
+                    )
+                  : null,
               color: selected
-                  ? FloatingPillNav._accent.withValues(alpha: 0.28)
+                  ? SoriTokens.primary.withValues(alpha: 0.18)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               selected ? activeIcon : icon,
               size: 22,
-              color: selected ? Colors.white : Colors.white54,
+              color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 2),
@@ -137,7 +147,7 @@ class _PillNavItem extends StatelessWidget {
             style: TextStyle(
               fontSize: 9.5,
               fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-              color: selected ? Colors.white : Colors.white54,
+              color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
             ),
           ),
         ],

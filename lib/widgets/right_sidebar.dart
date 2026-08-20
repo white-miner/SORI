@@ -144,13 +144,15 @@ class _CommentPanelState extends State<_CommentPanel> {
       onTap: () {},
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(left: BorderSide(color: Colors.grey.shade200)),
+          color: SoriTokens.surface,
+          border: const Border(
+            left: BorderSide(color: SoriTokens.outlinePurple, width: 1.2),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(-2, 0),
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(-4, 0),
             ),
           ],
         ),
@@ -236,8 +238,10 @@ class _CommentPanelState extends State<_CommentPanel> {
           // Input
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 8, 12),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: SoriTokens.outlinePurple, width: 1),
+              ),
             ),
             child: Row(
               children: [
@@ -246,8 +250,9 @@ class _CommentPanelState extends State<_CommentPanel> {
                     controller: _controller,
                     decoration: InputDecoration(
                       hintText: '댓글을 입력하세요',
+                      hintStyle: const TextStyle(color: SoriTokens.textSecondary),
                       filled: true,
-                      fillColor: const Color(0xFFF5F6F8),
+                      fillColor: SoriTokens.background,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
@@ -256,7 +261,10 @@ class _CommentPanelState extends State<_CommentPanel> {
                       ),
                       isDense: true,
                     ),
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: SoriTokens.textPrimary,
+                    ),
                     onSubmitted: (_) => _submit(),
                   ),
                 ),
@@ -305,21 +313,21 @@ class _TierCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E4F8)),
-      ),
+      decoration: SoriTokens.card(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               const Icon(Icons.military_tech_rounded,
-                  size: 20, color: Color(0xFFB7791F)),
+                  size: 20, color: Color(0xFFFBBF24)),
               const SizedBox(width: 6),
               const Text('내 등급',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  )),
               const Spacer(),
               ShopTierBadgeChip(badge: shop.tierBadge, compact: true),
             ],
@@ -330,17 +338,17 @@ class _TierCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct / 100,
               minHeight: 6,
-              backgroundColor: const Color(0xFFEDE9FE),
+              backgroundColor: SoriTokens.primarySoft,
               color: SoriTokens.primary,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             '달성률 $pct%',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: SoriTokens.textSecondary,
             ),
           ),
         ],
@@ -357,30 +365,28 @@ class _AiSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE6E8EC)),
-      ),
+      decoration: SoriTokens.card(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               const Icon(Icons.auto_graph_rounded,
-                  size: 20, color: Color(0xFF0F766E)),
+                  size: 20, color: Color(0xFF2DD4BF)),
               const SizedBox(width: 6),
               Text('AI 경영 · $month월',
                   style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w800)),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary)),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             '이번 달 AI 리포트를 확인하세요',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey.shade600,
+              color: SoriTokens.textSecondary,
             ),
           ),
         ],
@@ -397,17 +403,13 @@ class _SeminarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE6E8EC)),
-          ),
+          decoration: SoriTokens.card(radius: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -421,32 +423,23 @@ class _SeminarCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 20,
-                    color: Colors.grey.shade500,
+                    color: SoriTokens.textSecondary,
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                '세미나 요청 $count건 · 탭하여 관리',
-                style: TextStyle(
+                count > 0 ? '관심 $count건' : '세미나 둘러보기',
+                style: const TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '클래스 개설 · 받은 요청 · 피드백',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: SoriTokens.primary,
-                  fontWeight: FontWeight.w700,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
             ],

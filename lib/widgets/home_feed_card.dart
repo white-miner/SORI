@@ -180,17 +180,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: SoriTokens.card(),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -226,7 +216,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
                       height: 1.2,
-                      color: Colors.black,
+                      color: SoriTokens.textPrimary,
                     ),
                   ),
                 ),
@@ -235,10 +225,10 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     padding: const EdgeInsets.only(left: 8),
                     child: Text(
                       relative,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey[500],
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                   ),
@@ -249,9 +239,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     minWidth: 36,
                     minHeight: 36,
                   ),
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.more_horiz,
-                    color: Colors.grey[800],
+                    color: SoriTokens.textSecondary,
                     size: 22,
                   ),
                 ),
@@ -265,7 +255,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               child: Hero(
                 tag: CaseDetailPage.imageHeroTag(chart.id),
                 child: Material(
-                  color: const Color(0xFFF3F0FA),
+                  color: const Color(0xFF111113),
                   child: Screenshot(
                     controller: _shot,
                     child: GestureDetector(
@@ -300,7 +290,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                         size: 24,
                         color: widget.liked
                             ? const Color(0xFFE53935)
-                            : Colors.grey[800],
+                            : SoriTokens.textSecondary,
                       ),
                     ),
                     Text(
@@ -308,6 +298,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                     IconButton(
@@ -318,10 +309,10 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                         minHeight: 36,
                       ),
                       visualDensity: VisualDensity.compact,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.chat_bubble_outline_rounded,
                         size: 22,
-                        color: Colors.grey[800],
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                     Text(
@@ -329,6 +320,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                     if (canShare)
@@ -346,7 +338,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                               ? Icons.hourglass_top_rounded
                               : Icons.send_outlined,
                           size: 22,
-                          color: Colors.grey[800],
+                          color: SoriTokens.textSecondary,
                         ),
                       ),
                   ],
@@ -367,7 +359,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     size: 24,
                     color: widget.bookmarked
                         ? SoriTokens.primary
-                        : Colors.grey[800],
+                        : SoriTokens.textSecondary,
                   ),
                 ),
               ],
@@ -389,7 +381,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
                 height: 1.25,
-                color: Colors.black,
+                color: SoriTokens.textPrimary,
               ),
             ),
           ),
@@ -400,11 +392,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 meta,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   height: 1.3,
-                  color: Colors.grey[600],
+                  color: SoriTokens.textSecondary,
                 ),
               ),
             ),
@@ -424,15 +416,19 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.purple.withValues(alpha: 0.1),
+                      color: SoriTokens.primarySoft,
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: SoriTokens.outlinePurple,
+                        width: 1,
+                      ),
                     ),
                     child: Text(
                       label,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF6D28D9),
+                        color: Color(0xFFC4B5FD),
                         height: 1.2,
                       ),
                     ),
@@ -449,13 +445,13 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     previewMaxLines: 3,
                     anonymizeNames: true,
                   )
-                : Text(
+                : const Text(
                     '후기 미작성',
                     style: TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade400,
+                      color: SoriTokens.textSecondary,
                       height: 1.2,
                     ),
                   ),
@@ -468,36 +464,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
             child: hasBooking
                 ? Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: widget.onBookingCta,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF03C75A),
-                            backgroundColor: const Color(0xFFE8F8EE),
-                            side: const BorderSide(
-                              color: Color(0xFF03C75A),
-                              width: 1.2,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            minimumSize: const Size(0, 40),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.calendar_month_outlined,
-                            size: 16,
-                          ),
-                          label: const Text(
-                            '네이버 예약',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
+                      Expanded(child: _naverBookingButton()),
                       const SizedBox(width: 8),
                       Expanded(child: _seminarRequestButton()),
                     ],
@@ -509,15 +476,35 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     );
   }
 
+  Widget _naverBookingButton() {
+    return FilledButton.icon(
+      onPressed: widget.onBookingCta,
+      style: FilledButton.styleFrom(
+        backgroundColor: SoriTokens.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        minimumSize: const Size(0, 40),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      icon: const Icon(Icons.calendar_month_outlined, size: 16),
+      label: const Text(
+        '네이버 예약',
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+      ),
+    );
+  }
+
   Widget _seminarRequestButton({bool fullWidth = false}) {
     return SizedBox(
       width: fullWidth ? double.infinity : null,
-      child: OutlinedButton.icon(
+      child: FilledButton.icon(
         onPressed: widget.onSeminarRequest,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF6D28D9),
-          backgroundColor: const Color(0xFFF3E8FF),
-          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.2),
+        style: FilledButton.styleFrom(
+          backgroundColor: SoriTokens.primary,
+          foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 10),
           minimumSize: Size(fullWidth ? double.infinity : 0, 40),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -540,7 +527,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
   void _openMore() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),

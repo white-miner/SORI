@@ -300,7 +300,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
     return ColoredBox(
-      color: const Color(0xFFF0F1F3),
+      color: SoriTokens.background,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -308,7 +308,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
           children: [
             // 스크롤 뷰 밖 고정 헤더 — 높이 제약으로 증발 방지
             const Material(
-              color: Color(0xFFF0F1F3),
+              color: SoriTokens.background,
               child: _HomeInsightStrip(),
             ),
             Expanded(
@@ -450,11 +450,7 @@ class _AiBriefingCard extends StatelessWidget {
       width: 280,
       height: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3E8FF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE9D5FF)),
-      ),
+      decoration: SoriTokens.card(radius: 20),
       alignment: Alignment.centerLeft,
       child: const Text(
         '✨ 원장님, 작성 대기 중인 임시 차트가 2건 있습니다. 완성하고 프로 뱃지를 획득하세요!',
@@ -462,7 +458,7 @@ class _AiBriefingCard extends StatelessWidget {
           fontSize: 13,
           height: 1.35,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF5B21B6),
+          color: SoriTokens.textPrimary,
         ),
       ),
     );
@@ -482,14 +478,16 @@ class _HallOfFameAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 68,
+    return Container(
+      width: 76,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      decoration: SoriTokens.card(radius: 20),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            width: 52,
-            height: 52,
+            width: 44,
+            height: 44,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -500,8 +498,8 @@ class _HallOfFameAvatar extends StatelessWidget {
                       initial,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 17,
-                        color: SoriTokens.primary,
+                        fontSize: 16,
+                        color: Color(0xFFC4B5FD),
                       ),
                     ),
                   ),
@@ -509,7 +507,7 @@ class _HallOfFameAvatar extends StatelessWidget {
                 const Positioned(
                   top: -6,
                   right: -4,
-                  child: Text('👑', style: TextStyle(fontSize: 15)),
+                  child: Text('👑', style: TextStyle(fontSize: 14)),
                 ),
               ],
             ),
@@ -517,10 +515,10 @@ class _HallOfFameAvatar extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '$rank위',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: Colors.grey.shade800,
+              color: SoriTokens.textPrimary,
               height: 1.1,
             ),
           ),
@@ -529,10 +527,10 @@ class _HallOfFameAvatar extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: SoriTokens.textSecondary,
               height: 1.1,
             ),
           ),

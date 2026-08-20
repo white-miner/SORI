@@ -72,7 +72,7 @@ class _AppShellPageState extends State<AppShellPage> {
           backgroundColor: SoriTokens.background,
           appBar: AppBar(
             title: const Text('알림'),
-            backgroundColor: Colors.white,
+            backgroundColor: SoriTokens.surface,
             foregroundColor: SoriTokens.textPrimary,
             elevation: 0,
           ),
@@ -177,7 +177,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
         if (!wide) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF0F1F3),
+            backgroundColor: SoriTokens.background,
             extendBody: true,
             appBar: appBar,
             body: widget.navigationShell,
@@ -194,7 +194,7 @@ class _AppShellPageState extends State<AppShellPage> {
         final hasComment = _store.activeCommentPostId != null;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF0F1F3),
+          backgroundColor: SoriTokens.background,
           appBar: appBar,
           body: Row(
             children: [
@@ -350,11 +350,11 @@ class _SoriNavigationRail extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.75),
-            border: Border(
+            color: SoriTokens.surface.withValues(alpha: 0.92),
+            border: const Border(
               right: BorderSide(
-                color: Colors.white.withValues(alpha: 0.5),
-                width: 0.5,
+                color: SoriTokens.outlinePurple,
+                width: 1,
               ),
             ),
           ),
@@ -363,18 +363,18 @@ class _SoriNavigationRail extends StatelessWidget {
             onDestinationSelected: onTap,
             labelType: NavigationRailLabelType.all,
             backgroundColor: Colors.transparent,
-            indicatorColor: SoriTokens.primarySoft.withValues(alpha: 0.72),
+            indicatorColor: SoriTokens.primarySoft,
             selectedIconTheme: const IconThemeData(color: SoriTokens.primary),
-            unselectedIconTheme: IconThemeData(color: Colors.grey.shade600),
+            unselectedIconTheme:
+                const IconThemeData(color: SoriTokens.textSecondary),
             selectedLabelTextStyle: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
               color: SoriTokens.primary,
-            ),
-            unselectedLabelTextStyle: TextStyle(
+              fontWeight: FontWeight.w700,
               fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+            ),
+            unselectedLabelTextStyle: const TextStyle(
+              color: SoriTokens.textSecondary,
+              fontSize: 11,
             ),
             leading: const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 16),
@@ -430,24 +430,19 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.white.withValues(alpha: 0.88),
-                Colors.white.withValues(alpha: 0.72),
+                SoriTokens.surfaceElevated.withValues(alpha: 0.92),
+                SoriTokens.background.withValues(alpha: 0.88),
               ],
             ),
-            border: Border(
+            border: const Border(
               bottom: BorderSide(
-                color: Color.lerp(
-                      Colors.white,
-                      const Color(0xFF6C5CE7),
-                      0.15,
-                    ) ??
-                    Colors.white.withValues(alpha: 0.55),
+                color: SoriTokens.outlinePurple,
                 width: 1,
               ),
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6C5CE7).withValues(alpha: 0.07),
+                color: SoriTokens.primary.withValues(alpha: 0.12),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -464,9 +459,9 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.2),
-                        Colors.white.withValues(alpha: 0.7),
-                        Colors.white.withValues(alpha: 0.25),
+                        SoriTokens.primary.withValues(alpha: 0.1),
+                        SoriTokens.outlinePurple,
+                        SoriTokens.primary.withValues(alpha: 0.1),
                       ],
                     ),
                   ),
@@ -485,12 +480,12 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               height: 1.15,
                               letterSpacing: -0.35,
-                              color: Colors.black.withValues(alpha: 0.82),
+                              color: SoriTokens.textPrimary,
                             ),
                           ),
                         ),
@@ -547,7 +542,7 @@ class _FlatAppBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = Icon(icon, size: 24, color: const Color(0xFF1C1C1E));
+    final iconWidget = Icon(icon, size: 24, color: SoriTokens.textPrimary);
     return Tooltip(
       message: tooltip,
       child: IconButton(
@@ -557,7 +552,7 @@ class _FlatAppBarIcon extends StatelessWidget {
         splashRadius: 20,
         style: IconButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: const Color(0xFF1C1C1E),
+          foregroundColor: SoriTokens.textPrimary,
           shadowColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,

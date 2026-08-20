@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
-import '../theme/sori_date_picker.dart';
+import '../theme/app_theme.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/app_scroll_behavior.dart';
 
@@ -41,53 +41,8 @@ class _MyAppState extends State<MyApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       scrollBehavior: const AppScrollBehavior(),
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: SoriTokens.primary,
-          primary: SoriTokens.primary,
-          surface: SoriTokens.surface,
-        ),
-        scaffoldBackgroundColor: SoriTokens.background,
-        useMaterial3: true,
-        iconButtonTheme: IconButtonThemeData(
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-          ),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: SoriTokens.surface,
-          foregroundColor: SoriTokens.textPrimary,
-          elevation: 0,
-          centerTitle: false,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: SoriTokens.surface,
-          selectedItemColor: SoriTokens.primary,
-          unselectedItemColor: SoriTokens.textSecondary,
-          type: BottomNavigationBarType.fixed,
-          elevation: 8,
-        ),
-        cardTheme: CardThemeData(
-          color: SoriTokens.surface,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(SoriTokens.radiusLg),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: SoriTokens.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
-        datePickerTheme: SoriDatePickerTheme.data,
-      ),
+      theme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       builder: (context, child) {
         return _StoreErrorHost(child: child ?? const SizedBox.shrink());
       },
