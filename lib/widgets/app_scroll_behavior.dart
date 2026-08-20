@@ -17,8 +17,7 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const AlwaysScrollableScrollPhysics(
-      parent: RangeMaintainingScrollPhysics(),
-    );
+    // 웹/데스크톱에서 끝없이 늘어나는 바운스 방지
+    return const ClampingScrollPhysics();
   }
 }

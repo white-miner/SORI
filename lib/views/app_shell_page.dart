@@ -494,69 +494,28 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                           ),
                         ),
                         if (onPostFirst != null)
-                          IconButton(
-                            onPressed: onPostFirst,
+                          _FlatAppBarIcon(
                             tooltip: '새 게시물',
-                            icon: const Icon(Icons.add_box_outlined),
-                            color: const Color(0xFF1C1C1E),
-                            iconSize: 24,
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
-                            ),
+                            icon: Icons.add_box_outlined,
+                            onPressed: onPostFirst!,
                           ),
-                        IconButton(
-                          onPressed: onNotifications,
+                        _FlatAppBarIcon(
                           tooltip: '알림',
-                          icon: Badge(
-                            isLabelVisible: badgeCount > 0,
-                            label: Text(
-                              badgeCount > 9 ? '9+' : '$badgeCount',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            child: const Icon(Icons.notifications_outlined),
-                          ),
-                          color: const Color(0xFF1C1C1E),
-                          iconSize: 24,
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(8),
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
+                          icon: Icons.notifications_outlined,
+                          onPressed: onNotifications,
+                          badgeCount: badgeCount,
                         ),
                         if (onArchive != null)
-                          IconButton(
-                            onPressed: onArchive,
+                          _FlatAppBarIcon(
                             tooltip: '보관함',
-                            icon: const Icon(Icons.inventory_2_outlined),
-                            color: const Color(0xFF1C1C1E),
-                            iconSize: 24,
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
-                            ),
+                            icon: Icons.inventory_2_outlined,
+                            onPressed: onArchive!,
                           ),
                         if (onSettings != null)
-                          IconButton(
-                            onPressed: onSettings,
+                          _FlatAppBarIcon(
                             tooltip: '설정',
-                            icon: const Icon(Icons.settings_outlined),
-                            color: const Color(0xFF1C1C1E),
-                            iconSize: 24,
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
-                            ),
+                            icon: Icons.settings_outlined,
+                            onPressed: onSettings!,
                           ),
                       ],
                     ),
@@ -566,6 +525,55 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 배경·그림자 없는 플랫 AppBar 아이콘 (M3 IconButton 톤 배경 회피).
+class _FlatAppBarIcon extends StatelessWidget {
+  const _FlatAppBarIcon({
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+    this.badgeCount = 0,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String tooltip;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconWidget = Icon(icon, size: 24, color: const Color(0xFF1C1C1E));
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onPressed,
+        padding: const EdgeInsets.all(8),
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        splashRadius: 20,
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: const Color(0xFF1C1C1E),
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: badgeCount > 0
+            ? Badge(
+                label: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: iconWidget,
+              )
+            : iconWidget,
       ),
     );
   }

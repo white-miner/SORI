@@ -49,6 +49,14 @@ class _MyAppState extends State<MyApp> {
         ),
         scaffoldBackgroundColor: SoriTokens.background,
         useMaterial3: true,
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+          ),
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: SoriTokens.surface,
           foregroundColor: SoriTokens.textPrimary,

@@ -302,88 +302,104 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     return ColoredBox(
       color: Colors.white,
       child: SafeArea(
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (n) {
-            if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
-              if (_visibleCount < feed.length) {
-                setState(() {
-                  _visibleCount = (_visibleCount + 8).clamp(0, feed.length);
-                });
-              }
-            }
-            return false;
-          },
-          child: CustomScrollView(
-            physics: const ClampingScrollPhysics(),
-            slivers: [
-              const SliverToBoxAdapter(
-                child: _HomeInsightStrip(),
-              ),
-              if (loading)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: CircularProgressIndicator(color: SoriTokens.primary),
-                  ),
-                )
-              else if (shown.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(28),
-                      child: Text(
-                        '아직 공유된 B/A 피드가 없어요.\n곧 다양한 후기와 케이스가 올라올 예정이에요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: SoriTokens.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          height: 1.45,
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 스크롤 뷰 밖 고정 헤더 — 높이 제약으로 증발 방지
+            const Material(
+              color: Colors.white,
+              child: _HomeInsightStrip(),
+            ),
+            const Divider(height: 1, thickness: 0.6),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (n) {
+                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
+                    if (_visibleCount < feed.length) {
+                      setState(() {
+                        _visibleCount =
+                            (_visibleCount + 8).clamp(0, feed.length);
+                      });
+                    }
+                  }
+                  return false;
+                },
+                child: CustomScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  slivers: [
+                    if (loading)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: SoriTokens.primary,
+                          ),
+                        ),
+                      )
+                    else if (shown.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(28),
+                            child: Text(
+                              '아직 공유된 B/A 피드가 없어요.\n곧 다양한 후기와 케이스가 올라올 예정이에요.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: SoriTokens.textSecondary,
+                                fontWeight: FontWeight.w600,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.only(bottom: 88),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final item = shown[index];
+                              final id = item.chart.id;
+                              final likes = _likeCounts[id] ??
+                                  (5 + id.hashCode.abs() % 48);
+                              final comments =
+                                  _comments[id] ?? const <_FeedComment>[];
+                              return HomeFeedCard(
+                                item: item,
+                                currentUserId: store.session?.id,
+                                review: item.review ??
+                                    store.reviewForChart(item.chart.id),
+                                liked: _liked.contains(id),
+                                likeCount: likes,
+                                commentCount: comments.length,
+                                bookmarked: _bookmarked.contains(id),
+                                showDivider: index < shown.length - 1,
+                                onLike: () => _toggleLike(id),
+                                onComment: () => _openComments(item.chart),
+                                onBookmark: () => _toggleBookmark(id),
+                                onOpenDetail: () =>
+                                    _openCaseDetail(item, index),
+                                onSeminarRequest: () => _requestSeminar(item),
+                                onBookingCta: () =>
+                                    _openNaverBookingOrProfile(item.shop),
+                                onShopProfile: () =>
+                                    _openShopProfile(item.shop),
+                              );
+                            },
+                            childCount: shown.length,
+                            addAutomaticKeepAlives: false,
+                            addRepaintBoundaries: true,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.only(bottom: 88),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final item = shown[index];
-                        final id = item.chart.id;
-                        final likes =
-                            _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
-                        final comments =
-                            _comments[id] ?? const <_FeedComment>[];
-                        return HomeFeedCard(
-                          item: item,
-                          currentUserId: store.session?.id,
-                          review: item.review ??
-                              store.reviewForChart(item.chart.id),
-                          liked: _liked.contains(id),
-                          likeCount: likes,
-                          commentCount: comments.length,
-                          bookmarked: _bookmarked.contains(id),
-                          showDivider: index < shown.length - 1,
-                          onLike: () => _toggleLike(id),
-                          onComment: () => _openComments(item.chart),
-                          onBookmark: () => _toggleBookmark(id),
-                          onOpenDetail: () => _openCaseDetail(item, index),
-                          onSeminarRequest: () => _requestSeminar(item),
-                          onBookingCta: () =>
-                              _openNaverBookingOrProfile(item.shop),
-                          onShopProfile: () => _openShopProfile(item.shop),
-                        );
-                      },
-                      childCount: shown.length,
-                      addAutomaticKeepAlives: false,
-                      addRepaintBoundaries: true,
-                    ),
-                  ),
+                  ],
                 ),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -405,25 +421,23 @@ class _HomeInsightStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 118,
-      child: ListView(
+      height: 112,
+      width: double.infinity,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-        children: [
-          const _AiBriefingCard(),
-          const SizedBox(width: 12),
-          ..._hallOfFame.map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: _HallOfFameAvatar(
-                name: e.name,
-                initial: e.initial,
-                rank: e.rank,
-              ),
-            ),
-          ),
-        ],
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+        itemCount: 1 + _hallOfFame.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          if (index == 0) return const _AiBriefingCard();
+          final e = _hallOfFame[index - 1];
+          return _HallOfFameAvatar(
+            name: e.name,
+            initial: e.initial,
+            rank: e.rank,
+          );
+        },
       ),
     );
   }
@@ -435,7 +449,8 @@ class _AiBriefingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
+      width: 280,
+      height: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF3E8FF),
@@ -470,13 +485,13 @@ class _HallOfFameAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 72,
+      width: 68,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -487,21 +502,21 @@ class _HallOfFameAvatar extends StatelessWidget {
                       initial,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 18,
+                        fontSize: 17,
                         color: SoriTokens.primary,
                       ),
                     ),
                   ),
                 ),
                 const Positioned(
-                  top: -4,
-                  right: -2,
-                  child: Text('👑', style: TextStyle(fontSize: 16)),
+                  top: -6,
+                  right: -4,
+                  child: Text('👑', style: TextStyle(fontSize: 15)),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             '$rank위',
             style: TextStyle(
@@ -520,7 +535,7 @@ class _HallOfFameAvatar extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: Colors.grey.shade600,
-              height: 1.15,
+              height: 1.1,
             ),
           ),
         ],
