@@ -16,7 +16,7 @@ import 'membership_editor_sheet.dart';
 import 'my_app.dart';
 import 'request_customer_review.dart';
 
-/// 원장용: 타임라인 요약 + 상세 펼침 + Before/After 갤러리.
+/// 원장용: 회차 다이렉트 리스트 + Before/After 갤러리.
 class AdminChartPage extends StatefulWidget {
   const AdminChartPage({
     super.key,
@@ -34,7 +34,6 @@ class AdminChartPage extends StatefulWidget {
 class _AdminChartPageState extends State<AdminChartPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String? _expandedChartId;
 
   @override
   void initState() {
@@ -119,96 +118,6 @@ class _AdminChartPageState extends State<AdminChartPage>
     );
   }
 
-  Future<void> _confirmVisit(CustomerChart chart) async {
-    final before = widget.store.findCustomer(widget.customerId);
-    final hadMembership = before?.isMembershipCustomer ?? false;
-    final opened = widget.store.confirmVisit(chartId: chart.id);
-    if (!mounted) return;
-    final after = widget.store.findCustomer(widget.customerId);
-    final remain = after?.membershipRemainingVisits ?? 0;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          hadMembership
-              ? '방문 확인 완료 · 회원권 1회 차감됐어요 (잔여 $remain회)'
-              : '방문 확인 완료 · 고객 리뷰 링크가 준비됐어요',
-        ),
-        backgroundColor: MyApp.soriPurple,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-    await showCustomerLinkPopup(
-      context,
-      chart: opened,
-      store: widget.store,
-    );
-  }
-
-  void _toggleExpanded(String chartId) {
-    setState(() {
-      _expandedChartId = _expandedChartId == chartId ? null : chartId;
-    });
-  }
-
-  Future<void> _openDetailSheet(CustomerChart chart) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.72,
-          minChildSize: 0.4,
-          maxChildSize: 0.95,
-          builder: (_, scrollController) {
-            return _ChartDetailBody(
-              chart: chart,
-              store: widget.store,
-              scrollController: scrollController,
-              onEdit: chart.visitChecked
-                  ? null
-                  : () {
-                      Navigator.pop(ctx);
-                      _openWriter(chart: chart);
-                    },
-              onShowLink: chart.hasFeedbackLine
-                  ? () {
-                      Navigator.pop(ctx);
-                      showCustomerLinkPopup(
-                        context,
-                        chart: chart,
-                        store: widget.store,
-                      );
-                    }
-                  : null,
-              onConfirmOnly: chart.visitChecked
-                  ? null
-                  : () {
-                      Navigator.pop(ctx);
-                      _confirmVisit(chart);
-                    },
-              onAddAfterPhoto: chart.needsAfterPhoto
-                  ? () {
-                      Navigator.pop(ctx);
-                      _openChartManagement(chartId: chart.id);
-                    }
-                  : null,
-              onOpenManage: () {
-                Navigator.pop(ctx);
-                _openChartManagement(chartId: chart.id);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final customer = _customer;
@@ -220,7 +129,6 @@ class _AdminChartPageState extends State<AdminChartPage>
     }
 
     final timeline = _timeline;
-    final galleryItems = _galleryItems(timeline);
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
@@ -292,63 +200,21 @@ class _AdminChartPageState extends State<AdminChartPage>
               controller: _tabController,
               children: [
                 _TimelineTab(
-                  store: widget.store,
                   timeline: timeline,
-                  expandedChartId: _expandedChartId,
-                  onToggle: _toggleExpanded,
-                  onOpenDetail: _openDetailSheet,
-                  onEdit: (chart) => _openWriter(chart: chart),
-                  onConfirm: _confirmVisit,
-                  onShowLink: (chart) => showCustomerLinkPopup(
-                    context,
-                    chart: chart,
-                    store: widget.store,
-                  ),
-                  onAddAfterPhoto: (chart) =>
-                      _openChartManagement(chartId: chart.id),
-                  onOpenManage: (chart) =>
+                  onOpenChart: (chart) =>
                       _openChartManagement(chartId: chart.id),
                 ),
-                _GalleryTab(items: galleryItems),
+                _GalleryTab(
+                  timeline: timeline,
+                  onOpenChart: (chart) =>
+                      _openChartManagement(chartId: chart.id),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
-  }
-
-  List<_GalleryItem> _galleryItems(List<CustomerChart> charts) {
-    final items = <_GalleryItem>[];
-    for (final chart in charts) {
-      final dateLabel = _formatChartDate(chart);
-      final care = chart.careName.isNotEmpty
-          ? chart.careName
-          : (chart.treatmentSummary.isNotEmpty
-              ? chart.treatmentSummary
-              : '시술');
-      if (chart.beforeImageUrl != null &&
-          chart.beforeImageUrl!.trim().isNotEmpty) {
-        items.add(
-          _GalleryItem(
-            kind: 'Before',
-            label: chart.beforeImageUrl!,
-            visitLabel: '$dateLabel · ${chart.visitNumber}회차 · $care',
-          ),
-        );
-      }
-      if (chart.afterImageUrl != null &&
-          chart.afterImageUrl!.trim().isNotEmpty) {
-        items.add(
-          _GalleryItem(
-            kind: 'After',
-            label: chart.afterImageUrl!,
-            visitLabel: '$dateLabel · ${chart.visitNumber}회차 · $care',
-          ),
-        );
-      }
-    }
-    return items;
   }
 }
 
@@ -499,7 +365,7 @@ class _QuickActionDashboard extends StatelessWidget {
           children: [
             Expanded(
               child: _BentoCard(
-                title: '⚡ 1초 간편 차트',
+                title: '1초 간편 차트',
                 subtitle: '신규 회차 작성',
                 icon: Icons.bolt_rounded,
                 iconColors: const [Color(0xFF143528), Color(0xFF1A3D30)],
@@ -510,7 +376,7 @@ class _QuickActionDashboard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _BentoCard(
-                title: '📋 차트 관리',
+                title: '차트 관리',
                 subtitle: '열람 · 수정',
                 icon: Icons.folder_open_rounded,
                 iconColors: const [Color(0xFF2A2438), Color(0xFF2E2550)],
@@ -689,28 +555,12 @@ class _GlossyIcon extends StatelessWidget {
 
 class _TimelineTab extends StatelessWidget {
   const _TimelineTab({
-    required this.store,
     required this.timeline,
-    required this.expandedChartId,
-    required this.onToggle,
-    required this.onOpenDetail,
-    required this.onEdit,
-    required this.onConfirm,
-    required this.onShowLink,
-    required this.onAddAfterPhoto,
-    required this.onOpenManage,
+    required this.onOpenChart,
   });
 
-  final SoriStore store;
   final List<CustomerChart> timeline;
-  final String? expandedChartId;
-  final ValueChanged<String> onToggle;
-  final ValueChanged<CustomerChart> onOpenDetail;
-  final ValueChanged<CustomerChart> onEdit;
-  final ValueChanged<CustomerChart> onConfirm;
-  final ValueChanged<CustomerChart> onShowLink;
-  final ValueChanged<CustomerChart> onAddAfterPhoto;
-  final ValueChanged<CustomerChart> onOpenManage;
+  final ValueChanged<CustomerChart> onOpenChart;
 
   @override
   Widget build(BuildContext context) {
@@ -739,30 +589,17 @@ class _TimelineTab extends StatelessWidget {
           return const Padding(
             padding: EdgeInsets.only(bottom: 12),
             child: Text(
-              '시술 차트 타임라인',
+              '회차 차트',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           );
         }
         final chart = timeline[index - 1];
-        final expanded = expandedChartId == chart.id;
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _TimelineSummaryCard(
-            store: store,
+          child: _VisitChartCard(
             chart: chart,
-            expanded: expanded,
-            onTap: () => onToggle(chart.id),
-            onOpenDetail: () => onOpenDetail(chart),
-            onEdit: chart.visitChecked ? null : () => onEdit(chart),
-            onConfirmOnly:
-                chart.visitChecked ? null : () => onConfirm(chart),
-            onShowLink:
-                chart.hasFeedbackLine ? () => onShowLink(chart) : null,
-            onAddAfterPhoto: chart.needsAfterPhoto
-                ? () => onAddAfterPhoto(chart)
-                : null,
-            onOpenManage: () => onOpenManage(chart),
+            onTap: () => onOpenChart(chart),
           ),
         );
       },
@@ -770,30 +607,14 @@ class _TimelineTab extends StatelessWidget {
   }
 }
 
-class _TimelineSummaryCard extends StatelessWidget {
-  const _TimelineSummaryCard({
-    required this.store,
+class _VisitChartCard extends StatelessWidget {
+  const _VisitChartCard({
     required this.chart,
-    required this.expanded,
     required this.onTap,
-    required this.onOpenDetail,
-    this.onEdit,
-    this.onShowLink,
-    this.onConfirmOnly,
-    this.onAddAfterPhoto,
-    this.onOpenManage,
   });
 
-  final SoriStore store;
   final CustomerChart chart;
-  final bool expanded;
   final VoidCallback onTap;
-  final VoidCallback onOpenDetail;
-  final VoidCallback? onEdit;
-  final VoidCallback? onShowLink;
-  final VoidCallback? onConfirmOnly;
-  final VoidCallback? onAddAfterPhoto;
-  final VoidCallback? onOpenManage;
 
   @override
   Widget build(BuildContext context) {
@@ -802,123 +623,99 @@ class _TimelineSummaryCard extends StatelessWidget {
         : (chart.treatmentSummary.isNotEmpty
             ? chart.treatmentSummary
             : '시술 기록');
-    final title =
-        '${_formatChartDate(chart)} (${chart.visitNumber}회차) - $care';
 
-    return Dismissible(
-      key: ValueKey('timeline_${chart.id}'),
-      direction: DismissDirection.startToEnd,
-      confirmDismiss: (_) async {
-        onOpenDetail();
-        return false;
-      },
-      background: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
-        decoration: BoxDecoration(
-          color: MyApp.soriPurple.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.open_in_full, color: MyApp.soriPurple, size: 20),
-            SizedBox(width: 8),
-            Text(
-              '상세 보기',
-              style: TextStyle(
-                color: MyApp.soriPurple,
-                fontWeight: FontWeight.w700,
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SoriTokens.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: SoriTokens.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${chart.visitNumber}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: SoriTokens.primary,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-      child: Material(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          onLongPress: onOpenDetail,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: expanded
-                    ? MyApp.soriPurple.withValues(alpha: 0.45)
-                    : SoriTokens.border,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          height: 1.35,
-                        ),
+                    Text(
+                      '${chart.visitNumber}회차 · $care',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14.5,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
-                    if (chart.needsAfterPhoto)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: SoriTokens.warningBg,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            'After 대기',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: SoriTokens.warningText,
-                            ),
-                          ),
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatChartDate(chart),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: SoriTokens.textSecondary,
                       ),
-                    if (chart.visitChecked)
-                      Icon(
-                        Icons.check_circle,
-                        size: 18,
-                        color: Colors.green.shade500,
-                      ),
-                    Icon(
-                      expanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: Colors.grey.shade600,
                     ),
                   ],
                 ),
-                if (expanded) ...[
-                  const SizedBox(height: 12),
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
-                  _ChartDetailBody(
-                    chart: chart,
-                    store: store,
-                    compact: true,
-                    onEdit: onEdit,
-                    onShowLink: onShowLink,
-                    onConfirmOnly: onConfirmOnly,
-                    onOpenFullDetail: onOpenDetail,
-                    onAddAfterPhoto: onAddAfterPhoto,
-                    onOpenManage: onOpenManage,
+              ),
+              if (chart.needsAfterPhoto)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: SoriTokens.warningBg,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'After 대기',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.warningText,
+                      ),
+                    ),
                   ),
-                ],
-              ],
-            ),
+                ),
+              if (chart.visitChecked)
+                Icon(
+                  Icons.check_circle,
+                  size: 18,
+                  color: Colors.green.shade500,
+                ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: SoriTokens.textSecondary,
+              ),
+            ],
           ),
         ),
       ),
@@ -1016,9 +813,9 @@ class _ChartDetailBody extends StatelessWidget {
         _detailBlock(
           '사진',
           [
-            if (chart.beforeImageUrl != null) 'Before: ${chart.beforeImageUrl}',
-            if (chart.afterImageUrl != null) 'After: ${chart.afterImageUrl}',
-          ].join('\n'),
+            if (chart.beforeImageUrl != null) 'Before 첨부됨',
+            if (chart.afterImageUrl != null) 'After 첨부됨',
+          ].join(' · '),
         ),
       if (review != null && review.displayText.trim().isNotEmpty) ...[
         const SizedBox(height: 8),
@@ -1077,7 +874,7 @@ class _ChartDetailBody extends StatelessWidget {
                 backgroundColor: const Color(0xFF047857),
               ),
               icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-              label: const Text('+ After 사진 등록'),
+              label: const Text('After 사진 등록'),
             ),
           if (onOpenManage != null)
             OutlinedButton.icon(
@@ -1163,26 +960,24 @@ class _ChartDetailBody extends StatelessWidget {
   }
 }
 
-class _GalleryItem {
-  const _GalleryItem({
-    required this.kind,
-    required this.label,
-    required this.visitLabel,
+class _GalleryTab extends StatelessWidget {
+  const _GalleryTab({
+    required this.timeline,
+    required this.onOpenChart,
   });
 
-  final String kind;
-  final String label;
-  final String visitLabel;
-}
-
-class _GalleryTab extends StatelessWidget {
-  const _GalleryTab({required this.items});
-
-  final List<_GalleryItem> items;
+  final List<CustomerChart> timeline;
+  final ValueChanged<CustomerChart> onOpenChart;
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
+    final withPhotos = timeline.where((c) {
+      final b = c.beforeImageUrl?.trim() ?? '';
+      final a = c.afterImageUrl?.trim() ?? '';
+      return b.isNotEmpty || a.isNotEmpty;
+    }).toList();
+
+    if (withPhotos.isEmpty) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
@@ -1201,83 +996,156 @@ class _GalleryTab extends StatelessWidget {
       );
     }
 
-    return GridView.builder(
+    return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.82,
-      ),
-      itemCount: items.length,
+      itemCount: withPhotos.length + 1,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final item = items[index];
-        final isBefore = item.kind == 'Before';
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: SoriTokens.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: SoriTokens.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: isBefore
-                        ? const Color(0xFF2A2438)
-                        : const Color(0xFF15241A),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+        if (index == 0) {
+          return const Text(
+            '회차 B/A',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          );
+        }
+        final chart = withPhotos[index - 1];
+        final care = chart.careName.isNotEmpty
+            ? chart.careName
+            : (chart.treatmentSummary.isNotEmpty
+                ? chart.treatmentSummary
+                : '시술 기록');
+        final before = chart.beforeImageUrl?.trim() ?? '';
+        final after = chart.afterImageUrl?.trim() ?? '';
+
+        return Material(
+          color: SoriTokens.surface,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => onOpenChart(chart),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: SoriTokens.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      Icon(
-                        Icons.photo_outlined,
-                        size: 36,
-                        color: isBefore
-                            ? MyApp.soriPurple
-                            : Colors.green.shade700,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        item.kind,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: isBefore
-                              ? MyApp.soriPurple
-                              : Colors.green.shade700,
+                      Expanded(
+                        child: Text(
+                          '${chart.visitNumber}회차 · $care',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
                         ),
+                      ),
+                      Text(
+                        _formatChartDate(chart),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: SoriTokens.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: SoriTokens.textSecondary,
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 120,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _BaThumbTile(
+                            label: 'Before',
+                            url: before.isEmpty ? null : before,
+                            accent: MyApp.soriPurple,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _BaThumbTile(
+                            label: 'After',
+                            url: after.isEmpty ? null : after,
+                            accent: const Color(0xFF22C55E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                item.visitLabel,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-              ),
-            ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _BaThumbTile extends StatelessWidget {
+  const _BaThumbTile({
+    required this.label,
+    required this.accent,
+    this.url,
+  });
+
+  final String label;
+  final Color accent;
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final src = url?.trim() ?? '';
+    final hasNet = src.startsWith('http://') || src.startsWith('https://');
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(
+            color: const Color(0xFF111113),
+            child: hasNet
+                ? Image.network(
+                    src,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Center(
+                      child: Icon(Icons.broken_image_outlined, color: accent),
+                    ),
+                  )
+                : Center(
+                    child: Icon(Icons.image_outlined, color: accent, size: 28),
+                  ),
+          ),
+          Positioned(
+            left: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

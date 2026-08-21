@@ -192,7 +192,7 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
               ),
               const SizedBox(width: 4),
               const Text(
-                '⚡ 기존 고객 간편 차트 검색/선택',
+                '기존 고객 간편 차트 검색/선택',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,

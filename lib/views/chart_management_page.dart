@@ -13,7 +13,7 @@ import '../widgets/media_permission_dialogs.dart';
 import 'admin_chart_writer_page.dart';
 import 'my_app.dart';
 
-/// 고객 상세 → 차트 관리: 회차 스위칭 + 7:3 B/A·메타 분할 뷰.
+/// 고객 상세 → 차트 관리: 회차 리스트 다이렉트 진입 + B/A·메타 상세.
 class ChartManagementPage extends StatefulWidget {
   const ChartManagementPage({
     super.key,
@@ -32,6 +32,7 @@ class ChartManagementPage extends StatefulWidget {
 
 class _ChartManagementPageState extends State<ChartManagementPage> {
   String? _selectedChartId;
+  bool _showingDetail = false;
   bool _editing = false;
   bool _saving = false;
   bool _patchingAfter = false;
@@ -53,8 +54,10 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
         initial.isNotEmpty &&
         charts.any((c) => c.id == initial)) {
       _selectedChartId = initial;
-    } else if (charts.isNotEmpty) {
-      _selectedChartId = charts.first.id;
+      _showingDetail = true;
+    } else {
+      _showingDetail = false;
+      _selectedChartId = null;
     }
     _syncEditorsFromSelected();
   }
@@ -74,12 +77,14 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     if (charts.isEmpty) {
       setState(() {
         _selectedChartId = null;
+        _showingDetail = false;
         _editing = false;
       });
       return;
     }
-    if (_selectedChartId == null ||
-        !charts.any((c) => c.id == _selectedChartId)) {
+    if (_showingDetail &&
+        (_selectedChartId == null ||
+            !charts.any((c) => c.id == _selectedChartId))) {
       setState(() {
         _selectedChartId = charts.first.id;
         _editing = false;
@@ -114,12 +119,21 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     _insightCtrl.text = chart?.directorInsight ?? '';
   }
 
-  void _selectChart(String chartId) {
+  void _openVisitDetail(String chartId) {
     setState(() {
       _selectedChartId = chartId;
+      _showingDetail = true;
       _editing = false;
     });
     _syncEditorsFromSelected();
+  }
+
+  void _backToList() {
+    setState(() {
+      _showingDetail = false;
+      _editing = false;
+      _selectedChartId = null;
+    });
   }
 
   Future<void> _saveEdits() async {
@@ -326,93 +340,181 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     return Scaffold(
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
-        title: Text('$name · 차트 관리'),
+        title: Text(
+          _showingDetail && selected != null
+              ? '$name · ${selected.visitNumber}회차'
+              : '$name · 차트 관리',
+        ),
         backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () {
+            if (_showingDetail) {
+              _backToList();
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          },
+        ),
       ),
       body: charts.isEmpty
           ? const Center(child: Text('작성된 차트가 없습니다'))
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 900;
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        height: 56,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: charts.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
-                          itemBuilder: (context, i) {
-                            final c = charts[i];
-                            final on = c.id == _selectedChartId;
-                            return ChoiceChip(
-                              selected: on,
-                              label: Text(
-                                '${c.visitNumber}회 · ${_dateLabel(c)}'
-                                '${c.needsAfterPhoto ? ' · After대기' : ''}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                  color: on
-                                      ? Colors.white
-                                      : SoriTokens.textPrimary,
-                                ),
-                              ),
-                              selectedColor: SoriTokens.primary,
-                              backgroundColor: SoriTokens.surface,
-                              onSelected: (_) => _selectChart(c.id),
-                            );
-                          },
+          : !_showingDetail
+              ? _buildVisitList(charts)
+              : selected == null
+                  ? const Center(child: Text('차트를 선택해 주세요'))
+                  : _buildDetailBody(selected),
+    );
+  }
+
+  Widget _buildVisitList(List<CustomerChart> charts) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      itemCount: charts.length + 1,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return const Text(
+            '회차를 선택하면 사진·기록이 바로 열립니다',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textSecondary,
+            ),
+          );
+        }
+        final chart = charts[index - 1];
+        final care = chart.careName.trim().isNotEmpty
+            ? chart.careName.trim()
+            : (chart.treatmentSummary.trim().isNotEmpty
+                ? chart.treatmentSummary.trim()
+                : '시술 기록');
+        return Material(
+          color: SoriTokens.surface,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => _openVisitDetail(chart.id),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: SoriTokens.outlinePurple),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: SoriTokens.primarySoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${chart.visitNumber}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: SoriTokens.primary,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${chart.visitNumber}회차 · $care',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _dateLabel(chart),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: SoriTokens.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (chart.needsAfterPhoto)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        'After 대기',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.amber.shade700,
                         ),
                       ),
-                      if (selected != null) ...[
-                        const SizedBox(height: 8),
-                        _buildFeedShareBar(selected),
-                      ],
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: selected == null
-                            ? const Center(child: Text('차트를 선택해 주세요'))
-                            : wide
-                                ? Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        flex: 7,
-                                        child: _buildMediaPane(selected),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        flex: 3,
-                                        child: _buildMetaPane(
-                                          selected,
-                                          expand: true,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : ListView(
-                                    children: [
-                                      SizedBox(
-                                        height: 320,
-                                        child: _buildMediaPane(selected),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      _buildMetaPane(selected, expand: false),
-                                    ],
-                                  ),
-                      ),
-                    ],
+                    ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: SoriTokens.textSecondary,
                   ),
-                );
-              },
+                ],
+              ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailBody(CustomerChart selected) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildFeedShareBar(selected),
+              const SizedBox(height: 10),
+              Expanded(
+                child: wide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 7,
+                            child: _buildMediaPane(selected),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 3,
+                            child: _buildMetaPane(selected, expand: true),
+                          ),
+                        ],
+                      )
+                    : ListView(
+                        children: [
+                          SizedBox(
+                            height: 320,
+                            child: _buildMediaPane(selected),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildMetaPane(selected, expand: false),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -573,7 +675,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                       )
                     : const Icon(Icons.add_a_photo_outlined),
                 label: Text(
-                  _patchingAfter ? '등록 중…' : '+ After 사진 등록',
+                  _patchingAfter ? '등록 중…' : 'After 사진 등록',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -714,7 +816,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
             ),
             icon: const Icon(Icons.edit_rounded, size: 18),
             label: const Text(
-              '✏️ 수정하기',
+              '수정하기',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
