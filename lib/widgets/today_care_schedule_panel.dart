@@ -9,9 +9,16 @@ import '../views/admin_chart_writer_page.dart';
 
 /// 날짜별 케어 기록 — 차트 created_at 기준 이력 조회 (예약 아님).
 class TodayCareSchedulePanel extends StatefulWidget {
-  const TodayCareSchedulePanel({super.key, required this.store});
+  const TodayCareSchedulePanel({
+    super.key,
+    required this.store,
+    this.slim = false,
+  });
 
   final SoriStore store;
+
+  /// CRM Sliver 헤더용 — 차트 카드 수·여백을 줄여 고정 높이에 맞춤.
+  final bool slim;
 
   @override
   State<TodayCareSchedulePanel> createState() => _TodayCareSchedulePanelState();
@@ -81,9 +88,13 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
   Widget build(BuildContext context) {
     final store = widget.store;
     final dayCharts = _dayCharts;
+    final chartLimit = widget.slim ? 3 : 12;
+    final margin = widget.slim
+        ? const EdgeInsets.fromLTRB(16, 4, 16, 4)
+        : const EdgeInsets.fromLTRB(16, 8, 16, 8);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      margin: margin,
       decoration: BoxDecoration(
         color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
@@ -226,7 +237,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                 ),
               )
             else
-              ...dayCharts.take(12).map((chart) {
+              ...dayCharts.take(chartLimit).map((chart) {
                 final customer = store.findCustomer(chart.customerId);
                 final care = chart.careName.trim().isNotEmpty
                     ? chart.careName.trim()

@@ -890,43 +890,26 @@ class SupabaseSoriRepository implements SoriRepository {
       return const BulkDeleteResult(deletedIds: [], failedIds: []);
     }
 
-    final deleted = <String>[];
-    final failed = <String>[];
-
-    // Batch attempt first (shop-scoped via RLS)
     try {
-      await _db.from('customers').delete().inFilter('id', ids);
-      // Confirm remaining
-      final remaining = await _db
-          .from('customers')
-          .select('id')
-          .inFilter('id', ids);
-      final left = <String>{
-        for (final raw in remaining as List)
-          if (raw is Map) DbMap.asText(raw['id']),
-      }..removeWhere((e) => e.isEmpty);
-      for (final id in ids) {
-        if (left.contains(id)) {
-          failed.add(id);
-        } else {
-          deleted.add(id);
+      final raw = await _db.rpc(
+        'delete_shop_customers',
+        params: {'p_ids': ids},
+      );
+      final deleted = <String>[];
+      if (raw is List) {
+        for (final item in raw) {
+          final id = item?.toString().trim() ?? '';
+          if (id.isNotEmpty) deleted.add(id);
         }
       }
+      final deletedSet = deleted.toSet();
+      final failed =
+          ids.where((id) => !deletedSet.contains(id)).toList(growable: false);
       return BulkDeleteResult(deletedIds: deleted, failedIds: failed);
     } catch (e, st) {
-      debugPrint('bulkDeleteCustomers batch failed, fallback per-id: $e\n$st');
+      debugPrint('delete_shop_customers rpc failed: $e\n$st');
+      rethrow;
     }
-
-    for (final id in ids) {
-      try {
-        await _db.from('customers').delete().eq('id', id);
-        deleted.add(id);
-      } catch (e) {
-        debugPrint('bulkDeleteCustomers id=$id failed: $e');
-        failed.add(id);
-      }
-    }
-    return BulkDeleteResult(deletedIds: deleted, failedIds: failed);
   }
 
   @override

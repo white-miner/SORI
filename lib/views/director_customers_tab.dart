@@ -26,7 +26,6 @@ class DirectorCustomersTab extends StatefulWidget {
 
 class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
   String _query = '';
   _CustomerSort _sort = _CustomerSort.recentVisit;
   CrmListMode _mode = CrmListMode.browse;
@@ -46,7 +45,6 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   @override
   void dispose() {
     widget.store.removeListener(_onStore);
-    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -91,26 +89,30 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   Future<void> _bulkDelete() async {
     final ids = _selectedIds.toList();
     if (ids.isEmpty || _deleting) return;
+
+    final store = widget.store;
+    var chartCount = 0;
+    var reviewCount = 0;
+    for (final id in ids) {
+      chartCount += store.charts.where((c) => c.customerId == id).length;
+      reviewCount += store.reviews.where((r) => r.customerId == id).length;
+    }
+    String? primaryName;
+    for (final c in store.customers) {
+      if (ids.contains(c.id) && c.name.trim().isNotEmpty) {
+        primaryName = c.name.trim();
+        break;
+      }
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: SoriTokens.surface,
-        title: const Text('고객 일괄 삭제'),
-        content: Text(
-          '선택한 ${ids.length}명의 고객과 연결된 차트·리뷰가 함께 삭제될 수 있습니다.\n이 작업은 되돌릴 수 없습니다.',
-          style: const TextStyle(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('삭제'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (ctx) => _RedZoneDeleteDialog(
+        customerCount: ids.length,
+        chartCount: chartCount,
+        reviewCount: reviewCount,
+        primaryName: primaryName,
       ),
     );
     if (confirmed != true || !mounted) return;
@@ -121,8 +123,10 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
       if (!mounted) return;
       _exitSelecting();
       final msg = result.hasFailures
-          ? '${result.deletedIds.length}명 삭제 · ${result.failedIds.length}명 실패'
-          : '${result.deletedIds.length}명 고객을 삭제했습니다';
+          ? (result.deletedIds.isEmpty
+              ? '삭제되지 않았습니다. 샵 소유권(로그인)을 확인해 주세요. (${result.failedIds.length}명)'
+              : '${result.deletedIds.length}명 삭제 · ${result.failedIds.length}명은 권한 없음 또는 실패')
+          : '${result.deletedIds.length}명 고객을 영구 삭제했습니다';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
@@ -271,163 +275,383 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
     final all = widget.store.customers;
     final isEmptyDb = all.isEmpty;
     final list = _sortedList();
+    final bottomPad = 100 + MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!_isSelecting) TodayCareSchedulePanel(store: widget.store),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-              child: Row(
-                children: [
-                  if (_isSelecting) ...[
-                    Text(
-                      '${_selectedIds.length}명 선택',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: SoriTokens.textPrimary,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: list.isEmpty ? null : () => _selectAll(list),
-                      child: const Text('전체'),
-                    ),
-                    TextButton(
-                      onPressed: _deleting ? null : _exitSelecting,
-                      child: const Text('취소'),
-                    ),
-                    FilledButton(
-                      onPressed: _deleting || _selectedIds.isEmpty
-                          ? null
-                          : _bulkDelete,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                      ),
-                      child: Text(_deleting ? '삭제 중…' : '삭제'),
-                    ),
-                  ] else ...[
-                    const Spacer(),
-                    if (!isEmptyDb)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Text(
-                          '${all.length}명',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: SoriTokens.textSecondary,
-                          ),
-                        ),
-                      ),
-                    IconButton(
-                      tooltip: '편집',
-                      onPressed: isEmptyDb ? null : () => _enterSelecting(),
-                      icon: const Icon(Icons.checklist_rtl_rounded),
-                      color: SoriTokens.primary,
-                    ),
-                    IconButton(
-                      tooltip: '정렬',
-                      onPressed: isEmptyDb ? null : _pickSort,
-                      icon: const Icon(Icons.filter_list_rounded),
-                      color: SoriTokens.primary,
-                    ),
-                    IconButton(
-                      tooltip: '고객 추가',
-                      onPressed: _addCustomer,
-                      icon: const Icon(Icons.person_add_alt_1_rounded),
-                      color: SoriTokens.primary,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (!_isSelecting)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (v) => setState(() => _query = v),
-                  enabled: !isEmptyDb,
-                  style: const TextStyle(color: SoriTokens.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
-                    hintStyle: const TextStyle(color: SoriTokens.textSecondary),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: SoriTokens.textSecondary,
-                    ),
-                    filled: true,
-                    fillColor: SoriTokens.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: SoriTokens.outlinePurple,
-                        width: 1.2,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: SoriTokens.outlinePurple,
-                        width: 1.2,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: SoriTokens.primary,
-                        width: 1.2,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              if (!_isSelecting)
+                SliverAppBar(
+                  pinned: false,
+                  floating: true,
+                  snap: true,
+                  expandedHeight: 248,
+                  collapsedHeight: 0,
+                  toolbarHeight: 0,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  forceElevated: false,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.parallax,
+                    background: Align(
+                      alignment: Alignment.topCenter,
+                      child: TodayCareSchedulePanel(
+                        store: widget.store,
+                        slim: true,
                       ),
                     ),
                   ),
                 ),
-              ),
-            Expanded(
-              child: isEmptyDb
-                  ? _EmptyCustomersState(onAdd: _addCustomer)
-                  : _CustomerListBody(
-                      list: list,
-                      controller: _scrollController,
-                      emptyLabel: '검색 결과가 없습니다',
-                      formatDate: _formatDate,
-                      lastVisitOf: _lastVisitOf,
-                      daysSince: _daysSinceVisit,
-                      showDormantHint:
-                          _sort == _CustomerSort.dormantDaysDesc &&
-                              !_isSelecting,
-                      selecting: _isSelecting,
-                      selectedIds: _selectedIds,
-                      onAdd: _addCustomer,
-                      onOpen: _openDetail,
-                      onRequestReview: _requestReview,
-                      onToggleSelect: _toggleSelected,
-                      onLongPress: (c) {
-                        if (_isSelecting) {
-                          _toggleSelected(c.id);
-                        } else {
-                          _enterSelecting(seedId: c.id);
-                        }
-                      },
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _CrmStickyToolbarDelegate(
+                  height: _isSelecting ? 56 : 118,
+                  child: ColoredBox(
+                    color: SoriTokens.background,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+                          child: SizedBox(
+                            height: 48,
+                            child: Row(
+                              children: [
+                                if (_isSelecting) ...[
+                                  Text(
+                                    '${_selectedIds.length}명 선택',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: SoriTokens.textPrimary,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: list.isEmpty
+                                        ? null
+                                        : () => _selectAll(list),
+                                    child: const Text('전체'),
+                                  ),
+                                  TextButton(
+                                    onPressed:
+                                        _deleting ? null : _exitSelecting,
+                                    child: const Text('취소'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: _deleting ||
+                                            _selectedIds.isEmpty
+                                        ? null
+                                        : _bulkDelete,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _deleting ? '삭제 중…' : '삭제',
+                                    ),
+                                  ),
+                                ] else ...[
+                                  if (!isEmptyDb)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Text(
+                                        '${all.length}명',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: SoriTokens.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  const Spacer(),
+                                  IconButton(
+                                    tooltip: '편집',
+                                    onPressed: isEmptyDb
+                                        ? null
+                                        : () => _enterSelecting(),
+                                    icon: const Icon(
+                                      Icons.checklist_rtl_rounded,
+                                    ),
+                                    color: SoriTokens.primary,
+                                  ),
+                                  IconButton(
+                                    tooltip: '정렬',
+                                    onPressed:
+                                        isEmptyDb ? null : _pickSort,
+                                    icon: const Icon(
+                                      Icons.filter_list_rounded,
+                                    ),
+                                    color: SoriTokens.primary,
+                                  ),
+                                  IconButton(
+                                    tooltip: '고객 추가',
+                                    onPressed: _addCustomer,
+                                    icon: const Icon(
+                                      Icons.person_add_alt_1_rounded,
+                                    ),
+                                    color: SoriTokens.primary,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (!_isSelecting)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (v) =>
+                                  setState(() => _query = v),
+                              enabled: !isEmptyDb,
+                              style: const TextStyle(
+                                color: SoriTokens.textPrimary,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
+                                hintStyle: const TextStyle(
+                                  color: SoriTokens.textSecondary,
+                                ),
+                                isDense: true,
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                                filled: true,
+                                fillColor: SoriTokens.surface,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(
+                                    color: SoriTokens.outlinePurple,
+                                    width: 1.2,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(
+                                    color: SoriTokens.outlinePurple,
+                                    width: 1.2,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(
+                                    color: SoriTokens.primary,
+                                    width: 1.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-            ),
-          ],
+                  ),
+                ),
+              ),
+            ];
+          },
+          body: isEmptyDb
+              ? _EmptyCustomersState(onAdd: _addCustomer)
+              : _CustomerListBody(
+                  list: list,
+                  emptyLabel: '검색 결과가 없습니다',
+                  formatDate: _formatDate,
+                  lastVisitOf: _lastVisitOf,
+                  daysSince: _daysSinceVisit,
+                  bottomPadding: bottomPad,
+                  showDormantHint:
+                      _sort == _CustomerSort.dormantDaysDesc &&
+                          !_isSelecting,
+                  selecting: _isSelecting,
+                  selectedIds: _selectedIds,
+                  onAdd: _addCustomer,
+                  onOpen: _openDetail,
+                  onRequestReview: _requestReview,
+                  onToggleSelect: _toggleSelected,
+                  onLongPress: (c) {
+                    if (_isSelecting) {
+                      _toggleSelected(c.id);
+                    } else {
+                      _enterSelecting(seedId: c.id);
+                    }
+                  },
+                ),
         ),
       ),
     );
   }
 }
 
+/// Red Zone — 체크 필수 후 영구 삭제 활성화.
+class _RedZoneDeleteDialog extends StatefulWidget {
+  const _RedZoneDeleteDialog({
+    required this.customerCount,
+    required this.chartCount,
+    required this.reviewCount,
+    this.primaryName,
+  });
+
+  final int customerCount;
+  final int chartCount;
+  final int reviewCount;
+  final String? primaryName;
+
+  @override
+  State<_RedZoneDeleteDialog> createState() => _RedZoneDeleteDialogState();
+}
+
+class _RedZoneDeleteDialogState extends State<_RedZoneDeleteDialog> {
+  bool _acked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final who = widget.customerCount == 1 &&
+            (widget.primaryName?.isNotEmpty ?? false)
+        ? '"${widget.primaryName}"'
+        : (widget.primaryName == null || widget.primaryName!.isEmpty
+            ? '${widget.customerCount}명'
+            : '"${widget.primaryName}" 외 ${widget.customerCount - 1}명');
+
+    return AlertDialog(
+      backgroundColor: SoriTokens.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text(
+        '⚠ 고객 ${widget.customerCount}명을 영구 삭제할까요?',
+        style: const TextStyle(
+          color: Color(0xFFF87171),
+          fontWeight: FontWeight.w900,
+          fontSize: 17,
+          height: 1.3,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$who 고객 데이터가 영구 삭제됩니다.',
+            style: const TextStyle(
+              fontSize: 13.5,
+              height: 1.4,
+              color: SoriTokens.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '삭제되면 함께 사라집니다',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '· 시술 차트  ${widget.chartCount}건\n'
+            '· 소통 리뷰  ${widget.reviewCount}건\n'
+            '· 회원권·티켓 데이터',
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          InkWell(
+            onTap: () => setState(() => _acked = !_acked),
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _acked,
+                    onChanged: (v) => setState(() => _acked = v ?? false),
+                    activeColor: const Color(0xFFEF4444),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '위 내용을 이해했으며 복구할 수 없음을 확인합니다',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _acked ? () => Navigator.pop(context, true) : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFEF4444),
+            disabledBackgroundColor: const Color(0xFF3F3F46),
+          ),
+          child: const Text('영구 삭제'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CrmStickyToolbarDelegate extends SliverPersistentHeaderDelegate {
+  _CrmStickyToolbarDelegate({
+    required this.height,
+    required this.child,
+  });
+
+  final double height;
+  final Widget child;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox(height: height, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _CrmStickyToolbarDelegate oldDelegate) {
+    return height != oldDelegate.height || child != oldDelegate.child;
+  }
+}
+
 class _CustomerListBody extends StatelessWidget {
   const _CustomerListBody({
     required this.list,
-    required this.controller,
     required this.emptyLabel,
     required this.formatDate,
     required this.lastVisitOf,
@@ -440,10 +664,10 @@ class _CustomerListBody extends StatelessWidget {
     required this.onRequestReview,
     required this.onToggleSelect,
     required this.onLongPress,
+    this.bottomPadding = 100,
   });
 
   final List<Customer> list;
-  final ScrollController controller;
   final String emptyLabel;
   final String Function(DateTime) formatDate;
   final DateTime Function(Customer) lastVisitOf;
@@ -456,6 +680,7 @@ class _CustomerListBody extends StatelessWidget {
   final ValueChanged<Customer> onRequestReview;
   final ValueChanged<String> onToggleSelect;
   final ValueChanged<Customer> onLongPress;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -483,14 +708,7 @@ class _CustomerListBody extends StatelessWidget {
     }
 
     return ListView.separated(
-      controller: controller,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        100 + MediaQuery.paddingOf(context).bottom,
-      ),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
       itemCount: list.length + (showDormantHint ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -500,7 +718,9 @@ class _CustomerListBody extends StatelessWidget {
             decoration: BoxDecoration(
               color: SoriTokens.warningBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: SoriTokens.warningText.withValues(alpha: 0.45)),
+              border: Border.all(
+                color: SoriTokens.warningText.withValues(alpha: 0.45),
+              ),
             ),
             child: const Text(
               '90일 이상 미방문 고객이 위에 모여 있습니다. 케어 리마인드·티켓팅 제안 타이밍을 확인해 주세요.',
