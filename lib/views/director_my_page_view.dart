@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
@@ -16,8 +17,11 @@ import '../widgets/seminar_review_modal.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import 'ai_shop_report_page.dart';
+import 'app_settings_page.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'director_profile_edit_page.dart';
+import 'message_history_page.dart';
+import 'post_first_creation_page.dart';
 import 'seminar_class_open_page.dart';
 import 'seminar_feedback_inbox_page.dart';
 import 'service_menu_page.dart';
@@ -409,124 +413,175 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
         ? store.customers.length
         : shop.followerCount;
 
-    return ColoredBox(
-      color: SoriTokens.background,
-      child: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 360,
-              pinned: true,
-              stretch: true,
-              elevation: 0,
-              backgroundColor: SoriTokens.background,
-              foregroundColor: SoriTokens.textPrimary,
-              forceElevated: innerBoxIsScrolled,
-              actions: [
-                IconButton(
-                  tooltip: '새 게시물',
-                  onPressed: _openCreateSheet,
-                  icon: const Icon(Icons.add_rounded),
+    final topInset = MediaQuery.paddingOf(context).top;
+    final heroExpanded = 320 + topInset;
+    final badgeCount = _notificationBadgeCount(session);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: SoriTokens.background,
+      ),
+      child: ColoredBox(
+        color: SoriTokens.background,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              // expanded: 투명·풀블리드 / collapsed: #0A0A0C 솔리드(상태바 높이)
+              // backgroundColor는 접힘 시 노출되며, 펼침 시에는 이미지가 덮음.
+              SliverAppBar(
+                expandedHeight: heroExpanded,
+                pinned: true,
+                stretch: true,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                surfaceTintColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                backgroundColor: const Color(0xFF0A0A0C),
+                foregroundColor: Colors.white,
+                automaticallyImplyLeading: false,
+                toolbarHeight: 0,
+                forceElevated: false,
+                systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+                  statusBarColor: Colors.transparent,
                 ),
-                if (kDebugMode)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: Center(child: DebugModeChip()),
-                  ),
-              ],
-              flexibleSpace: FlexibleSpaceBar(
-                collapseMode: CollapseMode.pin,
-                background: _ShopHeroCover(
-                  shopName: shopName,
-                  coverUrl: coverUrl,
-                  regularCount: regularCount,
-                  isOwner: isOwner,
-                  onCta: () {
-                    if (isOwner) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const DirectorProfileEditPage(),
-                        ),
-                      );
-                    } else {
-                      final url = shop.naverBookingUrl.trim().isNotEmpty
-                          ? shop.naverBookingUrl.trim()
-                          : shop.naverPlaceUrl.trim();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            url.isEmpty
-                                ? '예약 링크가 아직 등록되지 않았어요'
-                                : '예약 페이지로 이동합니다',
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.pin,
+                  background: _ShopHeroCover(
+                    shopName: shopName,
+                    coverUrl: coverUrl,
+                    regularCount: regularCount,
+                    isOwner: isOwner,
+                    badgeCount: badgeCount,
+                    onCta: () {
+                      if (isOwner) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DirectorProfileEditPage(),
                           ),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: SoriTokens.primary,
-                        ),
-                      );
-                    }
-                  },
+                        );
+                      } else {
+                        final url = shop.naverBookingUrl.trim().isNotEmpty
+                            ? shop.naverBookingUrl.trim()
+                            : shop.naverPlaceUrl.trim();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              url.isEmpty
+                                  ? '예약 링크가 아직 등록되지 않았어요'
+                                  : '예약 페이지로 이동합니다',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: SoriTokens.primary,
+                          ),
+                        );
+                      }
+                    },
+                    onPost: () => PostFirstCreationPage.open(context),
+                    onNotifications: _openNotifications,
+                    onSettings: _openSettings,
+                  ),
                 ),
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _StickyTabBarDelegate(
-                tabBar: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: SoriTokens.primary,
-                  unselectedLabelColor: SoriTokens.textSecondary,
-                  labelStyle: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w800,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyTabBarDelegate(
+                  tabBar: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    labelColor: SoriTokens.primary,
+                    unselectedLabelColor: SoriTokens.textSecondary,
+                    labelStyle: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    indicatorColor: SoriTokens.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    indicatorWeight: 2.4,
+                    dividerColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                    tabs: const [
+                      Tab(text: 'Home'),
+                      Tab(text: 'Feed'),
+                      Tab(text: 'Shop'),
+                      Tab(text: 'Review'),
+                    ],
                   ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  indicatorColor: SoriTokens.primary,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  indicatorWeight: 2.4,
-                  dividerColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 14),
-                  tabs: const [
-                    Tab(text: 'Home'),
-                    Tab(text: 'Feed'),
-                    Tab(text: 'Shop'),
-                    Tab(text: 'Review'),
-                  ],
                 ),
               ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _HomeTabBody(
-              store: store,
-              shop: shop,
-              bio: _bio,
-              onOpenClass: _openClass,
-              onOpenAi: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AiShopReportPage(data: report),
-                  ),
-                );
-              },
-            ),
-            _ServiceGroupedFeedTab(
-              cases: cases,
-              store: store,
-              onOpenCasesTab: () => onSelectTab?.call(3),
-            ),
-            _ShopInfoTab(shop: shop, isOwner: isOwner),
-            _ReviewTabBody(store: store),
-          ],
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _HomeTabBody(
+                store: store,
+                shop: shop,
+                bio: _bio,
+                onOpenClass: _openClass,
+                onOpenAi: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => AiShopReportPage(data: report),
+                    ),
+                  );
+                },
+              ),
+              _ServiceGroupedFeedTab(
+                cases: cases,
+                store: store,
+                onOpenCasesTab: () => onSelectTab?.call(3),
+              ),
+              _ShopInfoTab(shop: shop, isOwner: isOwner),
+              _ReviewTabBody(store: store),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  int _notificationBadgeCount(SessionUser? session) {
+    if (session == null) return 0;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (session.activeMode == UserRole.director) {
+      final careToday = store.customersForDate(today).length;
+      final reviewReq = store.reviewRequestedCustomerIds.length;
+      return (careToday + reviewReq).clamp(0, 99);
+    }
+    final cid = session.customerId;
+    if (cid != null && store.isReviewRequested(cid)) return 1;
+    return 0;
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: SoriTokens.background,
+          appBar: AppBar(
+            title: const Text('알림'),
+            backgroundColor: SoriTokens.surface,
+            foregroundColor: SoriTokens.textPrimary,
+            elevation: 0,
+          ),
+          body: const MessageHistoryPage(embedded: true),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppSettingsPage(store: store),
       ),
     );
   }
@@ -540,6 +595,10 @@ class _ShopHeroCover extends StatelessWidget {
     required this.regularCount,
     required this.isOwner,
     required this.onCta,
+    required this.onPost,
+    required this.onNotifications,
+    required this.onSettings,
+    this.badgeCount = 0,
   });
 
   final String shopName;
@@ -547,6 +606,10 @@ class _ShopHeroCover extends StatelessWidget {
   final int regularCount;
   final bool isOwner;
   final VoidCallback onCta;
+  final VoidCallback onPost;
+  final VoidCallback onNotifications;
+  final VoidCallback onSettings;
+  final int badgeCount;
 
   static const _fallbackCover =
       'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80';
@@ -579,7 +642,26 @@ class _ShopHeroCover extends StatelessWidget {
             ),
           ),
         ),
-        // 하단만 투명 → #0A0A0C 페이드 (블러 없음)
+        // 상단: 밝은 간판에서도 화이트 아이콘 가독성
+        const Align(
+          alignment: Alignment.topCenter,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x99000000),
+                  Color(0x33000000),
+                  Colors.transparent,
+                ],
+                stops: [0.0, 0.55, 1.0],
+              ),
+            ),
+            child: SizedBox(height: 120, width: double.infinity),
+          ),
+        ),
+        // 하단: 투명 → #0A0A0C
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -592,6 +674,40 @@ class _ShopHeroCover extends StatelessWidget {
                 Color(0xFF0A0A0C),
               ],
               stops: [0.0, 0.42, 0.72, 1.0],
+            ),
+          ),
+        ),
+        // 우상단 오버레이 액션 (+ / 알림 / 설정)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+              child: Row(
+                children: [
+                  if (kDebugMode) const DebugModeChip(),
+                  const Spacer(),
+                  _HeroOverlayIcon(
+                    tooltip: '새 게시물',
+                    icon: Icons.add_rounded,
+                    onPressed: onPost,
+                  ),
+                  _HeroOverlayIcon(
+                    tooltip: '알림',
+                    icon: Icons.notifications_none_rounded,
+                    onPressed: onNotifications,
+                    badgeCount: badgeCount,
+                  ),
+                  _HeroOverlayIcon(
+                    tooltip: '설정',
+                    icon: Icons.settings_outlined,
+                    onPressed: onSettings,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -655,6 +771,55 @@ class _ShopHeroCover extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _HeroOverlayIcon extends StatelessWidget {
+  const _HeroOverlayIcon({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.badgeCount = 0,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      icon: Badge(
+        isLabelVisible: badgeCount > 0,
+        label: Text(
+          '$badgeCount',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+        ),
+        backgroundColor: const Color(0xFFE11D48),
+        child: Icon(
+          icon,
+          color: Colors.white,
+          size: 24,
+          shadows: const [
+            Shadow(
+              color: Color(0xCC000000),
+              blurRadius: 10,
+              offset: Offset(0, 1),
+            ),
+            Shadow(
+              color: Color(0x66000000),
+              blurRadius: 2,
+              offset: Offset(0, 0),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

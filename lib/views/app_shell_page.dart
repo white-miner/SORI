@@ -135,7 +135,9 @@ class _AppShellPageState extends State<AppShellPage> {
     final isDirector = session.activeMode == UserRole.director;
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
     final tab = widget.navigationShell.currentIndex;
-    final hideShellAppBar = _isCustomerDetailRoute(context);
+    // My 탭(4) · 고객 상세: 시네마틱/디테일 몰입을 위해 글로벌 Shell AppBar 숨김
+    final hideShellAppBar =
+        tab == 4 || _isCustomerDetailRoute(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -148,11 +150,11 @@ class _AppShellPageState extends State<AppShellPage> {
                 title: _brandTitle(),
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
-                onPostFirst: (tab == 0 || tab == 4)
+                onPostFirst: tab == 0
                     ? () => PostFirstCreationPage.open(context)
                     : null,
                 onArchive: tab == 3 ? _openArchive : null,
-                onSettings: tab == 4 ? _openSettings : null,
+                onSettings: null,
               );
 
         if (!wide) {
