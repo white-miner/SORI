@@ -122,7 +122,12 @@ class SoriStore implements Listenable {
         (msg.contains('could not find the') && msg.contains('column')) ||
         msg.contains('schema cache') ||
         (msg.contains('customer_reviews') && msg.contains('customer_id')) ||
-        msg.contains('postgrestexception');
+        msg.contains('postgrestexception') ||
+        msg.contains('oauth state') ||
+        msg.contains('state not found') ||
+        (msg.contains('state') && msg.contains('expired')) ||
+        msg.contains('code verifier') ||
+        msg.contains('pkce');
   }
 
   void _logQuiet(Object error, [String label = 'background']) {

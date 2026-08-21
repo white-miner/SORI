@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routing/sori_router.dart';
+import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/sori_tokens.dart';
@@ -106,18 +107,23 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
     if (authErr != null &&
         authErr.isNotEmpty &&
         authErr != _shownError) {
-      _shownError = authErr;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authErr),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+      if (SoriAuthService.isStaleOAuthError(authErr)) {
+        _store.clearAuthSession(localOnly: false);
         _store.clearAuthError();
-      });
+      } else {
+        _shownError = authErr;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authErr),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          _store.clearAuthError();
+        });
+      }
     }
     setState(() {});
   }

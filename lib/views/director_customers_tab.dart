@@ -141,7 +141,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   void _pickSort() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -272,14 +272,36 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                 controller: _searchController,
                 onChanged: (v) => setState(() => _query = v),
                 enabled: !isEmptyDb,
+                style: const TextStyle(color: SoriTokens.textPrimary),
                 decoration: InputDecoration(
                   hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: SoriTokens.textSecondary,
+                  ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: SoriTokens.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(
+                      color: SoriTokens.outlinePurple,
+                      width: 1.2,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: SoriTokens.outlinePurple,
+                      width: 1.2,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: SoriTokens.primary,
+                      width: 1.2,
+                    ),
                   ),
                 ),
               ),

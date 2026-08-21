@@ -59,7 +59,7 @@ class CaseArchiveTile extends StatelessWidget {
     final shared = chart.caseShared && chart.isConsentSigned;
 
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -69,7 +69,7 @@ class CaseArchiveTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE8E4F8)),
+            border: Border.all(color: SoriTokens.outlinePurple),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -93,6 +93,7 @@ class CaseArchiveTile extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         height: 1.2,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                     if (demo.isNotEmpty) ...[
@@ -101,10 +102,10 @@ class CaseArchiveTile extends StatelessWidget {
                         demo,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
+                          color: SoriTokens.textSecondary,
                           height: 1.25,
                         ),
                       ),
@@ -115,10 +116,10 @@ class CaseArchiveTile extends StatelessWidget {
                         '$device 사용',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade800,
+                          color: SoriTokens.textSecondary,
                           height: 1.25,
                         ),
                       ),
@@ -129,10 +130,10 @@ class CaseArchiveTile extends StatelessWidget {
                         tags.join('  '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: SoriTokens.primary,
+                          color: Color(0xFFC4B5FD),
                           height: 1.25,
                         ),
                       ),
@@ -156,8 +157,8 @@ class CaseArchiveTile extends StatelessWidget {
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: shared
-                            ? const Color(0xFF16A34A)
-                            : Colors.grey.shade600,
+                            ? const Color(0xFF86EFAC)
+                            : SoriTokens.textSecondary,
                       ),
                     ),
                   ],
@@ -182,14 +183,14 @@ class CaseArchiveTile extends StatelessWidget {
                                 size: 20,
                                 color: liked
                                     ? const Color(0xFFE11D48)
-                                    : Colors.grey.shade600,
+                                    : SoriTokens.textSecondary,
                               ),
                               Text(
                                 '$likeCount',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.grey.shade700,
+                                  color: SoriTokens.textSecondary,
                                 ),
                               ),
                             ],
@@ -207,7 +208,7 @@ class CaseArchiveTile extends StatelessWidget {
                           size: 20,
                           color: bookmarked
                               ? SoriTokens.primary
-                              : Colors.grey.shade600,
+                              : SoriTokens.textSecondary,
                         ),
                       ),
                     ],
@@ -220,7 +221,6 @@ class CaseArchiveTile extends StatelessWidget {
     );
   }
 }
-
 class _BaThumb extends StatelessWidget {
   const _BaThumb({
     required this.heroTag,

@@ -320,14 +320,36 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
           child: TextField(
             controller: _search,
             onChanged: (_) => setState(() {}),
+            style: const TextStyle(color: SoriTokens.textPrimary),
             decoration: InputDecoration(
               hintText: '이름 · 후기 · 관리명 검색',
-              prefixIcon: const Icon(Icons.search_rounded),
+              hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: SoriTokens.textSecondary,
+              ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: SoriTokens.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
+                borderSide: const BorderSide(
+                  color: SoriTokens.outlinePurple,
+                  width: 1.2,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: SoriTokens.outlinePurple,
+                  width: 1.2,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: SoriTokens.primary,
+                  width: 1.2,
+                ),
               ),
               contentPadding: const EdgeInsets.symmetric(vertical: 0),
             ),

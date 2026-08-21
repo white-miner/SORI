@@ -4,25 +4,25 @@ import 'package:flutter/material.dart';
 
 import 'sori_tokens.dart';
 
-/// SORI DatePicker — 화이트 반투명 블러(Glassmorphism) 공통 테마.
+/// SORI DatePicker — 다크 서피스 + 퍼플 포인트 공통 테마.
 abstract final class SoriDatePickerTheme {
   static const double radius = 24;
 
   static DatePickerThemeData get data {
     return DatePickerThemeData(
-      backgroundColor: Colors.white.withValues(alpha: 0.85),
+      backgroundColor: SoriTokens.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shadowColor: Colors.black.withValues(alpha: 0.06),
+      shadowColor: Colors.black.withValues(alpha: 0.35),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
-        side: BorderSide(
-          color: Colors.white.withValues(alpha: 0.9),
+        side: const BorderSide(
+          color: SoriTokens.outlinePurple,
           width: 1.2,
         ),
       ),
-      headerBackgroundColor: Colors.white.withValues(alpha: 0.42),
-      headerForegroundColor: SoriTokens.primary,
+      headerBackgroundColor: SoriTokens.surfaceElevated,
+      headerForegroundColor: SoriTokens.textPrimary,
       headerHeadlineStyle: const TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w800,
@@ -58,10 +58,10 @@ abstract final class SoriDatePickerTheme {
       dayOverlayColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused)) {
-          return SoriTokens.primary.withValues(alpha: 0.10);
+          return SoriTokens.primary.withValues(alpha: 0.14);
         }
         if (states.contains(WidgetState.pressed)) {
-          return SoriTokens.primary.withValues(alpha: 0.16);
+          return SoriTokens.primary.withValues(alpha: 0.22);
         }
         return null;
       }),
@@ -86,16 +86,9 @@ abstract final class SoriDatePickerTheme {
         if (states.contains(WidgetState.selected)) return SoriTokens.primary;
         return Colors.transparent;
       }),
-      yearOverlayColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered)) {
-          return SoriTokens.primary.withValues(alpha: 0.10);
-        }
-        return null;
-      }),
-      rangePickerBackgroundColor: Colors.white.withValues(alpha: 0.85),
-      rangePickerHeaderBackgroundColor: Colors.white.withValues(alpha: 0.42),
-      rangePickerHeaderForegroundColor: SoriTokens.primary,
-      dividerColor: Colors.white.withValues(alpha: 0.55),
+      rangePickerBackgroundColor: SoriTokens.surface,
+      rangePickerHeaderBackgroundColor: SoriTokens.surfaceElevated,
+      dividerColor: SoriTokens.border,
       cancelButtonStyle: TextButton.styleFrom(
         foregroundColor: SoriTokens.textSecondary,
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
@@ -108,7 +101,7 @@ abstract final class SoriDatePickerTheme {
   }
 
   static DialogThemeData get dialogTheme => DialogThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: SoriTokens.surface,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -117,7 +110,7 @@ abstract final class SoriDatePickerTheme {
         ),
       );
 
-  /// [showDatePicker] 공통 호출 — 블러 배리어 + 글래스 다이얼로그.
+  /// [showDatePicker] 공통 호출 — 다크 테마 강제.
   static Future<DateTime?> show({
     required BuildContext context,
     required DateTime initialDate,
@@ -137,37 +130,33 @@ abstract final class SoriDatePickerTheme {
       helpText: helpText ?? '날짜 선택',
       cancelText: cancelText ?? '취소',
       confirmText: confirmText ?? '확인',
-      barrierColor: Colors.black.withValues(alpha: 0.18),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (context, child) => wrapPicker(context, child),
     );
   }
 
   static Widget wrapPicker(BuildContext context, Widget? child) {
+    final dark = ThemeData.dark().copyWith(
+      colorScheme: const ColorScheme.dark(
+        primary: SoriTokens.primary,
+        onPrimary: Colors.white,
+        surface: SoriTokens.surface,
+        onSurface: SoriTokens.textPrimary,
+      ),
+      dialogTheme: dialogTheme,
+      datePickerTheme: data,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: SoriTokens.primary),
+      ),
+    );
     return Theme(
-      data: Theme.of(context).copyWith(
-        datePickerTheme: data,
-        dialogTheme: dialogTheme,
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 20,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: child ?? const SizedBox.shrink(),
-        ),
-      ),
+      data: dark,
+      child: child ?? const SizedBox.shrink(),
     );
   }
 }
 
-/// 커스텀 캘린더/시트용 글래스 서피스.
+/// 커스텀 캘린더/시트용 다크 글래스 서피스.
 class SoriGlassPanel extends StatelessWidget {
   const SoriGlassPanel({
     super.key,
@@ -182,37 +171,31 @@ class SoriGlassPanel extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final bool clipTopOnly;
 
-  static BorderRadius radiusOf(double r, {bool topOnly = false}) {
-    if (topOnly) {
-      return BorderRadius.vertical(top: Radius.circular(r));
-    }
-    return BorderRadius.circular(r);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final radius = radiusOf(borderRadius, topOnly: clipTopOnly);
+    final radius = clipTopOnly
+        ? BorderRadius.vertical(top: Radius.circular(borderRadius))
+        : BorderRadius.circular(borderRadius);
     return ClipRRect(
       borderRadius: radius,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.85),
+            color: SoriTokens.surface.withValues(alpha: 0.96),
             borderRadius: radius,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.9),
-              width: 1.2,
-            ),
+            border: Border.all(color: SoriTokens.outlinePurple, width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
+                color: Colors.black.withValues(alpha: 0.35),
                 blurRadius: 20,
-                spreadRadius: 4,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: padding == null ? child : Padding(padding: padding!, child: child),
+          child: padding == null
+              ? child
+              : Padding(padding: padding!, child: child),
         ),
       ),
     );

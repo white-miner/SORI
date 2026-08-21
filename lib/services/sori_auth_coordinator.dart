@@ -29,7 +29,7 @@ class SoriAuthCoordinator {
       _onAuthState,
       onError: (Object error, StackTrace stackTrace) {
         debugPrint('[Auth] onAuthStateChange error: $error\n$stackTrace');
-        _store.setAuthError(SoriAuthService.userMessage(error));
+        unawaited(_recoverStaleOAuth(error));
       },
     );
 
@@ -63,11 +63,23 @@ class SoriAuthCoordinator {
       }
     } catch (e, st) {
       debugPrint('[Auth] initial session wait failed: $e\n$st');
+      await _recoverStaleOAuth(e);
       final cached = _auth.currentSession;
-      if (cached != null) {
+      if (cached != null && !SoriAuthService.isStaleOAuthError(e)) {
         await _hydrate(cached.user, reason: 'cachedSessionFallback');
       }
     }
+  }
+
+  Future<void> _recoverStaleOAuth(Object error) async {
+    if (!SoriAuthService.isStaleOAuthError(error)) {
+      final msg = SoriAuthService.userMessage(error);
+      if (msg.isNotEmpty) _store.setAuthError(msg);
+      return;
+    }
+    debugPrint('[Auth] stale OAuth — silent signOut + clear');
+    _store.clearAuthSession(localOnly: false);
+    _store.clearAuthError();
   }
 
   void _onAuthState(AuthState state) {
@@ -120,7 +132,7 @@ class SoriAuthCoordinator {
       _store.setAuthError(SoriAuthService.userMessage(e));
     } catch (e, st) {
       debugPrint('[Auth] hydrate failed: $e\n$st');
-      _store.setAuthError(SoriAuthService.userMessage(e));
+      await _recoverStaleOAuth(e);
     } finally {
       _hydrating = false;
       _store.setAuthHydrating(false);

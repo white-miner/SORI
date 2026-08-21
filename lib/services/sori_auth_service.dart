@@ -52,8 +52,21 @@ class SoriAuthService {
     ).toString();
   }
 
+  /// 깨진 OAuth/PKCE 콜백 — 빨간 배너 대신 조용히 세션 리셋.
+  static bool isStaleOAuthError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('oauth state') ||
+        msg.contains('state not found') ||
+        (msg.contains('state') && msg.contains('expired')) ||
+        msg.contains('code verifier') ||
+        msg.contains('pkce');
+  }
+
   /// Supabase/네트워크 예외 → 사용자 친화 메시지.
   static String userMessage(Object error) {
+    if (isStaleOAuthError(error)) {
+      return '';
+    }
     if (error is AuthException) {
       final msg = error.message.toLowerCase();
       if (msg.contains('invalid login credentials') ||

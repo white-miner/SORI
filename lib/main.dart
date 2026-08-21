@@ -30,8 +30,18 @@ Future<void> main() async {
     };
     ErrorWidget.builder = (details) {
       debugPrint('ErrorWidget swallowed: ${details.exception}');
+      final raw = details.exceptionAsString();
+      if (raw.toLowerCase().contains('oauth state') ||
+          raw.toLowerCase().contains('code verifier') ||
+          raw.toLowerCase().contains('pkce')) {
+        // 깨진 OAuth 콜백 — 빨간 전체화면 대신 빈 캔버스 (세션은 coordinator가 정리)
+        return const ColoredBox(
+          color: Color(0xFF0A0A0C),
+          child: SizedBox.expand(),
+        );
+      }
       return const ColoredBox(
-        color: Color(0xFFF8F9FA),
+        color: Color(0xFF0A0A0C),
         child: SizedBox.expand(
           child: Center(
             child: Padding(
@@ -40,7 +50,7 @@ Future<void> main() async {
                 '일시적인 표시 오류가 있었습니다.\n이 화면을 닫고 다시 시도해 주세요.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF636E72),
+                  color: Color(0xFFA1A1AA),
                   fontSize: 14,
                   decoration: TextDecoration.none,
                   fontWeight: FontWeight.w600,
@@ -57,9 +67,9 @@ Future<void> main() async {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarContrastEnforced: false,
       ),
     );

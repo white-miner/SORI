@@ -51,18 +51,28 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
   void _openMonthlyCalendar() {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (ctx) => _MonthlyCalendarDialog(
-        initialMonth: _selectedDay,
-        visitDaysBuilder: (y, m) =>
-            widget.store.chartCreatedDaysInMonth(y, m),
-        onDaySelected: (day) {
-          setState(() {
-            _selectedDay = day;
-            _expanded = true;
-          });
-          Navigator.pop(ctx);
-        },
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: SoriTokens.primary,
+            onPrimary: Colors.white,
+            surface: SoriTokens.surface,
+            onSurface: SoriTokens.textPrimary,
+          ),
+        ),
+        child: _MonthlyCalendarDialog(
+          initialMonth: _selectedDay,
+          visitDaysBuilder: (y, m) =>
+              widget.store.chartCreatedDaysInMonth(y, m),
+          onDaySelected: (day) {
+            setState(() {
+              _selectedDay = day;
+              _expanded = true;
+            });
+            Navigator.pop(ctx);
+          },
+        ),
       ),
     );
   }
@@ -75,11 +85,12 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: SoriTokens.outlinePurple, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.28),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -101,6 +112,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                   ),
