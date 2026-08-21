@@ -10,6 +10,7 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_post.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -1277,5 +1278,66 @@ class MemorySoriRepository implements SoriRepository {
       }
     }
     return null;
+  }
+
+  static final List<ShopGallerySlide> _gallery = [];
+  static final List<ShopPost> _posts = [];
+
+  @override
+  Future<List<ShopGallerySlide>> loadShopGalleryItems(String shopId) async =>
+      List.unmodifiable(_gallery);
+
+  @override
+  Future<ShopGallerySlide> insertShopGalleryItem({
+    required String shopId,
+    required String imageUrl,
+    String title = '',
+  }) async {
+    if (_gallery.length >= 20) {
+      throw StateError('샵 갤러리는 최대 20장까지 등록할 수 있습니다.');
+    }
+    final slide = ShopGallerySlide(
+      id: 'g-${DateTime.now().millisecondsSinceEpoch}',
+      title: title.trim().isEmpty ? '갤러리' : title.trim(),
+      subtitle: '',
+      kind: GalleryKind.shop,
+      imageUrl: imageUrl,
+      sortOrder: _gallery.length,
+    );
+    _gallery.add(slide);
+    return slide;
+  }
+
+  @override
+  Future<void> deleteShopGalleryItem(String itemId) async {
+    _gallery.removeWhere((e) => e.id == itemId);
+  }
+
+  @override
+  Future<List<ShopPost>> loadShopPosts(String shopId) async =>
+      List.unmodifiable(_posts);
+
+  @override
+  Future<ShopPost> insertShopPost({
+    required String shopId,
+    required String body,
+    String? authorUserId,
+    List<String> imageUrls = const [],
+  }) async {
+    final post = ShopPost(
+      id: 'p-${DateTime.now().millisecondsSinceEpoch}',
+      shopId: shopId,
+      authorUserId: authorUserId,
+      body: body.trim(),
+      imageUrls: imageUrls,
+      createdAt: DateTime.now(),
+    );
+    _posts.insert(0, post);
+    return post;
+  }
+
+  @override
+  Future<void> deleteShopPost(String postId) async {
+    _posts.removeWhere((e) => e.id == postId);
   }
 }

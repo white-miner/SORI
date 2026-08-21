@@ -24,6 +24,7 @@ import '../models/review_reply.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_post.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -37,6 +38,7 @@ import '../utils/db_map.dart';
 import '../utils/korean_choseong.dart';
 import 'consent_pdf_generator.dart';
 import 'consent_pdf_storage.dart';
+import 'shop_media_storage.dart';
 import 'shop_profile_storage.dart';
 import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
@@ -154,6 +156,7 @@ class SoriStore implements Listenable {
   final List<MembershipTicket> membershipTickets = [];
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
+  final List<ShopPost> shopPosts = [];
   final Set<String> reviewRequestedCustomerIds = {};
   final Set<String> followedShopIds = {};
   final List<ShopHighlight> shopHighlights = [];
@@ -223,6 +226,9 @@ class SoriStore implements Listenable {
     gallerySlides
       ..clear()
       ..addAll(snapshot.gallerySlides);
+    shopPosts
+      ..clear()
+      ..addAll(snapshot.shopPosts);
     reviewRequestedCustomerIds
       ..clear()
       ..addAll(snapshot.reviewRequestedCustomerIds);
@@ -2061,6 +2067,81 @@ class SoriStore implements Listenable {
   void replaceGallerySlideAt(int index, ShopGallerySlide slide) {
     if (index < 0 || index >= gallerySlides.length) return;
     gallerySlides[index] = slide;
+    _notify();
+  }
+
+  Future<bool> uploadShopGalleryImage(Uint8List bytes, {String title = ''}) async {
+    if (bytes.isEmpty) return false;
+    if (gallerySlides.length >= 20) {
+      throw StateError('샵 갤러리는 최대 20장까지 등록할 수 있습니다.');
+    }
+    final shopId = shop.id.trim().isEmpty ? 'local-shop' : shop.id.trim();
+    var url = await ShopMediaStorage.uploadGalleryImage(
+      bytes: bytes,
+      shopId: shopId,
+    );
+    if (url == null || url.isEmpty) {
+      if (!_repository.isRemote) {
+        url = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else {
+        return false;
+      }
+    }
+    try {
+      final slide = await _repository.insertShopGalleryItem(
+        shopId: shopId,
+        imageUrl: url,
+        title: title,
+      );
+      gallerySlides.add(slide);
+      _notify();
+      return true;
+    } catch (e) {
+      debugPrint('uploadShopGalleryImage failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> removeShopGalleryItem(String itemId) async {
+    await _repository.deleteShopGalleryItem(itemId);
+    gallerySlides.removeWhere((e) => e.id == itemId);
+    _notify();
+  }
+
+  Future<ShopPost?> createShopPost({
+    required String body,
+    Uint8List? imageBytes,
+  }) async {
+    final text = body.trim();
+    if (text.isEmpty) return null;
+    final shopId = shop.id.trim();
+    final urls = <String>[];
+    if (imageBytes != null && imageBytes.isNotEmpty) {
+      var url = await ShopMediaStorage.uploadPostImage(
+        bytes: imageBytes,
+        shopId: shopId.isEmpty ? 'local-shop' : shopId,
+      );
+      if (url == null || url.isEmpty) {
+        if (!_repository.isRemote) {
+          url = 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+        }
+      }
+      if (url != null && url.isNotEmpty) urls.add(url);
+    }
+    final post = await _repository.insertShopPost(
+      shopId: shopId,
+      body: text,
+      authorUserId: session?.id,
+      imageUrls: urls,
+    );
+    shopPosts.insert(0, post);
+    _notify();
+    return post;
+  }
+
+  Future<void> removeShopPost(String postId) async {
+    await _repository.deleteShopPost(postId);
+    shopPosts.removeWhere((e) => e.id == postId);
     _notify();
   }
 

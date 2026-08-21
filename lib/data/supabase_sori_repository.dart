@@ -16,6 +16,7 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_post.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -620,6 +621,20 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('care_diary_notes load skipped: $e');
     }
 
+    List<ShopGallerySlide> gallerySlides = const [];
+    try {
+      gallerySlides = await loadShopGalleryItems(shop.id);
+    } catch (e) {
+      debugPrint('shop_gallery_items load skipped: $e');
+    }
+
+    List<ShopPost> shopPosts = const [];
+    try {
+      shopPosts = await loadShopPosts(shop.id);
+    } catch (e) {
+      debugPrint('shop_posts load skipped: $e');
+    }
+
     return SoriSnapshot(
       shop: shop,
       customers: customers,
@@ -627,26 +642,8 @@ class SupabaseSoriRepository implements SoriRepository {
       reviews: reviews,
       aiReplies: aiReplies,
       diaryNotes: diaryNotes,
-      gallerySlides: const [
-        ShopGallerySlide(
-          id: 'g1',
-          title: '샵 대표 공간',
-          subtitle: '상담 · 케어룸 분위기',
-          kind: GalleryKind.shop,
-        ),
-        ShopGallerySlide(
-          id: 'g2',
-          title: 'Before',
-          subtitle: '방문 전 피부 컨디션',
-          kind: GalleryKind.before,
-        ),
-        ShopGallerySlide(
-          id: 'g3',
-          title: 'After',
-          subtitle: '시술 직후 개선 포인트',
-          kind: GalleryKind.after,
-        ),
-      ],
+      gallerySlides: gallerySlides,
+      shopPosts: shopPosts,
     );
   }
 
@@ -2635,5 +2632,102 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('loadSeminarFeedbackReportDetail failed: $e\n$st');
       return null;
     }
+  }
+
+  @override
+  Future<List<ShopGallerySlide>> loadShopGalleryItems(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('shop_gallery_items')
+          .select()
+          .eq('shop_id', id)
+          .order('sort_order', ascending: true)
+          .order('created_at', ascending: false);
+      return (rows as List)
+          .map((e) => ShopGallerySlide.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadShopGalleryItems failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ShopGallerySlide> insertShopGalleryItem({
+    required String shopId,
+    required String imageUrl,
+    String title = '',
+  }) async {
+    final countRows = await _db
+        .from('shop_gallery_items')
+        .select('id')
+        .eq('shop_id', shopId);
+    final sortOrder = (countRows as List).length;
+    final row = await _db
+        .from('shop_gallery_items')
+        .insert({
+          'shop_id': shopId,
+          'image_url': imageUrl,
+          'title': title.trim().isEmpty ? '갤러리' : title.trim(),
+          'sort_order': sortOrder,
+        })
+        .select()
+        .single();
+    return ShopGallerySlide.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> deleteShopGalleryItem(String itemId) async {
+    final id = itemId.trim();
+    if (id.isEmpty) return;
+    await _db.from('shop_gallery_items').delete().eq('id', id);
+  }
+
+  @override
+  Future<List<ShopPost>> loadShopPosts(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('shop_posts')
+          .select()
+          .eq('shop_id', id)
+          .order('created_at', ascending: false)
+          .limit(50);
+      return (rows as List)
+          .map((e) => ShopPost.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadShopPosts failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ShopPost> insertShopPost({
+    required String shopId,
+    required String body,
+    String? authorUserId,
+    List<String> imageUrls = const [],
+  }) async {
+    final payload = <String, dynamic>{
+      'shop_id': shopId,
+      'body': body.trim(),
+      'image_urls': imageUrls,
+    };
+    final author = authorUserId?.trim() ?? '';
+    if (author.isNotEmpty) payload['author_user_id'] = author;
+    final row =
+        await _db.from('shop_posts').insert(payload).select().single();
+    return ShopPost.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> deleteShopPost(String postId) async {
+    final id = postId.trim();
+    if (id.isEmpty) return;
+    await _db.from('shop_posts').delete().eq('id', id);
   }
 }

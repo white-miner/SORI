@@ -11,6 +11,7 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
+import '../models/shop_post.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -32,6 +33,7 @@ class SoriSnapshot {
     required this.aiReplies,
     required this.gallerySlides,
     this.diaryNotes = const [],
+    this.shopPosts = const [],
     this.todayHomecareTip =
         '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.',
     this.reviewRequestedCustomerIds = const {},
@@ -44,6 +46,7 @@ class SoriSnapshot {
   final List<AiReply> aiReplies;
   final List<ShopGallerySlide> gallerySlides;
   final List<CareDiaryNote> diaryNotes;
+  final List<ShopPost> shopPosts;
   final String todayHomecareTip;
   final Set<String> reviewRequestedCustomerIds;
 }
@@ -356,4 +359,28 @@ abstract class SoriRepository {
 
   /// 리포트 상세 (긍정 코멘트 포함).
   Future<SeminarFeedbackReport?> loadSeminarFeedbackReportDetail(String reportId);
+
+  /// 샵 갤러리 로드 (sort_order ASC).
+  Future<List<ShopGallerySlide>> loadShopGalleryItems(String shopId);
+
+  /// 갤러리 항목 추가 (샵당 최대 20).
+  Future<ShopGallerySlide> insertShopGalleryItem({
+    required String shopId,
+    required String imageUrl,
+    String title = '',
+  });
+
+  Future<void> deleteShopGalleryItem(String itemId);
+
+  /// 샵 소식 쓰레드 로드.
+  Future<List<ShopPost>> loadShopPosts(String shopId);
+
+  Future<ShopPost> insertShopPost({
+    required String shopId,
+    required String body,
+    String? authorUserId,
+    List<String> imageUrls = const [],
+  });
+
+  Future<void> deleteShopPost(String postId);
 }
