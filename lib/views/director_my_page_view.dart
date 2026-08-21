@@ -1,8 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
@@ -15,7 +12,6 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/storage_image_url.dart';
 import '../widgets/debug_mode_chip.dart';
-import '../widgets/media_permission_dialogs.dart';
 import '../widgets/seminar_review_modal.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
@@ -45,7 +41,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     with SingleTickerProviderStateMixin {
   SoriStore get store => widget.store;
   ValueChanged<int>? get onSelectTab => widget.onSelectTab;
-  bool _avatarUploading = false;
   late final TabController _tabController;
 
   @override
@@ -117,44 +112,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
       return '샵 소개말을 프로필 편집에서 등록해 주세요.';
     }
     return parts.join('\n');
-  }
-
-  Future<void> _pickAndUploadAvatar() async {
-    if (_avatarUploading) return;
-    final file = await pickImageWithPermissionGuards(
-      context: context,
-      source: ImageSource.gallery,
-      maxWidth: 1200,
-      imageQuality: 88,
-    );
-    if (file == null || !mounted) return;
-
-    setState(() => _avatarUploading = true);
-    try {
-      final bytes = await file.readAsBytes();
-      final ok = await store.uploadShopProfileImage(bytes);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok ? '프로필 사진이 업데이트되었어요' : '업로드에 실패했어요. 스토리지 권한을 확인해 주세요.',
-          ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('사진 업로드 오류: $e'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _avatarUploading = false);
-    }
   }
 
   Future<void> _openCreateSheet() async {
@@ -444,12 +401,13 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final session = store.session;
     final shopName =
         shop.name.trim().isEmpty ? 'Sori 에스테틱' : shop.name.trim();
-    final reviewCount =
-        store.reviews.where(DirectorPeriodStats.isCompletedReview).length;
     final cases = _baCases;
     final report = AiShopReportMock.demo();
     final isOwner = session?.activeMode == UserRole.director;
     final coverUrl = (shop.profileImageUrl ?? '').trim();
+    final regularCount = store.customers.isNotEmpty
+        ? store.customers.length
+        : shop.followerCount;
 
     return ColoredBox(
       color: SoriTokens.background,
@@ -457,7 +415,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 320,
+              expandedHeight: 360,
               pinned: true,
               stretch: true,
               elevation: 0,
@@ -481,9 +439,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 background: _ShopHeroCover(
                   shopName: shopName,
                   coverUrl: coverUrl,
+                  regularCount: regularCount,
                   isOwner: isOwner,
-                  coverUploading: _avatarUploading,
-                  onCoverPick: isOwner ? _pickAndUploadAvatar : null,
                   onCta: () {
                     if (isOwner) {
                       Navigator.of(context).push(
@@ -552,9 +509,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
               store: store,
               shop: shop,
               bio: _bio,
-              reviewCount: reviewCount,
-              chartCount: store.charts.length,
-              onSelectCustomers: () => onSelectTab?.call(1),
               onOpenClass: _openClass,
               onOpenAi: () {
                 Navigator.of(context).push(
@@ -578,23 +532,21 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   }
 }
 
-/// 풀블리드 샵 간판 + 그라데이션 오버레이.
+/// 풀블리드 샵 간판 + 하단 다크 그라데이션 (Weverse 시네마틱).
 class _ShopHeroCover extends StatelessWidget {
   const _ShopHeroCover({
     required this.shopName,
     required this.coverUrl,
+    required this.regularCount,
     required this.isOwner,
     required this.onCta,
-    this.onCoverPick,
-    this.coverUploading = false,
   });
 
   final String shopName;
   final String coverUrl;
+  final int regularCount;
   final bool isOwner;
   final VoidCallback onCta;
-  final VoidCallback? onCoverPick;
-  final bool coverUploading;
 
   static const _fallbackCover =
       'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80';
@@ -605,6 +557,9 @@ class _ShopHeroCover extends StatelessWidget {
             (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))
         ? coverUrl
         : _fallbackCover;
+    final metric = regularCount > 0
+        ? '$regularCount명의 단골 고객'
+        : '단골과 함께하는 케어';
 
     return Stack(
       fit: StackFit.expand,
@@ -612,6 +567,7 @@ class _ShopHeroCover extends StatelessWidget {
         Image.network(
           src,
           fit: BoxFit.cover,
+          alignment: Alignment.center,
           errorBuilder: (_, _, _) => const ColoredBox(
             color: Color(0xFF1A1028),
             child: Center(
@@ -623,151 +579,81 @@ class _ShopHeroCover extends StatelessWidget {
             ),
           ),
         ),
-        // 상단 약한 딤
+        // 하단만 투명 → #0A0A0C 페이드 (블러 없음)
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
-              end: Alignment.center,
+              end: Alignment.bottomCenter,
               colors: [
-                Color(0x33000000),
                 Colors.transparent,
+                Colors.transparent,
+                Color(0x990A0A0C),
+                Color(0xFF0A0A0C),
               ],
+              stops: [0.0, 0.42, 0.72, 1.0],
             ),
           ),
         ),
-        // 하단 Weverse형 글래스 블러 페이드
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                height: 168,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.35),
-                      const Color(0xE60A0A0C),
-                    ],
-                    stops: const [0.0, 0.35, 1.0],
+        SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    metric,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.78),
+                      letterSpacing: 0.2,
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 20,
-          right: isOwner ? 72 : 20,
-          bottom: 28,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                shopName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1.15,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 42,
-                child: isOwner
-                    ? OutlinedButton(
-                        onPressed: onCta,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            width: 1.2,
-                          ),
-                          backgroundColor:
-                              Colors.white.withValues(alpha: 0.10),
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          shape: const StadiumBorder(),
-                        ),
-                        child: const Text(
-                          '프로필 편집',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      )
-                    : FilledButton(
-                        onPressed: onCta,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: SoriTokens.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                        ),
-                        child: const Text(
-                          '예약하기',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
+                  const SizedBox(height: 8),
+                  Text(
+                    shopName,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.12,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed: onCta,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0A0A0C),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 12,
                       ),
-              ),
-            ],
-          ),
-        ),
-        if (isOwner && onCoverPick != null)
-          Positioned(
-            right: 16,
-            bottom: 28,
-            child: ClipOval(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  shape: const CircleBorder(
-                    side: BorderSide(color: Color(0x66FFFFFF)),
-                  ),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: coverUploading ? null : onCoverPick,
-                    child: SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Center(
-                        child: coverUploading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.photo_camera,
-                                size: 20,
-                                color: Colors.white,
-                              ),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: Text(
+                      isOwner ? '프로필 관리' : '예약하기',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14.5,
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -830,9 +716,6 @@ class _HomeTabBody extends StatelessWidget {
     required this.store,
     required this.shop,
     required this.bio,
-    required this.reviewCount,
-    required this.chartCount,
-    required this.onSelectCustomers,
     required this.onOpenClass,
     required this.onOpenAi,
   });
@@ -840,9 +723,6 @@ class _HomeTabBody extends StatelessWidget {
   final SoriStore store;
   final Shop shop;
   final String bio;
-  final int reviewCount;
-  final int chartCount;
-  final VoidCallback onSelectCustomers;
   final VoidCallback onOpenClass;
   final VoidCallback onOpenAi;
 
@@ -884,32 +764,6 @@ class _HomeTabBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
-        _SquircleCard(
-          child: Row(
-            children: [
-              Expanded(
-                child: _ProfileStat(
-                  value: '$reviewCount',
-                  label: '소통 리뷰',
-                ),
-              ),
-              Expanded(
-                child: _ProfileStat(
-                  value: '${store.customers.length}',
-                  label: '등록 고객',
-                  onTap: onSelectCustomers,
-                ),
-              ),
-              Expanded(
-                child: _ProfileStat(
-                  value: '$chartCount',
-                  label: '차트 작성',
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
         // 모듈 1 — 원장 소개
         _SquircleCard(
           child: Row(
@@ -2425,52 +2279,6 @@ class _QuickDashCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({
-    required this.value,
-    required this.label,
-    this.onTap,
-  });
-
-  final String value;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: SoriTokens.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-    if (onTap == null) return child;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: child,
       ),
     );
   }
