@@ -13,7 +13,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/sori_logo.dart';
 
-/// 원장·고객 공통 통합 커뮤니티 홈 피드.
+/// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
 class UnifiedHomeFeedPage extends StatefulWidget {
   const UnifiedHomeFeedPage({
     super.key,
@@ -33,7 +33,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   final _bookmarked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_FeedComment>>{};
-  int _visibleCount = 10;
 
   SoriStore get store => widget.store;
 
@@ -95,7 +94,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -209,7 +208,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -231,16 +230,17 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: SoriTokens.border,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
               CircleAvatar(
                 radius: 36,
                 backgroundColor: SoriTokens.primarySoft,
-                backgroundImage: avatar.isNotEmpty && !avatar.startsWith('data:')
-                    ? NetworkImage(avatar)
-                    : null,
+                backgroundImage:
+                    avatar.isNotEmpty && !avatar.startsWith('data:')
+                        ? NetworkImage(avatar)
+                        : null,
                 child: avatar.isEmpty || avatar.startsWith('data:')
                     ? const Padding(
                         padding: EdgeInsets.all(10),
@@ -254,14 +254,15 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
+                  color: SoriTokens.textPrimary,
                 ),
               ),
               if ((shop.ownerName ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
                   '원장 ${shop.ownerName}',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
+                  style: const TextStyle(
+                    color: SoriTokens.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -271,7 +272,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                 Text(
                   bio,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(height: 1.4, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                    color: SoriTokens.textPrimary,
+                  ),
                 ),
               ],
               const SizedBox(height: 16),
@@ -293,147 +298,444 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     );
   }
 
+  Widget _feedCard(CommunityCaseItem item, int index) {
+    final id = item.chart.id;
+    final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
+    final comments = _comments[id] ?? const <_FeedComment>[];
+    return HomeFeedCard(
+      item: item,
+      currentUserId: store.session?.id,
+      review: item.review ?? store.reviewForChart(item.chart.id),
+      liked: _liked.contains(id),
+      likeCount: likes,
+      commentCount: comments.length,
+      bookmarked: _bookmarked.contains(id),
+      onLike: () => _toggleLike(id),
+      onComment: () => _openComments(item.chart),
+      onBookmark: () => _toggleBookmark(id),
+      onOpenDetail: () => _openCaseDetail(item, index),
+      onSeminarRequest: () => _requestSeminar(item),
+      onBookingCta: () => _openNaverBookingOrProfile(item.shop),
+      onShopProfile: () => _openShopProfile(item.shop),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final feed = _feed;
-    final shown = feed.take(_visibleCount).toList();
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
-    return ColoredBox(
-      color: SoriTokens.background,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 스크롤 뷰 밖 고정 헤더 — 높이 제약으로 증발 방지
-            const Material(
-              color: SoriTokens.background,
-              child: _HomeInsightStrip(),
-            ),
-            Expanded(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (n) {
-                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
-                    if (_visibleCount < feed.length) {
-                      setState(() {
-                        _visibleCount =
-                            (_visibleCount + 8).clamp(0, feed.length);
-                      });
-                    }
-                  }
-                  return false;
-                },
-                child: CustomScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  slivers: [
-                    if (loading)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: SoriTokens.primary,
-                          ),
-                        ),
-                      )
-                    else if (shown.isEmpty)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(28),
-                            child: Text(
-                              '아직 공유된 B/A 피드가 없어요.\n곧 다양한 후기와 케이스가 올라올 예정이에요.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: SoriTokens.textSecondary,
-                                fontWeight: FontWeight.w600,
-                                height: 1.45,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(0, 16, 0, 110),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final item = shown[index];
-                              final id = item.chart.id;
-                              final likes = _likeCounts[id] ??
-                                  (5 + id.hashCode.abs() % 48);
-                              final comments =
-                                  _comments[id] ?? const <_FeedComment>[];
-                              return HomeFeedCard(
-                                item: item,
-                                currentUserId: store.session?.id,
-                                review: item.review ??
-                                    store.reviewForChart(item.chart.id),
-                                liked: _liked.contains(id),
-                                likeCount: likes,
-                                commentCount: comments.length,
-                                bookmarked: _bookmarked.contains(id),
-                                onLike: () => _toggleLike(id),
-                                onComment: () => _openComments(item.chart),
-                                onBookmark: () => _toggleBookmark(id),
-                                onOpenDetail: () =>
-                                    _openCaseDetail(item, index),
-                                onSeminarRequest: () => _requestSeminar(item),
-                                onBookingCta: () =>
-                                    _openNaverBookingOrProfile(item.shop),
-                                onShopProfile: () =>
-                                    _openShopProfile(item.shop),
-                              );
-                            },
-                            childCount: shown.length,
-                            addAutomaticKeepAlives: false,
-                            addRepaintBoundaries: true,
-                          ),
-                        ),
-                      ),
+    return DefaultTabController(
+      length: 4,
+      child: ColoredBox(
+        color: SoriTokens.background,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Material(
+                color: SoriTokens.background,
+                child: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: SoriTokens.textSecondary,
+                  labelStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  indicatorColor: Colors.white,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  indicatorWeight: 2.5,
+                  dividerColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                  tabs: const [
+                    Tab(text: '추천'),
+                    Tab(text: '최신 임상'),
+                    Tab(text: '세미나'),
+                    Tab(text: '우리 지역'),
                   ],
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _RecommendFeedTab(
+                      feed: feed,
+                      loading: loading,
+                      buildCard: _feedCard,
+                    ),
+                    _SimpleFeedTab(
+                      title: '최신 임상',
+                      subtitle: '최근에 공유된 B/A 케이스를 모아봤어요.',
+                      feed: feed,
+                      loading: loading,
+                      buildCard: _feedCard,
+                    ),
+                    _SimpleFeedTab(
+                      title: '세미나',
+                      subtitle: '교육·클래스와 연결된 케이스를 살펴보세요.',
+                      feed: feed,
+                      loading: loading,
+                      buildCard: _feedCard,
+                    ),
+                    _SimpleFeedTab(
+                      title: '우리 지역',
+                      subtitle: '내 주변 샵의 관리 사례를 탐색해요.',
+                      feed: feed,
+                      loading: loading,
+                      buildCard: _feedCard,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// 홈 최상단 — AI 브리핑 + 명예의 전당 가로 스크롤.
-class _HomeInsightStrip extends StatelessWidget {
-  const _HomeInsightStrip();
+/// 추천 탭 — 히어로 + 탑 에듀케이터 + B/A 세로 피드.
+class _RecommendFeedTab extends StatefulWidget {
+  const _RecommendFeedTab({
+    required this.feed,
+    required this.loading,
+    required this.buildCard,
+  });
 
-  static const _hallOfFame = <({String name, String initial, int rank})>[
-    (name: '김서연 원장', initial: '김', rank: 1),
-    (name: '박지훈 원장', initial: '박', rank: 2),
-    (name: '이하늘 원장', initial: '이', rank: 3),
-    (name: '최민정 원장', initial: '최', rank: 4),
-    (name: '정우성 원장', initial: '정', rank: 5),
+  final List<CommunityCaseItem> feed;
+  final bool loading;
+  final Widget Function(CommunityCaseItem item, int index) buildCard;
+
+  @override
+  State<_RecommendFeedTab> createState() => _RecommendFeedTabState();
+}
+
+class _RecommendFeedTabState extends State<_RecommendFeedTab>
+    with AutomaticKeepAliveClientMixin {
+  int _visibleCount = 10;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final shown = widget.feed.take(_visibleCount).toList();
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.axis != Axis.vertical) return false;
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
+          if (_visibleCount < widget.feed.length) {
+            setState(() {
+              _visibleCount = (_visibleCount + 8).clamp(0, widget.feed.length);
+            });
+          }
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          const SliverToBoxAdapter(child: _HomeHeroCarousel()),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          const SliverToBoxAdapter(child: _TopEducatorsStrip()),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                '오늘의 B/A',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: SoriTokens.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          if (widget.loading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: CircularProgressIndicator(color: SoriTokens.primary),
+              ),
+            )
+          else if (shown.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(28),
+                  child: Text(
+                    '아직 공유된 B/A 피드가 없어요.\n곧 다양한 후기와 케이스가 올라올 예정이에요.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => widget.buildCard(shown[index], index),
+                  childCount: shown.length,
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 최신 임상 / 세미나 / 우리 지역 — KeepAlive 세로 피드.
+class _SimpleFeedTab extends StatefulWidget {
+  const _SimpleFeedTab({
+    required this.title,
+    required this.subtitle,
+    required this.feed,
+    required this.loading,
+    required this.buildCard,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<CommunityCaseItem> feed;
+  final bool loading;
+  final Widget Function(CommunityCaseItem item, int index) buildCard;
+
+  @override
+  State<_SimpleFeedTab> createState() => _SimpleFeedTabState();
+}
+
+class _SimpleFeedTabState extends State<_SimpleFeedTab>
+    with AutomaticKeepAliveClientMixin {
+  int _visibleCount = 10;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final shown = widget.feed.take(_visibleCount).toList();
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.axis != Axis.vertical) return false;
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
+          if (_visibleCount < widget.feed.length) {
+            setState(() {
+              _visibleCount = (_visibleCount + 8).clamp(0, widget.feed.length);
+            });
+          }
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: SoriTokens.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (widget.loading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: CircularProgressIndicator(color: SoriTokens.primary),
+              ),
+            )
+          else if (shown.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(28),
+                  child: Text(
+                    '아직 공유된 B/A 피드가 없어요.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => widget.buildCard(shown[index], index),
+                  childCount: shown.length,
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 몰입형 히어로 캐러셀 — viewportFraction 0.92.
+class _HomeHeroCarousel extends StatefulWidget {
+  const _HomeHeroCarousel();
+
+  @override
+  State<_HomeHeroCarousel> createState() => _HomeHeroCarouselState();
+}
+
+class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
+  late final PageController _pageController;
+
+  static const _banners = <({
+    String eyebrow,
+    String title,
+    String subtitle,
+    List<Color> colors,
+  })>[
+    (
+      eyebrow: 'SORI SPOT',
+      title: '이번 주 하이라이트 임상',
+      subtitle: '장벽·민감 케어 B/A를 한눈에',
+      colors: [Color(0xFF1E1B4B), Color(0xFF4C1D95), Color(0xFF0A0A0C)],
+    ),
+    (
+      eyebrow: 'SEMINAR',
+      title: '에듀케이터 클래스 오픈',
+      subtitle: '현장 노하우를 세미나로 연결하세요',
+      colors: [Color(0xFF0F172A), Color(0xFF1E3A5F), Color(0xFF0A0A0C)],
+    ),
+    (
+      eyebrow: 'LOCAL',
+      title: '우리 지역 인기 샵',
+      subtitle: '가까운 원장님의 관리 사례를 탐색',
+      colors: [Color(0xFF14532D), Color(0xFF064E3B), Color(0xFF0A0A0C)],
+    ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.92);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 112,
-      width: double.infinity,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-        itemCount: 1 + _hallOfFame.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
+      height: 280,
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: _banners.length,
         itemBuilder: (context, index) {
-          if (index == 0) return const _AiBriefingCard();
-          final e = _hallOfFame[index - 1];
-          return _HallOfFameAvatar(
-            name: e.name,
-            initial: e.initial,
-            rank: e.rank,
+          final b = _banners[index];
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: b.colors,
+                ),
+                border: Border.all(color: SoriTokens.outlinePurple, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    b.eyebrow,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    b.title,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    b.subtitle,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.78),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -441,101 +743,94 @@ class _HomeInsightStrip extends StatelessWidget {
   }
 }
 
-class _AiBriefingCard extends StatelessWidget {
-  const _AiBriefingCard();
+/// 탑 에듀케이터 — 고정 높이 가로 스크롤 (제스처 독립).
+class _TopEducatorsStrip extends StatelessWidget {
+  const _TopEducatorsStrip();
+
+  static const _educators = <({String name, String initial, String meta})>[
+    (name: '김서연 원장', initial: '김', meta: '장벽·민감'),
+    (name: '박지훈 원장', initial: '박', meta: '리프팅'),
+    (name: '이하늘 원장', initial: '이', meta: '여드름'),
+    (name: '최민정 원장', initial: '최', meta: '웨딩케어'),
+    (name: '정우성 원장', initial: '정', meta: '체형'),
+    (name: '한소희 원장', initial: '한', meta: '홍조'),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      height: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: SoriTokens.card(radius: 20),
-      alignment: Alignment.centerLeft,
-      child: const Text(
-        '✨ 원장님, 작성 대기 중인 임시 차트가 2건 있습니다. 완성하고 프로 뱃지를 획득하세요!',
-        style: TextStyle(
-          fontSize: 13,
-          height: 1.35,
-          fontWeight: FontWeight.w700,
-          color: SoriTokens.textPrimary,
-        ),
-      ),
-    );
-  }
-}
-
-class _HallOfFameAvatar extends StatelessWidget {
-  const _HallOfFameAvatar({
-    required this.name,
-    required this.initial,
-    required this.rank,
-  });
-
-  final String name;
-  final String initial;
-  final int rank;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 76,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      decoration: SoriTokens.card(radius: 20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: CircleAvatar(
-                    backgroundColor: SoriTokens.primarySoft,
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: Color(0xFFC4B5FD),
-                      ),
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  top: -6,
-                  right: -4,
-                  child: Text('👑', style: TextStyle(fontSize: 14)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$rank위',
-            style: const TextStyle(
-              fontSize: 11,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Text(
+            '탑 에듀케이터',
+            style: TextStyle(
+              fontSize: 17,
               fontWeight: FontWeight.w800,
               color: SoriTokens.textPrimary,
-              height: 1.1,
             ),
           ),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: SoriTokens.textSecondary,
-              height: 1.1,
+        ),
+        SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _educators.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final e = _educators[index];
+              return SizedBox(
+                width: 88,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: SoriTokens.primarySoft,
+                      child: Text(
+                        e.initial,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          color: Color(0xFFC4B5FD),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      e.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      e.meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w500,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -596,7 +891,7 @@ class _FeedCommentSheetState extends State<_FeedCommentSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: SoriTokens.border,
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -606,16 +901,20 @@ class _FeedCommentSheetState extends State<_FeedCommentSheet> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '댓글',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
                 ),
               ),
             ),
             Expanded(
               child: widget.comments.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Text(
                         '첫 댓글을 남겨 보세요',
-                        style: TextStyle(color: Colors.grey[500]),
+                        style: TextStyle(color: SoriTokens.textSecondary),
                       ),
                     )
                   : ListView.builder(
@@ -627,6 +926,9 @@ class _FeedCommentSheetState extends State<_FeedCommentSheet> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Text.rich(
                             TextSpan(
+                              style: const TextStyle(
+                                color: SoriTokens.textPrimary,
+                              ),
                               children: [
                                 TextSpan(
                                   text: c.isDirector
@@ -644,7 +946,7 @@ class _FeedCommentSheetState extends State<_FeedCommentSheet> {
                       },
                     ),
             ),
-            const Divider(height: 1),
+            const Divider(height: 1, color: SoriTokens.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
@@ -652,10 +954,13 @@ class _FeedCommentSheetState extends State<_FeedCommentSheet> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
+                      style: const TextStyle(color: SoriTokens.textPrimary),
                       decoration: InputDecoration(
                         hintText: '댓글 입력',
+                        hintStyle:
+                            const TextStyle(color: SoriTokens.textSecondary),
                         filled: true,
-                        fillColor: const Color(0xFFF5F6F8),
+                        fillColor: SoriTokens.background,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
