@@ -922,8 +922,9 @@ class SoriStore implements Listenable {
     return session!;
   }
 
-  void toggleActiveMode() {
-    if (session == null || !session!.canToggleMode) return;
+  void toggleActiveMode({bool force = false}) {
+    if (session == null) return;
+    if (!force && !session!.canToggleMode) return;
     final next = session!.activeMode == UserRole.director
         ? UserRole.customer
         : UserRole.director;
