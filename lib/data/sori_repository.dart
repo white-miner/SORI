@@ -48,6 +48,19 @@ class SoriSnapshot {
   final Set<String> reviewRequestedCustomerIds;
 }
 
+/// 고객 일괄 삭제 결과.
+class BulkDeleteResult {
+  const BulkDeleteResult({
+    required this.deletedIds,
+    this.failedIds = const [],
+  });
+
+  final List<String> deletedIds;
+  final List<String> failedIds;
+
+  bool get hasFailures => failedIds.isNotEmpty;
+}
+
 /// 차트 저장 + 방문 확인 요청 페이로드.
 class SaveChartRequest {
   const SaveChartRequest({
@@ -167,6 +180,10 @@ abstract class SoriRepository {
     required String phone,
     String memo = '',
   });
+
+  /// 고객 일괄 삭제. CASCADE/FK에 따라 차트·리뷰도 함께 제거되는 환경 전제.
+  /// 부분 실패 시 [BulkDeleteResult.failedIds]에 남긴다.
+  Future<BulkDeleteResult> bulkDeleteCustomers(List<String> customerIds);
 
   Future<Shop> upsertShop(Shop shop);
 

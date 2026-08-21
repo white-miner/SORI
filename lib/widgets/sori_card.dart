@@ -8,12 +8,14 @@ class SoriCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.onTap,
+    this.onLongPress,
     this.margin,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final EdgeInsetsGeometry? margin;
 
   @override
@@ -24,11 +26,12 @@ class SoriCard extends StatelessWidget {
       decoration: SoriTokens.card(),
       child: child,
     );
-    if (onTap == null) return content;
+    if (onTap == null && onLongPress == null) return content;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(SoriTokens.radiusLg),
         child: content,
       ),

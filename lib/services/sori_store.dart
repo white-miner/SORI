@@ -2434,6 +2434,50 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// 고객 일괄 삭제 — 원격 성공 ID만 로컬 customers/charts/reviews에서 purge.
+  Future<BulkDeleteResult> bulkDeleteCustomers(List<String> customerIds) async {
+    final ids = customerIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) {
+      return const BulkDeleteResult(deletedIds: [], failedIds: []);
+    }
+    if (ids.length > 50) {
+      throw ArgumentError('한 번에 최대 50명까지 삭제할 수 있습니다.');
+    }
+
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      final BulkDeleteResult result;
+      if (_repository.isRemote) {
+        result = await _repository.bulkDeleteCustomers(ids);
+      } else {
+        result = BulkDeleteResult(deletedIds: ids);
+      }
+      _purgeCustomersLocally(result.deletedIds);
+      return result;
+    } catch (e) {
+      _setError(e, userFacing: true);
+      rethrow;
+    } finally {
+      isLoading = false;
+      _notify();
+    }
+  }
+
+  void _purgeCustomersLocally(List<String> deletedIds) {
+    if (deletedIds.isEmpty) return;
+    final idSet = deletedIds.toSet();
+    customers.removeWhere((c) => idSet.contains(c.id));
+    charts.removeWhere((c) => idSet.contains(c.customerId));
+    reviews.removeWhere((r) => idSet.contains(r.customerId));
+    reviewRequestedCustomerIds.removeWhere(idSet.contains);
+  }
+
   /// 차트 없이 고객 회원권만 저장 (CRM 퀵 액션 / 바텀 시트).
   Future<Customer> saveCustomerMemberships({
     required String customerId,

@@ -8,12 +8,13 @@ import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
 import '../widgets/today_care_schedule_panel.dart';
 import 'add_customer_sheet.dart';
-import 'chart_customer_picker_sheet.dart';
 import 'request_customer_review.dart';
 
 enum _CustomerSort { recentVisit, nameAsc, chartNo, dormantDaysDesc }
 
-/// 원장 모드 [고객] 탭 — CRM 대시보드 (초성검색·정렬).
+enum CrmListMode { browse, selecting }
+
+/// 원장 모드 [고객] 탭 — CRM 대시보드 (초성검색·정렬·다중선택).
 class DirectorCustomersTab extends StatefulWidget {
   const DirectorCustomersTab({super.key, required this.store});
 
@@ -28,22 +29,23 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   final _scrollController = ScrollController();
   String _query = '';
   _CustomerSort _sort = _CustomerSort.recentVisit;
-  bool _fabVisible = true;
-  double _lastScrollOffset = 0;
+  CrmListMode _mode = CrmListMode.browse;
+  final Set<String> _selectedIds = {};
+  bool _deleting = false;
 
   static const _dormantDays = 90;
+
+  bool get _isSelecting => _mode == CrmListMode.selecting;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     widget.store.addListener(_onStore);
   }
 
   @override
   void dispose() {
     widget.store.removeListener(_onStore);
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -53,15 +55,93 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
     if (mounted) setState(() {});
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final offset = _scrollController.offset;
-    final delta = offset - _lastScrollOffset;
-    _lastScrollOffset = offset;
-    if (delta > 6 && _fabVisible) {
-      setState(() => _fabVisible = false);
-    } else if (delta < -6 && !_fabVisible) {
-      setState(() => _fabVisible = true);
+  void _enterSelecting({String? seedId}) {
+    setState(() {
+      _mode = CrmListMode.selecting;
+      _selectedIds.clear();
+      if (seedId != null && seedId.isNotEmpty) {
+        _selectedIds.add(seedId);
+      }
+    });
+  }
+
+  void _exitSelecting() {
+    setState(() {
+      _mode = CrmListMode.browse;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (!_selectedIds.remove(id)) {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _selectAll(List<Customer> list) {
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(list.map((c) => c.id));
+    });
+  }
+
+  Future<void> _bulkDelete() async {
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty || _deleting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SoriTokens.surface,
+        title: const Text('고객 일괄 삭제'),
+        content: Text(
+          '선택한 ${ids.length}명의 고객과 연결된 차트·리뷰가 함께 삭제될 수 있습니다.\n이 작업은 되돌릴 수 없습니다.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      final result = await widget.store.bulkDeleteCustomers(ids);
+      if (!mounted) return;
+      _exitSelecting();
+      final msg = result.hasFailures
+          ? '${result.deletedIds.length}명 삭제 · ${result.failedIds.length}명 실패'
+          : '${result.deletedIds.length}명 고객을 삭제했습니다';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor:
+              result.hasFailures ? Colors.orangeAccent : SoriTokens.primary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('삭제 실패: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -192,120 +272,123 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
     final isEmptyDb = all.isEmpty;
     final list = _sortedList();
 
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(
-          bottom: 85 + bottomInset,
-          right: 8,
-        ),
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeInOut,
-          offset: _fabVisible ? Offset.zero : const Offset(0, 1.4),
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: _fabVisible ? 1 : 0,
-            child: IgnorePointer(
-              ignoring: !_fabVisible,
-              child: FloatingActionButton.extended(
-                onPressed: () => showChartCustomerPickerSheet(
-                  context,
-                  store: widget.store,
-                ),
-                backgroundColor: SoriTokens.primary,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                icon: const Icon(Icons.edit_note_rounded),
-                label: const Text(
-                  '차트 작성',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TodayCareSchedulePanel(store: widget.store),
+            if (!_isSelecting) TodayCareSchedulePanel(store: widget.store),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
               child: Row(
                 children: [
-                  const Spacer(),
-                  if (!isEmptyDb)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: Text(
-                        '${all.length}명',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: SoriTokens.textSecondary,
-                        ),
+                  if (_isSelecting) ...[
+                    Text(
+                      '${_selectedIds.length}명 선택',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
-                  IconButton(
-                    tooltip: '정렬',
-                    onPressed: isEmptyDb ? null : _pickSort,
-                    icon: const Icon(Icons.filter_list_rounded),
-                    color: SoriTokens.primary,
-                  ),
-                  IconButton(
-                    tooltip: '고객 추가',
-                    onPressed: _addCustomer,
-                    icon: const Icon(Icons.person_add_alt_1_rounded),
-                    color: SoriTokens.primary,
-                  ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: list.isEmpty ? null : () => _selectAll(list),
+                      child: const Text('전체'),
+                    ),
+                    TextButton(
+                      onPressed: _deleting ? null : _exitSelecting,
+                      child: const Text('취소'),
+                    ),
+                    FilledButton(
+                      onPressed: _deleting || _selectedIds.isEmpty
+                          ? null
+                          : _bulkDelete,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      child: Text(_deleting ? '삭제 중…' : '삭제'),
+                    ),
+                  ] else ...[
+                    const Spacer(),
+                    if (!isEmptyDb)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Text(
+                          '${all.length}명',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: '편집',
+                      onPressed: isEmptyDb ? null : () => _enterSelecting(),
+                      icon: const Icon(Icons.checklist_rtl_rounded),
+                      color: SoriTokens.primary,
+                    ),
+                    IconButton(
+                      tooltip: '정렬',
+                      onPressed: isEmptyDb ? null : _pickSort,
+                      icon: const Icon(Icons.filter_list_rounded),
+                      color: SoriTokens.primary,
+                    ),
+                    IconButton(
+                      tooltip: '고객 추가',
+                      onPressed: _addCustomer,
+                      icon: const Icon(Icons.person_add_alt_1_rounded),
+                      color: SoriTokens.primary,
+                    ),
+                  ],
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _query = v),
-                enabled: !isEmptyDb,
-                style: const TextStyle(color: SoriTokens.textPrimary),
-                decoration: InputDecoration(
-                  hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
-                  hintStyle: const TextStyle(color: SoriTokens.textSecondary),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: SoriTokens.textSecondary,
-                  ),
-                  filled: true,
-                  fillColor: SoriTokens.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: SoriTokens.outlinePurple,
-                      width: 1.2,
+            if (!_isSelecting)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _query = v),
+                  enabled: !isEmptyDb,
+                  style: const TextStyle(color: SoriTokens.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: '이름 · 초성(ㅎㄱㄷ) · 전화번호',
+                    hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: SoriTokens.textSecondary,
                     ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: SoriTokens.outlinePurple,
-                      width: 1.2,
+                    filled: true,
+                    fillColor: SoriTokens.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: SoriTokens.outlinePurple,
+                        width: 1.2,
+                      ),
                     ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: SoriTokens.primary,
-                      width: 1.2,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: SoriTokens.outlinePurple,
+                        width: 1.2,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: SoriTokens.primary,
+                        width: 1.2,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
             Expanded(
               child: isEmptyDb
                   ? _EmptyCustomersState(onAdd: _addCustomer)
@@ -317,10 +400,21 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                       lastVisitOf: _lastVisitOf,
                       daysSince: _daysSinceVisit,
                       showDormantHint:
-                          _sort == _CustomerSort.dormantDaysDesc,
+                          _sort == _CustomerSort.dormantDaysDesc &&
+                              !_isSelecting,
+                      selecting: _isSelecting,
+                      selectedIds: _selectedIds,
                       onAdd: _addCustomer,
                       onOpen: _openDetail,
                       onRequestReview: _requestReview,
+                      onToggleSelect: _toggleSelected,
+                      onLongPress: (c) {
+                        if (_isSelecting) {
+                          _toggleSelected(c.id);
+                        } else {
+                          _enterSelecting(seedId: c.id);
+                        }
+                      },
                     ),
             ),
           ],
@@ -339,9 +433,13 @@ class _CustomerListBody extends StatelessWidget {
     required this.lastVisitOf,
     required this.daysSince,
     required this.showDormantHint,
+    required this.selecting,
+    required this.selectedIds,
     required this.onAdd,
     required this.onOpen,
     required this.onRequestReview,
+    required this.onToggleSelect,
+    required this.onLongPress,
   });
 
   final List<Customer> list;
@@ -351,9 +449,13 @@ class _CustomerListBody extends StatelessWidget {
   final DateTime Function(Customer) lastVisitOf;
   final int Function(Customer) daysSince;
   final bool showDormantHint;
+  final bool selecting;
+  final Set<String> selectedIds;
   final VoidCallback onAdd;
   final ValueChanged<Customer> onOpen;
   final ValueChanged<Customer> onRequestReview;
+  final ValueChanged<String> onToggleSelect;
+  final ValueChanged<Customer> onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -387,7 +489,7 @@ class _CustomerListBody extends StatelessWidget {
         16,
         12,
         16,
-        120 + MediaQuery.paddingOf(context).bottom,
+        100 + MediaQuery.paddingOf(context).bottom,
       ),
       itemCount: list.length + (showDormantHint ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -415,6 +517,7 @@ class _CustomerListBody extends StatelessWidget {
         final remain = c.membershipRemainingVisits;
         final hasMembership = c.isMembershipCustomer;
         final ticketingUrgent = hasMembership && remain >= 1 && remain <= 2;
+        final selected = selectedIds.contains(c.id);
         return _DenseCustomerTile(
           name: c.name,
           phone: c.phone,
@@ -423,8 +526,17 @@ class _CustomerListBody extends StatelessWidget {
           remainLabel: hasMembership ? '잔여 $remain회' : '회원권 미등록',
           remainUrgent: ticketingUrgent,
           remainWarn: hasMembership && c.isMembershipLow && !ticketingUrgent,
-          onTap: () => onOpen(c),
-          onRequestReview: () => onRequestReview(c),
+          selecting: selecting,
+          selected: selected,
+          onTap: () {
+            if (selecting) {
+              onToggleSelect(c.id);
+            } else {
+              onOpen(c);
+            }
+          },
+          onLongPress: () => onLongPress(c),
+          onRequestReview: selecting ? null : () => onRequestReview(c),
         );
       },
     );
@@ -512,10 +624,13 @@ class _DenseCustomerTile extends StatelessWidget {
     required this.lastVisitLabel,
     required this.remainLabel,
     required this.onTap,
-    required this.onRequestReview,
+    required this.onLongPress,
+    this.onRequestReview,
     this.dormantDays = 0,
     this.remainUrgent = false,
     this.remainWarn = false,
+    this.selecting = false,
+    this.selected = false,
   });
 
   final String name;
@@ -525,8 +640,11 @@ class _DenseCustomerTile extends StatelessWidget {
   final String remainLabel;
   final bool remainUrgent;
   final bool remainWarn;
+  final bool selecting;
+  final bool selected;
   final VoidCallback onTap;
-  final VoidCallback onRequestReview;
+  final VoidCallback onLongPress;
+  final VoidCallback? onRequestReview;
 
   @override
   Widget build(BuildContext context) {
@@ -539,8 +657,17 @@ class _DenseCustomerTile extends StatelessWidget {
 
     return SoriCard(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Row(
         children: [
+          if (selecting) ...[
+            Checkbox(
+              value: selected,
+              onChanged: (_) => onTap(),
+              activeColor: SoriTokens.primary,
+            ),
+            const SizedBox(width: 4),
+          ],
           CircleAvatar(
             radius: 22,
             backgroundColor: SoriTokens.primarySoft,
@@ -605,47 +732,48 @@ class _DenseCustomerTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: remainUrgent
-                      ? Border.all(color: const Color(0xFF7F1D1D))
-                      : null,
-                ),
-                child: Text(
-                  remainLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: badgeFg,
+          if (!selecting)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: remainUrgent
+                        ? Border.all(color: const Color(0xFF7F1D1D))
+                        : null,
+                  ),
+                  child: Text(
+                    remainLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: badgeFg,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              TextButton(
-                onPressed: onRequestReview,
-                style: TextButton.styleFrom(
-                  foregroundColor: SoriTokens.primary,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  '후기 요청',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: onRequestReview,
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.primary,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    '후기 요청',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

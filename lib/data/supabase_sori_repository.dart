@@ -880,6 +880,56 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<BulkDeleteResult> bulkDeleteCustomers(List<String> customerIds) async {
+    final ids = customerIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) {
+      return const BulkDeleteResult(deletedIds: [], failedIds: []);
+    }
+
+    final deleted = <String>[];
+    final failed = <String>[];
+
+    // Batch attempt first (shop-scoped via RLS)
+    try {
+      await _db.from('customers').delete().inFilter('id', ids);
+      // Confirm remaining
+      final remaining = await _db
+          .from('customers')
+          .select('id')
+          .inFilter('id', ids);
+      final left = <String>{
+        for (final raw in remaining as List)
+          if (raw is Map) DbMap.asText(raw['id']),
+      }..removeWhere((e) => e.isEmpty);
+      for (final id in ids) {
+        if (left.contains(id)) {
+          failed.add(id);
+        } else {
+          deleted.add(id);
+        }
+      }
+      return BulkDeleteResult(deletedIds: deleted, failedIds: failed);
+    } catch (e, st) {
+      debugPrint('bulkDeleteCustomers batch failed, fallback per-id: $e\n$st');
+    }
+
+    for (final id in ids) {
+      try {
+        await _db.from('customers').delete().eq('id', id);
+        deleted.add(id);
+      } catch (e) {
+        debugPrint('bulkDeleteCustomers id=$id failed: $e');
+        failed.add(id);
+      }
+    }
+    return BulkDeleteResult(deletedIds: deleted, failedIds: failed);
+  }
+
+  @override
   Future<Shop> upsertShop(Shop shop) async {
     final basePayload = <String, dynamic>{
       'name': shop.name,

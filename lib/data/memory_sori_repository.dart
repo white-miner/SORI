@@ -386,6 +386,13 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   @override
+  Future<BulkDeleteResult> bulkDeleteCustomers(List<String> customerIds) async {
+    final ids =
+        customerIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    return BulkDeleteResult(deletedIds: ids);
+  }
+
+  @override
   Future<Shop> upsertShop(Shop shop) async => shop;
 
   @override

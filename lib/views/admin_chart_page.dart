@@ -7,6 +7,7 @@ import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/care_episode_group.dart';
 import '../widgets/case_review_inline.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
@@ -581,28 +582,47 @@ class _TimelineTab extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-      itemCount: timeline.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: 12),
-            child: Text(
-              '회차 차트',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    final episodes = groupChartsByCareName(timeline);
+    final rows = <Widget>[
+      const Padding(
+        padding: EdgeInsets.only(bottom: 4),
+        child: Text(
+          '시술별 회차',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    ];
+    for (final episode in episodes) {
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 14, bottom: 8),
+          child: Text(
+            '${episode.careLabel} · ${episode.visits.length}회',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
             ),
-          );
-        }
-        final chart = timeline[index - 1];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _VisitChartCard(
-            chart: chart,
-            onTap: () => onOpenChart(chart),
+          ),
+        ),
+      );
+      for (final chart in episode.visits) {
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _VisitChartCard(
+              chart: chart,
+              careLabel: episode.careLabel,
+              onTap: () => onOpenChart(chart),
+            ),
           ),
         );
-      },
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+      children: rows,
     );
   }
 }
@@ -611,15 +631,17 @@ class _VisitChartCard extends StatelessWidget {
   const _VisitChartCard({
     required this.chart,
     required this.onTap,
+    this.careLabel,
   });
 
   final CustomerChart chart;
   final VoidCallback onTap;
+  final String? careLabel;
 
   @override
   Widget build(BuildContext context) {
-    final care = chart.careName.isNotEmpty
-        ? chart.careName
+    final care = (careLabel ?? chart.careName).trim().isNotEmpty
+        ? (careLabel ?? chart.careName).trim()
         : (chart.treatmentSummary.isNotEmpty
             ? chart.treatmentSummary
             : '시술 기록');
@@ -661,7 +683,7 @@ class _VisitChartCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${chart.visitNumber}회차 · $care',
+                      '${chart.visitNumber}회차',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -672,7 +694,9 @@ class _VisitChartCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatChartDate(chart),
+                      '${_formatChartDate(chart)} · $care',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
@@ -996,97 +1020,110 @@ class _GalleryTab extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-      itemCount: withPhotos.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return const Text(
-            '회차 B/A',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          );
-        }
-        final chart = withPhotos[index - 1];
-        final care = chart.careName.isNotEmpty
-            ? chart.careName
-            : (chart.treatmentSummary.isNotEmpty
-                ? chart.treatmentSummary
-                : '시술 기록');
+    final episodes = groupChartsByCareName(withPhotos);
+    final rows = <Widget>[
+      const Text(
+        '시술별 B/A',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    ];
+    for (final episode in episodes) {
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Text(
+            '${episode.careLabel} · ${episode.visits.length}회',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      );
+      for (final chart in episode.visits) {
         final before = chart.beforeImageUrl?.trim() ?? '';
         final after = chart.afterImageUrl?.trim() ?? '';
-
-        return Material(
-          color: SoriTokens.surface,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => onOpenChart(chart),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Material(
+              color: SoriTokens.surface,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SoriTokens.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+                onTap: () => onOpenChart(chart),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: SoriTokens.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Text(
-                          '${chart.visitNumber}회차 · $care',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${chart.visitNumber}회차',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
-                        ),
+                          Text(
+                            _formatChartDate(chart),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: SoriTokens.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ],
                       ),
-                      Text(
-                        _formatChartDate(chart),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: SoriTokens.textSecondary,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 120,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _BaThumbTile(
+                                label: 'Before',
+                                url: before.isEmpty ? null : before,
+                                accent: MyApp.soriPurple,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _BaThumbTile(
+                                label: 'After',
+                                url: after.isEmpty ? null : after,
+                                accent: const Color(0xFF22C55E),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        color: SoriTokens.textSecondary,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 120,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _BaThumbTile(
-                            label: 'Before',
-                            url: before.isEmpty ? null : before,
-                            accent: MyApp.soriPurple,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _BaThumbTile(
-                            label: 'After',
-                            url: after.isEmpty ? null : after,
-                            accent: const Color(0xFF22C55E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         );
-      },
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+      children: rows,
     );
   }
 }
