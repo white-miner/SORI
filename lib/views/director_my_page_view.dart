@@ -11,7 +11,7 @@ import '../models/shop_service_item.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../utils/case_persona.dart';
+import '../utils/storage_image_url.dart';
 import '../widgets/debug_mode_chip.dart';
 import '../widgets/media_permission_dialogs.dart';
 import '../widgets/seminar_review_modal.dart';
@@ -419,7 +419,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 );
               },
             ),
-            _MyCasesHorizontalFeed(
+            _ServiceGroupedFeedTab(
               cases: cases,
               store: store,
               onOpenCasesTab: () => onSelectTab?.call(3),
@@ -1068,9 +1068,9 @@ class _ReviewTabBody extends StatelessWidget {
   }
 }
 
-/// Weverse형 3행 가로 스와이프 케이스 피드 — 고정 높이 카드로 TabBarView 제스처 분리.
-class _MyCasesHorizontalFeed extends StatelessWidget {
-  const _MyCasesHorizontalFeed({
+/// Feed 탭 — careName별 동적 가로 섹션 (Weverse 스타일).
+class _ServiceGroupedFeedTab extends StatefulWidget {
+  const _ServiceGroupedFeedTab({
     required this.cases,
     required this.store,
     required this.onOpenCasesTab,
@@ -1080,72 +1080,183 @@ class _MyCasesHorizontalFeed extends StatelessWidget {
   final SoriStore store;
   final VoidCallback onOpenCasesTab;
 
-  static const double _cardHeight = 320;
+  @override
+  State<_ServiceGroupedFeedTab> createState() => _ServiceGroupedFeedTabState();
+}
+
+class _ServiceGroupedFeedTabState extends State<_ServiceGroupedFeedTab> {
+  static const double _sectionCardHeight = 260;
+  static const double _cardWidth = 188;
+
+  /// careName → charts (빌드마다 재계산 최소화용 캐시)
+  Map<String, List<CustomerChart>> _grouped = const {};
+  List<String> _sectionOrder = const [];
+  List<CustomerChart>? _cachedSource;
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildGroups(widget.cases);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ServiceGroupedFeedTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.cases, widget.cases) &&
+        !_sameCaseIds(oldWidget.cases, widget.cases)) {
+      _rebuildGroups(widget.cases);
+    }
+  }
+
+  bool _sameCaseIds(List<CustomerChart> a, List<CustomerChart> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
+  }
+
+  void _rebuildGroups(List<CustomerChart> cases) {
+    _cachedSource = cases;
+    final map = <String, List<CustomerChart>>{};
+    for (final chart in cases) {
+      final key = chart.careName.trim().isEmpty ? '기타 케어' : chart.careName.trim();
+      (map[key] ??= <CustomerChart>[]).add(chart);
+    }
+    for (final list in map.values) {
+      list.sort((a, b) {
+        final ad = a.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
+      });
+    }
+
+    // serviceMenu 순서 우선, 그다음 게시물 수, 이름
+    final menuOrder = widget.store.shop.serviceNames;
+    final keys = map.keys.toList();
+    keys.sort((a, b) {
+      final ai = menuOrder.indexOf(a);
+      final bi = menuOrder.indexOf(b);
+      if (ai >= 0 && bi >= 0) return ai.compareTo(bi);
+      if (ai >= 0) return -1;
+      if (bi >= 0) return 1;
+      if (a == '기타 케어') return 1;
+      if (b == '기타 케어') return -1;
+      final ac = map[a]!.length;
+      final bc = map[b]!.length;
+      if (ac != bc) return bc.compareTo(ac);
+      return a.compareTo(b);
+    });
+
+    _grouped = map;
+    _sectionOrder = keys;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        height: _cardHeight,
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: SoriTokens.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: SoriTokens.outlinePurple,
-            width: 1,
+    if (!identical(_cachedSource, widget.cases) &&
+        !_sameCaseIds(_cachedSource ?? const [], widget.cases)) {
+      _rebuildGroups(widget.cases);
+    }
+
+    if (widget.cases.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 28),
+          child: Text(
+            '등록된 B/A 케이스를 준비 중입니다 ✨\n차트에 Before/After를 남기면 서비스별로 모여요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
           ),
         ),
-        child: cases.isEmpty
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    '등록된 B/A 케이스를 준비 중입니다 ✨\n차트에 Before/After를 남기면 여기에 모여요.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: SoriTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      height: 1.45,
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 120),
+      itemCount: _sectionOrder.length,
+      itemBuilder: (context, sectionIndex) {
+        final title = _sectionOrder[sectionIndex];
+        final items = _grouped[title] ?? const <CustomerChart>[];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              )
-            : NotificationListener<ScrollNotification>(
-                // 피드 내부 가로 스크롤이 TabBarView로 버블링되지 않게 흡수.
-                onNotification: (notification) => true,
-                child: GridView.builder(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.35,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                  ),
-                  itemCount: cases.length,
-                  itemBuilder: (context, index) {
-                    final chart = cases[index];
-                    return _WeverseCaseTile(
-                      chart: chart,
-                      store: store,
-                      onTap: onOpenCasesTab,
-                    );
-                  },
+                    TextButton(
+                      onPressed: widget.onOpenCasesTab,
+                      style: TextButton.styleFrom(
+                        foregroundColor: SoriTokens.textSecondary,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: const Text(
+                        '더보기 >',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-      ),
+              SizedBox(
+                height: _sectionCardHeight,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (_) => true,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) {
+                      return SizedBox(
+                        width: _cardWidth,
+                        child: _FeedBaPostCard(
+                          chart: items[i],
+                          store: widget.store,
+                          onTap: widget.onOpenCasesTab,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-class _WeverseCaseTile extends StatelessWidget {
-  const _WeverseCaseTile({
+class _FeedBaPostCard extends StatelessWidget {
+  const _FeedBaPostCard({
     required this.chart,
     required this.store,
     required this.onTap,
@@ -1157,95 +1268,145 @@ class _WeverseCaseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final after = chart.afterImageUrl?.trim() ?? '';
-    final before = chart.beforeImageUrl?.trim() ?? '';
-    final url = after.isNotEmpty ? after : before;
-    final care = chart.serviceMenuLabel;
-    final customer = store.findCustomer(chart.customerId);
-    final meta = CasePersona.feedLine(
-      chart: chart,
-      customer: customer,
-      age: chart.feedAge ?? chart.age,
-      genderLabel: chart.feedGenderLabel ?? chart.gender,
-    );
+    final after = StorageImageUrl.resolve(chart.afterImageUrl);
+    final before = StorageImageUrl.resolve(chart.beforeImageUrl);
+    final url = (after ?? before ?? '').trim();
+    final when = chart.relativeTimeLabel;
+    // 커뮤니티 감성용 스테이블 더미 카운트 (로컬 해시)
+    final likeSeed = chart.id.hashCode.abs();
+    final likes = 12 + (likeSeed % 240);
+    final comments = 2 + (likeSeed % 48);
 
     return Material(
-      color: Colors.transparent,
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 72,
-              height: 72,
-              child: ClipPath(
-                clipper: ShapeBorderClipper(
-                  shape: ContinuousRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                ),
-                child: ColoredBox(
-                  color: const Color(0xFF111113),
-                  child: url.isEmpty
-                      ? const Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            color: SoriTokens.textSecondary,
-                            size: 22,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: SoriTokens.outlinePurple),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColoredBox(
+                      color: const Color(0xFF111113),
+                      child: url.isEmpty
+                          ? const Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                color: SoriTokens.textSecondary,
+                                size: 36,
+                              ),
+                            )
+                          : Image.network(
+                              url,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.medium,
+                              errorBuilder: (_, _, _) => const Center(
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: SoriTokens.textSecondary,
+                                  size: 32,
+                                ),
+                              ),
+                            ),
+                    ),
+                    // 하단 가독성용 그라데이션
+                    const Align(
+                      alignment: Alignment.bottomCenter,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Color(0xCC18181B),
+                            ],
                           ),
-                        )
-                      : Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          filterQuality: FilterQuality.low,
-                          errorBuilder: (_, _, _) => const Center(
-                            child: Icon(
-                              Icons.broken_image_outlined,
-                              color: SoriTokens.textSecondary,
-                              size: 22,
+                        ),
+                        child: SizedBox(height: 72, width: double.infinity),
+                      ),
+                    ),
+                    if (before != null && after != null)
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: const Text(
+                            'B/A',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
                             ),
                           ),
                         ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    care,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: SoriTokens.textPrimary,
-                      height: 1.2,
-                    ),
-                  ),
-                  if (meta.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      meta,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      when.isEmpty ? '최근' : when,
                       style: const TextStyle(
                         fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         color: SoriTokens.textSecondary,
-                        height: 1.25,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Text('♡', style: TextStyle(fontSize: 13)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$likes',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('💬', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$comments',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
