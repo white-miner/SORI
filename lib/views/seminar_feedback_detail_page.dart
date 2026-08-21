@@ -62,13 +62,13 @@ class _SeminarFeedbackDetailPageState extends State<SeminarFeedbackDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           'AI 피드백 리포트',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
@@ -86,7 +86,7 @@ class _SeminarFeedbackDetailPageState extends State<SeminarFeedbackDetailPage> {
                       title: '핵심 강점',
                       body: _report!.aiSummaryStrength,
                       tint: const Color(0xFFEF4444),
-                      bg: const Color(0xFFFFF1F2),
+                      bg: const Color(0xFF2A1518),
                     ),
                     const SizedBox(height: 12),
                     _InsightInfographicCard(
@@ -94,7 +94,7 @@ class _SeminarFeedbackDetailPageState extends State<SeminarFeedbackDetailPage> {
                       title: '다음 기수 성장 팁',
                       body: _report!.aiSummaryImprovement,
                       tint: const Color(0xFF0EA5E9),
-                      bg: const Color(0xFFEFF6FF),
+                      bg: const Color(0xFF152033),
                     ),
                     const SizedBox(height: 12),
                     _PositiveCommentsCard(comments: _report!.positiveComments),
@@ -271,7 +271,7 @@ class _PositiveCommentsCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: SoriTokens.border,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: SoriTokens.border),
                   ),

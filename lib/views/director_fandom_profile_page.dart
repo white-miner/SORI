@@ -67,13 +67,13 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
     final cases = _cases;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '원장 팬덤 프로필',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
@@ -83,7 +83,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -103,7 +103,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                     gradient: const LinearGradient(
                       colors: [Color(0xFF8B7CFF), Color(0xFF4A3BCF)],
                     ),
-                    border: Border.all(color: Colors.white, width: 3),
+                    border: Border.all(color: SoriTokens.surface, width: 3),
                   ),
                   child: const Padding(
                     padding: EdgeInsets.all(18),
@@ -172,7 +172,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
@@ -208,7 +208,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFFEEECFB), Color(0xFFD9D2FF)],
+                        colors: [Color(0xFF2A2438), Color(0xFF1F1830)],
                       ),
                       border: Border.all(
                         color: SoriTokens.primary.withValues(alpha: 0.25),
@@ -261,7 +261,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: SoriTokens.surface,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   clipBehavior: Clip.antiAlias,

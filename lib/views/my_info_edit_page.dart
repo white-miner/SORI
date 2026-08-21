@@ -105,10 +105,10 @@ class _MyInfoEditPageState extends State<MyInfoEditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('프로필 관리'),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.background,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [
@@ -267,11 +267,12 @@ class _FieldCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SoriTokens.outlinePurple),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.28),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

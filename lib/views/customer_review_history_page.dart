@@ -25,7 +25,7 @@ class CustomerReviewHistoryPage extends StatelessWidget {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('내 소통 리뷰'),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

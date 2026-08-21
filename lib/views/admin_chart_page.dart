@@ -6,6 +6,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import '../widgets/case_review_inline.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
@@ -154,7 +155,7 @@ class _AdminChartPageState extends State<AdminChartPage>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -222,11 +223,11 @@ class _AdminChartPageState extends State<AdminChartPage>
     final galleryItems = _galleryItems(timeline);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: Text(customer.name),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
@@ -255,9 +256,9 @@ class _AdminChartPageState extends State<AdminChartPage>
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF1F2937),
-          unselectedLabelColor: const Color(0xFF9CA3AF),
-          indicatorColor: const Color(0xFF1F2937),
+          labelColor: SoriTokens.textPrimary,
+          unselectedLabelColor: SoriTokens.textSecondary,
+          indicatorColor: SoriTokens.primary,
           indicatorWeight: 2.5,
           tabs: const [
             Tab(text: '타임라인'),
@@ -374,14 +375,14 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: SoriTokens.surface,
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
@@ -403,14 +404,14 @@ class _Header extends StatelessWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFFEDE9FE), Color(0xFFFCE7F3)],
+                      colors: [Color(0xFF2A2438), Color(0xFF2A1F30)],
                     ),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     customer.name.characters.first,
                     style: const TextStyle(
-                      color: Color(0xFF4B5563),
+                      color: SoriTokens.textPrimary,
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
                     ),
@@ -501,7 +502,7 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '⚡ 1초 간편 차트',
                 subtitle: '신규 회차 작성',
                 icon: Icons.bolt_rounded,
-                iconColors: const [Color(0xFFA7F3D0), Color(0xFF6EE7B7)],
+                iconColors: const [Color(0xFF143528), Color(0xFF1A3D30)],
                 iconFg: const Color(0xFF047857),
                 onTap: onQuickChart,
               ),
@@ -512,7 +513,7 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '📋 차트 관리',
                 subtitle: '열람 · 수정',
                 icon: Icons.folder_open_rounded,
-                iconColors: const [Color(0xFFDDD6FE), Color(0xFFC4B5FD)],
+                iconColors: const [Color(0xFF2A2438), Color(0xFF2E2550)],
                 iconFg: const Color(0xFF5B21B6),
                 onTap: onChartManage,
               ),
@@ -527,7 +528,7 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '회원권 관리',
                 subtitle: '등록·수정',
                 icon: Icons.card_membership_rounded,
-                iconColors: const [Color(0xFFE9D5FF), Color(0xFFFBCFE8)],
+                iconColors: const [Color(0xFF3B2A55), Color(0xFF3A2540)],
                 iconFg: const Color(0xFF7C3AED),
                 onTap: onMembership,
               ),
@@ -538,8 +539,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: 'B/A 비교',
                 subtitle: '경과 보기',
                 icon: Icons.compare_rounded,
-                iconColors: const [Color(0xFFBFDBFE), Color(0xFFC7D2FE)],
-                iconFg: const Color(0xFF2563EB),
+                iconColors: const [Color(0xFF1E2A3A), Color(0xFF252A40)],
+                iconFg: const Color(0xFF60A5FA),
                 onTap: onBeforeAfter,
               ),
             ),
@@ -570,14 +571,14 @@ class _BentoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: SoriTokens.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
@@ -604,7 +605,7 @@ class _BentoCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827),
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -720,9 +721,9 @@ class _TimelineTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: SoriTokens.border),
             ),
             child: const Text('아직 작성된 차트가 없습니다. 새 차트를 작성해 주세요.'),
           ),
@@ -833,7 +834,7 @@ class _TimelineSummaryCard extends StatelessWidget {
         ),
       ),
       child: Material(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -846,7 +847,7 @@ class _TimelineSummaryCard extends StatelessWidget {
               border: Border.all(
                 color: expanded
                     ? MyApp.soriPurple.withValues(alpha: 0.45)
-                    : Colors.grey.shade200,
+                    : SoriTokens.border,
               ),
             ),
             child: Column(
@@ -873,7 +874,7 @@ class _TimelineSummaryCard extends StatelessWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
+                            color: SoriTokens.warningBg,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: const Text(
@@ -881,7 +882,7 @@ class _TimelineSummaryCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFB45309),
+                              color: SoriTokens.warningText,
                             ),
                           ),
                         ),
@@ -1188,9 +1189,9 @@ class _GalleryTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: SoriTokens.border),
             ),
             child: const Text(
               '누적된 Before/After 사진이 없습니다.\n차트 작성 시 사진을 첨부하면 여기에 모입니다.',
@@ -1215,9 +1216,9 @@ class _GalleryTab extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: SoriTokens.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: SoriTokens.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1227,8 +1228,8 @@ class _GalleryTab extends StatelessWidget {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: isBefore
-                        ? const Color(0xFFF3E8FF)
-                        : const Color(0xFFE8F5E9),
+                        ? const Color(0xFF2A2438)
+                        : const Color(0xFF15241A),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(

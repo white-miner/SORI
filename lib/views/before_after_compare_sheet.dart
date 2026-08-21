@@ -40,7 +40,7 @@ Future<void> showBeforeAfterCompareSheet({
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -124,7 +124,7 @@ class _BeforeAfterCompareSheetState extends State<_BeforeAfterCompareSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: SoriTokens.border,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -328,7 +328,7 @@ class _VisitPhotoPicker extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: Colors.grey.shade700,
+            color: SoriTokens.textSecondary,
           ),
         ),
         const SizedBox(height: 6),

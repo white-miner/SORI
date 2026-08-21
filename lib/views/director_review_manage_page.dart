@@ -746,7 +746,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: filled ? SoriTokens.primarySoft : const Color(0xFFF3F4F6),
+        color: filled ? SoriTokens.primarySoft : SoriTokens.border,
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(

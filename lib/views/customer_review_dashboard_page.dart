@@ -120,7 +120,7 @@ class _CustomerReviewDashboardPageState
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -139,7 +139,7 @@ class _CustomerReviewDashboardPageState
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: SoriTokens.border,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
@@ -167,7 +167,7 @@ class _CustomerReviewDashboardPageState
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
+                  color: SoriTokens.textSecondary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -188,7 +188,7 @@ class _CustomerReviewDashboardPageState
                     _openNaverPlace(shop);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C5CE7),
+                    backgroundColor: SoriTokens.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -218,7 +218,7 @@ class _CustomerReviewDashboardPageState
             title: Text(
               chart.careName.isNotEmpty ? '${chart.careName} 리뷰' : 'AI 리뷰 작성',
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: SoriTokens.surface,
             foregroundColor: SoriTokens.textPrimary,
             elevation: 0,
           ),
@@ -245,7 +245,7 @@ class _CustomerReviewDashboardPageState
       const SnackBar(
         content: Text('리뷰가 복사되었습니다. 네이버 플레이스로 이동합니다.'),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Color(0xFF6C5CE7),
+        backgroundColor: SoriTokens.primary,
       ),
     );
     await store.markNaverRegistered(chartId: review.chartId, composedText: text);
@@ -264,7 +264,7 @@ class _CustomerReviewDashboardPageState
     final hasShop = _hasChartHistory() || shop.name.trim().isNotEmpty;
 
     return ColoredBox(
-      color: const Color(0xFFF5F6F8),
+      color: SoriTokens.background,
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
@@ -275,6 +275,7 @@ class _CustomerReviewDashboardPageState
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.3,
+                color: SoriTokens.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -282,7 +283,7 @@ class _CustomerReviewDashboardPageState
               '방문 케어에 맞춰 리뷰를 작성하고 네이버에 공유해요',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey[600],
+                color: SoriTokens.textSecondary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -350,7 +351,7 @@ class _CustomerReviewDashboardPageState
                     '전체 보기',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF6C5CE7),
+                      color: SoriTokens.primary,
                     ),
                   ),
                 ),
@@ -405,7 +406,7 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
+        Icon(icon, size: 18, color: SoriTokens.textSecondary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -413,7 +414,7 @@ class _InfoRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               height: 1.35,
-              color: Colors.grey[700],
+              color: SoriTokens.textSecondary,
             ),
           ),
         ),
@@ -436,6 +437,7 @@ class _SectionTitle extends StatelessWidget {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w800,
+          color: SoriTokens.textPrimary,
         ),
       ),
     );
@@ -468,11 +470,11 @@ class _ShopUsedCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: SoriTokens.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withValues(alpha: 0.35),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -505,7 +507,7 @@ class _ShopUsedCard extends StatelessWidget {
                       '원장 $ownerName${phone.isNotEmpty ? ' · $phone' : ''}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -514,13 +516,13 @@ class _ShopUsedCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF6C5CE7),
+                        color: SoriTokens.primary,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.keyboard_arrow_up_rounded, color: Colors.grey[400]),
+              const Icon(Icons.keyboard_arrow_up_rounded, color: SoriTokens.textSecondary),
             ],
           ),
         ),
@@ -550,15 +552,10 @@ class _PendingCareCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: SoriTokens.border),
+        boxShadow: SoriTokens.cardShadow,
       ),
       child: Row(
         children: [
@@ -571,6 +568,7 @@ class _PendingCareCard extends StatelessWidget {
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -582,7 +580,7 @@ class _PendingCareCard extends StatelessWidget {
                   ].join(' · '),
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: SoriTokens.textSecondary,
                   ),
                 ),
               ],
@@ -592,7 +590,7 @@ class _PendingCareCard extends StatelessWidget {
           FilledButton(
             onPressed: onWrite,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF6C5CE7),
+              backgroundColor: SoriTokens.primary,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               visualDensity: VisualDensity.compact,
               shape: RoundedRectangleBorder(
@@ -634,15 +632,10 @@ class _ReviewSnippetCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: SoriTokens.border),
+        boxShadow: SoriTokens.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,7 +645,10 @@ class _ReviewSnippetCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
                 ),
               ),
               if (naverDone)
@@ -660,7 +656,7 @@ class _ReviewSnippetCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F8EF),
+                    color: SoriTokens.primarySoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
@@ -678,7 +674,7 @@ class _ReviewSnippetCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               dateLabel,
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              style: const TextStyle(fontSize: 11, color: SoriTokens.textSecondary),
             ),
           ],
           const SizedBox(height: 8),
@@ -731,25 +727,26 @@ class _EmptyCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SoriTokens.border),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 36, color: Colors.grey[350]),
+          Icon(icon, size: 36, color: SoriTokens.textSecondary),
           const SizedBox(height: 10),
           Text(
             message,
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.w700,
-              color: Colors.grey[600],
+              color: SoriTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
           ),
         ],
       ),

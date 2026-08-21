@@ -6,6 +6,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_date_picker.dart';
 import 'my_app.dart';
+import '../theme/sori_tokens.dart';
 
 class CustomerListPage extends StatefulWidget {
   const CustomerListPage({
@@ -180,7 +181,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D3436),
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -188,7 +189,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                       '총 ${_customers.length}명 · ${widget.store.shop.name}',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey.shade600,
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -199,11 +200,13 @@ class _CustomerListPageState extends State<CustomerListPage> {
                           _searchQuery = value;
                         });
                       },
+                      style: const TextStyle(color: SoriTokens.textPrimary),
                       decoration: InputDecoration(
                         hintText: '이름 또는 연락처 검색',
-                        prefixIcon: const Icon(Icons.search),
+                        hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+                        prefixIcon: const Icon(Icons.search, color: SoriTokens.textSecondary),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: SoriTokens.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -226,7 +229,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                               ? '등록된 고객이 없습니다'
                               : '검색 결과가 없습니다',
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: SoriTokens.textSecondary,
                             fontSize: 15,
                           ),
                         ),
@@ -290,7 +293,7 @@ class _CustomerListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -298,7 +301,7 @@ class _CustomerListTile extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: SoriTokens.border),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -327,6 +330,7 @@ class _CustomerListTile extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: SoriTokens.textPrimary,
                             ),
                           ),
                           if (visitChecked) ...[
@@ -344,7 +348,7 @@ class _CustomerListTile extends StatelessWidget {
                         customer.phone,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey.shade600,
+                          color: SoriTokens.textSecondary,
                         ),
                       ),
                       if (customer.memo.isNotEmpty) ...[
@@ -353,7 +357,7 @@ class _CustomerListTile extends StatelessWidget {
                           customer.memo,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade500,
+                            color: SoriTokens.textSecondary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -388,7 +392,7 @@ class _CustomerListTile extends StatelessWidget {
                       formattedDate,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade500,
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                   ],

@@ -101,7 +101,7 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F8EF),
+            color: const Color(0xFF12251A),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFF81C784)),
           ),
@@ -137,7 +137,11 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
               children: [
                 const Text(
                   '동의 항목 (열람)',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: SoriTokens.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _ReadOnlyConsentLine(
@@ -179,7 +183,11 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
               children: [
                 const Text(
                   '체결된 서명',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: SoriTokens.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 if (widget.existingSignatureUrl != null &&
@@ -187,9 +195,9 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   Container(
                     height: 150,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8F7FC),
+                      color: SoriTokens.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: SoriTokens.border),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.network(
@@ -207,7 +215,7 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: SoriTokens.surface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
@@ -290,9 +298,9 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: SoriTokens.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: SoriTokens.border),
                   ),
                   child: const Text(
                     '신규·갱신 고객은 필수 동의 3항목과 자필 서명이 모두 완료되어야 차트를 저장할 수 있어요.',
@@ -358,7 +366,10 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                               ),
                               TextSpan(
                                 text: ChartConsentTexts.optionalPhotoTitle,
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: SoriTokens.textPrimary,
+                                ),
                               ),
                             ],
                           ),
@@ -408,7 +419,10 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   const SizedBox(height: 12),
                   Text(
                     '이전에 저장된 서명이 있습니다. 새로 서명하면 교체됩니다.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: SoriTokens.textSecondary,
+                    ),
                   ),
                 ],
               ],
@@ -425,7 +439,7 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
@@ -441,8 +455,11 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   children: [
                     const Text(
                       '고객 서명',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: SoriTokens.textPrimary,
+                      ),
                     ),
                     const Spacer(),
                     TextButton.icon(
@@ -457,13 +474,13 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                   duration: const Duration(milliseconds: 220),
                   height: 160,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8F7FC),
+                    color: SoriTokens.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: widget.highlightSignature ||
                               widget.showSignatureError
                           ? const Color(0xFFE53935)
-                          : Colors.grey.shade300,
+                          : SoriTokens.border,
                       width: widget.highlightSignature ||
                               widget.showSignatureError
                           ? 1.6
@@ -475,15 +492,18 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                     onPointerActive: _setSignaturePointerActive,
                     child: Signature(
                       controller: widget.signatureController,
-                      backgroundColor: const Color(0xFFF8F7FC),
+                      backgroundColor: SoriTokens.surface,
                     ),
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
+                const Text(
                   '손가락 또는 터치펜으로 서명해 주세요 (필수)',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: SoriTokens.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -538,6 +558,7 @@ class _ReadOnlyConsentLine extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                       height: 1.35,
+                      color: SoriTokens.textPrimary,
                     ),
                   ),
                 ],
@@ -688,9 +709,9 @@ class _MandatoryAccordionState extends State<_MandatoryAccordion> {
                     margin: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8F7FC),
+                      color: SoriTokens.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: SoriTokens.border),
                     ),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -747,9 +768,9 @@ class _ConsentCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SoriTokens.border),
       ),
       child: child,
     );
@@ -770,9 +791,7 @@ class _PhotoUseOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected
-          ? MyApp.soriPurple.withValues(alpha: 0.08)
-          : const Color(0xFFF8F7FC),
+      color: selected ? SoriTokens.primarySoft : SoriTokens.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -785,7 +804,9 @@ class _PhotoUseOption extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked
                     : Icons.radio_button_off,
-                color: selected ? MyApp.soriPurple : Colors.grey.shade500,
+                color: selected
+                    ? MyApp.soriPurple
+                    : SoriTokens.textSecondary,
                 size: 22,
               ),
               const SizedBox(width: 10),
@@ -796,6 +817,7 @@ class _PhotoUseOption extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 1.35,
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
               ),

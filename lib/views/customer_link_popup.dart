@@ -36,9 +36,9 @@ Future<void> showCustomerLinkPopup(
             children: [
               Text(
                 '고객 휴대폰으로 스캔하면 카카오 로그인 후 후기 작성으로 이동합니다\n$url',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade700,
+                  color: SoriTokens.textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -46,8 +46,9 @@ Future<void> showCustomerLinkPopup(
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F1FB),
+                  color: SoriTokens.surface,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: SoriTokens.outlinePurple),
                 ),
                 child: QrImageView(
                   data: url,
@@ -58,10 +59,10 @@ Future<void> showCustomerLinkPopup(
               const SizedBox(height: 12),
               Text(
                 '잔여 알림톡 포인트 ${store.shop.kakaoPoint}P · 발송 ${KakaoAlimtalkPricing.sendCostPoint}P',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
             ],

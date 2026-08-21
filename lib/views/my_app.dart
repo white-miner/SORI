@@ -140,7 +140,7 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
             left: 0,
             right: 0,
             child: Material(
-              color: const Color(0xFFFFF4E5),
+              color: SoriTokens.warningBg,
               elevation: 2,
               child: SafeArea(
                 bottom: false,

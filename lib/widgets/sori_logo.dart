@@ -29,14 +29,14 @@ class SoriLogo extends StatelessWidget {
           height: height ?? width ?? 48,
           child: const DecoratedBox(
             decoration: BoxDecoration(
-              color: Color(0xFFEEECFB),
+              color: Color(0xFF18181B),
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
                 'S',
                 style: TextStyle(
-                  color: Color(0xFF5B4CDB),
+                  color: Color(0xFF7C3AED),
                   fontWeight: FontWeight.w800,
                 ),
               ),

@@ -214,7 +214,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   void _openMore() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -282,9 +282,9 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.background,
         foregroundColor: Colors.black,
         elevation: 0,
         scrolledUnderElevation: 0.5,
@@ -352,7 +352,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 Hero(
                   tag: CaseDetailPage.imageHeroTag(chart.id),
                   child: Material(
-                    color: const Color(0xFFF3F0FA),
+                    color: SoriTokens.primarySoft,
                     child: Screenshot(
                       controller: _shot,
                       child: _baSlider(chart),
@@ -375,7 +375,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                               size: 26,
                               color: _liked
                                   ? const Color(0xFFE53935)
-                                  : Colors.grey[800],
+                                  : SoriTokens.textPrimary,
                             ),
                           ),
                           Text(
@@ -390,7 +390,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             icon: Icon(
                               Icons.chat_bubble_outline_rounded,
                               size: 24,
-                              color: Colors.grey[800],
+                              color: SoriTokens.textPrimary,
                             ),
                           ),
                           Text(
@@ -411,7 +411,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                           size: 26,
                           color: _bookmarked
                               ? SoriTokens.primary
-                              : Colors.grey[800],
+                              : SoriTokens.textPrimary,
                         ),
                       ),
                     ],
@@ -427,7 +427,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                                 onPressed: _openBooking,
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF03C75A),
-                                  backgroundColor: const Color(0xFFE8F8EE),
+                                  backgroundColor: SoriTokens.primarySoft,
                                   side: const BorderSide(
                                     color: Color(0xFF03C75A),
                                     width: 1.2,
@@ -479,7 +479,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         height: 1.35,
-                        color: Colors.grey[700],
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                   ),
@@ -491,7 +491,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
-                        color: Colors.grey[800],
+                        color: SoriTokens.textPrimary,
                         height: 1.3,
                       ),
                     ),
@@ -540,9 +540,9 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F7FC),
+                            color: SoriTokens.surfaceElevated,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE8E4F8)),
+                            border: Border.all(color: SoriTokens.outlinePurple),
                           ),
                           child: Text(
                             '후기 미작성',
@@ -550,7 +550,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                               fontSize: 13,
                               fontStyle: FontStyle.italic,
                               fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade400,
+                              color: SoriTokens.textSecondary,
                             ),
                           ),
                         ),
@@ -568,7 +568,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
         onPressed: widget.onSeminarRequest,
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFF6D28D9),
-          backgroundColor: const Color(0xFFF3E8FF),
+          backgroundColor: SoriTokens.primarySoft,
           side: const BorderSide(color: Color(0xFF7C3AED), width: 1.2),
           padding: const EdgeInsets.symmetric(vertical: 12),
           minimumSize: Size(fullWidth ? double.infinity : 0, 44),

@@ -235,11 +235,11 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
     final age = _koreanAge;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('고객 상세 정보'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
@@ -282,7 +282,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     labelText: '성명',
                     border: const OutlineInputBorder(),
                     filled: !_isEditing,
-                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -296,7 +296,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                           labelText: '성별',
                           border: const OutlineInputBorder(),
                           filled: !_isEditing,
-                          fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
+                          fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
                         ),
                         items: const [
                           DropdownMenuItem(value: null, child: Text('미선택')),
@@ -325,7 +325,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                             border: const OutlineInputBorder(),
                             filled: !_isEditing,
                             fillColor:
-                                _isEditing ? null : const Color(0xFFF9FAFB),
+                                _isEditing ? null : SoriTokens.surfaceElevated,
                           ),
                           child: Text(
                             age == null
@@ -350,7 +350,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     labelText: '연락처',
                     border: const OutlineInputBorder(),
                     filled: !_isEditing,
-                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -376,7 +376,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     labelText: '주소',
                     border: const OutlineInputBorder(),
                     filled: !_isEditing,
-                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -387,7 +387,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     labelText: '직업 / 라이프스타일',
                     border: const OutlineInputBorder(),
                     filled: !_isEditing,
-                    fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
                   ),
                 ),
                 if (customer.isMembershipCustomer) ...[
@@ -422,7 +422,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   '※ 메디컬 항목은 최근 차트 기록을 우선 표시합니다.',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: SoriTokens.textSecondary,
                   ),
                 ),
               ],
@@ -441,7 +441,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                 border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
                 filled: !_isEditing,
-                fillColor: _isEditing ? null : const Color(0xFFF9FAFB),
+                fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
               ),
             ),
           ),
@@ -457,7 +457,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8EF),
+                      color: SoriTokens.primarySoft,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -473,7 +473,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E1),
+                      color: SoriTokens.warningBg,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -481,7 +481,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         height: 1.4,
-                        color: Color(0xFFEF6C00),
+                        color: SoriTokens.warningText,
                       ),
                     ),
                   )
@@ -489,7 +489,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFEBEE),
+                      color: const Color(0xFF2A1518),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
@@ -509,7 +509,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     icon: const Icon(Icons.bolt_rounded),
                     label: const Text('퀵 전자 동의서 작성'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
+                      backgroundColor: SoriTokens.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -528,7 +528,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   icon: const Icon(Icons.picture_as_pdf_outlined),
                   label: const Text('동의서 PDF 다운로드'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1F2937),
+                    foregroundColor: SoriTokens.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -556,15 +556,9 @@ class _SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: SoriTokens.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,7 +568,7 @@ class _SectionCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF111827),
+              color: SoriTokens.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -617,7 +611,7 @@ class _SpecRow extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFEBEE),
+              color: const Color(0xFF2A1518),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFEF9A9A)),
             ),
@@ -635,7 +629,7 @@ class _SpecRow extends StatelessWidget {
             text,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              color: empty ? const Color(0xFF9CA3AF) : const Color(0xFF1F2937),
+              color: empty ? SoriTokens.textSecondary : SoriTokens.textPrimary,
               height: 1.35,
             ),
           ),

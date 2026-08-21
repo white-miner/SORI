@@ -18,7 +18,7 @@ Future<CustomerChart?> showQuickConsentSheet({
   return showModalBottomSheet<CustomerChart>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: SoriTokens.surface,
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
@@ -205,7 +205,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: SoriTokens.border,
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -289,7 +289,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade700,
+                      color: SoriTokens.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -314,7 +314,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Colors.grey.shade600,
+                          color: SoriTokens.textSecondary,
                         ),
                       ),
                     ),
@@ -347,13 +347,13 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                   Container(
                     height: 160,
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: SoriTokens.border),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Signature(
                       controller: _signature,
-                      backgroundColor: const Color(0xFFFAFAFA),
+                      backgroundColor: Colors.white,
                     ),
                   ),
                   Align(
@@ -373,7 +373,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                 child: FilledButton(
                   onPressed: _saving ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF111827),
+                    backgroundColor: SoriTokens.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -432,7 +432,7 @@ class _AccordionConsentCardState extends State<_AccordionConsentCard> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: widget.checked ? const Color(0xFFF0FDF4) : const Color(0xFFF9FAFB),
+      color: widget.checked ? SoriTokens.primarySoft : SoriTokens.surfaceElevated,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
@@ -485,7 +485,7 @@ class _AccordionConsentCardState extends State<_AccordionConsentCard> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE8F0FE),
+                            color: SoriTokens.primarySoft,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -512,7 +512,7 @@ class _AccordionConsentCardState extends State<_AccordionConsentCard> {
                     _expanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: const Color(0xFF6B7280),
+                    color: SoriTokens.textSecondary,
                   ),
                 ),
               ],
@@ -527,9 +527,9 @@ class _AccordionConsentCardState extends State<_AccordionConsentCard> {
                       margin: const EdgeInsets.fromLTRB(8, 4, 8, 2),
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: SoriTokens.surfaceElevated,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        border: Border.all(color: SoriTokens.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,7 +585,7 @@ class _CheckCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: checked ? const Color(0xFFF0FDF4) : const Color(0xFFF9FAFB),
+      color: checked ? SoriTokens.primarySoft : SoriTokens.surfaceElevated,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onChanged(!checked),

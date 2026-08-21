@@ -15,14 +15,14 @@ class PostFirstCreationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '새 게시물',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: SoriTokens.background,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: Center(

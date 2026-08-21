@@ -32,10 +32,10 @@ class _CareHistoryDetailPageState extends State<CareHistoryDetailPage> {
       ..sort((a, b) => b.visitNumber.compareTo(a.visitNumber));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('케어 내역'),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [
@@ -55,7 +55,7 @@ class _CareHistoryDetailPageState extends State<CareHistoryDetailPage> {
           ? Center(
               child: Text(
                 '아직 케어 내역이 없어요',
-                style: TextStyle(color: Colors.grey[600]),
+                style: const TextStyle(color: SoriTokens.textSecondary),
               ),
             )
           : ListView(
@@ -94,7 +94,7 @@ class _SimpleStepper extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 18, 12, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -124,7 +124,7 @@ class _SimpleStepper extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: steps[i].upcoming
-                          ? const Color(0xFFEEF2FF)
+                          ? SoriTokens.primarySoft
                           : SoriTokens.primarySoft,
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -151,7 +151,7 @@ class _SimpleStepper extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey[700],
+                      color: SoriTokens.textSecondary,
                     ),
                   ),
                 ],
@@ -184,7 +184,7 @@ class _VisitCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: SoriTokens.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -231,7 +231,7 @@ class _VisitCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 _fmt(date),
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
               ),
             ],
             if (detailed) ...[
@@ -312,7 +312,7 @@ class _DetailLine extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: Colors.grey[600],
+            color: SoriTokens.textSecondary,
           ),
         ),
         const SizedBox(height: 4),

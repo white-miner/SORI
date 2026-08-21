@@ -11,25 +11,25 @@ class DirectorProfileEditPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '프로필 편집',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          Text(
+          const Text(
             '샵 브랜드 프로필을 관리합니다. 시스템 설정(모드·로그아웃)은 상단 ⚙️에서 변경하세요.',
             style: TextStyle(
               fontSize: 13,
               height: 1.4,
-              color: Colors.grey.shade600,
+              color: SoriTokens.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -81,7 +81,7 @@ class _EditEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -114,16 +114,16 @@ class _EditEntryCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12.5,
-                        color: Colors.grey.shade600,
+                        color: SoriTokens.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+              const Icon(Icons.chevron_right_rounded, color: SoriTokens.textSecondary),
             ],
           ),
         ),

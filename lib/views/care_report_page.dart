@@ -84,7 +84,7 @@ class _CareReportPageState extends State<CareReportPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF5F6F8),
+        backgroundColor: SoriTokens.background,
         body: Center(
           child: CircularProgressIndicator(color: SoriTokens.primary),
         ),
@@ -94,7 +94,7 @@ class _CareReportPageState extends State<CareReportPage> {
     final report = _report;
     if (report == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F6F8),
+        backgroundColor: SoriTokens.background,
         body: Center(
           child: Text(
             _error ?? '리포트를 불러올 수 없습니다',
@@ -117,7 +117,7 @@ class _CareReportPageState extends State<CareReportPage> {
     final missions = _missionLines(chart);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -320,7 +320,7 @@ class _PhotoSlot extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: trimmed.isEmpty
                 ? Container(
-                    color: const Color(0xFFEEF0F4),
+                    color: SoriTokens.surfaceElevated,
                     alignment: Alignment.center,
                     child: const Text(
                       '사진 준비 중',
@@ -334,7 +334,7 @@ class _PhotoSlot extends StatelessWidget {
                     trimmed,
                     fit: BoxFit.cover,
                     errorBuilder: (_, error, stackTrace) => Container(
-                      color: const Color(0xFFEEF0F4),
+                      color: SoriTokens.surfaceElevated,
                       alignment: Alignment.center,
                       child: const Text(
                         '불러오기 실패',

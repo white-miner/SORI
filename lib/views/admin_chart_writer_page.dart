@@ -969,7 +969,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -984,7 +984,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SoriTokens.border,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -1062,8 +1062,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   ),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.grey.shade200,
-                    child: Icon(Icons.close, color: Colors.grey.shade700),
+                    backgroundColor: SoriTokens.border,
+                    child: const Icon(Icons.close, color: SoriTokens.textSecondary),
                   ),
                   title: const Text(
                     '취소',
@@ -1439,11 +1439,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   Widget build(BuildContext context) {
     if (_boundCustomerId.trim().isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: SoriTokens.background,
         appBar: AppBar(
           title: const Text('차트 작성'),
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF2D3436),
+          backgroundColor: SoriTokens.surface,
+          foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
         ),
         body: Center(
@@ -1472,11 +1472,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     return ScrollConfiguration(
       behavior: const SoriMouseWheelScrollBehavior(),
       child: Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('차트 작성'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D3436),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
@@ -1590,7 +1590,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
@@ -1609,7 +1609,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                     backgroundColor: _hasValidConsent
                         ? const Color(0xFF2E7D32)
                         : MyApp.soriPurple,
-                    disabledBackgroundColor: Colors.grey.shade300,
+                    disabledBackgroundColor: SoriTokens.border,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -1644,9 +1644,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8EF),
+                      color: const Color(0xFF15241A),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF81C784)),
+                      border: Border.all(color: const Color(0xFF2E7D32)),
                     ),
                     child: Text(
                       '✅ 1년 포괄적 동의 완료 (유효기간: ${_consentValidUntil!.year}.${_consentValidUntil!.month.toString().padLeft(2, '0')}.${_consentValidUntil!.day.toString().padLeft(2, '0')} 까지) · 서명 없이 저장 가능',
@@ -1654,7 +1654,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         height: 1.35,
-                        color: Color(0xFF2E7D32),
+                        color: Color(0xFF81C784),
                       ),
                     ),
                   ),
@@ -1667,9 +1667,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8EF),
+                      color: const Color(0xFF15241A),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF81C784)),
+                      border: Border.all(color: const Color(0xFF2E7D32)),
                     ),
                     child: const Text(
                       '✅ 전자 동의서 작성 완료 — 차트 저장 및 방문 확인을 진행할 수 있습니다.',
@@ -1677,7 +1677,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         height: 1.35,
-                        color: Color(0xFF2E7D32),
+                        color: Color(0xFF81C784),
                       ),
                     ),
                   ),
@@ -1690,9 +1690,11 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E1),
+                      color: SoriTokens.warningBg,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFFFB74D)),
+                      border: Border.all(
+                        color: SoriTokens.warningText.withValues(alpha: 0.45),
+                      ),
                     ),
                     child: Text(
                       widget.forceQuickChart
@@ -1702,7 +1704,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         height: 1.35,
-                        color: Color(0xFFEF6C00),
+                        color: SoriTokens.warningText,
                       ),
                     ),
                   ),
@@ -2419,7 +2421,7 @@ class _SegmentCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -2437,7 +2439,7 @@ class _SegmentCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1F2937),
+              color: SoriTokens.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -2472,7 +2474,7 @@ class _PhotoAttachBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFF3F1FB),
+      color: const Color(0xFF27272A),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: uploading ? null : onTap,
@@ -2484,7 +2486,7 @@ class _PhotoAttachBox extends StatelessWidget {
             border: Border.all(
               color: _hasImage
                   ? MyApp.soriPurple.withValues(alpha: 0.4)
-                  : Colors.grey.shade300,
+                  : SoriTokens.border,
             ),
           ),
           child: ClipRRect(
@@ -2603,7 +2605,7 @@ class _EmptyPhotoPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFF3F1FB),
+      color: const Color(0xFF27272A),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -2613,11 +2615,11 @@ class _EmptyPhotoPlaceholder extends StatelessWidget {
           Text(
             '📷 $title 촬영 / 선택',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               height: 1.3,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: SoriTokens.textSecondary,
             ),
           ),
         ],

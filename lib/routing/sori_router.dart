@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/session_user.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import '../views/admin_chart_page.dart';
 import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
@@ -279,7 +280,7 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: SoriTokens.background,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

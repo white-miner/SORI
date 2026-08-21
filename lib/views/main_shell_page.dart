@@ -7,6 +7,7 @@ import 'home_page.dart';
 import 'message_history_page.dart';
 import 'my_app.dart';
 import 'shop_settings_page.dart';
+import '../theme/sori_tokens.dart';
 
 /// 원장용 어드민 셸 — 고객 리뷰 페이지에서는 절대 마운트되지 않음.
 class MainShellPage extends StatefulWidget {
@@ -47,11 +48,11 @@ class _MainShellPageState extends State<MainShellPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: Text(_store.shop.name),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D3436),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [
           IconButton(
@@ -88,7 +89,7 @@ class _MainShellPageState extends State<MainShellPage> {
           });
         },
         selectedItemColor: MyApp.soriPurple,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: SoriTokens.textSecondary,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(

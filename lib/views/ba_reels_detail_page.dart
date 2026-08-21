@@ -72,7 +72,7 @@ class _BaReelsDetailPageState extends State<BaReelsDetailPage> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -465,7 +465,7 @@ class _ReelCommentSheetState extends State<_ReelCommentSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: SoriTokens.border,
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -475,16 +475,20 @@ class _ReelCommentSheetState extends State<_ReelCommentSheet> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '댓글',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
                 ),
               ),
             ),
             Expanded(
               child: widget.comments.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Text(
                         '첫 댓글을 남겨 보세요',
-                        style: TextStyle(color: Colors.grey[500]),
+                        style: TextStyle(color: SoriTokens.textSecondary),
                       ),
                     )
                   : ListView.builder(
@@ -496,6 +500,9 @@ class _ReelCommentSheetState extends State<_ReelCommentSheet> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Text.rich(
                             TextSpan(
+                              style: const TextStyle(
+                                color: SoriTokens.textPrimary,
+                              ),
                               children: [
                                 TextSpan(
                                   text: c.isDirector
@@ -503,6 +510,7 @@ class _ReelCommentSheetState extends State<_ReelCommentSheet> {
                                       : '${c.author}  ',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w800,
+                                    color: SoriTokens.textPrimary,
                                   ),
                                 ),
                                 TextSpan(text: c.body),
@@ -524,7 +532,7 @@ class _ReelCommentSheetState extends State<_ReelCommentSheet> {
                       decoration: InputDecoration(
                         hintText: '댓글 입력',
                         filled: true,
-                        fillColor: const Color(0xFFF5F6F8),
+                        fillColor: SoriTokens.surfaceElevated,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,

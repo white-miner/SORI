@@ -108,11 +108,11 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('샵 정보 관리'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D3436),
+        backgroundColor: SoriTokens.background,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: ListView(

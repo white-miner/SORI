@@ -135,14 +135,14 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
 
     if (widget.token.trim().isEmpty || chart == null || customer == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF8F9FA),
+        backgroundColor: SoriTokens.background,
         body: Center(child: Text('유효하지 않은 고객 링크입니다')),
       );
     }
 
     if (_isSignedIn) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: SoriTokens.background,
         body: IkeaReviewComposerPage(
           store: widget.store,
           chart: chart,
@@ -151,7 +151,7 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: SoriTokens.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
@@ -214,7 +214,7 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
             ],

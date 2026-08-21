@@ -51,9 +51,9 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
       margin: EdgeInsets.only(top: compact ? 0 : 10),
       padding: EdgeInsets.all(compact ? 8 : 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F7FC),
+        color: SoriTokens.surfaceElevated,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8E4F8)),
+        border: Border.all(color: SoriTokens.outlinePurple),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,7 +63,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
             style: TextStyle(
               fontSize: compact ? 11.5 : 12,
               fontWeight: FontWeight.w800,
-              color: Colors.grey.shade700,
+              color: SoriTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 6),
@@ -103,7 +103,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEDE9FE),
+                  color: SoriTokens.primarySoft,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFDDD6FE)),
                 ),
@@ -132,7 +132,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -154,7 +154,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 14),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SoriTokens.border,
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
@@ -187,7 +187,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEDE9FE),
+                      color: SoriTokens.primarySoft,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

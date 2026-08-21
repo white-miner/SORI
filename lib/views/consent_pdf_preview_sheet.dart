@@ -12,6 +12,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/consent_pdf_generator.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import '../utils/web_file_download.dart';
 
 /// 앱 내부 동의서 미리보기 + PDF 저장/인쇄 모달.
@@ -239,7 +240,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SoriTokens.background,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: SizedBox(
         width: maxW,
@@ -248,7 +249,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
           children: [
             Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
               ),
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
@@ -260,13 +261,14 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF111827),
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                   ),
                   IconButton(
                     tooltip: '닫기',
                     onPressed: () => Navigator.of(context).pop(),
+                    color: SoriTokens.textPrimary,
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
@@ -274,7 +276,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
             ),
             Container(
               width: double.infinity,
-              color: Colors.white,
+              color: SoriTokens.surface,
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Wrap(
                 spacing: 8,
@@ -286,7 +288,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                     icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                     label: const Text('PDF 저장'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
+                      backgroundColor: SoriTokens.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -299,7 +301,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                     icon: const Icon(Icons.image_outlined, size: 18),
                     label: const Text('이미지 저장'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF374151),
+                      backgroundColor: SoriTokens.surfaceElevated,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -312,7 +314,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                     icon: const Icon(Icons.print_rounded, size: 18),
                     label: const Text('바로 인쇄'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF111827),
+                      foregroundColor: SoriTokens.textPrimary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 12,
@@ -333,7 +335,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                           'PDF 준비 중…',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF6B7280),
+                            color: SoriTokens.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

@@ -358,7 +358,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: SoriTokens.surfaceElevated,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: SoriTokens.border),
                     ),
@@ -452,8 +452,8 @@ class _ReviewShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE5E7EB),
-      highlightColor: const Color(0xFFF9FAFB),
+      baseColor: SoriTokens.surfaceElevated,
+      highlightColor: SoriTokens.surface,
       child: Column(
         children: List.generate(4, (i) {
           return Container(
@@ -461,7 +461,7 @@ class _ReviewShimmer extends StatelessWidget {
             margin: EdgeInsets.only(bottom: i == 3 ? 0 : 10),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(8),
             ),
           );

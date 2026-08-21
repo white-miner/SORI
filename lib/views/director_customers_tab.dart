@@ -396,9 +396,9 @@ class _CustomerListBody extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF8E1),
+              color: SoriTokens.warningBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFFE082)),
+              border: Border.all(color: SoriTokens.warningText.withValues(alpha: 0.45)),
             ),
             child: const Text(
               '90일 이상 미방문 고객이 위에 모여 있습니다. 케어 리마인드·티켓팅 제안 타이밍을 확인해 주세요.',
@@ -406,7 +406,7 @@ class _CustomerListBody extends StatelessWidget {
                 fontSize: 12,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF8D6E00),
+                color: SoriTokens.warningText,
               ),
             ),
           );
@@ -531,10 +531,10 @@ class _DenseCustomerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final badgeBg = remainUrgent
-        ? const Color(0xFFFFEBEE)
+        ? const Color(0xFF2A1518)
         : (remainWarn ? SoriTokens.warningBg : SoriTokens.primarySoft);
     final badgeFg = remainUrgent
-        ? const Color(0xFFC62828)
+        ? const Color(0xFFEF9A9A)
         : (remainWarn ? SoriTokens.warningText : SoriTokens.primary);
 
     return SoriCard(
@@ -615,7 +615,7 @@ class _DenseCustomerTile extends StatelessWidget {
                   color: badgeBg,
                   borderRadius: BorderRadius.circular(8),
                   border: remainUrgent
-                      ? Border.all(color: const Color(0xFFEF9A9A))
+                      ? Border.all(color: const Color(0xFF7F1D1D))
                       : null,
                 ),
                 child: Text(

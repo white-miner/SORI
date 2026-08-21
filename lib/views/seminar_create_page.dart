@@ -59,11 +59,11 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
       labelText: label,
       hintText: hint,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.92),
+      fillColor: SoriTokens.surface,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE8E4F8)),
+        borderSide: const BorderSide(color: SoriTokens.outlinePurple),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -184,14 +184,14 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
         '${_eventTime.hour.toString().padLeft(2, '0')}:${_eventTime.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '세미나 개설',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: Form(
@@ -202,9 +202,9 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.85),
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE8E4F8)),
+                border: Border.all(color: SoriTokens.outlinePurple),
               ),
               child: const Text(
                 '수요가 확인된 케이스를 기반으로 클래스를 오픈하세요. 수강료는 에스크로로 보관됩니다.',
@@ -241,12 +241,12 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
                   selectedColor: SoriTokens.primarySoft,
                   labelStyle: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: selected ? SoriTokens.primary : Colors.grey.shade800,
+                    color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
                   ),
                   side: BorderSide(
                     color: selected
                         ? SoriTokens.primary.withValues(alpha: 0.5)
-                        : const Color(0xFFE5E7EB),
+                        : SoriTokens.border,
                   ),
                 );
               }).toList(),
@@ -260,10 +260,10 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
                     icon: const Icon(Icons.calendar_today_outlined, size: 18),
                     label: Text(dateLabel),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black87,
-                      backgroundColor: Colors.white,
+                      foregroundColor: SoriTokens.textPrimary,
+                      backgroundColor: SoriTokens.surface,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFE8E4F8)),
+                      side: const BorderSide(color: SoriTokens.outlinePurple),
                     ),
                   ),
                 ),
@@ -274,10 +274,10 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
                     icon: const Icon(Icons.schedule_outlined, size: 18),
                     label: Text(timeLabel),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black87,
-                      backgroundColor: Colors.white,
+                      foregroundColor: SoriTokens.textPrimary,
+                      backgroundColor: SoriTokens.surface,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFE8E4F8)),
+                      side: const BorderSide(color: SoriTokens.outlinePurple),
                     ),
                   ),
                 ),

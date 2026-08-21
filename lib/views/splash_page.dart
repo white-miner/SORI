@@ -125,7 +125,7 @@ class _SplashPageState extends State<SplashPage> {
     final logoWidth = MediaQuery.of(context).size.width * 0.55;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF0A0A0C),
       body: SafeArea(
         child: SizedBox(
           width: double.infinity,

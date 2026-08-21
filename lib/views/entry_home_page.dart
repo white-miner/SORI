@@ -276,8 +276,8 @@ class _EntryHomePageState extends State<EntryHomePage>
             end: Alignment.bottomCenter,
             colors: [
               SoriTokens.primarySoft,
-              Color(0xFFF8F7FC),
-              Colors.white,
+              SoriTokens.background,
+              SoriTokens.surface,
             ],
           ),
         ),
@@ -306,7 +306,7 @@ class _EntryHomePageState extends State<EntryHomePage>
                       child: isWide
                           ? DecoratedBox(
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.72),
+                                color: SoriTokens.surface.withValues(alpha: 0.92),
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(

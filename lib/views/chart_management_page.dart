@@ -285,12 +285,12 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     final u = url?.trim() ?? '';
     if (u.isEmpty) {
       return ColoredBox(
-        color: const Color(0xFFF3F4F6),
+        color: SoriTokens.border,
         child: Center(
           child: Text(
             '$label 없음',
-            style: TextStyle(
-              color: Colors.grey.shade500,
+            style: const TextStyle(
+              color: SoriTokens.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -299,7 +299,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     }
     if (u.startsWith('data:')) {
       return ColoredBox(
-        color: Colors.grey.shade200,
+        color: SoriTokens.border,
         child: const Center(child: Icon(Icons.image_outlined)),
       );
     }
@@ -310,7 +310,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
       errorWidget: (_, _, _) => ColoredBox(
-        color: Colors.grey.shade200,
+        color: SoriTokens.border,
         child: const Icon(Icons.broken_image_outlined),
       ),
     );
@@ -324,11 +324,11 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     final name = customer?.name ?? '고객';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: Text('$name · 차트 관리'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: charts.isEmpty
@@ -364,7 +364,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                                 ),
                               ),
                               selectedColor: SoriTokens.primary,
-                              backgroundColor: Colors.white,
+                              backgroundColor: SoriTokens.surface,
                               onSelected: (_) => _selectChart(c.id),
                             );
                           },
@@ -418,7 +418,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     final both = chart.hasBeforeImage && chart.hasAfterImage;
 
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -657,7 +657,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     );
 
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),

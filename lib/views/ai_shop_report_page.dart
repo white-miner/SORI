@@ -86,11 +86,12 @@ class _AiShopReportPageState extends State<AiShopReportPage> {
         hell ? const Color(0xFFDC2626) : Colors.transparent;
 
     return Scaffold(
-      backgroundColor: hell ? const Color(0xFFFFF5F5) : const Color(0xFFF5F6F8),
+      backgroundColor:
+          hell ? const Color(0xFF1A0A0A) : SoriTokens.background,
       appBar: AppBar(
         title: Text(hell ? '🚨 Hell-Zone · AI 샵 경영 리포트' : 'AI 샵 경영 리포트'),
-        backgroundColor: hell ? const Color(0xFFFEF2F2) : Colors.white,
-        foregroundColor: hell ? const Color(0xFF991B1B) : SoriTokens.textPrimary,
+        backgroundColor: hell ? const Color(0xFF2A1212) : SoriTokens.surface,
+        foregroundColor: hell ? const Color(0xFFFCA5A5) : SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: Container(
@@ -590,9 +591,9 @@ class _DebtRiskListCard extends StatelessWidget {
         children: [
           Text(
             '등록 6개월+ & 잔여≥50% 또는 미방문 60일+',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: SoriTokens.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -612,9 +613,9 @@ class _DebtRiskListCard extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
+                  color: SoriTokens.warningBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  border: Border.all(color: SoriTokens.warningText.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,7 +686,7 @@ class _ReportHero extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: SoriTokens.border),
       ),
@@ -747,7 +748,7 @@ class _ModuleShell extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
         border: accent != null
             ? Border.all(color: accent!.withValues(alpha: 0.35), width: 1.5)
@@ -829,7 +830,7 @@ class _RevenueModuleCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: data.membershipBurnRatePercent / 100,
               minHeight: 8,
-              backgroundColor: const Color(0xFFE8EAF6),
+              backgroundColor: SoriTokens.border,
               color: const Color(0xFF0F766E),
             ),
           ),
@@ -981,12 +982,12 @@ class _MenuSignalTile extends StatelessWidget {
     final badgeColor =
         invest ? const Color(0xFFFF6B4A) : const Color(0xFF6B7280);
     final badgeBg =
-        invest ? const Color(0xFFFFF0EC) : const Color(0xFFF3F4F6);
+        invest ? const Color(0xFF3A1C16) : SoriTokens.surfaceElevated;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
+        color: SoriTokens.surfaceElevated,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1015,7 +1016,7 @@ class _MenuSignalTile extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: SoriTokens.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: SoriTokens.border),
                 ),
@@ -1110,7 +1111,7 @@ class _TargetSegmentCard extends StatelessWidget {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: SoriTokens.surfaceElevated,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -1159,13 +1160,13 @@ class _GoldenTimeCard extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: item.urgency == 'imminent'
-                    ? const Color(0xFFFFF4E5)
-                    : const Color(0xFFF0F7FF),
+                    ? SoriTokens.warningBg
+                    : SoriTokens.primarySoft,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: item.urgency == 'imminent'
-                      ? const Color(0xFFFFD8A8)
-                      : const Color(0xFFBFDBFE),
+                      ? SoriTokens.warningText.withValues(alpha: 0.35)
+                      : SoriTokens.outlinePurple,
                 ),
               ),
               child: Column(
@@ -1187,7 +1188,7 @@ class _GoldenTimeCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: SoriTokens.surface,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -1197,7 +1198,7 @@ class _GoldenTimeCard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             color: item.urgency == 'imminent'
                                 ? SoriTokens.warningText
-                                : const Color(0xFF1D4ED8),
+                                : SoriTokens.primary,
                           ),
                         ),
                       ),
@@ -1307,7 +1308,7 @@ class _CareMessageCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FA),
+              color: SoriTokens.surfaceElevated,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: SoriTokens.border),
             ),

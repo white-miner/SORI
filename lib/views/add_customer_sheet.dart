@@ -19,7 +19,7 @@ Future<Customer?> showAddCustomerSheet(
   final customer = await showModalBottomSheet<Customer>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),

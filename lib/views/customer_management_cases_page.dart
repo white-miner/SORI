@@ -484,7 +484,7 @@ class _CasesEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey.shade600,
+                color: SoriTokens.textSecondary,
                 height: 1.45,
                 fontWeight: FontWeight.w500,
               ),
@@ -640,7 +640,7 @@ class _CustomerCaseCard extends StatelessWidget {
                   anonymousCustomer,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: SoriTokens.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -669,14 +669,14 @@ class _CustomerCaseCard extends StatelessWidget {
                   onPressed: onLike,
                   icon: Icon(
                     liked ? Icons.favorite : Icons.favorite_border,
-                    color: liked ? const Color(0xFFE53935) : Colors.grey[700],
+                    color: liked ? const Color(0xFFE53935) : SoriTokens.textSecondary,
                   ),
                 ),
                 Text(
                   '$likeCount',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey[800],
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -684,14 +684,14 @@ class _CustomerCaseCard extends StatelessWidget {
                   onPressed: onComment,
                   icon: Icon(
                     Icons.chat_bubble_outline_rounded,
-                    color: Colors.grey[700],
+                    color: SoriTokens.textSecondary,
                   ),
                 ),
                 Text(
                   '$commentCount',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey[800],
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
               ],
@@ -785,7 +785,7 @@ class _CommentSheetState extends State<_CommentSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: SoriTokens.border,
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -807,7 +807,7 @@ class _CommentSheetState extends State<_CommentSheet> {
                   ? Center(
                       child: Text(
                         '첫 댓글을 남겨 보세요',
-                        style: TextStyle(color: Colors.grey[500]),
+                        style: const TextStyle(color: SoriTokens.textSecondary),
                       ),
                     )
                   : ListView.builder(
@@ -824,7 +824,7 @@ class _CommentSheetState extends State<_CommentSheet> {
                                 radius: 16,
                                 backgroundColor: c.isDirector
                                     ? SoriTokens.primarySoft
-                                    : const Color(0xFFEEF2F7),
+                                    : SoriTokens.surfaceElevated,
                                 child: Icon(
                                   c.isDirector
                                       ? Icons.storefront_outlined
@@ -832,7 +832,7 @@ class _CommentSheetState extends State<_CommentSheet> {
                                   size: 16,
                                   color: c.isDirector
                                       ? SoriTokens.primary
-                                      : Colors.grey[700],
+                                      : SoriTokens.textSecondary,
                                 ),
                               ),
                               const SizedBox(width: 10),

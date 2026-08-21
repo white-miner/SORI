@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/sori_tokens.dart';
 
 class MessageCard extends StatelessWidget {
   const MessageCard({
@@ -21,7 +22,7 @@ class MessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(16),
       elevation: 0,
       child: InkWell(
@@ -30,7 +31,7 @@ class MessageCard extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: SoriTokens.border),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -69,7 +70,7 @@ class MessageCard extends StatelessWidget {
                               scheduledTime!,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade500,
+                                color: SoriTokens.textSecondary,
                               ),
                             ),
                         ],
@@ -98,7 +99,7 @@ class MessageCard extends StatelessWidget {
                         messagePreview,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey.shade700,
+                          color: SoriTokens.textPrimary,
                           height: 1.4,
                         ),
                         maxLines: 2,
@@ -110,7 +111,7 @@ class MessageCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(
                   Icons.chevron_right,
-                  color: Colors.grey.shade400,
+                  color: SoriTokens.textSecondary,
                 ),
               ],
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../services/message_service.dart';
+import '../theme/sori_tokens.dart';
 import '../widgets/message_card.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -90,12 +91,15 @@ class _MyHomePageState extends State<MyHomePage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F9FA),
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 message.messagePreview,
-                style: const TextStyle(height: 1.4, color: Color(0xFF2D3436)),
+                style: const TextStyle(
+                  height: 1.4,
+                  color: SoriTokens.textPrimary,
+                ),
               ),
             ),
           ],
@@ -156,9 +160,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Center(
                   child: Text(
                     '모든 케어 메시지 발송이 완료되었습니다. 🎉',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: SoriTokens.textSecondary,
                     ),
                   ),
                 ),
@@ -217,7 +221,7 @@ class _MyHomePageState extends State<MyHomePage> {
             style: const TextStyle(
               fontSize: 22,
               height: 1.4,
-              color: Color(0xFF2D3436),
+              color: SoriTokens.textPrimary,
               fontWeight: FontWeight.w500,
             ),
             children: [
@@ -345,7 +349,7 @@ class _MyHomePageState extends State<MyHomePage> {
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2D3436),
+            color: SoriTokens.textPrimary,
           ),
         ),
         const SizedBox(width: 8),

@@ -142,10 +142,10 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('보관함'),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
@@ -249,7 +249,7 @@ class _ArchiveTabCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? Colors.white : const Color(0xFFFBFBFC),
+      color: selected ? SoriTokens.surface : SoriTokens.surfaceElevated,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -261,7 +261,7 @@ class _ArchiveTabCard extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? SoriTokens.primary.withValues(alpha: 0.45)
-                  : const Color(0xFFE8E4F8),
+                  : SoriTokens.outlinePurple,
               width: selected ? 1.4 : 1,
             ),
           ),
@@ -290,7 +290,7 @@ class _ArchiveTabCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                   ],

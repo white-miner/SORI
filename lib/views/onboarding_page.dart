@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/session_user.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import 'my_app.dart';
 
 /// 카카오 로그인 직후 온보딩: 역할 선택 → (고객)연락처 / (원장)샵 등록.
@@ -114,11 +115,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: const Color(0xFF2D3436),
+        foregroundColor: SoriTokens.textPrimary,
         title: Text(_appBarTitle),
         leading: _step == _OnboardStep.role
             ? null
@@ -219,7 +220,7 @@ class _RoleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -228,7 +229,7 @@ class _RoleCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: SoriTokens.border),
           ),
           child: Row(
             children: [

@@ -1263,7 +1263,7 @@ class _AiManagementSheetBody extends StatelessWidget {
           onPressed: onDownload,
           style: OutlinedButton.styleFrom(
             foregroundColor: SoriTokens.textPrimary,
-            side: const BorderSide(color: Color(0xFFE6E8EC)),
+            side: const BorderSide(color: SoriTokens.border),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -1316,7 +1316,7 @@ class _QuickDashboardRow extends StatelessWidget {
             child: _QuickDashCard(
               icon: Icons.military_tech_rounded,
               iconColor: const Color(0xFFB7791F),
-              iconBg: const Color(0xFFFFF4E5),
+              iconBg: SoriTokens.warningBg,
               title: '내 등급',
               subtitle: tierSub,
               onTap: onTierTap,

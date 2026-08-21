@@ -18,7 +18,7 @@ Future<void> showShopReviewQrModal(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -37,7 +37,7 @@ Future<void> showShopReviewQrModal(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: SoriTokens.border,
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -47,6 +47,7 @@ Future<void> showShopReviewQrModal(
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
+                color: SoriTokens.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -76,7 +77,7 @@ Future<void> showShopReviewQrModal(
                 ),
                 dataModuleStyle: const QrDataModuleStyle(
                   dataModuleShape: QrDataModuleShape.square,
-                  color: SoriTokens.textPrimary,
+                  color: Color(0xFF0A0A0C),
                 ),
               ),
             ),

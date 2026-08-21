@@ -269,7 +269,7 @@ class _Shot extends StatelessWidget {
     final src = StorageImageUrl.resolve(url);
     if (src == null || !StorageImageUrl.isNetworkUrl(src)) {
       return ColoredBox(
-        color: const Color(0xFFF3F0FA),
+        color: const Color(0xFF27272A),
         child: Icon(fallback, size: 18, color: SoriTokens.primary),
       );
     }
@@ -282,7 +282,7 @@ class _Shot extends StatelessWidget {
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
         return const ColoredBox(
-          color: Color(0xFFF3F0FA),
+          color: Color(0xFF27272A),
           child: Center(
             child: SizedBox(
               width: 16,
@@ -295,7 +295,7 @@ class _Shot extends StatelessWidget {
       errorBuilder: (context, error, stackTrace) {
         debugPrint('CaseArchiveThumb: load failed url=$src error=$error');
         return ColoredBox(
-          color: const Color(0xFFF3F0FA),
+          color: const Color(0xFF27272A),
           child: Icon(
             Icons.broken_image_outlined,
             size: 18,

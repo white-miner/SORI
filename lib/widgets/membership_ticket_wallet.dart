@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/membership_ticket.dart';
+import '../theme/sori_tokens.dart';
 
 /// 스마트 회원권 디지털 티켓 지갑 리스트.
 class MembershipTicketWallet extends StatelessWidget {
@@ -21,7 +22,7 @@ class MembershipTicketWallet extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: SoriTokens.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -111,14 +112,14 @@ class _TicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = ticket.isLow ? const Color(0xFFE17055) : const Color(0xFF6C5CE7);
-    final soft = ticket.isLow ? const Color(0xFFFFF0EC) : const Color(0xFFEEF0FF);
+    final accent = ticket.isLow ? SoriTokens.warningText : SoriTokens.primary;
+    final soft = ticket.isLow ? SoriTokens.warningBg : SoriTokens.primarySoft;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: soft),
         boxShadow: [

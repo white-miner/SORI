@@ -100,14 +100,14 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
     final topCases = _topCases;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '세미나 센터',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0.5,
       ),
@@ -118,15 +118,15 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE6E8EC)),
+                border: Border.all(color: SoriTokens.border),
               ),
               child: Text(
                 '세미나 요청·클래스 개설은 원장 모드에서 이용할 수 있어요.',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: SoriTokens.textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -155,10 +155,10 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   elevation: 0,
-                  color: Colors.white,
+                  color: SoriTokens.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: Color(0xFFE8E4F8)),
+                    side: const BorderSide(color: SoriTokens.outlinePurple),
                   ),
                   child: ListTile(
                     title: Text(
@@ -188,12 +188,12 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
             ],
             const SizedBox(height: 16),
             Material(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(14),
               child: ListTile(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Colors.grey.shade200),
+                  side: BorderSide(color: SoriTokens.border),
                 ),
                 leading: const Text('📊', style: TextStyle(fontSize: 22)),
                 title: const Text(
@@ -245,9 +245,9 @@ class _InsightHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E4F8)),
+        border: Border.all(color: SoriTokens.outlinePurple),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -295,10 +295,10 @@ class _InsightHeader extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '완료 세미나 $completedSeminars회 · SORI Cash $cash원',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: SoriTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 14),
@@ -362,14 +362,14 @@ class _HeldEnrollmentsSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE6E8EC)),
+              border: Border.all(color: SoriTokens.border),
             ),
-            child: Text(
+            child: const Text(
               '진행 중인 세미나 수강이 없습니다.',
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: SoriTokens.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -379,10 +379,10 @@ class _HeldEnrollmentsSection extends StatelessWidget {
             (e) => Card(
               margin: const EdgeInsets.only(bottom: 8),
               elevation: 0,
-              color: Colors.white,
+              color: SoriTokens.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFFE6E8EC)),
+                side: const BorderSide(color: SoriTokens.border),
               ),
               child: ListTile(
                 title: Text(

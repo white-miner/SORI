@@ -67,12 +67,12 @@ class _SeminarApplyPageState extends State<SeminarApplyPage> {
       hintText: hint,
       filled: true,
       fillColor: readOnly
-          ? const Color(0xFFF3F0FA)
-          : Colors.white.withValues(alpha: 0.92),
+          ? SoriTokens.border
+          : SoriTokens.surface,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE8E4F8)),
+        borderSide: const BorderSide(color: SoriTokens.outlinePurple),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -201,14 +201,14 @@ class _SeminarApplyPageState extends State<SeminarApplyPage> {
         : '세미나 수강 신청';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '세미나 신청',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: _loadingDetail && _detail == null
@@ -221,9 +221,9 @@ class _SeminarApplyPageState extends State<SeminarApplyPage> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: SoriTokens.surface,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE8E4F8)),
+                      border: Border.all(color: SoriTokens.outlinePurple),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

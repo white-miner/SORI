@@ -184,11 +184,11 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('서비스 메뉴 관리'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D3436),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: ListView(
@@ -204,7 +204,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: SoriTokens.border),
               ),
@@ -219,6 +219,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 elevation: 0,
+                color: SoriTokens.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                   side: const BorderSide(color: SoriTokens.border),

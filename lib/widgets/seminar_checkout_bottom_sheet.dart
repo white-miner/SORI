@@ -33,7 +33,7 @@ class SeminarCheckoutBottomSheet extends StatefulWidget {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -264,7 +264,7 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FC),
+        color: SoriTokens.border,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: SoriTokens.border),
       ),
@@ -348,7 +348,7 @@ class _EscrowTrustBanner extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             SoriTokens.primarySoft,
-            const Color(0xFFE8F4FD),
+            const Color(0xFF152033),
           ],
         ),
         borderRadius: BorderRadius.circular(14),
@@ -360,7 +360,7 @@ class _EscrowTrustBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: SoriTokens.surface,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -425,7 +425,7 @@ class _PaymentMethodTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? tint.withValues(alpha: 0.1) : Colors.white,
+      color: selected ? tint.withValues(alpha: 0.15) : SoriTokens.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,

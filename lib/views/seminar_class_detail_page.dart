@@ -104,16 +104,16 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF5F6F8),
+        backgroundColor: SoriTokens.background,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null || _detail == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F6F8),
+        backgroundColor: SoriTokens.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: SoriTokens.surface,
           foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
         ),
@@ -151,7 +151,7 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
     final chart = detail.targetChart;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       bottomNavigationBar: _StickyEscrowBar(
         price: cls.price,
         enabled: cls.isEnrollable && detail.remainingSeats > 0,
@@ -433,9 +433,9 @@ class _DirectorProfileSection extends StatelessWidget {
                     Flexible(
                       child: Text(
                         shop.name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
-                          color: Colors.grey.shade600,
+                          color: SoriTokens.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -509,7 +509,11 @@ class _EventInfoBox extends StatelessWidget {
             label: location.trim().isEmpty ? '장소 미정' : location.trim(),
             tint: const Color(0xFF10B981),
             trailing: location.trim().isNotEmpty
-                ? Icon(Icons.map_outlined, size: 16, color: Colors.grey.shade500)
+                ? const Icon(
+                    Icons.map_outlined,
+                    size: 16,
+                    color: SoriTokens.textSecondary,
+                  )
                 : null,
           ),
         ],
@@ -549,10 +553,10 @@ class _InfoChip extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 220),
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: Colors.grey.shade800,
+                color: SoriTokens.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -606,10 +610,10 @@ class _AutoSyllabusSection extends StatelessWidget {
           if (tags.isEmpty)
             Text(
               '연동된 차트에서 care_tags·care_name을 불러오면 자동으로 표시됩니다.',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 height: 1.45,
-                color: Colors.grey.shade600,
+                color: SoriTokens.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             )
@@ -649,7 +653,7 @@ class _SyllabusTagChip extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             SoriTokens.primarySoft,
-            Colors.white,
+            SoriTokens.surface,
           ],
         ),
         borderRadius: BorderRadius.circular(14),
@@ -713,10 +717,10 @@ class _FomoProgressSection extends StatelessWidget {
               const Spacer(),
               Text(
                 '$current / $max명 신청',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade600,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
             ],
@@ -727,7 +731,7 @@ class _FomoProgressSection extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio.clamp(0.05, 1.0),
               minHeight: 12,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: SoriTokens.border,
               color: isAlmostFull
                   ? const Color(0xFFEF4444)
                   : SoriTokens.primary,
@@ -775,10 +779,10 @@ class _DescriptionSection extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             text,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               height: 1.55,
-              color: Colors.grey.shade800,
+              color: SoriTokens.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -803,7 +807,7 @@ class _StickyEscrowBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -823,9 +827,9 @@ class _StickyEscrowBar extends StatelessWidget {
               children: [
                 Text(
                   '수강료',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: SoriTokens.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -853,7 +857,7 @@ class _StickyEscrowBar extends StatelessWidget {
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
-                  disabledBackgroundColor: Colors.grey.shade300,
+                  disabledBackgroundColor: SoriTokens.border,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),

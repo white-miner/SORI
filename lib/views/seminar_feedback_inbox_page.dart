@@ -53,13 +53,13 @@ class _SeminarFeedbackInboxPageState extends State<SeminarFeedbackInboxPage> {
     final loading = widget.store.seminarFeedbackReportsLoading;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
           '세미나 인사이트 보관함',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
@@ -125,7 +125,7 @@ class _FeedbackReportCard extends StatelessWidget {
         : dateFmt.format(report.eventDate!.toLocal());
 
     return Material(
-      color: Colors.white,
+      color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(16),
       elevation: 0,
       child: InkWell(

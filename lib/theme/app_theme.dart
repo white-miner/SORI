@@ -77,6 +77,72 @@ abstract final class AppTheme {
         titleSmall: TextStyle(color: SoriTokens.textPrimary),
         labelLarge: TextStyle(color: SoriTokens.textPrimary),
       ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: SoriTokens.surface,
+        hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+        labelStyle: const TextStyle(color: SoriTokens.textSecondary),
+        prefixIconColor: SoriTokens.textSecondary,
+        suffixIconColor: SoriTokens.textSecondary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: SoriTokens.outlinePurple),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: SoriTokens.outlinePurple),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: SoriTokens.primary, width: 1.4),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: SoriTokens.border),
+        ),
+      ),
+      dialogTheme: SoriDatePickerTheme.dialogTheme.copyWith(
+        backgroundColor: SoriTokens.surface,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: SoriTokens.surface,
+        modalBackgroundColor: SoriTokens.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: SoriTokens.surface,
+        surfaceTintColor: Colors.transparent,
+        textStyle: TextStyle(color: SoriTokens.textPrimary),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: SoriTokens.surfaceElevated,
+        contentTextStyle: TextStyle(color: SoriTokens.textPrimary),
+        actionTextColor: SoriTokens.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: SoriTokens.surface,
+        selectedColor: SoriTokens.primarySoft,
+        disabledColor: SoriTokens.border,
+        labelStyle: const TextStyle(color: SoriTokens.textPrimary),
+        secondaryLabelStyle: const TextStyle(color: SoriTokens.textSecondary),
+        side: const BorderSide(color: SoriTokens.outlinePurple),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: SoriTokens.border,
+        thickness: 1,
+      ),
+      listTileTheme: const ListTileThemeData(
+        iconColor: SoriTokens.textSecondary,
+        textColor: SoriTokens.textPrimary,
+      ),
       datePickerTheme: SoriDatePickerTheme.data,
     );
   }

@@ -30,13 +30,13 @@ class AppSettingsPage extends StatelessWidget {
         final isDirector = session.activeMode == UserRole.director;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF5F6F8),
+          backgroundColor: SoriTokens.background,
           appBar: AppBar(
             title: const Text(
               '설정',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: SoriTokens.surface,
             foregroundColor: SoriTokens.textPrimary,
             elevation: 0,
           ),
@@ -196,7 +196,7 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

@@ -119,7 +119,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
     final viewingFamily = _viewingCustomerId != null;
 
     return ColoredBox(
-      color: const Color(0xFFF5F6F8),
+      color: SoriTokens.background,
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
@@ -160,7 +160,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF0FF),
+                  color: SoriTokens.primarySoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -168,7 +168,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6C5CE7),
+                    color: SoriTokens.primary,
                   ),
                 ),
               ),
@@ -250,7 +250,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                           backgroundColor: SoriTokens.background,
                           appBar: AppBar(
                             title: const Text('리뷰 작성'),
-                            backgroundColor: Colors.white,
+                            backgroundColor: SoriTokens.surface,
                             foregroundColor: SoriTokens.textPrimary,
                             elevation: 0,
                           ),
@@ -304,15 +304,10 @@ class _HomeCareMissionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: SoriTokens.border),
+        boxShadow: SoriTokens.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,12 +317,13 @@ class _HomeCareMissionCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             '시술 후 ${dayOffset + 1}일차 · 가장 중요한 3일 케어',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 12),
           ClipRRect(
@@ -340,8 +336,8 @@ class _HomeCareMissionCard extends StatelessWidget {
                 return LinearProgressIndicator(
                   value: value,
                   minHeight: 10,
-                  backgroundColor: const Color(0xFFEEF0F3),
-                  color: const Color(0xFF6C5CE7),
+                  backgroundColor: SoriTokens.surfaceElevated,
+                  color: SoriTokens.primary,
                 );
               },
             ),
@@ -354,12 +350,13 @@ class _HomeCareMissionCard extends StatelessWidget {
               value: checks[i],
               onChanged: (v) => onToggle(i, v ?? false),
               controlAffinity: ListTileControlAffinity.leading,
-              activeColor: const Color(0xFF6C5CE7),
+              activeColor: SoriTokens.primary,
               title: Text(
                 '${i + 1}일차 홈케어 실천',
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
+                  color: SoriTokens.textPrimary,
                 ),
               ),
               subtitle: Text(
@@ -370,7 +367,7 @@ class _HomeCareMissionCard extends StatelessWidget {
                         : '처방 내용을 실천해 주세요'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
               ),
             ),
         ],
@@ -472,9 +469,9 @@ class _ProfileChip extends StatelessWidget {
         CircleAvatar(
           radius: 22,
           backgroundColor:
-              selected ? SoriTokens.primarySoft : const Color(0xFFEEF0F3),
+              selected ? SoriTokens.primarySoft : SoriTokens.surfaceElevated,
           child: muted
-              ? Icon(Icons.person_outline, color: Colors.grey[500], size: 22)
+              ? const Icon(Icons.person_outline, color: SoriTokens.textSecondary, size: 22)
               : const Padding(
                   padding: EdgeInsets.all(8),
                   child: Opacity(
@@ -494,7 +491,7 @@ class _ProfileChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? SoriTokens.primary : Colors.grey[600],
+              color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
             ),
           ),
         ),
@@ -524,15 +521,10 @@ class _AiReportCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: SoriTokens.border),
+        boxShadow: SoriTokens.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +535,7 @@ class _AiReportCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
+                  color: SoriTokens.primarySoft,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -551,7 +543,7 @@ class _AiReportCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF2E7D32),
+                    color: SoriTokens.success,
                   ),
                 ),
               ),
@@ -565,6 +557,7 @@ class _AiReportCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
@@ -572,7 +565,7 @@ class _AiReportCard extends StatelessWidget {
             lastVisit == null
                 ? '최근 방문 기록 없음'
                 : '최근 방문 ${_fmt(lastVisit!)}',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
           ),
           if (insight.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -580,7 +573,7 @@ class _AiReportCard extends StatelessWidget {
               insight.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, height: 1.4),
+              style: const TextStyle(fontSize: 13, height: 1.4, color: SoriTokens.textPrimary),
             ),
           ],
           if (directives.isNotEmpty) ...[
@@ -591,14 +584,14 @@ class _AiReportCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('· ', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text('· ', style: TextStyle(fontWeight: FontWeight.w800, color: SoriTokens.textPrimary)),
                         Expanded(
                           child: Text(
                             d,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.35,
-                              color: Colors.grey[800],
+                              color: SoriTokens.textPrimary,
                             ),
                           ),
                         ),
@@ -616,7 +609,7 @@ class _AiReportCard extends StatelessWidget {
                 'AI 리포트 상세보기',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF6C5CE7),
+                  color: SoriTokens.primary,
                 ),
               ),
             ),
@@ -648,22 +641,17 @@ class _CareSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: SoriTokens.border),
+        boxShadow: SoriTokens.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             careName,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: SoriTokens.textPrimary),
           ),
           const SizedBox(height: 8),
           Text(
@@ -672,7 +660,7 @@ class _CareSummaryCard extends StatelessWidget {
               if (remaining > 0) '잔여 $remaining회',
               if (nextVisit != null) '다음 권장 ${_fmt(nextVisit!)}',
             ].join(' · '),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 10),
           Align(
@@ -683,7 +671,7 @@ class _CareSummaryCard extends StatelessWidget {
                 '케어내역 더보기',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF6C5CE7),
+                  color: SoriTokens.primary,
                 ),
               ),
             ),
@@ -709,10 +697,10 @@ class _AiReportDetailPage extends StatelessWidget {
       chart.homeCarePrescriptions,
     );
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('AI 리포트 상세'),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
@@ -721,12 +709,12 @@ class _AiReportDetailPage extends StatelessWidget {
         children: [
           Text(
             shopName,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: SoriTokens.textPrimary),
           ),
           const SizedBox(height: 6),
           Text(
             chart.careName.isNotEmpty ? chart.careName : '케어',
-            style: TextStyle(color: Colors.grey[700]),
+            style: const TextStyle(color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 16),
           if (chart.directorInsight.trim().isNotEmpty) ...[
@@ -735,7 +723,7 @@ class _AiReportDetailPage extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
-            Text(chart.directorInsight.trim(), style: const TextStyle(height: 1.45)),
+            Text(chart.directorInsight.trim(), style: const TextStyle(height: 1.45, color: SoriTokens.textPrimary)),
             const SizedBox(height: 18),
           ],
           const Text(
@@ -746,7 +734,7 @@ class _AiReportDetailPage extends StatelessWidget {
           if (directives.isEmpty)
             Text(
               '등록된 홈케어 처방이 없어요',
-              style: TextStyle(color: Colors.grey[600]),
+              style: const TextStyle(color: SoriTokens.textSecondary),
             )
           else
             ...directives.map(
@@ -756,10 +744,10 @@ class _AiReportDetailPage extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: SoriTokens.surface,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(d, style: const TextStyle(height: 1.45, fontSize: 13)),
+                  child: Text(d, style: const TextStyle(height: 1.45, fontSize: 13, color: SoriTokens.textPrimary)),
                 ),
               ),
             ),

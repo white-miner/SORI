@@ -86,7 +86,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
     final saved = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -114,7 +114,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
               const SizedBox(height: 8),
               Text(
                 '예: 각질이 일어남, 당김이 심함',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -130,7 +130,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C5CE7),
+                  backgroundColor: SoriTokens.primary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text(
@@ -173,10 +173,10 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
           );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('케어 히스토리 캘린더'),
-        backgroundColor: Colors.white,
+        backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),
@@ -330,7 +330,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: SoriTokens.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -358,14 +358,14 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.4,
-                          color: Colors.grey[700],
+                          color: SoriTokens.textSecondary,
                         ),
                       ),
                     ],
                   ] else
                     Text(
                       '이 날의 시술 기록은 없어요',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      style: const TextStyle(color: SoriTokens.textSecondary, fontSize: 13),
                     ),
                   const SizedBox(height: 12),
                   Text(
@@ -373,7 +373,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey[700],
+                      color: SoriTokens.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -386,7 +386,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
                       height: 1.4,
                       color: (memo?.body.trim().isNotEmpty == true)
                           ? SoriTokens.textPrimary
-                          : Colors.grey[500],
+                          : SoriTokens.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -423,7 +423,7 @@ class _Dow extends StatelessWidget {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: Colors.grey[600],
+        color: SoriTokens.textSecondary,
       ),
     );
   }
@@ -444,7 +444,7 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+        Text(label, style: const TextStyle(fontSize: 11, color: SoriTokens.textSecondary)),
       ],
     );
   }

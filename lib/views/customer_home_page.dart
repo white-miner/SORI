@@ -167,7 +167,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
         : const <ShopHighlight>[];
 
     return ColoredBox(
-      color: Colors.white,
+      color: SoriTokens.background,
       child: SafeArea(
         bottom: false,
         child: NestedScrollView(
@@ -177,7 +177,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
               SliverAppBar(
                 pinned: true,
                 floating: false,
-                backgroundColor: Colors.white,
+                backgroundColor: SoriTokens.background,
                 foregroundColor: SoriTokens.textPrimary,
                 elevation: 0,
                 scrolledUnderElevation: 0.5,
@@ -188,6 +188,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
                 actions: [
@@ -275,6 +276,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
+                          color: SoriTokens.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -294,7 +296,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                           onPressed: _toggleFollow,
                           style: FilledButton.styleFrom(
                             backgroundColor: following
-                                ? const Color(0xFFEEF2F7)
+                                ? SoriTokens.surfaceElevated
                                 : SoriTokens.primary,
                             foregroundColor: following
                                 ? SoriTokens.textPrimary
@@ -372,7 +374,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                   tabBar: TabBar(
                     controller: _tabController,
                     labelColor: SoriTokens.primary,
-                    unselectedLabelColor: Colors.grey.shade500,
+                    unselectedLabelColor: SoriTokens.textSecondary,
                     indicatorColor: SoriTokens.primary,
                     indicatorWeight: 2.5,
                     labelStyle: const TextStyle(
@@ -425,14 +427,15 @@ class _StatColumn extends StatelessWidget {
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
+            color: SoriTokens.textPrimary,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade600,
+            color: SoriTokens.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -509,6 +512,7 @@ class _HighlightRing extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
+              color: SoriTokens.textPrimary,
             ),
           ),
         ],
@@ -535,7 +539,7 @@ class _TabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Material(
-      color: Colors.white,
+      color: SoriTokens.background,
       elevation: overlapsContent ? 1 : 0,
       child: tabBar,
     );
@@ -634,7 +638,7 @@ class _BaGridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFF0F1F3),
+      color: SoriTokens.surfaceElevated,
       child: InkWell(
         onTap: onTap,
         child: Stack(
@@ -647,14 +651,14 @@ class _BaGridTile extends StatelessWidget {
                 gaplessPlayback: true,
                 filterQuality: FilterQuality.low,
                 errorBuilder: (_, _, _) => const ColoredBox(
-                  color: Color(0xFFE8E9EC),
-                  child: Icon(Icons.image_outlined, color: Colors.grey),
+                  color: SoriTokens.surface,
+                  child: Icon(Icons.image_outlined, color: SoriTokens.textSecondary),
                 ),
               )
             else
               const ColoredBox(
-                color: Color(0xFFE8E9EC),
-                child: Icon(Icons.image_outlined, color: Colors.grey),
+                color: SoriTokens.surface,
+                child: Icon(Icons.image_outlined, color: SoriTokens.textSecondary),
               ),
             Positioned(
               left: 8,
