@@ -120,6 +120,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   late final TextEditingController _summaryController;
   late final TextEditingController _insightController;
   late final TextEditingController _guardianPhoneController;
+  final _nameFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _careNameFocus = FocusNode();
 
   CustomerGender? _gender;
   DateTime? _birthDate;
@@ -270,6 +273,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       _highlightField = field;
     });
 
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(field.errorCopy),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+
     final targetPage = field.isConsentTab ? 1 : 0;
     final currentPage = _pageController.hasClients
         ? (_pageController.page?.round() ?? _tabController.index)
@@ -295,6 +309,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     }
 
     if (!mounted) return false;
+    _requestFocusForRequiredField(field);
     _shakeController.forward(from: 0);
     _highlightClearTimer?.cancel();
     _highlightClearTimer = Timer(const Duration(seconds: 2), () {
@@ -304,6 +319,21 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       }
     });
     return false;
+  }
+
+  void _requestFocusForRequiredField(_ChartRequiredField field) {
+    switch (field) {
+      case _ChartRequiredField.name:
+        _nameFocus.requestFocus();
+      case _ChartRequiredField.phone:
+        _phoneFocus.requestFocus();
+      case _ChartRequiredField.careName:
+        _careNameFocus.requestFocus();
+      case _ChartRequiredField.gender:
+      case _ChartRequiredField.consent:
+      case _ChartRequiredField.signature:
+        break;
+    }
   }
 
   /// 회차와 별도로 원장이 선택하는 첫 방문/재방문 인터뷰 모드.
@@ -720,6 +750,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     _summaryController.dispose();
     _insightController.dispose();
     _guardianPhoneController.dispose();
+    _nameFocus.dispose();
+    _phoneFocus.dispose();
+    _careNameFocus.dispose();
     super.dispose();
   }
 
@@ -1246,30 +1279,70 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   }
 
   Future<void> _saveAndConfirm() async {
-    final ok = await _focusFirstMissingRequiredField();
-    if (!ok) return;
-    if (!mounted) return;
-    // 이중 검사: URL/바인딩 customerId 필수 — 없으면 Request 자체를 보내지 않음
-    final hasCustomer = await _ensureCustomerIdForSave();
-    if (!hasCustomer) return;
-    final customerIdForSave = _boundCustomerId.trim();
-    if (customerIdForSave.isEmpty) {
-      await _showCustomerIdLostDialog();
-      return;
-    }
-    if (!mounted) return;
-    if (_beforeUploading || _afterUploading) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('사진 업로드가 끝날 때까지 잠시만 기다려 주세요.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
     try {
+      final ok = await _focusFirstMissingRequiredField();
+      if (!ok) return;
+      if (!mounted) return;
+      // 이중 검사: URL/바인딩 customerId 필수 — 없으면 Request 자체를 보내지 않음
+      final hasCustomer = await _ensureCustomerIdForSave();
+      if (!hasCustomer) return;
+      final customerIdForSave = _boundCustomerId.trim();
+      if (customerIdForSave.isEmpty) {
+        await _showCustomerIdLostDialog();
+        return;
+      }
+      if (!mounted) return;
+      if (_beforeUploading || _afterUploading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사진 업로드가 끝날 때까지 잠시만 기다려 주세요.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // 고객 마스터가 메모리에 없으면 전화 조회 → 없으면 신규 등록
+      if (widget.store.findCustomer(customerIdForSave) == null) {
+        try {
+          final byPhone = await widget.store.lookupCustomerByPhone(
+            _phoneController.text,
+          );
+          if (byPhone != null && byPhone.id.trim().isNotEmpty) {
+            _boundCustomerId = byPhone.id.trim();
+          } else {
+            final saved = await widget.store.addCustomerAsync(
+              Customer(
+                id: '',
+                name: _nameController.text.trim(),
+                phone: _phoneController.text.trim(),
+                gender: _gender,
+                birthDate: _birthDate,
+                address: _addressController.text.trim(),
+                occupation: _occupationController.text.trim(),
+                lastTreatmentDate: DateTime.now(),
+                treatmentType: _careNameController.text.trim(),
+                shopId: widget.store.shop.id,
+              ),
+            );
+            if (saved.id.trim().isNotEmpty) {
+              _boundCustomerId = saved.id.trim();
+            }
+          }
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('고객 정보 저장 실패: $e'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          return;
+        }
+      }
+
+      setState(() => _saving = true);
       // 서명 패드에 획이 있을 때만 업로드. 간편 모드는 기존 포괄 서명 재사용.
       String? signatureUrl = _quickChartMode
           ? (_annualConsentSource?.signatureUrl ?? _existingSignatureUrl)
@@ -1304,7 +1377,9 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       }
 
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
-        customerId: customerIdForSave,
+        customerId: _boundCustomerId.trim().isNotEmpty
+            ? _boundCustomerId.trim()
+            : customerIdForSave,
         visitNumber: _visitNumber,
         customChartNo: _customNoController.text.trim().isEmpty
             ? null
@@ -1414,20 +1489,28 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           ),
         );
       });
-      return;
-    } catch (e) {
-      if (!mounted) return;
+    } catch (e, st) {
+      debugPrint('chart save failed: $e\n$st');
+      final reason = widget.store.lastError?.trim().isNotEmpty == true
+          ? widget.store.lastError!.trim()
+          : '$e';
       widget.store.clearError();
-      if (_isCustomerIdPayloadError(e)) {
+      final message = _isCustomerIdPayloadError(e)
+          ? '고객 ID가 유실되어 차트를 저장할 수 없습니다. 고객을 다시 선택한 뒤 저장해 주세요.'
+          : '차트 저장에 실패했습니다: $reason';
+      if (_isCustomerIdPayloadError(e) && mounted) {
         await _showCustomerIdLostDialog();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = mounted
+          ? ScaffoldMessenger.of(context)
+          : MyApp.scaffoldMessengerKey.currentState;
+      messenger?.showSnackBar(
         SnackBar(
-          content: Text('차트 저장에 실패했습니다: $e'),
+          content: Text(message),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 6),
         ),
       );
     } finally {
@@ -1759,6 +1842,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         shake: _shakeOffset,
                         child: TextField(
                           controller: _nameController,
+                          focusNode: _nameFocus,
                           decoration: InputDecoration(
                             labelText: '고객 성함 *',
                             border: const OutlineInputBorder(),
@@ -1851,6 +1935,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         shake: _shakeOffset,
                         child: TextField(
                           controller: _phoneController,
+                          focusNode: _phoneFocus,
                           keyboardType: TextInputType.phone,
                           textInputAction: TextInputAction.done,
                           onEditingComplete: _autofillFromPhone,
@@ -2201,26 +2286,33 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                       ),
                       const SizedBox(height: 12),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: _PhotoAttachBox(
-                              title: 'Before',
-                              previewBytes: _beforePreviewBytes,
-                              networkUrl: _beforeUrl,
-                              uploading: _beforeUploading,
-                              onTap: () => _attachPhoto(isBefore: true),
-                              onClear: () => _clearPhoto(isBefore: true),
+                            child: AspectRatio(
+                              aspectRatio: 4 / 3,
+                              child: _PhotoAttachBox(
+                                title: 'Before',
+                                previewBytes: _beforePreviewBytes,
+                                networkUrl: _beforeUrl,
+                                uploading: _beforeUploading,
+                                onTap: () => _attachPhoto(isBefore: true),
+                                onClear: () => _clearPhoto(isBefore: true),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: _PhotoAttachBox(
-                              title: 'After (선택)',
-                              previewBytes: _afterPreviewBytes,
-                              networkUrl: _afterUrl,
-                              uploading: _afterUploading,
-                              onTap: () => _attachPhoto(isBefore: false),
-                              onClear: () => _clearPhoto(isBefore: false),
+                            child: AspectRatio(
+                              aspectRatio: 4 / 3,
+                              child: _PhotoAttachBox(
+                                title: 'After (선택)',
+                                previewBytes: _afterPreviewBytes,
+                                networkUrl: _afterUrl,
+                                uploading: _afterUploading,
+                                onTap: () => _attachPhoto(isBefore: false),
+                                onClear: () => _clearPhoto(isBefore: false),
+                              ),
                             ),
                           ),
                         ],
@@ -2480,7 +2572,6 @@ class _PhotoAttachBox extends StatelessWidget {
         onTap: uploading ? null : onTap,
         borderRadius: BorderRadius.circular(14),
         child: Ink(
-          height: 148,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
@@ -2495,11 +2586,18 @@ class _PhotoAttachBox extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (previewBytes != null)
-                  Image.memory(previewBytes!, fit: BoxFit.cover)
+                  Image.memory(
+                    previewBytes!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  )
                 else if (networkUrl != null && networkUrl!.trim().isNotEmpty)
                   CachedNetworkImage(
                     imageUrl: networkUrl!,
                     fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
                     memCacheWidth: 600,
                     fadeInDuration: const Duration(milliseconds: 160),
                     placeholder: (_, _) => _EmptyPhotoPlaceholder(title: title),
@@ -2645,16 +2743,17 @@ extension on _ChartRequiredField {
   String get errorCopy {
     switch (this) {
       case _ChartRequiredField.name:
+        return '고객 성함을 입력해 주세요';
       case _ChartRequiredField.careName:
-        return '관리 메뉴를 선택해 주세요';
+        return '관리 메뉴(시술명)를 선택해 주세요';
       case _ChartRequiredField.gender:
         return '성별을 선택해 주세요';
       case _ChartRequiredField.phone:
-        return '연락처를 입력해 주세요';
+        return '연락처를 10자리 이상 입력해 주세요';
       case _ChartRequiredField.consent:
         return '필수 동의 항목을 체크해 주세요';
       case _ChartRequiredField.signature:
-        return '서명이 누락되었습니다';
+        return '전자 서명이 누락되었습니다';
     }
   }
 }

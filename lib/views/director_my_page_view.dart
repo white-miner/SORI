@@ -17,10 +17,10 @@ import '../utils/storage_image_url.dart';
 import '../widgets/debug_mode_chip.dart';
 import '../widgets/media_permission_dialogs.dart';
 import '../widgets/seminar_review_modal.dart';
-import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import 'ai_shop_report_page.dart';
+import 'chart_customer_picker_sheet.dart';
 import 'director_profile_edit_page.dart';
 import 'seminar_class_open_page.dart';
 import 'seminar_feedback_inbox_page.dart';
@@ -155,6 +155,144 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     } finally {
       if (mounted) setState(() => _avatarUploading = false);
     }
+  }
+
+  Future<void> _openCreateSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _SoriQuickSheet(
+          title: '새 게시물',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.bolt_rounded, color: SoriTokens.primary),
+                title: const Text(
+                  '새 차트 작성',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+                subtitle: const Text(
+                  '고객을 고르고 1초 간편 차트로 이동',
+                  style: TextStyle(color: SoriTokens.textSecondary),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showChartCustomerPickerSheet(context, store: store);
+                },
+              ),
+              const Divider(color: SoriTokens.border),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.campaign_outlined,
+                    color: SoriTokens.primary),
+                title: const Text(
+                  '새 소식 작성',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+                subtitle: const Text(
+                  '팬덤 Home 탭 공지/프로모션',
+                  style: TextStyle(color: SoriTokens.textSecondary),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openNoticeComposer();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openNoticeComposer() async {
+    final titleCtrl = TextEditingController(text: '스페셜 프로모션 안내');
+    final bodyCtrl = TextEditingController();
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final inset = MediaQuery.viewInsetsOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: inset),
+          child: _SoriQuickSheet(
+            title: '새 소식 작성',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '제목',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: bodyCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: '내용',
+                    hintText: '예: 8월 윤곽 리프팅 패키지 20% 혜택',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: () {
+                    if (titleCtrl.text.trim().isEmpty) return;
+                    Navigator.pop(ctx, true);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    '게시하기',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (saved != true || !mounted) {
+      titleCtrl.dispose();
+      bodyCtrl.dispose();
+      return;
+    }
+    final title = titleCtrl.text.trim();
+    final body = bodyCtrl.text.trim();
+    titleCtrl.dispose();
+    bodyCtrl.dispose();
+    final notice = body.isEmpty ? title : '$title\n$body';
+    final prev = store.shop.bio.trim();
+    final nextBio = prev.isEmpty ? notice : '$notice\n\n$prev';
+    store.updateShopProfile(
+      name: store.shop.name,
+      naverPlaceUrl: store.shop.naverPlaceUrl,
+      bio: nextBio,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('소식이 Home 탭에 반영되었어요'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: SoriTokens.primary,
+      ),
+    );
   }
 
   Future<void> _openAiReport() async {
@@ -327,6 +465,11 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
               foregroundColor: SoriTokens.textPrimary,
               forceElevated: innerBoxIsScrolled,
               actions: [
+                IconButton(
+                  tooltip: '새 게시물',
+                  onPressed: _openCreateSheet,
+                  icon: const Icon(Icons.add_rounded),
+                ),
                 if (kDebugMode)
                   const Padding(
                     padding: EdgeInsets.only(right: 8),
@@ -480,17 +623,41 @@ class _ShopHeroCover extends StatelessWidget {
             ),
           ),
         ),
+        // 상단 약한 딤
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              end: Alignment.center,
               colors: [
                 Color(0x33000000),
-                Color(0x99000000),
-                Color(0xFF0A0A0C),
+                Colors.transparent,
               ],
-              stops: [0.0, 0.45, 1.0],
+            ),
+          ),
+        ),
+        // 하단 Weverse형 글래스 블러 페이드
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                height: 168,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.35),
+                      const Color(0xE60A0A0C),
+                    ],
+                    stops: const [0.0, 0.35, 1.0],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -681,6 +848,39 @@ class _HomeTabBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final owner = (shop.ownerName ?? '').trim();
+    final ownerLabel = owner.isEmpty
+        ? '${shop.name.trim().isEmpty ? 'SORI' : shop.name.trim()} 원장'
+        : (owner.contains('원장') ? owner : '$owner 원장');
+    final philosophy = bio.trim().isEmpty
+        ? '피부와 사람을 잇는 섬세한 케어로, 방문할 때마다 더 빛나는 변화를 함께합니다.'
+        : bio.trim();
+    final noticeLines = philosophy.split('\n').where((e) => e.trim().isNotEmpty);
+    final noticeTitle = noticeLines.isEmpty
+        ? '최근 소식'
+        : noticeLines.first.trim();
+    final noticeBody = noticeLines.length > 1
+        ? noticeLines.skip(1).join('\n').trim()
+        : '팬덤을 위한 프로모션·케어 팁을 곧 업데이트합니다.';
+    final slides = store.gallerySlides;
+    final galleryItems = slides.isEmpty
+        ? const [
+            (id: 'g-shop', title: '샵 인테리어', seed: 'sori-interior'),
+            (id: 'g-product', title: '제품 텍스처', seed: 'sori-product'),
+            (id: 'g-care', title: '케어룸', seed: 'sori-careroom'),
+            (id: 'g-device', title: '디바이스', seed: 'sori-device'),
+          ]
+        : slides
+            .map(
+              (s) => (
+                id: s.id,
+                title: s.title,
+                seed: 'sori-gallery-${s.id}',
+              ),
+            )
+            .toList();
+    final avatarUrl = (shop.profileImageUrl ?? '').trim();
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
@@ -710,41 +910,212 @@ class _HomeTabBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        // 모듈 1 — 원장 소개
+        _SquircleCard(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: SoriTokens.primarySoft,
+                backgroundImage: avatarUrl.startsWith('http')
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                child: avatarUrl.startsWith('http')
+                    ? null
+                    : const Icon(Icons.person_rounded,
+                        color: SoriTokens.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '원장 소개',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      ownerLabel,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      philosophy.length > 140
+                          ? '${philosophy.substring(0, 140)}…'
+                          : philosophy,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // 모듈 2 — 샵 갤러리 가로 캐러셀
         _SquircleCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '샵 소개',
+                '샵 갤러리',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                   color: SoriTokens.textPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              const Text(
+                '인테리어 · 제품 · 케어 공간을 넘겨보세요',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 148,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (_) => true,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: galleryItems.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      final item = galleryItems[i];
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          width: 196,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                'https://picsum.photos/seed/${item.seed}/600/400',
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const ColoredBox(
+                                  color: Color(0xFF1F1830),
+                                  child: Icon(Icons.image_outlined,
+                                      color: SoriTokens.textSecondary),
+                                ),
+                              ),
+                              Align(
+                                alignment: Alignment.bottomLeft,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    10,
+                                    20,
+                                    10,
+                                    10,
+                                  ),
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        Color(0xCC0A0A0C),
+                                      ],
+                                    ),
+                                  ),
+                                  child: Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // 모듈 3 — 최근 소식/공지
+        _SquircleCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '최근 소식',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: SoriTokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: SoriTokens.primarySoft,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: const Text(
+                      'NOTICE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
-                bio,
+                noticeTitle,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: SoriTokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                noticeBody.isEmpty
+                    ? '8월 스페셜 프로모션 안내를 준비 중이에요.'
+                    : noticeBody,
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.45,
                   color: SoriTokens.textSecondary,
                 ),
               ),
-              if (shop.tierBadge.isVisible) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ShopTierBadgeChip(badge: shop.tierBadge),
-                    ShopFundingProofChip(
-                      totalSeminarCount: shop.totalSeminarCount,
-                      totalFundingAmount: shop.totalFundingAmount,
-                    ),
-                  ],
-                ),
-              ],
             ],
           ),
         ),

@@ -8,8 +8,9 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/storage_image_url.dart';
 import '../widgets/sori_logo.dart';
-import 'my_info_edit_page.dart';
 import '../widgets/debug_mode_chip.dart';
+import 'customer_review_dashboard_page.dart';
+import 'my_info_edit_page.dart';
 
 /// 고객 모드 마이페이지 — Weverse형 4탭 (여정 / 회원권 / 리뷰 / 스크랩).
 class CustomerMyPageView extends StatefulWidget {
@@ -135,6 +136,21 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                     ),
                   ),
                   if (kDebugMode) const DebugModeChip(),
+                  IconButton(
+                    tooltip: '리뷰 작성',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              CustomerReviewDashboardPage(store: store),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.add_rounded,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
                   IconButton(
                     tooltip: '프로필',
                     onPressed: () {
