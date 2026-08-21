@@ -1301,7 +1301,11 @@ class SoriStore implements Listenable {
   int nextVisitNumber(String customerId) {
     final list = chartsForCustomer(customerId);
     if (list.isEmpty) return 1;
-    return list.first.visitNumber + 1;
+    var maxVn = 0;
+    for (final c in list) {
+      if (c.visitNumber > maxVn) maxVn = c.visitNumber;
+    }
+    return maxVn + 1;
   }
 
   /// 종이 차트와 맞출 수동 차트 번호 제안값 (기존 숫자 최대 + 1).
@@ -2568,11 +2572,19 @@ class SoriStore implements Listenable {
       );
       charts[index] = chart;
     } else {
+      var assignedVisit = visitNumber < 1 ? 1 : visitNumber;
+      final used = charts
+          .where((c) => c.customerId == customerId)
+          .map((c) => c.visitNumber)
+          .toSet();
+      while (used.contains(assignedVisit)) {
+        assignedVisit += 1;
+      }
       chart = CustomerChart(
         id: 'chart-${DateTime.now().millisecondsSinceEpoch}',
         shopId: shop.id,
         customerId: customerId,
-        visitNumber: visitNumber < 1 ? 1 : visitNumber,
+        visitNumber: assignedVisit,
         customChartNo: customChartNo?.trim().isEmpty == true
             ? null
             : customChartNo?.trim(),

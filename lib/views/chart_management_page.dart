@@ -370,6 +370,10 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                           },
                         ),
                       ),
+                      if (selected != null) ...[
+                        const SizedBox(height: 8),
+                        _buildFeedShareBar(selected),
+                      ],
                       const SizedBox(height: 10),
                       Expanded(
                         child: selected == null
@@ -409,6 +413,73 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                 );
               },
             ),
+    );
+  }
+
+  void _onFeedShareChanged(CustomerChart chart, bool value) {
+    final ok = widget.store.setManagementCaseShared(chart.id, value);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFE53935),
+        ),
+      );
+    }
+  }
+
+  Widget _buildFeedShareBar(CustomerChart chart) {
+    final shared = chart.caseShared && chart.isConsentSigned;
+    final canShare = chart.isConsentSigned;
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.public_rounded,
+              size: 20,
+              color: SoriTokens.primary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '피드 공유',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    canShare
+                        ? (shared
+                            ? '커뮤니티 피드에 공개 중'
+                            : '동의 완료 · 공유하면 피드에 노출됩니다')
+                        : '동의서 서명 후 공유할 수 있습니다',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: shared,
+              activeThumbColor: const Color(0xFF22C55E),
+              onChanged: (v) => _onFeedShareChanged(chart, v),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

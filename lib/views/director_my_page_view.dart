@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -309,7 +311,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final cases = _baCases;
     final report = AiShopReportMock.demo();
     final isOwner = session?.activeMode == UserRole.director;
-    final regularCount = store.customers.length;
     final coverUrl = (shop.profileImageUrl ?? '').trim();
 
     return ColoredBox(
@@ -336,9 +337,10 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 collapseMode: CollapseMode.pin,
                 background: _ShopHeroCover(
                   shopName: shopName,
-                  regularCount: regularCount,
                   coverUrl: coverUrl,
                   isOwner: isOwner,
+                  coverUploading: _avatarUploading,
+                  onCoverPick: isOwner ? _pickAndUploadAvatar : null,
                   onCta: () {
                     if (isOwner) {
                       Navigator.of(context).push(
@@ -437,17 +439,19 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
 class _ShopHeroCover extends StatelessWidget {
   const _ShopHeroCover({
     required this.shopName,
-    required this.regularCount,
     required this.coverUrl,
     required this.isOwner,
     required this.onCta,
+    this.onCoverPick,
+    this.coverUploading = false,
   });
 
   final String shopName;
-  final int regularCount;
   final String coverUrl;
   final bool isOwner;
   final VoidCallback onCta;
+  final VoidCallback? onCoverPick;
+  final bool coverUploading;
 
   static const _fallbackCover =
       'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80';
@@ -492,21 +496,12 @@ class _ShopHeroCover extends StatelessWidget {
         ),
         Positioned(
           left: 20,
-          right: 20,
+          right: isOwner ? 72 : 20,
           bottom: 28,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '단골 고객 $regularCount명',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.78),
-                ),
-              ),
-              const SizedBox(height: 6),
               Text(
                 shopName,
                 maxLines: 2,
@@ -519,31 +514,93 @@ class _ShopHeroCover extends StatelessWidget {
                   letterSpacing: -0.4,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               SizedBox(
-                height: 44,
-                child: FilledButton(
-                  onPressed: onCta,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                  child: Text(
-                    isOwner ? '⚙️ 프로필 편집' : '🗓️ 예약하기',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
+                height: 42,
+                child: isOwner
+                    ? OutlinedButton(
+                        onPressed: onCta,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            width: 1.2,
+                          ),
+                          backgroundColor:
+                              Colors.white.withValues(alpha: 0.10),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: const Text(
+                          '프로필 편집',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    : FilledButton(
+                        onPressed: onCta,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SoriTokens.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                        child: const Text(
+                          '예약하기',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),
         ),
+        if (isOwner && onCoverPick != null)
+          Positioned(
+            right: 16,
+            bottom: 28,
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  shape: const CircleBorder(
+                    side: BorderSide(color: Color(0x66FFFFFF)),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: coverUploading ? null : onCoverPick,
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: coverUploading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.photo_camera,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

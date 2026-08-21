@@ -30,6 +30,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
             name: TextEditingController(text: e.name),
             description: TextEditingController(text: e.description),
             device: TextEditingController(text: e.deviceInfo ?? ''),
+            initialChips: e.keywords,
           ),
         )
         .toList();
@@ -151,6 +152,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
         ShopServiceItem(
           name: name,
           description: item.description.text.trim(),
+          keywords: item.selectedChips.toList(),
           deviceInfo: () {
             final d = item.device.text.trim();
             return d.isEmpty ? null : d;
@@ -397,12 +399,13 @@ class _ServiceDraft {
     required this.name,
     required this.description,
     required this.device,
-  });
+    List<String> initialChips = const [],
+  }) : selectedChips = {...initialChips.where((e) => e.trim().isNotEmpty)};
 
   final TextEditingController name;
   final TextEditingController description;
   final TextEditingController device;
-  final Set<String> selectedChips = {};
+  final Set<String> selectedChips;
   bool polishing = false;
 
   void dispose() {

@@ -154,7 +154,18 @@ class SupabaseSoriRepository implements SoriRepository {
     return raw.toString().trim().isNotEmpty;
   }
 
-  /// 차트 insert — chart_records 우선. PGRST204 시 (보호 컬럼 제외) strip 후 재시도.
+  /// Postgres unique_violation (23505) — (customer_id, visit_number) 충돌 감지.
+  bool _isVisitNumberUniqueViolation(Object e) {
+    if (e is PostgrestException && e.code == '23505') return true;
+    final s = '$e'.toLowerCase();
+    return s.contains('23505') ||
+        s.contains('duplicate key') ||
+        s.contains('unique constraint') ||
+        s.contains('customer_id_visit_number') ||
+        (s.contains('visit_number') && s.contains('unique'));
+  }
+
+  /// 차트 insert — chart_records 우선. PGRST204 strip / 회차 유니크 충돌 시 재시도.
   Future<Map<String, dynamic>> _insertChartRow(
     Map<String, dynamic> payload, {
     required String customerId,
@@ -163,6 +174,7 @@ class SupabaseSoriRepository implements SoriRepository {
     var body = Map<String, dynamic>.from(payload);
     _ensureChartFkPayload(body, customerId: customerId, shopId: shopId);
     Object? lastError;
+    var visitBumpBudget = 24;
     for (var attempt = 0; attempt < 40; attempt++) {
       var progressed = false;
       for (final table in _chartsWriteOrder) {
@@ -191,6 +203,17 @@ class SupabaseSoriRepository implements SoriRepository {
             progressed = true;
             debugPrint(
               'chart insert PGRST204 strip → retry ($table, keys=${body.length})',
+            );
+            break;
+          }
+          if (_isVisitNumberUniqueViolation(e) && visitBumpBudget > 0) {
+            final current = DbMap.asInt(body['visit_number'], 1);
+            final next = current < 1 ? 1 : current + 1;
+            body['visit_number'] = next;
+            visitBumpBudget -= 1;
+            progressed = true;
+            debugPrint(
+              'chart insert unique(visit_number) → bump $current→$next ($table)',
             );
             break;
           }
