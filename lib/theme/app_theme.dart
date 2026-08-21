@@ -42,7 +42,7 @@ abstract final class AppTheme {
         iconTheme: IconThemeData(color: SoriTokens.textPrimary),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: SoriTokens.surfaceElevated,
+        backgroundColor: Colors.transparent,
         selectedItemColor: SoriTokens.primary,
         unselectedItemColor: SoriTokens.textSecondary,
         type: BottomNavigationBarType.fixed,
