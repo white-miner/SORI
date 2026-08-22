@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../models/service_menu_chips.dart';
 import '../models/shop.dart';
 import '../models/shop_business_hours.dart';
 import '../models/shop_service_item.dart';
+import '../models/service_menu_chips.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_bottom_sheet.dart';
 
 /// Shop 탭 — Owner 인라인 편집 (소개·영업시간·메뉴·키워드).
 class ShopInlineInfoTab extends StatefulWidget {
@@ -42,237 +43,7 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _editIdentity() async {
-    final nameCtrl = TextEditingController(text: shop.name);
-    final bioCtrl = TextEditingController(text: shop.bio);
-    final addressCtrl = TextEditingController(text: shop.address ?? '');
-    final phoneCtrl = TextEditingController(text: shop.phone ?? '');
-
-    var hours = shop.businessHours.isEmpty
-        ? const ShopBusinessHours()
-        : shop.businessHours;
-    final selectedDays = {...hours.openDays};
-
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) {
-        final inset = MediaQuery.viewInsetsOf(ctx).bottom;
-        return StatefulBuilder(
-          builder: (ctx, setSheet) {
-            Future<void> pickTime({required bool isOpen}) async {
-              final initial =
-                  isOpen ? hours.openTimeOfDay : hours.closeTimeOfDay;
-              final picked = await showTimePicker(
-                context: ctx,
-                initialTime: initial,
-                builder: (c, child) => Theme(
-                  data: Theme.of(c).copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: SoriTokens.primary,
-                      surface: SoriTokens.surface,
-                    ),
-                  ),
-                  child: child!,
-                ),
-              );
-              if (picked == null) return;
-              setSheet(() {
-                hours = isOpen
-                    ? hours.copyWith(
-                        openHour: picked.hour,
-                        openMinute: picked.minute,
-                      )
-                    : hours.copyWith(
-                        closeHour: picked.hour,
-                        closeMinute: picked.minute,
-                      );
-              });
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + inset),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      '샵 정보 수정',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: '샵 이름'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: bioCtrl,
-                      maxLines: 3,
-                      decoration: const InputDecoration(labelText: '소개'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: addressCtrl,
-                      decoration: const InputDecoration(labelText: '주소'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: phoneCtrl,
-                      decoration: const InputDecoration(labelText: '전화'),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '운영 요일',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '선택하지 않은 요일은 자동으로 휴무로 표시됩니다',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: List.generate(7, (i) {
-                        final day = i + 1;
-                        final selected = selectedDays.contains(day);
-                        return FilterChip(
-                          label: Text(ShopBusinessHours.dayLabel(day)),
-                          selected: selected,
-                          onSelected: (v) {
-                            setSheet(() {
-                              if (v) {
-                                selectedDays.add(day);
-                              } else {
-                                selectedDays.remove(day);
-                              }
-                            });
-                          },
-                          selectedColor: SoriTokens.primarySoft,
-                          checkmarkColor: SoriTokens.primary,
-                          labelStyle: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: selected
-                                ? SoriTokens.primary
-                                : SoriTokens.textPrimary,
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      '오픈 / 마감 시간',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => pickTime(isOpen: true),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: SoriTokens.primary,
-                              side: const BorderSide(
-                                color: SoriTokens.outlinePurple,
-                              ),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(
-                              '오픈 ${hours.openTimeLabel}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => pickTime(isOpen: false),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: SoriTokens.primary,
-                              side: const BorderSide(
-                                color: SoriTokens.outlinePurple,
-                              ),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(
-                              '마감 ${hours.closeTimeLabel}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      ShopBusinessHours(
-                        openDays: selectedDays,
-                        openHour: hours.openHour,
-                        openMinute: hours.openMinute,
-                        closeHour: hours.closeHour,
-                        closeMinute: hours.closeMinute,
-                      ).formatDisplay(),
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: SoriTokens.primary,
-                      ),
-                      child: const Text('저장'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (ok != true || !mounted) return;
-    final saved = ShopBusinessHours(
-      openDays: selectedDays,
-      openHour: hours.openHour,
-      openMinute: hours.openMinute,
-      closeHour: hours.closeHour,
-      closeMinute: hours.closeMinute,
-    );
-    store.updateShopProfile(
-      name: nameCtrl.text,
-      naverPlaceUrl: shop.naverPlaceUrl,
-      bio: bioCtrl.text,
-      address: addressCtrl.text,
-      phone: phoneCtrl.text,
-      businessHours: saved,
-      operatingHours: saved.isEmpty ? '' : saved.formatDisplay(),
-      ownerName: shop.ownerName,
-    );
-  }
+  Future<void> _editIdentity() => showShopIdentityEditSheet(context, store);
 
   Future<void> _addOrEditMenu({ShopServiceItem? existing, int? index}) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
@@ -285,17 +56,22 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) {
-        final inset = MediaQuery.viewInsetsOf(ctx).bottom;
         return StatefulBuilder(
           builder: (ctx, setSheet) {
             return Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + inset),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                14,
+                16,
+                16 + soriSheetBottomPadding(ctx),
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -782,3 +558,249 @@ class _Line extends StatelessWidget {
     );
   }
 }
+
+/// Home/Shop 공용 — 샵·원장 프로필 + 영업시간 편집 시트.
+Future<void> showShopIdentityEditSheet(
+  BuildContext context,
+  SoriStore store,
+) async {
+  final shop = store.shop;
+  final nameCtrl = TextEditingController(text: shop.name);
+  final ownerCtrl = TextEditingController(text: shop.ownerName ?? '');
+  final bioCtrl = TextEditingController(text: shop.bio);
+  final addressCtrl = TextEditingController(text: shop.address ?? '');
+  final phoneCtrl = TextEditingController(text: shop.phone ?? '');
+
+  var hours = shop.businessHours.isEmpty
+      ? const ShopBusinessHours()
+      : shop.businessHours;
+  final selectedDays = {...hours.openDays};
+
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: SoriTokens.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setSheet) {
+          Future<void> pickTime({required bool isOpen}) async {
+            final initial =
+                isOpen ? hours.openTimeOfDay : hours.closeTimeOfDay;
+            final picked = await showTimePicker(
+              context: ctx,
+              initialTime: initial,
+              builder: (c, child) => Theme(
+                data: Theme.of(c).copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    primary: SoriTokens.primary,
+                    surface: SoriTokens.surface,
+                  ),
+                ),
+                child: child!,
+              ),
+            );
+            if (picked == null) return;
+            setSheet(() {
+              hours = isOpen
+                  ? hours.copyWith(
+                      openHour: picked.hour,
+                      openMinute: picked.minute,
+                    )
+                  : hours.copyWith(
+                      closeHour: picked.hour,
+                      closeMinute: picked.minute,
+                    );
+            });
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              14,
+              16,
+              16 + soriSheetBottomPadding(ctx),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '샵 · 원장 프로필',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: '샵 이름'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: ownerCtrl,
+                    decoration: const InputDecoration(labelText: '원장 이름'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: bioCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: '소개'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: addressCtrl,
+                    decoration: const InputDecoration(labelText: '주소'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: phoneCtrl,
+                    decoration: const InputDecoration(labelText: '전화'),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '운영 요일',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '선택하지 않은 요일은 자동으로 휴무로 표시됩니다',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List.generate(7, (i) {
+                      final day = i + 1;
+                      final selected = selectedDays.contains(day);
+                      return FilterChip(
+                        label: Text(ShopBusinessHours.dayLabel(day)),
+                        selected: selected,
+                        onSelected: (v) {
+                          setSheet(() {
+                            if (v) {
+                              selectedDays.add(day);
+                            } else {
+                              selectedDays.remove(day);
+                            }
+                          });
+                        },
+                        selectedColor: SoriTokens.primarySoft,
+                        checkmarkColor: SoriTokens.primary,
+                        labelStyle: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: selected
+                              ? SoriTokens.primary
+                              : SoriTokens.textPrimary,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    '오픈 / 마감 시간',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => pickTime(isOpen: true),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: SoriTokens.primary,
+                            side: const BorderSide(
+                              color: SoriTokens.outlinePurple,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            '오픈 ${hours.openTimeLabel}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => pickTime(isOpen: false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: SoriTokens.primary,
+                            side: const BorderSide(
+                              color: SoriTokens.outlinePurple,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            '마감 ${hours.closeTimeLabel}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    ShopBusinessHours(
+                      openDays: selectedDays,
+                      openHour: hours.openHour,
+                      openMinute: hours.openMinute,
+                      closeHour: hours.closeHour,
+                      closeMinute: hours.closeMinute,
+                    ).formatDisplay(),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SoriTokens.primary,
+                    ),
+                    child: const Text('저장'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  if (ok != true) return;
+  final saved = ShopBusinessHours(
+    openDays: selectedDays,
+    openHour: hours.openHour,
+    openMinute: hours.openMinute,
+    closeHour: hours.closeHour,
+    closeMinute: hours.closeMinute,
+  );
+  store.updateShopProfile(
+    name: nameCtrl.text,
+    naverPlaceUrl: shop.naverPlaceUrl,
+    bio: bioCtrl.text,
+    address: addressCtrl.text,
+    phone: phoneCtrl.text,
+    businessHours: saved,
+    operatingHours: saved.isEmpty ? '' : saved.formatDisplay(),
+    ownerName: ownerCtrl.text,
+  );
+}
+

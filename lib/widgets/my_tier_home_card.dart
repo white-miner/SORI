@@ -3,9 +3,43 @@ import 'package:flutter/material.dart';
 import '../models/shop.dart';
 import '../models/shop_tier_badge.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_bottom_sheet.dart';
 import 'shop_tier_badge_chip.dart';
 
-/// Home「내 등급」— 중앙 뱃지 + 탭 시 승급 조건 바텀시트.
+/// 원장 소개 옆 소형 티어 마크 — 탭 시 전체 등급 가이드.
+class MyTierBadgeButton extends StatelessWidget {
+  const MyTierBadgeButton({super.key, required this.shop});
+
+  final Shop shop;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => showFullTierGuideSheet(context, shop: shop),
+      borderRadius: BorderRadius.circular(99),
+      child: shop.tierBadge.isVisible
+          ? ShopTierBadgeChip(badge: shop.tierBadge, compact: true)
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: SoriTokens.primarySoft,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: SoriTokens.outlinePurple),
+              ),
+              child: const Text(
+                '등급',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: SoriTokens.primary,
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+/// @deprecated Home에서는 [MyTierBadgeButton] 사용. 호환용 유지.
 class MyTierHomeCard extends StatelessWidget {
   const MyTierHomeCard({super.key, required this.shop});
 
@@ -13,255 +47,172 @@ class MyTierHomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final snap = shop.tierProgress;
-    final label = shop.tierBadge.isVisible
-        ? shop.tierBadge.label
-        : '등급 준비 중';
-
-    return Material(
-      color: SoriTokens.surface,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => showMyTierProgressSheet(context, shop: shop),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: SoriTokens.outlinePurple),
-          ),
-          child: Column(
-            children: [
-              const Text(
-                '내 등급',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: SoriTokens.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (shop.tierBadge.isVisible)
-                ShopTierBadgeChip(badge: shop.tierBadge, compact: false)
-              else
-                Container(
-                  width: 56,
-                  height: 56,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: SoriTokens.primarySoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.workspace_premium_outlined,
-                    color: SoriTokens.primary,
-                  ),
-                ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: SoriTokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                snap.nextSocial != null
-                    ? '다음 ${snap.nextSocial!.label}까지 ${(snap.socialRatio * 100).round()}%'
-                    : (snap.nextBusiness != null
-                        ? '다음 ${snap.nextBusiness!.label}까지 ${(snap.businessRatio * 100).round()}%'
-                        : '최고 등급에 도달했어요'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: SoriTokens.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                '탭하여 승급 조건 보기',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: SoriTokens.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return MyTierBadgeButton(shop: shop);
   }
 }
 
 Future<void> showMyTierProgressSheet(
   BuildContext context, {
   required Shop shop,
+}) =>
+    showFullTierGuideSheet(context, shop: shop);
+
+/// 아이언 → 그랜드 디렉터 전체 등급표 + 달성 조건.
+Future<void> showFullTierGuideSheet(
+  BuildContext context, {
+  required Shop shop,
 }) {
-  final snap = shop.tierProgress;
+  final current = shop.tierBadge;
+  final all = <ShopTierThreshold>[
+    ...ShopTierThreshold.social,
+    ...ShopTierThreshold.business,
+  ];
+
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     backgroundColor: SoriTokens.surface,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
     ),
     builder: (ctx) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: SoriTokens.border,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ShopTierBadgeChip(badge: shop.tierBadge, compact: false),
-              const SizedBox(height: 10),
-              Text(
-                shop.tierBadge.isVisible ? shop.tierBadge.label : '등급 없음',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 18),
-              if (snap.nextSocial != null) ...[
-                _TierConditionBlock(
-                  title: '다음 등급 · ${snap.nextSocial!.label}',
-                  lines: _socialProgressLines(snap),
-                  ratio: snap.socialRatio,
+      final bottom = soriSheetBottomPadding(ctx);
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        minChildSize: 0.45,
+        maxChildSize: 0.92,
+        builder: (ctx, scroll) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, bottom),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: SoriTokens.border,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
                 const SizedBox(height: 14),
-              ],
-              if (snap.nextBusiness != null) ...[
-                _TierConditionBlock(
-                  title: '비즈니스 · ${snap.nextBusiness!.label}',
-                  lines: _businessProgressLines(snap),
-                  ratio: snap.businessRatio,
-                ),
-              ],
-              if (snap.nextSocial == null && snap.nextBusiness == null)
                 const Text(
-                  '모든 승급 조건을 달성했습니다.',
-                  style: TextStyle(color: SoriTokens.textSecondary),
+                  '전체 등급 가이드',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                 ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('닫기'),
+                const SizedBox(height: 4),
+                Text(
+                  current.isVisible
+                      ? '현재 · ${current.label}'
+                      : '현재 등급 준비 중',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: SoriTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scroll,
+                    itemCount: all.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, i) {
+                      final t = all[i];
+                      final isCurrent = t.badge == current;
+                      final isSocial = i < ShopTierThreshold.social.length;
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isCurrent
+                              ? SoriTokens.primarySoft
+                              : SoriTokens.background,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isCurrent
+                                ? SoriTokens.primary
+                                : SoriTokens.border,
+                            width: isCurrent ? 1.4 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                ShopTierBadgeChip(
+                                  badge: t.badge,
+                                  compact: true,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    t.badge.label,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  isSocial ? '소셜' : '비즈니스',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSocial
+                                        ? const Color(0xFF38BDF8)
+                                        : const Color(0xFFFBBF24),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ..._thresholdLines(t).map(
+                              (line) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '· $line',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.35,
+                                    color: SoriTokens.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       );
     },
   );
 }
 
-List<String> _socialProgressLines(ShopTierProgressSnapshot snap) {
-  ShopTierThreshold? next;
-  for (final t in ShopTierThreshold.social) {
-    if (t.badge == snap.nextSocial) {
-      next = t;
-      break;
-    }
+List<String> _thresholdLines(ShopTierThreshold t) {
+  if (t.shared > 0 || t.likes > 0 || t.followers > 0) {
+    return [
+      '공유 차트 ${t.shared}+',
+      '좋아요 ${t.likes}+',
+      '팔로워 ${t.followers}+',
+    ];
   }
-  if (next == null) return snap.socialRemain;
-  return [
-    '공유 차트  ${snap.shared} / ${next.shared}',
-    '좋아요     ${snap.likes} / ${next.likes}',
-    '팔로워    ${snap.followers} / ${next.followers}',
-  ];
-}
-
-List<String> _businessProgressLines(ShopTierProgressSnapshot snap) {
-  ShopTierThreshold? next;
-  for (final t in ShopTierThreshold.business) {
-    if (t.badge == snap.nextBusiness) {
-      next = t;
-      break;
-    }
-  }
-  if (next == null) return snap.businessRemain;
   final lines = <String>[
-    '세미나 요청  ${snap.requests} / ${next.requests}',
-    '세미나 개최  ${snap.seminars} / ${next.seminars}',
+    '세미나 요청 ${t.requests}+',
+    '세미나 개최 ${t.seminars}+',
   ];
-  if (next.funding > 0) {
-    lines.add('펀딩  ${snap.funding} / ${next.funding}');
+  if (t.funding > 0) {
+    final won = t.funding >= 100000000
+        ? '${t.funding ~/ 100000000}억+'
+        : '${t.funding ~/ 10000}만+';
+    lines.add('펀딩 $won');
   }
   return lines;
-}
-
-class _TierConditionBlock extends StatelessWidget {
-  const _TierConditionBlock({
-    required this.title,
-    required this.lines,
-    required this.ratio,
-  });
-
-  final String title;
-  final List<String> lines;
-  final double ratio;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: SoriTokens.background,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SoriTokens.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 10),
-          for (final line in lines)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                '· $line',
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.35,
-                  color: SoriTokens.textPrimary,
-                ),
-              ),
-            ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: ratio.clamp(0.04, 1),
-              minHeight: 6,
-              backgroundColor: SoriTokens.primarySoft,
-              color: SoriTokens.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

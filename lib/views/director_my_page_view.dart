@@ -167,6 +167,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   Future<void> _openCreateSheet() async {
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return _SoriQuickSheet(
@@ -226,6 +227,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final bodyCtrl = TextEditingController();
     final saved = await showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -306,6 +308,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final report = AiShopReportMock.demo();
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -354,6 +357,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   Future<void> _openTierSheet(Shop shop) async {
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -368,6 +372,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   Future<void> _openSeminarSheet() async {
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -500,26 +505,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     badgeCount: badgeCount,
                     coverUploading: _avatarUploading,
                     onCoverPick: isOwner ? _pickAndUploadAvatar : null,
-                    onCta: () {
-                      if (isOwner) {
-                        _tabController.animateTo(2);
-                      } else {
-                        final url = shop.naverBookingUrl.trim().isNotEmpty
-                            ? shop.naverBookingUrl.trim()
-                            : shop.naverPlaceUrl.trim();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              url.isEmpty
-                                  ? '예약 링크가 아직 등록되지 않았어요'
-                                  : '예약 페이지로 이동합니다',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: SoriTokens.primary,
-                          ),
-                        );
-                      }
-                    },
                     onPost: () => PostFirstCreationPage.open(context),
                     onNotifications: _openNotifications,
                     onSettings: _openSettings,
@@ -635,7 +620,6 @@ class _ShopHeroCover extends StatelessWidget {
     required this.coverUrl,
     required this.regularCount,
     required this.isOwner,
-    required this.onCta,
     required this.onPost,
     required this.onNotifications,
     required this.onSettings,
@@ -648,7 +632,6 @@ class _ShopHeroCover extends StatelessWidget {
   final String coverUrl;
   final int regularCount;
   final bool isOwner;
-  final VoidCallback onCta;
   final VoidCallback onPost;
   final VoidCallback onNotifications;
   final VoidCallback onSettings;
@@ -787,30 +770,6 @@ class _ShopHeroCover extends StatelessWidget {
                       color: Colors.white,
                       height: 1.12,
                       letterSpacing: -0.6,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  OutlinedButton(
-                    onPressed: onCta,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.white.withValues(alpha: 0.08),
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        width: 1,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 10,
-                      ),
-                      shape: const StadiumBorder(),
-                    ),
-                    child: Text(
-                      isOwner ? '프로필' : '예약하기',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                      ),
                     ),
                   ),
                 ],
@@ -997,26 +956,13 @@ class _HomeTabBody extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
         _SquircleCard(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: SoriTokens.primarySoft,
-                backgroundImage: avatarUrl.startsWith('http')
-                    ? NetworkImage(avatarUrl)
-                    : null,
-                child: avatarUrl.startsWith('http')
-                    ? null
-                    : const Icon(Icons.person_rounded,
-                        color: SoriTokens.primary),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
                       '원장 소개',
                       style: TextStyle(
                         fontSize: 12,
@@ -1024,36 +970,72 @@ class _HomeTabBody extends StatelessWidget {
                         color: SoriTokens.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      ownerLabel,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: SoriTokens.textPrimary,
-                      ),
+                  ),
+                  if (isOwner)
+                    IconButton(
+                      tooltip: '프로필 수정',
+                      onPressed: () =>
+                          showShopIdentityEditSheet(context, store),
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      color: SoriTokens.primary,
+                      visualDensity: VisualDensity.compact,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      philosophy.length > 140
-                          ? '${philosophy.substring(0, 140)}…'
-                          : philosophy,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.45,
-                        color: SoriTokens.textSecondary,
-                      ),
+                ],
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: SoriTokens.primarySoft,
+                    backgroundImage: avatarUrl.startsWith('http')
+                        ? NetworkImage(avatarUrl)
+                        : null,
+                    child: avatarUrl.startsWith('http')
+                        ? null
+                        : const Icon(Icons.person_rounded,
+                            color: SoriTokens.primary),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                ownerLabel,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: SoriTokens.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            MyTierBadgeButton(shop: shop),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          philosophy.length > 140
+                              ? '${philosophy.substring(0, 140)}…'
+                              : philosophy,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        MyTierHomeCard(shop: shop),
-        const SizedBox(height: 12),
-        ShopGalleryHomeSection(store: store, isOwner: isOwner),
         const SizedBox(height: 12),
         ShopPostsThreadSection(
           store: store,
@@ -1061,6 +1043,8 @@ class _HomeTabBody extends StatelessWidget {
           ownerLabel: ownerLabel,
           avatarUrl: avatarUrl,
         ),
+        const SizedBox(height: 12),
+        ShopGalleryHomeSection(store: store, isOwner: isOwner),
         const SizedBox(height: 12),
         _SquircleCard(
           child: ListTile(
