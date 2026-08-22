@@ -93,6 +93,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final list = _comments.putIfAbsent(chart.id, () => []);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
@@ -207,6 +208,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(

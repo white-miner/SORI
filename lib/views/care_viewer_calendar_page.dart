@@ -85,6 +85,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
     final controller = TextEditingController(text: existing?.body ?? '');
     final saved = await showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(

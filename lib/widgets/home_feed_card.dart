@@ -527,6 +527,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
   void _openMore() {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

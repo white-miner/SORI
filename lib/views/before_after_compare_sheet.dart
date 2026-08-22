@@ -39,6 +39,7 @@ Future<void> showBeforeAfterCompareSheet({
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(

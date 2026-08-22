@@ -32,6 +32,7 @@ class SeminarCheckoutBottomSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(

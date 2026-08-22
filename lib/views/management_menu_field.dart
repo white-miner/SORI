@@ -36,6 +36,7 @@ class ManagementMenuField extends StatelessWidget {
 
     final selected = await showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(

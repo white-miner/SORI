@@ -18,6 +18,7 @@ Future<Customer?> showAddCustomerSheet(
 }) async {
   final customer = await showModalBottomSheet<Customer>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(

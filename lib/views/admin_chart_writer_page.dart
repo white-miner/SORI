@@ -920,6 +920,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     var temp = _birthDate ?? DateTime(DateTime.now().year - 30, 1, 1);
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.18),
       builder: (ctx) {
@@ -1002,6 +1003,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),

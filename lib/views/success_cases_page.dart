@@ -206,6 +206,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     final bio = shop.bio.trim();
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),

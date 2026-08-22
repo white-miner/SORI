@@ -18,6 +18,7 @@ Future<List<CustomerMembership>?> showMembershipEditorSheet({
 }) {
   return showModalBottomSheet<List<CustomerMembership>>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(

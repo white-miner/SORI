@@ -221,6 +221,7 @@ class _CustomerManagementCasesPageState
     final list = _comments.putIfAbsent(chart.id, () => []);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(

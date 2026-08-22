@@ -131,6 +131,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(

@@ -225,6 +225,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   void _pickSort() {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),

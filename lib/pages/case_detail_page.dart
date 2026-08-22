@@ -214,6 +214,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   void _openMore() {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: SoriTokens.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

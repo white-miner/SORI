@@ -119,6 +119,7 @@ class _CustomerReviewDashboardPageState
 
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.background,
       shape: const RoundedRectangleBorder(

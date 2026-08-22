@@ -17,6 +17,7 @@ Future<CustomerChart?> showQuickConsentSheet({
 }) {
   return showModalBottomSheet<CustomerChart>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: SoriTokens.surface,
     useSafeArea: true,
