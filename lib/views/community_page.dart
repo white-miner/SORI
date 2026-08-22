@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_post.dart';
 import '../models/session_user.dart';
@@ -12,6 +11,7 @@ import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_trust_header.dart';
 import '../widgets/sori_insta_picker.dart';
 import 'customer_management_cases_page.dart';
+import 'device_review_detail_page.dart';
 import 'seminar_class_detail_page.dart';
 import 'success_cases_page.dart';
 
@@ -248,13 +248,13 @@ class _RecommendSegment extends StatelessWidget {
           ),
         const SizedBox(height: 22),
         const Text(
-          '기기 · 중고',
+          '기기 실사용',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
         if (markets.isEmpty)
           const _EmptyHint(
-            text: '실사용 리뷰와 중고 매물이 여기에 모입니다. (채팅·연락 기반)',
+            text: '동료 원장의 실사용 후기가 여기에 모입니다. 필요할 때만 거래로 이어져요.',
           )
         else
           ...markets.map(
@@ -364,19 +364,21 @@ class _InteriorFeedTile extends StatelessWidget {
         ? const <CommunityPostTag>[]
         : post.tagsForMedia(primary.id);
     final styleTags = post.styleTags;
+    final title = post.title.trim();
+    final body = post.body.trim();
 
     return Container(
       decoration: BoxDecoration(
         color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SoriTokens.outlinePurple),
+        border: Border.all(color: SoriTokens.outlinePurple.withValues(alpha: 0.55)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 4),
             child: CommunityTrustHeader(
               post: post,
               trailing: post.shopId == store.shop.id
@@ -388,14 +390,68 @@ class _InteriorFeedTile extends StatelessWidget {
                   : null,
             ),
           ),
+          // 에세이형 텍스트 — 사진보다 먼저 스토리를 읽게.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title.isNotEmpty)
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 19,
+                      height: 1.35,
+                      letterSpacing: -0.35,
+                    ),
+                  ),
+                if (body.isNotEmpty) ...[
+                  SizedBox(height: title.isEmpty ? 0 : 12),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      height: 1.72,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFD4D4D8),
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ],
+                if (styleTags.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: styleTags
+                        .take(5)
+                        .map(
+                          (t) => Text(
+                            t.startsWith('#') ? t : '#$t',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: SoriTokens.primary.withValues(alpha: 0.9),
+                              height: 1.3,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
           if (media.length <= 1)
             CommunityHotspotImage(
               imageUrl: primary?.imageUrl ?? post.primaryImageUrl,
               tags: tags,
+              aspectRatio: 4 / 3,
             )
           else
             SizedBox(
-              height: 260,
+              height: 280,
               child: PageView.builder(
                 itemCount: media.length,
                 itemBuilder: (context, i) {
@@ -408,76 +464,21 @@ class _InteriorFeedTile extends StatelessWidget {
                 },
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (post.title.trim().isNotEmpty)
-                  Text(
-                    post.title.trim(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                    ),
-                  ),
-                if (post.body.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    post.body.trim(),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
-                      color: SoriTokens.textSecondary,
-                    ),
-                  ),
-                ],
-                if (styleTags.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: styleTags
-                        .take(5)
-                        .map(
-                          (t) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: SoriTokens.primarySoft,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Text(
-                              t.startsWith('#') ? t : '#$t',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: SoriTokens.primary,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-                if (post.tags.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '핀 ${post.tags.length}개 · 사진을 탭해 제품·업체를 확인하세요',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: SoriTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          if (post.tags.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(18, 10, 18, 14),
+              child: Text(
+                '사진 속 작은 점을 탭하면 제품·업체 정보를 볼 수 있어요',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.4,
+                  color: SoriTokens.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 8),
         ],
       ),
     );
@@ -523,19 +524,11 @@ class _InteriorCard extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    '핀 $pinCount',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.55),
                   ),
                 ),
               ),
@@ -609,13 +602,13 @@ class _MarketSegmentState extends State<_MarketSegment> {
                   child: Row(
                     children: [
                       _FilterChip(
-                        label: '전체',
+                        label: '전체 후기',
                         selected: _filter == null,
                         onTap: () => setState(() => _filter = null),
                       ),
                       const SizedBox(width: 6),
                       _FilterChip(
-                        label: '판매 중',
+                        label: '매물 연결',
                         selected: _filter == MarketListingStatus.active,
                         onTap: () => setState(
                           () => _filter = MarketListingStatus.active,
@@ -623,7 +616,7 @@ class _MarketSegmentState extends State<_MarketSegment> {
                       ),
                       const SizedBox(width: 6),
                       _FilterChip(
-                        label: '예약 중',
+                        label: '예약',
                         selected: _filter == MarketListingStatus.reserved,
                         onTap: () => setState(
                           () => _filter = MarketListingStatus.reserved,
@@ -662,7 +655,7 @@ class _MarketSegmentState extends State<_MarketSegment> {
                             size: 48, color: SoriTokens.textSecondary),
                         const SizedBox(height: 14),
                         const Text(
-                          '기기 리뷰 · 중고 장터',
+                          '기기 리뷰 · 실사용 노트',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
@@ -670,7 +663,7 @@ class _MarketSegmentState extends State<_MarketSegment> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          '사용 기간·만족도·장단점을 남기고\n중고 판매를 함께 연결할 수 있어요.',
+                          '먼저 동료 원장의 실사용 후기를 읽고,\n필요할 때 중고·신제품으로 이어집니다.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
@@ -751,6 +744,15 @@ class _MarketCard extends StatelessWidget {
   bool get _isOwner =>
       post.shopId.isNotEmpty && post.shopId == store.shop.id;
 
+  String get _deviceName {
+    final r = post.deviceReview?.deviceName.trim() ?? '';
+    if (r.isNotEmpty) return r;
+    final l = post.listing?.deviceName.trim() ?? '';
+    if (l.isNotEmpty) return l;
+    final t = post.title.trim();
+    return t.isEmpty ? '기기 후기' : t;
+  }
+
   Future<void> _showStatusSheet(BuildContext context) async {
     final listing = post.listing;
     if (listing == null) return;
@@ -803,187 +805,201 @@ class _MarketCard extends StatelessWidget {
     final listing = post.listing;
     final review = post.deviceReview;
     final status = listing?.status ?? MarketListingStatus.active;
-    final phone = listing?.contactPhone?.trim() ?? '';
-    final sold = status == MarketListingStatus.sold;
+    final sold = listing != null && status == MarketListingStatus.sold;
     final img = post.primaryImageUrl;
+    final months = review?.usageMonths ?? 0;
 
     return Opacity(
       opacity: sold ? 0.55 : 1,
-      child: Container(
-        decoration: BoxDecoration(
-          color: SoriTokens.surface,
+      child: Material(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: SoriTokens.outlinePurple),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 4, 0),
-              child: CommunityTrustHeader(
-                post: post,
-                trailing: _isOwner && listing != null
-                    ? IconButton(
-                        tooltip: '판매 상태',
-                        onPressed: () => _showStatusSheet(context),
-                        icon: const Icon(Icons.more_vert_rounded),
-                      )
-                    : null,
-              ),
+          onTap: () => DeviceReviewDetailPage.open(
+            context,
+            store: store,
+            post: post,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: SoriTokens.outlinePurple),
             ),
-            if (img != null)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(img, fit: BoxFit.cover, errorBuilder: (_, _, _) {
-                  return const ColoredBox(color: Color(0xFF1A1028));
-                }),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 4, 0),
+                  child: CommunityTrustHeader(
+                    post: post,
+                    trailing: _isOwner && listing != null
+                        ? IconButton(
+                            tooltip: '판매 상태',
+                            onPressed: () => _showStatusSheet(context),
+                            icon: const Icon(Icons.more_vert_rounded),
+                          )
+                        : null,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (listing != null) _StatusBadge(status: status),
-                      if (review?.rating != null) ...[
-                        const SizedBox(width: 8),
-                        _StarRow(rating: review!.rating!),
-                      ],
-                      const Spacer(),
-                      if (listing != null && listing.price > 0)
+                      // 리뷰 先: 실사용 기간 + 별점
+                      Row(
+                        children: [
+                          if (months > 0)
+                            Flexible(
+                              child: Text(
+                                '$months개월 실사용 후기',
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: SoriTokens.primary,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            )
+                          else
+                            const Flexible(
+                              child: Text(
+                                '실사용 후기',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: SoriTokens.primary,
+                                ),
+                              ),
+                            ),
+                          if (review?.rating != null) ...[
+                            const SizedBox(width: 8),
+                            _StarRow(rating: review!.rating!),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _deviceName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16.5,
+                          letterSpacing: -0.3,
+                          height: 1.3,
+                        ),
+                      ),
+                      if (post.body.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
                         Text(
-                          '${_formatWon(listing.price)}원',
+                          post.body.trim(),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            color: SoriTokens.primary,
+                            fontSize: 14,
+                            height: 1.55,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFD4D4D8),
                           ),
                         ),
+                      ],
+                      if (review != null &&
+                          (review.pros.isNotEmpty ||
+                              review.cons.isNotEmpty)) ...[
+                        const SizedBox(height: 12),
+                        if (review.pros.isNotEmpty)
+                          _ProsConsLine(
+                            label: '장점',
+                            text: review.pros.take(2).join(' · '),
+                            color: const Color(0xFF4ADE80),
+                          ),
+                        if (review.cons.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          _ProsConsLine(
+                            label: '단점',
+                            text: review.cons.take(2).join(' · '),
+                            color: const Color(0xFFF87171),
+                          ),
+                        ],
+                      ],
+                      // 거래 힌트는 최소화 — 가격 노골 노출 금지
+                      if (listing != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          sold
+                              ? '거래 완료된 매물이 연결된 후기예요'
+                              : '중고 매물 연결됨 · 자세히에서 알아보기',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: SoriTokens.textSecondary.withValues(
+                              alpha: 0.9,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    listing?.deviceName.trim().isNotEmpty == true
-                        ? listing!.deviceName
-                        : (review?.deviceName.trim().isNotEmpty == true
-                            ? review!.deviceName
-                            : (post.title.trim().isEmpty
-                                ? post.body
-                                : post.title)),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                ),
+                if (img != null)
+                  AspectRatio(
+                    aspectRatio: 16 / 10,
+                    child: Image.network(
+                      img,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          const ColoredBox(color: Color(0xFF1A1028)),
                     ),
                   ),
-                  if (review != null && review.usageMonths > 0) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '사용 ${review.usageMonths}개월'
-                      '${listing != null ? ' · ${_conditionLabel(listing.condition)}' : ''}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                  if (review != null &&
-                      (review.pros.isNotEmpty || review.cons.isNotEmpty)) ...[
-                    const SizedBox(height: 8),
-                    if (review.pros.isNotEmpty)
-                      Text(
-                        '장점 · ${review.pros.take(3).join(', ')}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF4ADE80),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    if (review.cons.isNotEmpty)
-                      Text(
-                        '단점 · ${review.cons.take(3).join(', ')}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFF87171),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                  if (post.body.trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      post.body.trim(),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                  if (listing != null && !sold) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        if (phone.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () =>
-                                launchUrl(Uri.parse('tel:$phone')),
-                            icon: const Icon(Icons.phone_outlined, size: 18),
-                            label: const Text('연락하기'),
-                          ),
-                        TextButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  '문의 메시지를 남기면 판매자에게 전달됩니다',
-                                ),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.chat_bubble_outline,
-                            size: 18,
-                          ),
-                          label: const Text('채팅 문의'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
 
-  static String _conditionLabel(String c) => switch (c) {
-        'new' => '새제품',
-        'like_new' => '거의 새것',
-        'fair' => '사용감 있음',
-        _ => '양호',
-      };
+class _ProsConsLine extends StatelessWidget {
+  const _ProsConsLine({
+    required this.label,
+    required this.text,
+    required this.color,
+  });
 
-  static String _formatWon(int n) {
-    final s = n.toString();
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      final rev = s.length - i;
-      buf.write(s[i]);
-      if (rev > 1 && rev % 3 == 1) buf.write(',');
-    }
-    return buf.toString();
+  final String label;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label  ',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12.5,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFE4E4E7),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1004,37 +1020,6 @@ class _StarRow extends StatelessWidget {
             color: const Color(0xFFFBBF24),
           ),
       ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-  final MarketListingStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (status) {
-      MarketListingStatus.active => SoriTokens.primary,
-      MarketListingStatus.reserved => const Color(0xFFFBBF24),
-      MarketListingStatus.sold => SoriTokens.textSecondary,
-      _ => SoriTokens.textSecondary,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: color,
-        ),
-      ),
     );
   }
 }

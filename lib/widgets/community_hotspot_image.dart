@@ -87,8 +87,8 @@ class _CommunityHotspotImageState extends State<CommunityHotspotImage>
                 ),
               for (final tag in widget.tags)
                 Positioned(
-                  left: (tag.normX.clamp(0.0, 1.0) * w) - 14,
-                  top: (tag.normY.clamp(0.0, 1.0) * h) - 14,
+                  left: (tag.normX.clamp(0.0, 1.0) * w) - 9,
+                  top: (tag.normY.clamp(0.0, 1.0) * h) - 9,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _openTag(tag),
@@ -96,33 +96,36 @@ class _CommunityHotspotImageState extends State<CommunityHotspotImage>
                       animation: _pulse,
                       builder: (context, child) {
                         final t = Curves.easeInOut.transform(_pulse.value);
+                        // 은밀한 반투명 점 — 시야를 가리지 않음.
                         return Container(
-                          width: 28,
-                          height: 28,
+                          width: 18,
+                          height: 18,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: SoriTokens.primary.withValues(
-                              alpha: 0.85 + 0.15 * t,
+                            color: Colors.white.withValues(
+                              alpha: 0.28 + 0.12 * t,
                             ),
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                              color: Colors.white.withValues(
+                                alpha: 0.55 + 0.2 * t,
+                              ),
+                              width: 1,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: SoriTokens.primary.withValues(
-                                  alpha: 0.25 + 0.35 * t,
-                                ),
-                                blurRadius: 8 + 6 * t,
-                                spreadRadius: 1 + 2 * t,
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 4 + 2 * t,
                               ),
                             ],
                           ),
                           child: child,
                         );
                       },
-                      child: const Icon(
+                      child: Icon(
                         Icons.add,
-                        size: 14,
-                        color: Colors.white,
+                        size: 10,
+                        color: Colors.white.withValues(alpha: 0.85),
                       ),
                     ),
                   ),
