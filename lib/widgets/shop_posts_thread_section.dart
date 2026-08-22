@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/shop_post.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_bottom_sheet.dart';
 import 'media_permission_dialogs.dart';
 
 /// Home「최근 소식」쓰레드 + 글쓰기 시트.
@@ -26,6 +27,7 @@ class ShopPostsThreadSection extends StatelessWidget {
   Future<void> _openComposer(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: SoriTokens.surface,
       shape: const RoundedRectangleBorder(
@@ -327,9 +329,8 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + soriSheetBottomPadding(context)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -365,31 +366,71 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
           ),
           if (_imageBytes != null) ...[
             const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(
-                _imageBytes!,
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    _imageBytes!,
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Material(
+                    color: Colors.black54,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => setState(() => _imageBytes = null),
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(Icons.close, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Row(
             children: [
-              TextButton.icon(
+              IconButton.filledTonal(
                 onPressed: _saving ? null : _pickImage,
-                icon: const Icon(Icons.image_outlined),
-                label: const Text('사진'),
+                icon: const Icon(Icons.photo_library_outlined),
+                tooltip: '사진 첨부',
+                style: IconButton.styleFrom(
+                  foregroundColor: SoriTokens.primary,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '사진 첨부 (선택)',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: SoriTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               FilledButton(
                 onPressed: _saving ? null : _submit,
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 12,
+                  ),
                 ),
-                child: Text(_saving ? '게시 중…' : '게시'),
+                child: Text(
+                  _saving ? '등록 중…' : '등록',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
             ],
           ),

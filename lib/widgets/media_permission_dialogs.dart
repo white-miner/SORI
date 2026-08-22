@@ -161,10 +161,47 @@ Future<XFile?> pickImageWithPermissionGuards({
   } catch (e) {
     if (!context.mounted) return null;
     if (isMediaPermissionDeniedError(e)) {
-      // 거부 시에만 세션 캐시 무효화 — 다음번에 안내를 다시 보여줄 수 있음
       MediaPermissionSession.guideAccepted = false;
       await showMediaPermissionDeniedDialog(context);
       return null;
+    }
+    rethrow;
+  }
+}
+
+/// 갤러리에서 여러 장 선택 (최대 [limit], 기본 20).
+Future<List<XFile>> pickMultiImagesWithPermissionGuards({
+  required BuildContext context,
+  int limit = 20,
+  double? maxWidth,
+  int? imageQuality,
+}) async {
+  final skipGuide = await _shouldSkipPermissionGuide(ImageSource.gallery);
+  if (!skipGuide) {
+    if (!context.mounted) return const [];
+    final proceed = await showMediaPermissionGuideDialog(context);
+    if (!proceed) return const [];
+    MediaPermissionSession.guideAccepted = true;
+  }
+  if (!context.mounted) return const [];
+
+  try {
+    final picker = ImagePicker();
+    final files = await picker.pickMultiImage(
+      limit: limit,
+      maxWidth: maxWidth,
+      imageQuality: imageQuality,
+    );
+    if (files.length > limit) {
+      return files.take(limit).toList();
+    }
+    return files;
+  } catch (e) {
+    if (!context.mounted) return const [];
+    if (isMediaPermissionDeniedError(e)) {
+      MediaPermissionSession.guideAccepted = false;
+      await showMediaPermissionDeniedDialog(context);
+      return const [];
     }
     rethrow;
   }

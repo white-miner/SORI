@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/shop_gallery_slide.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'media_permission_dialogs.dart';
 
-/// Home 샵 갤러리 가로 캐러셀 (최대 20, Owner + 슬롯).
+/// Home 샵 갤러리 가로 캐러셀 (최대 20, Owner 멀티 업로드).
 class ShopGalleryHomeSection extends StatelessWidget {
   const ShopGalleryHomeSection({
     super.key,
@@ -18,7 +17,8 @@ class ShopGalleryHomeSection extends StatelessWidget {
   final bool isOwner;
 
   Future<void> _add(BuildContext context) async {
-    if (store.gallerySlides.length >= 20) {
+    final remaining = 20 - store.gallerySlides.length;
+    if (remaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('갤러리는 최대 20장까지 등록할 수 있어요'),
@@ -27,34 +27,44 @@ class ShopGalleryHomeSection extends StatelessWidget {
       );
       return;
     }
-    final file = await pickImageWithPermissionGuards(
+
+    final files = await pickMultiImagesWithPermissionGuards(
       context: context,
-      source: ImageSource.gallery,
+      limit: remaining,
       maxWidth: 1600,
       imageQuality: 85,
     );
-    if (file == null || !context.mounted) return;
-    try {
-      final bytes = await file.readAsBytes();
-      final ok = await store.uploadShopGalleryImage(bytes);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? '갤러리에 추가했어요' : '업로드에 실패했어요'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$e'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+    if (files.isEmpty || !context.mounted) return;
+
+    var okCount = 0;
+    var failCount = 0;
+    for (final file in files) {
+      if (store.gallerySlides.length >= 20) break;
+      try {
+        final bytes = await file.readAsBytes();
+        final ok = await store.uploadShopGalleryImage(bytes);
+        if (ok) {
+          okCount++;
+        } else {
+          failCount++;
+        }
+      } catch (_) {
+        failCount++;
+      }
     }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failCount == 0
+              ? '$okCount장을 갤러리에 추가했어요'
+              : '$okCount장 추가 · $failCount장 실패',
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor:
+            okCount > 0 ? SoriTokens.primary : Colors.redAccent,
+      ),
+    );
   }
 
   @override
@@ -83,7 +93,7 @@ class ShopGalleryHomeSection extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             isOwner
-                ? '최대 20장 · ${slides.length}/20'
+                ? '최대 20장 · ${slides.length}/20 · 여러 장 한 번에 선택'
                 : '인테리어 · 제품 · 케어 공간을 넘겨보세요',
             style: const TextStyle(
               fontSize: 12,
@@ -147,12 +157,15 @@ class _AddTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add_rounded, size: 36, color: SoriTokens.primary),
+              Icon(Icons.photo_library_outlined,
+                  size: 32, color: SoriTokens.primary),
               SizedBox(height: 6),
               Text(
-                '추가',
+                '여러 장 추가',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
+                  fontSize: 12,
                   color: SoriTokens.primary,
                 ),
               ),
