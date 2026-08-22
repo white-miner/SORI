@@ -48,6 +48,8 @@ dependencies:
   signature: ^5.5.0
   google_fonts: ^6.2.1
   image_picker: ^1.2.3
+  photo_manager: ^3.7.1
+  image: ^4.5.4
   flutter_image_compress: ^2.5.1
   cached_network_image: ^3.4.1
   pdf: ^3.11.3

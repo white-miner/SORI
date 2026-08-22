@@ -1,13 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/shop_post.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
-import 'media_permission_dialogs.dart';
+import 'sori_insta_picker.dart';
 
 /// Home「최근 소식」쓰레드 + 글쓰기 시트.
 class ShopPostsThreadSection extends StatelessWidget {
@@ -294,16 +293,13 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
   }
 
   Future<void> _pickImage() async {
-    final file = await pickImageWithPermissionGuards(
-      context: context,
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      imageQuality: 85,
+    final files = await openSoriInstaPicker(
+      context,
+      maxAssets: 1,
+      title: '새 소식',
     );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
-    setState(() => _imageBytes = bytes);
+    if (files.isEmpty || !mounted) return;
+    setState(() => _imageBytes = files.first);
   }
 
   Future<void> _submit() async {

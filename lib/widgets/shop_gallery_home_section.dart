@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/shop_gallery_slide.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import 'media_permission_dialogs.dart';
+import 'sori_insta_picker.dart';
 
 /// Shop 탭 갤러리 — 아웃박스 타이틀 + 3열 가로 스와이프 (edge bleed).
 class ShopGalleryHomeSection extends StatelessWidget {
@@ -28,20 +28,18 @@ class ShopGalleryHomeSection extends StatelessWidget {
       return;
     }
 
-    final files = await pickMultiImagesWithPermissionGuards(
-      context: context,
-      limit: remaining,
-      maxWidth: 1600,
-      imageQuality: 85,
+    final files = await openSoriInstaPicker(
+      context,
+      maxAssets: remaining,
+      title: '샵 갤러리',
     );
     if (files.isEmpty || !context.mounted) return;
 
     var okCount = 0;
     var failCount = 0;
-    for (final file in files) {
+    for (final bytes in files) {
       if (store.gallerySlides.length >= 20) break;
       try {
-        final bytes = await file.readAsBytes();
         final ok = await store.uploadShopGalleryImage(bytes);
         if (ok) {
           okCount++;

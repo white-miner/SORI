@@ -47,12 +47,12 @@
 			</array>
 		</dict>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>차트 Before/After 사진 촬영을 위해 카메라가 필요합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>차트 Before/After 사진 첨부를 위해 사진 라이브러리 접근이 필요합니다.</string>
+	<string>샵 갤러리·소식·차트 사진을 등록하기 위해 사진 라이브러리 접근이 필요합니다.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>촬영한 차트 사진을 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
+	<string>촬영한 사진을 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>샵 갤러리·소식·차트 사진 촬영을 위해 카메라가 필요합니다.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
