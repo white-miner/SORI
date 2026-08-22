@@ -232,6 +232,9 @@ class SoriStore implements Listenable {
     shopPosts
       ..clear()
       ..addAll(snapshot.shopPosts);
+    seminarClasses
+      ..clear()
+      ..addAll(snapshot.seminarClasses);
     reviewRequestedCustomerIds
       ..clear()
       ..addAll(snapshot.reviewRequestedCustomerIds);
@@ -265,6 +268,7 @@ class SoriStore implements Listenable {
       isLoading = false;
       _notify();
       unawaited(refreshMembershipWallet());
+      unawaited(refreshSeminarClasses());
     }
   }
 
@@ -1025,6 +1029,7 @@ class SoriStore implements Listenable {
     String? snsInstagramUrl,
     String? bio,
     String? profileImageUrl,
+    String? coverImageUrl,
     List<ShopServiceItem>? serviceMenu,
     List<ShopEquipmentItem>? equipmentItems,
     int? monthlyCapa,
@@ -1043,6 +1048,7 @@ class SoriStore implements Listenable {
       snsInstagramUrl: snsInstagramUrl?.trim(),
       bio: bio?.trim(),
       profileImageUrl: profileImageUrl?.trim(),
+      coverImageUrl: coverImageUrl?.trim(),
       serviceMenu: serviceMenu,
       equipmentItems: equipmentItems,
       monthlyCapa: monthlyCapa,
@@ -1061,35 +1067,71 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// 샵 컬럼 부분 저장 — 실패 시 전체 upsert 로 재시도.
+  Future<bool> _persistShopFields(Map<String, dynamic> fields) async {
+    if (!_repository.isRemote) return true;
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return false;
+    try {
+      await _repository.patchShopFields(shopId, fields);
+      lastError = null;
+      return true;
+    } catch (e) {
+      debugPrint('patchShopFields failed, upsert fallback: $e');
+      try {
+        shop = await _repository.upsertShop(shop);
+        lastError = null;
+        _notify();
+        return true;
+      } catch (e2) {
+        debugPrint('upsertShop fallback failed: $e2');
+        _setError(e2, userFacing: false);
+        _notify();
+        return false;
+      }
+    }
+  }
+
   /// 샵 프로필 아바타 업로드 → Storage → shops.profile_image_url.
   Future<bool> uploadShopProfileImage(Uint8List bytes) async {
     if (bytes.isEmpty) return false;
     final shopId = shop.id.trim().isEmpty ? 'local-shop' : shop.id.trim();
-    final url = await ShopProfileStorage.uploadAvatar(
+    var url = await ShopProfileStorage.uploadAvatar(
       bytes: bytes,
       shopId: shopId,
     );
     if (url == null || url.trim().isEmpty) {
-      // 로컬/스토리지 미연결 시 data URL로 즉시 미리보기
       if (!_repository.isRemote) {
-        final b64 = base64Encode(bytes);
-        shop = shop.copyWith(profileImageUrl: 'data:image/jpeg;base64,$b64');
-        _notify();
-        return true;
+        url = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else {
+        return false;
       }
-      return false;
     }
-    shop = shop.copyWith(profileImageUrl: url.trim());
+    final resolved = url.trim();
+    shop = shop.copyWith(profileImageUrl: resolved);
     _notify();
-    if (_repository.isRemote) {
-      try {
-        shop = await _repository.upsertShop(shop);
-        _notify();
-      } catch (e) {
-        debugPrint('uploadShopProfileImage upsert failed: $e');
+    return _persistShopFields({'profile_image_url': resolved});
+  }
+
+  /// Hero 간판 업로드 → shops.cover_image_url.
+  Future<bool> uploadShopCoverImage(Uint8List bytes) async {
+    if (bytes.isEmpty) return false;
+    final shopId = shop.id.trim().isEmpty ? 'local-shop' : shop.id.trim();
+    var url = await ShopMediaStorage.uploadGalleryImage(
+      bytes: bytes,
+      shopId: shopId,
+    );
+    if (url == null || url.trim().isEmpty) {
+      if (!_repository.isRemote) {
+        url = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else {
+        return false;
       }
     }
-    return true;
+    final resolved = url.trim();
+    shop = shop.copyWith(coverImageUrl: resolved);
+    _notify();
+    return _persistShopFields({'cover_image_url': resolved});
   }
 
   /// 서명 완료 차트 → A4 동의서 PDF 생성·업로드 (비차단).
@@ -2154,12 +2196,13 @@ class SoriStore implements Listenable {
   }
 
   /// 기기/제품 카드 목록 저장 (이미지 URL 포함).
-  void saveEquipmentItems(List<ShopEquipmentItem> items) {
-    updateShopProfile(
-      name: shop.name,
-      naverPlaceUrl: shop.naverPlaceUrl,
-      equipmentItems: List.unmodifiable(items),
-    );
+  Future<bool> saveEquipmentItems(List<ShopEquipmentItem> items) async {
+    final frozen = List<ShopEquipmentItem>.unmodifiable(items);
+    shop = shop.copyWith(equipmentItems: frozen);
+    _notify();
+    return _persistShopFields({
+      'equipment_items': frozen.map((e) => e.toMap()).toList(),
+    });
   }
 
   Future<ShopEquipmentItem?> addEquipmentItem({
@@ -2183,29 +2226,33 @@ class SoriStore implements Listenable {
       name: n,
       imageUrl: url,
     );
-    final next = [...shop.equipmentItems, item];
-    saveEquipmentItems(next);
+    await saveEquipmentItems([...shop.equipmentItems, item]);
     return item;
   }
 
   Future<ShopPost?> createShopPost({
     required String body,
     Uint8List? imageBytes,
+    List<Uint8List>? imageBytesList,
     String postKind = 'note',
     String? seminarClassId,
   }) async {
     final text = body.trim();
     if (text.isEmpty) return null;
     final shopId = shop.id.trim();
+    final chunks = <Uint8List>[
+      if (imageBytes != null && imageBytes.isNotEmpty) imageBytes,
+      ...?imageBytesList?.where((e) => e.isNotEmpty),
+    ];
     final urls = <String>[];
-    if (imageBytes != null && imageBytes.isNotEmpty) {
+    for (final bytes in chunks) {
       var url = await ShopMediaStorage.uploadPostImage(
-        bytes: imageBytes,
+        bytes: bytes,
         shopId: shopId.isEmpty ? 'local-shop' : shopId,
       );
       if (url == null || url.isEmpty) {
         if (!_repository.isRemote) {
-          url = 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+          url = 'data:image/jpeg;base64,${base64Encode(bytes)}';
         }
       }
       if (url != null && url.isNotEmpty) urls.add(url);
@@ -2223,10 +2270,26 @@ class SoriStore implements Listenable {
     return post;
   }
 
-  Future<void> removeShopPost(String postId) async {
-    await _repository.deleteShopPost(postId);
-    shopPosts.removeWhere((e) => e.id == postId);
+  Future<bool> removeShopPost(String postId) async {
+    final id = postId.trim();
+    if (id.isEmpty) return false;
+    ShopPost? target;
+    for (final p in shopPosts) {
+      if (p.id == id) {
+        target = p;
+        break;
+      }
+    }
+    if (target != null &&
+        target.shopId.isNotEmpty &&
+        shop.id.isNotEmpty &&
+        target.shopId != shop.id) {
+      return false;
+    }
+    await _repository.deleteShopPost(id);
+    shopPosts.removeWhere((e) => e.id == id);
     _notify();
+    return true;
   }
 
   /// 관리 케이스 공개 공유 토글. 동의 서명 없는 차트는 shared=true 거부.

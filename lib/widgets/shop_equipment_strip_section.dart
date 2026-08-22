@@ -7,6 +7,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import 'sori_insta_picker.dart';
+import 'sori_network_image.dart';
 
 /// Shop 탭 「사용 기기 및 제품」— 3열 가로 스와이프 + 타이포 폴백.
 class ShopEquipmentStripSection extends StatelessWidget {
@@ -238,10 +239,10 @@ class _EquipCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (item.hasImage)
-              Image.network(
-                item.imageUrl!,
+              SoriNetworkImage(
+                url: item.imageUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _TypographyFallback(name: item.name),
+                error: _TypographyFallback(name: item.name),
               )
             else
               _TypographyFallback(name: item.name),

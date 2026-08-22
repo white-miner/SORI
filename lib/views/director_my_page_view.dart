@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
@@ -16,7 +15,6 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/storage_image_url.dart';
 import '../widgets/debug_mode_chip.dart';
-import '../widgets/media_permission_dialogs.dart';
 import '../widgets/my_ai_manager_tab_body.dart';
 import '../widgets/my_seminar_tab_body.dart';
 import '../widgets/my_tier_home_card.dart';
@@ -26,6 +24,7 @@ import '../widgets/shop_posts_thread_section.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
+import '../widgets/sori_network_image.dart';
 import 'ai_shop_report_page.dart';
 import 'app_settings_page.dart';
 import 'chart_customer_picker_sheet.dart';
@@ -127,19 +126,17 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     return parts.join('\n');
   }
 
-  Future<void> _pickAndUploadAvatar() async {
+  Future<void> _pickAndUploadCover() async {
     if (_avatarUploading) return;
-    final file = await pickImageWithPermissionGuards(
-      context: context,
-      source: ImageSource.gallery,
-      maxWidth: 1400,
-      imageQuality: 88,
+    final files = await openSoriInstaPicker(
+      context,
+      maxAssets: 1,
+      title: '샵 간판',
     );
-    if (file == null || !mounted) return;
+    if (files.isEmpty || !mounted) return;
     setState(() => _avatarUploading = true);
     try {
-      final bytes = await file.readAsBytes();
-      final ok = await store.uploadShopProfileImage(bytes);
+      final ok = await store.uploadShopCoverImage(files.first);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -458,7 +455,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
         shop.name.trim().isEmpty ? 'Sori 에스테틱' : shop.name.trim();
     final cases = _baCases;
     final isOwner = session?.activeMode == UserRole.director;
-    final coverUrl = (shop.profileImageUrl ?? '').trim();
+    final coverUrl = (shop.coverImageUrl ?? '').trim();
     final regularCount = store.customers.isNotEmpty
         ? store.customers.length
         : shop.followerCount;
@@ -504,7 +501,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     isOwner: isOwner,
                     badgeCount: badgeCount,
                     coverUploading: _avatarUploading,
-                    onCoverPick: isOwner ? _pickAndUploadAvatar : null,
+                    onCoverPick: isOwner ? _pickAndUploadCover : null,
                     onPost: () => PostFirstCreationPage.open(context),
                     onNotifications: _openNotifications,
                     onSettings: _openSettings,
@@ -644,10 +641,7 @@ class _ShopHeroCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final src = coverUrl.isNotEmpty &&
-            (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))
-        ? coverUrl
-        : _fallbackCover;
+    final src = coverUrl.trim().isNotEmpty ? coverUrl : _fallbackCover;
     final metric = regularCount > 0
         ? '$regularCount명의 단골 고객'
         : '단골과 함께하는 케어';
@@ -655,11 +649,11 @@ class _ShopHeroCover extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          src,
+        SoriNetworkImage(
+          url: src,
           fit: BoxFit.cover,
           alignment: Alignment.center,
-          errorBuilder: (_, _, _) => const ColoredBox(
+          error: const ColoredBox(
             color: Color(0xFF1A1028),
             child: Center(
               child: Icon(
@@ -1111,14 +1105,18 @@ class _DirectorAvatarButtonState extends State<_DirectorAvatarButton> {
   Widget build(BuildContext context) {
     final hasNet = widget.avatarUrl.startsWith('http') ||
         widget.avatarUrl.startsWith('data:');
-    final avatar = CircleAvatar(
-      radius: 32,
-      backgroundColor: SoriTokens.primarySoft,
-      backgroundImage: hasNet ? NetworkImage(widget.avatarUrl) : null,
-      child: hasNet
-          ? null
-          : const Icon(Icons.person_rounded,
-              size: 32, color: SoriTokens.primary),
+    final avatar = ClipOval(
+      child: SizedBox(
+        width: 64,
+        height: 64,
+        child: hasNet
+            ? SoriNetworkImage(url: widget.avatarUrl, fit: BoxFit.cover)
+            : const ColoredBox(
+                color: SoriTokens.primarySoft,
+                child: Icon(Icons.person_rounded,
+                    size: 32, color: SoriTokens.primary),
+              ),
+      ),
     );
     if (!widget.isOwner || widget.onPick == null) return avatar;
     return GestureDetector(

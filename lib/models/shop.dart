@@ -20,6 +20,7 @@ class Shop {
     this.snsInstagramUrl = '',
     this.bio = '',
     this.profileImageUrl,
+    this.coverImageUrl,
     this.serviceMenu = const [],
     this.equipmentItems = const [],
     this.kakaoPoint = 0,
@@ -63,8 +64,11 @@ class Shop {
   /// 샵 소개말(Bio).
   final String bio;
 
-  /// 프로필 아바타 public URL.
+  /// 원장 프로필 아바타 public URL.
   final String? profileImageUrl;
+
+  /// 마이페이지 Hero 간판 public URL.
+  final String? coverImageUrl;
 
   /// 샵에서 제공하는 서비스 메뉴 (이름 + 고객 안내 설명).
   final List<ShopServiceItem> serviceMenu;
@@ -184,6 +188,8 @@ class Shop {
     String? bio,
     String? profileImageUrl,
     bool clearProfileImageUrl = false,
+    String? coverImageUrl,
+    bool clearCoverImageUrl = false,
     List<ShopServiceItem>? serviceMenu,
     List<ShopEquipmentItem>? equipmentItems,
     int? kakaoPoint,
@@ -217,6 +223,9 @@ class Shop {
       profileImageUrl: clearProfileImageUrl
           ? null
           : (profileImageUrl ?? this.profileImageUrl),
+      coverImageUrl: clearCoverImageUrl
+          ? null
+          : (coverImageUrl ?? this.coverImageUrl),
       serviceMenu: serviceMenu ?? this.serviceMenu,
       equipmentItems: equipmentItems ?? this.equipmentItems,
       kakaoPoint: kakaoPoint ?? this.kakaoPoint,
@@ -251,6 +260,7 @@ class Shop {
         'sns_instagram_url': snsInstagramUrl,
         'bio': bio,
         'profile_image_url': profileImageUrl,
+        'cover_image_url': coverImageUrl,
         'service_menu': serviceMenu.map((e) => e.toMap()).toList(),
         'equipment_items': equipmentItems.map((e) => e.toMap()).toList(),
         'kakao_point': kakaoPoint,
@@ -320,6 +330,9 @@ class Shop {
       final profileImageUrl = DbMap.asTextOrNull(
         map['profile_image_url'] ?? map['profileImageUrl'],
       );
+      final coverImageUrl = DbMap.asTextOrNull(
+        map['cover_image_url'] ?? map['coverImageUrl'],
+      );
       final naverReviewWriteUrl = DbMap.asText(
         map['naver_review_write_url'] ?? map['naverReviewWriteUrl'],
       );
@@ -344,6 +357,7 @@ class Shop {
         snsInstagramUrl: snsInstagramUrl,
         bio: bio,
         profileImageUrl: profileImageUrl,
+        coverImageUrl: coverImageUrl,
         serviceMenu: menu,
         equipmentItems: equipment,
         kakaoPoint: (map.containsKey('kakao_point') ||
@@ -406,6 +420,9 @@ class Shop {
         address: DbMap.asTextOrNull(map['address']),
         bio: DbMap.asText(map['bio'] ?? map['description']),
         profileImageUrl: DbMap.asTextOrNull(map['profile_image_url']),
+        coverImageUrl: DbMap.asTextOrNull(
+          map['cover_image_url'] ?? map['coverImageUrl'],
+        ),
         kakaoPoint: (map.containsKey('kakao_point') ||
                 map.containsKey('kakaoPoint'))
             ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])

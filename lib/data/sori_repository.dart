@@ -34,6 +34,7 @@ class SoriSnapshot {
     required this.gallerySlides,
     this.diaryNotes = const [],
     this.shopPosts = const [],
+    this.seminarClasses = const [],
     this.todayHomecareTip =
         '미지근한 물로 가볍게 클렌징하고, 보습 세럼을 손바닥 온기로 펴 발라 주세요.',
     this.reviewRequestedCustomerIds = const {},
@@ -47,6 +48,7 @@ class SoriSnapshot {
   final List<ShopGallerySlide> gallerySlides;
   final List<CareDiaryNote> diaryNotes;
   final List<ShopPost> shopPosts;
+  final List<SeminarClass> seminarClasses;
   final String todayHomecareTip;
   final Set<String> reviewRequestedCustomerIds;
 }
@@ -189,6 +191,9 @@ abstract class SoriRepository {
   Future<BulkDeleteResult> bulkDeleteCustomers(List<String> customerIds);
 
   Future<Shop> upsertShop(Shop shop);
+
+  /// shops 컬럼만 부분 업데이트 (아바타·간판·기기 JSON). 성공 시 최신 행.
+  Future<Shop> patchShopFields(String shopId, Map<String, dynamic> fields);
 
   Future<SaveChartResult> saveChartAndConfirmVisit(SaveChartRequest request);
 

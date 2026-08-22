@@ -397,6 +397,16 @@ class MemorySoriRepository implements SoriRepository {
   Future<Shop> upsertShop(Shop shop) async => shop;
 
   @override
+  Future<Shop> patchShopFields(String shopId, Map<String, dynamic> fields) async {
+    final base = createSeedSnapshot().shop;
+    return base.copyWith(
+      id: shopId,
+      profileImageUrl: fields['profile_image_url'] as String?,
+      coverImageUrl: fields['cover_image_url'] as String?,
+    );
+  }
+
+  @override
   Future<SaveChartResult> saveChartAndConfirmVisit(
     SaveChartRequest request,
   ) async {

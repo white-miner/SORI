@@ -635,6 +635,13 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('shop_posts load skipped: $e');
     }
 
+    List<SeminarClass> seminarClasses = const [];
+    try {
+      seminarClasses = await loadSeminarClassesForShop(shop.id);
+    } catch (e) {
+      debugPrint('seminar_classes load skipped: $e');
+    }
+
     return SoriSnapshot(
       shop: shop,
       customers: customers,
@@ -644,6 +651,7 @@ class SupabaseSoriRepository implements SoriRepository {
       diaryNotes: diaryNotes,
       gallerySlides: gallerySlides,
       shopPosts: shopPosts,
+      seminarClasses: seminarClasses,
     );
   }
 
@@ -935,6 +943,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'monthly_capa': shop.monthlyCapa,
       'bio': shop.bio,
       'profile_image_url': shop.profileImageUrl,
+      'cover_image_url': shop.coverImageUrl,
       'naver_review_write_url': shop.naverReviewWriteUrl,
       'naver_booking_url': shop.naverBookingUrl,
     };
@@ -954,6 +963,9 @@ class SupabaseSoriRepository implements SoriRepository {
         profileImageUrl: map.containsKey('profile_image_url')
             ? parsed.profileImageUrl
             : shop.profileImageUrl,
+        coverImageUrl: map.containsKey('cover_image_url')
+            ? parsed.coverImageUrl
+            : shop.coverImageUrl,
         naverReviewWriteUrl: map.containsKey('naver_review_write_url')
             ? parsed.naverReviewWriteUrl
             : shop.naverReviewWriteUrl,
@@ -978,6 +990,10 @@ class SupabaseSoriRepository implements SoriRepository {
         'sns_blog_url': shop.snsBlogUrl,
         'sns_instagram_url': shop.snsInstagramUrl,
         'monthly_capa': shop.monthlyCapa,
+        'bio': shop.bio,
+        'profile_image_url': shop.profileImageUrl,
+        'cover_image_url': shop.coverImageUrl,
+        'equipment_items': shop.equipmentItems.map((e) => e.toMap()).toList(),
       };
       try {
         final row = includeId
@@ -991,6 +1007,7 @@ class SupabaseSoriRepository implements SoriRepository {
           snsInstagramUrl: shop.snsInstagramUrl,
           bio: shop.bio,
           profileImageUrl: shop.profileImageUrl,
+          coverImageUrl: shop.coverImageUrl,
           naverReviewWriteUrl: shop.naverReviewWriteUrl,
           serviceMenu: shop.serviceMenu,
           equipmentItems: shop.equipmentItems,
@@ -1017,6 +1034,7 @@ class SupabaseSoriRepository implements SoriRepository {
         snsInstagramUrl: shop.snsInstagramUrl,
         bio: shop.bio,
         profileImageUrl: shop.profileImageUrl,
+        coverImageUrl: shop.coverImageUrl,
         naverReviewWriteUrl: shop.naverReviewWriteUrl,
         serviceMenu: shop.serviceMenu,
         equipmentItems: shop.equipmentItems,
@@ -1027,6 +1045,43 @@ class SupabaseSoriRepository implements SoriRepository {
             ? parsed.monthlyCapa
             : shop.monthlyCapa,
       );
+    }
+  }
+
+  @override
+  Future<Shop> patchShopFields(
+    String shopId,
+    Map<String, dynamic> fields,
+  ) async {
+    final id = shopId.trim();
+    if (id.isEmpty || _isTempId(id)) {
+      throw StateError('shop id is required');
+    }
+    final payload = <String, dynamic>{
+      ...fields,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    try {
+      final row = await _db
+          .from('shops')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .single();
+      return Shop.fromMap(Map<String, dynamic>.from(row as Map));
+    } catch (e) {
+      debugPrint('patchShopFields full failed, retrying stripped: $e');
+      final slim = Map<String, dynamic>.from(payload);
+      slim.remove('cover_image_url');
+      slim.remove('equipment_items');
+      slim.remove('business_hours');
+      final row = await _db
+          .from('shops')
+          .update(slim)
+          .eq('id', id)
+          .select()
+          .single();
+      return Shop.fromMap(Map<String, dynamic>.from(row as Map));
     }
   }
 
@@ -2732,9 +2787,29 @@ class SupabaseSoriRepository implements SoriRepository {
     if (author.isNotEmpty) payload['author_user_id'] = author;
     final sid = seminarClassId?.trim() ?? '';
     if (sid.isNotEmpty) payload['seminar_class_id'] = sid;
-    final row =
-        await _db.from('shop_posts').insert(payload).select().single();
-    return ShopPost.fromMap(Map<String, dynamic>.from(row));
+
+    Future<ShopPost> insert(Map<String, dynamic> body) async {
+      final row =
+          await _db.from('shop_posts').insert(body).select().single();
+      return ShopPost.fromMap(Map<String, dynamic>.from(row));
+    }
+
+    try {
+      return await insert(payload);
+    } catch (e) {
+      debugPrint('insertShopPost full failed, retrying slim: $e');
+      final slim = Map<String, dynamic>.from(payload);
+      slim.remove('seminar_class_id');
+      slim.remove('post_kind');
+      slim.remove('author_user_id');
+      try {
+        return await insert(slim);
+      } catch (e2) {
+        debugPrint('insertShopPost slim failed: $e2');
+        slim.remove('image_urls');
+        return insert(slim);
+      }
+    }
   }
 
   @override

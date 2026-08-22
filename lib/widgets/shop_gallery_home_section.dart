@@ -4,6 +4,7 @@ import '../models/shop_gallery_slide.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'sori_insta_picker.dart';
+import 'sori_network_image.dart';
 
 /// Shop 탭 갤러리 — 아웃박스 타이틀 + 3열 가로 스와이프 (edge bleed).
 class ShopGalleryHomeSection extends StatelessWidget {
@@ -183,10 +184,10 @@ class _GalleryTile extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (slide.hasNetworkImage)
-              Image.network(
-                slide.imageUrl!,
+              SoriNetworkImage(
+                url: slide.imageUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const ColoredBox(
+                error: const ColoredBox(
                   color: Color(0xFF18181B),
                   child: Icon(Icons.image_outlined,
                       color: SoriTokens.textSecondary),
