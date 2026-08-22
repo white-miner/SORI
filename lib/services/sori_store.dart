@@ -1891,6 +1891,15 @@ class SoriStore implements Listenable {
     }
   }
 
+  SeminarClass? seminarClassById(String? id) {
+    final key = id?.trim() ?? '';
+    if (key.isEmpty) return null;
+    for (final c in seminarClasses) {
+      if (c.id == key) return c;
+    }
+    return null;
+  }
+
   Future<SeminarClass?> createSeminarClass(SeminarClass draft) async {
     try {
       final created = await _repository.createSeminarClass(draft);
