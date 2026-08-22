@@ -9,15 +9,83 @@ class ShopTierBadgeChip extends StatelessWidget {
     super.key,
     required this.badge,
     this.compact = false,
+    this.animateGlow = false,
   });
+
+  final ShopTierBadge badge;
+  final bool compact;
+  final bool animateGlow;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!badge.isVisible) return const SizedBox.shrink();
+
+    final chip = _BadgeCore(badge: badge, compact: compact);
+    if (!animateGlow) return chip;
+    return _GlowingBadge(child: chip);
+  }
+}
+
+class _GlowingBadge extends StatefulWidget {
+  const _GlowingBadge({required this.child});
+  final Widget child;
+
+  @override
+  State<_GlowingBadge> createState() => _GlowingBadgeState();
+}
+
+class _GlowingBadgeState extends State<_GlowingBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_c.value);
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFDE68A).withValues(alpha: 0.25 + 0.35 * t),
+                blurRadius: 6 + 10 * t,
+                spreadRadius: 0.5 + t,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _BadgeCore extends StatelessWidget {
+  const _BadgeCore({required this.badge, required this.compact});
 
   final ShopTierBadge badge;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    if (!badge.isVisible) return const SizedBox.shrink();
-
     final style = _TierVisual.of(badge);
     final padH = compact ? 8.0 : 10.0;
     final padV = compact ? 3.0 : 5.0;

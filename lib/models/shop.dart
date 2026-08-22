@@ -32,6 +32,7 @@ class Shop {
     this.totalFundingAmount = 0,
     this.totalLikes = 0,
     this.sharedCaseCount = 0,
+    this.communityActivityScore = 0,
     this.seminarRequestCount = 0,
     this.completedSeminarCount = 0,
     this.followerCount = 0,
@@ -99,6 +100,9 @@ class Shop {
 
   final int totalLikes;
   final int sharedCaseCount;
+
+  /// Community·shop_posts 작성 누적 — 티어 프로그레스 가산.
+  final int communityActivityScore;
   final int seminarRequestCount;
   final int completedSeminarCount;
   final int followerCount;
@@ -116,8 +120,9 @@ class Shop {
   ShopTierProgressSnapshot get tierProgress =>
       ShopTierProgressSnapshot.fromMetrics(
         current: tierBadge,
-        shared: sharedCaseCount,
-        likes: totalLikes,
+        // Community 공유 활동이 소셜 트랙 프로그레스에 즉시 반영.
+        shared: sharedCaseCount + communityActivityScore,
+        likes: totalLikes + (communityActivityScore * 5),
         followers: followerCount,
         requests: seminarRequestCount,
         seminars: completedSeminarCount > 0
@@ -201,6 +206,7 @@ class Shop {
     int? totalFundingAmount,
     int? totalLikes,
     int? sharedCaseCount,
+    int? communityActivityScore,
     int? seminarRequestCount,
     int? completedSeminarCount,
     int? followerCount,
@@ -237,6 +243,8 @@ class Shop {
       totalFundingAmount: totalFundingAmount ?? this.totalFundingAmount,
       totalLikes: totalLikes ?? this.totalLikes,
       sharedCaseCount: sharedCaseCount ?? this.sharedCaseCount,
+      communityActivityScore:
+          communityActivityScore ?? this.communityActivityScore,
       seminarRequestCount: seminarRequestCount ?? this.seminarRequestCount,
       completedSeminarCount:
           completedSeminarCount ?? this.completedSeminarCount,
@@ -272,6 +280,7 @@ class Shop {
         'total_funding_amount': totalFundingAmount,
         'total_likes': totalLikes,
         'shared_case_count': sharedCaseCount,
+        'community_activity_score': communityActivityScore,
         'seminar_request_count': seminarRequestCount,
         'completed_seminar_count': completedSeminarCount,
         'follower_count': followerCount,
@@ -385,6 +394,9 @@ class Shop {
         sharedCaseCount: DbMap.asInt(
           map['shared_case_count'] ?? map['sharedCaseCount'],
         ),
+        communityActivityScore: DbMap.asInt(
+          map['community_activity_score'] ?? map['communityActivityScore'],
+        ),
         seminarRequestCount: DbMap.asInt(
           map['seminar_request_count'] ?? map['seminarRequestCount'],
         ),
@@ -447,6 +459,9 @@ class Shop {
         totalLikes: DbMap.asInt(map['total_likes'] ?? map['totalLikes']),
         sharedCaseCount: DbMap.asInt(
           map['shared_case_count'] ?? map['sharedCaseCount'],
+        ),
+        communityActivityScore: DbMap.asInt(
+          map['community_activity_score'] ?? map['communityActivityScore'],
         ),
         seminarRequestCount: DbMap.asInt(
           map['seminar_request_count'] ?? map['seminarRequestCount'],

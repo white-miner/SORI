@@ -8,7 +8,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../widgets/community_hotspot_image.dart';
-import '../widgets/community_trust_header.dart';
+import '../widgets/community_motivation.dart';
 import '../widgets/sori_insta_picker.dart';
 import 'customer_management_cases_page.dart';
 import 'device_review_detail_page.dart';
@@ -367,32 +367,30 @@ class _InteriorFeedTile extends StatelessWidget {
     final title = post.title.trim();
     final body = post.body.trim();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SoriTokens.outlinePurple.withValues(alpha: 0.55)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
+    return CommunityPostShell(
+      store: store,
+      post: post,
+      onComposeReview: () {
+        // Switch hint — parent TabBar isn't accessible; snack + rely on GNB.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('기기·중고 탭에서 리뷰를 작성하면 잠금이 해제됩니다'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      trailing: post.shopId == store.shop.id
+          ? IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: () => store.removeCommunityPost(post.id),
+              icon: const Icon(Icons.delete_outline, size: 20),
+            )
+          : null,
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 8, 4),
-            child: CommunityTrustHeader(
-              post: post,
-              trailing: post.shopId == store.shop.id
-                  ? IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => store.removeCommunityPost(post.id),
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                    )
-                  : null,
-            ),
-          ),
-          // 에세이형 텍스트 — 사진보다 먼저 스토리를 읽게.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -811,44 +809,40 @@ class _MarketCard extends StatelessWidget {
 
     return Opacity(
       opacity: sold ? 0.55 : 1,
-      child: Material(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => DeviceReviewDetailPage.open(
-            context,
-            store: store,
-            post: post,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: SoriTokens.outlinePurple),
+      child: CommunityPostShell(
+        store: store,
+        post: post,
+        onComposeReview: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('기기·중고 탭 상단 + 로 리뷰를 작성해 주세요'),
+              behavior: SnackBarBehavior.floating,
             ),
-            clipBehavior: Clip.antiAlias,
+          );
+        },
+        trailing: _isOwner && listing != null
+            ? IconButton(
+                tooltip: '판매 상태',
+                onPressed: () => _showStatusSheet(context),
+                icon: const Icon(Icons.more_vert_rounded),
+              )
+            : null,
+        body: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => DeviceReviewDetailPage.open(
+              context,
+              store: store,
+              post: post,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 4, 0),
-                  child: CommunityTrustHeader(
-                    post: post,
-                    trailing: _isOwner && listing != null
-                        ? IconButton(
-                            tooltip: '판매 상태',
-                            onPressed: () => _showStatusSheet(context),
-                            icon: const Icon(Icons.more_vert_rounded),
-                          )
-                        : null,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 리뷰 先: 실사용 기간 + 별점
                       Row(
                         children: [
                           if (months > 0)
@@ -923,7 +917,6 @@ class _MarketCard extends StatelessWidget {
                           ),
                         ],
                       ],
-                      // 거래 힌트는 최소화 — 가격 노골 노출 금지
                       if (listing != null) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -1117,6 +1110,7 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
   final List<List<HotspotPinDraft>> _pinsByImage = [];
   int _activeImage = 0;
   bool _saving = false;
+  CommunityVisibility _visibility = CommunityVisibility.public;
 
   @override
   void dispose() {
@@ -1171,6 +1165,7 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
       imageBytesList: List.from(_images),
       styleTags: tags,
       tagDrafts: drafts,
+      visibility: _visibility,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -1242,6 +1237,11 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
                 labelText: '스타일 태그',
                 hintText: '미니멀 조명 카운터',
               ),
+            ),
+            const SizedBox(height: 12),
+            CommunityVisibilityPicker(
+              value: _visibility,
+              onChanged: (v) => setState(() => _visibility = v),
             ),
             const SizedBox(height: 12),
             if (hasImages) ...[
@@ -1345,6 +1345,7 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
   bool _sellUsed = false;
   String _condition = 'good';
   bool _saving = false;
+  CommunityVisibility _visibility = CommunityVisibility.public;
 
   @override
   void dispose() {
@@ -1425,6 +1426,7 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
       imageBytesList: List.from(_images),
       deviceReview: review,
       marketListing: listing,
+      visibility: _visibility,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -1536,6 +1538,11 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
                 labelText: '한줄 후기',
                 hintText: '실사용 소감을 적어 주세요',
               ),
+            ),
+            const SizedBox(height: 12),
+            CommunityVisibilityPicker(
+              value: _visibility,
+              onChanged: (v) => setState(() => _visibility = v),
             ),
             if (_images.isNotEmpty) ...[
               const SizedBox(height: 10),

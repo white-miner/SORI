@@ -410,6 +410,7 @@ abstract class SoriRepository {
     List<CommunityTagDraft> tagDrafts = const [],
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
+    CommunityVisibility visibility = CommunityVisibility.public,
   });
 
   Future<void> updateMarketListingStatus({

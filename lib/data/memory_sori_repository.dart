@@ -1382,6 +1382,7 @@ class MemorySoriRepository implements SoriRepository {
     List<CommunityTagDraft> tagDrafts = const [],
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
+    CommunityVisibility visibility = CommunityVisibility.public,
   }) async {
     final id = 'cp-${DateTime.now().millisecondsSinceEpoch}';
     final media = <CommunityPostMedia>[
@@ -1457,6 +1458,7 @@ class MemorySoriRepository implements SoriRepository {
       shopOwnerName: '김원장',
       tierBadge: ShopTierBadge.silver,
       businessVerified: true,
+      visibility: visibility,
       createdAt: DateTime.now(),
     );
     _communityPosts.insert(0, post);

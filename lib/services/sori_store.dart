@@ -1994,6 +1994,11 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// 다른 원장 샵의 세미나 목록 (Community 브릿지용).
+  Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId) {
+    return _repository.loadSeminarClassesForShop(shopId.trim());
+  }
+
   Future<bool> submitSeminarApplication(SeminarApplication draft) async {
     try {
       await _repository.submitSeminarApplication(draft);
@@ -2317,6 +2322,7 @@ class SoriStore implements Listenable {
       seminarClassId: seminarClassId,
     );
     shopPosts.insert(0, post);
+    _applyCommunityActivityBump(1);
     _notify();
     return post;
   }
@@ -2370,6 +2376,7 @@ class SoriStore implements Listenable {
     List<CommunityTagDraft> tagDrafts = const [],
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
+    CommunityVisibility visibility = CommunityVisibility.public,
   }) async {
     final text = body.trim();
     if (text.isEmpty &&
@@ -2408,8 +2415,8 @@ class SoriStore implements Listenable {
         tagDrafts: tagDrafts,
         deviceReview: deviceReview,
         marketListing: marketListing,
+        visibility: visibility,
       );
-      // Enrich with live shop trust signals for immediate UI.
       post = post.copyWith(
         shopName: shop.name,
         shopOwnerName: shop.ownerName,
@@ -2417,6 +2424,9 @@ class SoriStore implements Listenable {
         tierBadge: shop.tierBadge,
       );
       communityPosts.insert(0, post);
+      // device_review insert also bumps via trigger (+1); community_posts +1.
+      final bump = deviceReview != null ? 2 : 1;
+      _applyCommunityActivityBump(bump);
       _notify();
       return post;
     } catch (e, st) {
@@ -2425,6 +2435,14 @@ class SoriStore implements Listenable {
       _notify();
       return null;
     }
+  }
+
+  /// My Page 티어 프로그레스에 즉시 반영 (DB 트리거와 동일 가산 가정).
+  void _applyCommunityActivityBump(int delta) {
+    if (delta <= 0) return;
+    shop = shop.copyWith(
+      communityActivityScore: shop.communityActivityScore + delta,
+    );
   }
 
   Future<bool> updateMarketListingStatus({

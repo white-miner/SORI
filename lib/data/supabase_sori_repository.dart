@@ -2902,6 +2902,7 @@ class SupabaseSoriRepository implements SoriRepository {
     List<CommunityTagDraft> tagDrafts = const [],
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
+    CommunityVisibility visibility = CommunityVisibility.public,
   }) async {
     final payload = <String, dynamic>{
       'shop_id': shopId,
@@ -2910,7 +2911,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'body': body.trim(),
       'style_tags': styleTags,
       'status': 'published',
-      'visibility': 'public',
+      'visibility': visibility.dbValue,
     };
     final author = authorUserId?.trim() ?? '';
     if (author.isNotEmpty) payload['author_user_id'] = author;
@@ -3025,6 +3026,7 @@ class SupabaseSoriRepository implements SoriRepository {
       listing: listing,
       deviceReview: review,
       createdAt: post.createdAt,
+      visibility: visibility,
     );
   }
 

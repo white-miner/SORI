@@ -10,10 +10,12 @@ class CommunityTrustHeader extends StatelessWidget {
     super.key,
     required this.post,
     this.trailing,
+    this.animateBadge = false,
   });
 
   final CommunityPost post;
   final Widget? trailing;
+  final bool animateBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +81,11 @@ class CommunityTrustHeader extends StatelessWidget {
         ),
         if (post.tierBadge.isVisible) ...[
           const SizedBox(width: 6),
-          ShopTierBadgeChip(badge: post.tierBadge, compact: true),
+          ShopTierBadgeChip(
+            badge: post.tierBadge,
+            compact: true,
+            animateGlow: animateBadge,
+          ),
         ],
         if (trailing != null) ...[
           const SizedBox(width: 2),

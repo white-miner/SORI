@@ -40,6 +40,7 @@ class ShopTierProgressCard extends StatelessWidget {
             hint: snap.socialHint,
             ratio: snap.socialRatio,
             color: const Color(0xFF0EA5E9),
+            activityScore: shop.communityActivityScore,
           ),
           const SizedBox(height: 12),
           _TrackBlock(
@@ -60,12 +61,14 @@ class _TrackBlock extends StatelessWidget {
     required this.hint,
     required this.ratio,
     required this.color,
+    this.activityScore = 0,
   });
 
   final String title;
   final String hint;
   final double ratio;
   final Color color;
+  final int activityScore;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +103,17 @@ class _TrackBlock extends StatelessWidget {
             color: Colors.grey.shade700,
           ),
         ),
+        if (activityScore > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Community 활동 +$activityScore',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
       ],
     );
   }

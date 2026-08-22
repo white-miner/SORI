@@ -65,6 +65,54 @@ enum MarketListingStatus {
   }
 }
 
+/// Community 공개 범위 (Give & Take).
+enum CommunityVisibility {
+  public,
+  directorsOnly,
+  regionOnly,
+  goldPlus;
+
+  String get dbValue => switch (this) {
+        CommunityVisibility.public => 'public',
+        CommunityVisibility.directorsOnly => 'directors_only',
+        CommunityVisibility.regionOnly => 'region_only',
+        CommunityVisibility.goldPlus => 'gold_plus',
+      };
+
+  String get label => switch (this) {
+        CommunityVisibility.public => '전체 공개',
+        CommunityVisibility.directorsOnly => '원장만',
+        CommunityVisibility.regionOnly => '지역만',
+        CommunityVisibility.goldPlus => '골드 등급 이상 공개',
+      };
+
+  static CommunityVisibility fromDb(String? raw) {
+    final v = (raw ?? 'public').trim().toLowerCase();
+    return switch (v) {
+      'directors_only' || 'directors-only' => CommunityVisibility.directorsOnly,
+      'region_only' || 'region-only' => CommunityVisibility.regionOnly,
+      'gold_plus' || 'gold-plus' || 'gold+' => CommunityVisibility.goldPlus,
+      _ => CommunityVisibility.public,
+    };
+  }
+
+  /// 뷰어가 잠금 해제 본문을 볼 수 있는지.
+  bool canView({
+    required ShopTierBadge viewerTier,
+    required bool isAuthor,
+    required bool isDirector,
+  }) {
+    if (isAuthor) return true;
+    return switch (this) {
+      CommunityVisibility.public => true,
+      CommunityVisibility.directorsOnly => isDirector,
+      CommunityVisibility.regionOnly => true, // region filter deferred
+      CommunityVisibility.goldPlus =>
+        viewerTier.rank >= ShopTierBadge.gold.rank,
+    };
+  }
+}
+
 class CommunityPostMedia {
   const CommunityPostMedia({
     required this.id,
@@ -396,6 +444,7 @@ class CommunityPost {
     this.shopAvatarUrl,
     this.tierBadge = ShopTierBadge.none,
     this.businessVerified = false,
+    this.visibility = CommunityVisibility.public,
   });
 
   final String id;
@@ -419,6 +468,7 @@ class CommunityPost {
   final String? shopAvatarUrl;
   final ShopTierBadge tierBadge;
   final bool businessVerified;
+  final CommunityVisibility visibility;
 
   String get authorDisplayName {
     final owner = shopOwnerName.trim();
@@ -448,6 +498,7 @@ class CommunityPost {
     String? shopAvatarUrl,
     ShopTierBadge? tierBadge,
     bool? businessVerified,
+    CommunityVisibility? visibility,
   }) {
     return CommunityPost(
       id: id,
@@ -471,6 +522,7 @@ class CommunityPost {
       shopAvatarUrl: shopAvatarUrl ?? this.shopAvatarUrl,
       tierBadge: tierBadge ?? this.tierBadge,
       businessVerified: businessVerified ?? this.businessVerified,
+      visibility: visibility ?? this.visibility,
     );
   }
 
@@ -572,6 +624,9 @@ class CommunityPost {
       tierBadge: tier,
       businessVerified: map['business_verified'] == true ||
           map['businessVerified'] == true,
+      visibility: CommunityVisibility.fromDb(
+        DbMap.asText(map['visibility'], 'public'),
+      ),
     );
   }
 
@@ -586,6 +641,6 @@ class CommunityPost {
         if (regionCode != null && regionCode!.trim().isNotEmpty)
           'region_code': regionCode!.trim(),
         'status': 'published',
-        'visibility': 'public',
+        'visibility': visibility.dbValue,
       };
 }
