@@ -244,7 +244,9 @@ class _PostCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (post.isSeminar || seminar != null)
+          if (post.isSeminar ||
+              seminar != null ||
+              post.body.trimLeft().startsWith('[모집 중]'))
             _SeminarEmbedCard(store: store, post: post, seminar: seminar)
           else
             Text(

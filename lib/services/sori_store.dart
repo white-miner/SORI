@@ -1905,7 +1905,7 @@ class SoriStore implements Listenable {
       final created = await _repository.createSeminarClass(draft);
       seminarClasses.insert(0, created);
       lastError = null;
-      // Home 쓰레드 크로스포스트
+      // Home 쓰레드 크로스포스트 (shop_posts.post_kind = seminar)
       try {
         final when = created.eventDate;
         final whenLabel = when == null
@@ -1917,16 +1917,11 @@ class SoriStore implements Listenable {
           if (created.location.trim().isNotEmpty) '장소 ${created.location.trim()}',
           '정원 ${created.currentEnrollment}/${created.maxCapacity}',
         ].join('\n');
-        final post = await _repository.insertShopPost(
-          shopId: created.directorShopId.isNotEmpty
-              ? created.directorShopId
-              : shop.id,
+        await createShopPost(
           body: body,
-          authorUserId: session?.id,
           postKind: 'seminar',
           seminarClassId: created.id,
         );
-        shopPosts.insert(0, post);
       } catch (e) {
         debugPrint('seminar cross-post failed: $e');
       }
