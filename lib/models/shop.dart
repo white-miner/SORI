@@ -1,5 +1,6 @@
 import '../utils/db_map.dart';
 import 'shop_business_hours.dart';
+import 'shop_equipment_item.dart';
 import 'shop_service_item.dart';
 import 'shop_tier_badge.dart';
 
@@ -20,6 +21,7 @@ class Shop {
     this.bio = '',
     this.profileImageUrl,
     this.serviceMenu = const [],
+    this.equipmentItems = const [],
     this.kakaoPoint = 0,
     this.isPro = false,
     this.monthlyCapa = 100,
@@ -66,6 +68,9 @@ class Shop {
 
   /// 샵에서 제공하는 서비스 메뉴 (이름 + 고객 안내 설명).
   final List<ShopServiceItem> serviceMenu;
+
+  /// 사용 기기/제품 카드 (이미지 선택).
+  final List<ShopEquipmentItem> equipmentItems;
 
   /// 잔여 카카오 알림톡 포인트.
   final int kakaoPoint;
@@ -180,6 +185,7 @@ class Shop {
     String? profileImageUrl,
     bool clearProfileImageUrl = false,
     List<ShopServiceItem>? serviceMenu,
+    List<ShopEquipmentItem>? equipmentItems,
     int? kakaoPoint,
     bool? isPro,
     int? monthlyCapa,
@@ -212,6 +218,7 @@ class Shop {
           ? null
           : (profileImageUrl ?? this.profileImageUrl),
       serviceMenu: serviceMenu ?? this.serviceMenu,
+      equipmentItems: equipmentItems ?? this.equipmentItems,
       kakaoPoint: kakaoPoint ?? this.kakaoPoint,
       isPro: isPro ?? this.isPro,
       monthlyCapa: monthlyCapa ?? this.monthlyCapa,
@@ -245,6 +252,7 @@ class Shop {
         'bio': bio,
         'profile_image_url': profileImageUrl,
         'service_menu': serviceMenu.map((e) => e.toMap()).toList(),
+        'equipment_items': equipmentItems.map((e) => e.toMap()).toList(),
         'kakao_point': kakaoPoint,
         'is_pro': isPro,
         'monthly_capa': monthlyCapa,
@@ -273,6 +281,18 @@ class Shop {
           } catch (_) {
             // 개별 메뉴 항목 파싱 실패는 건너뜀
           }
+        }
+      }
+
+      final rawEquip = map['equipment_items'] ?? map['equipmentItems'];
+      final equipment = <ShopEquipmentItem>[];
+      if (rawEquip is List) {
+        for (final item in rawEquip) {
+          try {
+            final parsed = ShopEquipmentItem.fromDynamic(item);
+            if (parsed.name.trim().isEmpty) continue;
+            equipment.add(parsed);
+          } catch (_) {}
         }
       }
 
@@ -325,6 +345,7 @@ class Shop {
         bio: bio,
         profileImageUrl: profileImageUrl,
         serviceMenu: menu,
+        equipmentItems: equipment,
         kakaoPoint: (map.containsKey('kakao_point') ||
                 map.containsKey('kakaoPoint'))
             ? DbMap.asInt(map['kakao_point'] ?? map['kakaoPoint'])

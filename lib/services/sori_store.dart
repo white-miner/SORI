@@ -24,6 +24,7 @@ import '../models/review_reply.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_business_hours.dart';
+import '../models/shop_equipment_item.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
 import '../models/seminar_application.dart';
@@ -1025,6 +1026,7 @@ class SoriStore implements Listenable {
     String? bio,
     String? profileImageUrl,
     List<ShopServiceItem>? serviceMenu,
+    List<ShopEquipmentItem>? equipmentItems,
     int? monthlyCapa,
   }) {
     shop = shop.copyWith(
@@ -1042,6 +1044,7 @@ class SoriStore implements Listenable {
       bio: bio?.trim(),
       profileImageUrl: profileImageUrl?.trim(),
       serviceMenu: serviceMenu,
+      equipmentItems: equipmentItems,
       monthlyCapa: monthlyCapa,
     );
     _notify();
@@ -2148,6 +2151,41 @@ class SoriStore implements Listenable {
     await _repository.deleteShopGalleryItem(itemId);
     gallerySlides.removeWhere((e) => e.id == itemId);
     _notify();
+  }
+
+  /// 기기/제품 카드 목록 저장 (이미지 URL 포함).
+  void saveEquipmentItems(List<ShopEquipmentItem> items) {
+    updateShopProfile(
+      name: shop.name,
+      naverPlaceUrl: shop.naverPlaceUrl,
+      equipmentItems: List.unmodifiable(items),
+    );
+  }
+
+  Future<ShopEquipmentItem?> addEquipmentItem({
+    required String name,
+    Uint8List? imageBytes,
+  }) async {
+    final n = name.trim();
+    if (n.isEmpty) return null;
+    String? url;
+    if (imageBytes != null && imageBytes.isNotEmpty) {
+      url = await ShopMediaStorage.uploadEquipmentImage(
+        bytes: imageBytes,
+        shopId: shop.id.trim().isEmpty ? 'local-shop' : shop.id.trim(),
+      );
+      if ((url == null || url.isEmpty) && !_repository.isRemote) {
+        url = 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+      }
+    }
+    final item = ShopEquipmentItem(
+      id: 'eq-${DateTime.now().millisecondsSinceEpoch}',
+      name: n,
+      imageUrl: url,
+    );
+    final next = [...shop.equipmentItems, item];
+    saveEquipmentItems(next);
+    return item;
   }
 
   Future<ShopPost?> createShopPost({

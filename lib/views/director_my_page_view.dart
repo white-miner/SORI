@@ -21,7 +21,6 @@ import '../widgets/my_ai_manager_tab_body.dart';
 import '../widgets/my_seminar_tab_body.dart';
 import '../widgets/my_tier_home_card.dart';
 import '../widgets/seminar_review_modal.dart';
-import '../widgets/shop_gallery_home_section.dart';
 import '../widgets/shop_inline_info_tab.dart';
 import '../widgets/shop_posts_thread_section.dart';
 import '../widgets/shop_tier_badge_chip.dart';
@@ -953,99 +952,84 @@ class _HomeTabBody extends StatelessWidget {
     final avatarUrl = (shop.profileImageUrl ?? '').trim();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
       children: [
         _SquircleCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '원장 소개',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+              _DirectorAvatarButton(
+                avatarUrl: avatarUrl,
+                isOwner: isOwner,
+                onPick: isOwner
+                    ? () async {
+                        final file = await pickImageWithPermissionGuards(
+                          context: context,
+                          source: ImageSource.gallery,
+                          maxWidth: 1200,
+                          imageQuality: 88,
+                        );
+                        if (file == null || !context.mounted) return;
+                        final bytes = await file.readAsBytes();
+                        await store.uploadShopProfileImage(bytes);
+                      }
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            ownerLabel,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: SoriTokens.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        MyTierBadgeButton(shop: shop),
+                        if (isOwner)
+                          IconButton(
+                            tooltip: '프로필 수정',
+                            onPressed: () =>
+                                showShopIdentityEditSheet(context, store),
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            color: SoriTokens.primary,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      philosophy.length > 140
+                          ? '${philosophy.substring(0, 140)}…'
+                          : philosophy,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
                         color: SoriTokens.textSecondary,
                       ),
                     ),
-                  ),
-                  if (isOwner)
-                    IconButton(
-                      tooltip: '프로필 수정',
-                      onPressed: () =>
-                          showShopIdentityEditSheet(context, store),
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      color: SoriTokens.primary,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                ],
-              ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: SoriTokens.primarySoft,
-                    backgroundImage: avatarUrl.startsWith('http')
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: avatarUrl.startsWith('http')
-                        ? null
-                        : const Icon(Icons.person_rounded,
-                            color: SoriTokens.primary),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                ownerLabel,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: SoriTokens.textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            MyTierBadgeButton(shop: shop),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          philosophy.length > 140
-                              ? '${philosophy.substring(0, 140)}…'
-                              : philosophy,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.45,
-                            color: SoriTokens.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         ShopPostsThreadSection(
           store: store,
           isOwner: isOwner,
           ownerLabel: ownerLabel,
           avatarUrl: avatarUrl,
         ),
-        const SizedBox(height: 12),
-        ShopGalleryHomeSection(store: store, isOwner: isOwner),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         _SquircleCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
@@ -1067,6 +1051,59 @@ class _HomeTabBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DirectorAvatarButton extends StatelessWidget {
+  const _DirectorAvatarButton({
+    required this.avatarUrl,
+    required this.isOwner,
+    this.onPick,
+  });
+
+  final String avatarUrl;
+  final bool isOwner;
+  final VoidCallback? onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNet = avatarUrl.startsWith('http');
+    final avatar = CircleAvatar(
+      radius: 32,
+      backgroundColor: SoriTokens.primarySoft,
+      backgroundImage: hasNet ? NetworkImage(avatarUrl) : null,
+      child: hasNet
+          ? null
+          : const Icon(Icons.person_rounded,
+              size: 32, color: SoriTokens.primary),
+    );
+    if (!isOwner || onPick == null) return avatar;
+    return GestureDetector(
+      onTap: onPick,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatar,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: SoriTokens.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: SoriTokens.surface, width: 2),
+              ),
+              child: const Icon(
+                Icons.photo_camera_rounded,
+                size: 14,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

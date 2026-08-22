@@ -1,14 +1,20 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../models/service_menu_chips.dart';
 import '../models/shop.dart';
 import '../models/shop_business_hours.dart';
 import '../models/shop_service_item.dart';
-import '../models/service_menu_chips.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
+import 'media_permission_dialogs.dart';
+import 'shop_equipment_strip_section.dart';
+import 'shop_gallery_home_section.dart';
 
-/// Shop 탭 — Owner 인라인 편집 (소개·영업시간·메뉴·키워드).
+/// Shop 탭 — 갤러리 · 샵 정보 · 메뉴 · 기기 (Home=소통 / Shop=정보).
 class ShopInlineInfoTab extends StatefulWidget {
   const ShopInlineInfoTab({
     super.key,
@@ -43,7 +49,7 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _editIdentity() => showShopIdentityEditSheet(context, store);
+  Future<void> _editShopOps() => showShopOpsEditSheet(context, store);
 
   Future<void> _addOrEditMenu({ShopServiceItem? existing, int? index}) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
@@ -230,283 +236,243 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
   @override
   Widget build(BuildContext context) {
     final menu = shop.serviceMenu;
-    final devices = <String>{};
-    for (final item in menu) {
-      final d = item.deviceInfo?.trim() ?? '';
-      if (d.isNotEmpty) devices.add(d);
-    }
     final hoursLabel = shop.hoursDisplayLabel;
     final address = (shop.address ?? '').trim();
-    final bio = shop.bio.trim();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 140),
       children: [
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        ShopGalleryHomeSection(store: store, isOwner: widget.isOwner),
+        const SizedBox(height: 22),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '샵 정보',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+              const Expanded(
+                child: Text(
+                  '샵 정보',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
-                  if (widget.isOwner)
-                    IconButton(
-                      tooltip: '수정',
-                      onPressed: _editIdentity,
-                      icon: const Icon(Icons.edit_outlined),
-                      color: SoriTokens.primary,
-                    ),
-                ],
-              ),
-              Text(
-                shop.name.trim().isEmpty ? 'SORI' : shop.name.trim(),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
                 ),
               ),
-              if (bio.isNotEmpty) ...[
-                const SizedBox(height: 8),
+              if (widget.isOwner)
+                IconButton(
+                  tooltip: '운영 정보 수정',
+                  onPressed: _editShopOps,
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  color: SoriTokens.primary,
+                  visualDensity: VisualDensity.compact,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Text(
-                  bio,
+                  shop.name.trim().isEmpty ? 'SORI' : shop.name.trim(),
                   style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: SoriTokens.textSecondary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ],
-              const SizedBox(height: 12),
-              _Line(
-                icon: Icons.place_outlined,
-                label: address.isEmpty ? '주소 미등록' : address,
-              ),
-              const SizedBox(height: 10),
-              _Line(
-                icon: Icons.schedule_rounded,
-                label: hoursLabel.isEmpty ? '운영시간 미등록' : hoursLabel,
-              ),
-              if ((shop.phone ?? '').trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _Line(
+                  icon: Icons.place_outlined,
+                  label: address.isEmpty ? '주소 미등록' : address,
+                ),
                 const SizedBox(height: 10),
                 _Line(
-                  icon: Icons.phone_outlined,
-                  label: shop.phone!.trim(),
+                  icon: Icons.schedule_rounded,
+                  label: hoursLabel.isEmpty ? '운영시간 미등록' : hoursLabel,
                 ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '대표 시술 메뉴',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                if ((shop.phone ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _Line(
+                    icon: Icons.phone_outlined,
+                    label: shop.phone!.trim(),
                   ),
-                  if (widget.isOwner)
-                    TextButton.icon(
-                      onPressed: () => _addOrEditMenu(),
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: const Text(
-                        '메뉴 추가',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: SoriTokens.primary,
-                      ),
-                    ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              if (menu.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text(
-                    '등록된 시술 메뉴가 없어요',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: SoriTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 22),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '대표 시술 메뉴',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
-                )
-              else
-                ...List.generate(menu.length, (i) {
-                  final item = menu[i];
-                  final priceLabel = _priceLabel(item);
-                  final keywords = item.keywords
-                      .map((e) => e.trim())
-                      .where((e) => e.isNotEmpty)
-                      .toList();
-                  return Column(
-                    children: [
-                      if (i > 0)
-                        const Divider(height: 20, color: SoriTokens.border),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.name.trim().isEmpty
-                                      ? '시술'
-                                      : item.name.trim(),
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                if (keywords.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: keywords
-                                        .map(
-                                          (k) => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 5,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF27272A),
-                                              borderRadius:
-                                                  BorderRadius.circular(99),
-                                              border: Border.all(
-                                                color: const Color(0xFF3F3F46),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              k,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFFD4D4D8),
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ],
-                                if (item.description.trim().isNotEmpty &&
-                                    priceLabel == '문의') ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item.description.trim(),
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      color: SoriTokens.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          Text(
-                            priceLabel,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: priceLabel == '문의'
-                                  ? SoriTokens.textSecondary
-                                  : SoriTokens.primary,
-                            ),
-                          ),
-                          if (widget.isOwner) ...[
-                            IconButton(
-                              onPressed: () =>
-                                  _addOrEditMenu(existing: item, index: i),
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              color: SoriTokens.textSecondary,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            IconButton(
-                              onPressed: () => _removeMenu(i),
-                              icon: const Icon(Icons.delete_outline, size: 18),
-                              color: SoriTokens.textSecondary,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  );
-                }),
+                ),
+              ),
+              if (widget.isOwner)
+                TextButton.icon(
+                  onPressed: () => _addOrEditMenu(),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text(
+                    '메뉴 추가',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.primary,
+                  ),
+                ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '사용 기기 및 제품',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (devices.isEmpty)
-                const Text(
-                  '등록된 기기 정보가 없어요',
-                  style: TextStyle(
-                    color: SoriTokens.textSecondary,
-                    fontWeight: FontWeight.w600,
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _Card(
+            child: menu.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      '등록된 시술 메뉴가 없어요',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: List.generate(menu.length, (i) {
+                      final item = menu[i];
+                      final priceLabel = _priceLabel(item);
+                      final keywords = item.keywords
+                          .map((e) => e.trim())
+                          .where((e) => e.isNotEmpty)
+                          .toList();
+                      return Column(
+                        children: [
+                          if (i > 0)
+                            const Divider(
+                                height: 20, color: SoriTokens.border),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name.trim().isEmpty
+                                          ? '시술'
+                                          : item.name.trim(),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    if (keywords.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: keywords
+                                            .map(
+                                              (k) => Container(
+                                                padding:
+                                                    const EdgeInsets
+                                                        .symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 5,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                      0xFF27272A),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          99),
+                                                  border: Border.all(
+                                                    color: const Color(
+                                                        0xFF3F3F46),
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  k,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color:
+                                                        Color(0xFFD4D4D8),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
+                                    ],
+                                    if (item.description
+                                            .trim()
+                                            .isNotEmpty &&
+                                        priceLabel == '문의') ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        item.description.trim(),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: SoriTokens.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                priceLabel,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: priceLabel == '문의'
+                                      ? SoriTokens.textSecondary
+                                      : SoriTokens.primary,
+                                ),
+                              ),
+                              if (widget.isOwner) ...[
+                                IconButton(
+                                  onPressed: () => _addOrEditMenu(
+                                      existing: item, index: i),
+                                  icon: const Icon(Icons.edit_outlined,
+                                      size: 18),
+                                  color: SoriTokens.textSecondary,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                IconButton(
+                                  onPressed: () => _removeMenu(i),
+                                  icon: const Icon(Icons.delete_outline,
+                                      size: 18),
+                                  color: SoriTokens.textSecondary,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      );
+                    }),
                   ),
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: devices
-                      .map(
-                        (d) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: SoriTokens.primarySoft,
-                            borderRadius: BorderRadius.circular(99),
-                            border:
-                                Border.all(color: SoriTokens.outlinePurple),
-                          ),
-                          child: Text(
-                            d,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFC4B5FD),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-            ],
           ),
+        ),
+        const SizedBox(height: 22),
+        ShopEquipmentStripSection(
+          store: store,
+          isOwner: widget.isOwner,
         ),
       ],
     );
@@ -559,15 +525,13 @@ class _Line extends StatelessWidget {
   }
 }
 
-/// Home/Shop 공용 — 샵·원장 프로필 + 영업시간 편집 시트.
-Future<void> showShopIdentityEditSheet(
+/// Shop 탭 전용 — 주소·전화·영업시간 등 운영 정보.
+Future<void> showShopOpsEditSheet(
   BuildContext context,
   SoriStore store,
 ) async {
   final shop = store.shop;
   final nameCtrl = TextEditingController(text: shop.name);
-  final ownerCtrl = TextEditingController(text: shop.ownerName ?? '');
-  final bioCtrl = TextEditingController(text: shop.bio);
   final addressCtrl = TextEditingController(text: shop.address ?? '');
   final phoneCtrl = TextEditingController(text: shop.phone ?? '');
 
@@ -629,24 +593,13 @@ Future<void> showShopIdentityEditSheet(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    '샵 · 원장 프로필',
+                    '샵 운영 정보',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(labelText: '샵 이름'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: ownerCtrl,
-                    decoration: const InputDecoration(labelText: '원장 이름'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: bioCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(labelText: '소개'),
                   ),
                   const SizedBox(height: 8),
                   TextField(
@@ -664,14 +617,6 @@ Future<void> showShopIdentityEditSheet(
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '선택하지 않은 요일은 자동으로 휴무로 표시됩니다',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: SoriTokens.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -705,49 +650,19 @@ Future<void> showShopIdentityEditSheet(
                     }),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    '오픈 / 마감 시간',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => pickTime(isOpen: true),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: SoriTokens.primary,
-                            side: const BorderSide(
-                              color: SoriTokens.outlinePurple,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: Text(
-                            '오픈 ${hours.openTimeLabel}',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w800),
-                          ),
+                          child: Text('오픈 ${hours.openTimeLabel}'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => pickTime(isOpen: false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: SoriTokens.primary,
-                            side: const BorderSide(
-                              color: SoriTokens.outlinePurple,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: Text(
-                            '마감 ${hours.closeTimeLabel}',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w800),
-                          ),
+                          child: Text('마감 ${hours.closeTimeLabel}'),
                         ),
                       ),
                     ],
@@ -795,12 +710,144 @@ Future<void> showShopIdentityEditSheet(
   store.updateShopProfile(
     name: nameCtrl.text,
     naverPlaceUrl: shop.naverPlaceUrl,
-    bio: bioCtrl.text,
     address: addressCtrl.text,
     phone: phoneCtrl.text,
     businessHours: saved,
     operatingHours: saved.isEmpty ? '' : saved.formatDisplay(),
-    ownerName: ownerCtrl.text,
   );
 }
 
+/// Home — 원장 아이덴티티만 (이름·사진·소개).
+Future<void> showShopIdentityEditSheet(
+  BuildContext context,
+  SoriStore store,
+) async {
+  final shop = store.shop;
+  final ownerCtrl = TextEditingController(text: shop.ownerName ?? '');
+  final bioCtrl = TextEditingController(text: shop.bio);
+  Uint8List? pendingAvatar;
+  var avatarUrl = (shop.profileImageUrl ?? '').trim();
+
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: SoriTokens.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setSheet) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              14,
+              16,
+              16 + soriSheetBottomPadding(ctx),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '원장 프로필',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final file = await pickImageWithPermissionGuards(
+                          context: ctx,
+                          source: ImageSource.gallery,
+                          maxWidth: 1200,
+                          imageQuality: 88,
+                        );
+                        if (file == null) return;
+                        final bytes = await file.readAsBytes();
+                        setSheet(() {
+                          pendingAvatar = bytes;
+                          avatarUrl = '';
+                        });
+                      },
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 44,
+                            backgroundColor: SoriTokens.primarySoft,
+                            backgroundImage: pendingAvatar != null
+                                ? MemoryImage(pendingAvatar!)
+                                : (avatarUrl.startsWith('http') ||
+                                        avatarUrl.startsWith('data:')
+                                    ? NetworkImage(avatarUrl)
+                                    : null),
+                            child: pendingAvatar == null &&
+                                    !avatarUrl.startsWith('http') &&
+                                    !avatarUrl.startsWith('data:')
+                                ? const Icon(Icons.person_rounded,
+                                    size: 40, color: SoriTokens.primary)
+                                : null,
+                          ),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: SoriTokens.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.photo_camera_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: ownerCtrl,
+                    decoration: const InputDecoration(labelText: '원장 이름'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: bioCtrl,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: '소개글',
+                      hintText: '케어 철학을 짧게 적어 주세요',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SoriTokens.primary,
+                    ),
+                    child: const Text('저장'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  if (ok != true) return;
+  if (pendingAvatar != null) {
+    await store.uploadShopProfileImage(pendingAvatar!);
+  }
+  store.updateShopProfile(
+    name: shop.name,
+    naverPlaceUrl: shop.naverPlaceUrl,
+    ownerName: ownerCtrl.text,
+    bio: bioCtrl.text,
+  );
+}

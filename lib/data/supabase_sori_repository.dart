@@ -929,6 +929,7 @@ class SupabaseSoriRepository implements SoriRepository {
       'operating_hours': shop.operatingHours,
       'business_hours':
           shop.businessHours.isEmpty ? <String, dynamic>{} : shop.businessHours.toJson(),
+      'equipment_items': shop.equipmentItems.map((e) => e.toMap()).toList(),
       'sns_blog_url': shop.snsBlogUrl,
       'sns_instagram_url': shop.snsInstagramUrl,
       'monthly_capa': shop.monthlyCapa,
@@ -960,6 +961,7 @@ class SupabaseSoriRepository implements SoriRepository {
             ? parsed.naverBookingUrl
             : shop.naverBookingUrl,
         serviceMenu: shop.serviceMenu,
+        equipmentItems: shop.equipmentItems,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
         isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,
@@ -991,6 +993,7 @@ class SupabaseSoriRepository implements SoriRepository {
           profileImageUrl: shop.profileImageUrl,
           naverReviewWriteUrl: shop.naverReviewWriteUrl,
           serviceMenu: shop.serviceMenu,
+          equipmentItems: shop.equipmentItems,
           kakaoPoint: map.containsKey('kakao_point')
               ? parsed.kakaoPoint
               : shop.kakaoPoint,
@@ -1016,6 +1019,7 @@ class SupabaseSoriRepository implements SoriRepository {
         profileImageUrl: shop.profileImageUrl,
         naverReviewWriteUrl: shop.naverReviewWriteUrl,
         serviceMenu: shop.serviceMenu,
+        equipmentItems: shop.equipmentItems,
         kakaoPoint:
             map.containsKey('kakao_point') ? parsed.kakaoPoint : shop.kakaoPoint,
         isPro: map.containsKey('is_pro') ? parsed.isPro : shop.isPro,

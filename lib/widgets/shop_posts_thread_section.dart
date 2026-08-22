@@ -41,72 +41,75 @@ class ShopPostsThreadSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final posts = store.shopPosts;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: SoriTokens.outlinePurple),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '최근 소식',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-              ),
-              if (isOwner)
-                TextButton.icon(
-                  onPressed: () => _openComposer(context),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text(
-                    '글쓰기',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: SoriTokens.primary,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (posts.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(
               child: Text(
-                isOwner
-                    ? '팬덤에게 팁이나 프로모션을 남겨보세요'
-                    : '아직 소식이 없어요',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: SoriTokens.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          else
-            ...posts.map(
-              (p) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: _PostCard(
-                  post: p,
-                  ownerLabel: ownerLabel,
-                  avatarUrl: avatarUrl,
-                  isOwner: isOwner,
-                  onDelete: () => store.removeShopPost(p.id),
+                '최근 소식',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: SoriTokens.textPrimary,
                 ),
               ),
             ),
-        ],
-      ),
+            if (isOwner)
+              TextButton.icon(
+                onPressed: () => _openComposer(context),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text(
+                  '글쓰기',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.primary,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: SoriTokens.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: SoriTokens.outlinePurple),
+          ),
+          child: posts.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    isOwner
+                        ? '팬덤에게 팁이나 프로모션을 남겨보세요'
+                        : '아직 소식이 없어요',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              : Column(
+                  children: posts
+                      .map(
+                        (p) => Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _PostCard(
+                            post: p,
+                            ownerLabel: ownerLabel,
+                            avatarUrl: avatarUrl,
+                            isOwner: isOwner,
+                            onDelete: () => store.removeShopPost(p.id),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+        ),
+      ],
     );
   }
 }

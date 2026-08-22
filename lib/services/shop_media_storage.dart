@@ -30,6 +30,16 @@ abstract final class ShopMediaStorage {
         folder: 'posts',
       );
 
+  static Future<String?> uploadEquipmentImage({
+    required Uint8List bytes,
+    required String shopId,
+  }) =>
+      _upload(
+        bytes: bytes,
+        shopId: shopId,
+        folder: 'equipment',
+      );
+
   static Future<String?> _upload({
     required Uint8List bytes,
     required String shopId,
