@@ -2711,14 +2711,19 @@ class SupabaseSoriRepository implements SoriRepository {
     required String body,
     String? authorUserId,
     List<String> imageUrls = const [],
+    String postKind = 'note',
+    String? seminarClassId,
   }) async {
     final payload = <String, dynamic>{
       'shop_id': shopId,
       'body': body.trim(),
       'image_urls': imageUrls,
+      'post_kind': postKind.trim().isEmpty ? 'note' : postKind.trim(),
     };
     final author = authorUserId?.trim() ?? '';
     if (author.isNotEmpty) payload['author_user_id'] = author;
+    final sid = seminarClassId?.trim() ?? '';
+    if (sid.isNotEmpty) payload['seminar_class_id'] = sid;
     final row =
         await _db.from('shop_posts').insert(payload).select().single();
     return ShopPost.fromMap(Map<String, dynamic>.from(row));
@@ -2729,5 +2734,25 @@ class SupabaseSoriRepository implements SoriRepository {
     final id = postId.trim();
     if (id.isEmpty) return;
     await _db.from('shop_posts').delete().eq('id', id);
+  }
+
+  @override
+  Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('seminar_classes')
+          .select()
+          .eq('director_shop_id', id)
+          .order('created_at', ascending: false)
+          .limit(40);
+      return (rows as List)
+          .map((e) => SeminarClass.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadSeminarClassesForShop failed: $e\n$st');
+      return const [];
+    }
   }
 }

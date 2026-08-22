@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_review.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
@@ -16,6 +17,8 @@ import '../theme/sori_tokens.dart';
 import '../utils/storage_image_url.dart';
 import '../widgets/debug_mode_chip.dart';
 import '../widgets/media_permission_dialogs.dart';
+import '../widgets/my_ai_manager_tab_body.dart';
+import '../widgets/my_seminar_tab_body.dart';
 import '../widgets/my_tier_home_card.dart';
 import '../widgets/seminar_review_modal.dart';
 import '../widgets/shop_gallery_home_section.dart';
@@ -56,7 +59,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -449,7 +452,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final shopName =
         shop.name.trim().isEmpty ? 'Sori 에스테틱' : shop.name.trim();
     final cases = _baCases;
-    final report = AiShopReportMock.demo();
     final isOwner = session?.activeMode == UserRole.director;
     final coverUrl = (shop.profileImageUrl ?? '').trim();
     final regularCount = store.customers.isNotEmpty
@@ -546,12 +548,14 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     indicatorWeight: 2.4,
                     dividerColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 18),
                     tabs: const [
                       Tab(text: 'Home'),
                       Tab(text: 'Feed'),
                       Tab(text: 'Shop'),
                       Tab(text: 'Review'),
+                      Tab(text: 'Seminar'),
+                      Tab(text: 'AI'),
                     ],
                   ),
                 ),
@@ -566,14 +570,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 shop: shop,
                 bio: _bio,
                 isOwner: isOwner,
-                onOpenClass: _openClass,
-                onOpenAi: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => AiShopReportPage(data: report),
-                    ),
-                  );
-                },
+                onOpenSeminarTab: () => _tabController.animateTo(4),
               ),
               _ServiceGroupedFeedTab(
                 cases: cases,
@@ -582,6 +579,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
               ),
               ShopInlineInfoTab(store: store, isOwner: isOwner),
               _ReviewTabBody(store: store),
+              MySeminarTabBody(store: store, isOwner: isOwner),
+              MyAiManagerTabBody(store: store, isOwner: isOwner),
             ],
           ),
         ),
@@ -974,16 +973,14 @@ class _HomeTabBody extends StatelessWidget {
     required this.shop,
     required this.bio,
     required this.isOwner,
-    required this.onOpenClass,
-    required this.onOpenAi,
+    required this.onOpenSeminarTab,
   });
 
   final SoriStore store;
   final Shop shop;
   final String bio;
   final bool isOwner;
-  final VoidCallback onOpenClass;
-  final VoidCallback onOpenAi;
+  final VoidCallback onOpenSeminarTab;
 
   @override
   Widget build(BuildContext context) {
@@ -1066,40 +1063,23 @@ class _HomeTabBody extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _SquircleCard(
-          child: Column(
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.school_outlined,
-                    color: SoriTokens.primary),
-                title: const Text(
-                  '세미나 센터',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: SoriTokens.textSecondary),
-                onTap: onOpenClass,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.school_outlined, color: SoriTokens.primary),
+            title: const Text(
+              'Seminar',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.textPrimary,
               ),
-              const Divider(color: SoriTokens.border),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.auto_graph_rounded,
-                    color: SoriTokens.primary),
-                title: const Text(
-                  'AI 경영 리포트',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: SoriTokens.textSecondary),
-                onTap: onOpenAi,
-              ),
-            ],
+            ),
+            subtitle: const Text(
+              '모집·신청·피드백을 Seminar 탭에서',
+              style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: SoriTokens.textSecondary),
+            onTap: onOpenSeminarTab,
           ),
         ),
       ],
@@ -1112,9 +1092,39 @@ class _ReviewTabBody extends StatelessWidget {
 
   final SoriStore store;
 
+  static List<CustomerReview> _demoReviews(String shopId) {
+    final now = DateTime.now();
+    final samples = [
+      '장벽이 탄탄해진 느낌이에요. 다음에도 꼭 예약할게요.',
+      '원장님 손길이 섬세해서 안심되고 결과도 좋아요.',
+      '시술 후 당김이 줄었어요. 홈케어 팁도 도움이 됐습니다.',
+      '예약부터 케어까지 흐름이 매끄러웠어요.',
+      '사진으로 비교하니 변화가 확실합니다.',
+      '재방문 의사가 생겼어요. 분위기도 편안합니다.',
+      '설명도 친절하고 시술도 과하지 않아 좋았습니다.',
+      '복부 라인 케어 만족도 높아요.',
+      '단골로 정착하고 싶은 샵입니다.',
+      '후기 남기려다 깜빡했는데, 정말 만족스러워요.',
+    ];
+    return List.generate(10, (i) {
+      final n = i + 1;
+      return CustomerReview(
+        id: 'demo-review-$n',
+        chartId: 'demo-chart-$n',
+        customerId: 'demo-c-$n',
+        shopId: shopId,
+        originalText: samples[i],
+        status: ReviewStatus.published,
+        rating: (n % 5) + 1,
+        directorReply: n.isEven ? '소중한 후기 감사합니다. 다음 케어도 정성껏 준비할게요.' : null,
+        createdAt: now.subtract(Duration(days: n, hours: n)),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final reviews = store.reviews
+    final live = store.reviews
         .where(DirectorPeriodStats.isCompletedReview)
         .toList()
       ..sort((a, b) {
@@ -1122,34 +1132,64 @@ class _ReviewTabBody extends StatelessWidget {
         final bd = b.createdAt ?? DateTime(1970);
         return bd.compareTo(ad);
       });
-
-    if (reviews.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(28),
-          child: Text(
-            '아직 표시할 후기가 없어요',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-        ),
-      );
-    }
+    final reviews = live.isEmpty ? _demoReviews(store.shop.id) : live;
+    final isDemo = live.isEmpty;
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-      itemCount: reviews.length.clamp(0, 30),
+      itemCount: reviews.length.clamp(0, 30) + (isDemo ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
-        final r = reviews[i];
+        if (isDemo && i == 0) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SoriTokens.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: SoriTokens.outlinePurple),
+            ),
+            child: const Text(
+              '실데이터가 없어 데모 후기 10건을 표시 중입니다.',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: SoriTokens.primary,
+              ),
+            ),
+          );
+        }
+        final r = reviews[isDemo ? i - 1 : i];
         return _SquircleCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                children: [
+                  ...List.generate(
+                    r.effectiveRating.clamp(0, 5),
+                    (_) => const Icon(
+                      Icons.star_rounded,
+                      size: 16,
+                      color: Color(0xFFFBBF24),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    r.createdAt == null
+                        ? ''
+                        : '${r.createdAt!.month}/${r.createdAt!.day}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Text(
-                r.displayText.trim().isEmpty ? '(내용 없음)' : r.displayText.trim(),
+                r.displayText.trim().isEmpty
+                    ? '(내용 없음)'
+                    : r.displayText.trim(),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

@@ -380,7 +380,12 @@ abstract class SoriRepository {
     required String body,
     String? authorUserId,
     List<String> imageUrls = const [],
+    String postKind = 'note',
+    String? seminarClassId,
   });
 
   Future<void> deleteShopPost(String postId);
+
+  /// 원장 샵 세미나 클래스 목록 (최신순).
+  Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);
 }

@@ -184,14 +184,68 @@ class _PostCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          post.body,
-          style: const TextStyle(
-            fontSize: 13.5,
-            height: 1.45,
-            color: SoriTokens.textPrimary,
+        if (post.isSeminar) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SoriTokens.primarySoft,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SoriTokens.outlinePurple),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.school_outlined,
+                        size: 16, color: SoriTokens.primary),
+                    SizedBox(width: 6),
+                    Text(
+                      '세미나 모집',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  post.body,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    height: 1.45,
+                    color: SoriTokens.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Seminar 탭에서 보기 →',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.primary.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ] else ...[
+          Text(
+            post.body,
+            style: const TextStyle(
+              fontSize: 13.5,
+              height: 1.45,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+        ],
         if (img != null) ...[
           const SizedBox(height: 10),
           ClipRRect(

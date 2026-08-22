@@ -1323,6 +1323,8 @@ class MemorySoriRepository implements SoriRepository {
     required String body,
     String? authorUserId,
     List<String> imageUrls = const [],
+    String postKind = 'note',
+    String? seminarClassId,
   }) async {
     final post = ShopPost(
       id: 'p-${DateTime.now().millisecondsSinceEpoch}',
@@ -1330,6 +1332,8 @@ class MemorySoriRepository implements SoriRepository {
       authorUserId: authorUserId,
       body: body.trim(),
       imageUrls: imageUrls,
+      postKind: postKind,
+      seminarClassId: seminarClassId,
       createdAt: DateTime.now(),
     );
     _posts.insert(0, post);
@@ -1339,5 +1343,12 @@ class MemorySoriRepository implements SoriRepository {
   @override
   Future<void> deleteShopPost(String postId) async {
     _posts.removeWhere((e) => e.id == postId);
+  }
+
+  @override
+  Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId) async {
+    return _seminarClasses
+        .where((c) => c.directorShopId == shopId)
+        .toList(growable: false);
   }
 }

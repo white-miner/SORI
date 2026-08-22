@@ -168,6 +168,7 @@ class SoriStore implements Listenable {
   bool seminarEducationLoading = false;
   List<SeminarEnrollment> mySeminarEnrollments = [];
   bool mySeminarEnrollmentsLoading = false;
+  final List<SeminarClass> seminarClasses = [];
   List<SeminarFeedbackReport> seminarFeedbackReports = [];
   bool seminarFeedbackReportsLoading = false;
   String todayHomecareTip =
@@ -1845,7 +1846,33 @@ class SoriStore implements Listenable {
   Future<SeminarClass?> createSeminarClass(SeminarClass draft) async {
     try {
       final created = await _repository.createSeminarClass(draft);
+      seminarClasses.insert(0, created);
       lastError = null;
+      // Home 쓰레드 크로스포스트
+      try {
+        final when = created.eventDate;
+        final whenLabel = when == null
+            ? ''
+            : '${when.month}/${when.day} ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}';
+        final body = [
+          '[모집 중] ${created.title}',
+          if (whenLabel.isNotEmpty) '일시 $whenLabel',
+          if (created.location.trim().isNotEmpty) '장소 ${created.location.trim()}',
+          '정원 ${created.currentEnrollment}/${created.maxCapacity}',
+        ].join('\n');
+        final post = await _repository.insertShopPost(
+          shopId: created.directorShopId.isNotEmpty
+              ? created.directorShopId
+              : shop.id,
+          body: body,
+          authorUserId: session?.id,
+          postKind: 'seminar',
+          seminarClassId: created.id,
+        );
+        shopPosts.insert(0, post);
+      } catch (e) {
+        debugPrint('seminar cross-post failed: $e');
+      }
       _notify();
       return created;
     } catch (e, st) {
@@ -1853,6 +1880,18 @@ class SoriStore implements Listenable {
       _setError(e, userFacing: true);
       _notify();
       return null;
+    }
+  }
+
+  Future<void> refreshSeminarClasses() async {
+    final sid = shop.id.trim();
+    try {
+      seminarClasses
+        ..clear()
+        ..addAll(await _repository.loadSeminarClassesForShop(sid));
+      _notify();
+    } catch (e) {
+      debugPrint('refreshSeminarClasses failed: $e');
     }
   }
 
@@ -2111,6 +2150,8 @@ class SoriStore implements Listenable {
   Future<ShopPost?> createShopPost({
     required String body,
     Uint8List? imageBytes,
+    String postKind = 'note',
+    String? seminarClassId,
   }) async {
     final text = body.trim();
     if (text.isEmpty) return null;
@@ -2133,6 +2174,8 @@ class SoriStore implements Listenable {
       body: text,
       authorUserId: session?.id,
       imageUrls: urls,
+      postKind: postKind,
+      seminarClassId: seminarClassId,
     );
     shopPosts.insert(0, post);
     _notify();
