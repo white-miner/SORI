@@ -73,7 +73,6 @@ class ShopGalleryHomeSection extends StatelessWidget {
     final sidePad = 16.0;
     final cardW = (width - sidePad - gap * 2) / 3;
     final cardH = cardW * 1.15;
-    final itemCount = slides.length + (isOwner ? 1 : 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -92,7 +91,7 @@ class ShopGalleryHomeSection extends StatelessWidget {
                   ),
                 ),
               ),
-              if (isOwner)
+              if (isOwner) ...[
                 Text(
                   '${slides.length}/20',
                   style: const TextStyle(
@@ -101,13 +100,25 @@ class ShopGalleryHomeSection extends StatelessWidget {
                     color: SoriTokens.textSecondary,
                   ),
                 ),
+                TextButton(
+                  onPressed: () => _add(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.primary,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: const Text(
+                    '추가',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 10),
         SizedBox(
           height: cardH,
-          child: itemCount == 0
+          child: slides.isEmpty
               ? const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Align(
@@ -125,17 +136,10 @@ class ShopGalleryHomeSection extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.only(left: 16, right: 16),
-                  itemCount: itemCount,
+                  itemCount: slides.length,
                   separatorBuilder: (_, _) => SizedBox(width: gap),
                   itemBuilder: (context, i) {
-                    if (isOwner && i == 0) {
-                      return _AddTile(
-                        width: cardW,
-                        height: cardH,
-                        onTap: () => _add(context),
-                      );
-                    }
-                    final slide = slides[isOwner ? i - 1 : i];
+                    final slide = slides[i];
                     return _GalleryTile(
                       width: cardW,
                       height: cardH,
@@ -149,50 +153,6 @@ class ShopGalleryHomeSection extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _AddTile extends StatelessWidget {
-  const _AddTile({
-    required this.width,
-    required this.height,
-    required this.onTap,
-  });
-
-  final double width;
-  final double height;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF18181B),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.photo_library_outlined,
-                  size: 28, color: SoriTokens.primary),
-              SizedBox(height: 6),
-              Text(
-                '추가',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                  color: SoriTokens.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

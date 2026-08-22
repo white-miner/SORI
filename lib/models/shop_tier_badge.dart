@@ -40,6 +40,20 @@ enum ShopTierBadge {
         ShopTierBadge.grandDirector => '그랜드 디렉터',
       };
 
+  String get englishLabel => switch (this) {
+        ShopTierBadge.none => '',
+        ShopTierBadge.iron => 'Iron',
+        ShopTierBadge.bronze => 'Bronze',
+        ShopTierBadge.silver => 'Silver',
+        ShopTierBadge.gold => 'Gold',
+        ShopTierBadge.platinum => 'Platinum',
+        ShopTierBadge.diamond => 'Diamond',
+        ShopTierBadge.mentor => 'Mentor',
+        ShopTierBadge.master => 'Master',
+        ShopTierBadge.grandMaster => 'Grand Master',
+        ShopTierBadge.grandDirector => 'Master Director',
+      };
+
   String get emoji => switch (this) {
         ShopTierBadge.none => '',
         ShopTierBadge.iron => '⬛',

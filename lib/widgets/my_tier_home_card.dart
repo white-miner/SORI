@@ -102,14 +102,24 @@ Future<void> showFullTierGuideSheet(
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
+                const Text(
+                  '아이언(Iron)부터 마스터 디렉터(Master Director)까지',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SoriTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 Text(
                   current.isVisible
-                      ? '현재 · ${current.label}'
+                      ? '현재 · ${current.label} (${current.englishLabel})'
                       : '현재 등급 준비 중',
                   style: const TextStyle(
                     fontSize: 12.5,
-                    color: SoriTokens.textSecondary,
-                    fontWeight: FontWeight.w600,
+                    color: SoriTokens.primary,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -147,12 +157,26 @@ Future<void> showFullTierGuideSheet(
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(
-                                    t.badge.label,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        t.badge.label,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      Text(
+                                        t.badge.englishLabel,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: SoriTokens.textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Text(

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/service_menu_chips.dart';
 import '../models/shop.dart';
@@ -10,9 +9,9 @@ import '../models/shop_service_item.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
-import 'media_permission_dialogs.dart';
 import 'shop_equipment_strip_section.dart';
 import 'shop_gallery_home_section.dart';
+import 'sori_insta_picker.dart';
 
 /// Shop 탭 — 갤러리 · 샵 정보 · 메뉴 · 기기 (Home=소통 / Shop=정보).
 class ShopInlineInfoTab extends StatefulWidget {
@@ -758,16 +757,14 @@ Future<void> showShopIdentityEditSheet(
                   Center(
                     child: GestureDetector(
                       onTap: () async {
-                        final file = await pickImageWithPermissionGuards(
-                          context: ctx,
-                          source: ImageSource.gallery,
-                          maxWidth: 1200,
-                          imageQuality: 88,
+                        final files = await openSoriInstaPicker(
+                          ctx,
+                          maxAssets: 1,
+                          title: '프로필 사진',
                         );
-                        if (file == null) return;
-                        final bytes = await file.readAsBytes();
+                        if (files.isEmpty) return;
                         setSheet(() {
-                          pendingAvatar = bytes;
+                          pendingAvatar = files.first;
                           avatarUrl = '';
                         });
                       },
@@ -817,9 +814,9 @@ Future<void> showShopIdentityEditSheet(
                   const SizedBox(height: 8),
                   TextField(
                     controller: bioCtrl,
-                    maxLines: 4,
+                    maxLines: 3,
                     decoration: const InputDecoration(
-                      labelText: '소개글',
+                      labelText: '한 줄 소개',
                       hintText: '케어 철학을 짧게 적어 주세요',
                     ),
                   ),
@@ -850,4 +847,13 @@ Future<void> showShopIdentityEditSheet(
     ownerName: ownerCtrl.text,
     bio: bioCtrl.text,
   );
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('원장 프로필이 저장되었어요'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: SoriTokens.primary,
+      ),
+    );
+  }
 }

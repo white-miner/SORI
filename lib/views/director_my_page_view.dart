@@ -25,6 +25,7 @@ import '../widgets/shop_inline_info_tab.dart';
 import '../widgets/shop_posts_thread_section.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
+import '../widgets/sori_insta_picker.dart';
 import 'ai_shop_report_page.dart';
 import 'app_settings_page.dart';
 import 'chart_customer_picker_sheet.dart';
@@ -963,15 +964,27 @@ class _HomeTabBody extends StatelessWidget {
                 isOwner: isOwner,
                 onPick: isOwner
                     ? () async {
-                        final file = await pickImageWithPermissionGuards(
-                          context: context,
-                          source: ImageSource.gallery,
-                          maxWidth: 1200,
-                          imageQuality: 88,
+                        final files = await openSoriInstaPicker(
+                          context,
+                          maxAssets: 1,
+                          title: '프로필 사진',
                         );
-                        if (file == null || !context.mounted) return;
-                        final bytes = await file.readAsBytes();
-                        await store.uploadShopProfileImage(bytes);
+                        if (files.isEmpty || !context.mounted) return;
+                        final ok = await store.uploadShopProfileImage(
+                          files.first,
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ok ? '프로필 사진이 업데이트되었어요' : '업로드에 실패했어요',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: ok
+                                ? SoriTokens.primary
+                                : Colors.redAccent,
+                          ),
+                        );
                       }
                     : null,
               ),
@@ -981,28 +994,39 @@ class _HomeTabBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Flexible(
                           child: Text(
                             ownerLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
                               color: SoriTokens.textPrimary,
+                              letterSpacing: -0.3,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         MyTierBadgeButton(shop: shop),
-                        if (isOwner)
+                        if (isOwner) ...[
+                          const SizedBox(width: 2),
                           IconButton(
                             tooltip: '프로필 수정',
                             onPressed: () =>
                                 showShopIdentityEditSheet(context, store),
-                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            icon: const Icon(Icons.edit_outlined, size: 18),
                             color: SoriTokens.primary,
                             visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
                           ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -1055,7 +1079,7 @@ class _HomeTabBody extends StatelessWidget {
   }
 }
 
-class _DirectorAvatarButton extends StatelessWidget {
+class _DirectorAvatarButton extends StatefulWidget {
   const _DirectorAvatarButton({
     required this.avatarUrl,
     required this.isOwner,
@@ -1064,27 +1088,64 @@ class _DirectorAvatarButton extends StatelessWidget {
 
   final String avatarUrl;
   final bool isOwner;
-  final VoidCallback? onPick;
+  final Future<void> Function()? onPick;
+
+  @override
+  State<_DirectorAvatarButton> createState() => _DirectorAvatarButtonState();
+}
+
+class _DirectorAvatarButtonState extends State<_DirectorAvatarButton> {
+  bool _busy = false;
+
+  Future<void> _handlePick() async {
+    if (_busy || widget.onPick == null) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onPick!();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final hasNet = avatarUrl.startsWith('http');
+    final hasNet = widget.avatarUrl.startsWith('http') ||
+        widget.avatarUrl.startsWith('data:');
     final avatar = CircleAvatar(
       radius: 32,
       backgroundColor: SoriTokens.primarySoft,
-      backgroundImage: hasNet ? NetworkImage(avatarUrl) : null,
+      backgroundImage: hasNet ? NetworkImage(widget.avatarUrl) : null,
       child: hasNet
           ? null
           : const Icon(Icons.person_rounded,
               size: 32, color: SoriTokens.primary),
     );
-    if (!isOwner || onPick == null) return avatar;
+    if (!widget.isOwner || widget.onPick == null) return avatar;
     return GestureDetector(
-      onTap: onPick,
+      onTap: _busy ? null : _handlePick,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           avatar,
+          if (_busy)
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0x66000000),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             right: -2,
             bottom: -2,

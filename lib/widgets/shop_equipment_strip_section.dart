@@ -1,13 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/shop_equipment_item.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
-import 'media_permission_dialogs.dart';
+import 'sori_insta_picker.dart';
 
 /// Shop 탭 「사용 기기 및 제품」— 3열 가로 스와이프 + 타이포 폴백.
 class ShopEquipmentStripSection extends StatelessWidget {
@@ -81,15 +80,13 @@ class ShopEquipmentStripSection extends StatelessWidget {
                     children: [
                       IconButton.filledTonal(
                         onPressed: () async {
-                          final file = await pickImageWithPermissionGuards(
-                            context: ctx,
-                            source: ImageSource.gallery,
-                            maxWidth: 1200,
-                            imageQuality: 85,
+                          final files = await openSoriInstaPicker(
+                            ctx,
+                            maxAssets: 1,
+                            title: '기기 · 제품 사진',
                           );
-                          if (file == null) return;
-                          final bytes = await file.readAsBytes();
-                          setSheet(() => imageBytes = bytes);
+                          if (files.isEmpty) return;
+                          setSheet(() => imageBytes = files.first);
                         },
                         icon: const Icon(Icons.photo_library_outlined),
                         tooltip: '사진',
@@ -137,26 +134,43 @@ class ShopEquipmentStripSection extends StatelessWidget {
     const sidePad = 16.0;
     final cardW = (width - sidePad - gap * 2) / 3;
     final cardH = cardW * 1.15;
-    final itemCount = all.length + (isOwner ? 1 : 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            '사용 기기 및 제품',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              color: SoriTokens.textPrimary,
-            ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '사용 기기 및 제품',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+              ),
+              if (isOwner)
+                TextButton(
+                  onPressed: () => _add(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.primary,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: const Text(
+                    '추가',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
         SizedBox(
           height: cardH,
-          child: itemCount == 0
+          child: all.isEmpty
               ? const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Align(
@@ -174,17 +188,10 @@ class ShopEquipmentStripSection extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.only(left: 16, right: 16),
-                  itemCount: itemCount,
+                  itemCount: all.length,
                   separatorBuilder: (_, _) => const SizedBox(width: gap),
                   itemBuilder: (context, i) {
-                    if (isOwner && i == 0) {
-                      return _AddEquipTile(
-                        width: cardW,
-                        height: cardH,
-                        onTap: () => _add(context),
-                      );
-                    }
-                    final item = all[isOwner ? i - 1 : i];
+                    final item = all[i];
                     return _EquipCard(
                       width: cardW,
                       height: cardH,
@@ -201,49 +208,6 @@ class ShopEquipmentStripSection extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _AddEquipTile extends StatelessWidget {
-  const _AddEquipTile({
-    required this.width,
-    required this.height,
-    required this.onTap,
-  });
-
-  final double width;
-  final double height;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF18181B),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_rounded, size: 28, color: SoriTokens.primary),
-              SizedBox(height: 6),
-              Text(
-                '추가',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                  color: SoriTokens.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

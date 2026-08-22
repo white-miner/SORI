@@ -54,6 +54,8 @@ class _CustomInstaPickerPageState extends State<CustomInstaPickerPage> {
 
   double get _aspect => _aspects[_aspectIndex].$2;
 
+  bool get _allowsMulti => widget.maxAssets > 1;
+
   @override
   void initState() {
     super.initState();
@@ -156,7 +158,7 @@ class _CustomInstaPickerPageState extends State<CustomInstaPickerPage> {
   }
 
   void _onTapAsset(GalleryAsset asset) {
-    if (_multi) {
+    if (_multi && _allowsMulti) {
       final idx = _selected.indexWhere((e) => e.id == asset.id);
       setState(() {
         if (idx >= 0) {
@@ -207,7 +209,7 @@ class _CustomInstaPickerPageState extends State<CustomInstaPickerPage> {
       setState(() {
         _assets.insert(0, asset);
         _focused = asset;
-        if (_multi) {
+        if (_multi && _allowsMulti) {
           if (_selected.length < widget.maxAssets) _selected.add(asset);
         } else {
           _selected
@@ -445,19 +447,20 @@ class _CustomInstaPickerPageState extends State<CustomInstaPickerPage> {
                         onPressed: _openCamera,
                         icon: const Icon(Icons.photo_camera_outlined),
                       ),
-                      _MultiToggle(
-                        active: _multi,
-                        onTap: () {
-                          setState(() {
-                            _multi = !_multi;
-                            if (!_multi && _focused != null) {
-                              _selected
-                                ..clear()
-                                ..add(_focused!);
-                            }
-                          });
-                        },
-                      ),
+                      if (_allowsMulti)
+                        _MultiToggle(
+                          active: _multi,
+                          onTap: () {
+                            setState(() {
+                              _multi = !_multi;
+                              if (!_multi && _focused != null) {
+                                _selected
+                                  ..clear()
+                                  ..add(_focused!);
+                              }
+                            });
+                          },
+                        ),
                     ],
                   ),
                 ),
