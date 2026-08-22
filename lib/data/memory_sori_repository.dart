@@ -1379,6 +1379,9 @@ class MemorySoriRepository implements SoriRepository {
     String? authorUserId,
     List<String> imageUrls = const [],
     List<String> styleTags = const [],
+    List<CommunityTagDraft> tagDrafts = const [],
+    DeviceReviewDraft? deviceReview,
+    MarketListingDraft? marketListing,
   }) async {
     final id = 'cp-${DateTime.now().millisecondsSinceEpoch}';
     final media = <CommunityPostMedia>[
@@ -1390,6 +1393,54 @@ class MemorySoriRepository implements SoriRepository {
           sortOrder: i,
         ),
     ];
+    final tags = <CommunityPostTag>[
+      for (final d in tagDrafts)
+        if (d.mediaIndex >= 0 &&
+            d.mediaIndex < media.length &&
+            d.label.trim().isNotEmpty)
+          CommunityPostTag(
+            id: '$id-t${d.mediaIndex}-${d.label.hashCode}',
+            mediaId: media[d.mediaIndex].id,
+            label: d.label.trim(),
+            tagKind: d.tagKind,
+            normX: d.normX,
+            normY: d.normY,
+            vendorName: d.vendorName,
+            externalUrl:
+                d.externalUrl.trim().isEmpty ? null : d.externalUrl.trim(),
+          ),
+    ];
+    DeviceReview? review;
+    if (deviceReview != null && deviceReview.deviceName.trim().isNotEmpty) {
+      review = DeviceReview(
+        postId: id,
+        deviceName: deviceReview.deviceName,
+        brand: deviceReview.brand,
+        model: deviceReview.model,
+        usageMonths: deviceReview.usageMonths,
+        rating: deviceReview.rating,
+        pros: deviceReview.pros,
+        cons: deviceReview.cons,
+        wouldRecommend: deviceReview.wouldRecommend,
+      );
+    }
+    MarketListing? listing;
+    if (marketListing != null && marketListing.deviceName.trim().isNotEmpty) {
+      listing = MarketListing(
+        id: '$id-listing',
+        postId: id,
+        shopId: shopId,
+        deviceName: marketListing.deviceName,
+        brand: marketListing.brand,
+        price: marketListing.price,
+        condition: marketListing.condition,
+        status: marketListing.status,
+        contactPhone: marketListing.contactPhone.trim().isEmpty
+            ? null
+            : marketListing.contactPhone.trim(),
+        contactNote: marketListing.contactNote,
+      );
+    }
     final post = CommunityPost(
       id: id,
       shopId: shopId,
@@ -1399,10 +1450,40 @@ class MemorySoriRepository implements SoriRepository {
       body: body.trim(),
       styleTags: styleTags,
       media: media,
+      tags: tags,
+      listing: listing,
+      deviceReview: review,
+      shopName: 'SORI 에스테틱',
+      shopOwnerName: '김원장',
+      tierBadge: ShopTierBadge.silver,
+      businessVerified: true,
       createdAt: DateTime.now(),
     );
     _communityPosts.insert(0, post);
     return post;
+  }
+
+  @override
+  Future<void> updateMarketListingStatus({
+    required String listingId,
+    required MarketListingStatus status,
+  }) async {
+    final id = listingId.trim();
+    if (id.isEmpty) return;
+    for (var i = 0; i < _communityPosts.length; i++) {
+      final p = _communityPosts[i];
+      final l = p.listing;
+      if (l == null || l.id != id) continue;
+      _communityPosts[i] = p.copyWith(listing: l.copyWith(status: status));
+      break;
+    }
+  }
+
+  @override
+  Future<Map<String, bool>> loadShopBusinessVerified(
+    List<String> shopIds,
+  ) async {
+    return {for (final id in shopIds) id: true};
   }
 
   @override

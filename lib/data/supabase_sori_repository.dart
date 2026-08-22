@@ -2825,27 +2825,68 @@ class SupabaseSoriRepository implements SoriRepository {
     CommunityPostType? type,
     int limit = 40,
   }) async {
+    const select =
+        '*, post_media(*, post_tags(*)), market_listings(*), '
+        'device_reviews(*), shops(id, name, owner_name, tier_badge, profile_image_url)';
     try {
       final rows = type == null
           ? await _db
               .from('community_posts')
-              .select('*, post_media(*), market_listings(*)')
+              .select(select)
               .eq('status', 'published')
               .order('created_at', ascending: false)
               .limit(limit)
           : await _db
               .from('community_posts')
-              .select('*, post_media(*), market_listings(*)')
+              .select(select)
               .eq('status', 'published')
               .eq('post_type', type.dbValue)
               .order('created_at', ascending: false)
               .limit(limit);
-      return (rows as List)
-          .map((e) => CommunityPost.fromMap(Map<String, dynamic>.from(e as Map)))
+
+      final posts = (rows as List)
+          .map(
+            (e) => CommunityPost.fromMap(Map<String, dynamic>.from(e as Map)),
+          )
           .toList();
+
+      final shopIds = posts
+          .map((p) => p.shopId)
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      final verified = await loadShopBusinessVerified(shopIds);
+      return [
+        for (final p in posts)
+          p.copyWith(businessVerified: verified[p.shopId] == true),
+      ];
     } catch (e, st) {
       debugPrint('loadCommunityPosts failed: $e\n$st');
-      return const [];
+      try {
+        final rows = type == null
+            ? await _db
+                .from('community_posts')
+                .select('*, post_media(*), market_listings(*)')
+                .eq('status', 'published')
+                .order('created_at', ascending: false)
+                .limit(limit)
+            : await _db
+                .from('community_posts')
+                .select('*, post_media(*), market_listings(*)')
+                .eq('status', 'published')
+                .eq('post_type', type.dbValue)
+                .order('created_at', ascending: false)
+                .limit(limit);
+        return (rows as List)
+            .map(
+              (e) =>
+                  CommunityPost.fromMap(Map<String, dynamic>.from(e as Map)),
+            )
+            .toList();
+      } catch (e2, st2) {
+        debugPrint('loadCommunityPosts fallback failed: $e2\n$st2');
+        return const [];
+      }
     }
   }
 
@@ -2858,6 +2899,9 @@ class SupabaseSoriRepository implements SoriRepository {
     String? authorUserId,
     List<String> imageUrls = const [],
     List<String> styleTags = const [],
+    List<CommunityTagDraft> tagDrafts = const [],
+    DeviceReviewDraft? deviceReview,
+    MarketListingDraft? marketListing,
   }) async {
     final payload = <String, dynamic>{
       'shop_id': shopId,
@@ -2893,6 +2937,77 @@ class SupabaseSoriRepository implements SoriRepository {
       );
     }
 
+    final tags = <CommunityPostTag>[];
+    for (final draft in tagDrafts) {
+      if (draft.mediaIndex < 0 || draft.mediaIndex >= media.length) continue;
+      final label = draft.label.trim();
+      if (label.isEmpty) continue;
+      final tag = CommunityPostTag(
+        id: '',
+        mediaId: media[draft.mediaIndex].id,
+        label: label,
+        tagKind: draft.tagKind,
+        normX: draft.normX,
+        normY: draft.normY,
+        vendorName: draft.vendorName,
+        externalUrl: draft.externalUrl.trim().isEmpty
+            ? null
+            : draft.externalUrl.trim(),
+      );
+      final tRow = await _db
+          .from('post_tags')
+          .insert(tag.toInsertMap())
+          .select()
+          .single();
+      tags.add(
+        CommunityPostTag.fromMap(Map<String, dynamic>.from(tRow as Map)),
+      );
+    }
+
+    DeviceReview? review;
+    if (deviceReview != null && deviceReview.deviceName.trim().isNotEmpty) {
+      final rRow = await _db
+          .from('device_reviews')
+          .insert({
+            'post_id': post.id,
+            ...DeviceReview(
+              postId: post.id,
+              deviceName: deviceReview.deviceName,
+              brand: deviceReview.brand,
+              model: deviceReview.model,
+              usageMonths: deviceReview.usageMonths,
+              rating: deviceReview.rating,
+              pros: deviceReview.pros,
+              cons: deviceReview.cons,
+              wouldRecommend: deviceReview.wouldRecommend,
+            ).toInsertMap(),
+          })
+          .select()
+          .single();
+      review = DeviceReview.fromMap(Map<String, dynamic>.from(rRow as Map));
+    }
+
+    MarketListing? listing;
+    if (marketListing != null && marketListing.deviceName.trim().isNotEmpty) {
+      final lRow = await _db
+          .from('market_listings')
+          .insert({
+            'post_id': post.id,
+            'shop_id': shopId,
+            'device_name': marketListing.deviceName.trim(),
+            'brand': marketListing.brand.trim(),
+            'price': marketListing.price,
+            'condition': marketListing.condition,
+            'listing_status': marketListing.status.dbValue,
+            if (marketListing.contactPhone.trim().isNotEmpty)
+              'contact_phone': marketListing.contactPhone.trim(),
+            'contact_note': marketListing.contactNote.trim(),
+          })
+          .select()
+          .single();
+      listing = MarketListing.fromMap(Map<String, dynamic>.from(lRow as Map));
+    }
+
     return CommunityPost(
       id: post.id,
       shopId: post.shopId,
@@ -2906,10 +3021,54 @@ class SupabaseSoriRepository implements SoriRepository {
       commentCount: post.commentCount,
       saveCount: post.saveCount,
       media: media,
-      tags: post.tags,
-      listing: post.listing,
+      tags: tags,
+      listing: listing,
+      deviceReview: review,
       createdAt: post.createdAt,
     );
+  }
+
+  @override
+  Future<void> updateMarketListingStatus({
+    required String listingId,
+    required MarketListingStatus status,
+  }) async {
+    final id = listingId.trim();
+    if (id.isEmpty) return;
+    final payload = <String, dynamic>{
+      'listing_status': status.dbValue,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (status == MarketListingStatus.sold) {
+      payload['sold_at'] = DateTime.now().toUtc().toIso8601String();
+    }
+    await _db.from('market_listings').update(payload).eq('id', id);
+  }
+
+  @override
+  Future<Map<String, bool>> loadShopBusinessVerified(
+    List<String> shopIds,
+  ) async {
+    final ids = shopIds.where((e) => e.trim().isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final rows = await _db
+          .from('shop_verifications')
+          .select('shop_id, status')
+          .inFilter('shop_id', ids);
+      final out = <String, bool>{};
+      for (final e in rows as List) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final sid = (m['shop_id'] ?? '').toString();
+        final st = (m['status'] ?? '').toString();
+        if (sid.isEmpty) continue;
+        out[sid] = st == 'business_verified';
+      }
+      return out;
+    } catch (e, st) {
+      debugPrint('loadShopBusinessVerified failed: $e\n$st');
+      return const {};
+    }
   }
 
   @override

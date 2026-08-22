@@ -398,7 +398,7 @@ abstract class SoriRepository {
     int limit = 40,
   });
 
-  /// 인테리어/기기리뷰 Community 포스트 생성 + 미디어.
+  /// 인테리어/기기리뷰 Community 포스트 생성 + 미디어(+태그/리뷰/중고).
   Future<CommunityPost> insertCommunityPost({
     required String shopId,
     required CommunityPostType postType,
@@ -407,7 +407,18 @@ abstract class SoriRepository {
     String? authorUserId,
     List<String> imageUrls = const [],
     List<String> styleTags = const [],
+    List<CommunityTagDraft> tagDrafts = const [],
+    DeviceReviewDraft? deviceReview,
+    MarketListingDraft? marketListing,
   });
+
+  Future<void> updateMarketListingStatus({
+    required String listingId,
+    required MarketListingStatus status,
+  });
+
+  /// shop_id → 사업자 인증 여부 (`business_verified`).
+  Future<Map<String, bool>> loadShopBusinessVerified(List<String> shopIds);
 
   Future<void> deleteCommunityPost(String postId);
 

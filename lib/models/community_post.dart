@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import 'shop_tier_badge.dart';
 
 /// B2B Community 포스트 유형.
 enum CommunityPostType {
@@ -112,6 +113,8 @@ class CommunityPostTag {
     this.normY = 0.5,
     this.partnerId,
     this.externalUrl,
+    this.vendorName = '',
+    this.metadata = const {},
   });
 
   final String id;
@@ -122,8 +125,17 @@ class CommunityPostTag {
   final double normY;
   final String? partnerId;
   final String? externalUrl;
+  final String vendorName;
+  final Map<String, dynamic> metadata;
 
   factory CommunityPostTag.fromMap(Map<String, dynamic> map) {
+    final metaRaw = map['metadata'];
+    final meta = metaRaw is Map
+        ? Map<String, dynamic>.from(metaRaw)
+        : <String, dynamic>{};
+    final vendor = DbMap.asText(
+      map['vendor_name'] ?? map['vendorName'] ?? meta['vendor_name'],
+    );
     return CommunityPostTag(
       id: DbMap.asText(map['id']),
       mediaId: DbMap.asText(map['media_id'] ?? map['mediaId']),
@@ -143,8 +155,153 @@ class CommunityPostTag {
       externalUrl: DbMap.asTextOrNull(
         map['external_url'] ?? map['externalUrl'],
       ),
+      vendorName: vendor,
+      metadata: meta,
     );
   }
+
+  Map<String, dynamic> toInsertMap() => {
+        'media_id': mediaId,
+        'tag_kind': tagKind,
+        'label': label.trim(),
+        'norm_x': normX.clamp(0.0, 1.0),
+        'norm_y': normY.clamp(0.0, 1.0),
+        if (externalUrl != null && externalUrl!.trim().isNotEmpty)
+          'external_url': externalUrl!.trim(),
+        'metadata': {
+          ...metadata,
+          if (vendorName.trim().isNotEmpty) 'vendor_name': vendorName.trim(),
+        },
+      };
+}
+
+/// 작성 중 핀 (미디어 업로드 전 로컬 인덱스 기준).
+class CommunityTagDraft {
+  const CommunityTagDraft({
+    required this.mediaIndex,
+    required this.label,
+    required this.normX,
+    required this.normY,
+    this.vendorName = '',
+    this.externalUrl = '',
+    this.tagKind = 'product',
+  });
+
+  final int mediaIndex;
+  final String label;
+  final String vendorName;
+  final String externalUrl;
+  final String tagKind;
+  final double normX;
+  final double normY;
+}
+
+class DeviceReview {
+  const DeviceReview({
+    required this.postId,
+    this.deviceName = '',
+    this.brand = '',
+    this.model = '',
+    this.deviceCategory = '',
+    this.usageMonths = 0,
+    this.sessionsPerWeek = 0,
+    this.rating,
+    this.pros = const [],
+    this.cons = const [],
+    this.wouldRecommend,
+  });
+
+  final String postId;
+  final String deviceName;
+  final String brand;
+  final String model;
+  final String deviceCategory;
+  final int usageMonths;
+  final int sessionsPerWeek;
+  final double? rating;
+  final List<String> pros;
+  final List<String> cons;
+  final bool? wouldRecommend;
+
+  factory DeviceReview.fromMap(Map<String, dynamic> map) {
+    final rawRating = map['rating'];
+    double? rating;
+    if (rawRating is num) rating = rawRating.toDouble();
+    return DeviceReview(
+      postId: DbMap.asText(map['post_id'] ?? map['postId']),
+      deviceName: DbMap.asText(map['device_name'] ?? map['deviceName']),
+      brand: DbMap.asText(map['brand']),
+      model: DbMap.asText(map['model']),
+      deviceCategory: DbMap.asText(
+        map['device_category'] ?? map['deviceCategory'],
+      ),
+      usageMonths: DbMap.asInt(map['usage_months'] ?? map['usageMonths']),
+      sessionsPerWeek: DbMap.asInt(
+        map['sessions_per_week'] ?? map['sessionsPerWeek'],
+      ),
+      rating: rating,
+      pros: DbMap.asStringList(map['pros']),
+      cons: DbMap.asStringList(map['cons']),
+      wouldRecommend: map['would_recommend'] is bool
+          ? map['would_recommend'] as bool
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toInsertMap() => {
+        'device_name': deviceName.trim(),
+        'brand': brand.trim(),
+        'model': model.trim(),
+        'device_category': deviceCategory.trim(),
+        'usage_months': usageMonths,
+        'sessions_per_week': sessionsPerWeek,
+        if (rating != null) 'rating': rating,
+        'pros': pros,
+        'cons': cons,
+        if (wouldRecommend != null) 'would_recommend': wouldRecommend,
+      };
+}
+
+class DeviceReviewDraft {
+  const DeviceReviewDraft({
+    required this.deviceName,
+    this.brand = '',
+    this.model = '',
+    this.usageMonths = 0,
+    this.rating = 5,
+    this.pros = const [],
+    this.cons = const [],
+    this.wouldRecommend = true,
+  });
+
+  final String deviceName;
+  final String brand;
+  final String model;
+  final int usageMonths;
+  final double rating;
+  final List<String> pros;
+  final List<String> cons;
+  final bool wouldRecommend;
+}
+
+class MarketListingDraft {
+  const MarketListingDraft({
+    required this.deviceName,
+    required this.price,
+    this.brand = '',
+    this.condition = 'good',
+    this.contactPhone = '',
+    this.contactNote = '',
+    this.status = MarketListingStatus.active,
+  });
+
+  final String deviceName;
+  final String brand;
+  final int price;
+  final String condition;
+  final String contactPhone;
+  final String contactNote;
+  final MarketListingStatus status;
 }
 
 class MarketListing {
@@ -175,6 +332,23 @@ class MarketListing {
   final String? contactPhone;
   final String contactNote;
   final String? region;
+
+  MarketListing copyWith({MarketListingStatus? status}) {
+    return MarketListing(
+      id: id,
+      postId: postId,
+      shopId: shopId,
+      deviceName: deviceName,
+      brand: brand,
+      model: model,
+      price: price,
+      condition: condition,
+      status: status ?? this.status,
+      contactPhone: contactPhone,
+      contactNote: contactNote,
+      region: region,
+    );
+  }
 
   factory MarketListing.fromMap(Map<String, dynamic> map) {
     return MarketListing(
@@ -215,7 +389,13 @@ class CommunityPost {
     this.media = const [],
     this.tags = const [],
     this.listing,
+    this.deviceReview,
     this.createdAt,
+    this.shopName = '',
+    this.shopOwnerName = '',
+    this.shopAvatarUrl,
+    this.tierBadge = ShopTierBadge.none,
+    this.businessVerified = false,
   });
 
   final String id;
@@ -232,7 +412,21 @@ class CommunityPost {
   final List<CommunityPostMedia> media;
   final List<CommunityPostTag> tags;
   final MarketListing? listing;
+  final DeviceReview? deviceReview;
   final DateTime? createdAt;
+  final String shopName;
+  final String shopOwnerName;
+  final String? shopAvatarUrl;
+  final ShopTierBadge tierBadge;
+  final bool businessVerified;
+
+  String get authorDisplayName {
+    final owner = shopOwnerName.trim();
+    if (owner.isNotEmpty) return owner;
+    final name = shopName.trim();
+    if (name.isNotEmpty) return name;
+    return '원장';
+  }
 
   String? get primaryImageUrl {
     for (final m in media) {
@@ -242,20 +436,68 @@ class CommunityPost {
     return null;
   }
 
+  List<CommunityPostTag> tagsForMedia(String mediaId) =>
+      tags.where((t) => t.mediaId == mediaId).toList(growable: false);
+
+  CommunityPost copyWith({
+    MarketListing? listing,
+    DeviceReview? deviceReview,
+    List<CommunityPostTag>? tags,
+    String? shopName,
+    String? shopOwnerName,
+    String? shopAvatarUrl,
+    ShopTierBadge? tierBadge,
+    bool? businessVerified,
+  }) {
+    return CommunityPost(
+      id: id,
+      shopId: shopId,
+      authorUserId: authorUserId,
+      postType: postType,
+      title: title,
+      body: body,
+      styleTags: styleTags,
+      regionCode: regionCode,
+      likeCount: likeCount,
+      commentCount: commentCount,
+      saveCount: saveCount,
+      media: media,
+      tags: tags ?? this.tags,
+      listing: listing ?? this.listing,
+      deviceReview: deviceReview ?? this.deviceReview,
+      createdAt: createdAt,
+      shopName: shopName ?? this.shopName,
+      shopOwnerName: shopOwnerName ?? this.shopOwnerName,
+      shopAvatarUrl: shopAvatarUrl ?? this.shopAvatarUrl,
+      tierBadge: tierBadge ?? this.tierBadge,
+      businessVerified: businessVerified ?? this.businessVerified,
+    );
+  }
+
   factory CommunityPost.fromMap(Map<String, dynamic> map) {
     final mediaRaw = map['post_media'] ?? map['media'];
     final media = <CommunityPostMedia>[];
+    final tags = <CommunityPostTag>[];
     if (mediaRaw is List) {
       for (final e in mediaRaw) {
-        if (e is Map) {
-          media.add(CommunityPostMedia.fromMap(Map<String, dynamic>.from(e)));
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        media.add(CommunityPostMedia.fromMap(m));
+        final nestedTags = m['post_tags'] ?? m['tags'];
+        if (nestedTags is List) {
+          for (final t in nestedTags) {
+            if (t is Map) {
+              tags.add(
+                CommunityPostTag.fromMap(Map<String, dynamic>.from(t)),
+              );
+            }
+          }
         }
       }
       media.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     }
 
     final tagsRaw = map['post_tags'] ?? map['tags'];
-    final tags = <CommunityPostTag>[];
     if (tagsRaw is List) {
       for (final e in tagsRaw) {
         if (e is Map) {
@@ -273,6 +515,34 @@ class CommunityPost {
       if (first is Map) {
         listing = MarketListing.fromMap(Map<String, dynamic>.from(first));
       }
+    }
+
+    DeviceReview? review;
+    final reviewRaw = map['device_reviews'] ?? map['device_review'];
+    if (reviewRaw is Map) {
+      review = DeviceReview.fromMap(Map<String, dynamic>.from(reviewRaw));
+    } else if (reviewRaw is List && reviewRaw.isNotEmpty) {
+      final first = reviewRaw.first;
+      if (first is Map) {
+        review = DeviceReview.fromMap(Map<String, dynamic>.from(first));
+      }
+    }
+
+    final shopRaw = map['shops'] ?? map['shop'];
+    var shopName = '';
+    var shopOwnerName = '';
+    String? shopAvatarUrl;
+    var tier = ShopTierBadge.none;
+    if (shopRaw is Map) {
+      final s = Map<String, dynamic>.from(shopRaw);
+      shopName = DbMap.asText(s['name']);
+      shopOwnerName = DbMap.asText(s['owner_name'] ?? s['ownerName']);
+      shopAvatarUrl = DbMap.asTextOrNull(
+        s['profile_image_url'] ?? s['profileImageUrl'],
+      );
+      tier = ShopTierBadge.fromDb(
+        DbMap.asText(s['tier_badge'] ?? s['tierBadge']),
+      );
     }
 
     return CommunityPost(
@@ -294,7 +564,14 @@ class CommunityPost {
       media: media,
       tags: tags,
       listing: listing,
+      deviceReview: review,
       createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
+      shopName: shopName,
+      shopOwnerName: shopOwnerName,
+      shopAvatarUrl: shopAvatarUrl,
+      tierBadge: tier,
+      businessVerified: map['business_verified'] == true ||
+          map['businessVerified'] == true,
     );
   }
 

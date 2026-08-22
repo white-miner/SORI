@@ -2367,9 +2367,17 @@ class SoriStore implements Listenable {
     String title = '',
     List<Uint8List>? imageBytesList,
     List<String> styleTags = const [],
+    List<CommunityTagDraft> tagDrafts = const [],
+    DeviceReviewDraft? deviceReview,
+    MarketListingDraft? marketListing,
   }) async {
     final text = body.trim();
-    if (text.isEmpty && (title.trim().isEmpty)) return null;
+    if (text.isEmpty &&
+        title.trim().isEmpty &&
+        (imageBytesList == null || imageBytesList.isEmpty) &&
+        deviceReview == null) {
+      return null;
+    }
     final shopId = shop.id.trim();
     if (shopId.isEmpty) return null;
 
@@ -2389,7 +2397,7 @@ class SoriStore implements Listenable {
     }
 
     try {
-      final post = await _repository.insertCommunityPost(
+      var post = await _repository.insertCommunityPost(
         shopId: shopId,
         postType: postType,
         body: text,
@@ -2397,6 +2405,16 @@ class SoriStore implements Listenable {
         authorUserId: session?.id,
         imageUrls: urls,
         styleTags: styleTags,
+        tagDrafts: tagDrafts,
+        deviceReview: deviceReview,
+        marketListing: marketListing,
+      );
+      // Enrich with live shop trust signals for immediate UI.
+      post = post.copyWith(
+        shopName: shop.name,
+        shopOwnerName: shop.ownerName,
+        shopAvatarUrl: shop.profileImageUrl,
+        tierBadge: shop.tierBadge,
       );
       communityPosts.insert(0, post);
       _notify();
@@ -2406,6 +2424,39 @@ class SoriStore implements Listenable {
       _setError(e, userFacing: true);
       _notify();
       return null;
+    }
+  }
+
+  Future<bool> updateMarketListingStatus({
+    required String listingId,
+    required MarketListingStatus status,
+  }) async {
+    final id = listingId.trim();
+    if (id.isEmpty) return false;
+    try {
+      await _repository.updateMarketListingStatus(
+        listingId: id,
+        status: status,
+      );
+      for (var i = 0; i < communityPosts.length; i++) {
+        final p = communityPosts[i];
+        final l = p.listing;
+        if (l == null || l.id != id) continue;
+        if (p.shopId.isNotEmpty &&
+            shop.id.isNotEmpty &&
+            p.shopId != shop.id) {
+          return false;
+        }
+        communityPosts[i] = p.copyWith(listing: l.copyWith(status: status));
+        _notify();
+        return true;
+      }
+      return true;
+    } catch (e, st) {
+      debugPrint('updateMarketListingStatus failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return false;
     }
   }
 
