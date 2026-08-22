@@ -23,6 +23,7 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
+import '../models/shop_business_hours.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
 import '../models/seminar_application.dart';
@@ -1018,6 +1019,7 @@ class SoriStore implements Listenable {
     String? address,
     String? phone,
     String? operatingHours,
+    ShopBusinessHours? businessHours,
     String? snsBlogUrl,
     String? snsInstagramUrl,
     String? bio,
@@ -1034,6 +1036,7 @@ class SoriStore implements Listenable {
       address: address?.trim(),
       phone: phone?.trim(),
       operatingHours: operatingHours?.trim(),
+      businessHours: businessHours,
       snsBlogUrl: snsBlogUrl?.trim(),
       snsInstagramUrl: snsInstagramUrl?.trim(),
       bio: bio?.trim(),

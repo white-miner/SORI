@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../models/service_menu_chips.dart';
 import '../models/shop.dart';
+import '../models/shop_business_hours.dart';
 import '../models/shop_service_item.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 
-/// Shop 탭 — Owner 인라인 편집 (소개·주소·메뉴).
+/// Shop 탭 — Owner 인라인 편집 (소개·영업시간·메뉴·키워드).
 class ShopInlineInfoTab extends StatefulWidget {
   const ShopInlineInfoTab({
     super.key,
@@ -45,7 +47,11 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
     final bioCtrl = TextEditingController(text: shop.bio);
     final addressCtrl = TextEditingController(text: shop.address ?? '');
     final phoneCtrl = TextEditingController(text: shop.phone ?? '');
-    final hoursCtrl = TextEditingController(text: shop.operatingHours);
+
+    var hours = shop.businessHours.isEmpty
+        ? const ShopBusinessHours()
+        : shop.businessHours;
+    final selectedDays = {...hours.openDays};
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -56,65 +62,214 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
       ),
       builder: (ctx) {
         final inset = MediaQuery.viewInsetsOf(ctx).bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + inset),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '샵 정보 수정',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: '샵 이름'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: bioCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: '소개'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: addressCtrl,
-                  decoration: const InputDecoration(labelText: '주소'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: phoneCtrl,
-                  decoration: const InputDecoration(labelText: '전화'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: hoursCtrl,
-                  decoration: const InputDecoration(labelText: '운영시간'),
-                ),
-                const SizedBox(height: 14),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            Future<void> pickTime({required bool isOpen}) async {
+              final initial =
+                  isOpen ? hours.openTimeOfDay : hours.closeTimeOfDay;
+              final picked = await showTimePicker(
+                context: ctx,
+                initialTime: initial,
+                builder: (c, child) => Theme(
+                  data: Theme.of(c).copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: SoriTokens.primary,
+                      surface: SoriTokens.surface,
+                    ),
                   ),
-                  child: const Text('저장'),
+                  child: child!,
                 ),
-              ],
-            ),
-          ),
+              );
+              if (picked == null) return;
+              setSheet(() {
+                hours = isOpen
+                    ? hours.copyWith(
+                        openHour: picked.hour,
+                        openMinute: picked.minute,
+                      )
+                    : hours.copyWith(
+                        closeHour: picked.hour,
+                        closeMinute: picked.minute,
+                      );
+              });
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + inset),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      '샵 정보 수정',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: '샵 이름'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: bioCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: '소개'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: addressCtrl,
+                      decoration: const InputDecoration(labelText: '주소'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(labelText: '전화'),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '운영 요일',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '선택하지 않은 요일은 자동으로 휴무로 표시됩니다',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(7, (i) {
+                        final day = i + 1;
+                        final selected = selectedDays.contains(day);
+                        return FilterChip(
+                          label: Text(ShopBusinessHours.dayLabel(day)),
+                          selected: selected,
+                          onSelected: (v) {
+                            setSheet(() {
+                              if (v) {
+                                selectedDays.add(day);
+                              } else {
+                                selectedDays.remove(day);
+                              }
+                            });
+                          },
+                          selectedColor: SoriTokens.primarySoft,
+                          checkmarkColor: SoriTokens.primary,
+                          labelStyle: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: selected
+                                ? SoriTokens.primary
+                                : SoriTokens.textPrimary,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      '오픈 / 마감 시간',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => pickTime(isOpen: true),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: SoriTokens.primary,
+                              side: const BorderSide(
+                                color: SoriTokens.outlinePurple,
+                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text(
+                              '오픈 ${hours.openTimeLabel}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => pickTime(isOpen: false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: SoriTokens.primary,
+                              side: const BorderSide(
+                                color: SoriTokens.outlinePurple,
+                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text(
+                              '마감 ${hours.closeTimeLabel}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      ShopBusinessHours(
+                        openDays: selectedDays,
+                        openHour: hours.openHour,
+                        openMinute: hours.openMinute,
+                        closeHour: hours.closeHour,
+                        closeMinute: hours.closeMinute,
+                      ).formatDisplay(),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SoriTokens.primary,
+                      ),
+                      child: const Text('저장'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
 
     if (ok != true || !mounted) return;
+    final saved = ShopBusinessHours(
+      openDays: selectedDays,
+      openHour: hours.openHour,
+      openMinute: hours.openMinute,
+      closeHour: hours.closeHour,
+      closeMinute: hours.closeMinute,
+    );
     store.updateShopProfile(
       name: nameCtrl.text,
       naverPlaceUrl: shop.naverPlaceUrl,
       bio: bioCtrl.text,
       address: addressCtrl.text,
       phone: phoneCtrl.text,
-      operatingHours: hoursCtrl.text,
+      businessHours: saved,
+      operatingHours: saved.isEmpty ? '' : saved.formatDisplay(),
       ownerName: shop.ownerName,
     );
   }
@@ -124,6 +279,9 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
     final descCtrl = TextEditingController(text: existing?.description ?? '');
     final deviceCtrl =
         TextEditingController(text: existing?.deviceInfo ?? '');
+    final selectedChips = <String>{
+      ...(existing?.keywords ?? const []).where((e) => e.trim().isNotEmpty),
+    };
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -134,44 +292,117 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
       ),
       builder: (ctx) {
         final inset = MediaQuery.viewInsetsOf(ctx).bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + inset),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                existing == null ? '메뉴 추가' : '메뉴 수정',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + inset),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      existing == null ? '메뉴 추가' : '메뉴 수정',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: '시술명'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: descCtrl,
+                      decoration:
+                          const InputDecoration(labelText: '설명 / 가격'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: deviceCtrl,
+                      decoration:
+                          const InputDecoration(labelText: '사용 기기 (선택)'),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      '키워드 칩 (다중 선택)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '시술 수단·체감·효과를 골라 주세요',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...ServiceMenuChips.categories.map((category) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category.title,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: SoriTokens.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: category.chips.map((chip) {
+                                final selected =
+                                    selectedChips.contains(chip);
+                                return FilterChip(
+                                  label: Text(chip),
+                                  selected: selected,
+                                  onSelected: (v) {
+                                    setSheet(() {
+                                      if (v) {
+                                        selectedChips.add(chip);
+                                      } else {
+                                        selectedChips.remove(chip);
+                                      }
+                                    });
+                                  },
+                                  selectedColor: SoriTokens.primarySoft,
+                                  checkmarkColor: SoriTokens.primary,
+                                  labelStyle: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    color: selected
+                                        ? SoriTokens.primary
+                                        : SoriTokens.textPrimary,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SoriTokens.primary,
+                      ),
+                      child: const Text('저장'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: '시술명'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descCtrl,
-                decoration: const InputDecoration(labelText: '설명 / 가격'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: deviceCtrl,
-                decoration: const InputDecoration(labelText: '사용 기기 (선택)'),
-              ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SoriTokens.primary,
-                ),
-                child: const Text('저장'),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -182,8 +413,9 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
     final item = ShopServiceItem(
       name: name,
       description: descCtrl.text.trim(),
-      deviceInfo: deviceCtrl.text.trim().isEmpty ? null : deviceCtrl.text.trim(),
-      keywords: existing?.keywords ?? const [],
+      deviceInfo:
+          deviceCtrl.text.trim().isEmpty ? null : deviceCtrl.text.trim(),
+      keywords: selectedChips.toList(),
     );
     if (index != null && index >= 0 && index < next.length) {
       next[index] = item;
@@ -227,7 +459,7 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
       final d = item.deviceInfo?.trim() ?? '';
       if (d.isNotEmpty) devices.add(d);
     }
-    final hours = shop.operatingHours.trim();
+    final hoursLabel = shop.hoursDisplayLabel;
     final address = (shop.address ?? '').trim();
     final bio = shop.bio.trim();
 
@@ -284,7 +516,7 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
               const SizedBox(height: 10),
               _Line(
                 icon: Icons.schedule_rounded,
-                label: hours.isEmpty ? '운영시간 미등록' : hours,
+                label: hoursLabel.isEmpty ? '운영시간 미등록' : hoursLabel,
               ),
               if ((shop.phone ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 10),
@@ -343,6 +575,10 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
                 ...List.generate(menu.length, (i) {
                   final item = menu[i];
                   final priceLabel = _priceLabel(item);
+                  final keywords = item.keywords
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty)
+                      .toList();
                   return Column(
                     children: [
                       if (i > 0)
@@ -363,9 +599,42 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
+                                if (keywords.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: keywords
+                                        .map(
+                                          (k) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF27272A),
+                                              borderRadius:
+                                                  BorderRadius.circular(99),
+                                              border: Border.all(
+                                                color: const Color(0xFF3F3F46),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              k,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFFD4D4D8),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ],
                                 if (item.description.trim().isNotEmpty &&
                                     priceLabel == '문의') ...[
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 6),
                                   Text(
                                     item.description.trim(),
                                     style: const TextStyle(
@@ -445,7 +714,8 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
                           decoration: BoxDecoration(
                             color: SoriTokens.primarySoft,
                             borderRadius: BorderRadius.circular(99),
-                            border: Border.all(color: SoriTokens.outlinePurple),
+                            border:
+                                Border.all(color: SoriTokens.outlinePurple),
                           ),
                           child: Text(
                             d,

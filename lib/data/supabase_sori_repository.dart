@@ -927,6 +927,8 @@ class SupabaseSoriRepository implements SoriRepository {
     final fullPayload = <String, dynamic>{
       ...basePayload,
       'operating_hours': shop.operatingHours,
+      'business_hours':
+          shop.businessHours.isEmpty ? <String, dynamic>{} : shop.businessHours.toJson(),
       'sns_blog_url': shop.snsBlogUrl,
       'sns_instagram_url': shop.snsInstagramUrl,
       'monthly_capa': shop.monthlyCapa,
@@ -944,6 +946,7 @@ class SupabaseSoriRepository implements SoriRepository {
       final parsed = Shop.fromMap(map);
       return parsed.copyWith(
         operatingHours: shop.operatingHours,
+        businessHours: shop.businessHours,
         snsBlogUrl: shop.snsBlogUrl,
         snsInstagramUrl: shop.snsInstagramUrl,
         bio: map.containsKey('bio') ? parsed.bio : shop.bio,
@@ -1006,6 +1009,7 @@ class SupabaseSoriRepository implements SoriRepository {
       final parsed = Shop.fromMap(map);
       return parsed.copyWith(
         operatingHours: shop.operatingHours,
+        businessHours: shop.businessHours,
         snsBlogUrl: shop.snsBlogUrl,
         snsInstagramUrl: shop.snsInstagramUrl,
         bio: shop.bio,

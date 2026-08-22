@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import 'shop_business_hours.dart';
 import 'shop_service_item.dart';
 import 'shop_tier_badge.dart';
 
@@ -13,6 +14,7 @@ class Shop {
     this.phone,
     this.address,
     this.operatingHours = '',
+    this.businessHours = const ShopBusinessHours(openDays: {}),
     this.snsBlogUrl = '',
     this.snsInstagramUrl = '',
     this.bio = '',
@@ -46,8 +48,11 @@ class Shop {
   final String? phone;
   final String? address;
 
-  /// 휴무일 및 운영시간 안내.
+  /// 휴무일 및 운영시간 안내 (표시용 문자열, [businessHours]와 동기화).
   final String operatingHours;
+
+  /// 구조화 영업시간 (요일 + 오픈/마감).
+  final ShopBusinessHours businessHours;
 
   /// SNS — 블로그 / 인스타그램.
   final String snsBlogUrl;
@@ -91,6 +96,13 @@ class Shop {
 
   /// 샵 원장 auth user id (`shops.owner_user_id`).
   final String? ownerUserId;
+
+  /// 뷰어용 영업시간 문구 — JSON 우선, 없으면 legacy 텍스트.
+  String get hoursDisplayLabel {
+    if (!businessHours.isEmpty) return businessHours.formatDisplay();
+    final legacy = operatingHours.trim();
+    return legacy;
+  }
 
   ShopTierProgressSnapshot get tierProgress =>
       ShopTierProgressSnapshot.fromMetrics(
@@ -161,6 +173,7 @@ class Shop {
     String? phone,
     String? address,
     String? operatingHours,
+    ShopBusinessHours? businessHours,
     String? snsBlogUrl,
     String? snsInstagramUrl,
     String? bio,
@@ -191,6 +204,7 @@ class Shop {
       phone: phone ?? this.phone,
       address: address ?? this.address,
       operatingHours: operatingHours ?? this.operatingHours,
+      businessHours: businessHours ?? this.businessHours,
       snsBlogUrl: snsBlogUrl ?? this.snsBlogUrl,
       snsInstagramUrl: snsInstagramUrl ?? this.snsInstagramUrl,
       bio: bio ?? this.bio,
@@ -225,6 +239,7 @@ class Shop {
         'naver_review_write_url': naverReviewWriteUrl,
         'address': address,
         'operating_hours': operatingHours,
+        'business_hours': businessHours.isEmpty ? <String, dynamic>{} : businessHours.toJson(),
         'sns_blog_url': snsBlogUrl,
         'sns_instagram_url': snsInstagramUrl,
         'bio': bio,
@@ -264,6 +279,12 @@ class Shop {
       final operatingHours = DbMap.asText(
         map['operating_hours'] ?? map['operatingHours'],
       );
+      final businessHoursRaw =
+          map['business_hours'] ?? map['businessHours'];
+      final businessHours = businessHoursRaw == null ||
+              (businessHoursRaw is Map && businessHoursRaw.isEmpty)
+          ? const ShopBusinessHours(openDays: {})
+          : ShopBusinessHours.fromJson(businessHoursRaw);
       final snsBlogUrl = DbMap.asText(
         map['sns_blog_url'] ?? map['snsBlogUrl'],
       );
@@ -298,6 +319,7 @@ class Shop {
         naverReviewWriteUrl: naverReviewWriteUrl,
         address: DbMap.asTextOrNull(map['address']),
         operatingHours: operatingHours,
+        businessHours: businessHours,
         snsBlogUrl: snsBlogUrl,
         snsInstagramUrl: snsInstagramUrl,
         bio: bio,
