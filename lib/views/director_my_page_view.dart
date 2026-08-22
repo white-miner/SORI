@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 
 import '../models/ai_shop_report_mock.dart';
 import '../models/customer_chart.dart';
-import '../models/customer_review.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
@@ -21,6 +20,7 @@ import '../widgets/my_tier_home_card.dart';
 import '../widgets/seminar_review_modal.dart';
 import '../widgets/shop_inline_info_tab.dart';
 import '../widgets/shop_posts_thread_section.dart';
+import '../widgets/shop_review_compose_sheet.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
@@ -1172,127 +1172,206 @@ class _ReviewTabBody extends StatelessWidget {
 
   final SoriStore store;
 
-  static List<CustomerReview> _demoReviews(String shopId) {
-    final now = DateTime.now();
-    final samples = [
-      '장벽이 탄탄해진 느낌이에요. 다음에도 꼭 예약할게요.',
-      '원장님 손길이 섬세해서 안심되고 결과도 좋아요.',
-      '시술 후 당김이 줄었어요. 홈케어 팁도 도움이 됐습니다.',
-      '예약부터 케어까지 흐름이 매끄러웠어요.',
-      '사진으로 비교하니 변화가 확실합니다.',
-      '재방문 의사가 생겼어요. 분위기도 편안합니다.',
-      '설명도 친절하고 시술도 과하지 않아 좋았습니다.',
-      '복부 라인 케어 만족도 높아요.',
-      '단골로 정착하고 싶은 샵입니다.',
-      '후기 남기려다 깜빡했는데, 정말 만족스러워요.',
-    ];
-    return List.generate(10, (i) {
-      final n = i + 1;
-      return CustomerReview(
-        id: 'demo-review-$n',
-        chartId: 'demo-chart-$n',
-        customerId: 'demo-c-$n',
-        shopId: shopId,
-        originalText: samples[i],
-        status: ReviewStatus.published,
-        rating: (n % 5) + 1,
-        directorReply: n.isEven ? '소중한 후기 감사합니다. 다음 케어도 정성껏 준비할게요.' : null,
-        createdAt: now.subtract(Duration(days: n, hours: n)),
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final live = store.reviews
-        .where(DirectorPeriodStats.isCompletedReview)
-        .toList()
-      ..sort((a, b) {
-        final ad = a.createdAt ?? DateTime(1970);
-        final bd = b.createdAt ?? DateTime(1970);
-        return bd.compareTo(ad);
-      });
-    final reviews = live.isEmpty ? _demoReviews(store.shop.id) : live;
-    final isDemo = live.isEmpty;
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final reviews = store.reviews
+            .where(DirectorPeriodStats.isCompletedReview)
+            .toList()
+          ..sort((a, b) {
+            final ad = a.createdAt ?? DateTime(1970);
+            final bd = b.createdAt ?? DateTime(1970);
+            return bd.compareTo(ad);
+          });
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-      itemCount: reviews.length.clamp(0, 30) + (isDemo ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, i) {
-        if (isDemo && i == 0) {
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: SoriTokens.primarySoft,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: SoriTokens.outlinePurple),
-            ),
-            child: const Text(
-              '실데이터가 없어 데모 후기 10건을 표시 중입니다.',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: SoriTokens.primary,
-              ),
-            ),
-          );
-        }
-        final r = reviews[isDemo ? i - 1 : i];
-        return _SquircleCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        final rated = reviews.where((r) => r.effectiveRating > 0).toList();
+        final avg = rated.isEmpty
+            ? 0.0
+            : rated.map((r) => r.effectiveRating).reduce((a, b) => a + b) /
+                rated.length;
+
+        if (reviews.isEmpty) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
             children: [
-              Row(
-                children: [
-                  ...List.generate(
-                    r.effectiveRating.clamp(0, 5),
-                    (_) => const Icon(
-                      Icons.star_rounded,
-                      size: 16,
-                      color: Color(0xFFFBBF24),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    r.createdAt == null
-                        ? ''
-                        : '${r.createdAt!.month}/${r.createdAt!.day}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: SoriTokens.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                r.displayText.trim().isEmpty
-                    ? '(내용 없음)'
-                    : r.displayText.trim(),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 48),
+              const Icon(Icons.rate_review_outlined,
+                  size: 48, color: SoriTokens.textSecondary),
+              const SizedBox(height: 14),
+              const Text(
+                '작성된 리뷰가 없습니다',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                   color: SoriTokens.textPrimary,
                 ),
               ),
-              if ((r.directorReply ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  '원장 답글 · ${r.directorReply!.trim()}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: SoriTokens.textSecondary,
+              const SizedBox(height: 8),
+              const Text(
+                '고객 후기가 등록되면 여기에 평점과 함께 표시됩니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: FilledButton.icon(
+                  onPressed: () => showShopReviewComposeSheet(context, store),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('리뷰 작성'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
                   ),
                 ),
-              ],
+              ),
             ],
-          ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          itemCount: reviews.length + 1,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, i) {
+            if (i == 0) {
+              return _SquircleCard(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '평균 평점',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: SoriTokens.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Text(
+                                avg.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: SoriTokens.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ...List.generate(
+                                5,
+                                (s) => Icon(
+                                  s < avg.round()
+                                      ? Icons.star_rounded
+                                      : Icons.star_outline_rounded,
+                                  size: 18,
+                                  color: const Color(0xFFFBBF24),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '리뷰 ${reviews.length}건',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: SoriTokens.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton(
+                      onPressed: () =>
+                          showShopReviewComposeSheet(context, store),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SoriTokens.primary,
+                      ),
+                      child: const Text('작성'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final r = reviews[i - 1];
+            final customer = store.findCustomer(r.customerId);
+            return _SquircleCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      ...List.generate(
+                        r.effectiveRating.clamp(0, 5),
+                        (_) => const Icon(
+                          Icons.star_rounded,
+                          size: 16,
+                          color: Color(0xFFFBBF24),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        r.createdAt == null
+                            ? ''
+                            : '${r.createdAt!.month}/${r.createdAt!.day}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: SoriTokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if ((customer?.name ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      customer!.name.trim(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    r.displayText.trim().isEmpty
+                        ? '(내용 없음)'
+                        : r.displayText.trim(),
+                    softWrap: true,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                  if ((r.directorReply ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '원장 답글 · ${r.directorReply!.trim()}',
+                      softWrap: true,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
         );
       },
     );

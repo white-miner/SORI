@@ -1414,6 +1414,50 @@ class SoriStore implements Listenable {
     return items;
   }
 
+  /// 원장 Review 탭 — 고객 차트에 연결된 published 리뷰 등록/갱신.
+  Future<CustomerReview?> publishShopReview({
+    required String chartId,
+    required String customerId,
+    required String text,
+    required int rating,
+  }) async {
+    final body = text.trim();
+    if (body.isEmpty) return null;
+    final stars = rating.clamp(1, 5);
+    final cid = chartId.trim();
+    final customer = customerId.trim();
+    if (cid.isEmpty || customer.isEmpty) return null;
+
+    final existing = reviewForChart(cid);
+    final draft = (existing ??
+            CustomerReview(
+              id: '',
+              chartId: cid,
+              customerId: customer,
+              shopId: shop.id,
+            ))
+        .copyWith(
+          originalText: body,
+          editedText: body,
+          status: ReviewStatus.published,
+          rating: stars,
+          acceptedAt: DateTime.now(),
+        );
+
+    try {
+      final remote = await _repository.upsertReview(draft);
+      _mergeReview(remote);
+      lastError = null;
+      _notify();
+      return remote;
+    } catch (e, st) {
+      debugPrint('publishShopReview failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      rethrow;
+    }
+  }
+
   /// 원장 답글 저장 (DB 반영 + 로컬 미러).
   Future<CustomerReview> saveDirectorReviewReply({
     required String reviewId,
