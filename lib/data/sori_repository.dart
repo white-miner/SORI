@@ -12,6 +12,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
+import '../models/community_post.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -390,6 +391,25 @@ abstract class SoriRepository {
   });
 
   Future<void> deleteShopPost(String postId);
+
+  /// B2B Community 포스트 로드 (유형 필터 선택).
+  Future<List<CommunityPost>> loadCommunityPosts({
+    CommunityPostType? type,
+    int limit = 40,
+  });
+
+  /// 인테리어/기기리뷰 Community 포스트 생성 + 미디어.
+  Future<CommunityPost> insertCommunityPost({
+    required String shopId,
+    required CommunityPostType postType,
+    required String body,
+    String title = '',
+    String? authorUserId,
+    List<String> imageUrls = const [],
+    List<String> styleTags = const [],
+  });
+
+  Future<void> deleteCommunityPost(String postId);
 
   /// 원장 샵 세미나 클래스 목록 (최신순).
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);

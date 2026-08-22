@@ -11,6 +11,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
+import '../models/community_post.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -1350,9 +1351,63 @@ class MemorySoriRepository implements SoriRepository {
     return post;
   }
 
+  static final List<CommunityPost> _communityPosts = [];
+
   @override
   Future<void> deleteShopPost(String postId) async {
     _posts.removeWhere((e) => e.id == postId);
+  }
+
+  @override
+  Future<List<CommunityPost>> loadCommunityPosts({
+    CommunityPostType? type,
+    int limit = 40,
+  }) async {
+    var list = List<CommunityPost>.from(_communityPosts);
+    if (type != null) {
+      list = list.where((e) => e.postType == type).toList();
+    }
+    return list.take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<CommunityPost> insertCommunityPost({
+    required String shopId,
+    required CommunityPostType postType,
+    required String body,
+    String title = '',
+    String? authorUserId,
+    List<String> imageUrls = const [],
+    List<String> styleTags = const [],
+  }) async {
+    final id = 'cp-${DateTime.now().millisecondsSinceEpoch}';
+    final media = <CommunityPostMedia>[
+      for (var i = 0; i < imageUrls.length; i++)
+        CommunityPostMedia(
+          id: '$id-m$i',
+          postId: id,
+          imageUrl: imageUrls[i],
+          sortOrder: i,
+        ),
+    ];
+    final post = CommunityPost(
+      id: id,
+      shopId: shopId,
+      authorUserId: authorUserId,
+      postType: postType,
+      title: title,
+      body: body.trim(),
+      styleTags: styleTags,
+      media: media,
+      createdAt: DateTime.now(),
+    );
+    _communityPosts.insert(0, post);
+    return post;
+  }
+
+  @override
+  Future<void> deleteCommunityPost(String postId) async {
+    _communityPosts.removeWhere((e) => e.id == postId);
   }
 
   @override

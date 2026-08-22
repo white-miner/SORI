@@ -27,6 +27,7 @@ import '../models/shop_business_hours.dart';
 import '../models/shop_equipment_item.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
+import '../models/community_post.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -159,6 +160,8 @@ class SoriStore implements Listenable {
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
   final List<ShopPost> shopPosts = [];
+  final List<CommunityPost> communityPosts = [];
+  bool communityPostsLoading = false;
   final Set<String> reviewRequestedCustomerIds = {};
   final Set<String> followedShopIds = {};
   final List<ShopHighlight> shopHighlights = [];
@@ -2336,6 +2339,94 @@ class SoriStore implements Listenable {
     }
     await _repository.deleteShopPost(id);
     shopPosts.removeWhere((e) => e.id == id);
+    _notify();
+    return true;
+  }
+
+  Future<void> refreshCommunityPosts({CommunityPostType? type}) async {
+    if (communityPostsLoading) return;
+    communityPostsLoading = true;
+    _notify();
+    try {
+      final list = await _repository.loadCommunityPosts(type: type, limit: 50);
+      communityPosts
+        ..clear()
+        ..addAll(list);
+      lastError = null;
+    } catch (e) {
+      debugPrint('refreshCommunityPosts failed: $e');
+    } finally {
+      communityPostsLoading = false;
+      _notify();
+    }
+  }
+
+  Future<CommunityPost?> createCommunityPost({
+    required CommunityPostType postType,
+    required String body,
+    String title = '',
+    List<Uint8List>? imageBytesList,
+    List<String> styleTags = const [],
+  }) async {
+    final text = body.trim();
+    if (text.isEmpty && (title.trim().isEmpty)) return null;
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return null;
+
+    final urls = <String>[];
+    for (final bytes in imageBytesList ?? const <Uint8List>[]) {
+      if (bytes.isEmpty) continue;
+      var url = await ShopMediaStorage.uploadPostImage(
+        bytes: bytes,
+        shopId: shopId,
+      );
+      if (url == null || url.isEmpty) {
+        if (!_repository.isRemote) {
+          url = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+        }
+      }
+      if (url != null && url.isNotEmpty) urls.add(url);
+    }
+
+    try {
+      final post = await _repository.insertCommunityPost(
+        shopId: shopId,
+        postType: postType,
+        body: text,
+        title: title,
+        authorUserId: session?.id,
+        imageUrls: urls,
+        styleTags: styleTags,
+      );
+      communityPosts.insert(0, post);
+      _notify();
+      return post;
+    } catch (e, st) {
+      debugPrint('createCommunityPost failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return null;
+    }
+  }
+
+  Future<bool> removeCommunityPost(String postId) async {
+    final id = postId.trim();
+    if (id.isEmpty) return false;
+    CommunityPost? target;
+    for (final p in communityPosts) {
+      if (p.id == id) {
+        target = p;
+        break;
+      }
+    }
+    if (target != null &&
+        target.shopId.isNotEmpty &&
+        shop.id.isNotEmpty &&
+        target.shopId != shop.id) {
+      return false;
+    }
+    await _repository.deleteCommunityPost(id);
+    communityPosts.removeWhere((e) => e.id == id);
     _notify();
     return true;
   }

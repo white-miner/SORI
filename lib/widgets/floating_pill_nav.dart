@@ -162,14 +162,14 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             (Icons.home_outlined, Icons.home_rounded, '홈', 0),
             (Icons.people_outline, Icons.people_rounded, '고객', 1),
             (Icons.rate_review_outlined, Icons.rate_review_rounded, '리뷰', 2),
-            (Icons.photo_library_outlined, Icons.photo_library_rounded, '케이스', 3),
+            (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티', 3),
             (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
           ]
         : const [
             (Icons.home_outlined, Icons.home_rounded, '홈', 0),
             (Icons.spa_outlined, Icons.spa_rounded, '케어', 1),
             (Icons.rate_review_outlined, Icons.rate_review_rounded, '리뷰', 2),
-            (Icons.photo_library_outlined, Icons.photo_library_rounded, '케이스', 3),
+            (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티', 3),
             (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
           ];
 

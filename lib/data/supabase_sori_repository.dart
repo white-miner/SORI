@@ -17,6 +17,7 @@ import '../models/review_reply.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
+import '../models/community_post.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -2817,6 +2818,105 @@ class SupabaseSoriRepository implements SoriRepository {
     final id = postId.trim();
     if (id.isEmpty) return;
     await _db.from('shop_posts').delete().eq('id', id);
+  }
+
+  @override
+  Future<List<CommunityPost>> loadCommunityPosts({
+    CommunityPostType? type,
+    int limit = 40,
+  }) async {
+    try {
+      final rows = type == null
+          ? await _db
+              .from('community_posts')
+              .select('*, post_media(*), market_listings(*)')
+              .eq('status', 'published')
+              .order('created_at', ascending: false)
+              .limit(limit)
+          : await _db
+              .from('community_posts')
+              .select('*, post_media(*), market_listings(*)')
+              .eq('status', 'published')
+              .eq('post_type', type.dbValue)
+              .order('created_at', ascending: false)
+              .limit(limit);
+      return (rows as List)
+          .map((e) => CommunityPost.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadCommunityPosts failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<CommunityPost> insertCommunityPost({
+    required String shopId,
+    required CommunityPostType postType,
+    required String body,
+    String title = '',
+    String? authorUserId,
+    List<String> imageUrls = const [],
+    List<String> styleTags = const [],
+  }) async {
+    final payload = <String, dynamic>{
+      'shop_id': shopId,
+      'post_type': postType.dbValue,
+      'title': title.trim(),
+      'body': body.trim(),
+      'style_tags': styleTags,
+      'status': 'published',
+      'visibility': 'public',
+    };
+    final author = authorUserId?.trim() ?? '';
+    if (author.isNotEmpty) payload['author_user_id'] = author;
+
+    final row =
+        await _db.from('community_posts').insert(payload).select().single();
+    final post = CommunityPost.fromMap(Map<String, dynamic>.from(row as Map));
+
+    final media = <CommunityPostMedia>[];
+    for (var i = 0; i < imageUrls.length; i++) {
+      final url = imageUrls[i].trim();
+      if (url.isEmpty) continue;
+      final mRow = await _db
+          .from('post_media')
+          .insert({
+            'post_id': post.id,
+            'image_url': url,
+            'sort_order': i,
+          })
+          .select()
+          .single();
+      media.add(
+        CommunityPostMedia.fromMap(Map<String, dynamic>.from(mRow as Map)),
+      );
+    }
+
+    return CommunityPost(
+      id: post.id,
+      shopId: post.shopId,
+      authorUserId: post.authorUserId,
+      postType: post.postType,
+      title: post.title,
+      body: post.body,
+      styleTags: post.styleTags,
+      regionCode: post.regionCode,
+      likeCount: post.likeCount,
+      commentCount: post.commentCount,
+      saveCount: post.saveCount,
+      media: media,
+      tags: post.tags,
+      listing: post.listing,
+      createdAt: post.createdAt,
+    );
+  }
+
+  @override
+  Future<void> deleteCommunityPost(String postId) async {
+    final id = postId.trim();
+    if (id.isEmpty) return;
+    await _db.from('community_posts').delete().eq('id', id);
   }
 
   @override

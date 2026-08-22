@@ -12,6 +12,8 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/sori_logo.dart';
+import 'customer_management_cases_page.dart';
+import 'success_cases_page.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
 class UnifiedHomeFeedPage extends StatefulWidget {
@@ -328,7 +330,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: ColoredBox(
         color: SoriTokens.background,
         child: SafeArea(
@@ -359,6 +361,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                   labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                   tabs: const [
                     Tab(text: '추천'),
+                    Tab(text: '탐색'),
                     Tab(text: '최신 임상'),
                     Tab(text: '세미나'),
                     Tab(text: '우리 지역'),
@@ -373,6 +376,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                       loading: loading,
                       buildCard: _feedCard,
                     ),
+                    store.session?.activeMode == UserRole.director
+                        ? SuccessCasesPage(store: store)
+                        : CustomerManagementCasesPage(store: store),
                     _SimpleFeedTab(
                       title: '최신 임상',
                       subtitle: '최근에 공유된 B/A 케이스를 모아봤어요.',

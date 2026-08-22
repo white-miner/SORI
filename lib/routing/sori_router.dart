@@ -9,8 +9,8 @@ import '../views/admin_chart_page.dart';
 import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
 import '../views/care_report_page.dart';
+import '../views/community_page.dart';
 import '../views/customer_care_page.dart';
-import '../views/customer_management_cases_page.dart';
 import '../views/customer_review_dashboard_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/customer_profile_page.dart';
@@ -21,7 +21,6 @@ import '../views/my_page.dart';
 import '../views/onboarding_page.dart';
 import '../views/splash_page.dart';
 import '../views/seminar_class_detail_page.dart';
-import '../views/success_cases_page.dart';
 import '../views/unified_home_feed_page.dart';
 import 'app_router.dart';
 
@@ -34,6 +33,9 @@ abstract final class AppPaths {
   static const appHome = '/app/home';
   static const appCustomers = '/app/customers';
   static const appReview = '/app/review';
+  /// B2B Community 광장 (구 관리 케이스 탭 자리).
+  static const appCommunity = '/app/community';
+  /// 레거시 경로 — Community로 리다이렉트.
   static const appCases = '/app/cases';
   static const appMy = '/app/my';
   static const review = '/review';
@@ -81,6 +83,9 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
 
       if (loc == AppPaths.app || loc == '/admin') {
         return AppPaths.appHome;
+      }
+      if (loc == AppPaths.appCases || loc.startsWith('${AppPaths.appCases}/')) {
+        return AppPaths.appCommunity;
       }
 
       if (loc == AppPaths.login && onboarded) {
@@ -259,9 +264,9 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppPaths.appCases,
+                path: AppPaths.appCommunity,
                 pageBuilder: (context, state) => NoTransitionPage(
-                  child: _RoleCasesTab(store: store),
+                  child: _RoleCommunityTab(store: store),
                 ),
               ),
             ],
@@ -374,21 +379,15 @@ class _RoleReviewTab extends StatelessWidget {
   }
 }
 
-class _RoleCasesTab extends StatelessWidget {
-  const _RoleCasesTab({required this.store});
+class _RoleCommunityTab extends StatelessWidget {
+  const _RoleCommunityTab({required this.store});
   final SoriStore store;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: store,
-      builder: (context, _) {
-        final isDirector = store.session?.activeMode == UserRole.director;
-        if (isDirector) {
-          return SuccessCasesPage(store: store);
-        }
-        return CustomerManagementCasesPage(store: store);
-      },
+      builder: (context, _) => CommunityPage(store: store),
     );
   }
 }
@@ -421,7 +420,7 @@ void _goShellTab(BuildContext context, int index) {
     0 => AppPaths.appHome,
     1 => AppPaths.appCustomers,
     2 => AppPaths.appReview,
-    3 => AppPaths.appCases,
+    3 => AppPaths.appCommunity,
     4 => AppPaths.appMy,
     _ => AppPaths.appHome,
   };

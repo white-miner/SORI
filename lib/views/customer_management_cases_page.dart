@@ -268,7 +268,7 @@ class _CustomerManagementCasesPageState
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: Text(
-                '단골 샵의 공유 B/A 케이스 · 전국 탐색은 홈 탭에서',
+                '단골 샵의 공유 B/A 케이스 · 탐색은 홈 탭에서',
                 style: const TextStyle(
                   fontSize: 12,
                   color: SoriTokens.textSecondary,

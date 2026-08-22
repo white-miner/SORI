@@ -153,7 +153,7 @@ class _AppShellPageState extends State<AppShellPage> {
                 onPostFirst: tab == 0
                     ? () => PostFirstCreationPage.open(context)
                     : null,
-                onArchive: tab == 3 ? _openArchive : null,
+                onArchive: tab == 0 || tab == 3 ? _openArchive : null,
                 onSettings: null,
               );
 
@@ -289,9 +289,9 @@ class _SoriNavigationRail extends StatelessWidget {
               label: Text('리뷰 관리'),
             ),
             NavigationRailDestination(
-              icon: Icon(Icons.photo_library_outlined),
-              selectedIcon: Icon(Icons.photo_library_rounded),
-              label: Text('관리 케이스'),
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups_rounded),
+              label: Text('Community'),
             ),
             NavigationRailDestination(
               icon: Icon(Icons.person_outline_rounded),
@@ -316,9 +316,9 @@ class _SoriNavigationRail extends StatelessWidget {
               label: Text('리뷰 작성'),
             ),
             NavigationRailDestination(
-              icon: Icon(Icons.photo_library_outlined),
-              selectedIcon: Icon(Icons.photo_library_rounded),
-              label: Text('관리 케이스'),
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups_rounded),
+              label: Text('Community'),
             ),
             NavigationRailDestination(
               icon: Icon(Icons.person_outline_rounded),

@@ -557,7 +557,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
               _ServiceGroupedFeedTab(
                 cases: cases,
                 store: store,
-                onOpenCasesTab: () => onSelectTab?.call(3),
+                onOpenCasesTab: () => onSelectTab?.call(0),
               ),
               ShopInlineInfoTab(store: store, isOwner: isOwner),
               _ReviewTabBody(store: store),
