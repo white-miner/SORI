@@ -20,6 +20,7 @@ import '../models/shop_post.dart';
 import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
+import '../models/sori_point_wallet.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -3470,6 +3471,95 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('settleAffiliateConversion failed: $e\n$st');
       return null;
     }
+  }
+
+  @override
+  Future<SoriPointWallet> loadPointWallet(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return SoriPointWallet.empty;
+    try {
+      final raw = await _db.rpc('get_shop_wallet', params: {'p_shop_id': sid});
+      if (raw is Map) {
+        return SoriPointWallet.fromMap(Map<String, dynamic>.from(raw));
+      }
+    } catch (e, st) {
+      debugPrint('loadPointWallet failed: $e\n$st');
+    }
+    return SoriPointWallet(id: '', shopId: sid);
+  }
+
+  @override
+  Future<List<PointTransaction>> loadPointTransactions(
+    String shopId, {
+    int limit = 30,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('point_transactions')
+          .select()
+          .eq('shop_id', sid)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (rows as List)
+          .whereType<Map>()
+          .map((e) => PointTransaction.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadPointTransactions failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<SoriPointWallet?> purchaseSoriPoints({
+    required String shopId,
+    required int amount,
+    String sku = 'sori_points_pack',
+    String orderRef = '',
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty || amount <= 0) return null;
+    try {
+      await _db.rpc(
+        'purchase_sori_points',
+        params: {
+          'p_shop_id': sid,
+          'p_amount': amount,
+          'p_sku': sku,
+          'p_order_ref': orderRef,
+        },
+      );
+      return loadPointWallet(sid);
+    } catch (e, st) {
+      debugPrint('purchaseSoriPoints failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<PostUnlockResult> unlockCommunityPostWithPoints({
+    required String postId,
+    required String viewerShopId,
+    int cost = 500,
+  }) async {
+    final pid = postId.trim();
+    final sid = viewerShopId.trim();
+    if (pid.isEmpty || sid.isEmpty) {
+      return const PostUnlockResult(ok: false);
+    }
+    final raw = await _db.rpc(
+      'unlock_community_post_with_points',
+      params: {
+        'p_post_id': pid,
+        'p_viewer_shop_id': sid,
+        'p_cost': cost,
+        'p_creator_share_pct': 70,
+      },
+    );
+    if (raw is! Map) return const PostUnlockResult(ok: false);
+    return PostUnlockResult.fromMap(Map<String, dynamic>.from(raw));
   }
 
   @override

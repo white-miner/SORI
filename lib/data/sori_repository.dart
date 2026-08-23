@@ -15,6 +15,7 @@ import '../models/shop_post.dart';
 import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
+import '../models/sori_point_wallet.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -479,6 +480,28 @@ abstract class SoriRepository {
     required String conversionId,
     required String toStatus,
     String? actorUserId,
+  });
+
+  Future<SoriPointWallet> loadPointWallet(String shopId);
+
+  Future<List<PointTransaction>> loadPointTransactions(
+    String shopId, {
+    int limit = 30,
+  });
+
+  /// IAP 브릿지 — 영수증 검증 전 MVP 충전 스텁.
+  Future<SoriPointWallet?> purchaseSoriPoints({
+    required String shopId,
+    required int amount,
+    String sku = 'sori_points_pack',
+    String orderRef = '',
+  });
+
+  /// 잠금 게시물 포인트 열람 + 작성자 수익분배.
+  Future<PostUnlockResult> unlockCommunityPostWithPoints({
+    required String postId,
+    required String viewerShopId,
+    int cost = 500,
   });
 
   /// 원장 샵 세미나 클래스 목록 (최신순).

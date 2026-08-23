@@ -30,6 +30,7 @@ import '../models/shop_post.dart';
 import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
+import '../models/sori_point_wallet.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -2618,6 +2619,90 @@ class SoriStore implements Listenable {
       toStatus: toStatus,
       actorUserId: session?.id,
     );
+  }
+
+  SoriPointWallet pointWallet = SoriPointWallet.empty;
+  List<PointTransaction> pointTransactions = [];
+
+  Future<SoriPointWallet> refreshPointWallet() async {
+    try {
+      pointWallet = await _repository.loadPointWallet(shop.id);
+      pointTransactions =
+          await _repository.loadPointTransactions(shop.id, limit: 20);
+      _notify();
+      return pointWallet;
+    } catch (e, st) {
+      debugPrint('refreshPointWallet failed: $e\n$st');
+      return pointWallet;
+    }
+  }
+
+  Future<SoriPointWallet?> purchaseSoriPoints({
+    required int amount,
+    required String sku,
+  }) async {
+    try {
+      final w = await _repository.purchaseSoriPoints(
+        shopId: shop.id,
+        amount: amount,
+        sku: sku,
+        orderRef: 'stub-${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (w != null) {
+        pointWallet = w;
+        await refreshPointWallet();
+      }
+      return w;
+    } catch (e, st) {
+      debugPrint('purchaseSoriPoints failed: $e\n$st');
+      _setError(e, userFacing: true);
+      rethrow;
+    }
+  }
+
+  /// 잠금 게시물 포인트 해금 — 원본 body로 communityPosts 갱신.
+  Future<CommunityPost?> unlockCommunityPostWithPoints(
+    CommunityPost post, {
+    int cost = 500,
+  }) async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) return null;
+    try {
+      final result = await _repository.unlockCommunityPostWithPoints(
+        postId: post.id,
+        viewerShopId: sid,
+        cost: cost,
+      );
+      if (!result.ok) return null;
+      await refreshPointWallet();
+      CommunityPost unlocked = post.copyWith(isBodyLocked: false);
+      final raw = result.post;
+      if (raw != null) {
+        unlocked = CommunityPost.fromMap(raw).copyWith(
+          shopName: post.shopName,
+          shopOwnerName: post.shopOwnerName,
+          shopAvatarUrl: post.shopAvatarUrl,
+          tierBadge: post.tierBadge,
+          businessVerified: post.businessVerified,
+          isBodyLocked: false,
+          listing: post.listing,
+          deviceReview: post.deviceReview,
+          tags: post.tags,
+        );
+      }
+      for (var i = 0; i < communityPosts.length; i++) {
+        if (communityPosts[i].id == post.id) {
+          communityPosts[i] = unlocked;
+          break;
+        }
+      }
+      _notify();
+      return unlocked;
+    } catch (e, st) {
+      debugPrint('unlockCommunityPostWithPoints failed: $e\n$st');
+      _setError(e, userFacing: true);
+      rethrow;
+    }
   }
 
   Future<bool> updateMarketListingStatus({

@@ -6,6 +6,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../views/ai_shop_report_page.dart';
 import 'affiliate_earnings_card.dart';
+import 'point_charging_station_card.dart';
 import 'shop_tier_progress_card.dart';
 
 /// My Page · AI Manager 탭 — 모듈형 대시보드.
@@ -93,6 +94,8 @@ class MyAiManagerTabBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        PointChargingStationCard(store: store),
+        const SizedBox(height: 12),
         AffiliateEarningsCard(store: store),
         const SizedBox(height: 12),
         ShopTierProgressCard(shop: shop),

@@ -71,16 +71,24 @@ class CommunityAuthorityFrame extends StatelessWidget {
   }
 }
 
-/// 잠금 본문 Fallback — 블러 + CTA.
+/// 잠금 본문 Fallback — 블러 + 포인트 해금 / 리뷰 CTA.
 class CommunityLockedBody extends StatelessWidget {
   const CommunityLockedBody({
     super.key,
     required this.previewText,
     required this.onUnlockCta,
+    this.unlockCost = 500,
+    this.walletBalance,
+    this.onUnlockWithPoints,
+    this.unlocking = false,
   });
 
   final String previewText;
   final VoidCallback onUnlockCta;
+  final int unlockCost;
+  final int? walletBalance;
+  final VoidCallback? onUnlockWithPoints;
+  final bool unlocking;
 
   @override
   Widget build(BuildContext context) {
@@ -133,10 +141,12 @@ class CommunityLockedBody extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '직접 리뷰를 1회 작성하거나 등급을 올려\n잠금을 해제하세요',
+                    Text(
+                      walletBalance == null
+                          ? '리뷰 작성으로 등급을 올리거나\n포인트로 즉시 열람할 수 있어요'
+                          : '보유 ${walletBalance}P · 해금 ${unlockCost}P',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12.5,
                         height: 1.45,
                         color: SoriTokens.textSecondary,
@@ -144,11 +154,24 @@ class CommunityLockedBody extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    FilledButton(
-                      onPressed: onUnlockCta,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: SoriTokens.primary,
+                    if (onUnlockWithPoints != null) ...[
+                      FilledButton(
+                        onPressed: unlocking ? null : onUnlockWithPoints,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SoriTokens.primary,
+                          minimumSize: const Size(double.infinity, 44),
+                        ),
+                        child: Text(
+                          unlocking
+                              ? '열람 처리 중…'
+                              : '$unlockCost P를 사용해 즉시 열람하기',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                    ],
+                    TextButton(
+                      onPressed: onUnlockCta,
                       child: const Text('리뷰 작성하고 잠금 해제'),
                     ),
                   ],
@@ -162,8 +185,8 @@ class CommunityLockedBody extends StatelessWidget {
   }
 }
 
-/// 피드 카드 공통 셸 — 권위 하이라이트 + 신뢰 헤더 + 세미나 브릿지 + 잠금.
-class CommunityPostShell extends StatelessWidget {
+/// 피드 카드 공통 셸 — 권위 하이라이트 + 신뢰 헤더 + 잠금 + CTA.
+class CommunityPostShell extends StatefulWidget {
   const CommunityPostShell({
     super.key,
     required this.store,
@@ -179,22 +202,68 @@ class CommunityPostShell extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onComposeReview;
 
+  @override
+  State<CommunityPostShell> createState() => _CommunityPostShellState();
+}
+
+class _CommunityPostShellState extends State<CommunityPostShell> {
+  bool _unlocking = false;
+  CommunityPost? _unlockedOverride;
+
+  CommunityPost get _post => _unlockedOverride ?? widget.post;
+
   bool get _unlocked {
+    final post = _post;
     if (post.isBodyLocked) return false;
     final isAuthor =
-        post.shopId.isNotEmpty && post.shopId == store.shop.id;
+        post.shopId.isNotEmpty && post.shopId == widget.store.shop.id;
     final isDirector =
-        store.session?.activeMode == UserRole.director;
+        widget.store.session?.activeMode == UserRole.director;
     return post.visibility.canView(
-      viewerTier: store.shop.tierBadge,
+      viewerTier: widget.store.shop.tierBadge,
       isAuthor: isAuthor,
       isDirector: isDirector,
     );
   }
 
+  Future<void> _unlockWithPoints() async {
+    if (_unlocking) return;
+    setState(() => _unlocking = true);
+    try {
+      final updated = await widget.store.unlockCommunityPostWithPoints(
+        widget.post,
+        cost: widget.post.unlockCost,
+      );
+      if (!mounted) return;
+      if (updated != null) {
+        setState(() => _unlockedOverride = updated);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${widget.post.unlockCost}P로 열람했습니다 · 작성자에게 수익이 분배됩니다',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().contains('insufficient')
+          ? '포인트가 부족합니다. 마이페이지 충전소에서 충전해 주세요.'
+          : '열람에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+      );
+    } finally {
+      if (mounted) setState(() => _unlocking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final post = _post;
     final elite = post.tierBadge.rank >= ShopTierBadge.gold.rank;
+    final bal = widget.store.pointWallet.totalBalance;
 
     return CommunityAuthorityFrame(
       post: post,
@@ -205,12 +274,12 @@ class CommunityPostShell extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 12, 4, 4),
             child: CommunityTrustHeader(
               post: post,
-              trailing: trailing,
+              trailing: widget.trailing,
               animateBadge: elite,
             ),
           ),
           if (_unlocked)
-            body
+            widget.body
           else
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
@@ -218,12 +287,18 @@ class CommunityPostShell extends StatelessWidget {
                 previewText: post.body.trim().isEmpty
                     ? post.title
                     : post.body.trim(),
-                onUnlockCta: onComposeReview ??
+                unlockCost: post.unlockCost,
+                walletBalance: bal > 0 || widget.store.pointWallet.id.isNotEmpty
+                    ? bal
+                    : null,
+                unlocking: _unlocking,
+                onUnlockWithPoints: _unlockWithPoints,
+                onUnlockCta: widget.onComposeReview ??
                     () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            '기기·중고 탭에서 리뷰를 작성하면 잠금이 해제됩니다',
+                            '기기 리뷰 탭에서 리뷰를 작성하면 잠금이 해제됩니다',
                           ),
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -231,7 +306,7 @@ class CommunityPostShell extends StatelessWidget {
                     },
               ),
             ),
-          CommunityMonetizationCtaBar(store: store, post: post),
+          CommunityMonetizationCtaBar(store: widget.store, post: post),
         ],
       ),
     );

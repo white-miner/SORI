@@ -447,6 +447,7 @@ class CommunityPost {
     this.visibility = CommunityVisibility.public,
     this.sourceChartId,
     this.isBodyLocked = false,
+    this.unlockCost = 500,
   });
 
   final String id;
@@ -475,6 +476,9 @@ class CommunityPost {
 
   /// 서버 `list_community_posts_safe` 가 마스킹한 본문 (클라 변조 불가).
   final bool isBodyLocked;
+
+  /// 포인트 페이월 해금 비용.
+  final int unlockCost;
 
   String get authorDisplayName {
     final owner = shopOwnerName.trim();
@@ -507,6 +511,7 @@ class CommunityPost {
     CommunityVisibility? visibility,
     String? sourceChartId,
     bool? isBodyLocked,
+    int? unlockCost,
   }) {
     return CommunityPost(
       id: id,
@@ -533,6 +538,7 @@ class CommunityPost {
       visibility: visibility ?? this.visibility,
       sourceChartId: sourceChartId ?? this.sourceChartId,
       isBodyLocked: isBodyLocked ?? this.isBodyLocked,
+      unlockCost: unlockCost ?? this.unlockCost,
     );
   }
 
@@ -642,6 +648,7 @@ class CommunityPost {
       ),
       isBodyLocked: map['is_body_locked'] == true ||
           map['isBodyLocked'] == true,
+      unlockCost: DbMap.asInt(map['unlock_cost'] ?? map['unlockCost'], 500),
     );
   }
 

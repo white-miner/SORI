@@ -46,6 +46,7 @@ class _CommunityPageState extends State<CommunityPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityPosts();
       store.refreshSeminarClasses();
+      store.refreshPointWallet();
       final again = store.pendingCommunitySegment;
       if (again != null && again >= 0 && again < 5) {
         store.pendingCommunitySegment = null;

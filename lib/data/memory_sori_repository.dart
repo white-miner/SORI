@@ -14,6 +14,7 @@ import '../models/shop_post.dart';
 import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
+import '../models/sori_point_wallet.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -1357,6 +1358,9 @@ class MemorySoriRepository implements SoriRepository {
   static final List<CommunityComment> _communityCommentsFlat = [];
   static final List<AffiliateCommission> _affiliateCommissions = [];
   static final List<AffiliateConversion> _affiliateConversions = [];
+  static final Map<String, SoriPointWallet> _wallets = {};
+  static final List<PointTransaction> _pointTx = [];
+  static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
 
   @override
@@ -1687,6 +1691,133 @@ class MemorySoriRepository implements SoriRepository {
       );
     }
     return next;
+  }
+
+  SoriPointWallet _walletOf(String shopId) {
+    return _wallets.putIfAbsent(
+      shopId,
+      () => SoriPointWallet(
+        id: 'w-$shopId',
+        shopId: shopId,
+        freeBalance: 200,
+        paidBalance: 0,
+      ),
+    );
+  }
+
+  @override
+  Future<SoriPointWallet> loadPointWallet(String shopId) async {
+    return _walletOf(shopId);
+  }
+
+  @override
+  Future<List<PointTransaction>> loadPointTransactions(
+    String shopId, {
+    int limit = 30,
+  }) async {
+    return _pointTx
+        .where((t) => t.shopId == shopId)
+        .take(limit)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<SoriPointWallet?> purchaseSoriPoints({
+    required String shopId,
+    required int amount,
+    String sku = 'sori_points_pack',
+    String orderRef = '',
+  }) async {
+    final w = _walletOf(shopId);
+    final next = SoriPointWallet(
+      id: w.id,
+      shopId: shopId,
+      freeBalance: w.freeBalance,
+      paidBalance: w.paidBalance + amount,
+      updatedAt: DateTime.now(),
+    );
+    _wallets[shopId] = next;
+    _pointTx.insert(
+      0,
+      PointTransaction(
+        id: 'pt-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shopId,
+        amount: amount,
+        bucket: 'paid',
+        kind: 'purchase',
+        note: orderRef.isEmpty ? sku : orderRef,
+        createdAt: DateTime.now(),
+        balanceFreeAfter: next.freeBalance,
+        balancePaidAfter: next.paidBalance,
+      ),
+    );
+    return next;
+  }
+
+  @override
+  Future<PostUnlockResult> unlockCommunityPostWithPoints({
+    required String postId,
+    required String viewerShopId,
+    int cost = 500,
+  }) async {
+    final key = '$postId::$viewerShopId';
+    if (_unlocks.contains(key)) {
+      return const PostUnlockResult(ok: true, alreadyUnlocked: true);
+    }
+    var w = _walletOf(viewerShopId);
+    if (w.totalBalance < cost) {
+      throw StateError('insufficient points');
+    }
+    var free = w.freeBalance;
+    var paid = w.paidBalance;
+    var need = cost;
+    final fromFree = need <= free ? need : free;
+    free -= fromFree;
+    need -= fromFree;
+    paid -= need;
+    w = SoriPointWallet(
+      id: w.id,
+      shopId: viewerShopId,
+      freeBalance: free,
+      paidBalance: paid,
+      updatedAt: DateTime.now(),
+    );
+    _wallets[viewerShopId] = w;
+    _unlocks.add(key);
+
+    CommunityPost? post;
+    for (final p in _communityPosts) {
+      if (p.id == postId) {
+        post = p.copyWith(isBodyLocked: false);
+        final creatorShare = (cost * 70) ~/ 100;
+        final cw = _walletOf(p.shopId);
+        _wallets[p.shopId] = SoriPointWallet(
+          id: cw.id,
+          shopId: p.shopId,
+          freeBalance: cw.freeBalance + creatorShare,
+          paidBalance: cw.paidBalance,
+          updatedAt: DateTime.now(),
+        );
+        break;
+      }
+    }
+
+    return PostUnlockResult(
+      ok: true,
+      pointsSpent: cost,
+      creatorShare: (cost * 70) ~/ 100,
+      post: post == null
+          ? null
+          : {
+              'id': post.id,
+              'shop_id': post.shopId,
+              'title': post.title,
+              'body': post.body,
+              'visibility': post.visibility.dbValue,
+              'is_body_locked': false,
+              'post_type': post.postType.dbValue,
+            },
+    );
   }
 
   @override
