@@ -1360,6 +1360,7 @@ class MemorySoriRepository implements SoriRepository {
   static final List<AffiliateConversion> _affiliateConversions = [];
   static final Map<String, SoriPointWallet> _wallets = {};
   static final List<PointTransaction> _pointTx = [];
+  static final List<SettlementTransaction> _settlementTx = [];
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
 
@@ -1701,6 +1702,7 @@ class MemorySoriRepository implements SoriRepository {
         shopId: shopId,
         freeBalance: 200,
         paidBalance: 0,
+        settlementBalance: 0,
       ),
     );
   }
@@ -1722,6 +1724,84 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   @override
+  Future<List<SettlementTransaction>> loadSettlementTransactions(
+    String shopId, {
+    int limit = 30,
+  }) async {
+    return _settlementTx
+        .where((t) => t.shopId == shopId)
+        .take(limit)
+        .toList(growable: false);
+  }
+
+  /// Test helper: credit KRW settlement without touching points.
+  Future<SoriPointWallet> creditSettlementForTest({
+    required String shopId,
+    required int amount,
+    String kind = 'market_sale',
+    String note = '',
+  }) async {
+    final w = _walletOf(shopId);
+    final next = w.copyWith(settlementBalance: w.settlementBalance + amount);
+    _wallets[shopId] = next;
+    _settlementTx.insert(
+      0,
+      SettlementTransaction(
+        id: 'st-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shopId,
+        amount: amount,
+        kind: kind,
+        note: note,
+        balanceAfter: next.settlementBalance,
+        createdAt: DateTime.now(),
+      ),
+    );
+    return next;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> requestSettlementWithdraw({
+    required String shopId,
+    required int amount,
+    String bankAccountMask = '',
+    String note = '',
+  }) async {
+    if (amount <= 0) throw StateError('withdraw amount must be > 0');
+    final w = _walletOf(shopId);
+    if (w.settlementBalance < amount) {
+      throw StateError('insufficient settlement');
+    }
+    final next = w.copyWith(
+      settlementBalance: w.settlementBalance - amount,
+      settlementPending: w.settlementPending + amount,
+    );
+    _wallets[shopId] = next;
+    final tx = SettlementTransaction(
+      id: 'st-w-${DateTime.now().millisecondsSinceEpoch}',
+      shopId: shopId,
+      amount: -amount,
+      kind: 'withdraw_request',
+      status: 'pending',
+      note: note.isEmpty ? '계좌 환전 요청' : note,
+      balanceAfter: next.settlementBalance,
+      bankAccountMask: bankAccountMask,
+      createdAt: DateTime.now(),
+    );
+    _settlementTx.insert(0, tx);
+    return {
+      'ok': true,
+      'shop_id': shopId,
+      'amount': amount,
+      'settlement_balance': next.settlementBalance,
+      'settlement_pending': next.settlementPending,
+      'point_free_balance': next.freeBalance,
+      'point_paid_balance': next.paidBalance,
+      'tx_id': tx.id,
+      'status': 'pending',
+    };
+  }
+
+  @override
   Future<SoriPointWallet?> purchaseSoriPoints({
     required String shopId,
     required int amount,
@@ -1729,13 +1809,7 @@ class MemorySoriRepository implements SoriRepository {
     String orderRef = '',
   }) async {
     final w = _walletOf(shopId);
-    final next = SoriPointWallet(
-      id: w.id,
-      shopId: shopId,
-      freeBalance: w.freeBalance,
-      paidBalance: w.paidBalance + amount,
-      updatedAt: DateTime.now(),
-    );
+    final next = w.copyWith(paidBalance: w.paidBalance + amount);
     _wallets[shopId] = next;
     _pointTx.insert(
       0,
@@ -1762,12 +1836,17 @@ class MemorySoriRepository implements SoriRepository {
   }) async {
     final key = '$postId::$viewerShopId';
     if (_unlocks.contains(key)) {
-      return const PostUnlockResult(ok: true, alreadyUnlocked: true);
+      return const PostUnlockResult(
+        ok: true,
+        alreadyUnlocked: true,
+        creatorCurrency: 'point',
+      );
     }
     var w = _walletOf(viewerShopId);
-    if (w.totalBalance < cost) {
+    if (w.pointTotal < cost) {
       throw StateError('insufficient points');
     }
+    final settlementBeforeViewer = w.settlementBalance;
     var free = w.freeBalance;
     var paid = w.paidBalance;
     var need = cost;
@@ -1775,37 +1854,36 @@ class MemorySoriRepository implements SoriRepository {
     free -= fromFree;
     need -= fromFree;
     paid -= need;
-    w = SoriPointWallet(
-      id: w.id,
-      shopId: viewerShopId,
-      freeBalance: free,
-      paidBalance: paid,
-      updatedAt: DateTime.now(),
-    );
+    w = w.copyWith(freeBalance: free, paidBalance: paid);
     _wallets[viewerShopId] = w;
     _unlocks.add(key);
 
     CommunityPost? post;
+    var creatorShare = 0;
     for (final p in _communityPosts) {
       if (p.id == postId) {
         post = p.copyWith(isBodyLocked: false);
-        final creatorShare = (cost * 70) ~/ 100;
+        creatorShare = (cost * 70) ~/ 100;
         final cw = _walletOf(p.shopId);
-        _wallets[p.shopId] = SoriPointWallet(
-          id: cw.id,
-          shopId: p.shopId,
+        final settlementBeforeAuthor = cw.settlementBalance;
+        // Creator share → points ONLY (never settlement).
+        _wallets[p.shopId] = cw.copyWith(
           freeBalance: cw.freeBalance + creatorShare,
-          paidBalance: cw.paidBalance,
-          updatedAt: DateTime.now(),
+        );
+        assert(
+          _wallets[p.shopId]!.settlementBalance == settlementBeforeAuthor,
         );
         break;
       }
     }
 
+    assert(_wallets[viewerShopId]!.settlementBalance == settlementBeforeViewer);
+
     return PostUnlockResult(
       ok: true,
       pointsSpent: cost,
-      creatorShare: (cost * 70) ~/ 100,
+      creatorShare: creatorShare,
+      creatorCurrency: 'point',
       post: post == null
           ? null
           : {

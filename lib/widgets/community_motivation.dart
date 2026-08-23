@@ -263,7 +263,7 @@ class _CommunityPostShellState extends State<CommunityPostShell> {
   Widget build(BuildContext context) {
     final post = _post;
     final elite = post.tierBadge.rank >= ShopTierBadge.gold.rank;
-    final bal = widget.store.pointWallet.totalBalance;
+    final bal = widget.store.pointWallet.pointTotal;
 
     return CommunityAuthorityFrame(
       post: post,

@@ -489,7 +489,12 @@ abstract class SoriRepository {
     int limit = 30,
   });
 
-  /// IAP 브릿지 — 영수증 검증 전 MVP 충전 스텁.
+  Future<List<SettlementTransaction>> loadSettlementTransactions(
+    String shopId, {
+    int limit = 30,
+  });
+
+  /// IAP 브릿지 — 영수증 검증 전 MVP 충전 스텁 (포인트만).
   Future<SoriPointWallet?> purchaseSoriPoints({
     required String shopId,
     required int amount,
@@ -497,7 +502,15 @@ abstract class SoriRepository {
     String orderRef = '',
   });
 
-  /// 잠금 게시물 포인트 열람 + 작성자 수익분배.
+  /// 정산금 계좌 환전 요청 (settlement_balance만).
+  Future<Map<String, dynamic>?> requestSettlementWithdraw({
+    required String shopId,
+    required int amount,
+    String bankAccountMask = '',
+    String note = '',
+  });
+
+  /// 잠금 게시물 포인트 열람 + 작성자 수익분배(포인트만).
   Future<PostUnlockResult> unlockCommunityPostWithPoints({
     required String postId,
     required String viewerShopId,

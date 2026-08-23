@@ -146,7 +146,7 @@ class _DeviceReviewDetailPageState extends State<DeviceReviewDetailPage> {
                         ? _post.title
                         : _post.body.trim(),
                     unlockCost: _post.unlockCost,
-                    walletBalance: store.pointWallet.totalBalance,
+                    walletBalance: store.pointWallet.pointTotal,
                     unlocking: _unlocking,
                     onUnlockWithPoints: _unlockWithPoints,
                     onUnlockCta: () => Navigator.pop(context),

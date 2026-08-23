@@ -96,6 +96,8 @@ class MyAiManagerTabBody extends StatelessWidget {
         const SizedBox(height: 14),
         PointChargingStationCard(store: store),
         const SizedBox(height: 12),
+        SettlementWalletCard(store: store),
+        const SizedBox(height: 12),
         AffiliateEarningsCard(store: store),
         const SizedBox(height: 12),
         ShopTierProgressCard(shop: shop),

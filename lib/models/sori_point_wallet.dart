@@ -1,12 +1,15 @@
 import '../utils/db_map.dart';
 
-/// SORI 포인트 지갑 (free / paid 분리).
+/// 이원화 지갑 — 포인트(P, 출금불가) + 정산금(₩, 출금가능).
 class SoriPointWallet {
   const SoriPointWallet({
     required this.id,
     required this.shopId,
     this.freeBalance = 0,
     this.paidBalance = 0,
+    this.settlementBalance = 0,
+    this.settlementPending = 0,
+    this.settlementPaidLifetime = 0,
     this.ownerUserId,
     this.updatedAt,
   });
@@ -14,11 +17,24 @@ class SoriPointWallet {
   final String id;
   final String shopId;
   final String? ownerUserId;
+
+  /// 활동 포인트 (출금 불가).
   final int freeBalance;
+
+  /// 유료 충전 포인트 (출금 불가).
   final int paidBalance;
+
+  /// 출금 가능 정산금 (KRW).
+  final int settlementBalance;
+  final int settlementPending;
+  final int settlementPaidLifetime;
   final DateTime? updatedAt;
 
-  int get totalBalance => freeBalance + paidBalance;
+  /// 포인트 합계만 (정산금 제외 — 총자산 합산 금지).
+  int get pointTotal => freeBalance + paidBalance;
+
+  @Deprecated('Use pointTotal — never sum with settlement')
+  int get totalBalance => pointTotal;
 
   factory SoriPointWallet.fromMap(Map<String, dynamic> map) {
     return SoriPointWallet(
@@ -27,9 +43,49 @@ class SoriPointWallet {
       ownerUserId: DbMap.asTextOrNull(
         map['owner_user_id'] ?? map['ownerUserId'],
       ),
-      freeBalance: DbMap.asInt(map['free_balance'] ?? map['freeBalance']),
-      paidBalance: DbMap.asInt(map['paid_balance'] ?? map['paidBalance']),
+      freeBalance: DbMap.asInt(
+        map['point_free_balance'] ??
+            map['pointFreeBalance'] ??
+            map['free_balance'] ??
+            map['freeBalance'],
+      ),
+      paidBalance: DbMap.asInt(
+        map['point_paid_balance'] ??
+            map['pointPaidBalance'] ??
+            map['paid_balance'] ??
+            map['paidBalance'],
+      ),
+      settlementBalance: DbMap.asInt(
+        map['settlement_balance'] ?? map['settlementBalance'],
+      ),
+      settlementPending: DbMap.asInt(
+        map['settlement_pending'] ?? map['settlementPending'],
+      ),
+      settlementPaidLifetime: DbMap.asInt(
+        map['settlement_paid_lifetime'] ?? map['settlementPaidLifetime'],
+      ),
       updatedAt: DbMap.asDateTime(map['updated_at'] ?? map['updatedAt']),
+    );
+  }
+
+  SoriPointWallet copyWith({
+    int? freeBalance,
+    int? paidBalance,
+    int? settlementBalance,
+    int? settlementPending,
+    int? settlementPaidLifetime,
+  }) {
+    return SoriPointWallet(
+      id: id,
+      shopId: shopId,
+      ownerUserId: ownerUserId,
+      freeBalance: freeBalance ?? this.freeBalance,
+      paidBalance: paidBalance ?? this.paidBalance,
+      settlementBalance: settlementBalance ?? this.settlementBalance,
+      settlementPending: settlementPending ?? this.settlementPending,
+      settlementPaidLifetime:
+          settlementPaidLifetime ?? this.settlementPaidLifetime,
+      updatedAt: updatedAt,
     );
   }
 
@@ -69,11 +125,57 @@ class PointTransaction {
       note: DbMap.asText(map['note']),
       createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
       balanceFreeAfter: DbMap.asInt(
-        map['balance_free_after'] ?? map['balanceFreeAfter'],
+        map['balance_point_free_after'] ??
+            map['balance_free_after'] ??
+            map['balanceFreeAfter'],
       ),
       balancePaidAfter: DbMap.asInt(
-        map['balance_paid_after'] ?? map['balancePaidAfter'],
+        map['balance_point_paid_after'] ??
+            map['balance_paid_after'] ??
+            map['balancePaidAfter'],
       ),
+    );
+  }
+}
+
+class SettlementTransaction {
+  const SettlementTransaction({
+    required this.id,
+    required this.shopId,
+    required this.amount,
+    required this.kind,
+    this.status = 'posted',
+    this.note = '',
+    this.balanceAfter = 0,
+    this.bankAccountMask = '',
+    this.createdAt,
+  });
+
+  final String id;
+  final String shopId;
+  final int amount;
+  final String kind;
+  final String status;
+  final String note;
+  final int balanceAfter;
+  final String bankAccountMask;
+  final DateTime? createdAt;
+
+  factory SettlementTransaction.fromMap(Map<String, dynamic> map) {
+    return SettlementTransaction(
+      id: DbMap.asText(map['id']),
+      shopId: DbMap.asText(map['shop_id'] ?? map['shopId']),
+      amount: DbMap.asInt(map['amount']),
+      kind: DbMap.asText(map['kind']),
+      status: DbMap.asText(map['status'], 'posted'),
+      note: DbMap.asText(map['note']),
+      balanceAfter: DbMap.asInt(
+        map['balance_after'] ?? map['balanceAfter'],
+      ),
+      bankAccountMask: DbMap.asText(
+        map['bank_account_mask'] ?? map['bankAccountMask'],
+      ),
+      createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
     );
   }
 }
@@ -85,6 +187,7 @@ class PostUnlockResult {
     this.alreadyUnlocked = false,
     this.pointsSpent = 0,
     this.creatorShare = 0,
+    this.creatorCurrency = 'point',
     this.post,
   });
 
@@ -92,6 +195,7 @@ class PostUnlockResult {
   final bool alreadyUnlocked;
   final int pointsSpent;
   final int creatorShare;
+  final String creatorCurrency;
   final Map<String, dynamic>? post;
 
   factory PostUnlockResult.fromMap(Map<String, dynamic> map) {
@@ -101,6 +205,10 @@ class PostUnlockResult {
       alreadyUnlocked: map['already_unlocked'] == true,
       pointsSpent: DbMap.asInt(map['points_spent'] ?? map['pointsSpent']),
       creatorShare: DbMap.asInt(map['creator_share'] ?? map['creatorShare']),
+      creatorCurrency: DbMap.asText(
+        map['creator_currency'] ?? map['creatorCurrency'],
+        'point',
+      ),
       post: postRaw is Map
           ? Map<String, dynamic>.from(postRaw)
           : null,
@@ -108,7 +216,7 @@ class PostUnlockResult {
   }
 }
 
-/// 충전 패키지 (IAP 브릿지용 SKU).
+/// 충전 패키지 (IAP 브릿지용 SKU) — 포인트만.
 class PointPack {
   const PointPack({
     required this.sku,

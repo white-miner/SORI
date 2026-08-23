@@ -2623,12 +2623,15 @@ class SoriStore implements Listenable {
 
   SoriPointWallet pointWallet = SoriPointWallet.empty;
   List<PointTransaction> pointTransactions = [];
+  List<SettlementTransaction> settlementTransactions = [];
 
   Future<SoriPointWallet> refreshPointWallet() async {
     try {
       pointWallet = await _repository.loadPointWallet(shop.id);
       pointTransactions =
           await _repository.loadPointTransactions(shop.id, limit: 20);
+      settlementTransactions =
+          await _repository.loadSettlementTransactions(shop.id, limit: 20);
       _notify();
       return pointWallet;
     } catch (e, st) {
@@ -2655,6 +2658,28 @@ class SoriStore implements Listenable {
       return w;
     } catch (e, st) {
       debugPrint('purchaseSoriPoints failed: $e\n$st');
+      _setError(e, userFacing: true);
+      rethrow;
+    }
+  }
+
+  /// 정산금만 환전 — 포인트 잔액은 변경되지 않음.
+  Future<Map<String, dynamic>?> requestSettlementWithdraw({
+    required int amount,
+    String bankAccountMask = '',
+    String note = '',
+  }) async {
+    try {
+      final raw = await _repository.requestSettlementWithdraw(
+        shopId: shop.id,
+        amount: amount,
+        bankAccountMask: bankAccountMask,
+        note: note,
+      );
+      await refreshPointWallet();
+      return raw;
+    } catch (e, st) {
+      debugPrint('requestSettlementWithdraw failed: $e\n$st');
       _setError(e, userFacing: true);
       rethrow;
     }

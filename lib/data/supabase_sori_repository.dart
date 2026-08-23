@@ -3513,6 +3513,59 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<List<SettlementTransaction>> loadSettlementTransactions(
+    String shopId, {
+    int limit = 30,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('settlement_transactions')
+          .select()
+          .eq('shop_id', sid)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (rows as List)
+          .whereType<Map>()
+          .map(
+            (e) => SettlementTransaction.fromMap(Map<String, dynamic>.from(e)),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadSettlementTransactions failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> requestSettlementWithdraw({
+    required String shopId,
+    required int amount,
+    String bankAccountMask = '',
+    String note = '',
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty || amount <= 0) return null;
+    try {
+      final raw = await _db.rpc(
+        'request_settlement_withdraw',
+        params: {
+          'p_shop_id': sid,
+          'p_amount': amount,
+          'p_bank_account_mask': bankAccountMask,
+          'p_note': note,
+        },
+      );
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+      return null;
+    } catch (e, st) {
+      debugPrint('requestSettlementWithdraw failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
   Future<SoriPointWallet?> purchaseSoriPoints({
     required String shopId,
     required int amount,
