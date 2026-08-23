@@ -1998,7 +1998,9 @@ class SupabaseSoriRepository implements SoriRepository {
             feedAge: _communityAge(map['customer_age']),
             feedGenderLabel:
                 DbMap.asTextOrNull(map['customer_gender_label']),
-            authorId: DbMap.asTextOrNull(map['shop_owner_user_id']),
+            authorId: DbMap.asTextOrNull(
+              map['author_user_id'] ?? map['shop_owner_user_id'],
+            ),
           );
 
           final shop = Shop(
@@ -2055,6 +2057,8 @@ class SupabaseSoriRepository implements SoriRepository {
               careTags: chart.careTags,
               customerAge: chart.feedAge,
               customerGenderLabel: chart.feedGenderLabel,
+              authorNickname: DbMap.asText(map['author_nickname']),
+              authorAvatarUrl: DbMap.asText(map['author_avatar_url']),
             ),
           );
         }

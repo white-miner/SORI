@@ -18,6 +18,8 @@ class CommunityCaseItem {
     this.boostSource = 'shop_ad',
     this.fanDisplayName = '',
     this.fanSupporters = const [],
+    this.authorNickname = '',
+    this.authorAvatarUrl = '',
   });
 
   final CustomerChart chart;
@@ -44,7 +46,36 @@ class CommunityCaseItem {
   /// Fan-Boost 기여자 랭킹 (Echo DESC). Facepile / 시트용.
   final List<FanSupporterEntry> fanSupporters;
 
+  /// Weverse Line1 — personal nickname (061).
+  final String authorNickname;
+
+  /// Author avatar URL (profiles.avatar_url).
+  final String authorAvatarUrl;
+
   bool get isFanBoosted => isBoosted && boostSource == 'fan_boost';
+
+  /// Line1 display — nickname → owner → shop.
+  String get displayAuthorNickname {
+    final n = authorNickname.trim();
+    if (n.isNotEmpty) return n;
+    final owner = shop.ownerName?.trim() ?? '';
+    if (owner.isNotEmpty) return owner;
+    final shopName = shop.name.trim();
+    return shopName.isEmpty ? 'SORI' : shopName;
+  }
+
+  /// Avatar — author first, then shop.
+  String get displayAuthorAvatarUrl {
+    final a = authorAvatarUrl.trim();
+    if (a.isNotEmpty) return a;
+    return shop.profileImageUrl?.trim() ?? '';
+  }
+
+  /// Line2 affiliation shop name (always shown — plan A).
+  String get displayShopAffiliation {
+    final n = shop.name.trim();
+    return n.isEmpty ? 'SORI' : n;
+  }
 
   List<FanSupporterEntry> get effectiveFanSupporters {
     if (fanSupporters.isNotEmpty) {
@@ -92,6 +123,8 @@ class CommunityCaseItem {
     String? fanDisplayName,
     List<FanSupporterEntry>? fanSupporters,
     CustomerReview? review,
+    String? authorNickname,
+    String? authorAvatarUrl,
   }) {
     return CommunityCaseItem(
       chart: chart,
@@ -105,6 +138,8 @@ class CommunityCaseItem {
       boostSource: boostSource ?? this.boostSource,
       fanDisplayName: fanDisplayName ?? this.fanDisplayName,
       fanSupporters: fanSupporters ?? this.fanSupporters,
+      authorNickname: authorNickname ?? this.authorNickname,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
     );
   }
 }

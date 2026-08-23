@@ -682,6 +682,7 @@ class MemorySoriRepository implements SoriRepository {
           review: byChartReview[chart.id]?.copyWith(customerId: ''),
           customerAge: cust?.koreanAge,
           customerGenderLabel: cust?.gender?.label,
+          authorNickname: snap.shop.ownerName?.trim() ?? '',
         ),
       );
     }
@@ -692,11 +693,14 @@ class MemorySoriRepository implements SoriRepository {
           deviceInfo: 'EMS 리프팅',
           feedAge: 38,
           feedGenderLabel: '여성',
+          authorId: 'member-therapist-1',
         ),
         shop: partnerShop,
         review: partnerReview,
         customerAge: 38,
         customerGenderLabel: '여성',
+        authorNickname: '박지성',
+        authorAvatarUrl: 'https://picsum.photos/seed/sori-member-avatar/200',
       ),
     );
     // SORI Official seed (060) — badge smoke in memory feeds

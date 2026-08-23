@@ -12,6 +12,7 @@ class CaseReviewInlineBlock extends StatefulWidget {
     this.compact = false,
     this.previewMaxLines = 3,
     this.anonymizeNames = true,
+    this.expandInline = false,
   });
 
   final CustomerReview review;
@@ -22,6 +23,9 @@ class CaseReviewInlineBlock extends StatefulWidget {
 
   /// 피드 미리보기 줄 수 (더 보기 / 팝업 연결).
   final int previewMaxLines;
+
+  /// true면 시트 대신 카드 내 AnimatedSize 확장.
+  final bool expandInline;
 
   @override
   State<CaseReviewInlineBlock> createState() => _CaseReviewInlineBlockState();
@@ -67,30 +71,59 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            body,
-            maxLines: _expanded ? null : maxLines,
-            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: compact ? 12.5 : 13.5,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-              color: SoriTokens.textPrimary,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: Text(
+              body,
+              maxLines: _expanded ? null : maxLines,
+              overflow:
+                  _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: compact ? 12.5 : 13.5,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textPrimary,
+              ),
             ),
           ),
-          if (!_expanded && body.length > 70)
+          if (!_expanded && (body.length > 70 || widget.expandInline))
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed: () => _showFullReview(context, body, directorReply),
+                onPressed: () {
+                  if (widget.expandInline) {
+                    setState(() => _expanded = true);
+                    return;
+                  }
+                  _showFullReview(context, body, directorReply);
+                },
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: SoriTokens.primary,
+                  foregroundColor: const Color(0xFF7DD3FC),
                 ),
                 child: const Text(
-                  '더 보기',
+                  '더보기',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+                ),
+              ),
+            ),
+          if (_expanded && widget.expandInline)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => setState(() => _expanded = false),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: const Color(0xFF7DD3FC),
+                ),
+                child: const Text(
+                  '접기',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
                 ),
               ),

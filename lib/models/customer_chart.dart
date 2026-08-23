@@ -552,6 +552,7 @@ class CustomerChart {
       }(),
       authorId: DbMap.asTextOrNull(
         map['author_id'] ??
+            map['author_user_id'] ??
             map['shop_owner_user_id'] ??
             map['owner_user_id'],
       ),

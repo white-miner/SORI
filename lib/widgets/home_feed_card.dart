@@ -13,6 +13,8 @@ import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
 import 'fan_sponsor_credits.dart';
+import 'feed_expandable_caption.dart';
+import 'feed_media_carousel.dart';
 import 'official_badge.dart';
 import 'sori_logo.dart';
 
@@ -184,11 +186,22 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     );
     final reviewText = review?.displayText.trim() ?? '';
     final hasReview = reviewText.isNotEmpty;
-    final avatar = shop.profileImageUrl?.trim() ?? '';
+    final avatar = item.displayAuthorAvatarUrl;
+    final nickname = item.displayAuthorNickname;
+    final shopName = item.displayShopAffiliation;
     final tags = item.displayCareTags;
     final hasBooking = shop.naverBookingOrPlaceUrl.isNotEmpty;
     final relative = chart.relativeTimeLabel;
     final canShare = _isAuthor;
+    final bodyCaption = [
+      care,
+      if (meta.isNotEmpty) meta,
+      if (chart.treatmentSummary.trim().isNotEmpty) chart.treatmentSummary.trim(),
+    ].where((e) => e.trim().isNotEmpty).join('\n');
+    final slides = feedSlidesForCase(
+      beforeUrl: chart.beforeImageUrl,
+      afterUrl: chart.afterImageUrl,
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -200,11 +213,12 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
                   onTap: widget.onShopProfile,
                   child: CircleAvatar(
-                    radius: 16,
+                    radius: 18,
                     backgroundColor: SoriTokens.primarySoft,
                     backgroundImage:
                         avatar.isNotEmpty && !avatar.startsWith('data:')
@@ -220,71 +234,89 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: ShopNameWithOfficialBadge(
-                          name: shop.name.trim().isEmpty ? 'SORI' : shop.name,
-                          isOfficial: shop.displayIsOfficial,
-                          compact: true,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: GestureDetector(
+                              onTap: widget.onShopProfile,
+                              child: Text(
+                                nickname,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  height: 1.2,
+                                  color: SoriTokens.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (shop.displayIsOfficial) ...[
+                            const SizedBox(width: 6),
+                            const OfficialBadge(compact: true),
+                          ],
+                          if (item.isBoosted) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: item.isFanBoosted
+                                    ? const Color(0x22F472B6)
+                                    : const Color(0x22FBBF24),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: item.isFanBoosted
+                                      ? const Color(0x66F472B6)
+                                      : const Color(0x66FBBF24),
+                                ),
+                              ),
+                              child: Text(
+                                item.isFanBoosted
+                                    ? (item.fanDisplayName.trim().isEmpty
+                                        ? 'Fans'
+                                        : item.fanDisplayName.trim())
+                                    : 'AD',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.4,
+                                  color: item.isFanBoosted
+                                      ? const Color(0xFFF9A8D4)
+                                      : const Color(0xFFFBBF24),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      GestureDetector(
+                        onTap: widget.onShopProfile,
+                        child: Text(
+                          [
+                            shopName,
+                            if (relative.isNotEmpty) relative,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            height: 1.2,
-                            color: SoriTokens.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.25,
+                            color: SoriTokens.textSecondary,
                           ),
                         ),
                       ),
-                      if (item.isBoosted) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: item.isFanBoosted
-                                ? const Color(0x22F472B6)
-                                : const Color(0x22FBBF24),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: item.isFanBoosted
-                                  ? const Color(0x66F472B6)
-                                  : const Color(0x66FBBF24),
-                            ),
-                          ),
-                          child: Text(
-                            item.isFanBoosted
-                                ? (item.fanDisplayName.trim().isEmpty
-                                    ? 'Fans'
-                                    : item.fanDisplayName.trim())
-                                : 'AD',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.4,
-                              color: item.isFanBoosted
-                                  ? const Color(0xFFF9A8D4)
-                                  : const Color(0xFFFBBF24),
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
-                if (relative.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text(
-                      relative,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                  ),
                 IconButton(
                   onPressed: _openMore,
                   padding: EdgeInsets.zero,
@@ -301,66 +333,53 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 380),
-            child: AspectRatio(
-              aspectRatio: 4 / 3,
-              child: Hero(
-                tag: CaseDetailPage.imageHeroTag(chart.id),
-                child: Material(
-                  color: const Color(0xFF111113),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Screenshot(
-                        controller: _shot,
-                        child: GestureDetector(
-                          onDoubleTap: widget.onOpenDetail,
-                          behavior: HitTestBehavior.deferToChild,
-                          child: _baSlider(chart),
-                        ),
-                      ),
-                      if (item.isBoosted)
-                        Positioned(
-                          top: 10,
-                          right: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: item.isFanBoosted
-                                    ? const Color(0x99F472B6)
-                                    : const Color(0x99FBBF24),
-                              ),
-                            ),
-                            child: Text(
-                              item.isFanBoosted
-                                  ? (item.fanDisplayName.trim().isEmpty
-                                      ? 'Fans'
-                                      : 'by ${item.fanDisplayName.trim()}')
-                                  : 'Sponsored',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: item.isFanBoosted
-                                    ? const Color(0xFFF9A8D4)
-                                    : const Color(0xFFFBBF24),
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+          if (bodyCaption.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: FeedExpandableCaption(
+                text: bodyCaption,
+                maxLines: 2,
               ),
             ),
-          ),
+          if (slides.isNotEmpty)
+            FeedMediaCarousel(
+              slides: slides,
+              heroTag: CaseDetailPage.imageHeroTag(chart.id),
+              onTap: widget.onOpenDetail,
+              onDoubleTap: widget.onOpenDetail,
+              topTrailing: item.isBoosted
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: item.isFanBoosted
+                              ? const Color(0x99F472B6)
+                              : const Color(0x99FBBF24),
+                        ),
+                      ),
+                      child: Text(
+                        item.isFanBoosted
+                            ? (item.fanDisplayName.trim().isEmpty
+                                ? 'Fans'
+                                : 'by ${item.fanDisplayName.trim()}')
+                            : 'Sponsored',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: item.isFanBoosted
+                              ? const Color(0xFFF9A8D4)
+                              : const Color(0xFFFBBF24),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
           if (item.isFanBoosted)
             FanBoostCreditStrip(
               supporters: item.effectiveFanSupporters,
@@ -486,44 +505,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: widget.onOpenDetail,
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-            child: Text(
-              care,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                height: 1.25,
-                color: SoriTokens.textPrimary,
-              ),
-            ),
-          ),
-          if (meta.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
-              child: Text(
-                meta,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  height: 1.3,
-                  color: SoriTokens.textSecondary,
-                ),
-              ),
-            ),
           if (tags.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -563,8 +547,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ? CaseReviewInlineBlock(
                     review: review!,
                     compact: true,
-                    previewMaxLines: 3,
+                    previewMaxLines: 2,
                     anonymizeNames: true,
+                    expandInline: true,
                   )
                 : const Text(
                     '후기 미작성',
@@ -576,9 +561,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       height: 1.2,
                     ),
                   ),
-          ),
-              ],
-            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
