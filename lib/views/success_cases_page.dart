@@ -3,14 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_case_item.dart';
+import '../models/community_post.dart';
 import '../models/shop.dart';
 import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/case_archive_tile.dart';
 import '../widgets/case_feed_viewport.dart';
+import '../widgets/community_comments_section.dart';
+import '../widgets/community_motivation.dart';
+import '../widgets/sori_network_image.dart';
 
-/// 관리 케이스 탐색 피드 — 전국 원장님 공개 차트.
+/// 관리 케이스 탐색 피드 — case_share + 공개 차트 단일 레일.
 class SuccessCasesPage extends StatefulWidget {
   const SuccessCasesPage({super.key, required this.store});
 
@@ -36,6 +40,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     widget.store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.store.refreshCommunityHotCases();
+      widget.store.refreshCommunityPosts();
     });
   }
 
@@ -50,10 +55,27 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     if (mounted) setState(() {});
   }
 
+  Set<String> get _linkedChartIds {
+    return {
+      for (final p in widget.store.communityPosts)
+        if (p.postType == CommunityPostType.caseShare &&
+            (p.sourceChartId?.trim().isNotEmpty ?? false))
+          p.sourceChartId!.trim(),
+    };
+  }
+
   List<String> get _popularTags {
     final counts = <String, int>{};
     for (final item in widget.store.communityHotCases) {
       for (final tag in item.displayCareTags) {
+        final key = tag.replaceFirst('#', '').trim();
+        if (key.isEmpty) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+    for (final p in widget.store.communityPosts) {
+      if (p.postType != CommunityPostType.caseShare) continue;
+      for (final tag in p.styleTags) {
         final key = tag.replaceFirst('#', '').trim();
         if (key.isEmpty) continue;
         counts[key] = (counts[key] ?? 0) + 1;
@@ -73,7 +95,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     return out;
   }
 
-  bool _matches(CommunityCaseItem item) {
+  bool _matchesChart(CommunityCaseItem item) {
     final tokens = _query
         .trim()
         .toLowerCase()
@@ -94,17 +116,55 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     return true;
   }
 
-  List<CommunityCaseItem> get _exploreItems {
+  bool _matchesPost(CommunityPost post) {
+    final tokens = _query
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'[\s,]+'))
+        .map((t) => t.replaceFirst(RegExp(r'^#+'), '').trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    final hay = [
+      post.title,
+      post.body,
+      post.shopName,
+      ...post.styleTags,
+    ].join(' ').toLowerCase();
+    if (_activeTag != null && !hay.contains(_activeTag!.toLowerCase())) {
+      return false;
+    }
+    if (tokens.isNotEmpty && !tokens.every(hay.contains)) return false;
+    return true;
+  }
+
+  List<_CaseRailEntry> get _railEntries {
+    final linked = _linkedChartIds;
+    final entries = <_CaseRailEntry>[];
+
+    final posts = widget.store.communityPosts
+        .where((p) => p.postType == CommunityPostType.caseShare)
+        .where(_matchesPost)
+        .toList()
+      ..sort((a, b) {
+        final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
+      });
+    for (final p in posts) {
+      entries.add(_CaseRailEntry.post(p));
+    }
+
     var items = List<CommunityCaseItem>.from(widget.store.communityHotCases);
     if (items.isEmpty) {
       items = widget.store.favoriteShopCaseItems();
     }
     items = items.where((item) {
       if (!item.chart.caseShared) return false;
+      if (linked.contains(item.chart.id)) return false; // already on case_share
       final b = item.chart.beforeImageUrl?.trim() ?? '';
       final a = item.chart.afterImageUrl?.trim() ?? '';
       if (b.isEmpty && a.isEmpty) return false;
-      return _matches(item);
+      return _matchesChart(item);
     }).toList();
     items.sort((a, b) {
       final ad = a.chart.visitCheckedAt ??
@@ -115,7 +175,10 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
           DateTime.fromMillisecondsSinceEpoch(0);
       return bd.compareTo(ad);
     });
-    return items;
+    for (final item in items) {
+      entries.add(_CaseRailEntry.chart(item));
+    }
+    return entries;
   }
 
   void _toggleLike(String id) {
@@ -270,8 +333,8 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final items = _exploreItems;
-    final loading = widget.store.communityHotCasesLoading && items.isEmpty;
+    final entries = _railEntries;
+    final loading = widget.store.communityHotCasesLoading && entries.isEmpty;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
@@ -388,7 +451,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                           color: SoriTokens.primary,
                         ),
                       )
-                    : items.isEmpty
+                    : entries.isEmpty
                         ? const Center(
                             child: Text(
                               '아직 공개된 탐색 케이스가 없어요',
@@ -406,11 +469,18 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                               16,
                               100 + bottomInset,
                             ),
-                            itemCount: items.length,
+                            itemCount: entries.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 8),
                             itemBuilder: (context, i) {
-                              final item = items[i];
+                              final entry = entries[i];
+                              if (entry.post != null) {
+                                return _CaseShareRailCard(
+                                  store: widget.store,
+                                  post: entry.post!,
+                                );
+                              }
+                              final item = entry.chartItem!;
                               final id = item.chart.id;
                               return CaseArchiveTile(
                                 chart: item.chart,
@@ -433,6 +503,82 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CaseRailEntry {
+  const _CaseRailEntry._({this.post, this.chartItem});
+
+  factory _CaseRailEntry.post(CommunityPost post) =>
+      _CaseRailEntry._(post: post);
+
+  factory _CaseRailEntry.chart(CommunityCaseItem item) =>
+      _CaseRailEntry._(chartItem: item);
+
+  final CommunityPost? post;
+  final CommunityCaseItem? chartItem;
+}
+
+class _CaseShareRailCard extends StatelessWidget {
+  const _CaseShareRailCard({required this.store, required this.post});
+
+  final SoriStore store;
+  final CommunityPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final img = post.primaryImageUrl;
+    final title = post.title.trim();
+    final body = post.body.trim();
+
+    return CommunityPostShell(
+      store: store,
+      post: post,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (img != null)
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: SoriNetworkImage(url: img, fit: BoxFit.cover),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title.isNotEmpty)
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      height: 1.35,
+                    ),
+                  ),
+                if (body.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    body,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.55,
+                      color: Color(0xFFD4D4D8),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          CommunityCommentsSection(
+            store: store,
+            postId: post.id,
+          ),
+        ],
       ),
     );
   }

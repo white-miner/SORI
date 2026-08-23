@@ -7,7 +7,7 @@ import '../models/session_user.dart';
 import '../models/shop_tier_badge.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import 'community_seminar_bridge.dart';
+import 'community_monetization_cta_bar.dart';
 import 'community_trust_header.dart';
 
 /// 상위 티어 게시물 하이라이트 래퍼.
@@ -180,6 +180,7 @@ class CommunityPostShell extends StatelessWidget {
   final VoidCallback? onComposeReview;
 
   bool get _unlocked {
+    if (post.isBodyLocked) return false;
     final isAuthor =
         post.shopId.isNotEmpty && post.shopId == store.shop.id;
     final isDirector =
@@ -208,14 +209,15 @@ class CommunityPostShell extends StatelessWidget {
               animateBadge: elite,
             ),
           ),
-          CommunitySeminarBridge(store: store, shopId: post.shopId),
           if (_unlocked)
             body
           else
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
               child: CommunityLockedBody(
-                previewText: post.body.trim(),
+                previewText: post.body.trim().isEmpty
+                    ? post.title
+                    : post.body.trim(),
                 onUnlockCta: onComposeReview ??
                     () {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -229,6 +231,7 @@ class CommunityPostShell extends StatelessWidget {
                     },
               ),
             ),
+          CommunityMonetizationCtaBar(store: store, post: post),
         ],
       ),
     );

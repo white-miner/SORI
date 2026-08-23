@@ -2827,6 +2827,36 @@ class SupabaseSoriRepository implements SoriRepository {
     CommunityPostType? type,
     int limit = 40,
   }) async {
+    // Prefer server-masked feed (052) so gold_plus body cannot be client-fetched.
+    try {
+      final raw = await _db.rpc(
+        'list_community_posts_safe',
+        params: {
+          'p_post_type': type?.dbValue,
+          'p_limit': limit,
+        },
+      );
+      final list = <CommunityPost>[];
+      if (raw is List) {
+        for (final e in raw) {
+          if (e is! Map) continue;
+          list.add(CommunityPost.fromMap(Map<String, dynamic>.from(e)));
+        }
+      }
+      final shopIds = list
+          .map((p) => p.shopId)
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      final verified = await loadShopBusinessVerified(shopIds);
+      return [
+        for (final p in list)
+          p.copyWith(businessVerified: verified[p.shopId] == true),
+      ];
+    } catch (e, st) {
+      debugPrint('list_community_posts_safe failed: $e\n$st');
+    }
+
     const select =
         '*, post_media(*, post_tags(*)), market_listings(*), '
         'device_reviews(*), shops(id, name, owner_name, tier_badge, profile_image_url)';
@@ -3294,16 +3324,151 @@ class SupabaseSoriRepository implements SoriRepository {
             pending += c.amount;
         }
       }
+
+      final conversions = <AffiliateConversion>[];
+      try {
+        final convRows = await _db
+            .from('affiliate_conversions')
+            .select()
+            .eq('shop_id', sid)
+            .order('created_at', ascending: false)
+            .limit(40);
+        for (final e in convRows as List) {
+          if (e is! Map) continue;
+          conversions.add(
+            AffiliateConversion.fromMap(Map<String, dynamic>.from(e)),
+          );
+        }
+      } catch (e, st) {
+        debugPrint('load affiliate_conversions failed: $e\n$st');
+      }
+
       return AffiliateEarningsSummary(
         clickCount: clickCount,
         pendingAmount: pending,
         confirmedAmount: confirmed,
         paidAmount: paid,
         recentCommissions: recent,
+        recentConversions: conversions,
       );
     } catch (e, st) {
       debugPrint('loadAffiliateEarnings failed: $e\n$st');
       return const AffiliateEarningsSummary();
+    }
+  }
+
+  @override
+  Future<CommunityPost?> saveChartAndPublishCase({
+    required String chartId,
+    required String shopId,
+    bool publish = true,
+    String? title,
+    String? body,
+    List<String> imageUrls = const [],
+    String? authorUserId,
+  }) async {
+    final cid = chartId.trim();
+    final sid = shopId.trim();
+    if (cid.isEmpty || sid.isEmpty) return null;
+    try {
+      final raw = await _db.rpc(
+        'save_chart_and_publish_case',
+        params: {
+          'p_chart_id': cid,
+          'p_shop_id': sid,
+          'p_publish': publish,
+          'p_title': title,
+          'p_body': body,
+          'p_image_urls': imageUrls,
+          'p_author_user_id': authorUserId,
+        },
+      );
+      if (raw is! Map) return null;
+      final map = Map<String, dynamic>.from(raw);
+      final postId = DbMap.asText(map['post_id']);
+      if (postId.isEmpty) return null;
+      final rows = await _db
+          .from('community_posts')
+          .select(
+            '*, post_media(*), shops(id, name, owner_name, tier_badge, profile_image_url)',
+          )
+          .eq('id', postId)
+          .maybeSingle();
+      if (rows == null) {
+        return CommunityPost(
+          id: postId,
+          shopId: sid,
+          postType: CommunityPostType.caseShare,
+          title: title ?? '',
+          body: body ?? '',
+          sourceChartId: cid,
+          authorUserId: authorUserId,
+        );
+      }
+      return CommunityPost.fromMap(Map<String, dynamic>.from(rows));
+    } catch (e, st) {
+      debugPrint('saveChartAndPublishCase failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<AffiliateConversion?> recordAffiliateConversion({
+    required String shopId,
+    required int commissionAmount,
+    String orderRef = '',
+    int grossAmount = 0,
+    String? linkId,
+    String? clickId,
+    String? postId,
+    String note = '',
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return null;
+    try {
+      final raw = await _db.rpc(
+        'record_affiliate_conversion',
+        params: {
+          'p_shop_id': sid,
+          'p_commission_amount': commissionAmount,
+          'p_order_ref': orderRef,
+          'p_gross_amount': grossAmount,
+          'p_link_id': linkId,
+          'p_click_id': clickId,
+          'p_post_id': postId,
+          'p_note': note,
+        },
+      );
+      if (raw is! Map) return null;
+      return AffiliateConversion.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('recordAffiliateConversion failed: $e\n$st');
+      return null;
+    }
+  }
+
+  @override
+  Future<AffiliateConversion?> settleAffiliateConversion({
+    required String conversionId,
+    required String toStatus,
+    String? actorUserId,
+  }) async {
+    final id = conversionId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final raw = await _db.rpc(
+        'settle_affiliate_conversion',
+        params: {
+          'p_conversion_id': id,
+          'p_to_status': toStatus,
+          'p_actor_user_id': actorUserId,
+        },
+      );
+      if (raw is! Map) return null;
+      return AffiliateConversion.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('settleAffiliateConversion failed: $e\n$st');
+      return null;
     }
   }
 

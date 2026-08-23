@@ -12,10 +12,14 @@ class CommunitySeminarBridge extends StatefulWidget {
     super.key,
     required this.store,
     required this.shopId,
+    this.compactLabel,
   });
 
   final SoriStore store;
   final String shopId;
+
+  /// null이면 기본 '이 원장님의 개설 세미나 보기'
+  final String? compactLabel;
 
   @override
   State<CommunitySeminarBridge> createState() => _CommunitySeminarBridgeState();
@@ -129,21 +133,25 @@ class _CommunitySeminarBridgeState extends State<CommunitySeminarBridge> {
     final classes = _classes;
     if (classes == null || classes.isEmpty) return const SizedBox.shrink();
 
+    final button = OutlinedButton.icon(
+      onPressed: _openSheet,
+      icon: const Icon(Icons.school_outlined, size: 18),
+      label: Text(widget.compactLabel ?? '이 원장님의 개설 세미나 보기'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFFC4B5FD),
+        side: BorderSide(
+          color: SoriTokens.primary.withValues(alpha: 0.45),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        alignment: Alignment.centerLeft,
+      ),
+    );
+
+    if (widget.compactLabel != null) return button;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: OutlinedButton.icon(
-        onPressed: _openSheet,
-        icon: const Icon(Icons.school_outlined, size: 18),
-        label: const Text('이 원장님의 개설 세미나 보기'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFFC4B5FD),
-          side: BorderSide(
-            color: SoriTokens.primary.withValues(alpha: 0.45),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          alignment: Alignment.centerLeft,
-        ),
-      ),
+      child: button,
     );
   }
 }

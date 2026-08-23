@@ -2456,7 +2456,7 @@ class SoriStore implements Listenable {
     );
   }
 
-  /// 차트 → Community case_share (개인정보 마스킹).
+  /// 차트 → Community case_share (개인정보 마스킹, DB 트랜잭션 RPC).
   Future<CommunityPost?> publishChartCaseToCommunity(CustomerChart chart) async {
     final shopId = shop.id.trim();
     if (shopId.isEmpty) return null;
@@ -2489,21 +2489,37 @@ class SoriStore implements Listenable {
     }
 
     try {
-      // Mark chart shared for tier flywheel when possible.
+      CommunityPost? post;
+      try {
+        post = await _repository.saveChartAndPublishCase(
+          chartId: chart.id,
+          shopId: shopId,
+          publish: true,
+          title: '$care · 임상 케이스',
+          body: body,
+          imageUrls: urls,
+          authorUserId: session?.id,
+        );
+      } catch (e, st) {
+        debugPrint('saveChartAndPublishCase RPC failed, fallback: $e\n$st');
+        try {
+          setManagementCaseShared(chart.id, true);
+        } catch (_) {}
+        post = await _repository.insertCommunityPost(
+          shopId: shopId,
+          postType: CommunityPostType.caseShare,
+          title: '$care · 임상 케이스',
+          body: body,
+          authorUserId: session?.id,
+          imageUrls: urls,
+          styleTags: const ['케이스공유', '비식별'],
+          sourceChartId: chart.id,
+        );
+      }
+      if (post == null) return null;
       try {
         setManagementCaseShared(chart.id, true);
       } catch (_) {}
-
-      final post = await _repository.insertCommunityPost(
-        shopId: shopId,
-        postType: CommunityPostType.caseShare,
-        title: '$care · 임상 케이스',
-        body: body,
-        authorUserId: session?.id,
-        imageUrls: urls,
-        styleTags: const ['케이스공유', '비식별'],
-        sourceChartId: chart.id,
-      );
       final enriched = post.copyWith(
         shopName: shop.name,
         shopOwnerName: shop.ownerName,
@@ -2573,6 +2589,32 @@ class SoriStore implements Listenable {
 
   Future<AffiliateEarningsSummary> loadAffiliateEarnings() {
     return _repository.loadAffiliateEarnings(shop.id);
+  }
+
+  Future<AffiliateConversion?> recordAffiliateConversion({
+    required int commissionAmount,
+    String orderRef = '',
+    int grossAmount = 0,
+    String note = '',
+  }) {
+    return _repository.recordAffiliateConversion(
+      shopId: shop.id,
+      commissionAmount: commissionAmount,
+      orderRef: orderRef,
+      grossAmount: grossAmount,
+      note: note,
+    );
+  }
+
+  Future<AffiliateConversion?> settleAffiliateConversion({
+    required String conversionId,
+    required String toStatus,
+  }) {
+    return _repository.settleAffiliateConversion(
+      conversionId: conversionId,
+      toStatus: toStatus,
+      actorUserId: session?.id,
+    );
   }
 
   Future<bool> updateMarketListingStatus({

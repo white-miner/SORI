@@ -451,6 +451,36 @@ abstract class SoriRepository {
 
   Future<AffiliateEarningsSummary> loadAffiliateEarnings(String shopId);
 
+  /// 차트 공유 플래그 + case_share 발행 (DB 트랜잭션 RPC).
+  Future<CommunityPost?> saveChartAndPublishCase({
+    required String chartId,
+    required String shopId,
+    bool publish = true,
+    String? title,
+    String? body,
+    List<String> imageUrls = const [],
+    String? authorUserId,
+  });
+
+  /// 구매 전환 기록 (pending).
+  Future<AffiliateConversion?> recordAffiliateConversion({
+    required String shopId,
+    required int commissionAmount,
+    String orderRef = '',
+    int grossAmount = 0,
+    String? linkId,
+    String? clickId,
+    String? postId,
+    String note = '',
+  });
+
+  /// Admin 정산: pending→confirmed→paid.
+  Future<AffiliateConversion?> settleAffiliateConversion({
+    required String conversionId,
+    required String toStatus,
+    String? actorUserId,
+  });
+
   /// 원장 샵 세미나 클래스 목록 (최신순).
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);
 }

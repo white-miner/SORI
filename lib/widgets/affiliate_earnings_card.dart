@@ -4,7 +4,7 @@ import '../models/affiliate_earnings.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 
-/// 마이페이지 · 제휴 수익 정산 현황.
+/// 마이페이지 · 제휴 수익 정산 현황 + Admin confirmed→paid.
 class AffiliateEarningsCard extends StatefulWidget {
   const AffiliateEarningsCard({super.key, required this.store});
 
@@ -17,6 +17,7 @@ class AffiliateEarningsCard extends StatefulWidget {
 class _AffiliateEarningsCardState extends State<AffiliateEarningsCard> {
   AffiliateEarningsSummary? _summary;
   bool _loading = true;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -25,12 +26,49 @@ class _AffiliateEarningsCardState extends State<AffiliateEarningsCard> {
   }
 
   Future<void> _load() async {
+    setState(() => _loading = true);
     final s = await widget.store.loadAffiliateEarnings();
     if (!mounted) return;
     setState(() {
       _summary = s;
       _loading = false;
     });
+  }
+
+  Future<void> _settle(AffiliateConversion c, String toStatus) async {
+    setState(() => _busy = true);
+    final ok = await widget.store.settleAffiliateConversion(
+      conversionId: c.id,
+      toStatus: toStatus,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok == null
+              ? '정산 상태 변경에 실패했습니다'
+              : toStatus == 'paid'
+                  ? '지급 완료로 반영되었습니다'
+                  : '전환이 확정되었습니다',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    await _load();
+  }
+
+  Future<void> _addDemoConversion() async {
+    setState(() => _busy = true);
+    await widget.store.recordAffiliateConversion(
+      commissionAmount: 5000,
+      orderRef: 'MANUAL-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      grossAmount: 50000,
+      note: '관리자 수동 전환 등록',
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _load();
   }
 
   static String _won(int n) {
@@ -69,14 +107,14 @@ class _AffiliateEarningsCardState extends State<AffiliateEarningsCard> {
                 ),
               ),
               IconButton(
-                onPressed: _loading ? null : _load,
+                onPressed: _loading || _busy ? null : _load,
                 icon: const Icon(Icons.refresh_rounded, size: 20),
               ),
             ],
           ),
           const SizedBox(height: 4),
           const Text(
-            '리뷰·핫스팟 외부 링크 클릭으로 적립된 예상 수수료',
+            '클릭 예상 수수료 + 구매 전환(confirmed→paid) 원장',
             style: TextStyle(
               fontSize: 12,
               color: SoriTokens.textSecondary,
@@ -132,10 +170,84 @@ class _AffiliateEarningsCardState extends State<AffiliateEarningsCard> {
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '전환 정산 (Admin)',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : _addDemoConversion,
+                  child: const Text('전환 등록'),
+                ),
+              ],
+            ),
+            if (s.recentConversions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '아직 구매 전환이 없습니다. 전환 등록 후 확정·지급하세요.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+              )
+            else
+              ...s.recentConversions.take(6).map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  c.orderRef.trim().isEmpty
+                                      ? '전환 ${c.id.substring(0, c.id.length.clamp(0, 8))}'
+                                      : c.orderRef,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${c.status} · ${_won(c.commissionAmount)}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: SoriTokens.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (c.status == 'pending')
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _settle(c, 'confirmed'),
+                              child: const Text('확정'),
+                            ),
+                          if (c.status == 'confirmed')
+                            TextButton(
+                              onPressed:
+                                  _busy ? null : () => _settle(c, 'paid'),
+                              child: const Text('지급'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
             if (s.recentCommissions.isNotEmpty) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
               const Text(
-                '최근 적립',
+                '최근 수수료 원장',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
               const SizedBox(height: 8),
@@ -157,7 +269,7 @@ class _AffiliateEarningsCardState extends State<AffiliateEarningsCard> {
                             ),
                           ),
                           Text(
-                            _won(c.amount),
+                            '${c.status} · ${_won(c.amount)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 12.5,

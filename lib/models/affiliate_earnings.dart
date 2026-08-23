@@ -77,6 +77,64 @@ class AffiliateCommission {
   }
 }
 
+/// 구매 전환 정산 건.
+class AffiliateConversion {
+  const AffiliateConversion({
+    required this.id,
+    required this.shopId,
+    required this.commissionAmount,
+    this.linkId,
+    this.clickId,
+    this.commissionId,
+    this.postId,
+    this.orderRef = '',
+    this.grossAmount = 0,
+    this.status = 'pending',
+    this.note = '',
+    this.createdAt,
+    this.confirmedAt,
+    this.paidAt,
+  });
+
+  final String id;
+  final String shopId;
+  final String? linkId;
+  final String? clickId;
+  final String? commissionId;
+  final String? postId;
+  final String orderRef;
+  final int grossAmount;
+  final int commissionAmount;
+  final String status;
+  final String note;
+  final DateTime? createdAt;
+  final DateTime? confirmedAt;
+  final DateTime? paidAt;
+
+  factory AffiliateConversion.fromMap(Map<String, dynamic> map) {
+    return AffiliateConversion(
+      id: DbMap.asText(map['id']),
+      shopId: DbMap.asText(map['shop_id'] ?? map['shopId']),
+      linkId: DbMap.asTextOrNull(map['link_id'] ?? map['linkId']),
+      clickId: DbMap.asTextOrNull(map['click_id'] ?? map['clickId']),
+      commissionId: DbMap.asTextOrNull(
+        map['commission_id'] ?? map['commissionId'],
+      ),
+      postId: DbMap.asTextOrNull(map['post_id'] ?? map['postId']),
+      orderRef: DbMap.asText(map['order_ref'] ?? map['orderRef']),
+      grossAmount: DbMap.asInt(map['gross_amount'] ?? map['grossAmount']),
+      commissionAmount: DbMap.asInt(
+        map['commission_amount'] ?? map['commissionAmount'],
+      ),
+      status: DbMap.asText(map['status'], 'pending'),
+      note: DbMap.asText(map['note']),
+      createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
+      confirmedAt: DbMap.asDateTime(map['confirmed_at'] ?? map['confirmedAt']),
+      paidAt: DbMap.asDateTime(map['paid_at'] ?? map['paidAt']),
+    );
+  }
+}
+
 /// 마이페이지 제휴 정산 요약.
 class AffiliateEarningsSummary {
   const AffiliateEarningsSummary({
@@ -85,6 +143,7 @@ class AffiliateEarningsSummary {
     this.confirmedAmount = 0,
     this.paidAmount = 0,
     this.recentCommissions = const [],
+    this.recentConversions = const [],
   });
 
   final int clickCount;
@@ -92,6 +151,7 @@ class AffiliateEarningsSummary {
   final int confirmedAmount;
   final int paidAmount;
   final List<AffiliateCommission> recentCommissions;
+  final List<AffiliateConversion> recentConversions;
 
   int get totalEarned => pendingAmount + confirmedAmount + paidAmount;
 }

@@ -1356,6 +1356,7 @@ class MemorySoriRepository implements SoriRepository {
   static final List<CommunityPost> _communityPosts = [];
   static final List<CommunityComment> _communityCommentsFlat = [];
   static final List<AffiliateCommission> _affiliateCommissions = [];
+  static final List<AffiliateConversion> _affiliateConversions = [];
   static int _affiliateClicks = 0;
 
   @override
@@ -1564,14 +1565,128 @@ class MemorySoriRepository implements SoriRepository {
     final list =
         _affiliateCommissions.where((c) => c.shopId == shopId).toList();
     var pending = 0;
+    var confirmed = 0;
+    var paid = 0;
     for (final c in list) {
-      pending += c.amount;
+      switch (c.status) {
+        case 'confirmed':
+          confirmed += c.amount;
+        case 'paid':
+          paid += c.amount;
+        default:
+          pending += c.amount;
+      }
     }
+    final conversions =
+        _affiliateConversions.where((c) => c.shopId == shopId).toList();
     return AffiliateEarningsSummary(
       clickCount: _affiliateClicks,
       pendingAmount: pending,
+      confirmedAmount: confirmed,
+      paidAmount: paid,
       recentCommissions: list.take(20).toList(),
+      recentConversions: conversions.take(20).toList(),
     );
+  }
+
+  @override
+  Future<CommunityPost?> saveChartAndPublishCase({
+    required String chartId,
+    required String shopId,
+    bool publish = true,
+    String? title,
+    String? body,
+    List<String> imageUrls = const [],
+    String? authorUserId,
+  }) async {
+    if (!publish) return null;
+    for (final p in _communityPosts) {
+      if (p.sourceChartId == chartId &&
+          p.postType == CommunityPostType.caseShare) {
+        return p;
+      }
+    }
+    return insertCommunityPost(
+      shopId: shopId,
+      postType: CommunityPostType.caseShare,
+      title: title ?? '임상 케이스',
+      body: body ?? '임상 기록 공유',
+      imageUrls: imageUrls,
+      authorUserId: authorUserId,
+      styleTags: const ['케이스공유', '비식별'],
+      sourceChartId: chartId,
+    );
+  }
+
+  @override
+  Future<AffiliateConversion?> recordAffiliateConversion({
+    required String shopId,
+    required int commissionAmount,
+    String orderRef = '',
+    int grossAmount = 0,
+    String? linkId,
+    String? clickId,
+    String? postId,
+    String note = '',
+  }) async {
+    final c = AffiliateConversion(
+      id: 'aconv-${DateTime.now().millisecondsSinceEpoch}',
+      shopId: shopId,
+      commissionAmount: commissionAmount,
+      orderRef: orderRef,
+      grossAmount: grossAmount,
+      linkId: linkId,
+      clickId: clickId,
+      postId: postId,
+      note: note,
+      status: 'pending',
+      createdAt: DateTime.now(),
+    );
+    _affiliateConversions.insert(0, c);
+    return c;
+  }
+
+  @override
+  Future<AffiliateConversion?> settleAffiliateConversion({
+    required String conversionId,
+    required String toStatus,
+    String? actorUserId,
+  }) async {
+    final i = _affiliateConversions.indexWhere((c) => c.id == conversionId);
+    if (i < 0) return null;
+    final prev = _affiliateConversions[i];
+    final next = AffiliateConversion(
+      id: prev.id,
+      shopId: prev.shopId,
+      linkId: prev.linkId,
+      clickId: prev.clickId,
+      commissionId: prev.commissionId,
+      postId: prev.postId,
+      orderRef: prev.orderRef,
+      grossAmount: prev.grossAmount,
+      commissionAmount: prev.commissionAmount,
+      status: toStatus,
+      note: prev.note,
+      createdAt: prev.createdAt,
+      confirmedAt: toStatus == 'confirmed' ? DateTime.now() : prev.confirmedAt,
+      paidAt: toStatus == 'paid' ? DateTime.now() : prev.paidAt,
+    );
+    _affiliateConversions[i] = next;
+    if (toStatus == 'confirmed' || toStatus == 'paid') {
+      _affiliateCommissions.insert(
+        0,
+        AffiliateCommission(
+          id: 'ac-${DateTime.now().millisecondsSinceEpoch}',
+          shopId: next.shopId,
+          linkId: next.linkId ?? 'alink',
+          amount: next.commissionAmount,
+          status: toStatus,
+          createdAt: DateTime.now(),
+          linkLabel: next.orderRef.isEmpty ? '전환 정산' : next.orderRef,
+        ),
+      );
+    }
+    return next;
   }
 
   @override
