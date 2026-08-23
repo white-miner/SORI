@@ -3882,6 +3882,63 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> loadBoostCandidatesScored({
+    String segment = 'case',
+    int limit = 200,
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'list_boost_candidates_scored',
+        params: {
+          'p_segment': segment,
+          'p_limit': limit,
+        },
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadBoostCandidatesScored failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadInterleavedFeedIds({
+    String segment = 'case',
+    int limit = 20,
+    int offset = 0,
+    String viewerSeed = '',
+  }) async {
+    try {
+      final rpc = segment == 'case' ? 'get_home_feed' : 'get_community_feed';
+      final params = segment == 'case'
+          ? {
+              'p_limit': limit,
+              'p_offset': offset,
+              'p_viewer_seed': viewerSeed,
+            }
+          : {
+              'p_segment': segment,
+              'p_limit': limit,
+              'p_offset': offset,
+              'p_viewer_seed': viewerSeed,
+            };
+      final raw = await _db.rpc(rpc, params: params);
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadInterleavedFeedIds failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> loadShopNotifications(
     String shopId, {
     int limit = 20,

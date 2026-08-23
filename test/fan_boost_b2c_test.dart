@@ -79,12 +79,17 @@ void main() {
     expect(bought.ok, isTrue);
 
     await store.refreshCommunityHotCases();
-    final local = store.localBoostPinnedFeed();
-    expect(local.first.chart.id, item.chart.id);
-    expect(local.first.isBoosted, isTrue);
-    expect(local.first.isFanBoosted, isTrue);
-    expect(local.first.boostSource, 'fan_boost');
-    expect(local.first.fanDisplayName, '팬A');
+    final local = store.interleavedCaseFeed(viewerId: 'fan-test');
+    expect(local.any((e) => e.chart.id == item.chart.id && e.isFanBoosted),
+        isTrue);
+    expect(
+      local.firstWhere((e) => e.chart.id == item.chart.id).boostSource,
+      'fan_boost',
+    );
+    expect(
+      local.firstWhere((e) => e.chart.id == item.chart.id).fanDisplayName,
+      '팬A',
+    );
   });
 
   test('insufficient Fan-Boost returns gap for IAP bridge', () async {

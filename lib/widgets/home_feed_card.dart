@@ -683,7 +683,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     color: Color(0xFFF97316),
                   ),
                   title: const Text('내 임상 케이스 띄우기'),
-                  subtitle: const Text('우리 지역 최상단 AD 고정'),
+                  subtitle: const Text('우리 지역 피드 슬롯 혼합 노출'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onBoostPurchase!();

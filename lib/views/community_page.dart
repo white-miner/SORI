@@ -397,9 +397,10 @@ class _InteriorSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final posts = store.communityPosts
-        .where((p) => p.postType == CommunityPostType.interior)
-        .toList();
+    final posts = store.interleavedCommunityPosts(
+      CommunityPostType.interior,
+      viewerId: store.session?.id,
+    );
 
     if (posts.isEmpty) {
       return Center(
@@ -703,13 +704,16 @@ class _MarketSegmentState extends State<_MarketSegment> {
 
   @override
   Widget build(BuildContext context) {
-    var posts = widget.store.communityPosts.where((p) {
-      if (_listingsMode) {
-        return p.postType == CommunityPostType.marketplace ||
-            (p.postType == CommunityPostType.deviceReview && p.listing != null);
-      }
-      return p.postType == CommunityPostType.deviceReview;
-    }).toList();
+    var posts = _listingsMode
+        ? widget.store.communityPosts.where((p) {
+            return p.postType == CommunityPostType.marketplace ||
+                (p.postType == CommunityPostType.deviceReview &&
+                    p.listing != null);
+          }).toList()
+        : widget.store.interleavedCommunityPosts(
+            CommunityPostType.deviceReview,
+            viewerId: widget.store.session?.id,
+          );
 
     if (_listingsMode && _filter != null) {
       posts = posts.where((p) => p.listing?.status == _filter).toList();

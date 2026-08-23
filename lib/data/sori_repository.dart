@@ -572,6 +572,20 @@ abstract class SoriRepository {
     int limitPerTarget = 50,
   });
 
+  /// 세그먼트별 스코어 부스터 후보 (059).
+  Future<List<Map<String, dynamic>>> loadBoostCandidatesScored({
+    String segment = 'case',
+    int limit = 200,
+  });
+
+  /// 인터리브 피드 target id 페이지 (059 get_home_feed / get_community_feed).
+  Future<List<Map<String, dynamic>>> loadInterleavedFeedIds({
+    String segment = 'case',
+    int limit = 20,
+    int offset = 0,
+    String viewerSeed = '',
+  });
+
   /// 원장 인박스 알림 (Fan-Boost 등).
   Future<List<Map<String, dynamic>>> loadShopNotifications(
     String shopId, {

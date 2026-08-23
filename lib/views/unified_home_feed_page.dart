@@ -66,7 +66,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     return hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
   }
 
-  List<CommunityCaseItem> get _localFeed => store.localBoostPinnedFeed();
+  List<CommunityCaseItem> get _localFeed => store.interleavedCaseFeed(
+        viewerId: store.session?.id,
+      );
 
   Future<void> _buyBoost(CommunityCaseItem item) async {
     final ok = await showBoostPurchaseSheet(
@@ -79,7 +81,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('노출 부스터가 적용되었습니다. 우리 지역 탭 상단에 고정돼요.'),
+          content: Text('노출 부스터가 적용되었습니다. 우리 지역 피드 슬롯에 혼합 노출돼요.'),
           behavior: SnackBarBehavior.floating,
         ),
       );

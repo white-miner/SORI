@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -43,6 +44,7 @@ import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
 import '../utils/db_map.dart';
+import '../utils/feed_interleave.dart';
 import '../utils/korean_choseong.dart';
 import 'consent_pdf_generator.dart';
 import 'consent_pdf_storage.dart';
@@ -1876,26 +1878,148 @@ class SoriStore implements Listenable {
     }
   }
 
-  /// 우리 지역 탭용 — 활성 부스터 핀 → 나머지 최신순.
-  List<CommunityCaseItem> localBoostPinnedFeed() {
+  /// 우리 지역 탭 — 4:1 Interleave (pin-all 폐기).
+  List<CommunityCaseItem> interleavedCaseFeed({String? viewerId}) {
     final base = communityHotCases.isNotEmpty
         ? List<CommunityCaseItem>.from(communityHotCases)
         : favoriteShopCaseItems();
-    final boosted = <CommunityCaseItem>[];
-    final rest = <CommunityCaseItem>[];
-    for (final item in base) {
-      if (item.isBoosted) {
-        boosted.add(item);
-      } else {
-        rest.add(item);
-      }
+    return _interleaveCases(base, viewerId: viewerId);
+  }
+
+  /// @Deprecated 호환 — pin-all 대신 interleave.
+  List<CommunityCaseItem> localBoostPinnedFeed({String? viewerId}) =>
+      interleavedCaseFeed(viewerId: viewerId);
+
+  List<CommunityCaseItem> _interleaveCases(
+    List<CommunityCaseItem> base, {
+    String? viewerId,
+  }) {
+    if (base.isEmpty) return const [];
+    final now = DateTime.now();
+    final fandomBy = <String, int>{};
+    for (final b in activeBoostPlacements) {
+      if (!b.isFanBoost) continue;
+      final key = b.pinKey ?? b.targetId;
+      fandomBy[key] = (fandomBy[key] ?? 0) + b.pointsSpent;
     }
-    boosted.sort((a, b) {
-      final ae = a.boostEndsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final be = b.boostEndsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return be.compareTo(ae);
-    });
-    return [...boosted, ...rest];
+
+    final byId = {for (final item in base) item.chart.id: item};
+    final candidates = <BoostScoreInput>[];
+    for (final b in activeBoostPlacements) {
+      if (!b.isActive) continue;
+      if (b.targetType != 'chart') continue;
+      final id = b.pinKey ?? b.targetId;
+      if (!byId.containsKey(id)) continue;
+      candidates.add(
+        BoostScoreInput(
+          targetId: id,
+          placementId: b.id,
+          fandomEcho: fandomBy[id] ??
+              (b.isFanBoost ? b.pointsSpent : 0),
+          paidRatio: b.isFanBoost ? 0.85 : 0.55,
+          startsAt: b.startsAt,
+          isFanBoost: b.isFanBoost,
+          pointsSpent: b.pointsSpent,
+        ),
+      );
+    }
+
+    final seed = feedViewerSeed(
+      viewerId: viewerId ?? session?.id ?? 'anon',
+      segment: FeedSegment.caseFeed,
+      now: now,
+    );
+    final slots = boostSlotsForPage(math.max(base.length, 20));
+    final picked = pickBoostSlots(
+      candidates: candidates,
+      slotCount: slots,
+      viewerSeed: seed,
+      now: now,
+    );
+    final boosted = <CommunityCaseItem>[];
+    for (final p in picked) {
+      final item = byId[p.targetId];
+      if (item == null) continue;
+      boosted.add(
+        item.isBoosted
+            ? item
+            : item.copyWith(
+                isBoosted: true,
+                boostSource: p.isFanBoost ? 'fan_boost' : 'shop_ad',
+              ),
+      );
+    }
+
+    return interleaveFeed<CommunityCaseItem>(
+      organic: base,
+      boosted: boosted,
+      idOf: (e) => e.chart.id,
+    );
+  }
+
+  /// Community 탭 — 세그먼트 격리 4:1 Interleave.
+  List<CommunityPost> interleavedCommunityPosts(
+    CommunityPostType type, {
+    String? viewerId,
+  }) {
+    final organic =
+        communityPosts.where((p) => p.postType == type).toList();
+    if (organic.isEmpty) return organic;
+
+    final segment = type == CommunityPostType.interior
+        ? FeedSegment.interior
+        : type == CommunityPostType.deviceReview
+            ? FeedSegment.deviceReview
+            : FeedSegment.caseFeed;
+
+    final byId = {for (final p in organic) p.id: p};
+    final now = DateTime.now();
+    final candidates = <BoostScoreInput>[];
+    for (final b in activeBoostPlacements) {
+      if (!b.isActive) continue;
+      if (b.targetType != 'community_post') continue;
+      if (!byId.containsKey(b.targetId)) continue;
+      // regionCode may carry segment hint in memory tests
+      final hint = FeedSegment.fromDb(b.regionCode);
+      if (segment != FeedSegment.caseFeed &&
+          b.regionCode.trim().isNotEmpty &&
+          hint != segment) {
+        continue;
+      }
+      candidates.add(
+        BoostScoreInput(
+          targetId: b.targetId,
+          placementId: b.id,
+          fandomEcho: b.isFanBoost ? b.pointsSpent : 0,
+          paidRatio: b.isFanBoost ? 0.85 : 0.55,
+          startsAt: b.startsAt,
+          isFanBoost: b.isFanBoost,
+          pointsSpent: b.pointsSpent,
+        ),
+      );
+    }
+
+    final seed = feedViewerSeed(
+      viewerId: viewerId ?? session?.id ?? 'anon',
+      segment: segment,
+      now: now,
+    );
+    final picked = pickBoostSlots(
+      candidates: candidates,
+      slotCount: boostSlotsForPage(math.max(organic.length, 20)),
+      viewerSeed: seed,
+      now: now,
+    );
+    final boosted = [
+      for (final p in picked)
+        if (byId[p.targetId] != null) byId[p.targetId]!,
+    ];
+
+    return interleaveFeed<CommunityPost>(
+      organic: organic,
+      boosted: boosted,
+      idOf: (e) => e.id,
+    );
   }
 
   List<PointShopItem> pointShopBoosters = List.from(

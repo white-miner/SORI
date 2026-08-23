@@ -24,6 +24,7 @@ import '../models/seminar_education_insight.dart';
 import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../utils/db_map.dart';
+import '../utils/feed_interleave.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
@@ -2277,6 +2278,123 @@ class MemorySoriRepository implements SoriRepository {
       if (list.isNotEmpty) out[id] = list;
     }
     return out;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadBoostCandidatesScored({
+    String segment = 'case',
+    int limit = 200,
+  }) async {
+    final seg = FeedSegment.fromDb(segment);
+    final now = DateTime.now();
+    final fandomByTarget = <String, int>{};
+    for (final b in _boosts) {
+      if (!b.isFanBoost) continue;
+      fandomByTarget[b.targetId] =
+          (fandomByTarget[b.targetId] ?? 0) + b.pointsSpent;
+    }
+    final scored = <BoostScoreInput>[];
+    for (final b in _boosts) {
+      if (b.status != 'active') continue;
+      if (b.endsAt != null && !b.endsAt!.isAfter(now)) continue;
+      final bSeg = b.targetType == 'chart'
+          ? FeedSegment.caseFeed
+          : FeedSegment.fromDb(b.regionCode);
+      if (bSeg != seg) continue;
+      scored.add(
+        BoostScoreInput(
+          targetId: b.targetId,
+          placementId: b.id,
+          fandomEcho: fandomByTarget[b.targetId] ?? 0,
+          paidRatio: b.isFanBoost ? 0.85 : 0.55,
+          startsAt: b.startsAt,
+          isFanBoost: b.isFanBoost,
+          pointsSpent: b.pointsSpent,
+        ),
+      );
+    }
+    scored.sort((a, b) => b.score(now: now).compareTo(a.score(now: now)));
+    return scored
+        .take(limit)
+        .map(
+          (e) => {
+            'placement_id': e.placementId,
+            'target_id': e.targetId,
+            'source': e.isFanBoost ? 'fan_boost' : 'shop_ad',
+            'points_spent': e.pointsSpent,
+            'fandom_echo': e.fandomEcho,
+            'paid_ratio': e.paidRatio,
+            'score': e.score(now: now),
+          },
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadInterleavedFeedIds({
+    String segment = 'case',
+    int limit = 20,
+    int offset = 0,
+    String viewerSeed = '',
+  }) async {
+    final seg = FeedSegment.fromDb(segment);
+    final candidates = await loadBoostCandidatesScored(
+      segment: segment,
+      limit: 200,
+    );
+    final inputs = candidates
+        .map(
+          (m) => BoostScoreInput(
+            targetId: '${m['target_id']}',
+            placementId: '${m['placement_id']}',
+            fandomEcho: DbMap.asInt(m['fandom_echo']),
+            paidRatio: (m['paid_ratio'] as num?)?.toDouble() ?? 0.5,
+            isFanBoost: m['source'] == 'fan_boost',
+            pointsSpent: DbMap.asInt(m['points_spent']),
+          ),
+        )
+        .toList();
+    final seed = viewerSeed.trim().isEmpty
+        ? feedViewerSeed(viewerId: 'anon', segment: seg)
+        : viewerSeed;
+    final slots = boostSlotsForPage(offset + limit);
+    final picked = pickBoostSlots(
+      candidates: inputs,
+      slotCount: slots,
+      viewerSeed: seed,
+    );
+
+    List<String> organic = const [];
+    if (seg == FeedSegment.caseFeed) {
+      final hot = await loadCommunityHotCases(limit: 200);
+      organic = hot.map((e) => e.chart.id).toList();
+    } else {
+      final type = seg == FeedSegment.interior
+          ? CommunityPostType.interior
+          : CommunityPostType.deviceReview;
+      final posts = await loadCommunityPosts(type: type, limit: 200);
+      organic = posts.map((e) => e.id).toList();
+    }
+
+    final boostItems = picked.map((e) => e.targetId).toList();
+    final organicObjs = organic.map((id) => id).toList();
+    final interleaved = interleaveFeed<String>(
+      organic: organicObjs,
+      boosted: boostItems,
+      idOf: (id) => id,
+    );
+    final page = interleaved.skip(offset).take(limit).toList();
+    final boostSet = boostItems.toSet();
+    final scoreBy = {for (final p in picked) p.targetId: p.score()};
+    return [
+      for (var i = 0; i < page.length; i++)
+        {
+          'target_id': page[i],
+          'is_boost': boostSet.contains(page[i]),
+          'position': offset + i,
+          'score': scoreBy[page[i]] ?? 0,
+        },
+    ];
   }
 
   @override

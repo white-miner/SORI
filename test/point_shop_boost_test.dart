@@ -56,13 +56,14 @@ void main() {
     expect(PointPack.catalog.first.sku, 'sori_e_55');
   });
 
-  test('localBoostPinnedFeed sorts boosted charts first', () async {
+  test('interleavedCaseFeed mixes boost without pin-all', () async {
+    MemorySoriRepository.resetFanBoostStateForTest();
     final repo = MemorySoriRepository();
     final store = SoriStore(repository: repo);
     await store.refreshCommunityHotCases();
 
     if (store.communityHotCases.isEmpty) {
-      expect(store.localBoostPinnedFeed(), isA<List>());
+      expect(store.interleavedCaseFeed(), isA<List>());
       return;
     }
 
@@ -78,10 +79,12 @@ void main() {
     expect(bought.ok, isTrue);
 
     await store.refreshCommunityHotCases();
-    final local = store.localBoostPinnedFeed();
+    final local = store.interleavedCaseFeed(viewerId: 't1');
     expect(local, isNotEmpty);
-    expect(local.first.chart.id, target);
-    expect(local.first.isBoosted, isTrue);
+    expect(local.any((e) => e.chart.id == target && e.isBoosted), isTrue);
+    // Not required to be index 0 forever — may be slot 0 this seed, but pin-all gone
+    final leadingBoostRun = local.takeWhile((e) => e.isBoosted).length;
+    expect(leadingBoostRun, lessThanOrEqualTo(1));
   });
 
   testWidgets('insufficient Echo sheet offers one-tap charge CTA',
