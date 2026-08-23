@@ -31,6 +31,7 @@ class HomeFeedCard extends StatefulWidget {
     required this.onShopProfile,
     this.onOpenCommunitySeminar,
     this.onBoostPurchase,
+    this.onFanBoostPurchase,
     this.currentUserId,
     this.review,
   });
@@ -56,6 +57,9 @@ class HomeFeedCard extends StatefulWidget {
 
   /// 작성자 전용 — 우리 지역 노출 부스터 구매.
   final VoidCallback? onBoostPurchase;
+
+  /// 고객(팬) 전용 — Fan-Boost.
+  final VoidCallback? onFanBoostPurchase;
 
   @override
   State<HomeFeedCard> createState() => _HomeFeedCardState();
@@ -237,19 +241,25 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0x22FBBF24),
+                            color: item.isFanBoosted
+                                ? const Color(0x22F472B6)
+                                : const Color(0x22FBBF24),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
-                              color: const Color(0x66FBBF24),
+                              color: item.isFanBoosted
+                                  ? const Color(0x66F472B6)
+                                  : const Color(0x66FBBF24),
                             ),
                           ),
-                          child: const Text(
-                            'AD',
+                          child: Text(
+                            item.isFanBoosted ? 'Fans' : 'AD',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 0.4,
-                              color: Color(0xFFFBBF24),
+                              color: item.isFanBoosted
+                                  ? const Color(0xFFF9A8D4)
+                                  : const Color(0xFFFBBF24),
                             ),
                           ),
                         ),
@@ -317,15 +327,19 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                               color: Colors.black.withValues(alpha: 0.55),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: const Color(0x99FBBF24),
+                                color: item.isFanBoosted
+                                    ? const Color(0x99F472B6)
+                                    : const Color(0x99FBBF24),
                               ),
                             ),
-                            child: const Text(
-                              'Sponsored',
+                            child: Text(
+                              item.isFanBoosted ? 'Fans' : 'Sponsored',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFFBBF24),
+                                color: item.isFanBoosted
+                                    ? const Color(0xFFF9A8D4)
+                                    : const Color(0xFFFBBF24),
                                 letterSpacing: 0.2,
                               ),
                             ),
@@ -545,6 +559,30 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 icon: const Icon(Icons.rocket_launch_rounded, size: 16),
                 label: const Text(
                   '노출 부스터 구매',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          if (widget.onFanBoostPurchase != null &&
+              !item.isAuthoredBy(widget.currentUserId))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: OutlinedButton.icon(
+                onPressed: widget.onFanBoostPurchase,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFF9A8D4),
+                  side: BorderSide(
+                    color: const Color(0xFFF472B6).withValues(alpha: 0.55),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+                icon: const Icon(Icons.rocket_launch_rounded, size: 16),
+                label: const Text(
+                  '우리 원장님 홍보 부스터 쏴주기',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 13,

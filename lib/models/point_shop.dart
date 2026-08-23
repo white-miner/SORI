@@ -91,6 +91,9 @@ class BoostPlacement {
     this.endsAt,
     this.status = 'active',
     this.pointsSpent = 0,
+    this.source = 'shop_ad',
+    this.paidByCustomerId,
+    this.fanDisplayName = '',
   });
 
   final String id;
@@ -105,6 +108,13 @@ class BoostPlacement {
   final DateTime? endsAt;
   final String status;
   final int pointsSpent;
+
+  /// shop_ad | fan_boost
+  final String source;
+  final String? paidByCustomerId;
+  final String fanDisplayName;
+
+  bool get isFanBoost => source == 'fan_boost';
 
   bool get isActive {
     if (status != 'active') return false;
@@ -133,6 +143,13 @@ class BoostPlacement {
       endsAt: DbMap.asDateTime(map['ends_at'] ?? map['endsAt']),
       status: DbMap.asText(map['status'], 'active'),
       pointsSpent: DbMap.asInt(map['points_spent'] ?? map['pointsSpent']),
+      source: DbMap.asText(map['source'], 'shop_ad'),
+      paidByCustomerId: DbMap.asTextOrNull(
+        map['paid_by_customer_id'] ?? map['paidByCustomerId'],
+      ),
+      fanDisplayName: DbMap.asText(
+        map['fan_display_name'] ?? map['fanDisplayName'],
+      ),
     );
   }
 }

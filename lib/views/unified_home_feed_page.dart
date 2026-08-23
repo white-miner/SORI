@@ -12,6 +12,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/boost_purchase_sheet.dart';
+import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/sori_logo.dart';
 import 'customer_management_cases_page.dart';
 import 'success_cases_page.dart';
@@ -78,6 +79,35 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('노출 부스터가 적용되었습니다. 우리 지역 탭 상단에 고정돼요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _buyFanBoost(CommunityCaseItem item) async {
+    final cid = store.session?.customerId?.trim() ?? '';
+    if (cid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('고객 로그인 후 Fan-Boost를 사용할 수 있어요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final ok = await showFanBoostPurchaseSheet(
+      context,
+      store: store,
+      chartId: item.chart.id,
+      targetShopId: item.shop.id,
+      caseTitle: item.chart.careName,
+    );
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fan-Boost가 적용되었습니다! 원장님에게 알림이 전달돼요.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -294,6 +324,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
     final comments = _comments[id] ?? const <_FeedComment>[];
     final isAuthor = item.isAuthoredBy(store.session?.id);
+    final isCustomer =
+        store.session?.activeMode == UserRole.customer &&
+        (store.session?.customerId?.trim().isNotEmpty ?? false);
     return HomeFeedCard(
       item: item,
       currentUserId: store.session?.id,
@@ -309,6 +342,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       onBookingCta: () => _openNaverBookingOrProfile(item.shop),
       onShopProfile: () => _openShopProfile(item.shop),
       onBoostPurchase: isAuthor ? () => _buyBoost(item) : null,
+      onFanBoostPurchase:
+          isCustomer && !isAuthor ? () => _buyFanBoost(item) : null,
       onOpenCommunitySeminar: () {
         store.pendingCommunitySegment = 4; // 세미나
         widget.onSelectTab?.call(3);

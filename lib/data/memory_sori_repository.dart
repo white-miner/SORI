@@ -1360,9 +1360,11 @@ class MemorySoriRepository implements SoriRepository {
   static final List<AffiliateCommission> _affiliateCommissions = [];
   static final List<AffiliateConversion> _affiliateConversions = [];
   static final Map<String, SoriPointWallet> _wallets = {};
+  static final Map<String, SoriPointWallet> _customerWallets = {};
   static final List<PointTransaction> _pointTx = [];
   static final List<SettlementTransaction> _settlementTx = [];
   static final List<BoostPlacement> _boosts = [];
+  static final List<Map<String, dynamic>> _shopNotifications = [];
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
 
@@ -2005,6 +2007,7 @@ class MemorySoriRepository implements SoriRepository {
         endsAt: ends,
         status: 'active',
         pointsSpent: item.pricePoints,
+        source: 'shop_ad',
       );
       _boosts.insert(0, placement);
     }
@@ -2018,6 +2021,171 @@ class MemorySoriRepository implements SoriRepository {
       settlementBalance: next.settlementBalance,
       placement: placement,
     );
+  }
+
+  SoriPointWallet _customerWalletOf(String customerId) {
+    return _customerWallets.putIfAbsent(
+      customerId,
+      () => SoriPointWallet(
+        id: 'cw-$customerId',
+        shopId: '',
+        freeBalance: 20,
+        paidBalance: 0,
+        settlementBalance: 0,
+      ),
+    );
+  }
+
+  @override
+  Future<SoriPointWallet> loadCustomerEchoWallet(String customerId) async {
+    return _customerWalletOf(customerId);
+  }
+
+  @override
+  Future<SoriPointWallet?> purchaseCustomerEcho({
+    required String customerId,
+    required int amount,
+    String sku = 'sori_e_55',
+    String orderRef = '',
+  }) async {
+    if (amount <= 0) return null;
+    final w = _customerWalletOf(customerId);
+    final next = w.copyWith(paidBalance: w.paidBalance + amount);
+    _customerWallets[customerId] = next;
+    return next;
+  }
+
+  @override
+  Future<BoostPurchaseResult> purchaseFanBoost({
+    required String customerId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String targetShopId = '',
+    String fanDisplayName = '',
+    String regionCode = '',
+  }) async {
+    PointShopItem? item;
+    for (final e in PointShopItem.catalogBoosters) {
+      if (e.sku == sku) {
+        item = e;
+        break;
+      }
+    }
+    if (item == null) {
+      return const BoostPurchaseResult(ok: false, message: 'item not found');
+    }
+
+    var resolvedShop = targetShopId.trim();
+    if (resolvedShop.isEmpty) {
+      for (final b in _boosts) {
+        if (b.targetId == targetId) resolvedShop = b.shopId;
+      }
+    }
+    if (resolvedShop.isEmpty) {
+      try {
+        final hot = await loadCommunityHotCases(limit: 80);
+        for (final c in hot) {
+          if (c.chart.id == targetId) {
+            resolvedShop = c.shop.id;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+    if (resolvedShop.isEmpty) {
+      return const BoostPurchaseResult(ok: false, message: 'target shop missing');
+    }
+
+    final shopW = _walletOf(resolvedShop);
+    final settlementBefore = shopW.settlementBalance;
+
+    final cw = _customerWalletOf(customerId);
+    if (cw.pointTotal < item.pricePoints) {
+      return BoostPurchaseResult.insufficientPoints(
+        have: cw.pointTotal,
+        need: item.pricePoints,
+      );
+    }
+
+    var free = cw.freeBalance;
+    var paid = cw.paidBalance;
+    var need = item.pricePoints;
+    final fromFree = need <= free ? need : free;
+    free -= fromFree;
+    need -= fromFree;
+    paid -= need;
+    final nextCw = cw.copyWith(freeBalance: free, paidBalance: paid);
+    _customerWallets[customerId] = nextCw;
+    assert(nextCw.settlementBalance == 0);
+
+    final type = targetType.trim().isEmpty ? 'chart' : targetType.trim();
+    _boosts.removeWhere(
+      (b) =>
+          b.status == 'active' &&
+          b.targetType == type &&
+          b.targetId == targetId,
+    );
+    final starts = DateTime.now();
+    final ends = starts.add(Duration(hours: item.durationHours));
+    final name = fanDisplayName.trim().isEmpty ? '팬' : fanDisplayName.trim();
+    final placement = BoostPlacement(
+      id: 'bp-fan-${DateTime.now().millisecondsSinceEpoch}',
+      shopId: resolvedShop,
+      targetType: type,
+      targetId: targetId,
+      itemSku: item.sku,
+      chartId: type == 'chart' ? targetId : null,
+      postId: type == 'community_post' ? targetId : null,
+      regionCode: regionCode,
+      startsAt: starts,
+      endsAt: ends,
+      status: 'active',
+      pointsSpent: item.pricePoints,
+      source: 'fan_boost',
+      paidByCustomerId: customerId,
+      fanDisplayName: name,
+    );
+    _boosts.insert(0, placement);
+
+    final shopAfter = _walletOf(resolvedShop);
+    assert(shopAfter.settlementBalance == settlementBefore);
+
+    _shopNotifications.insert(0, {
+      'id': 'n-${DateTime.now().millisecondsSinceEpoch}',
+      'shop_id': resolvedShop,
+      'kind': 'fan_boost',
+      'title': '팬 부스터 선물',
+      'body': '팬 $name님이 노출 부스터를 선물했습니다!',
+      'payload': {
+        'placement_id': placement.id,
+        'customer_id': customerId,
+        'fan_name': name,
+      },
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    return BoostPurchaseResult(
+      ok: true,
+      sku: item.sku,
+      pointsSpent: item.pricePoints,
+      pointFreeBalance: nextCw.freeBalance,
+      pointPaidBalance: nextCw.paidBalance,
+      settlementBalance: settlementBefore,
+      placement: placement,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadShopNotifications(
+    String shopId, {
+    int limit = 20,
+  }) async {
+    return _shopNotifications
+        .where((n) => n['shop_id'] == shopId)
+        .take(limit)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
   }
 
   @override

@@ -535,6 +535,34 @@ abstract class SoriRepository {
     String regionCode = '',
   });
 
+  /// 고객 지갑 로드.
+  Future<SoriPointWallet> loadCustomerEchoWallet(String customerId);
+
+  /// 고객 IAP Echo 충전 스텁.
+  Future<SoriPointWallet?> purchaseCustomerEcho({
+    required String customerId,
+    required int amount,
+    String sku = 'sori_e_55',
+    String orderRef = '',
+  });
+
+  /// Fan-Boost — 고객 Echo 소각 → 원장 케이스 핀. settlement 불변.
+  Future<BoostPurchaseResult> purchaseFanBoost({
+    required String customerId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String targetShopId = '',
+    String fanDisplayName = '',
+    String regionCode = '',
+  });
+
+  /// 원장 인박스 알림 (Fan-Boost 등).
+  Future<List<Map<String, dynamic>>> loadShopNotifications(
+    String shopId, {
+    int limit = 20,
+  });
+
   /// 원장 샵 세미나 클래스 목록 (최신순).
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);
 }

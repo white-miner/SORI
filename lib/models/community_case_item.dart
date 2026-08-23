@@ -14,6 +14,8 @@ class CommunityCaseItem {
     this.customerGenderLabel,
     this.isBoosted = false,
     this.boostEndsAt,
+    this.boostSource = 'shop_ad',
+    this.fanDisplayName = '',
   });
 
   final CustomerChart chart;
@@ -32,6 +34,12 @@ class CommunityCaseItem {
   /// 우리 지역 탭 핀 — 활성 부스터.
   final bool isBoosted;
   final DateTime? boostEndsAt;
+
+  /// shop_ad | fan_boost
+  final String boostSource;
+  final String fanDisplayName;
+
+  bool get isFanBoosted => isBoosted && boostSource == 'fan_boost';
 
   bool get hasVerifiedReview =>
       review != null && review!.displayText.trim().isNotEmpty;
@@ -66,6 +74,8 @@ class CommunityCaseItem {
   CommunityCaseItem copyWith({
     bool? isBoosted,
     DateTime? boostEndsAt,
+    String? boostSource,
+    String? fanDisplayName,
     CustomerReview? review,
   }) {
     return CommunityCaseItem(
@@ -77,6 +87,8 @@ class CommunityCaseItem {
       customerGenderLabel: customerGenderLabel,
       isBoosted: isBoosted ?? this.isBoosted,
       boostEndsAt: boostEndsAt ?? this.boostEndsAt,
+      boostSource: boostSource ?? this.boostSource,
+      fanDisplayName: fanDisplayName ?? this.fanDisplayName,
     );
   }
 }

@@ -1818,7 +1818,12 @@ class SoriStore implements Listenable {
           .map((item) {
             final b = boostByChart[item.chart.id];
             if (b == null) return item;
-            return item.copyWith(isBoosted: true, boostEndsAt: b.endsAt);
+            return item.copyWith(
+              isBoosted: true,
+              boostEndsAt: b.endsAt,
+              boostSource: b.source,
+              fanDisplayName: b.fanDisplayName,
+            );
           })
           .toList();
       communityHotCases
@@ -1916,6 +1921,107 @@ class SoriStore implements Listenable {
       }
       _setError(e, userFacing: true);
       rethrow;
+    }
+  }
+
+  SoriPointWallet customerEchoWallet = SoriPointWallet.empty;
+  List<Map<String, dynamic>> shopNotifications = [];
+
+  Future<SoriPointWallet> refreshCustomerEchoWallet() async {
+    final cid = session?.customerId?.trim() ?? '';
+    if (cid.isEmpty) return customerEchoWallet;
+    try {
+      customerEchoWallet = await _repository.loadCustomerEchoWallet(cid);
+      _notify();
+      return customerEchoWallet;
+    } catch (e, st) {
+      debugPrint('refreshCustomerEchoWallet failed: $e\n$st');
+      return customerEchoWallet;
+    }
+  }
+
+  Future<SoriPointWallet?> purchaseCustomerEchoPack({
+    required int amount,
+    required String sku,
+  }) async {
+    final cid = session?.customerId?.trim() ?? '';
+    if (cid.isEmpty) return null;
+    try {
+      final w = await _repository.purchaseCustomerEcho(
+        customerId: cid,
+        amount: amount,
+        sku: sku,
+        orderRef: 'stub-${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (w != null) {
+        customerEchoWallet = w;
+        await refreshCustomerEchoWallet();
+      }
+      return w;
+    } catch (e, st) {
+      debugPrint('purchaseCustomerEchoPack failed: $e\n$st');
+      _setError(e, userFacing: true);
+      rethrow;
+    }
+  }
+
+  /// Fan-Boost — 고객 모드 전용.
+  Future<BoostPurchaseResult> purchaseFanBoostForChart({
+    required String chartId,
+    required String sku,
+    required String targetShopId,
+  }) async {
+    final cid = session?.customerId?.trim() ?? '';
+    if (cid.isEmpty || chartId.trim().isEmpty) {
+      return const BoostPurchaseResult(
+        ok: false,
+        message: 'customer/chart required',
+      );
+    }
+    try {
+      final result = await _repository.purchaseFanBoost(
+        customerId: cid,
+        sku: sku,
+        targetType: 'chart',
+        targetId: chartId.trim(),
+        targetShopId: targetShopId,
+        fanDisplayName: session?.name ?? '',
+      );
+      if (result.ok) {
+        await refreshCustomerEchoWallet();
+        await refreshCommunityHotCases();
+        await refreshShopNotifications();
+      } else if (result.insufficient) {
+        await refreshCustomerEchoWallet();
+      }
+      return result;
+    } catch (e, st) {
+      debugPrint('purchaseFanBoostForChart failed: $e\n$st');
+      final msg = e.toString();
+      if (msg.contains('insufficient points')) {
+        final haveMatch = RegExp(r'have (\d+)').firstMatch(msg);
+        final needMatch = RegExp(r'need (\d+)').firstMatch(msg);
+        await refreshCustomerEchoWallet();
+        return BoostPurchaseResult.insufficientPoints(
+          have: int.tryParse(haveMatch?.group(1) ?? '') ??
+              customerEchoWallet.pointTotal,
+          need: int.tryParse(needMatch?.group(1) ?? '') ?? 0,
+        );
+      }
+      _setError(e, userFacing: true);
+      rethrow;
+    }
+  }
+
+  Future<void> refreshShopNotifications() async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) return;
+    try {
+      shopNotifications =
+          await _repository.loadShopNotifications(sid, limit: 20);
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshShopNotifications failed: $e\n$st');
     }
   }
 

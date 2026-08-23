@@ -3719,6 +3719,120 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<SoriPointWallet> loadCustomerEchoWallet(String customerId) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return SoriPointWallet.empty;
+    try {
+      final raw = await _db.rpc(
+        'get_customer_wallet',
+        params: {'p_customer_id': cid},
+      );
+      if (raw is Map) {
+        return SoriPointWallet.fromMap(Map<String, dynamic>.from(raw));
+      }
+    } catch (e, st) {
+      debugPrint('loadCustomerEchoWallet failed: $e\n$st');
+    }
+    return SoriPointWallet(id: '', shopId: '', freeBalance: 0);
+  }
+
+  @override
+  Future<SoriPointWallet?> purchaseCustomerEcho({
+    required String customerId,
+    required int amount,
+    String sku = 'sori_e_55',
+    String orderRef = '',
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty || amount <= 0) return null;
+    try {
+      await _db.rpc(
+        'purchase_sori_points_customer',
+        params: {
+          'p_customer_id': cid,
+          'p_amount': amount,
+          'p_sku': sku,
+          'p_order_ref': orderRef,
+        },
+      );
+      return loadCustomerEchoWallet(cid);
+    } catch (e, st) {
+      debugPrint('purchaseCustomerEcho failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<BoostPurchaseResult> purchaseFanBoost({
+    required String customerId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String targetShopId = '',
+    String fanDisplayName = '',
+    String regionCode = '',
+  }) async {
+    final cid = customerId.trim();
+    final tid = targetId.trim();
+    if (cid.isEmpty || tid.isEmpty) {
+      return const BoostPurchaseResult(ok: false, message: 'invalid args');
+    }
+    try {
+      final raw = await _db.rpc(
+        'purchase_fan_boost',
+        params: {
+          'p_customer_id': cid,
+          'p_sku': sku.trim(),
+          'p_target_type': targetType,
+          'p_target_id': tid,
+          'p_fan_display_name': fanDisplayName,
+          'p_region_code': regionCode,
+        },
+      );
+      if (raw is! Map) {
+        return const BoostPurchaseResult(ok: false, message: 'empty response');
+      }
+      return BoostPurchaseResult.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('purchaseFanBoost failed: $e\n$st');
+      final msg = e.toString();
+      if (msg.contains('insufficient points')) {
+        final haveMatch = RegExp(r'have (\d+)').firstMatch(msg);
+        final needMatch = RegExp(r'need (\d+)').firstMatch(msg);
+        return BoostPurchaseResult.insufficientPoints(
+          have: int.tryParse(haveMatch?.group(1) ?? '') ?? 0,
+          need: int.tryParse(needMatch?.group(1) ?? '') ?? 0,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadShopNotifications(
+    String shopId, {
+    int limit = 20,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('shop_notifications')
+          .select()
+          .eq('shop_id', sid)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (rows as List)
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadShopNotifications failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId) async {
     final id = shopId.trim();
     if (id.isEmpty) return const [];

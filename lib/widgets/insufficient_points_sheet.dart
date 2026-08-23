@@ -11,8 +11,12 @@ Future<bool> showInsufficientPointsSheet(
   required int need,
   int? have,
   String productLabel = '부스터',
+  bool useCustomerWallet = false,
 }) async {
-  final balance = have ?? store.pointWallet.pointTotal;
+  final balance = have ??
+      (useCustomerWallet
+          ? store.customerEchoWallet.pointTotal
+          : store.pointWallet.pointTotal);
   final gap = (need - balance).clamp(1, 1 << 30);
   final pack = _recommendPack(gap);
 
@@ -78,10 +82,17 @@ Future<bool> showInsufficientPointsSheet(
                         : () async {
                             setModal(() => busy = true);
                             try {
-                              await store.purchaseSoriPoints(
-                                amount: pack.points,
-                                sku: pack.sku,
-                              );
+                              if (useCustomerWallet) {
+                                await store.purchaseCustomerEchoPack(
+                                  amount: pack.points,
+                                  sku: pack.sku,
+                                );
+                              } else {
+                                await store.purchaseSoriPoints(
+                                  amount: pack.points,
+                                  sku: pack.sku,
+                                );
+                              }
                               if (ctx.mounted) Navigator.pop(ctx, true);
                             } catch (_) {
                               if (!ctx.mounted) return;
