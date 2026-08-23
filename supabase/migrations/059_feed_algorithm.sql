@@ -223,7 +223,7 @@ create or replace function public.get_interleaved_feed_ids(
 returns table (
   target_id uuid,
   is_boost boolean,
-  position int,
+  feed_position int,
   score numeric
 )
 language plpgsql
@@ -376,7 +376,7 @@ begin
   for v_pos in v_start..v_end loop
     target_id := v_out_ids[v_pos];
     is_boost := v_out_boost[v_pos];
-    position := v_pos - 1;
+    feed_position := v_pos - 1;
     score := v_out_score[v_pos];
     return next;
   end loop;
@@ -392,7 +392,7 @@ create or replace function public.get_home_feed(
 returns table (
   target_id uuid,
   is_boost boolean,
-  position int,
+  feed_position int,
   score numeric
 )
 language sql
@@ -414,7 +414,7 @@ create or replace function public.get_community_feed(
 returns table (
   target_id uuid,
   is_boost boolean,
-  position int,
+  feed_position int,
   score numeric
 )
 language sql

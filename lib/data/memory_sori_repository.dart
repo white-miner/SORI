@@ -2391,7 +2391,7 @@ class MemorySoriRepository implements SoriRepository {
         {
           'target_id': page[i],
           'is_boost': boostSet.contains(page[i]),
-          'position': offset + i,
+          'feed_position': offset + i,
           'score': scoreBy[page[i]] ?? 0,
         },
     ];
