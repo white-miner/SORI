@@ -215,7 +215,19 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
     final customer = _customer;
     if (customer == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('고객 상세')),
+        appBar: AppBar(
+          title: const Text('고객 상세'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppPaths.appCustomers);
+              }
+            },
+          ),
+        ),
         body: const Center(child: Text('고객을 찾을 수 없습니다.')),
       );
     }

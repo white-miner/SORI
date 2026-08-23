@@ -6,6 +6,7 @@ import '../models/seminar_class_detail.dart';
 import '../models/shop.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/shop_tier_badge_chip.dart';
@@ -27,13 +28,9 @@ class SeminarClassDetailPage extends StatefulWidget {
     required SoriStore store,
     required String classId,
   }) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => SeminarClassDetailPage(
-          store: store,
-          classId: classId,
-        ),
-      ),
+    return pushRootPage<void>(
+      context,
+      SeminarClassDetailPage(store: store, classId: classId),
     );
   }
 

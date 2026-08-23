@@ -44,7 +44,7 @@ class _MySeminarTabBodyState extends State<MySeminarTabBody> {
   }
 
   Future<void> _openCreate() async {
-    await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => SeminarClassOpenPage(store: widget.store),
       ),
@@ -148,7 +148,7 @@ class _MySeminarTabBodyState extends State<MySeminarTabBody> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () {
-                      Navigator.of(context).push(
+                      Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute<void>(
                           builder: (_) => SeminarClassDetailPage(
                             store: widget.store,

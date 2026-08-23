@@ -106,7 +106,7 @@ class AppSettingsPage extends StatelessWidget {
                       icon: Icons.manage_accounts_outlined,
                       title: '내 계정 정보',
                       onTap: () {
-                        Navigator.of(context).push(
+                        Navigator.of(context, rootNavigator: true).push(
                           MaterialPageRoute<void>(
                             builder: (_) => const MyInfoEditPage(),
                           ),

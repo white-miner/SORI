@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/seminar_feedback_report.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 
 /// AI 세미나 피드백 리포트 상세.
 class SeminarFeedbackDetailPage extends StatefulWidget {
@@ -21,13 +22,9 @@ class SeminarFeedbackDetailPage extends StatefulWidget {
     required SoriStore store,
     required String reportId,
   }) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => SeminarFeedbackDetailPage(
-          store: store,
-          reportId: reportId,
-        ),
-      ),
+    return pushRootPage<void>(
+      context,
+      SeminarFeedbackDetailPage(store: store, reportId: reportId),
     );
   }
 

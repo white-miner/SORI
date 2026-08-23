@@ -7,6 +7,7 @@ import '../models/session_user.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
 import 'app_settings_page.dart';
@@ -66,35 +67,32 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          backgroundColor: SoriTokens.background,
-          appBar: AppBar(
-            title: const Text('알림'),
-            backgroundColor: SoriTokens.surface,
-            foregroundColor: SoriTokens.textPrimary,
-            elevation: 0,
-          ),
-          body: const MessageHistoryPage(embedded: true),
+    await pushRootPage<void>(
+      context,
+      Scaffold(
+        backgroundColor: SoriTokens.background,
+        appBar: AppBar(
+          title: const Text('알림'),
+          backgroundColor: SoriTokens.surface,
+          foregroundColor: SoriTokens.textPrimary,
+          elevation: 0,
         ),
+        body: const MessageHistoryPage(embedded: true),
       ),
     );
   }
 
   Future<void> _openArchive() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CaseArchivePage(store: _store),
-      ),
+    await pushRootPage<void>(
+      context,
+      CaseArchivePage(store: _store),
     );
   }
 
   Future<void> _openSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AppSettingsPage(store: _store),
-      ),
+    await pushRootPage<void>(
+      context,
+      AppSettingsPage(store: _store),
     );
   }
 

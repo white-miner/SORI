@@ -104,9 +104,18 @@ class _BaReelsDetailPageState extends State<BaReelsDetailPage> {
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+        body: const Center(
           child: Text('케이스가 없습니다', style: TextStyle(color: Colors.white)),
         ),
       );

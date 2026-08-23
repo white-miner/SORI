@@ -12,6 +12,7 @@ import '../models/shop.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import '../utils/storage_image_url.dart';
 import '../widgets/debug_mode_chip.dart';
 import '../widgets/my_ai_manager_tab_body.dart';
@@ -315,10 +316,9 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
             report: report,
             onApply: () {
               Navigator.pop(ctx);
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => AiShopReportPage(data: report),
-                ),
+              pushRootPage<void>(
+                context,
+                AiShopReportPage(data: report),
               );
             },
             onDownload: () {
@@ -340,13 +340,12 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   void _openClass() {
     final topCase = _topRequestedCaseId();
     final chart = topCase == null ? null : _chartById(topCase);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SeminarClassOpenPage(
-          store: store,
-          targetCaseId: topCase,
-          initialTitle: chart?.careName ?? '',
-        ),
+    pushRootPage<void>(
+      context,
+      SeminarClassOpenPage(
+        store: store,
+        targetCaseId: topCase,
+        initialTitle: chart?.careName ?? '',
       ),
     );
   }
@@ -585,27 +584,25 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          backgroundColor: SoriTokens.background,
-          appBar: AppBar(
-            title: const Text('알림'),
-            backgroundColor: SoriTokens.surface,
-            foregroundColor: SoriTokens.textPrimary,
-            elevation: 0,
-          ),
-          body: const MessageHistoryPage(embedded: true),
+    await pushRootPage<void>(
+      context,
+      Scaffold(
+        backgroundColor: SoriTokens.background,
+        appBar: AppBar(
+          title: const Text('알림'),
+          backgroundColor: SoriTokens.surface,
+          foregroundColor: SoriTokens.textPrimary,
+          elevation: 0,
         ),
+        body: const MessageHistoryPage(embedded: true),
       ),
     );
   }
 
   Future<void> _openSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AppSettingsPage(store: store),
-      ),
+    await pushRootPage<void>(
+      context,
+      AppSettingsPage(store: store),
     );
   }
 }

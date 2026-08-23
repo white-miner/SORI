@@ -143,7 +143,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                   );
                   return;
                 }
-                Navigator.of(context).push(
+                Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(
                     builder: (_) => CareViewerCalendarPage(
                       store: store,
@@ -209,7 +209,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                   );
                   return;
                 }
-                Navigator.of(context).push(
+                Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(
                     builder: (_) => _AiReportDetailPage(
                       shopName: shopName,
@@ -226,7 +226,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
               nextVisit: nextVisit,
               remaining: customer?.membershipRemainingVisits ?? 0,
               onMore: () {
-                Navigator.of(context).push(
+                Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(
                     builder: (_) => CareHistoryDetailPage(
                       store: store,
@@ -244,7 +244,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute<void>(
                         builder: (_) => Scaffold(
                           backgroundColor: SoriTokens.background,

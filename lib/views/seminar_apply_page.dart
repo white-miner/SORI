@@ -5,6 +5,7 @@ import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/seminar_checkout_bottom_sheet.dart';
 
 /// 세미나 수강 신청서 — `seminar_applications` INSERT 후 에스크로 결제 연결.
@@ -26,14 +27,9 @@ class SeminarApplyPage extends StatefulWidget {
     required String classId,
     SeminarClassDetail? detail,
   }) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => SeminarApplyPage(
-          store: store,
-          classId: classId,
-          detail: detail,
-        ),
-      ),
+    return pushRootPage<void>(
+      context,
+      SeminarApplyPage(store: store, classId: classId, detail: detail),
     );
   }
 

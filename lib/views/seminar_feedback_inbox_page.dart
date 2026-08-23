@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/seminar_feedback_report.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import 'seminar_feedback_detail_page.dart';
 
 /// 원장 — AI 세미나 피드백 보관함 (인박스).
@@ -13,10 +14,9 @@ class SeminarFeedbackInboxPage extends StatefulWidget {
   final SoriStore store;
 
   static Future<void> open(BuildContext context, {required SoriStore store}) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => SeminarFeedbackInboxPage(store: store),
-      ),
+    return pushRootPage<void>(
+      context,
+      SeminarFeedbackInboxPage(store: store),
     );
   }
 

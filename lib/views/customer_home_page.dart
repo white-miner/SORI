@@ -7,6 +7,7 @@ import '../models/shop_gallery_slide.dart';
 import '../models/shop_highlight.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/sori_logo.dart';
 import 'ba_reels_detail_page.dart';
 
@@ -101,7 +102,8 @@ class _CustomerHomePageState extends State<CustomerHomePage>
   void _openReels(int index) {
     final items = _baCases;
     if (items.isEmpty) return;
-    Navigator.of(context).push(
+    pushRootRoute<void>(
+      context,
       PageRouteBuilder<void>(
         opaque: true,
         pageBuilder: (_, _, _) => BaReelsDetailPage(

@@ -6,6 +6,7 @@ import '../models/session_user.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import '../utils/storage_image_url.dart';
 import '../widgets/sori_logo.dart';
 import '../widgets/debug_mode_chip.dart';
@@ -139,11 +140,9 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                   IconButton(
                     tooltip: '리뷰 작성',
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              CustomerReviewDashboardPage(store: store),
-                        ),
+                      pushRootPage<void>(
+                        context,
+                        CustomerReviewDashboardPage(store: store),
                       );
                     },
                     icon: const Icon(
@@ -154,10 +153,9 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                   IconButton(
                     tooltip: '프로필',
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const MyInfoEditPage(),
-                        ),
+                      pushRootPage<void>(
+                        context,
+                        const MyInfoEditPage(),
                       );
                     },
                     icon: const Icon(

@@ -211,7 +211,7 @@ class _CustomerReviewDashboardPageState
   }
 
   void _openAiReview(CustomerChart chart) {
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           backgroundColor: SoriTokens.background,
@@ -341,7 +341,7 @@ class _CustomerReviewDashboardPageState
                 const Expanded(child: _SectionTitle('내가 작성한 후기')),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute<void>(
                         builder: (_) =>
                             CustomerReviewHistoryPage(store: store),

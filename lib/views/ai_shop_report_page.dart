@@ -141,7 +141,7 @@ class AiShopReportEntryCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
-          Navigator.of(context).push(
+          Navigator.of(context, rootNavigator: true).push(
             MaterialPageRoute<void>(
               builder: (_) => AiShopReportPage(data: report),
             ),

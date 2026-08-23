@@ -60,7 +60,7 @@ class _AdminChartPageState extends State<AdminChartPage>
       widget.store.chartsForCustomer(widget.customerId);
 
   Future<void> _openChartManagement({String? chartId}) async {
-    await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => ChartManagementPage(
           store: widget.store,
@@ -124,7 +124,19 @@ class _AdminChartPageState extends State<AdminChartPage>
     final customer = _customer;
     if (customer == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('차트 관리')),
+        appBar: AppBar(
+          title: const Text('차트 관리'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppPaths.appCustomers);
+              }
+            },
+          ),
+        ),
         body: const Center(child: Text('고객 정보를 찾을 수 없습니다.')),
       );
     }

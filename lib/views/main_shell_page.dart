@@ -58,7 +58,7 @@ class _MainShellPageState extends State<MainShellPage> {
           IconButton(
             tooltip: '샵 설정',
             onPressed: () {
-              Navigator.of(context).push(
+              Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const ShopSettingsPage(),
                 ),

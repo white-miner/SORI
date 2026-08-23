@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 
 /// 포스트 퍼스트 — B/A 사진 우선 업로드 진입 화면 (플레이스홀더).
 class PostFirstCreationPage extends StatelessWidget {
   const PostFirstCreationPage({super.key});
 
   static Future<void> open(BuildContext context) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const PostFirstCreationPage()),
-    );
+    return pushRootPage<void>(context, const PostFirstCreationPage());
   }
 
   @override

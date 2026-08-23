@@ -43,7 +43,7 @@ class CustomerReviewHistoryPage extends StatelessWidget {
                 if (index == 0) {
                   return FilledButton.icon(
                     onPressed: () {
-                      Navigator.of(context).push(
+                      Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute<void>(
                           builder: (_) => IkeaReviewComposerPage(store: store),
                         ),

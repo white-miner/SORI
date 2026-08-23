@@ -5,6 +5,7 @@ import '../models/seminar_class.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_nav.dart';
 import 'seminar_class_detail_page.dart';
 
 /// 에듀케이터 세미나 개설 폼 — `seminar_classes`(seminars 뷰) INSERT.
@@ -26,13 +27,12 @@ class SeminarCreatePage extends StatefulWidget {
     String? targetCaseId,
     String initialTitle = '',
   }) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => SeminarCreatePage(
-          store: store,
-          targetCaseId: targetCaseId,
-          initialTitle: initialTitle,
-        ),
+    return pushRootPage<void>(
+      context,
+      SeminarCreatePage(
+        store: store,
+        targetCaseId: targetCaseId,
+        initialTitle: initialTitle,
       ),
     );
   }

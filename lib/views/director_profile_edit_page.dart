@@ -39,7 +39,7 @@ class DirectorProfileEditPage extends StatelessWidget {
             title: '샵 정보',
             subtitle: '샵 이름 · 원장명 · 소개 · 영업시간 · SNS',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const ShopSettingsPage(),
                 ),
@@ -52,7 +52,7 @@ class DirectorProfileEditPage extends StatelessWidget {
             title: '서비스 메뉴',
             subtitle: '케어 라인업 · 고객 안내 문구',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const ServiceMenuPage(),
                 ),

@@ -10,6 +10,7 @@ import '../models/customer_review.dart';
 import '../services/instagram_quick_post.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/case_persona.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/fan_sponsor_credits.dart';
@@ -57,9 +58,7 @@ class CaseDetailPage extends StatefulWidget {
     BuildContext context, {
     required CaseDetailPage page,
   }) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => page),
-    );
+    return pushRootPage<void>(context, page);
   }
 
   @override
@@ -296,7 +295,11 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
         scrolledUnderElevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.maybePop(context),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
         ),
         title: GestureDetector(
           onTap: widget.onShopProfile,

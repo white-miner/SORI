@@ -16,7 +16,7 @@ class SeminarManagementPage extends StatefulWidget {
   final SoriStore store;
 
   static Future<void> open(BuildContext context, {required SoriStore store}) {
-    return Navigator.of(context).push<void>(
+    return Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
         builder: (_) => SeminarManagementPage(store: store),
       ),
@@ -81,7 +81,7 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
   void _openClass() {
     final topCase = _topRequestedCaseId();
     final chart = topCase == null ? null : _chartById(topCase);
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => SeminarCreatePage(
           store: store,
@@ -170,7 +170,7 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
                     subtitle: Text('세미나 요청 ${row.value}건'),
                     trailing: TextButton(
                       onPressed: () {
-                        Navigator.of(context).push(
+                        Navigator.of(context, rootNavigator: true).push(
                           MaterialPageRoute<void>(
                             builder: (_) => SeminarCreatePage(
                               store: store,
