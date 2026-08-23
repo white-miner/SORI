@@ -333,7 +333,7 @@ class _SoriNavigationRail extends StatelessWidget {
             color: SoriTokens.surface.withValues(alpha: 0.92),
             border: const Border(
               right: BorderSide(
-                color: SoriTokens.outlinePurple,
+                color: SoriTokens.border,
                 width: 1,
               ),
             ),
@@ -343,17 +343,18 @@ class _SoriNavigationRail extends StatelessWidget {
             onDestinationSelected: onTap,
             labelType: NavigationRailLabelType.all,
             backgroundColor: Colors.transparent,
-            indicatorColor: SoriTokens.primarySoft,
-            selectedIconTheme: const IconThemeData(color: SoriTokens.primary),
+            indicatorColor: Colors.white.withValues(alpha: 0.12),
+            selectedIconTheme:
+                const IconThemeData(color: SoriTokens.textPrimary),
             unselectedIconTheme:
-                const IconThemeData(color: SoriTokens.textSecondary),
+                const IconThemeData(color: SoriTokens.textTertiary),
             selectedLabelTextStyle: const TextStyle(
-              color: SoriTokens.primary,
+              color: SoriTokens.textSecondary,
               fontWeight: FontWeight.w700,
               fontSize: 11,
             ),
             unselectedLabelTextStyle: const TextStyle(
-              color: SoriTokens.textSecondary,
+              color: SoriTokens.textTertiary,
               fontSize: 11,
             ),
             leading: const Padding(
@@ -363,7 +364,7 @@ class _SoriNavigationRail extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: SoriTokens.primary,
+                  color: SoriTokens.textPrimary,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -416,37 +417,13 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             border: const Border(
               bottom: BorderSide(
-                color: SoriTokens.outlinePurple,
+                color: SoriTokens.border,
                 width: 1,
               ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: SoriTokens.primary.withValues(alpha: 0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
           child: Stack(
             children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 1.2,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        SoriTokens.primary.withValues(alpha: 0.1),
-                        SoriTokens.outlinePurple,
-                        SoriTokens.primary.withValues(alpha: 0.1),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
               SafeArea(
                 bottom: false,
                 child: SizedBox(

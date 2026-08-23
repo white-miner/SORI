@@ -1,51 +1,64 @@
 import 'package:flutter/material.dart';
 
-/// SORI dark-mode design tokens — Weverse-inspired black canvas + purple outline.
+/// SORI design tokens — Weverse Content-First dark (Phase 9).
+/// Neutrals carry the UI; mint accent is allowlisted (CTA / link / toggle / badge).
 abstract final class SoriTokens {
-  /// Deep dark scaffold
-  static const Color background = Color(0xFF0A0A0C);
+  /// Pure black canvas
+  static const Color background = Color(0xFF000000);
 
-  /// Module / card surface
-  static const Color surface = Color(0xFF18181B);
+  /// Feed cards / list containers
+  static const Color surface = Color(0xFF1A1A1A);
 
-  /// Elevated surface (sheets, pills)
-  static const Color surfaceElevated = Color(0xFF121214);
+  /// Sheets, raised panels
+  static const Color surfaceElevated = Color(0xFF222222);
 
-  /// Signature purple (CTA / selected)
-  static const Color primary = Color(0xFF7C3AED);
+  /// Press / inactive chip fill
+  static const Color surfaceOverlay = Color(0xFF2A2A2A);
 
-  /// Soft purple wash on dark
-  static const Color primarySoft = Color(0x337C3AED);
+  /// Cool mint accent — Fan-Boost CTA, 더보기, toggle ON, active badge only
+  static const Color primary = Color(0xFF3EE0C5);
 
-  static const Color indigo = Color(0xFF8B5CF6);
+  /// Mint wash (~15%)
+  static const Color primarySoft = Color(0x263EE0C5);
 
-  /// Outline purple (~35% alpha)
-  static const Color outlinePurple = Color(0x598B5CF6);
+  /// Alias for accent allowlist call sites
+  static const Color accent = primary;
 
-  static const Color textPrimary = Color(0xFFF4F4F5);
-  static const Color textSecondary = Color(0xFFA1A1AA);
+  /// Legacy name → mint (no purple brand UI)
+  static const Color indigo = primary;
 
-  static const Color border = Color(0xFF27272A);
+  /// Hairline only when explicitly needed (default cards: none)
+  static const Color outlinePurple = Color(0x14FFFFFF);
+
+  /// 100% white — nicknames, section titles
+  static const Color textPrimary = Color(0xFFFFFFFF);
+
+  /// ~70% — body / captions
+  static const Color textSecondary = Color(0xB3FFFFFF);
+
+  /// ~45% — shop · time · meta · inactive nav
+  static const Color textTertiary = Color(0x73FFFFFF);
+
+  /// ~30% — placeholders
+  static const Color textQuaternary = Color(0x4DFFFFFF);
+
+  static const Color border = Color(0x14FFFFFF);
   static const Color success = Color(0xFF03C75A);
   static const Color warningBg = Color(0xFF2A2118);
   static const Color warningText = Color(0xFFFBBF24);
 
-  static const double radiusLg = 20;
+  static const double radiusLg = 18;
   static const double radiusXl = 24;
   static const double radiusMd = 14;
-  static const double outlineWidth = 1.2;
+  static const double outlineWidth = 1;
 
-  static List<BoxShadow> get cardShadow => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.35),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
-        ),
-      ];
+  /// Depth via luminance only — no heavy shadows.
+  static List<BoxShadow> get cardShadow => const [];
 
+  /// Transparent / unused — prefer no border on cards.
   static Border get signatureBorder => Border.all(
-        color: outlinePurple,
-        width: outlineWidth,
+        color: Colors.transparent,
+        width: 0,
       );
 
   static BoxDecoration card({
@@ -55,8 +68,6 @@ abstract final class SoriTokens {
     return BoxDecoration(
       color: color,
       borderRadius: BorderRadius.circular(radius),
-      border: signatureBorder,
-      boxShadow: cardShadow,
     );
   }
 }

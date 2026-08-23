@@ -85,7 +85,7 @@ class _FeedExpandableCaptionState extends State<FeedExpandableCaption> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF7DD3FC),
+                        color: SoriTokens.primary,
                         height: 1.2,
                       ),
                     ),

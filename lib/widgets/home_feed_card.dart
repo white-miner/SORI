@@ -219,7 +219,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                   onTap: widget.onShopProfile,
                   child: CircleAvatar(
                     radius: 18,
-                    backgroundColor: SoriTokens.primarySoft,
+                    backgroundColor: SoriTokens.surfaceOverlay,
                     backgroundImage:
                         avatar.isNotEmpty && !avatar.startsWith('data:')
                             ? NetworkImage(avatar)
@@ -306,12 +306,12 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           ].join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
-                            color: SoriTokens.textSecondary,
-                          ),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 1.25,
+                        color: SoriTokens.textTertiary,
+                      ),
                         ),
                       ),
                     ],
@@ -410,7 +410,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                         size: 24,
                         color: widget.liked
                             ? const Color(0xFFE53935)
-                            : SoriTokens.textSecondary,
+                            : SoriTokens.textTertiary,
                       ),
                     ),
                     Text(
@@ -432,7 +432,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       icon: const Icon(
                         Icons.chat_bubble_outline_rounded,
                         size: 22,
-                        color: SoriTokens.textSecondary,
+                        color: SoriTokens.textTertiary,
                       ),
                     ),
                     Text(
@@ -440,7 +440,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,
-                        color: SoriTokens.textPrimary,
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                     if (canShare)
@@ -458,7 +458,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                               ? Icons.hourglass_top_rounded
                               : Icons.send_outlined,
                           size: 22,
-                          color: SoriTokens.textSecondary,
+                          color: SoriTokens.textTertiary,
                         ),
                       ),
                     if (_boostTrigger != null)
@@ -498,8 +498,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                         : Icons.bookmark_border_rounded,
                     size: 24,
                     color: widget.bookmarked
-                        ? SoriTokens.primary
-                        : SoriTokens.textSecondary,
+                        ? SoriTokens.textPrimary
+                        : SoriTokens.textTertiary,
                   ),
                 ),
               ],
@@ -521,19 +521,15 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: SoriTokens.primarySoft,
+                      color: SoriTokens.surfaceOverlay,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: SoriTokens.outlinePurple,
-                        width: 1,
-                      ),
                     ),
                     child: Text(
                       label,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFC4B5FD),
+                        color: SoriTokens.textSecondary,
                         height: 1.2,
                       ),
                     ),
@@ -569,9 +565,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 : OutlinedButton.icon(
                     onPressed: widget.onShopProfile,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFC4B5FD),
+                      foregroundColor: SoriTokens.textSecondary,
                       side: BorderSide(
-                        color: SoriTokens.primary.withValues(alpha: 0.45),
+                        color: Colors.white.withValues(alpha: 0.18),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       minimumSize: const Size(double.infinity, 40),

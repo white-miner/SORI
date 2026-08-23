@@ -12,7 +12,10 @@ import '../widgets/app_scroll_behavior.dart';
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  static const Color soriPurple = SoriTokens.primary;
+  static const Color soriMint = SoriTokens.primary;
+
+  /// @deprecated Use [soriMint]
+  static const Color soriPurple = soriMint;
 
   /// 라우트 Pop 이후에도 Toast를 남기기 위한 전역 ScaffoldMessenger.
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =

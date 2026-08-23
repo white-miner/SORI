@@ -103,7 +103,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: const Color(0xFF7DD3FC),
+                  foregroundColor: SoriTokens.primary,
                 ),
                 child: const Text(
                   '더보기',
@@ -120,7 +120,7 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: const Color(0xFF7DD3FC),
+                  foregroundColor: SoriTokens.primary,
                 ),
                 child: const Text(
                   '접기',

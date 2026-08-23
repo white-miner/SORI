@@ -20,8 +20,8 @@ class FloatingPillNav extends StatefulWidget {
   final String reviewLabel;
   final ValueChanged<int> onTap;
 
-  /// Translucent charcoal glass (~65% opacity) so feed shows through blur.
-  static const Color barBg = Color(0xA6121214);
+  /// Glass fill ~62% over #121212
+  static const Color barBg = Color(0x9E121212);
 
   @override
   State<FloatingPillNav> createState() => _FloatingPillNavState();
@@ -185,75 +185,40 @@ class _FloatingPillNavState extends State<FloatingPillNav>
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        bottom: 24 + bottom,
+        left: 16,
+        right: 16,
+        bottom: 12 + bottom,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           _syncBarWidth(constraints.maxWidth);
-          return Container(
+          return SizedBox(
             height: _barH,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_radius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 28,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_radius),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: FloatingPillNav.barBg,
                     borderRadius: BorderRadius.circular(_radius),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      width: 1,
-                    ),
                   ),
                   child: Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
-                      // Fluid glass highlight
                       if (_laidOut && _highlightW > 0)
                         Positioned(
                           left: _highlightLeft,
                           top: _vInset,
                           bottom: _vInset,
                           width: _highlightW,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.14),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: SoriTokens.primary
-                                          .withValues(alpha: 0.18),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
                         ),
-
-                      // Icons + labels
                       Positioned.fill(
                         child: Row(
                           children: List.generate(_count, (i) {
@@ -267,8 +232,8 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                                       selected ? items[i].$2 : items[i].$1,
                                       size: 22,
                                       color: selected
-                                          ? SoriTokens.primary
-                                          : SoriTokens.textSecondary,
+                                          ? SoriTokens.textPrimary
+                                          : SoriTokens.textTertiary,
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
@@ -281,8 +246,8 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                                             ? FontWeight.w800
                                             : FontWeight.w500,
                                         color: selected
-                                            ? SoriTokens.primary
-                                            : SoriTokens.textSecondary,
+                                            ? SoriTokens.textSecondary
+                                            : SoriTokens.textTertiary,
                                       ),
                                     ),
                                   ],
@@ -292,8 +257,6 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                           }),
                         ),
                       ),
-
-                      // Gesture layer — tap + horizontal fluid drag
                       Positioned.fill(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
