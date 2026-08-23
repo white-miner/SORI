@@ -6,6 +6,7 @@ import '../models/customer_review.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/official_badge.dart';
 
 /// Reels 스타일 세로 풀스크린 B/A 디테일.
 class BaReelsDetailPage extends StatefulWidget {
@@ -272,8 +273,9 @@ class _ReelPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.shop.name,
+                ShopNameWithOfficialBadge(
+                  name: item.shop.name,
+                  isOfficial: item.shop.displayIsOfficial,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,

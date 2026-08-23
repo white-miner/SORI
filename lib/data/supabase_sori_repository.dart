@@ -2012,6 +2012,8 @@ class SupabaseSoriRepository implements SoriRepository {
             tierBadge: ShopTierBadge.fromDb(
               DbMap.asText(map['shop_tier_badge']),
             ),
+            isOfficial: DbMap.asBool(map['shop_is_official']),
+            slug: DbMap.asText(map['shop_slug']),
           );
 
           CustomerReview? review;

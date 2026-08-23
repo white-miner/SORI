@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import '../utils/sori_official.dart';
 import 'shop_business_hours.dart';
 import 'shop_equipment_item.dart';
 import 'shop_service_item.dart';
@@ -37,6 +38,8 @@ class Shop {
     this.completedSeminarCount = 0,
     this.followerCount = 0,
     this.ownerUserId,
+    this.isOfficial = false,
+    this.slug = '',
   });
 
   final String id;
@@ -109,6 +112,18 @@ class Shop {
 
   /// 샵 원장 auth user id (`shops.owner_user_id`).
   final String? ownerUserId;
+
+  /// SORI Official brand shop (060). Not Ops/admin.
+  final bool isOfficial;
+
+  /// Public handle e.g. sori-official.
+  final String slug;
+
+  bool get displayIsOfficial => SoriOfficial.matchesShop(
+        id: id,
+        slug: slug,
+        isOfficial: isOfficial,
+      );
 
   /// 뷰어용 영업시간 문구 — JSON 우선, 없으면 legacy 텍스트.
   String get hoursDisplayLabel {
@@ -211,6 +226,8 @@ class Shop {
     int? completedSeminarCount,
     int? followerCount,
     String? ownerUserId,
+    bool? isOfficial,
+    String? slug,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -250,6 +267,8 @@ class Shop {
           completedSeminarCount ?? this.completedSeminarCount,
       followerCount: followerCount ?? this.followerCount,
       ownerUserId: ownerUserId ?? this.ownerUserId,
+      isOfficial: isOfficial ?? this.isOfficial,
+      slug: slug ?? this.slug,
     );
   }
 
@@ -285,6 +304,8 @@ class Shop {
         'completed_seminar_count': completedSeminarCount,
         'follower_count': followerCount,
         'owner_user_id': ownerUserId,
+        'is_official': isOfficial,
+        'slug': slug,
       };
 
   factory Shop.fromMap(Map<String, dynamic> map) {
@@ -413,6 +434,14 @@ class Shop {
               map['shop_owner_user_id'] ??
               map['ownerUserId'],
         ),
+        isOfficial: DbMap.asBool(
+          map['is_official'] ??
+              map['shop_is_official'] ??
+              map['isOfficial'],
+        ),
+        slug: DbMap.asText(
+          map['slug'] ?? map['shop_slug'] ?? map['shopSlug'],
+        ),
       );
     } catch (_) {
       return Shop(
@@ -479,6 +508,10 @@ class Shop {
               map['shop_owner_user_id'] ??
               map['ownerUserId'],
         ),
+        isOfficial: DbMap.asBool(
+          map['is_official'] ?? map['shop_is_official'],
+        ),
+        slug: DbMap.asText(map['slug'] ?? map['shop_slug']),
       );
     }
   }

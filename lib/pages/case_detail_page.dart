@@ -13,6 +13,7 @@ import '../utils/case_persona.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/fan_sponsor_credits.dart';
+import '../widgets/official_badge.dart';
 import '../widgets/sori_logo.dart';
 
 /// 인스타그램 스타일 풀스크린 B/A 케이스 상세.
@@ -317,10 +318,9 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  shop.name.trim().isEmpty ? 'SORI' : shop.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: ShopNameWithOfficialBadge(
+                  name: shop.name.trim().isEmpty ? 'SORI' : shop.name,
+                  isOfficial: shop.displayIsOfficial,
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,

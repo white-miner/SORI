@@ -13,6 +13,7 @@ import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
 import 'fan_sponsor_credits.dart';
+import 'official_badge.dart';
 import 'sori_logo.dart';
 
 /// 홈 탐색 피드 카드 — 모듈형 둥근 카드.
@@ -222,10 +223,10 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                   child: Row(
                     children: [
                       Flexible(
-                        child: Text(
-                          shop.name.trim().isEmpty ? 'SORI' : shop.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: ShopNameWithOfficialBadge(
+                          name: shop.name.trim().isEmpty ? 'SORI' : shop.name,
+                          isOfficial: shop.displayIsOfficial,
+                          compact: true,
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14,

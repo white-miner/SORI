@@ -699,6 +699,39 @@ class MemorySoriRepository implements SoriRepository {
         customerGenderLabel: '여성',
       ),
     );
+    // SORI Official seed (060) — badge smoke in memory feeds
+    const officialShop = Shop(
+      id: '00000000-0000-4000-8000-0000000000f1',
+      name: 'SORI',
+      naverPlaceUrl: '',
+      ownerName: 'SORI',
+      bio: '소통하는 리뷰 — SORI 공식 계정',
+      isOfficial: true,
+      slug: 'sori-official',
+    );
+    out.insert(
+      0,
+      CommunityCaseItem(
+        chart: CustomerChart(
+          id: 'chart-official-seed',
+          shopId: officialShop.id,
+          customerId: 'official-c0',
+          visitNumber: 1,
+          careName: 'SORI 공식 가이드',
+          treatmentSummary: '플랫폼 공지·온보딩 가이드',
+          directorInsight: '공식 계정은 Admin이 아닙니다.',
+          concernChips: const ['공지'],
+          beforeImageUrl: 'https://picsum.photos/seed/sori-official-b/600/800',
+          afterImageUrl: 'https://picsum.photos/seed/sori-official-a/600/800',
+          signatureUrl: 'https://example.com/sig-official.png',
+          consentPhoto: true,
+          caseShared: true,
+          visitCheckedAt: DateTime.now(),
+          createdAt: DateTime.now(),
+        ),
+        shop: officialShop,
+      ),
+    );
     final bodyShop = const Shop(
       id: 'shop-body-atelier',
       name: '바디아틀리에 청담',

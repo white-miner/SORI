@@ -13,6 +13,7 @@ import '../widgets/case_feed_viewport.dart';
 import '../widgets/community_comments_section.dart';
 import '../widgets/community_motivation.dart';
 import '../widgets/fan_sponsor_credits.dart';
+import '../widgets/official_badge.dart';
 import '../widgets/sori_network_image.dart';
 
 /// 관리 케이스 탐색 피드 — case_share + 공개 차트 단일 레일.
@@ -275,8 +276,9 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                     : null,
               ),
               const SizedBox(height: 12),
-              Text(
-                shop.name.trim().isEmpty ? 'SORI' : shop.name,
+              ShopNameWithOfficialBadge(
+                name: shop.name.trim().isEmpty ? 'SORI' : shop.name,
+                isOfficial: shop.displayIsOfficial,
                 style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
