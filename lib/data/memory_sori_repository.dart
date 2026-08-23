@@ -619,6 +619,112 @@ class MemorySoriRepository implements SoriRepository {
     }
   }
 
+  /// Phase 10 — cold-start quality bar (mirrors 062 seed matrix).
+  static List<CommunityCaseItem> _coldStartMasterCases() {
+    const masters = <({
+      String shopId,
+      String shopName,
+      String nick,
+      String authorId,
+    })>[
+      (
+        shopId: '00000000-0000-4000-8000-000000000101',
+        shopName: '글로우핏 청담',
+        nick: '서연',
+        authorId: '00000000-0000-4000-8000-000000000201',
+      ),
+      (
+        shopId: '00000000-0000-4000-8000-000000000102',
+        shopName: '바디아틀리에 성수',
+        nick: '준호',
+        authorId: '00000000-0000-4000-8000-000000000202',
+      ),
+      (
+        shopId: '00000000-0000-4000-8000-000000000103',
+        shopName: '루미에르 한남',
+        nick: '하늘',
+        authorId: '00000000-0000-4000-8000-000000000203',
+      ),
+    ];
+    const cares = [
+      '리프팅 집중 케어',
+      '윤곽 라인 케어',
+      '홍조·장벽 진정',
+      '첫방문 상담 케어',
+      '복부 체형 케어',
+      '셀룰라이트 집중',
+      '부종·순환 케어',
+      'EMS 바디 케어',
+      '수분장벽 케어',
+      '민감 진정 케어',
+      '홈케어 미션 케어',
+      '시즌 피부 케어',
+    ];
+    final now = DateTime.now();
+    final out = <CommunityCaseItem>[];
+    for (var i = 0; i < 12; i++) {
+      final m = masters[i % 3];
+      final day = i; // spread across 0..11 days ago
+      final created = now.subtract(Duration(days: day, hours: 8 + (i % 5)));
+      final chartId =
+          '00000000-0000-4000-8000-0000000006${(i + 1).toRadixString(16).padLeft(2, '0')}';
+      final shop = Shop(
+        id: m.shopId,
+        name: m.shopName,
+        naverPlaceUrl: '',
+        ownerName: m.nick,
+        ownerUserId: m.authorId,
+        profileImageUrl:
+            'https://picsum.photos/seed/sori-shop-${m.nick}/200',
+      );
+      final hit = i < 3;
+      out.add(
+        CommunityCaseItem(
+          chart: CustomerChart(
+            id: chartId,
+            shopId: m.shopId,
+            customerId: 'seed-cust-$i',
+            visitNumber: 1 + (i % 4),
+            careName: cares[i],
+            treatmentSummary: '${cares[i]} · 시드 퀄리티 바',
+            directorInsight: '시드 표준 케이스 — 동일 각도 B/A와 기기명을 남기세요.',
+            concernChips: [cares[i].split(' ').first],
+            beforeImageUrl:
+                'https://picsum.photos/seed/sori-seed-ba-${i + 1}b/600/800',
+            afterImageUrl:
+                'https://picsum.photos/seed/sori-seed-ba-${i + 1}a/600/800',
+            signatureUrl: 'https://example.com/seed-sig-$i.png',
+            consentPhoto: true,
+            caseShared: true,
+            deviceInfo: '시드 기기',
+            feedAge: 30 + (i % 12),
+            feedGenderLabel: '여성',
+            authorId: m.authorId,
+            visitCheckedAt: created,
+            createdAt: created,
+          ),
+          shop: shop,
+          authorNickname: m.nick,
+          authorAvatarUrl:
+              'https://picsum.photos/seed/sori-seed-avatar-${i % 3}/200',
+          isBoosted: hit,
+          boostSource: hit ? 'fan_boost' : 'shop_ad',
+          boostEndsAt: hit ? now.add(const Duration(days: 5)) : null,
+          fanDisplayName: hit ? '민지' : '',
+          fanSupporters: hit
+              ? [
+                  const FanSupporterEntry(name: '민지', echoSpent: 300),
+                  const FanSupporterEntry(name: '수아', echoSpent: 200),
+                  const FanSupporterEntry(name: '도윤', echoSpent: 150),
+                  const FanSupporterEntry(name: '하린', echoSpent: 100),
+                ]
+              : const [],
+        ),
+      );
+    }
+    return out;
+  }
+
   @override
   Future<List<CommunityCaseItem>> loadCommunityHotCases({int limit = 40}) async {
     final snap = createSeedSnapshot();
@@ -703,6 +809,10 @@ class MemorySoriRepository implements SoriRepository {
         authorAvatarUrl: 'https://picsum.photos/seed/sori-member-avatar/200',
       ),
     );
+
+    // Phase 10 cold-start pack — 12 ideal B/A spaced over ~14 days
+    out.addAll(_coldStartMasterCases());
+
     // SORI Official seed (060) — badge smoke in memory feeds
     const officialShop = Shop(
       id: '00000000-0000-4000-8000-0000000000f1',
