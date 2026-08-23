@@ -129,19 +129,27 @@ where s.id = c.shop_id
   and c.author_user_id is null
   and s.owner_user_id is not null;
 
+-- Nickname snap — subquery avoids referencing UPDATE target in JOIN ON
 update public.customer_charts c
 set author_nickname_snap = coalesce(
   nullif(trim(c.author_nickname_snap), ''),
-  nullif(trim(p.nickname), ''),
-  nullif(trim(p.name), ''),
-  nullif(trim(s.owner_name), ''),
-  nullif(trim(s.name), ''),
+  (
+    select coalesce(
+      nullif(trim(p.nickname), ''),
+      nullif(trim(p.name), ''),
+      nullif(trim(s.owner_name), ''),
+      nullif(trim(s.name), ''),
+      'SORI'
+    )
+    from public.shops s
+    left join public.profiles p
+      on p.id = coalesce(c.author_user_id, s.owner_user_id)
+    where s.id = c.shop_id
+    limit 1
+  ),
   'SORI'
 )
-from public.shops s
-left join public.profiles p on p.id = coalesce(c.author_user_id, s.owner_user_id)
-where s.id = c.shop_id
-  and coalesce(trim(c.author_nickname_snap), '') = '';
+where coalesce(trim(c.author_nickname_snap), '') = '';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 4) community_shared_cases — author + shop identity
