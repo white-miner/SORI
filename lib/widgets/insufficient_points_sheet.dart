@@ -4,8 +4,7 @@ import '../models/sori_point_wallet.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 
-/// 잔액 부족 시 원탭 IAP 스텁 바텀시트.
-/// 부족분을 넘는 최소 팩을 추천하고, 충전 후 [onCharged]로 재시도한다.
+/// 잔액 부족 시 원탭 IAP 스텁 바텀시트 (Echo).
 Future<bool> showInsufficientPointsSheet(
   BuildContext context, {
   required SoriStore store,
@@ -53,7 +52,7 @@ Future<bool> showInsufficientPointsSheet(
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    '포인트가 부족해요',
+                    'Echo가 부족해요',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -61,9 +60,10 @@ Future<bool> showInsufficientPointsSheet(
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '$productLabel를 바로 적용하려면 ${gap}P가 더 필요해요.\n'
-                    '보유 ${ _fmt(balance)}P · 필요 ${_fmt(need)}P\n\n'
-                    '${pack.points}P 충전팩(${pack.priceLabel})을 구매할까요?',
+                    '$productLabel를 바로 적용하려면 ${gap}E가 더 필요해요.\n'
+                    '보유 ${_fmt(balance)}E · 필요 ${_fmt(need)}E\n'
+                    '1 Echo = 100원\n\n'
+                    '${pack.echo}E 충전팩(${pack.priceLabel})을 구매할까요?',
                     style: const TextStyle(
                       fontSize: 13.5,
                       height: 1.45,
@@ -108,7 +108,7 @@ Future<bool> showInsufficientPointsSheet(
                             ),
                           )
                         : Text(
-                            '${_fmt(pack.points)}P 충전하고 계속 · ${pack.priceLabel}',
+                            '${_fmt(pack.echo)}E 충전하고 계속 · ${pack.priceLabel}',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                   ),

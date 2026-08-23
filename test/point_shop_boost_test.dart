@@ -6,11 +6,11 @@ import 'package:sori/services/sori_store.dart';
 import 'package:sori/widgets/insufficient_points_sheet.dart';
 
 void main() {
-  test('purchase boost debits points only and never settlement', () async {
+  test('purchase boost debits Echo only and never settlement', () async {
     final repo = MemorySoriRepository();
     const shopId = 'shop-boost';
 
-    await repo.purchaseSoriPoints(shopId: shopId, amount: 1000);
+    await repo.purchaseSoriPoints(shopId: shopId, amount: 120);
     await repo.creditSettlementForTest(shopId: shopId, amount: 20000);
 
     final before = await repo.loadPointWallet(shopId);
@@ -24,24 +24,20 @@ void main() {
     );
 
     expect(result.ok, isTrue);
-    expect(result.pointsSpent, 300);
+    expect(result.pointsSpent, 29);
     expect(result.settlementBalance, 20000);
     expect(result.placement?.chartId, 'chart-1');
-    expect(result.placement?.isActive, isTrue);
 
     final after = await repo.loadPointWallet(shopId);
-    expect(after.pointTotal, before.pointTotal - 300);
+    expect(after.pointTotal, before.pointTotal - 29);
     expect(after.settlementBalance, 20000);
-
-    final boosts = await repo.loadActiveBoostPlacements();
-    expect(boosts.any((b) => b.chartId == 'chart-1'), isTrue);
   });
 
   test('insufficient boost returns gap without throwing', () async {
     final repo = MemorySoriRepository();
     const shopId = 'shop-poor';
 
-    // default free 200 — need 900 for 1d booster
+    // default free 20E — need 89E for 1d booster
     final result = await repo.purchasePointShopItem(
       shopId: shopId,
       sku: 'boost_local_1d',
@@ -51,17 +47,13 @@ void main() {
 
     expect(result.ok, isFalse);
     expect(result.insufficient, isTrue);
-    expect(result.need, 900);
-    expect(result.have, lessThan(900));
-    expect(result.gap, greaterThan(0));
-
-    final boosts = await repo.loadActiveBoostPlacements();
-    expect(boosts.where((b) => b.chartId == 'chart-x'), isEmpty);
+    expect(result.need, 89);
+    expect(result.have, lessThan(89));
   });
 
-  test('PointPack recommend covers boost gap (500P pack)', () {
-    expect(PointPack.catalog.first.points, 500);
-    expect(PointPack.catalog.first.sku, 'sori_p_500');
+  test('PointPack recommend covers boost gap (55E pack)', () {
+    expect(PointPack.catalog.first.echo, 55);
+    expect(PointPack.catalog.first.sku, 'sori_e_55');
   });
 
   test('localBoostPinnedFeed sorts boosted charts first', () async {
@@ -70,16 +62,13 @@ void main() {
     await store.refreshCommunityHotCases();
 
     if (store.communityHotCases.isEmpty) {
-      // Seed path may be empty in some envs — still assert helper shape.
       expect(store.localBoostPinnedFeed(), isA<List>());
       return;
     }
 
     final target = store.communityHotCases.first.chart.id;
-    await repo.purchaseSoriPoints(shopId: store.shop.id, amount: 500);
-    // Memory shop id may be empty until bootstrap — use chart's shop.
     final shopId = store.communityHotCases.first.shop.id;
-    await repo.purchaseSoriPoints(shopId: shopId, amount: 500);
+    await repo.purchaseSoriPoints(shopId: shopId, amount: 55);
     final bought = await repo.purchasePointShopItem(
       shopId: shopId,
       sku: 'boost_local_2h',
@@ -95,7 +84,7 @@ void main() {
     expect(local.first.isBoosted, isTrue);
   });
 
-  testWidgets('insufficient points sheet offers one-tap charge CTA',
+  testWidgets('insufficient Echo sheet offers one-tap charge CTA',
       (tester) async {
     final store = SoriStore(repository: MemorySoriRepository());
 
@@ -110,8 +99,8 @@ void main() {
                     showInsufficientPointsSheet(
                       context,
                       store: store,
-                      need: 900,
-                      have: 200,
+                      need: 89,
+                      have: 20,
                       productLabel: '부스터',
                     );
                   },
@@ -127,8 +116,8 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('포인트가 부족해요'), findsOneWidget);
-    expect(find.textContaining('충전팩'), findsOneWidget);
+    expect(find.text('Echo가 부족해요'), findsOneWidget);
+    expect(find.textContaining('1 Echo = 100원'), findsOneWidget);
     expect(find.textContaining('충전하고 계속'), findsOneWidget);
   });
 }

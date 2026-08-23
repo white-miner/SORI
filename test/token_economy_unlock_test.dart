@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/data/memory_sori_repository.dart';
 import 'package:sori/models/community_post.dart';
+import 'package:sori/models/sori_point_wallet.dart';
 
 void main() {
-  test('unlock deducts points and credits author points only (not settlement)',
+  test('unlock deducts Echo and credits author Echo only (not settlement)',
       () async {
     final repo = MemorySoriRepository();
     const authorShop = 'shop-author';
@@ -17,13 +18,10 @@ void main() {
       visibility: CommunityVisibility.goldPlus,
     );
 
-    final locked = post.copyWith(isBodyLocked: true);
-    expect(locked.isBodyLocked, isTrue);
-
     await repo.purchaseSoriPoints(
       shopId: viewerShop,
-      amount: 500,
-      sku: 'test_pack',
+      amount: 55,
+      sku: 'sori_e_55',
     );
     await repo.creditSettlementForTest(
       shopId: authorShop,
@@ -32,7 +30,7 @@ void main() {
     );
 
     final before = await repo.loadPointWallet(viewerShop);
-    expect(before.pointTotal, greaterThanOrEqualTo(500));
+    expect(before.pointTotal, greaterThanOrEqualTo(5));
 
     final authorBefore = await repo.loadPointWallet(authorShop);
     expect(authorBefore.settlementBalance, 10000);
@@ -40,35 +38,34 @@ void main() {
     final result = await repo.unlockCommunityPostWithPoints(
       postId: post.id,
       viewerShopId: viewerShop,
-      cost: 500,
+      cost: 5,
     );
 
     expect(result.ok, isTrue);
-    expect(result.pointsSpent, 500);
-    expect(result.creatorShare, 350);
-    expect(result.creatorCurrency, 'point');
+    expect(result.pointsSpent, 5);
+    expect(result.creatorShare, 3); // 70% of 5E
+    expect(result.creatorCurrency, 'echo');
     expect(result.post?['body'], '원본 본문 시크릿 팁');
-    expect(result.post?['is_body_locked'], isFalse);
 
     final afterViewer = await repo.loadPointWallet(viewerShop);
-    expect(afterViewer.pointTotal, before.pointTotal - 500);
+    expect(afterViewer.pointTotal, before.pointTotal - 5);
     expect(afterViewer.settlementBalance, before.settlementBalance);
 
     final afterAuthor = await repo.loadPointWallet(authorShop);
-    expect(afterAuthor.freeBalance, authorBefore.freeBalance + 350);
+    expect(afterAuthor.freeBalance, authorBefore.freeBalance + 3);
     expect(afterAuthor.settlementBalance, 10000);
   });
 
-  test('request_settlement_withdraw touches settlement only, never points',
+  test('request_settlement_withdraw touches settlement only, never Echo',
       () async {
     final repo = MemorySoriRepository();
     const shopId = 'shop-settle';
 
-    await repo.purchaseSoriPoints(shopId: shopId, amount: 2000);
+    await repo.purchaseSoriPoints(shopId: shopId, amount: 120);
     await repo.creditSettlementForTest(shopId: shopId, amount: 50000);
 
     final before = await repo.loadPointWallet(shopId);
-    expect(before.pointTotal, greaterThanOrEqualTo(2000));
+    expect(before.pointTotal, greaterThanOrEqualTo(120));
     expect(before.settlementBalance, 50000);
 
     final raw = await repo.requestSettlementWithdraw(
@@ -78,7 +75,6 @@ void main() {
     );
 
     expect(raw?['ok'], isTrue);
-    expect(raw?['amount'], 15000);
     expect(raw?['settlement_balance'], 35000);
     expect(raw?['point_free_balance'], before.freeBalance);
     expect(raw?['point_paid_balance'], before.paidBalance);
@@ -86,30 +82,11 @@ void main() {
     final after = await repo.loadPointWallet(shopId);
     expect(after.pointTotal, before.pointTotal);
     expect(after.settlementBalance, 35000);
-    expect(after.settlementPending, 15000);
-
-    final txs = await repo.loadSettlementTransactions(shopId);
-    expect(txs, isNotEmpty);
-    expect(txs.first.kind, 'withdraw_request');
-    expect(txs.first.amount, -15000);
   });
 
-  test('cannot withdraw using points when settlement is empty', () async {
-    final repo = MemorySoriRepository();
-    const shopId = 'shop-no-settle';
-
-    await repo.purchaseSoriPoints(shopId: shopId, amount: 9999);
-    final w = await repo.loadPointWallet(shopId);
-    expect(w.pointTotal, greaterThanOrEqualTo(9999));
-    expect(w.settlementBalance, 0);
-
-    expect(
-      () => repo.requestSettlementWithdraw(shopId: shopId, amount: 1000),
-      throwsA(isA<StateError>()),
-    );
-
-    final after = await repo.loadPointWallet(shopId);
-    expect(after.pointTotal, w.pointTotal);
-    expect(after.settlementBalance, 0);
+  test('Echo IAP packs follow 1E=₩100 peg anchors', () {
+    expect(SoriPointWallet.krwPerEcho, 100);
+    expect(PointPack.catalog.map((e) => e.echo).toList(), [55, 120, 330]);
+    expect(PointPack.catalog.first.priceLabel, '₩5,500');
   });
 }

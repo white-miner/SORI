@@ -3596,7 +3596,7 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<PostUnlockResult> unlockCommunityPostWithPoints({
     required String postId,
     required String viewerShopId,
-    int cost = 500,
+    int cost = 5,
   }) async {
     final pid = postId.trim();
     final sid = viewerShopId.trim();

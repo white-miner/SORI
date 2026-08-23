@@ -68,7 +68,7 @@ Future<bool> showBoostPurchaseSheet(
               if (result.insufficient) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   const SnackBar(
-                    content: Text('충전이 반영됐지만 아직 포인트가 부족합니다.'),
+                    content: Text('충전이 반영됐지만 아직 Echo가 부족합니다.'),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -88,7 +88,7 @@ Future<bool> showBoostPurchaseSheet(
               if (!ctx.mounted) return;
               ScaffoldMessenger.of(ctx).showSnackBar(
                 const SnackBar(
-                  content: Text('부스터 구매에 실패했습니다. 마이그레이션 055를 확인해 주세요.'),
+                  content: Text('부스터 구매에 실패했습니다. 마이그레이션 055·056을 확인해 주세요.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -125,7 +125,7 @@ Future<bool> showBoostPurchaseSheet(
                   const SizedBox(height: 6),
                   Text(
                     caseTitle.trim().isEmpty
-                        ? '「우리 지역」탭 최상단에 AD로 고정 노출됩니다. 포인트만 사용 · 출금 불가.'
+                        ? '「우리 지역」탭 최상단에 AD로 고정 노출됩니다. Echo만 사용 · 1E=₩100 · 출금 불가.'
                         : '「$caseTitle」를 우리 지역 최상단에 고정합니다.',
                     style: const TextStyle(
                       fontSize: 13,
@@ -136,7 +136,7 @@ Future<bool> showBoostPurchaseSheet(
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '보유 ${store.pointWallet.pointTotal}P',
+                    '보유 ${store.pointWallet.pointTotal}E · 1 Echo = 100원',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -195,7 +195,7 @@ Future<bool> showBoostPurchaseSheet(
                               )
                             else
                               Text(
-                                '${item.pricePoints}P',
+                                '${item.pricePoints}E',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   color: Color(0xFFA78BFA),

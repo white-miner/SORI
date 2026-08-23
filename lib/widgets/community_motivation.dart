@@ -71,13 +71,13 @@ class CommunityAuthorityFrame extends StatelessWidget {
   }
 }
 
-/// 잠금 본문 Fallback — 블러 + 포인트 해금 / 리뷰 CTA.
+/// 잠금 본문 Fallback — 블러 + Echo 해금 / 리뷰 CTA.
 class CommunityLockedBody extends StatelessWidget {
   const CommunityLockedBody({
     super.key,
     required this.previewText,
     required this.onUnlockCta,
-    this.unlockCost = 500,
+    this.unlockCost = 5,
     this.walletBalance,
     this.onUnlockWithPoints,
     this.unlocking = false,
@@ -143,8 +143,8 @@ class CommunityLockedBody extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       walletBalance == null
-                          ? '리뷰 작성으로 등급을 올리거나\n포인트로 즉시 열람할 수 있어요'
-                          : '보유 ${walletBalance}P · 해금 ${unlockCost}P',
+                          ? '리뷰 작성으로 등급을 올리거나\nEcho로 즉시 열람할 수 있어요'
+                          : '보유 ${walletBalance}E · 해금 ${unlockCost}E',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 12.5,
@@ -164,7 +164,7 @@ class CommunityLockedBody extends StatelessWidget {
                         child: Text(
                           unlocking
                               ? '열람 처리 중…'
-                              : '$unlockCost P를 사용해 즉시 열람하기',
+                              : '$unlockCost E를 사용해 즉시 열람하기',
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -240,7 +240,7 @@ class _CommunityPostShellState extends State<CommunityPostShell> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${widget.post.unlockCost}P로 열람했습니다 · 작성자에게 수익이 분배됩니다',
+              '${widget.post.unlockCost}E로 열람했습니다 · 작성자에게 Echo 수익이 분배됩니다',
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -249,7 +249,7 @@ class _CommunityPostShellState extends State<CommunityPostShell> {
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().contains('insufficient')
-          ? '포인트가 부족합니다. 마이페이지 충전소에서 충전해 주세요.'
+          ? 'Echo가 부족합니다. 마이페이지 충전소에서 충전해 주세요.'
           : '열람에 실패했습니다. 잠시 후 다시 시도해 주세요.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),

@@ -511,11 +511,11 @@ abstract class SoriRepository {
     String note = '',
   });
 
-  /// 잠금 게시물 포인트 열람 + 작성자 수익분배(포인트만).
+  /// 잠금 게시물 Echo 열람 + 작성자 수익분배(Echo만).
   Future<PostUnlockResult> unlockCommunityPostWithPoints({
     required String postId,
     required String viewerShopId,
-    int cost = 500,
+    int cost = 5,
   });
 
   /// 포인트 상점 부스터 등 상품 목록.

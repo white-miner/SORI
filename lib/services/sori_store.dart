@@ -2794,7 +2794,7 @@ class SoriStore implements Listenable {
   /// 잠금 게시물 포인트 해금 — 원본 body로 communityPosts 갱신.
   Future<CommunityPost?> unlockCommunityPostWithPoints(
     CommunityPost post, {
-    int cost = 500,
+    int cost = 5,
   }) async {
     final sid = shop.id.trim();
     if (sid.isEmpty) return null;

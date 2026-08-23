@@ -1,6 +1,6 @@
 import '../utils/db_map.dart';
 
-/// 이원화 지갑 — 포인트(P, 출금불가) + 정산금(₩, 출금가능).
+/// 이원화 지갑 — Echo(E, 출금불가, 1E=₩100) + 정산금(₩, 출금가능).
 class SoriPointWallet {
   const SoriPointWallet({
     required this.id,
@@ -18,10 +18,10 @@ class SoriPointWallet {
   final String shopId;
   final String? ownerUserId;
 
-  /// 활동 포인트 (출금 불가).
+  /// Free Echo (활동, 출금 불가).
   final int freeBalance;
 
-  /// 유료 충전 포인트 (출금 불가).
+  /// Paid Echo (IAP, 출금 불가).
   final int paidBalance;
 
   /// 출금 가능 정산금 (KRW).
@@ -30,8 +30,13 @@ class SoriPointWallet {
   final int settlementPaidLifetime;
   final DateTime? updatedAt;
 
-  /// 포인트 합계만 (정산금 제외 — 총자산 합산 금지).
+  /// Echo 합계만 (정산금 제외 — 총자산 합산 금지).
   int get pointTotal => freeBalance + paidBalance;
+
+  /// 페그: 1 Echo = ₩100.
+  static const int krwPerEcho = 100;
+
+  int get echoKrwValue => pointTotal * krwPerEcho;
 
   @Deprecated('Use pointTotal — never sum with settlement')
   int get totalBalance => pointTotal;
@@ -216,7 +221,7 @@ class PostUnlockResult {
   }
 }
 
-/// 충전 패키지 (IAP 브릿지용 SKU) — 포인트만.
+/// 충전 패키지 (IAP) — Echo, 1E = ₩100 페그.
 class PointPack {
   const PointPack({
     required this.sku,
@@ -230,19 +235,22 @@ class PointPack {
   final String priceLabel;
   final String badge;
 
+  /// Echo 표기 별칭.
+  int get echo => points;
+
   static const catalog = <PointPack>[
-    PointPack(sku: 'sori_p_500', points: 500, priceLabel: '₩5,500'),
+    PointPack(sku: 'sori_e_55', points: 55, priceLabel: '₩5,500'),
     PointPack(
-      sku: 'sori_p_1200',
-      points: 1200,
+      sku: 'sori_e_120',
+      points: 120,
       priceLabel: '₩11,000',
       badge: '인기',
     ),
     PointPack(
-      sku: 'sori_p_3000',
-      points: 3000,
-      priceLabel: '₩22,000',
-      badge: '20% 보너스',
+      sku: 'sori_e_330',
+      points: 330,
+      priceLabel: '₩27,500',
+      badge: '헤비',
     ),
   ];
 }

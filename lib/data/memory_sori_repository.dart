@@ -1702,7 +1702,7 @@ class MemorySoriRepository implements SoriRepository {
       () => SoriPointWallet(
         id: 'w-$shopId',
         shopId: shopId,
-        freeBalance: 200,
+        freeBalance: 20,
         paidBalance: 0,
         settlementBalance: 0,
       ),
@@ -1834,7 +1834,7 @@ class MemorySoriRepository implements SoriRepository {
   Future<PostUnlockResult> unlockCommunityPostWithPoints({
     required String postId,
     required String viewerShopId,
-    int cost = 500,
+    int cost = 5,
   }) async {
     final key = '$postId::$viewerShopId';
     if (_unlocks.contains(key)) {
@@ -1885,7 +1885,7 @@ class MemorySoriRepository implements SoriRepository {
       ok: true,
       pointsSpent: cost,
       creatorShare: creatorShare,
-      creatorCurrency: 'point',
+      creatorCurrency: 'echo',
       post: post == null
           ? null
           : {

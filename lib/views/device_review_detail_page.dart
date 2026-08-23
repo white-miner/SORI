@@ -91,7 +91,7 @@ class _DeviceReviewDetailPageState extends State<DeviceReviewDetailPage> {
         SnackBar(
           content: Text(
             e.toString().contains('insufficient')
-                ? '포인트가 부족합니다. 충전소에서 충전하세요.'
+                ? 'Echo가 부족합니다. 충전소에서 충전하세요.'
                 : '열람 실패',
           ),
           behavior: SnackBarBehavior.floating,

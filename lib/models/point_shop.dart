@@ -47,14 +47,14 @@ class PointShopItem {
     );
   }
 
-  /// 오프라인/메모리 시드 (055와 동일 가격).
+  /// 오프라인/메모리 시드 (056 Echo 앵커 가격).
   static const catalogBoosters = <PointShopItem>[
     PointShopItem(
       id: 'item-boost-2h',
       sku: 'boost_local_2h',
       title: '우리 지역 노출 부스터 · 2시간',
       description: 'Home 「우리 지역」탭 최상단 고정 노출 (AD)',
-      pricePoints: 300,
+      pricePoints: 29,
       durationHours: 2,
     ),
     PointShopItem(
@@ -62,7 +62,7 @@ class PointShopItem {
       sku: 'boost_local_1d',
       title: '우리 지역 노출 부스터 · 1일',
       description: 'Home 「우리 지역」탭 최상단 고정 노출 24시간',
-      pricePoints: 900,
+      pricePoints: 89,
       durationHours: 24,
       badge: '인기',
     ),
@@ -71,7 +71,7 @@ class PointShopItem {
       sku: 'boost_local_7d',
       title: '우리 지역 노출 부스터 · 7일',
       description: 'Home 「우리 지역」탭 최상단 고정 노출 7일',
-      pricePoints: 4500,
+      pricePoints: 449,
       durationHours: 168,
     ),
   ];
