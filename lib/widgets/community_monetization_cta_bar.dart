@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/community_post.dart';
+import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../views/device_market_listings_page.dart';
@@ -77,11 +78,22 @@ class CommunityMonetizationCtaBar extends StatelessWidget {
             _CtaButton(
               icon: Icons.shopping_bag_outlined,
               label: '기기 매물 보기',
-              onTap: () => DeviceMarketListingsPage.open(
-                context,
-                store: store,
-                deviceName: _deviceQuery,
-              ),
+              onTap: () {
+                if (store.session?.activeMode != UserRole.director) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('중고·신상 거래는 원장 전용입니다'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                DeviceMarketListingsPage.open(
+                  context,
+                  store: store,
+                  deviceName: _deviceQuery,
+                );
+              },
             ),
           ],
           if (showAff) ...[

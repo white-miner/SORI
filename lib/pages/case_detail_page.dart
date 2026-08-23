@@ -30,7 +30,7 @@ class CaseDetailPage extends StatefulWidget {
     this.onBookmark,
     this.onShopProfile,
     this.onBookingCta,
-    required this.onSeminarRequest,
+    this.onOpenCommunitySeminar,
   });
 
   final CommunityCaseItem item;
@@ -45,7 +45,9 @@ class CaseDetailPage extends StatefulWidget {
   final VoidCallback? onBookmark;
   final VoidCallback? onShopProfile;
   final VoidCallback? onBookingCta;
-  final VoidCallback onSeminarRequest;
+
+  /// ⋯ 메뉴 — Community 세미나 딥링크.
+  final VoidCallback? onOpenCommunitySeminar;
 
   static String imageHeroTag(String chartId) => 'case_image_$chartId';
 
@@ -244,14 +246,15 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                     _openBooking();
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.school_outlined),
-                title: const Text('🎓 세미나 요청'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  widget.onSeminarRequest();
-                },
-              ),
+              if (widget.onOpenCommunitySeminar != null)
+                ListTile(
+                  leading: const Icon(Icons.school_outlined),
+                  title: const Text('Community에서 세미나 보기'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onOpenCommunitySeminar!();
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('닫기'),
@@ -421,43 +424,59 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                   child: hasBooking
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _openBooking,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF03C75A),
-                                  backgroundColor: SoriTokens.primarySoft,
-                                  side: const BorderSide(
-                                    color: Color(0xFF03C75A),
-                                    width: 1.2,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.calendar_month_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  '네이버 예약',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
+                      ? OutlinedButton.icon(
+                          onPressed: _openBooking,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF03C75A),
+                            backgroundColor: SoriTokens.primarySoft,
+                            side: const BorderSide(
+                              color: Color(0xFF03C75A),
+                              width: 1.2,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(child: _seminarRequestButton()),
-                          ],
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                            minimumSize: const Size(double.infinity, 44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.calendar_month_outlined,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            '네이버 예약',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
                         )
-                      : _seminarRequestButton(fullWidth: true),
+                      : OutlinedButton.icon(
+                          onPressed: widget.onShopProfile,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF6D28D9),
+                            backgroundColor: SoriTokens.primarySoft,
+                            side: const BorderSide(
+                              color: Color(0xFF7C3AED),
+                              width: 1.2,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: const Size(double.infinity, 44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.storefront_outlined, size: 18),
+                          label: const Text(
+                            '샵 보기',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -558,33 +577,6 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 ),
               ],
             ),
-      ),
-    );
-  }
-
-  Widget _seminarRequestButton({bool fullWidth = false}) {
-    return SizedBox(
-      width: fullWidth ? double.infinity : null,
-      child: OutlinedButton.icon(
-        onPressed: widget.onSeminarRequest,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF6D28D9),
-          backgroundColor: SoriTokens.primarySoft,
-          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.2),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          minimumSize: Size(fullWidth ? double.infinity : 0, 44),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        icon: const Text('🎓', style: TextStyle(fontSize: 15)),
-        label: const Text(
-          '세미나 요청',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-          ),
-        ),
       ),
     );
   }

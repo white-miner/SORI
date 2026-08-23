@@ -1699,7 +1699,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                     activeColor: SoriTokens.primary,
                     controlAffinity: ListTileControlAffinity.leading,
                     title: const Text(
-                      'Community 케이스 공유 공간에 함께 올리기',
+                      '홈 탐색에 임상 공개',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -1707,8 +1707,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                     ),
                     subtitle: Text(
                       _consentPhoto
-                          ? '고객 정보는 마스킹되고 Before/After·시술 요약만 공유됩니다'
-                          : '사진 공개 동의가 있을 때만 공유할 수 있어요',
+                          ? '고객 정보는 마스킹되고 Before/After·시술 요약이 홈 탐색에 노출됩니다'
+                          : '사진 공개 동의가 있을 때만 공개할 수 있어요',
                       style: const TextStyle(fontSize: 11.5, height: 1.35),
                     ),
                     onChanged: _consentPhoto

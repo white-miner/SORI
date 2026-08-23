@@ -11,12 +11,10 @@ import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
 import '../widgets/sori_insta_picker.dart';
-import 'customer_management_cases_page.dart';
 import 'device_review_detail_page.dart';
 import 'seminar_class_detail_page.dart';
-import 'success_cases_page.dart';
 
-/// 글로벌 Community 탭 — B2B 광장 (케이스·인테리어·기기·중고·세미나).
+/// 글로벌 Community 탭 — B2B 광장 (인테리어·리뷰·중고·세미나).
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key, required this.store});
 
@@ -38,12 +36,21 @@ class _CommunityPageState extends State<CommunityPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this);
+    final pending = store.pendingCommunitySegment;
+    final initial = (pending != null && pending >= 0 && pending < 5)
+        ? pending
+        : 0;
+    store.pendingCommunitySegment = null;
+    _tabs = TabController(length: 5, vsync: this, initialIndex: initial);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityPosts();
-      store.refreshCommunityHotCases();
       store.refreshSeminarClasses();
+      final again = store.pendingCommunitySegment;
+      if (again != null && again >= 0 && again < 5) {
+        store.pendingCommunitySegment = null;
+        _tabs.animateTo(again);
+      }
     });
   }
 
@@ -55,14 +62,18 @@ class _CommunityPageState extends State<CommunityPage>
   }
 
   void _onStore() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final pending = store.pendingCommunitySegment;
+    if (pending != null && pending >= 0 && pending < 5) {
+      store.pendingCommunitySegment = null;
+      _tabs.animateTo(pending);
+    }
+    setState(() {});
   }
 
   Future<void> _composeInterior() async {
     if (!_isDirector) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('원장 모드에서만 인테리어를 올릴 수 있어요')),
-      );
+      _showDirectorOnly();
       return;
     }
     await showModalBottomSheet<void>(
@@ -77,11 +88,9 @@ class _CommunityPageState extends State<CommunityPage>
     );
   }
 
-  Future<void> _composeDeviceMarket() async {
+  Future<void> _composeDeviceMarket({bool preferListing = false}) async {
     if (!_isDirector) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('원장 모드에서만 리뷰·중고를 올릴 수 있어요')),
-      );
+      _showDirectorOnly();
       return;
     }
     await showModalBottomSheet<void>(
@@ -92,7 +101,19 @@ class _CommunityPageState extends State<CommunityPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (ctx) => _DeviceMarketComposerSheet(store: store),
+      builder: (ctx) => _DeviceMarketComposerSheet(
+        store: store,
+        initialSellUsed: preferListing,
+      ),
+    );
+  }
+
+  void _showDirectorOnly() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('원장 전용 기능입니다. 원장 모드로 전환해 주세요.'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -119,23 +140,24 @@ class _CommunityPageState extends State<CommunityPage>
                       ),
                     ),
                   ),
-                  if (_isDirector)
+                  if (_isDirector) ...[
                     IconButton(
                       tooltip: '인테리어 올리기',
                       onPressed: _composeInterior,
                       icon: const Icon(Icons.add_a_photo_outlined),
                       color: SoriTokens.primary,
                     ),
-                  if (_isDirector)
                     IconButton(
-                      tooltip: '기기·중고 올리기',
-                      onPressed: _composeDeviceMarket,
+                      tooltip: '리뷰·매물 올리기',
+                      onPressed: () => _composeDeviceMarket(),
                       icon: const Icon(Icons.devices_other_outlined),
                       color: SoriTokens.primary,
                     ),
+                  ],
                 ],
               ),
             ),
+            if (!_isDirector) const _CommunityViewerBanner(),
             Material(
               color: SoriTokens.background,
               child: TabBar(
@@ -159,10 +181,10 @@ class _CommunityPageState extends State<CommunityPage>
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 tabs: const [
-                  Tab(text: '추천'),
-                  Tab(text: '케이스'),
+                  Tab(text: '전체'),
                   Tab(text: '인테리어'),
-                  Tab(text: '기기·중고'),
+                  Tab(text: '기기 리뷰'),
+                  Tab(text: '중고·신상'),
                   Tab(text: '세미나'),
                 ],
               ),
@@ -172,9 +194,6 @@ class _CommunityPageState extends State<CommunityPage>
                 controller: _tabs,
                 children: [
                   _RecommendSegment(store: store),
-                  _isDirector
-                      ? SuccessCasesPage(store: store)
-                      : CustomerManagementCasesPage(store: store),
                   _InteriorSegment(
                     store: store,
                     isOwner: _isDirector,
@@ -183,13 +202,62 @@ class _CommunityPageState extends State<CommunityPage>
                   _MarketSegment(
                     store: store,
                     isOwner: _isDirector,
-                    onCompose: _composeDeviceMarket,
+                    mode: _MarketRailMode.reviews,
+                    onCompose: () => _composeDeviceMarket(preferListing: false),
+                    onDirectorOnly: _showDirectorOnly,
+                  ),
+                  _MarketSegment(
+                    store: store,
+                    isOwner: _isDirector,
+                    mode: _MarketRailMode.listings,
+                    onCompose: () => _composeDeviceMarket(preferListing: true),
+                    onDirectorOnly: _showDirectorOnly,
                   ),
                   _SeminarSegment(store: store),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityViewerBanner extends StatelessWidget {
+  const _CommunityViewerBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1228),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: SoriTokens.primary.withValues(alpha: 0.35),
+          ),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFFC4B5FD)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '원장 전용 업계 광장 · 읽기 전용으로 둘러볼 수 있어요',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE4E4E7),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -206,24 +274,21 @@ class _RecommendSegment extends StatelessWidget {
         .where((p) => p.postType == CommunityPostType.interior)
         .take(6)
         .toList();
-    final cases = store.communityPosts
-        .where((p) => p.postType == CommunityPostType.caseShare)
+    final reviews = store.communityPosts
+        .where((p) => p.postType == CommunityPostType.deviceReview)
         .take(4)
         .toList();
-    final markets = store.communityPosts
-        .where(
-          (p) =>
-              p.postType == CommunityPostType.marketplace ||
-              p.postType == CommunityPostType.deviceReview,
-        )
+    final listings = store.communityPosts
+        .where((p) => p.postType == CommunityPostType.marketplace)
         .take(4)
         .toList();
+    final seminars = store.seminarClasses.take(4).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
       children: [
         const Text(
-          '업계 광장에서 인테리어·실사용 기기·중고를 한곳에서',
+          '원장 업계 광장 — 인테리어·실사용 리뷰·매물·세미나',
           style: TextStyle(
             fontSize: 13,
             height: 1.4,
@@ -253,14 +318,14 @@ class _RecommendSegment extends StatelessWidget {
           ),
         const SizedBox(height: 22),
         const Text(
-          '임상 케이스 공유',
+          '기기 실사용 리뷰',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
-        if (cases.isEmpty)
-          const _EmptyHint(text: '차트 저장 시 Community 공유 토글을 켜면 여기에 모입니다.')
+        if (reviews.isEmpty)
+          const _EmptyHint(text: '동료 원장의 실사용 후기가 여기에 모입니다.')
         else
-          ...cases.map(
+          ...reviews.map(
             (p) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _MarketCard(post: p, store: store),
@@ -268,19 +333,49 @@ class _RecommendSegment extends StatelessWidget {
           ),
         const SizedBox(height: 22),
         const Text(
-          '기기 실사용',
+          '중고·신상 매물',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
-        if (markets.isEmpty)
-          const _EmptyHint(
-            text: '동료 원장의 실사용 후기가 여기에 모입니다. 필요할 때만 거래로 이어져요.',
-          )
+        if (listings.isEmpty)
+          const _EmptyHint(text: '판매·구매 매물이 여기에 모입니다.')
         else
-          ...markets.map(
+          ...listings.map(
             (p) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _MarketCard(post: p, store: store),
+            ),
+          ),
+        const SizedBox(height: 22),
+        const Text(
+          '모집 중 세미나',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        if (seminars.isEmpty)
+          const _EmptyHint(text: '개설된 세미나가 없어요. 세미나 탭에서 확인해 보세요.')
+        else
+          ...seminars.map(
+            (c) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.school_outlined,
+                  color: SoriTokens.primary,
+                ),
+                title: Text(
+                  c.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text('정원 ${c.currentEnrollment}/${c.maxCapacity}'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => SeminarClassDetailPage.open(
+                  context,
+                  store: store,
+                  classId: c.id,
+                ),
+              ),
             ),
           ),
       ],
@@ -579,16 +674,22 @@ class _InteriorCard extends StatelessWidget {
   }
 }
 
+enum _MarketRailMode { reviews, listings }
+
 class _MarketSegment extends StatefulWidget {
   const _MarketSegment({
     required this.store,
     required this.isOwner,
     required this.onCompose,
+    required this.mode,
+    this.onDirectorOnly,
   });
 
   final SoriStore store;
   final bool isOwner;
   final VoidCallback onCompose;
+  final _MarketRailMode mode;
+  final VoidCallback? onDirectorOnly;
 
   @override
   State<_MarketSegment> createState() => _MarketSegmentState();
@@ -597,21 +698,26 @@ class _MarketSegment extends StatefulWidget {
 class _MarketSegmentState extends State<_MarketSegment> {
   MarketListingStatus? _filter;
 
+  bool get _listingsMode => widget.mode == _MarketRailMode.listings;
+
   @override
   Widget build(BuildContext context) {
-    var posts = widget.store.communityPosts
-        .where(
-          (p) =>
-              p.postType == CommunityPostType.marketplace ||
-              p.postType == CommunityPostType.deviceReview,
-        )
-        .toList();
+    var posts = widget.store.communityPosts.where((p) {
+      if (_listingsMode) {
+        return p.postType == CommunityPostType.marketplace ||
+            (p.postType == CommunityPostType.deviceReview && p.listing != null);
+      }
+      return p.postType == CommunityPostType.deviceReview;
+    }).toList();
 
-    if (_filter != null) {
-      posts = posts
-          .where((p) => p.listing?.status == _filter)
-          .toList();
+    if (_listingsMode && _filter != null) {
+      posts = posts.where((p) => p.listing?.status == _filter).toList();
     }
+
+    final emptyTitle = _listingsMode ? '중고·신상 장터' : '기기·제품 리뷰';
+    final emptyBody = _listingsMode
+        ? '신상·중고 기기/제품을 올리고 동료 원장과 거래하세요.'
+        : '실사용 후기를 남기면 동료 원장의 구매 판단에 도움이 됩니다.';
 
     return Column(
       children: [
@@ -619,44 +725,56 @@ class _MarketSegmentState extends State<_MarketSegment> {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
           child: Row(
             children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterChip(
-                        label: '전체 후기',
-                        selected: _filter == null,
-                        onTap: () => setState(() => _filter = null),
-                      ),
-                      const SizedBox(width: 6),
-                      _FilterChip(
-                        label: '매물 연결',
-                        selected: _filter == MarketListingStatus.active,
-                        onTap: () => setState(
-                          () => _filter = MarketListingStatus.active,
+              if (_listingsMode)
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _FilterChip(
+                          label: '전체 매물',
+                          selected: _filter == null,
+                          onTap: () => setState(() => _filter = null),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      _FilterChip(
-                        label: '예약',
-                        selected: _filter == MarketListingStatus.reserved,
-                        onTap: () => setState(
-                          () => _filter = MarketListingStatus.reserved,
+                        const SizedBox(width: 6),
+                        _FilterChip(
+                          label: '판매 중',
+                          selected: _filter == MarketListingStatus.active,
+                          onTap: () => setState(
+                            () => _filter = MarketListingStatus.active,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      _FilterChip(
-                        label: '거래 완료',
-                        selected: _filter == MarketListingStatus.sold,
-                        onTap: () => setState(
-                          () => _filter = MarketListingStatus.sold,
+                        const SizedBox(width: 6),
+                        _FilterChip(
+                          label: '예약',
+                          selected: _filter == MarketListingStatus.reserved,
+                          onTap: () => setState(
+                            () => _filter = MarketListingStatus.reserved,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        _FilterChip(
+                          label: '거래 완료',
+                          selected: _filter == MarketListingStatus.sold,
+                          onTap: () => setState(
+                            () => _filter = MarketListingStatus.sold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                const Expanded(
+                  child: Text(
+                    '실사용 후기',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: SoriTokens.textSecondary,
+                    ),
                   ),
                 ),
-              ),
               if (widget.isOwner)
                 IconButton(
                   onPressed: widget.onCompose,
@@ -674,21 +792,26 @@ class _MarketSegmentState extends State<_MarketSegment> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.devices_other_outlined,
-                            size: 48, color: SoriTokens.textSecondary),
+                        Icon(
+                          _listingsMode
+                              ? Icons.storefront_outlined
+                              : Icons.rate_review_outlined,
+                          size: 48,
+                          color: SoriTokens.textSecondary,
+                        ),
                         const SizedBox(height: 14),
-                        const Text(
-                          '기기 리뷰 · 실사용 노트',
-                          style: TextStyle(
+                        Text(
+                          emptyTitle,
+                          style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          '먼저 동료 원장의 실사용 후기를 읽고,\n필요할 때 중고·신제품으로 이어집니다.',
+                        Text(
+                          emptyBody,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             height: 1.45,
                             color: SoriTokens.textSecondary,
@@ -698,8 +821,8 @@ class _MarketSegmentState extends State<_MarketSegment> {
                           const SizedBox(height: 18),
                           FilledButton.icon(
                             onPressed: widget.onCompose,
-                            icon: const Icon(Icons.edit_outlined),
-                            label: const Text('리뷰·매물 올리기'),
+                            icon: const Icon(Icons.add),
+                            label: Text(_listingsMode ? '매물 등록' : '리뷰 작성'),
                             style: FilledButton.styleFrom(
                               backgroundColor: SoriTokens.primary,
                             ),
@@ -712,9 +835,15 @@ class _MarketSegmentState extends State<_MarketSegment> {
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
                   itemCount: posts.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) =>
-                      _MarketCard(post: posts[i], store: widget.store),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    return _MarketCard(
+                      post: posts[i],
+                      store: widget.store,
+                      readOnly: !widget.isOwner,
+                      onDirectorOnly: widget.onDirectorOnly,
+                    );
+                  },
                 ),
         ),
       ],
@@ -760,12 +889,19 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _MarketCard extends StatelessWidget {
-  const _MarketCard({required this.post, required this.store});
+  const _MarketCard({
+    required this.post,
+    required this.store,
+    this.readOnly = false,
+    this.onDirectorOnly,
+  });
   final CommunityPost post;
   final SoriStore store;
+  final bool readOnly;
+  final VoidCallback? onDirectorOnly;
 
   bool get _isOwner =>
-      post.shopId.isNotEmpty && post.shopId == store.shop.id;
+      !readOnly && post.shopId.isNotEmpty && post.shopId == store.shop.id;
 
   String get _deviceName {
     final r = post.deviceReview?.deviceName.trim() ?? '';
@@ -1349,8 +1485,12 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
 }
 
 class _DeviceMarketComposerSheet extends StatefulWidget {
-  const _DeviceMarketComposerSheet({required this.store});
+  const _DeviceMarketComposerSheet({
+    required this.store,
+    this.initialSellUsed = false,
+  });
   final SoriStore store;
+  final bool initialSellUsed;
 
   @override
   State<_DeviceMarketComposerSheet> createState() =>
@@ -1368,10 +1508,16 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
   final List<Uint8List> _images = [];
   int _usageMonths = 6;
   double _rating = 4;
-  bool _sellUsed = false;
+  late bool _sellUsed;
   String _condition = 'good';
   bool _saving = false;
   CommunityVisibility _visibility = CommunityVisibility.public;
+
+  @override
+  void initState() {
+    super.initState();
+    _sellUsed = widget.initialSellUsed;
+  }
 
   @override
   void dispose() {

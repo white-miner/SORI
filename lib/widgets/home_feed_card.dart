@@ -29,7 +29,7 @@ class HomeFeedCard extends StatefulWidget {
     required this.onOpenDetail,
     required this.onBookingCta,
     required this.onShopProfile,
-    required this.onSeminarRequest,
+    this.onOpenCommunitySeminar,
     this.currentUserId,
     this.review,
   });
@@ -47,9 +47,11 @@ class HomeFeedCard extends StatefulWidget {
   final VoidCallback onComment;
   final VoidCallback onBookmark;
   final VoidCallback onOpenDetail;
-  final VoidCallback onSeminarRequest;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
+
+  /// ⋯ 메뉴 — Community 세미나 딥링크 (1급 CTA 아님).
+  final VoidCallback? onOpenCommunitySeminar;
 
   @override
   State<HomeFeedCard> createState() => _HomeFeedCardState();
@@ -462,14 +464,26 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
             child: hasBooking
-                ? Row(
-                    children: [
-                      Expanded(child: _naverBookingButton()),
-                      const SizedBox(width: 8),
-                      Expanded(child: _seminarRequestButton()),
-                    ],
-                  )
-                : _seminarRequestButton(fullWidth: true),
+                ? _naverBookingButton()
+                : OutlinedButton.icon(
+                    onPressed: widget.onShopProfile,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFC4B5FD),
+                      side: BorderSide(
+                        color: SoriTokens.primary.withValues(alpha: 0.45),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
+                    icon: const Icon(Icons.storefront_outlined, size: 16),
+                    label: const Text(
+                      '샵 보기',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -483,7 +497,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
         backgroundColor: SoriTokens.primary,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 10),
-        minimumSize: const Size(0, 40),
+        minimumSize: const Size(double.infinity, 40),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -493,33 +507,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
       label: const Text(
         '네이버 예약',
         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-      ),
-    );
-  }
-
-  Widget _seminarRequestButton({bool fullWidth = false}) {
-    return SizedBox(
-      width: fullWidth ? double.infinity : null,
-      child: FilledButton.icon(
-        onPressed: widget.onSeminarRequest,
-        style: FilledButton.styleFrom(
-          backgroundColor: SoriTokens.primary,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          minimumSize: Size(fullWidth ? double.infinity : 0, 40),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        icon: const Text('🎓', style: TextStyle(fontSize: 14)),
-        label: const Text(
-          '세미나 요청',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-          ),
-        ),
       ),
     );
   }
@@ -557,14 +544,15 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     widget.onBookingCta();
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.school_outlined),
-                title: const Text('🎓 세미나 요청'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  widget.onSeminarRequest();
-                },
-              ),
+              if (widget.onOpenCommunitySeminar != null)
+                ListTile(
+                  leading: const Icon(Icons.school_outlined),
+                  title: const Text('Community에서 세미나 보기'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onOpenCommunitySeminar!();
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('닫기'),

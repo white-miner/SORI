@@ -73,6 +73,9 @@ class SoriStore implements Listenable {
   /// PC 우측 패널에 표시할 댓글 대상 게시물 ID (null이면 대시보드 표시).
   String? activeCommentPostId;
 
+  /// Community 탭 진입 시 선택될 세그먼트 (0=전체 … 4=세미나).
+  int? pendingCommunitySegment;
+
   void openCommentPanel(String postId) {
     activeCommentPostId = postId;
     _notify();

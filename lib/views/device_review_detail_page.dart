@@ -229,11 +229,26 @@ class DeviceReviewDetailPage extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () => DeviceMarketListingsPage.open(
-                      context,
-                      store: store,
-                      deviceName: _deviceName,
-                    ),
+                    onPressed: () {
+                      final isDirector =
+                          store.session?.activeMode == UserRole.director;
+                      if (!isDirector) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              '중고·신상 거래는 원장 전용입니다',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      DeviceMarketListingsPage.open(
+                        context,
+                        store: store,
+                        deviceName: _deviceName,
+                      );
+                    },
                     style: FilledButton.styleFrom(
                       backgroundColor: SoriTokens.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),

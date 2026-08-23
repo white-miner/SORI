@@ -143,44 +143,10 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBookingOrProfile(item.shop),
-        onSeminarRequest: () => _requestSeminar(item),
-      ),
-    );
-  }
-
-  Future<void> _requestSeminar(CommunityCaseItem item) async {
-    final session = store.session;
-    if (session == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그인 후 세미나 요청을 보낼 수 있어요.')),
-      );
-      return;
-    }
-
-    final myShopId = store.shop.id.trim();
-    final userId = session.id.trim();
-    if (myShopId.isEmpty && userId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('요청자 정보가 없어 세미나 요청을 보낼 수 없습니다.')),
-      );
-      return;
-    }
-
-    final ok = await store.requestSeminar(
-      caseId: item.chart.id,
-      requestorShopId: myShopId.isEmpty ? null : myShopId,
-      requestorUserId: userId.isEmpty ? null : userId,
-      caseOwnerShopId: item.shop.id,
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? '해당 케이스의 세미나 개설을 요청했습니다. 원장님이 클래스를 오픈하면 알림을 보내드립니다.'
-              : '요청에 실패했습니다. 다시 시도해 주세요.',
-        ),
-        backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
+        onOpenCommunitySeminar: () {
+          store.pendingCommunitySegment = 4;
+          widget.onSelectTab?.call(3);
+        },
       ),
     );
   }
@@ -318,9 +284,12 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       onComment: () => _openComments(item.chart),
       onBookmark: () => _toggleBookmark(id),
       onOpenDetail: () => _openCaseDetail(item, index),
-      onSeminarRequest: () => _requestSeminar(item),
       onBookingCta: () => _openNaverBookingOrProfile(item.shop),
       onShopProfile: () => _openShopProfile(item.shop),
+      onOpenCommunitySeminar: () {
+        store.pendingCommunitySegment = 4; // 세미나
+        widget.onSelectTab?.call(3);
+      },
     );
   }
 
@@ -330,7 +299,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
     return DefaultTabController(
-      length: 5,
+      length: 3,
       child: ColoredBox(
         color: SoriTokens.background,
         child: SafeArea(
@@ -362,8 +331,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                   tabs: const [
                     Tab(text: '추천'),
                     Tab(text: '탐색'),
-                    Tab(text: '최신 임상'),
-                    Tab(text: '세미나'),
                     Tab(text: '우리 지역'),
                   ],
                 ),
@@ -379,20 +346,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                     store.session?.activeMode == UserRole.director
                         ? SuccessCasesPage(store: store)
                         : CustomerManagementCasesPage(store: store),
-                    _SimpleFeedTab(
-                      title: '최신 임상',
-                      subtitle: '최근에 공유된 B/A 케이스를 모아봤어요.',
-                      feed: feed,
-                      loading: loading,
-                      buildCard: _feedCard,
-                    ),
-                    _SimpleFeedTab(
-                      title: '세미나',
-                      subtitle: '교육·클래스와 연결된 케이스를 살펴보세요.',
-                      feed: feed,
-                      loading: loading,
-                      buildCard: _feedCard,
-                    ),
                     _SimpleFeedTab(
                       title: '우리 지역',
                       subtitle: '내 주변 샵의 관리 사례를 탐색해요.',
@@ -514,7 +467,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
   }
 }
 
-/// 최신 임상 / 세미나 / 우리 지역 — KeepAlive 세로 피드.
+/// 우리 지역 — KeepAlive 세로 피드.
 class _SimpleFeedTab extends StatefulWidget {
   const _SimpleFeedTab({
     required this.title,
@@ -655,9 +608,9 @@ class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
       colors: [Color(0xFF1E1B4B), Color(0xFF4C1D95), Color(0xFF0A0A0C)],
     ),
     (
-      eyebrow: 'SEMINAR',
-      title: '에듀케이터 클래스 오픈',
-      subtitle: '현장 노하우를 세미나로 연결하세요',
+      eyebrow: 'BOOKING',
+      title: '마음에 드는 샵 예약하기',
+      subtitle: 'B/A를 보고 네이버 예약으로 바로 연결',
       colors: [Color(0xFF0F172A), Color(0xFF1E3A5F), Color(0xFF0A0A0C)],
     ),
     (
