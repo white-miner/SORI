@@ -28,6 +28,8 @@ import '../models/shop_equipment_item.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
 import '../models/community_post.dart';
+import '../models/community_comment.dart';
+import '../models/affiliate_earnings.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -383,6 +385,7 @@ class SoriStore implements Listenable {
     String? guardianPhone,
     bool infoViewConsent = false,
     String? deviceInfo,
+    bool publishToCommunity = false,
   }) async {
     final boundCustomerId = customerId.trim();
     if (boundCustomerId.isEmpty) {
@@ -429,6 +432,9 @@ class SoriStore implements Listenable {
         infoViewConsent: infoViewConsent,
         deviceInfo: deviceInfo,
       );
+      if (publishToCommunity) {
+        await publishChartCaseToCommunity(chart);
+      }
       unawaited(
         _generateConsentPdfInBackground(
           chart,
@@ -511,6 +517,9 @@ class SoriStore implements Listenable {
           signaturePng: signaturePngBytes,
         ),
       );
+      if (publishToCommunity) {
+        await publishChartCaseToCommunity(result.chart);
+      }
       return result.chart;
     } catch (e, st) {
       debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
@@ -2377,6 +2386,7 @@ class SoriStore implements Listenable {
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
     CommunityVisibility visibility = CommunityVisibility.public,
+    String? sourceChartId,
   }) async {
     final text = body.trim();
     if (text.isEmpty &&
@@ -2416,6 +2426,7 @@ class SoriStore implements Listenable {
         deviceReview: deviceReview,
         marketListing: marketListing,
         visibility: visibility,
+        sourceChartId: sourceChartId,
       );
       post = post.copyWith(
         shopName: shop.name,
@@ -2443,6 +2454,125 @@ class SoriStore implements Listenable {
     shop = shop.copyWith(
       communityActivityScore: shop.communityActivityScore + delta,
     );
+  }
+
+  /// 차트 → Community case_share (개인정보 마스킹).
+  Future<CommunityPost?> publishChartCaseToCommunity(CustomerChart chart) async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return null;
+    // Avoid duplicate publish for same chart.
+    for (final p in communityPosts) {
+      if (p.sourceChartId == chart.id &&
+          p.postType == CommunityPostType.caseShare) {
+        return p;
+      }
+    }
+
+    final care = chart.careName.trim().isEmpty ? '시술 케이스' : chart.careName.trim();
+    final insight = chart.directorInsight.trim();
+    final summary = chart.treatmentSummary.trim();
+    final body = [
+      if (summary.isNotEmpty) summary,
+      if (insight.isNotEmpty) insight,
+      if (summary.isEmpty && insight.isEmpty)
+        '$care 임상 기록 공유 (고객 정보는 비식별화되었습니다)',
+    ].join('\n\n');
+
+    final urls = <String>[];
+    final before = (chart.beforeImageUrl ?? '').trim();
+    final after = (chart.afterImageUrl ?? '').trim();
+    if (before.startsWith('http') || before.startsWith('data:')) {
+      urls.add(before);
+    }
+    if (after.startsWith('http') || after.startsWith('data:')) {
+      urls.add(after);
+    }
+
+    try {
+      // Mark chart shared for tier flywheel when possible.
+      try {
+        setManagementCaseShared(chart.id, true);
+      } catch (_) {}
+
+      final post = await _repository.insertCommunityPost(
+        shopId: shopId,
+        postType: CommunityPostType.caseShare,
+        title: '$care · 임상 케이스',
+        body: body,
+        authorUserId: session?.id,
+        imageUrls: urls,
+        styleTags: const ['케이스공유', '비식별'],
+        sourceChartId: chart.id,
+      );
+      final enriched = post.copyWith(
+        shopName: shop.name,
+        shopOwnerName: shop.ownerName,
+        shopAvatarUrl: shop.profileImageUrl,
+        tierBadge: shop.tierBadge,
+      );
+      communityPosts.insert(0, enriched);
+      _applyCommunityActivityBump(1);
+      _notify();
+      return enriched;
+    } catch (e, st) {
+      debugPrint('publishChartCaseToCommunity failed: $e\n$st');
+      return null;
+    }
+  }
+
+  Future<List<CommunityComment>> loadCommunityComments(String postId) {
+    return _repository.loadCommunityComments(postId);
+  }
+
+  Future<CommunityComment?> addCommunityComment({
+    required String postId,
+    required String content,
+    String? parentId,
+  }) async {
+    final text = content.trim();
+    if (text.isEmpty) return null;
+    try {
+      final c = await _repository.insertCommunityComment(
+        postId: postId,
+        content: text,
+        authorUserId: session?.id,
+        authorShopId: shop.id,
+        parentId: parentId,
+      );
+      return c.copyWith();
+    } catch (e, st) {
+      debugPrint('addCommunityComment failed: $e\n$st');
+      _setError(e, userFacing: true);
+      return null;
+    }
+  }
+
+  Future<void> openAffiliateExternalUrl({
+    required String url,
+    required String ownerShopId,
+    String label = '',
+    String? postId,
+    String? postTagId,
+    String? partnerId,
+  }) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return;
+    unawaited(
+      _repository.trackAffiliateClick(
+        shopId: ownerShopId,
+        destinationUrl: trimmed.startsWith('http') ? trimmed : 'https://$trimmed',
+        label: label,
+        postId: postId,
+        postTagId: postTagId,
+        partnerId: partnerId,
+        clickedByUserId: session?.id,
+        clickedByShopId: shop.id,
+      ),
+    );
+  }
+
+  Future<AffiliateEarningsSummary> loadAffiliateEarnings() {
+    return _repository.loadAffiliateEarnings(shop.id);
   }
 
   Future<bool> updateMarketListingStatus({

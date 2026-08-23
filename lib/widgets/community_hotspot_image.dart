@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_post.dart';
+import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import 'sori_network_image.dart';
@@ -17,6 +18,9 @@ class CommunityHotspotImage extends StatefulWidget {
     this.aspectRatio = 16 / 11,
     this.fit = BoxFit.cover,
     this.bytes,
+    this.store,
+    this.ownerShopId,
+    this.postId,
   });
 
   final String? imageUrl;
@@ -24,6 +28,9 @@ class CommunityHotspotImage extends StatefulWidget {
   final List<CommunityPostTag> tags;
   final double aspectRatio;
   final BoxFit fit;
+  final SoriStore? store;
+  final String? ownerShopId;
+  final String? postId;
 
   @override
   State<CommunityHotspotImage> createState() => _CommunityHotspotImageState();
@@ -56,7 +63,12 @@ class _CommunityHotspotImageState extends State<CommunityHotspotImage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (ctx) => _HotspotTagSheet(tag: tag),
+      builder: (ctx) => _HotspotTagSheet(
+        tag: tag,
+        store: widget.store,
+        ownerShopId: widget.ownerShopId,
+        postId: widget.postId,
+      ),
     );
   }
 
@@ -139,8 +151,16 @@ class _CommunityHotspotImageState extends State<CommunityHotspotImage>
 }
 
 class _HotspotTagSheet extends StatelessWidget {
-  const _HotspotTagSheet({required this.tag});
+  const _HotspotTagSheet({
+    required this.tag,
+    this.store,
+    this.ownerShopId,
+    this.postId,
+  });
   final CommunityPostTag tag;
+  final SoriStore? store;
+  final String? ownerShopId;
+  final String? postId;
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +207,17 @@ class _HotspotTagSheet extends StatelessWidget {
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: () async {
+                final shopId = ownerShopId?.trim() ?? '';
+                if (store != null && shopId.isNotEmpty) {
+                  await store!.openAffiliateExternalUrl(
+                    url: url,
+                    ownerShopId: shopId,
+                    label: tag.label,
+                    postId: postId,
+                    postTagId: tag.id,
+                    partnerId: tag.partnerId,
+                  );
+                }
                 final uri = Uri.tryParse(
                   url.startsWith('http') ? url : 'https://$url',
                 );

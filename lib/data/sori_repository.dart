@@ -13,6 +13,8 @@ import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
 import '../models/community_post.dart';
+import '../models/community_comment.dart';
+import '../models/affiliate_earnings.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -411,6 +413,7 @@ abstract class SoriRepository {
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
     CommunityVisibility visibility = CommunityVisibility.public,
+    String? sourceChartId,
   });
 
   Future<void> updateMarketListingStatus({
@@ -422,6 +425,31 @@ abstract class SoriRepository {
   Future<Map<String, bool>> loadShopBusinessVerified(List<String> shopIds);
 
   Future<void> deleteCommunityPost(String postId);
+
+  Future<List<CommunityComment>> loadCommunityComments(String postId);
+
+  Future<CommunityComment> insertCommunityComment({
+    required String postId,
+    required String content,
+    String? authorUserId,
+    String? authorShopId,
+    String? parentId,
+  });
+
+  /// Affiliate: URL 탭 시 링크 upsert + 클릭/수수료 적립.
+  Future<void> trackAffiliateClick({
+    required String shopId,
+    required String destinationUrl,
+    String label = '',
+    String? postId,
+    String? postTagId,
+    String? partnerId,
+    String? clickedByUserId,
+    String? clickedByShopId,
+    int commissionPerClick = 500,
+  });
+
+  Future<AffiliateEarningsSummary> loadAffiliateEarnings(String shopId);
 
   /// 원장 샵 세미나 클래스 목록 (최신순).
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);

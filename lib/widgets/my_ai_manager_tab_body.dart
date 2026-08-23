@@ -5,6 +5,8 @@ import '../models/shop_tier_badge.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../views/ai_shop_report_page.dart';
+import 'affiliate_earnings_card.dart';
+import 'shop_tier_progress_card.dart';
 
 /// My Page · AI Manager 탭 — 모듈형 대시보드.
 class MyAiManagerTabBody extends StatelessWidget {
@@ -91,6 +93,10 @@ class MyAiManagerTabBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        AffiliateEarningsCard(store: store),
+        const SizedBox(height: 12),
+        ShopTierProgressCard(shop: shop),
+        const SizedBox(height: 12),
         _ModuleCard(
           title: '이번 달 매출 · 소진',
           child: Column(

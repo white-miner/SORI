@@ -7,6 +7,7 @@ import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
+import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
 import '../widgets/sori_insta_picker.dart';
@@ -205,6 +206,10 @@ class _RecommendSegment extends StatelessWidget {
         .where((p) => p.postType == CommunityPostType.interior)
         .take(6)
         .toList();
+    final cases = store.communityPosts
+        .where((p) => p.postType == CommunityPostType.caseShare)
+        .take(4)
+        .toList();
     final markets = store.communityPosts
         .where(
           (p) =>
@@ -244,6 +249,21 @@ class _RecommendSegment extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, i) =>
                   _InteriorCard(post: interiors[i], width: 140),
+            ),
+          ),
+        const SizedBox(height: 22),
+        const Text(
+          '임상 케이스 공유',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        if (cases.isEmpty)
+          const _EmptyHint(text: '차트 저장 시 Community 공유 토글을 켜면 여기에 모입니다.')
+        else
+          ...cases.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _MarketCard(post: p, store: store),
             ),
           ),
         const SizedBox(height: 22),
@@ -446,6 +466,9 @@ class _InteriorFeedTile extends StatelessWidget {
               imageUrl: primary?.imageUrl ?? post.primaryImageUrl,
               tags: tags,
               aspectRatio: 4 / 3,
+              store: store,
+              ownerShopId: post.shopId,
+              postId: post.id,
             )
           else
             SizedBox(
@@ -458,13 +481,16 @@ class _InteriorFeedTile extends StatelessWidget {
                     imageUrl: m.imageUrl,
                     tags: post.tagsForMedia(m.id),
                     aspectRatio: 1,
+                    store: store,
+                    ownerShopId: post.shopId,
+                    postId: post.id,
                   );
                 },
               ),
             ),
           if (post.tags.isNotEmpty)
             const Padding(
-              padding: EdgeInsets.fromLTRB(18, 10, 18, 14),
+              padding: EdgeInsets.fromLTRB(18, 10, 18, 8),
               child: Text(
                 '사진 속 작은 점을 탭하면 제품·업체 정보를 볼 수 있어요',
                 style: TextStyle(
@@ -474,9 +500,8 @@ class _InteriorFeedTile extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            )
-          else
-            const SizedBox(height: 8),
+            ),
+          CommunityCommentsSection(store: store, postId: post.id),
         ],
       ),
     );
@@ -945,6 +970,7 @@ class _MarketCard extends StatelessWidget {
                           const ColoredBox(color: Color(0xFF1A1028)),
                     ),
                   ),
+                CommunityCommentsSection(store: store, postId: post.id),
               ],
             ),
           ),

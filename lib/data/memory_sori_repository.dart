@@ -12,6 +12,8 @@ import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
 import '../models/community_post.dart';
+import '../models/community_comment.dart';
+import '../models/affiliate_earnings.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -1352,6 +1354,9 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   static final List<CommunityPost> _communityPosts = [];
+  static final List<CommunityComment> _communityCommentsFlat = [];
+  static final List<AffiliateCommission> _affiliateCommissions = [];
+  static int _affiliateClicks = 0;
 
   @override
   Future<void> deleteShopPost(String postId) async {
@@ -1383,6 +1388,7 @@ class MemorySoriRepository implements SoriRepository {
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
     CommunityVisibility visibility = CommunityVisibility.public,
+    String? sourceChartId,
   }) async {
     final id = 'cp-${DateTime.now().millisecondsSinceEpoch}';
     final media = <CommunityPostMedia>[
@@ -1459,6 +1465,7 @@ class MemorySoriRepository implements SoriRepository {
       tierBadge: ShopTierBadge.silver,
       businessVerified: true,
       visibility: visibility,
+      sourceChartId: sourceChartId,
       createdAt: DateTime.now(),
     );
     _communityPosts.insert(0, post);
@@ -1491,6 +1498,80 @@ class MemorySoriRepository implements SoriRepository {
   @override
   Future<void> deleteCommunityPost(String postId) async {
     _communityPosts.removeWhere((e) => e.id == postId);
+    _communityCommentsFlat.removeWhere((e) => e.postId == postId);
+  }
+
+  @override
+  Future<List<CommunityComment>> loadCommunityComments(String postId) async {
+    final flat =
+        _communityCommentsFlat.where((c) => c.postId == postId).toList();
+    return CommunityComment.nest(flat);
+  }
+
+  @override
+  Future<CommunityComment> insertCommunityComment({
+    required String postId,
+    required String content,
+    String? authorUserId,
+    String? authorShopId,
+    String? parentId,
+  }) async {
+    final c = CommunityComment(
+      id: 'cc-${DateTime.now().millisecondsSinceEpoch}',
+      postId: postId,
+      content: content.trim(),
+      authorUserId: authorUserId,
+      authorShopId: authorShopId,
+      parentId: parentId,
+      authorName: '김원장',
+      authorShopName: 'SORI 에스테틱',
+      createdAt: DateTime.now(),
+    );
+    _communityCommentsFlat.add(c);
+    return c;
+  }
+
+  @override
+  Future<void> trackAffiliateClick({
+    required String shopId,
+    required String destinationUrl,
+    String label = '',
+    String? postId,
+    String? postTagId,
+    String? partnerId,
+    String? clickedByUserId,
+    String? clickedByShopId,
+    int commissionPerClick = 500,
+  }) async {
+    _affiliateClicks += 1;
+    _affiliateCommissions.insert(
+      0,
+      AffiliateCommission(
+        id: 'ac-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shopId,
+        linkId: 'alink',
+        amount: commissionPerClick,
+        status: 'pending',
+        createdAt: DateTime.now(),
+        linkLabel: label,
+        destinationUrl: destinationUrl,
+      ),
+    );
+  }
+
+  @override
+  Future<AffiliateEarningsSummary> loadAffiliateEarnings(String shopId) async {
+    final list =
+        _affiliateCommissions.where((c) => c.shopId == shopId).toList();
+    var pending = 0;
+    for (final c in list) {
+      pending += c.amount;
+    }
+    return AffiliateEarningsSummary(
+      clickCount: _affiliateClicks,
+      pendingAmount: pending,
+      recentCommissions: list.take(20).toList(),
+    );
   }
 
   @override

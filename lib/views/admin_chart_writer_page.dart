@@ -142,6 +142,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   final Set<String> _concerns = {};
   final Set<String> _homeCarePrescriptions = {};
   bool _saving = false;
+  bool _publishToCommunity = false;
   /// 서명 패드 포인터 활성 중 PageView 스와이프 잠금.
   bool _signaturePointerActive = false;
 
@@ -1447,6 +1448,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           return d.isEmpty ? null : d;
         }(),
         infoViewConsent: _infoViewConsent,
+        publishToCommunity: _publishToCommunity && _consentPhoto,
       );
 
       if (!mounted) return;
@@ -1686,29 +1688,61 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
             ),
             child: SafeArea(
               top: false,
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _saveAndConfirm,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _hasValidConsent
-                        ? const Color(0xFF2E7D32)
-                        : MyApp.soriPurple,
-                    disabledBackgroundColor: SoriTokens.border,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    value: _publishToCommunity,
+                    activeColor: SoriTokens.primary,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text(
+                      'Community 케이스 공유 공간에 함께 올리기',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _consentPhoto
+                          ? '고객 정보는 마스킹되고 Before/After·시술 요약만 공유됩니다'
+                          : '사진 공개 동의가 있을 때만 공유할 수 있어요',
+                      style: const TextStyle(fontSize: 11.5, height: 1.35),
+                    ),
+                    onChanged: _consentPhoto
+                        ? (v) => setState(
+                              () => _publishToCommunity = v ?? false,
+                            )
+                        : null,
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _saveAndConfirm,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _hasValidConsent
+                            ? const Color(0xFF2E7D32)
+                            : MyApp.soriPurple,
+                        disabledBackgroundColor: SoriTokens.border,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _saving
+                            ? '저장 중…'
+                            : (_quickChartMode
+                                ? '1초 간편 차트 저장 및 방문 확인'
+                                : '차트 저장 및 방문 확인 완료'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    _saving
-                        ? '저장 중…'
-                        : (_quickChartMode
-                            ? '1초 간편 차트 저장 및 방문 확인'
-                            : '차트 저장 및 방문 확인 완료'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
+                ],
               ),
             ),
           ),

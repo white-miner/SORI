@@ -18,6 +18,8 @@ import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
 import '../models/community_post.dart';
+import '../models/community_comment.dart';
+import '../models/affiliate_earnings.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -2903,6 +2905,7 @@ class SupabaseSoriRepository implements SoriRepository {
     DeviceReviewDraft? deviceReview,
     MarketListingDraft? marketListing,
     CommunityVisibility visibility = CommunityVisibility.public,
+    String? sourceChartId,
   }) async {
     final payload = <String, dynamic>{
       'shop_id': shopId,
@@ -2913,6 +2916,8 @@ class SupabaseSoriRepository implements SoriRepository {
       'status': 'published',
       'visibility': visibility.dbValue,
     };
+    final chartSrc = sourceChartId?.trim() ?? '';
+    if (chartSrc.isNotEmpty) payload['source_chart_id'] = chartSrc;
     final author = authorUserId?.trim() ?? '';
     if (author.isNotEmpty) payload['author_user_id'] = author;
 
@@ -3027,6 +3032,7 @@ class SupabaseSoriRepository implements SoriRepository {
       deviceReview: review,
       createdAt: post.createdAt,
       visibility: visibility,
+      sourceChartId: chartSrc.isEmpty ? null : chartSrc,
     );
   }
 
@@ -3078,6 +3084,227 @@ class SupabaseSoriRepository implements SoriRepository {
     final id = postId.trim();
     if (id.isEmpty) return;
     await _db.from('community_posts').delete().eq('id', id);
+  }
+
+  @override
+  Future<List<CommunityComment>> loadCommunityComments(String postId) async {
+    final id = postId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('community_comments')
+          .select(
+            '*, shops:author_shop_id(name, owner_name)',
+          )
+          .eq('post_id', id)
+          .eq('status', 'published')
+          .order('created_at', ascending: true)
+          .limit(200);
+      final flat = <CommunityComment>[];
+      for (final e in rows as List) {
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        final shop = m['shops'];
+        if (shop is Map) {
+          m['author_shop_name'] = shop['name'];
+          m['author_name'] = shop['owner_name'] ?? shop['name'];
+        }
+        flat.add(CommunityComment.fromMap(m));
+      }
+      return CommunityComment.nest(flat);
+    } catch (e, st) {
+      debugPrint('loadCommunityComments failed: $e\n$st');
+      try {
+        final rows = await _db
+            .from('community_comments')
+            .select()
+            .eq('post_id', id)
+            .order('created_at', ascending: true)
+            .limit(200);
+        final flat = (rows as List)
+            .map(
+              (e) => CommunityComment.fromMap(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
+            .toList();
+        return CommunityComment.nest(flat);
+      } catch (e2, st2) {
+        debugPrint('loadCommunityComments fallback failed: $e2\n$st2');
+        return const [];
+      }
+    }
+  }
+
+  @override
+  Future<CommunityComment> insertCommunityComment({
+    required String postId,
+    required String content,
+    String? authorUserId,
+    String? authorShopId,
+    String? parentId,
+  }) async {
+    final text = content.trim();
+    if (text.isEmpty) throw StateError('comment content required');
+    final payload = <String, dynamic>{
+      'post_id': postId.trim(),
+      'content': text,
+      'status': 'published',
+    };
+    final uid = authorUserId?.trim() ?? '';
+    if (uid.isNotEmpty) payload['author_user_id'] = uid;
+    final sid = authorShopId?.trim() ?? '';
+    if (sid.isNotEmpty) payload['author_shop_id'] = sid;
+    final parent = parentId?.trim() ?? '';
+    if (parent.isNotEmpty) payload['parent_id'] = parent;
+
+    final row = await _db
+        .from('community_comments')
+        .insert(payload)
+        .select()
+        .single();
+    return CommunityComment.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<void> trackAffiliateClick({
+    required String shopId,
+    required String destinationUrl,
+    String label = '',
+    String? postId,
+    String? postTagId,
+    String? partnerId,
+    String? clickedByUserId,
+    String? clickedByShopId,
+    int commissionPerClick = 500,
+  }) async {
+    final sid = shopId.trim();
+    final url = destinationUrl.trim();
+    if (sid.isEmpty || url.isEmpty) return;
+    try {
+      // Upsert link by shop+url
+      Map<String, dynamic>? linkRow;
+      final existing = await _db
+          .from('affiliate_links')
+          .select()
+          .eq('shop_id', sid)
+          .eq('destination_url', url)
+          .maybeSingle();
+      if (existing != null) {
+        linkRow = Map<String, dynamic>.from(existing);
+      } else {
+        final insert = <String, dynamic>{
+          'shop_id': sid,
+          'destination_url': url,
+          'label': label.trim(),
+          'commission_per_click': commissionPerClick,
+          'status': 'active',
+        };
+        final pid = postId?.trim() ?? '';
+        if (pid.isNotEmpty) insert['post_id'] = pid;
+        final tid = postTagId?.trim() ?? '';
+        if (tid.isNotEmpty) insert['post_tag_id'] = tid;
+        final partner = partnerId?.trim() ?? '';
+        if (partner.isNotEmpty) insert['partner_id'] = partner;
+        final created = await _db
+            .from('affiliate_links')
+            .insert(insert)
+            .select()
+            .single();
+        linkRow = Map<String, dynamic>.from(created as Map);
+      }
+
+      final linkId = DbMap.asText(linkRow['id']);
+      if (linkId.isEmpty) return;
+      final perClick = DbMap.asInt(
+        linkRow['commission_per_click'],
+        commissionPerClick,
+      );
+
+      final clickPayload = <String, dynamic>{
+        'link_id': linkId,
+        'shop_id': sid,
+        'referrer': 'community',
+      };
+      final byUser = clickedByUserId?.trim() ?? '';
+      if (byUser.isNotEmpty) clickPayload['clicked_by_user_id'] = byUser;
+      final byShop = clickedByShopId?.trim() ?? '';
+      if (byShop.isNotEmpty) clickPayload['clicked_by_shop_id'] = byShop;
+
+      final clickRow = await _db
+          .from('affiliate_clicks')
+          .insert(clickPayload)
+          .select()
+          .single();
+      final clickId = DbMap.asText(
+        Map<String, dynamic>.from(clickRow as Map)['id'],
+      );
+
+      await _db.from('affiliate_commissions').insert({
+        'shop_id': sid,
+        'link_id': linkId,
+        if (clickId.isNotEmpty) 'click_id': clickId,
+        'amount': perClick,
+        'status': 'pending',
+        'note': 'auto from click',
+      });
+    } catch (e, st) {
+      debugPrint('trackAffiliateClick failed: $e\n$st');
+    }
+  }
+
+  @override
+  Future<AffiliateEarningsSummary> loadAffiliateEarnings(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const AffiliateEarningsSummary();
+    try {
+      final clicks = await _db
+          .from('affiliate_clicks')
+          .select('id')
+          .eq('shop_id', sid);
+      final clickCount = (clicks as List).length;
+
+      final rows = await _db
+          .from('affiliate_commissions')
+          .select('*, affiliate_links(label, destination_url)')
+          .eq('shop_id', sid)
+          .order('created_at', ascending: false)
+          .limit(40);
+
+      var pending = 0;
+      var confirmed = 0;
+      var paid = 0;
+      final recent = <AffiliateCommission>[];
+      for (final e in rows as List) {
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        final link = m['affiliate_links'];
+        if (link is Map) {
+          m['link_label'] = link['label'];
+          m['destination_url'] = link['destination_url'];
+        }
+        final c = AffiliateCommission.fromMap(m);
+        recent.add(c);
+        switch (c.status) {
+          case 'confirmed':
+            confirmed += c.amount;
+          case 'paid':
+            paid += c.amount;
+          default:
+            pending += c.amount;
+        }
+      }
+      return AffiliateEarningsSummary(
+        clickCount: clickCount,
+        pendingAmount: pending,
+        confirmedAmount: confirmed,
+        paidAmount: paid,
+        recentCommissions: recent,
+      );
+    } catch (e, st) {
+      debugPrint('loadAffiliateEarnings failed: $e\n$st');
+      return const AffiliateEarningsSummary();
+    }
   }
 
   @override

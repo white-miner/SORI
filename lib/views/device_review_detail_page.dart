@@ -4,6 +4,7 @@ import '../models/community_post.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/community_comments_section.dart';
 import '../widgets/community_motivation.dart';
 import '../widgets/community_seminar_bridge.dart';
 import '../widgets/community_trust_header.dart';
@@ -213,6 +214,8 @@ class DeviceReviewDetailPage extends StatelessWidget {
                     ),
                   ],
                 ],
+                const SizedBox(height: 16),
+                CommunityCommentsSection(store: store, postId: post.id),
                 const SizedBox(height: 80),
               ],
             ),

@@ -445,6 +445,7 @@ class CommunityPost {
     this.tierBadge = ShopTierBadge.none,
     this.businessVerified = false,
     this.visibility = CommunityVisibility.public,
+    this.sourceChartId,
   });
 
   final String id;
@@ -469,6 +470,7 @@ class CommunityPost {
   final ShopTierBadge tierBadge;
   final bool businessVerified;
   final CommunityVisibility visibility;
+  final String? sourceChartId;
 
   String get authorDisplayName {
     final owner = shopOwnerName.trim();
@@ -499,6 +501,7 @@ class CommunityPost {
     ShopTierBadge? tierBadge,
     bool? businessVerified,
     CommunityVisibility? visibility,
+    String? sourceChartId,
   }) {
     return CommunityPost(
       id: id,
@@ -523,6 +526,7 @@ class CommunityPost {
       tierBadge: tierBadge ?? this.tierBadge,
       businessVerified: businessVerified ?? this.businessVerified,
       visibility: visibility ?? this.visibility,
+      sourceChartId: sourceChartId ?? this.sourceChartId,
     );
   }
 
@@ -627,6 +631,9 @@ class CommunityPost {
       visibility: CommunityVisibility.fromDb(
         DbMap.asText(map['visibility'], 'public'),
       ),
+      sourceChartId: DbMap.asTextOrNull(
+        map['source_chart_id'] ?? map['sourceChartId'],
+      ),
     );
   }
 
@@ -640,6 +647,8 @@ class CommunityPost {
         'style_tags': styleTags,
         if (regionCode != null && regionCode!.trim().isNotEmpty)
           'region_code': regionCode!.trim(),
+        if (sourceChartId != null && sourceChartId!.trim().isNotEmpty)
+          'source_chart_id': sourceChartId!.trim(),
         'status': 'published',
         'visibility': visibility.dbValue,
       };
