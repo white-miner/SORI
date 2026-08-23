@@ -30,6 +30,7 @@ class HomeFeedCard extends StatefulWidget {
     required this.onBookingCta,
     required this.onShopProfile,
     this.onOpenCommunitySeminar,
+    this.onBoostPurchase,
     this.currentUserId,
     this.review,
   });
@@ -52,6 +53,9 @@ class HomeFeedCard extends StatefulWidget {
 
   /// ⋯ 메뉴 — Community 세미나 딥링크 (1급 CTA 아님).
   final VoidCallback? onOpenCommunitySeminar;
+
+  /// 작성자 전용 — 우리 지역 노출 부스터 구매.
+  final VoidCallback? onBoostPurchase;
 
   @override
   State<HomeFeedCard> createState() => _HomeFeedCardState();
@@ -210,16 +214,47 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    shop.name.trim().isEmpty ? 'SORI' : shop.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      height: 1.2,
-                      color: SoriTokens.textPrimary,
-                    ),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          shop.name.trim().isEmpty ? 'SORI' : shop.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            height: 1.2,
+                            color: SoriTokens.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (item.isBoosted) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x22FBBF24),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: const Color(0x66FBBF24),
+                            ),
+                          ),
+                          child: const Text(
+                            'AD',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.4,
+                              color: Color(0xFFFBBF24),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (relative.isNotEmpty)
@@ -258,13 +293,45 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 tag: CaseDetailPage.imageHeroTag(chart.id),
                 child: Material(
                   color: const Color(0xFF111113),
-                  child: Screenshot(
-                    controller: _shot,
-                    child: GestureDetector(
-                      onDoubleTap: widget.onOpenDetail,
-                      behavior: HitTestBehavior.deferToChild,
-                      child: _baSlider(chart),
-                    ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Screenshot(
+                        controller: _shot,
+                        child: GestureDetector(
+                          onDoubleTap: widget.onOpenDetail,
+                          behavior: HitTestBehavior.deferToChild,
+                          child: _baSlider(chart),
+                        ),
+                      ),
+                      if (item.isBoosted)
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0x99FBBF24),
+                              ),
+                            ),
+                            child: const Text(
+                              'Sponsored',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFFBBF24),
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -461,6 +528,30 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
+          if (widget.onBoostPurchase != null &&
+              item.isAuthoredBy(widget.currentUserId))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: OutlinedButton.icon(
+                onPressed: widget.onBoostPurchase,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFA78BFA),
+                  side: BorderSide(
+                    color: const Color(0xFFA78BFA).withValues(alpha: 0.5),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+                icon: const Icon(Icons.rocket_launch_rounded, size: 16),
+                label: const Text(
+                  '노출 부스터 구매',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
             child: hasBooking
@@ -542,6 +633,20 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onBookingCta();
+                  },
+                ),
+              if (widget.onBoostPurchase != null &&
+                  item.isAuthoredBy(widget.currentUserId))
+                ListTile(
+                  leading: const Icon(
+                    Icons.rocket_launch_rounded,
+                    color: Color(0xFFA78BFA),
+                  ),
+                  title: const Text('노출 부스터 구매'),
+                  subtitle: const Text('우리 지역 최상단 AD 고정'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onBoostPurchase!();
                   },
                 ),
               if (widget.onOpenCommunitySeminar != null)

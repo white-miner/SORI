@@ -31,6 +31,7 @@ import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
+import '../models/point_shop.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -1796,11 +1797,35 @@ class SoriStore implements Listenable {
     _notify();
     try {
       final items = await _repository.loadCommunityHotCases();
+      final boosts = await _repository.loadActiveBoostPlacements();
+      activeBoostPlacements
+        ..clear()
+        ..addAll(boosts);
+      final boostByChart = <String, BoostPlacement>{};
+      for (final b in boosts) {
+        final key = b.chartId?.trim().isNotEmpty == true
+            ? b.chartId!.trim()
+            : (b.targetType == 'chart' ? b.targetId.trim() : '');
+        if (key.isEmpty) continue;
+        final prev = boostByChart[key];
+        if (prev == null ||
+            (b.endsAt != null &&
+                (prev.endsAt == null || b.endsAt!.isAfter(prev.endsAt!)))) {
+          boostByChart[key] = b;
+        }
+      }
+      final annotated = items
+          .map((item) {
+            final b = boostByChart[item.chart.id];
+            if (b == null) return item;
+            return item.copyWith(isBoosted: true, boostEndsAt: b.endsAt);
+          })
+          .toList();
       communityHotCases
         ..clear()
-        ..addAll(items);
+        ..addAll(annotated);
       // 단골 샵 리뷰 미러도 보강
-      for (final item in items) {
+      for (final item in annotated) {
         final r = item.review;
         if (r != null) _mergeReview(r);
       }
@@ -1810,6 +1835,87 @@ class SoriStore implements Listenable {
     } finally {
       communityHotCasesLoading = false;
       _notify();
+    }
+  }
+
+  /// 우리 지역 탭용 — 활성 부스터 핀 → 나머지 최신순.
+  List<CommunityCaseItem> localBoostPinnedFeed() {
+    final base = communityHotCases.isNotEmpty
+        ? List<CommunityCaseItem>.from(communityHotCases)
+        : favoriteShopCaseItems();
+    final boosted = <CommunityCaseItem>[];
+    final rest = <CommunityCaseItem>[];
+    for (final item in base) {
+      if (item.isBoosted) {
+        boosted.add(item);
+      } else {
+        rest.add(item);
+      }
+    }
+    boosted.sort((a, b) {
+      final ae = a.boostEndsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final be = b.boostEndsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return be.compareTo(ae);
+    });
+    return [...boosted, ...rest];
+  }
+
+  List<PointShopItem> pointShopBoosters = List.from(
+    PointShopItem.catalogBoosters,
+  );
+  List<BoostPlacement> activeBoostPlacements = [];
+
+  Future<void> refreshPointShopItems() async {
+    try {
+      pointShopBoosters = await _repository.loadPointShopItems(
+        category: 'booster',
+      );
+      if (pointShopBoosters.isEmpty) {
+        pointShopBoosters = List.from(PointShopItem.catalogBoosters);
+      }
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshPointShopItems failed: $e\n$st');
+    }
+  }
+
+  /// 부스터 구매. 잔액 부족 시 insufficient 플래그 결과 반환 (예외 X).
+  Future<BoostPurchaseResult> purchaseBoostForChart({
+    required String chartId,
+    required String sku,
+  }) async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty || chartId.trim().isEmpty) {
+      return const BoostPurchaseResult(ok: false, message: 'shop/chart required');
+    }
+    try {
+      final result = await _repository.purchasePointShopItem(
+        shopId: sid,
+        sku: sku,
+        targetType: 'chart',
+        targetId: chartId.trim(),
+      );
+      if (result.ok) {
+        await refreshPointWallet();
+        await refreshCommunityHotCases();
+      } else if (result.insufficient) {
+        await refreshPointWallet();
+      }
+      return result;
+    } catch (e, st) {
+      debugPrint('purchaseBoostForChart failed: $e\n$st');
+      final msg = e.toString();
+      if (msg.contains('insufficient points')) {
+        final haveMatch = RegExp(r'have (\d+)').firstMatch(msg);
+        final needMatch = RegExp(r'need (\d+)').firstMatch(msg);
+        await refreshPointWallet();
+        return BoostPurchaseResult.insufficientPoints(
+          have: int.tryParse(haveMatch?.group(1) ?? '') ?? pointWallet.pointTotal,
+          need: int.tryParse(needMatch?.group(1) ?? '') ?? 0,
+        );
+      }
+      _setError(e, userFacing: true);
+      rethrow;
     }
   }
 

@@ -12,6 +12,8 @@ class CommunityCaseItem {
     this.careTags = const [],
     this.customerAge,
     this.customerGenderLabel,
+    this.isBoosted = false,
+    this.boostEndsAt,
   });
 
   final CustomerChart chart;
@@ -26,6 +28,10 @@ class CommunityCaseItem {
 
   /// 공개 피드용 성별 라벨 (`여성` / `남성`).
   final String? customerGenderLabel;
+
+  /// 우리 지역 탭 핀 — 활성 부스터.
+  final bool isBoosted;
+  final DateTime? boostEndsAt;
 
   bool get hasVerifiedReview =>
       review != null && review!.displayText.trim().isNotEmpty;
@@ -55,5 +61,22 @@ class CommunityCaseItem {
     final uid = currentUserId?.trim() ?? '';
     final aid = authorId ?? '';
     return uid.isNotEmpty && aid.isNotEmpty && uid == aid;
+  }
+
+  CommunityCaseItem copyWith({
+    bool? isBoosted,
+    DateTime? boostEndsAt,
+    CustomerReview? review,
+  }) {
+    return CommunityCaseItem(
+      chart: chart,
+      shop: shop,
+      review: review ?? this.review,
+      careTags: careTags,
+      customerAge: customerAge,
+      customerGenderLabel: customerGenderLabel,
+      isBoosted: isBoosted ?? this.isBoosted,
+      boostEndsAt: boostEndsAt ?? this.boostEndsAt,
+    );
   }
 }

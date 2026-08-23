@@ -11,6 +11,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
+import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/sori_logo.dart';
 import 'customer_management_cases_page.dart';
 import 'success_cases_page.dart';
@@ -61,6 +62,26 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   List<CommunityCaseItem> get _feed {
     final hot = store.communityHotCases;
     return hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
+  }
+
+  List<CommunityCaseItem> get _localFeed => store.localBoostPinnedFeed();
+
+  Future<void> _buyBoost(CommunityCaseItem item) async {
+    final ok = await showBoostPurchaseSheet(
+      context,
+      store: store,
+      chartId: item.chart.id,
+      caseTitle: item.chart.careName,
+    );
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('노출 부스터가 적용되었습니다. 우리 지역 탭 상단에 고정돼요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _toggleLike(String chartId) {
@@ -272,6 +293,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final id = item.chart.id;
     final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
     final comments = _comments[id] ?? const <_FeedComment>[];
+    final isAuthor = item.isAuthoredBy(store.session?.id);
     return HomeFeedCard(
       item: item,
       currentUserId: store.session?.id,
@@ -286,6 +308,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       onOpenDetail: () => _openCaseDetail(item, index),
       onBookingCta: () => _openNaverBookingOrProfile(item.shop),
       onShopProfile: () => _openShopProfile(item.shop),
+      onBoostPurchase: isAuthor ? () => _buyBoost(item) : null,
       onOpenCommunitySeminar: () {
         store.pendingCommunitySegment = 4; // 세미나
         widget.onSelectTab?.call(3);
@@ -296,6 +319,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
   @override
   Widget build(BuildContext context) {
     final feed = _feed;
+    final localFeed = _localFeed;
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
     return DefaultTabController(
@@ -348,8 +372,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                         : CustomerManagementCasesPage(store: store),
                     _SimpleFeedTab(
                       title: '우리 지역',
-                      subtitle: '내 주변 샵의 관리 사례를 탐색해요.',
-                      feed: feed,
+                      subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
+                      feed: localFeed,
                       loading: loading,
                       buildCard: _feedCard,
                     ),

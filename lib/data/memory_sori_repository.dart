@@ -15,6 +15,7 @@ import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
+import '../models/point_shop.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -1361,6 +1362,7 @@ class MemorySoriRepository implements SoriRepository {
   static final Map<String, SoriPointWallet> _wallets = {};
   static final List<PointTransaction> _pointTx = [];
   static final List<SettlementTransaction> _settlementTx = [];
+  static final List<BoostPlacement> _boosts = [];
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
 
@@ -1895,6 +1897,126 @@ class MemorySoriRepository implements SoriRepository {
               'is_body_locked': false,
               'post_type': post.postType.dbValue,
             },
+    );
+  }
+
+  @override
+  Future<List<PointShopItem>> loadPointShopItems({
+    String category = 'booster',
+  }) async {
+    return PointShopItem.catalogBoosters
+        .where((e) => e.category == category && e.isActive)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<BoostPlacement>> loadActiveBoostPlacements({
+    int limit = 40,
+  }) async {
+    final now = DateTime.now();
+    final active = _boosts
+        .where(
+          (b) =>
+              b.status == 'active' &&
+              (b.endsAt == null || b.endsAt!.isAfter(now)),
+        )
+        .toList();
+    if (active.length > limit) {
+      return active.take(limit).toList(growable: false);
+    }
+    return active;
+  }
+
+  @override
+  Future<BoostPurchaseResult> purchasePointShopItem({
+    required String shopId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String regionCode = '',
+  }) async {
+    PointShopItem? item;
+    for (final e in PointShopItem.catalogBoosters) {
+      if (e.sku == sku) {
+        item = e;
+        break;
+      }
+    }
+    if (item == null) {
+      return const BoostPurchaseResult(ok: false, message: 'item not found');
+    }
+
+    final w = _walletOf(shopId);
+    final settlementBefore = w.settlementBalance;
+    if (w.pointTotal < item.pricePoints) {
+      return BoostPurchaseResult.insufficientPoints(
+        have: w.pointTotal,
+        need: item.pricePoints,
+      );
+    }
+
+    var free = w.freeBalance;
+    var paid = w.paidBalance;
+    var need = item.pricePoints;
+    final fromFree = need <= free ? need : free;
+    free -= fromFree;
+    need -= fromFree;
+    paid -= need;
+    final next = w.copyWith(freeBalance: free, paidBalance: paid);
+    _wallets[shopId] = next;
+    assert(next.settlementBalance == settlementBefore);
+
+    _pointTx.insert(
+      0,
+      PointTransaction(
+        id: 'pt-boost-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shopId,
+        amount: -item.pricePoints,
+        bucket: fromFree > 0 ? 'free' : 'paid',
+        kind: 'boost_spend',
+        note: item.title,
+        createdAt: DateTime.now(),
+        balanceFreeAfter: next.freeBalance,
+        balancePaidAfter: next.paidBalance,
+      ),
+    );
+
+    BoostPlacement? placement;
+    if (item.isBooster) {
+      final starts = DateTime.now();
+      final ends = starts.add(Duration(hours: item.durationHours));
+      final type = targetType.trim().isEmpty ? 'chart' : targetType.trim();
+      _boosts.removeWhere(
+        (b) =>
+            b.status == 'active' &&
+            b.targetType == type &&
+            b.targetId == targetId,
+      );
+      placement = BoostPlacement(
+        id: 'bp-${DateTime.now().millisecondsSinceEpoch}',
+        shopId: shopId,
+        targetType: type,
+        targetId: targetId,
+        itemSku: item.sku,
+        chartId: type == 'chart' ? targetId : null,
+        postId: type == 'community_post' ? targetId : null,
+        regionCode: regionCode,
+        startsAt: starts,
+        endsAt: ends,
+        status: 'active',
+        pointsSpent: item.pricePoints,
+      );
+      _boosts.insert(0, placement);
+    }
+
+    return BoostPurchaseResult(
+      ok: true,
+      sku: item.sku,
+      pointsSpent: item.pricePoints,
+      pointFreeBalance: next.freeBalance,
+      pointPaidBalance: next.paidBalance,
+      settlementBalance: next.settlementBalance,
+      placement: placement,
     );
   }
 

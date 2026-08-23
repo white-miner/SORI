@@ -21,6 +21,7 @@ import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
+import '../models/point_shop.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -3613,6 +3614,108 @@ class SupabaseSoriRepository implements SoriRepository {
     );
     if (raw is! Map) return const PostUnlockResult(ok: false);
     return PostUnlockResult.fromMap(Map<String, dynamic>.from(raw));
+  }
+
+  @override
+  Future<List<PointShopItem>> loadPointShopItems({
+    String category = 'booster',
+  }) async {
+    try {
+      final rows = await _db
+          .from('point_shop_items')
+          .select()
+          .eq('is_active', true)
+          .eq('category', category)
+          .order('sort_order', ascending: true);
+      return (rows as List)
+          .whereType<Map>()
+          .map((e) => PointShopItem.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadPointShopItems failed: $e\n$st');
+      return PointShopItem.catalogBoosters
+          .where((e) => e.category == category)
+          .toList(growable: false);
+    }
+  }
+
+  @override
+  Future<List<BoostPlacement>> loadActiveBoostPlacements({
+    int limit = 40,
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'list_active_boost_placements',
+        params: {'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => BoostPlacement.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadActiveBoostPlacements failed: $e\n$st');
+      try {
+        final rows = await _db
+            .from('boost_placements')
+            .select()
+            .eq('status', 'active')
+            .gt('ends_at', DateTime.now().toUtc().toIso8601String())
+            .order('ends_at', ascending: false)
+            .limit(limit);
+        return (rows as List)
+            .whereType<Map>()
+            .map((e) => BoostPlacement.fromMap(Map<String, dynamic>.from(e)))
+            .toList();
+      } catch (_) {
+        return const [];
+      }
+    }
+  }
+
+  @override
+  Future<BoostPurchaseResult> purchasePointShopItem({
+    required String shopId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String regionCode = '',
+  }) async {
+    final sid = shopId.trim();
+    final sk = sku.trim();
+    final tid = targetId.trim();
+    if (sid.isEmpty || sk.isEmpty || tid.isEmpty) {
+      return const BoostPurchaseResult(ok: false, message: 'invalid args');
+    }
+    try {
+      final raw = await _db.rpc(
+        'purchase_point_shop_item',
+        params: {
+          'p_shop_id': sid,
+          'p_sku': sk,
+          'p_target_type': targetType,
+          'p_target_id': tid,
+          'p_region_code': regionCode,
+        },
+      );
+      if (raw is! Map) {
+        return const BoostPurchaseResult(ok: false, message: 'empty response');
+      }
+      return BoostPurchaseResult.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('purchasePointShopItem failed: $e\n$st');
+      final msg = e.toString();
+      final insufficient = msg.contains('insufficient points');
+      if (insufficient) {
+        final haveMatch = RegExp(r'have (\d+)').firstMatch(msg);
+        final needMatch = RegExp(r'need (\d+)').firstMatch(msg);
+        return BoostPurchaseResult.insufficientPoints(
+          have: int.tryParse(haveMatch?.group(1) ?? '') ?? 0,
+          need: int.tryParse(needMatch?.group(1) ?? '') ?? 0,
+        );
+      }
+      rethrow;
+    }
   }
 
   @override

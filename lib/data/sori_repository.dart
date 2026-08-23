@@ -16,6 +16,7 @@ import '../models/community_post.dart';
 import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
+import '../models/point_shop.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -515,6 +516,23 @@ abstract class SoriRepository {
     required String postId,
     required String viewerShopId,
     int cost = 500,
+  });
+
+  /// 포인트 상점 부스터 등 상품 목록.
+  Future<List<PointShopItem>> loadPointShopItems({
+    String category = 'booster',
+  });
+
+  /// 활성 부스터 배치 (Home 핀용).
+  Future<List<BoostPlacement>> loadActiveBoostPlacements({int limit = 40});
+
+  /// 포인트 상점 구매 — settlement 미차감. 부족 시 BoostPurchaseResult.insufficient.
+  Future<BoostPurchaseResult> purchasePointShopItem({
+    required String shopId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String regionCode = '',
   });
 
   /// 원장 샵 세미나 클래스 목록 (최신순).
