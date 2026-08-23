@@ -13,6 +13,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
+import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
 import 'customer_management_cases_page.dart';
 import 'success_cases_page.dart';
@@ -300,6 +301,13 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              ShopTopSupportersSection(
+                entries: ShopTopSupportersSection.fromBoosts(
+                  store.activeBoostPlacements,
+                  shopId: shop.id,
+                ),
+              ),
               const SizedBox(height: 16),
               if (shop.naverBookingOrPlaceUrl.isNotEmpty)
                 SizedBox(

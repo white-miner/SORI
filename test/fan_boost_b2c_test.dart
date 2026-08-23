@@ -82,6 +82,7 @@ void main() {
     expect(local.first.isBoosted, isTrue);
     expect(local.first.isFanBoosted, isTrue);
     expect(local.first.boostSource, 'fan_boost');
+    expect(local.first.fanDisplayName, '팬A');
   });
 
   test('insufficient Fan-Boost returns gap for IAP bridge', () async {

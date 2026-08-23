@@ -12,6 +12,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/case_persona.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/case_review_inline.dart';
+import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
 
 /// 인스타그램 스타일 풀스크린 B/A 케이스 상세.
@@ -478,6 +479,20 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                           ),
                         ),
                 ),
+                if (item.isFanBoosted) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: FanSponsorCreditBanner(
+                      fanName: item.fanDisplayName,
+                    ),
+                  ),
+                  FanSupportersAvatarRow(
+                    fanNames: [
+                      if (item.fanDisplayName.trim().isNotEmpty)
+                        item.fanDisplayName.trim(),
+                    ],
+                  ),
+                ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: Text(

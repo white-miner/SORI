@@ -1978,6 +1978,13 @@ class SoriStore implements Listenable {
         message: 'customer/chart required',
       );
     }
+    final fanName = (session?.name ?? '').trim();
+    if (fanName.isEmpty) {
+      return const BoostPurchaseResult(
+        ok: false,
+        message: '스폰서 닉네임이 필요합니다. 프로필에서 이름을 설정해 주세요.',
+      );
+    }
     try {
       final result = await _repository.purchaseFanBoost(
         customerId: cid,
@@ -1985,7 +1992,7 @@ class SoriStore implements Listenable {
         targetType: 'chart',
         targetId: chartId.trim(),
         targetShopId: targetShopId,
-        fanDisplayName: session?.name ?? '',
+        fanDisplayName: fanName,
       );
       if (result.ok) {
         await refreshCustomerEchoWallet();

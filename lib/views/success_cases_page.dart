@@ -12,6 +12,7 @@ import '../widgets/case_archive_tile.dart';
 import '../widgets/case_feed_viewport.dart';
 import '../widgets/community_comments_section.dart';
 import '../widgets/community_motivation.dart';
+import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_network_image.dart';
 
 /// 관리 케이스 탐색 피드 — case_share + 공개 차트 단일 레일.
@@ -292,6 +293,13 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              ShopTopSupportersSection(
+                entries: ShopTopSupportersSection.fromBoosts(
+                  widget.store.activeBoostPlacements,
+                  shopId: shop.id,
+                ),
+              ),
             ],
           ),
         );

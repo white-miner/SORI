@@ -12,6 +12,7 @@ import '../pages/case_detail_page.dart';
 import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
+import 'fan_sponsor_credits.dart';
 import 'sori_logo.dart';
 
 /// 홈 탐색 피드 카드 — 모듈형 둥근 카드.
@@ -252,7 +253,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                             ),
                           ),
                           child: Text(
-                            item.isFanBoosted ? 'Fans' : 'AD',
+                            item.isFanBoosted
+                                ? (item.fanDisplayName.trim().isEmpty
+                                    ? 'Fans'
+                                    : item.fanDisplayName.trim())
+                                : 'AD',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -333,7 +338,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                               ),
                             ),
                             child: Text(
-                              item.isFanBoosted ? 'Fans' : 'Sponsored',
+                              item.isFanBoosted
+                                  ? (item.fanDisplayName.trim().isEmpty
+                                      ? 'Fans'
+                                      : 'by ${item.fanDisplayName.trim()}')
+                                  : 'Sponsored',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
@@ -351,6 +360,13 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ),
             ),
           ),
+          if (item.isFanBoosted)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: FanSponsorCreditBanner(
+                fanName: item.fanDisplayName,
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
             child: Row(

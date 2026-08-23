@@ -140,13 +140,36 @@ Future<bool> showFanBoostPurchaseSheet(
                   const SizedBox(height: 6),
                   Text(
                     caseTitle.trim().isEmpty
-                        ? '내 Echo로 원장님 케이스를 「우리 지역」 상단에 올려요. Fans 뱃지 · 정산금 변동 없음.'
-                        : '「$caseTitle」를 Fans 부스터로 고정합니다.',
+                        ? '내 Echo로 원장님 케이스를 「우리 지역」 상단에 올려요. 닉네임이 피드에 공개됩니다 · 정산금 변동 없음.'
+                        : '「$caseTitle」를 Fan-Boost로 고정합니다. 내 닉네임이 스폰서로 노출됩니다.',
                     style: const TextStyle(
                       fontSize: 13,
                       color: SoriTokens.textSecondary,
                       fontWeight: FontWeight.w600,
                       height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x22F472B6),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0x55F472B6)),
+                    ),
+                    child: Text(
+                      (store.session?.name ?? '').trim().isNotEmpty
+                          ? '🔥 스폰서 표기: ${(store.session?.name ?? '').trim()} (익명 불가)'
+                          : '🔥 스폰서 닉네임이 피드·상세에 강제 노출됩니다 (익명 불가)',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFF9A8D4),
+                        height: 1.35,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
