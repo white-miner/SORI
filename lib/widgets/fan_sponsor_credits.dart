@@ -1,9 +1,194 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
+import '../models/fan_supporter.dart';
 import '../models/point_shop.dart';
 import '../theme/sori_tokens.dart';
 
-/// Fan-Boost 스폰서 크레딧 — 피드/상세 공통.
+/// 미디어 하단 1줄 글래스 스트립 — B/A 위에 올리지 않음 (높이 ≤44).
+class FanBoostCreditStrip extends StatelessWidget {
+  const FanBoostCreditStrip({
+    super.key,
+    required this.supporters,
+    this.onTap,
+  });
+
+  final List<FanSupporterEntry> supporters;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ranked = FanSupporterEntry.ranked(supporters);
+    if (ranked.isEmpty) return const SizedBox.shrink();
+
+    final lead = ranked.first.name.trim().isEmpty ? '팬' : ranked.first.name.trim();
+    final others = ranked.length - 1;
+    final copy = others <= 0
+        ? '팬 $lead님의 지원사격'
+        : '팬 $lead님 외 ${others}명 지원사격';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0x991A1218),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0x55F472B6)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.local_fire_department_rounded,
+                      size: 16,
+                      color: const Color(0xFFF472B6),
+                    ),
+                    const SizedBox(width: 6),
+                    SupporterFacepile(supporters: ranked, size: 22),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        copy,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFF9A8D4),
+                          letterSpacing: -0.2,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    if (onTap != null)
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: Color(0x99F9A8D4),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Top 3 아바타 겹침 + `+N` 오버플로우 칩.
+class SupporterFacepile extends StatelessWidget {
+  const SupporterFacepile({
+    super.key,
+    required this.supporters,
+    this.size = 22,
+    this.maxVisible = 3,
+  });
+
+  final List<FanSupporterEntry> supporters;
+  final double size;
+  final int maxVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    final ranked = FanSupporterEntry.ranked(supporters);
+    if (ranked.isEmpty) return const SizedBox.shrink();
+
+    final visible = ranked.take(maxVisible).toList();
+    final overflow = ranked.length - visible.length;
+    final overlap = size * 0.36; // ~−8px when size=22
+    final count = visible.length + (overflow > 0 ? 1 : 0);
+    final width = size + (count - 1) * (size - overlap);
+
+    return SizedBox(
+      width: width,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < visible.length; i++)
+            Positioned(
+              left: i * (size - overlap),
+              child: _FaceAvatar(entry: visible[i], size: size),
+            ),
+          if (overflow > 0)
+            Positioned(
+              left: visible.length * (size - overlap),
+              child: Container(
+                width: size,
+                height: size,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF3B1F32),
+                  border: Border.all(color: const Color(0xFF1A1218), width: 1.5),
+                ),
+                child: Text(
+                  overflow > 99 ? '99+' : '+$overflow',
+                  style: TextStyle(
+                    fontSize: size < 24 ? 8.5 : 10,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFFF9A8D4),
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FaceAvatar extends StatelessWidget {
+  const _FaceAvatar({required this.entry, required this.size});
+
+  final FanSupporterEntry entry;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = entry.avatarUrl?.trim() ?? '';
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF1A1218), width: 1.5),
+      ),
+      child: CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0x44F472B6),
+        backgroundImage:
+            url.isNotEmpty && !url.startsWith('data:') ? NetworkImage(url) : null,
+        child: url.isEmpty || url.startsWith('data:')
+            ? Text(
+                entry.initial,
+                style: TextStyle(
+                  fontSize: size * 0.42,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFFF9A8D4),
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+/// 레거시 단일 닉 배너 — Facepile 없을 때 fallback.
 class FanSponsorCreditBanner extends StatelessWidget {
   const FanSponsorCreditBanner({
     super.key,
@@ -14,132 +199,173 @@ class FanSponsorCreditBanner extends StatelessWidget {
   final String fanName;
   final bool compact;
 
-  String get _name {
-    final n = fanName.trim();
-    return n.isEmpty ? '팬' : n;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: compact ? 7 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1524),
-        borderRadius: BorderRadius.circular(compact ? 8 : 10),
-        border: Border.all(color: const Color(0x66F472B6)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.local_fire_department_rounded,
-            size: compact ? 16 : 18,
-            color: const Color(0xFFF472B6),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              compact
-                  ? 'Sponsored by $_name'
-                  : '팬 $_name님의 지원사격',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 12 : 13.5,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFFF9A8D4),
-                letterSpacing: -0.2,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final name = fanName.trim().isEmpty ? '팬' : fanName.trim();
+    return FanBoostCreditStrip(
+      supporters: [FanSupporterEntry(name: name, echoSpent: 0)],
     );
   }
 }
 
-/// 상세 상단 — 이 게시물을 띄워준 팬 아바타 열.
+/// 상세 — 동일 스트립 + 시트 트리거 (아바타 가로열 대체).
 class FanSupportersAvatarRow extends StatelessWidget {
   const FanSupportersAvatarRow({
     super.key,
     required this.fanNames,
+    this.supporters = const [],
+    this.onOpenSheet,
   });
 
   final List<String> fanNames;
+  final List<FanSupporterEntry> supporters;
+  final VoidCallback? onOpenSheet;
 
   @override
   Widget build(BuildContext context) {
-    final names = fanNames
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    if (names.isEmpty) return const SizedBox.shrink();
+    final list = supporters.isNotEmpty
+        ? supporters
+        : fanNames
+            .map((n) => FanSupporterEntry(name: n, echoSpent: 0))
+            .where((e) => e.name.trim().isNotEmpty)
+            .toList();
+    if (list.isEmpty) return const SizedBox.shrink();
+    return FanBoostCreditStrip(supporters: list, onTap: onOpenSheet);
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '이 게시물을 띄워준 팬',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 52,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: names.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                final name = names[i];
-                final initial =
-                    name.isNotEmpty ? String.fromCharCode(name.runes.first) : '?';
-                return Column(
+Future<void> showFanSupportersSheet(
+  BuildContext context, {
+  required List<FanSupporterEntry> supporters,
+  String title = '이 게시물의 Top 서포터즈',
+}) {
+  final ranked = FanSupporterEntry.ranked(supporters);
+  return showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: SoriTokens.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      final h = MediaQuery.sizeOf(ctx).height * 0.58;
+      return SafeArea(
+        child: SizedBox(
+          height: h,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: SoriTokens.border,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: const Color(0x44F472B6),
-                      child: Text(
-                        initial.toUpperCase(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
-                          color: Color(0xFFF9A8D4),
-                        ),
-                      ),
+                    const Icon(
+                      Icons.emoji_events_outlined,
+                      color: Color(0xFFF9A8D4),
+                      size: 22,
                     ),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: 48,
+                    const SizedBox(width: 8),
+                    Expanded(
                       child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
+                        title,
                         style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: SoriTokens.textSecondary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
                   ],
-                );
-              },
-            ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Text(
+                  'Fan-Boost · 누적 Echo · 닉네임 공개',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ranked.isEmpty
+                    ? const Center(
+                        child: Text(
+                          '아직 서포터즈가 없어요.',
+                          style: TextStyle(color: SoriTokens.textSecondary),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        itemCount: ranked.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) {
+                          final row = ranked[i];
+                          final rank = i + 1;
+                          final rose = rank <= 3;
+                          return Row(
+                            children: [
+                              SizedBox(
+                                width: 28,
+                                child: Text(
+                                  '$rank',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                    color: rose
+                                        ? const Color(0xFFF9A8D4)
+                                        : SoriTokens.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              _FaceAvatar(entry: row, size: 36),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  row.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14.5,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${row.echoSpent}E',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13.5,
+                                  color: rose
+                                      ? const Color(0xFFF9A8D4)
+                                      : SoriTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+    },
+  );
 }
 
 /// 샵 프로필 — TOP 서포터즈 랭킹 뼈대.
@@ -149,10 +375,8 @@ class ShopTopSupportersSection extends StatelessWidget {
     required this.entries,
   });
 
-  /// name → echo spent (표시용)
   final List<({String name, int echoSpent})> entries;
 
-  /// 활성 Fan-Boost 배치에서 샵별 서포터 집계 (연동 준비용).
   static List<({String name, int echoSpent})> fromBoosts(
     Iterable<BoostPlacement> boosts, {
     required String shopId,
@@ -169,6 +393,14 @@ class ShopTopSupportersSection extends StatelessWidget {
         .toList()
       ..sort((a, b) => b.echoSpent.compareTo(a.echoSpent));
     return list;
+  }
+
+  static List<({String name, int echoSpent})> fromSupporters(
+    Iterable<FanSupporterEntry> supporters,
+  ) {
+    return FanSupporterEntry.ranked(supporters)
+        .map((e) => (name: e.name, echoSpent: e.echoSpent))
+        .toList();
   }
 
   @override
@@ -189,7 +421,7 @@ class ShopTopSupportersSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Fan-Boost로 샵을 밀어준 팬 랭킹 (연동 준비)',
+          'Fan-Boost로 샵을 밀어준 팬 랭킹',
           style: TextStyle(
             fontSize: 11.5,
             color: SoriTokens.textSecondary,
@@ -206,7 +438,7 @@ class ShopTopSupportersSection extends StatelessWidget {
               border: Border.all(color: SoriTokens.border),
             ),
             child: const Text(
-              '아직 서포터즈가 없어요. 첫 Fan-Boost의 랭킹을 열어보세요.',
+              '아직 서포터즈가 없어요. 첫 Fan-Boost로 랭킹을 열어보세요.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,

@@ -131,10 +131,19 @@ Future<bool> showFanBoostPurchaseSheet(
                   ),
                   const SizedBox(height: 14),
                   const Text(
-                    '우리 원장님 홍보 부스터',
+                    '🔥 우리 원장님 게시물 응원하기',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Fan-Boost',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFF9A8D4),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -186,44 +195,73 @@ Future<bool> showFanBoostPurchaseSheet(
                     final busy = busySku == item.sku;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: OutlinedButton(
-                        onPressed: busySku.isNotEmpty ? null : () => buy(item),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: SoriTokens.textPrimary,
-                          side: BorderSide(
-                            color: const Color(0xFFF472B6).withValues(alpha: 0.45),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13.5,
-                                ),
+                      child: Material(
+                        color: SoriTokens.surfaceElevated,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: busySku.isNotEmpty ? null : () => buy(item),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFF472B6)
+                                    .withValues(alpha: 0.45),
                               ),
                             ),
-                            if (busy)
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            else
-                              Text(
-                                '${item.pricePoints}E',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFFF9A8D4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.title.replaceFirst(
+                                          '우리 지역 노출 부스터 · ',
+                                          '',
+                                        ),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${item.pricePoints}E · 닉네임 공개 응원',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: SoriTokens.textSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                          ],
+                                if (busy)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else
+                                  const Text(
+                                    'Echo로 띄워주기',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12.5,
+                                      color: Color(0xFFF9A8D4),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     );

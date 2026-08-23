@@ -1,5 +1,6 @@
 import 'customer_chart.dart';
 import 'customer_review.dart';
+import 'fan_supporter.dart';
 import 'shop.dart';
 import '../utils/case_persona.dart';
 
@@ -16,6 +17,7 @@ class CommunityCaseItem {
     this.boostEndsAt,
     this.boostSource = 'shop_ad',
     this.fanDisplayName = '',
+    this.fanSupporters = const [],
   });
 
   final CustomerChart chart;
@@ -39,7 +41,19 @@ class CommunityCaseItem {
   final String boostSource;
   final String fanDisplayName;
 
+  /// Fan-Boost 기여자 랭킹 (Echo DESC). Facepile / 시트용.
+  final List<FanSupporterEntry> fanSupporters;
+
   bool get isFanBoosted => isBoosted && boostSource == 'fan_boost';
+
+  List<FanSupporterEntry> get effectiveFanSupporters {
+    if (fanSupporters.isNotEmpty) {
+      return FanSupporterEntry.ranked(fanSupporters);
+    }
+    final n = fanDisplayName.trim();
+    if (n.isEmpty) return const [];
+    return [FanSupporterEntry(name: n, echoSpent: 0)];
+  }
 
   bool get hasVerifiedReview =>
       review != null && review!.displayText.trim().isNotEmpty;
@@ -76,6 +90,7 @@ class CommunityCaseItem {
     DateTime? boostEndsAt,
     String? boostSource,
     String? fanDisplayName,
+    List<FanSupporterEntry>? fanSupporters,
     CustomerReview? review,
   }) {
     return CommunityCaseItem(
@@ -89,6 +104,7 @@ class CommunityCaseItem {
       boostEndsAt: boostEndsAt ?? this.boostEndsAt,
       boostSource: boostSource ?? this.boostSource,
       fanDisplayName: fanDisplayName ?? this.fanDisplayName,
+      fanSupporters: fanSupporters ?? this.fanSupporters,
     );
   }
 }

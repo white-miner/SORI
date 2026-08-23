@@ -479,20 +479,14 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                           ),
                         ),
                 ),
-                if (item.isFanBoosted) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                    child: FanSponsorCreditBanner(
-                      fanName: item.fanDisplayName,
+                if (item.isFanBoosted)
+                  FanBoostCreditStrip(
+                    supporters: item.effectiveFanSupporters,
+                    onTap: () => showFanSupportersSheet(
+                      context,
+                      supporters: item.effectiveFanSupporters,
                     ),
                   ),
-                  FanSupportersAvatarRow(
-                    fanNames: [
-                      if (item.fanDisplayName.trim().isNotEmpty)
-                        item.fanDisplayName.trim(),
-                    ],
-                  ),
-                ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: Text(

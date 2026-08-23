@@ -361,10 +361,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
             ),
           ),
           if (item.isFanBoosted)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: FanSponsorCreditBanner(
-                fanName: item.fanDisplayName,
+            FanBoostCreditStrip(
+              supporters: item.effectiveFanSupporters,
+              onTap: () => showFanSupportersSheet(
+                context,
+                supporters: item.effectiveFanSupporters,
               ),
             ),
           Padding(
@@ -438,6 +439,26 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                               : Icons.send_outlined,
                           size: 22,
                           color: SoriTokens.textSecondary,
+                        ),
+                      ),
+                    if (_boostTrigger != null)
+                      IconButton(
+                        onPressed: _boostTrigger,
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: _isAuthor
+                            ? '내 임상 케이스 띄우기'
+                            : '원장님 게시물 응원하기',
+                        icon: Icon(
+                          Icons.local_fire_department_rounded,
+                          size: 24,
+                          color: item.isBoosted
+                              ? const Color(0xFFF472B6)
+                              : const Color(0xFFF97316),
                         ),
                       ),
                   ],
@@ -558,54 +579,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          if (widget.onBoostPurchase != null &&
-              item.isAuthoredBy(widget.currentUserId))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-              child: OutlinedButton.icon(
-                onPressed: widget.onBoostPurchase,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFA78BFA),
-                  side: BorderSide(
-                    color: const Color(0xFFA78BFA).withValues(alpha: 0.5),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  minimumSize: const Size(double.infinity, 40),
-                ),
-                icon: const Icon(Icons.rocket_launch_rounded, size: 16),
-                label: const Text(
-                  '노출 부스터 구매',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
-          if (widget.onFanBoostPurchase != null &&
-              !item.isAuthoredBy(widget.currentUserId))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-              child: OutlinedButton.icon(
-                onPressed: widget.onFanBoostPurchase,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF9A8D4),
-                  side: BorderSide(
-                    color: const Color(0xFFF472B6).withValues(alpha: 0.55),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  minimumSize: const Size(double.infinity, 40),
-                ),
-                icon: const Icon(Icons.rocket_launch_rounded, size: 16),
-                label: const Text(
-                  '우리 원장님 홍보 부스터 쏴주기',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
             child: hasBooking
@@ -633,6 +606,19 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
         ],
       ),
     );
+  }
+
+  /// 작성자 → 샵 AD / 팬 → Fan-Boost. 없으면 null (아이콘 숨김).
+  VoidCallback? get _boostTrigger {
+    if (widget.onBoostPurchase != null &&
+        item.isAuthoredBy(widget.currentUserId)) {
+      return widget.onBoostPurchase;
+    }
+    if (widget.onFanBoostPurchase != null &&
+        !item.isAuthoredBy(widget.currentUserId)) {
+      return widget.onFanBoostPurchase;
+    }
+    return null;
   }
 
   Widget _naverBookingButton() {
@@ -693,14 +679,28 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                   item.isAuthoredBy(widget.currentUserId))
                 ListTile(
                   leading: const Icon(
-                    Icons.rocket_launch_rounded,
-                    color: Color(0xFFA78BFA),
+                    Icons.local_fire_department_rounded,
+                    color: Color(0xFFF97316),
                   ),
-                  title: const Text('노출 부스터 구매'),
+                  title: const Text('내 임상 케이스 띄우기'),
                   subtitle: const Text('우리 지역 최상단 AD 고정'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onBoostPurchase!();
+                  },
+                ),
+              if (widget.onFanBoostPurchase != null &&
+                  !item.isAuthoredBy(widget.currentUserId))
+                ListTile(
+                  leading: const Icon(
+                    Icons.local_fire_department_rounded,
+                    color: Color(0xFFF472B6),
+                  ),
+                  title: const Text('원장님 게시물 응원하기'),
+                  subtitle: const Text('Fan-Boost · 닉네임 공개'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onFanBoostPurchase!();
                   },
                 ),
               if (widget.onOpenCommunitySeminar != null)

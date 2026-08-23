@@ -22,6 +22,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/fan_supporter.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -3805,6 +3806,78 @@ class SupabaseSoriRepository implements SoriRepository {
         );
       }
       rethrow;
+    }
+  }
+
+  @override
+  Future<List<FanSupporterEntry>> loadFanBoostSupporters({
+    required String targetId,
+    String targetType = 'chart',
+    int limit = 200,
+  }) async {
+    final tid = targetId.trim();
+    if (tid.isEmpty) return const [];
+    try {
+      final raw = await _db.rpc(
+        'list_fan_boost_supporters',
+        params: {
+          'p_target_type': targetType,
+          'p_target_id': tid,
+          'p_limit': limit,
+        },
+      );
+      if (raw is! List) return const [];
+      return FanSupporterEntry.ranked(
+        raw
+            .whereType<Map>()
+            .map((e) => FanSupporterEntry.fromMap(Map<String, dynamic>.from(e))),
+      );
+    } catch (e, st) {
+      debugPrint('loadFanBoostSupporters failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<Map<String, List<FanSupporterEntry>>> loadFanBoostSupportersBatch({
+    required List<String> targetIds,
+    String targetType = 'chart',
+    int limitPerTarget = 50,
+  }) async {
+    final ids = targetIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final raw = await _db.rpc(
+        'list_fan_boost_supporters_batch',
+        params: {
+          'p_target_type': targetType,
+          'p_target_ids': ids,
+          'p_limit_per_target': limitPerTarget,
+        },
+      );
+      if (raw is! List) return const {};
+      final out = <String, List<FanSupporterEntry>>{};
+      for (final row in raw.whereType<Map>()) {
+        final map = Map<String, dynamic>.from(row);
+        final tid = DbMap.asText(map['target_id']);
+        if (tid.isEmpty) continue;
+        out.putIfAbsent(tid, () => []).add(FanSupporterEntry.fromMap(map));
+      }
+      return {
+        for (final e in out.entries) e.key: FanSupporterEntry.ranked(e.value),
+      };
+    } catch (e, st) {
+      debugPrint('loadFanBoostSupportersBatch failed: $e\n$st');
+      // Fallback: single RPCs for a small set
+      final out = <String, List<FanSupporterEntry>>{};
+      for (final id in ids.take(12)) {
+        out[id] = await loadFanBoostSupporters(
+          targetId: id,
+          targetType: targetType,
+          limit: limitPerTarget,
+        );
+      }
+      return out;
     }
   }
 

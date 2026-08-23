@@ -16,6 +16,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/fan_supporter.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -1368,6 +1369,12 @@ class MemorySoriRepository implements SoriRepository {
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
 
+  /// 테스트 격리 — Fan-Boost / 알림 정적 상태 초기화.
+  static void resetFanBoostStateForTest() {
+    _boosts.clear();
+    _shopNotifications.clear();
+  }
+
   @override
   Future<void> deleteShopPost(String postId) async {
     _posts.removeWhere((e) => e.id == postId);
@@ -1988,12 +1995,31 @@ class MemorySoriRepository implements SoriRepository {
       final starts = DateTime.now();
       final ends = starts.add(Duration(hours: item.durationHours));
       final type = targetType.trim().isEmpty ? 'chart' : targetType.trim();
-      _boosts.removeWhere(
-        (b) =>
-            b.status == 'active' &&
+      for (var i = 0; i < _boosts.length; i++) {
+        final b = _boosts[i];
+        if (b.status == 'active' &&
             b.targetType == type &&
-            b.targetId == targetId,
-      );
+            b.targetId == targetId) {
+          _boosts[i] = BoostPlacement(
+            id: b.id,
+            shopId: b.shopId,
+            targetType: b.targetType,
+            targetId: b.targetId,
+            itemSku: b.itemSku,
+            chartId: b.chartId,
+            postId: b.postId,
+            regionCode: b.regionCode,
+            startsAt: b.startsAt,
+            endsAt: b.endsAt,
+            status: 'cancelled',
+            pointsSpent: b.pointsSpent,
+            source: b.source,
+            paidByCustomerId: b.paidByCustomerId,
+            paidByWalletId: b.paidByWalletId,
+            fanDisplayName: b.fanDisplayName,
+          );
+        }
+      }
       placement = BoostPlacement(
         id: 'bp-${DateTime.now().millisecondsSinceEpoch}',
         shopId: shopId,
@@ -2120,15 +2146,36 @@ class MemorySoriRepository implements SoriRepository {
     assert(nextCw.settlementBalance == 0);
 
     final type = targetType.trim().isEmpty ? 'chart' : targetType.trim();
-    _boosts.removeWhere(
-      (b) =>
-          b.status == 'active' &&
+    // Keep cancelled history for multi-supporter aggregation (do not delete).
+    for (var i = 0; i < _boosts.length; i++) {
+      final b = _boosts[i];
+      if (b.status == 'active' &&
           b.targetType == type &&
-          b.targetId == targetId,
-    );
+          b.targetId == targetId) {
+        _boosts[i] = BoostPlacement(
+          id: b.id,
+          shopId: b.shopId,
+          targetType: b.targetType,
+          targetId: b.targetId,
+          itemSku: b.itemSku,
+          chartId: b.chartId,
+          postId: b.postId,
+          regionCode: b.regionCode,
+          startsAt: b.startsAt,
+          endsAt: b.endsAt,
+          status: 'cancelled',
+          pointsSpent: b.pointsSpent,
+          source: b.source,
+          paidByCustomerId: b.paidByCustomerId,
+          paidByWalletId: b.paidByWalletId,
+          fanDisplayName: b.fanDisplayName,
+        );
+      }
+    }
     final starts = DateTime.now();
     final ends = starts.add(Duration(hours: item.durationHours));
     final name = fanDisplayName.trim().isEmpty ? '팬' : fanDisplayName.trim();
+    final walletId = 'cw-$customerId';
     final placement = BoostPlacement(
       id: 'bp-fan-${DateTime.now().millisecondsSinceEpoch}',
       shopId: resolvedShop,
@@ -2144,6 +2191,7 @@ class MemorySoriRepository implements SoriRepository {
       pointsSpent: item.pricePoints,
       source: 'fan_boost',
       paidByCustomerId: customerId,
+      paidByWalletId: walletId,
       fanDisplayName: name,
     );
     _boosts.insert(0, placement);
@@ -2174,6 +2222,61 @@ class MemorySoriRepository implements SoriRepository {
       settlementBalance: settlementBefore,
       placement: placement,
     );
+  }
+
+  @override
+  Future<List<FanSupporterEntry>> loadFanBoostSupporters({
+    required String targetId,
+    String targetType = 'chart',
+    int limit = 200,
+  }) async {
+    final type = targetType.trim().isEmpty ? 'chart' : targetType.trim();
+    final tid = targetId.trim();
+    final map = <String, FanSupporterEntry>{};
+    for (final b in _boosts) {
+      if (!b.isFanBoost) continue;
+      if (b.targetType != type || b.targetId != tid) continue;
+      final key = (b.paidByWalletId ?? b.paidByCustomerId ?? b.fanDisplayName)
+          .trim();
+      if (key.isEmpty) continue;
+      final prev = map[key];
+      if (prev == null) {
+        map[key] = FanSupporterEntry(
+          name: b.fanDisplayName.trim().isEmpty ? '팬' : b.fanDisplayName.trim(),
+          echoSpent: b.pointsSpent,
+          customerId: b.paidByCustomerId,
+          walletId: b.paidByWalletId,
+          boostCount: 1,
+        );
+      } else {
+        map[key] = FanSupporterEntry(
+          name: prev.name,
+          echoSpent: prev.echoSpent + b.pointsSpent,
+          customerId: prev.customerId ?? b.paidByCustomerId,
+          walletId: prev.walletId ?? b.paidByWalletId,
+          boostCount: prev.boostCount + 1,
+        );
+      }
+    }
+    return FanSupporterEntry.ranked(map.values).take(limit).toList();
+  }
+
+  @override
+  Future<Map<String, List<FanSupporterEntry>>> loadFanBoostSupportersBatch({
+    required List<String> targetIds,
+    String targetType = 'chart',
+    int limitPerTarget = 50,
+  }) async {
+    final out = <String, List<FanSupporterEntry>>{};
+    for (final id in targetIds) {
+      final list = await loadFanBoostSupporters(
+        targetId: id,
+        targetType: targetType,
+        limit: limitPerTarget,
+      );
+      if (list.isNotEmpty) out[id] = list;
+    }
+    return out;
   }
 
   @override

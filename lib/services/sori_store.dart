@@ -32,6 +32,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -1814,15 +1815,47 @@ class SoriStore implements Listenable {
           boostByChart[key] = b;
         }
       }
+
+      final fanChartIds = boostByChart.entries
+          .where((e) => e.value.isFanBoost)
+          .map((e) => e.key)
+          .toList();
+      Map<String, List<FanSupporterEntry>> supportersByChart = const {};
+      if (fanChartIds.isNotEmpty) {
+        try {
+          supportersByChart = await _repository.loadFanBoostSupportersBatch(
+            targetIds: fanChartIds,
+            targetType: 'chart',
+          );
+        } catch (e, st) {
+          debugPrint('fan supporters batch failed: $e\n$st');
+        }
+      }
+
       final annotated = items
           .map((item) {
             final b = boostByChart[item.chart.id];
             if (b == null) return item;
+            final supporters = supportersByChart[item.chart.id] ??
+                (b.isFanBoost && b.fanDisplayName.trim().isNotEmpty
+                    ? [
+                        FanSupporterEntry(
+                          name: b.fanDisplayName.trim(),
+                          echoSpent: b.pointsSpent,
+                          customerId: b.paidByCustomerId,
+                          walletId: b.paidByWalletId,
+                        ),
+                      ]
+                    : const <FanSupporterEntry>[]);
+            final lead = supporters.isNotEmpty
+                ? supporters.first.name
+                : b.fanDisplayName;
             return item.copyWith(
               isBoosted: true,
               boostEndsAt: b.endsAt,
               boostSource: b.source,
-              fanDisplayName: b.fanDisplayName,
+              fanDisplayName: lead,
+              fanSupporters: supporters,
             );
           })
           .toList();

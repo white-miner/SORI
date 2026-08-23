@@ -17,6 +17,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -555,6 +556,20 @@ abstract class SoriRepository {
     String targetShopId = '',
     String fanDisplayName = '',
     String regionCode = '',
+  });
+
+  /// 게시물별 Fan-Boost 서포터 랭킹 (누적 Echo DESC).
+  Future<List<FanSupporterEntry>> loadFanBoostSupporters({
+    required String targetId,
+    String targetType = 'chart',
+    int limit = 200,
+  });
+
+  /// 피드용 배치 집계 — targetId → ranked supporters.
+  Future<Map<String, List<FanSupporterEntry>>> loadFanBoostSupportersBatch({
+    required List<String> targetIds,
+    String targetType = 'chart',
+    int limitPerTarget = 50,
   });
 
   /// 원장 인박스 알림 (Fan-Boost 등).

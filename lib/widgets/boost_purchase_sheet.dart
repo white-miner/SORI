@@ -77,7 +77,7 @@ Future<bool> showBoostPurchaseSheet(
                   SnackBar(
                     content: Text(
                       result.message.isEmpty
-                          ? '부스터 구매에 실패했습니다.'
+                          ? '부스터 적용에 실패했습니다.'
                           : result.message,
                     ),
                     behavior: SnackBarBehavior.floating,
@@ -88,7 +88,7 @@ Future<bool> showBoostPurchaseSheet(
               if (!ctx.mounted) return;
               ScaffoldMessenger.of(ctx).showSnackBar(
                 const SnackBar(
-                  content: Text('부스터 구매에 실패했습니다. 마이그레이션 055·056을 확인해 주세요.'),
+                  content: Text('부스터 적용에 실패했습니다. 마이그레이션 055·056을 확인해 주세요.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -116,7 +116,7 @@ Future<bool> showBoostPurchaseSheet(
                   ),
                   const SizedBox(height: 14),
                   const Text(
-                    '노출 부스터 구매',
+                    '🔥 내 임상 케이스 띄우기',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -148,60 +148,73 @@ Future<bool> showBoostPurchaseSheet(
                     final busy = busySku == item.sku;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: OutlinedButton(
-                        onPressed: busySku.isNotEmpty ? null : () => buy(item),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: SoriTokens.textPrimary,
-                          side: BorderSide(
-                            color: SoriTokens.primary.withValues(alpha: 0.45),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13.5,
-                                    ),
-                                  ),
-                                  if (item.badge.isNotEmpty)
-                                    Text(
-                                      item.badge,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: SoriTokens.primary,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                ],
+                      child: Material(
+                        color: SoriTokens.surfaceElevated,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: busySku.isNotEmpty ? null : () => buy(item),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: SoriTokens.primary.withValues(alpha: 0.4),
                               ),
                             ),
-                            if (busy)
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.title
+                                            .replaceFirst('우리 지역 노출 부스터 · ', ''),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        item.badge.isNotEmpty
+                                            ? item.badge
+                                            : '${item.pricePoints}E로 띄우기',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: SoriTokens.textSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              )
-                            else
-                              Text(
-                                '${item.pricePoints}E',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFFA78BFA),
-                                ),
-                              ),
-                          ],
+                                if (busy)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Echo로 띄워주기',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12.5,
+                                      color: SoriTokens.primary.withValues(
+                                        alpha: 0.95,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     );

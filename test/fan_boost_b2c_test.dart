@@ -5,6 +5,7 @@ import 'package:sori/services/sori_store.dart';
 void main() {
   test('Fan-Boost burns customer Echo and never touches shop settlement',
       () async {
+    MemorySoriRepository.resetFanBoostStateForTest();
     final repo = MemorySoriRepository();
     const customerId = 'cust-fan-1';
     const shopId = 'shop-target';
@@ -59,6 +60,7 @@ void main() {
   });
 
   test('Fan-Boost pins local feed with Fans source', () async {
+    MemorySoriRepository.resetFanBoostStateForTest();
     final repo = MemorySoriRepository();
     final store = SoriStore(repository: repo);
     await store.refreshCommunityHotCases();

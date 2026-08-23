@@ -93,6 +93,7 @@ class BoostPlacement {
     this.pointsSpent = 0,
     this.source = 'shop_ad',
     this.paidByCustomerId,
+    this.paidByWalletId,
     this.fanDisplayName = '',
   });
 
@@ -112,6 +113,7 @@ class BoostPlacement {
   /// shop_ad | fan_boost
   final String source;
   final String? paidByCustomerId;
+  final String? paidByWalletId;
   final String fanDisplayName;
 
   bool get isFanBoost => source == 'fan_boost';
@@ -146,6 +148,9 @@ class BoostPlacement {
       source: DbMap.asText(map['source'], 'shop_ad'),
       paidByCustomerId: DbMap.asTextOrNull(
         map['paid_by_customer_id'] ?? map['paidByCustomerId'],
+      ),
+      paidByWalletId: DbMap.asTextOrNull(
+        map['paid_by_wallet_id'] ?? map['paidByWalletId'],
       ),
       fanDisplayName: DbMap.asText(
         map['fan_display_name'] ?? map['fanDisplayName'],
