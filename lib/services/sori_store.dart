@@ -22,6 +22,7 @@ import '../models/home_care_prescriptions.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
+import '../models/review_request_event.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/shop_business_hours.dart';
@@ -178,6 +179,8 @@ class SoriStore implements Listenable {
   final List<CommunityPost> communityPosts = [];
   bool communityPostsLoading = false;
   final Set<String> reviewRequestedCustomerIds = {};
+  final List<ReviewRequestEvent> reviewRequestEvents = [];
+  bool reviewRequestEventsLoading = false;
   final Set<String> followedShopIds = {};
   final Set<String> followedDirectorIds = {};
   final List<Subscription> mySubscriptions = [];
@@ -369,7 +372,23 @@ class SoriStore implements Listenable {
     if (idx >= 0) {
       reviews[idx] = review;
     } else {
-      reviews.insert(0, review);
+      // Also match by chart_id when remote returns a different id.
+      final byChart = reviews.indexWhere((r) => r.chartId == review.chartId);
+      if (byChart >= 0 && review.chartId.isNotEmpty) {
+        reviews[byChart] = review.copyWith(id: reviews[byChart].id);
+      } else {
+        reviews.insert(0, review);
+      }
+    }
+    if (review.isInboxVisible &&
+        review.id.isNotEmpty &&
+        review.customerId.trim().isNotEmpty) {
+      unawaited(
+        _convertOpenReviewRequests(
+          customerId: review.customerId,
+          reviewId: review.id,
+        ),
+      );
     }
   }
 
@@ -1490,9 +1509,22 @@ class SoriStore implements Listenable {
       final id = r.customerId.trim();
       if (id.isNotEmpty) reviewedCustomers.add(id);
     }
-    var n = 0;
+    final pending = <String>{};
     for (final id in reviewRequestedCustomerIds) {
-      if (!reviewedCustomers.contains(id)) n++;
+      if (!reviewedCustomers.contains(id)) pending.add(id);
+    }
+    for (final e in reviewRequestEvents) {
+      if (!e.status.isOpen) continue;
+      if (reviewedCustomers.contains(e.customerId)) continue;
+      pending.add(e.customerId);
+    }
+    return pending.length;
+  }
+
+  int get reviewRemindDueCount {
+    var n = 0;
+    for (final e in reviewRequestEvents) {
+      if (e.isDueForRemind) n++;
     }
     return n;
   }
@@ -1507,6 +1539,7 @@ class SoriStore implements Listenable {
     var ratingSum = 0;
     var ratingN = 0;
     var naverN = 0;
+    var replied = 0;
     for (final item in inbox) {
       final t = item.review.acceptedAt ?? item.review.createdAt;
       if (t != null && clock.difference(t) <= window) {
@@ -1518,6 +1551,7 @@ class SoriStore implements Listenable {
         ratingN++;
       }
       if (item.review.naverRegistered) naverN++;
+      if (item.review.hasDirectorReply) replied++;
     }
     return ReviewOpsKpi(
       unreplied: reviewUnrepliedCount,
@@ -1526,8 +1560,139 @@ class SoriStore implements Listenable {
       weekCount: weekCount,
       avgRating: ratingN == 0 ? 0 : ratingSum / ratingN,
       naverRate: inbox.isEmpty ? 0 : naverN / inbox.length,
+      replyRate: inbox.isEmpty ? 0 : replied / inbox.length,
       inboxTotal: inbox.length,
+      remindDue: reviewRemindDueCount,
     );
+  }
+
+  /// 케어명별 평균 별점 (상위 [limit]).
+  List<CareRatingStat> careRatingStats({int limit = 5}) {
+    final sums = <String, int>{};
+    final counts = <String, int>{};
+    for (final item in directorReviewInboxItems(lane: ReviewOpsLane.all)) {
+      final name = item.careName.trim();
+      if (name.isEmpty || name == '케어') continue;
+      final stars = item.review.effectiveRating;
+      if (stars < 1) continue;
+      sums[name] = (sums[name] ?? 0) + stars;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    final stats = <CareRatingStat>[
+      for (final e in sums.entries)
+        CareRatingStat(
+          careName: e.key,
+          avgRating: e.value / (counts[e.key] ?? 1),
+          count: counts[e.key] ?? 0,
+        ),
+    ];
+    stats.sort((a, b) {
+      final c = b.avgRating.compareTo(a.avgRating);
+      return c != 0 ? c : b.count.compareTo(a.count);
+    });
+    return stats.take(limit).toList(growable: false);
+  }
+
+  ReviewRequestEvent? latestReviewRequestFor(String customerId) {
+    final id = customerId.trim();
+    if (id.isEmpty) return null;
+    for (final e in reviewRequestEvents) {
+      if (e.customerId == id) return e;
+    }
+    return null;
+  }
+
+  Future<void> refreshReviewRequestEvents({bool soft = false}) async {
+    if (reviewRequestEventsLoading) return;
+    reviewRequestEventsLoading = true;
+    if (!soft) _notify();
+    try {
+      final rows = await _repository.loadReviewRequestEvents(shopId: shop.id);
+      reviewRequestEvents
+        ..clear()
+        ..addAll(rows);
+      for (final e in rows) {
+        if (e.status.isOpen) {
+          reviewRequestedCustomerIds.add(e.customerId);
+        }
+      }
+    } catch (e) {
+      debugPrint('refreshReviewRequestEvents failed: $e');
+    } finally {
+      reviewRequestEventsLoading = false;
+      _notify();
+    }
+  }
+
+  Future<ReviewRequestEvent?> recordReviewRequest({
+    required String customerId,
+    String? chartId,
+    String channel = 'qr',
+    int remindHours = 24,
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return null;
+    reviewRequestedCustomerIds.add(cid);
+    _notify();
+    try {
+      final event = await _repository.insertReviewRequestEvent(
+        customerId: cid,
+        chartId: chartId,
+        channel: channel,
+        shopId: shop.id,
+        remindHours: remindHours,
+      );
+      reviewRequestEvents.removeWhere((e) => e.id == event.id);
+      reviewRequestEvents.insert(0, event);
+      _notify();
+      return event;
+    } catch (e) {
+      debugPrint('recordReviewRequest failed: $e');
+      // Offline / memory-less path: keep Set flag.
+      return null;
+    }
+  }
+
+  Future<void> _convertOpenReviewRequests({
+    required String customerId,
+    required String reviewId,
+  }) async {
+    final cid = customerId.trim();
+    final rid = reviewId.trim();
+    if (cid.isEmpty || rid.isEmpty) return;
+    try {
+      await _repository.convertReviewRequestEvents(
+        customerId: cid,
+        reviewId: rid,
+        shopId: shop.id,
+      );
+    } catch (e) {
+      debugPrint('convertReviewRequestEvents failed: $e');
+    }
+    for (var i = 0; i < reviewRequestEvents.length; i++) {
+      final e = reviewRequestEvents[i];
+      if (e.customerId == cid && e.status.isOpen) {
+        reviewRequestEvents[i] = e.copyWith(
+          status: ReviewRequestStatus.converted,
+          convertedReviewId: rid,
+        );
+      }
+    }
+    _notify();
+  }
+
+  Future<void> acknowledgeReviewRemind(String eventId) async {
+    final id = eventId.trim();
+    if (id.isEmpty) return;
+    await _repository.markReviewRequestReminded(id);
+    for (var i = 0; i < reviewRequestEvents.length; i++) {
+      if (reviewRequestEvents[i].id == id) {
+        reviewRequestEvents[i] = reviewRequestEvents[i].copyWith(
+          remindedAt: DateTime.now(),
+        );
+      }
+    }
+    _notify();
   }
 
   /// 네이버 등록 플래그 토글 (ON은 원격 sync, OFF는 로컬 즉시 반영).
@@ -1586,6 +1751,12 @@ class SoriStore implements Listenable {
     try {
       final remote = await _repository.upsertReview(draft);
       _mergeReview(remote);
+      if (remote.isInboxVisible) {
+        await _convertOpenReviewRequests(
+          customerId: customer,
+          reviewId: remote.id,
+        );
+      }
       lastError = null;
       _notify();
       return remote;
@@ -1843,12 +2014,24 @@ class SoriStore implements Listenable {
   }
 
   void markReviewRequested(String customerId) {
-    reviewRequestedCustomerIds.add(customerId);
-    _notify();
+    unawaited(
+      recordReviewRequest(
+        customerId: customerId,
+        chartId: latestChart(customerId)?.id,
+        channel: 'qr',
+      ),
+    );
   }
 
-  bool isReviewRequested(String customerId) =>
-      reviewRequestedCustomerIds.contains(customerId);
+  bool isReviewRequested(String customerId) {
+    final id = customerId.trim();
+    if (id.isEmpty) return false;
+    if (reviewRequestedCustomerIds.contains(id)) return true;
+    for (final e in reviewRequestEvents) {
+      if (e.customerId == id && e.status.isOpen) return true;
+    }
+    return false;
+  }
 
   bool isFollowingShop([String? shopId]) {
     final id = (shopId ?? shop.id).trim();
@@ -4387,7 +4570,9 @@ class ReviewOpsKpi {
     required this.weekCount,
     required this.avgRating,
     required this.naverRate,
+    required this.replyRate,
     required this.inboxTotal,
+    this.remindDue = 0,
   });
 
   final int unreplied;
@@ -4396,7 +4581,9 @@ class ReviewOpsKpi {
   final int weekCount;
   final double avgRating;
   final double naverRate;
+  final double replyRate;
   final int inboxTotal;
+  final int remindDue;
 }
 
 /// 원장 리뷰 인박스 조인 뷰모델.

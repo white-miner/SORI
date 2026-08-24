@@ -8,6 +8,7 @@ import '../models/customer_review.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
+import '../models/review_request_event.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
@@ -583,6 +584,94 @@ class MemorySoriRepository implements SoriRepository {
       naverRegistered: true,
       naverRegisteredAt: DateTime.now(),
     );
+  }
+
+  static final List<ReviewRequestEvent> _reviewRequestEvents = [];
+
+  @override
+  Future<List<ReviewRequestEvent>> loadReviewRequestEvents({
+    String? shopId,
+    int limit = 80,
+  }) async {
+    var list = List<ReviewRequestEvent>.from(_reviewRequestEvents);
+    final sid = (shopId ?? '').trim();
+    if (sid.isNotEmpty) {
+      list = list.where((e) => e.shopId == sid).toList();
+    }
+    list.sort((a, b) {
+      final ad = a.sentAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.sentAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return list.take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<ReviewRequestEvent> insertReviewRequestEvent({
+    required String customerId,
+    String? chartId,
+    String channel = 'qr',
+    String? shopId,
+    int remindHours = 24,
+  }) async {
+    final now = DateTime.now();
+    final event = ReviewRequestEvent(
+      id: 'rre-${_reviewRequestEvents.length + 1}',
+      shopId: (shopId ?? 'shop-demo').trim().isEmpty
+          ? 'shop-demo'
+          : (shopId ?? 'shop-demo'),
+      customerId: customerId,
+      chartId: chartId,
+      channel: ReviewRequestChannelX.fromDb(channel),
+      status: ReviewRequestStatus.sent,
+      sentAt: now,
+      remindAt: now.add(Duration(hours: remindHours.clamp(1, 168))),
+    );
+    _reviewRequestEvents.insert(0, event);
+    return event;
+  }
+
+  @override
+  Future<int> convertReviewRequestEvents({
+    required String customerId,
+    required String reviewId,
+    String? shopId,
+  }) async {
+    var n = 0;
+    for (var i = 0; i < _reviewRequestEvents.length; i++) {
+      final e = _reviewRequestEvents[i];
+      if (e.customerId != customerId) continue;
+      if (shopId != null &&
+          shopId.isNotEmpty &&
+          e.shopId != shopId) {
+        continue;
+      }
+      if (!e.status.isOpen) continue;
+      _reviewRequestEvents[i] = e.copyWith(
+        status: ReviewRequestStatus.converted,
+        convertedReviewId: reviewId,
+      );
+      n++;
+    }
+    return n;
+  }
+
+  @override
+  Future<bool> markReviewRequestReminded(String eventId) async {
+    final id = eventId.trim();
+    if (id.isEmpty) return false;
+    for (var i = 0; i < _reviewRequestEvents.length; i++) {
+      final e = _reviewRequestEvents[i];
+      if (e.id != id) continue;
+      _reviewRequestEvents[i] = e.copyWith(remindedAt: DateTime.now());
+      return true;
+    }
+    return false;
+  }
+
+  /// Test helper — clear in-memory request events.
+  static void debugClearReviewRequestEvents() {
+    _reviewRequestEvents.clear();
   }
 
   @override

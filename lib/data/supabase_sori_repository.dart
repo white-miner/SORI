@@ -14,6 +14,7 @@ import '../models/home_care_prescriptions.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
+import '../models/review_request_event.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
@@ -1644,6 +1645,94 @@ class SupabaseSoriRepository implements SoriRepository {
         .select()
         .single();
     return CustomerReview.fromMap(Map<String, dynamic>.from(updated));
+  }
+
+  @override
+  Future<List<ReviewRequestEvent>> loadReviewRequestEvents({
+    String? shopId,
+    int limit = 80,
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'list_review_request_events',
+        params: {
+          if (shopId != null && shopId.trim().isNotEmpty) 'p_shop_id': shopId,
+          'p_limit': limit,
+        },
+      );
+      final rows = raw is List ? raw : const [];
+      return [
+        for (final e in rows)
+          if (e is Map)
+            ReviewRequestEvent.fromMap(Map<String, dynamic>.from(e)),
+      ];
+    } catch (e, st) {
+      debugPrint('loadReviewRequestEvents failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ReviewRequestEvent> insertReviewRequestEvent({
+    required String customerId,
+    String? chartId,
+    String channel = 'qr',
+    String? shopId,
+    int remindHours = 24,
+  }) async {
+    final raw = await _db.rpc(
+      'insert_review_request_event',
+      params: {
+        'p_customer_id': customerId,
+        if (chartId != null && chartId.trim().isNotEmpty) 'p_chart_id': chartId,
+        'p_channel': channel,
+        if (shopId != null && shopId.trim().isNotEmpty) 'p_shop_id': shopId,
+        'p_remind_hours': remindHours,
+      },
+    );
+    final map = _asJsonMap(raw);
+    if (map == null) {
+      throw StateError('insert_review_request_event empty response');
+    }
+    return ReviewRequestEvent.fromMap(map);
+  }
+
+  @override
+  Future<int> convertReviewRequestEvents({
+    required String customerId,
+    required String reviewId,
+    String? shopId,
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'convert_review_request_events',
+        params: {
+          'p_customer_id': customerId,
+          'p_review_id': reviewId,
+          if (shopId != null && shopId.trim().isNotEmpty) 'p_shop_id': shopId,
+        },
+      );
+      return DbMap.asInt(raw);
+    } catch (e, st) {
+      debugPrint('convertReviewRequestEvents failed: $e\n$st');
+      return 0;
+    }
+  }
+
+  @override
+  Future<bool> markReviewRequestReminded(String eventId) async {
+    final id = eventId.trim();
+    if (id.isEmpty) return false;
+    try {
+      final raw = await _db.rpc(
+        'mark_review_request_reminded',
+        params: {'p_event_id': id},
+      );
+      return raw == true;
+    } catch (e, st) {
+      debugPrint('markReviewRequestReminded failed: $e\n$st');
+      return false;
+    }
   }
 
   @override

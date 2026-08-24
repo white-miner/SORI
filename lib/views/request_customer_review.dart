@@ -4,11 +4,12 @@ import '../models/customer.dart';
 import '../services/sori_store.dart';
 import 'customer_link_popup.dart';
 
-/// 후기 요청 = 상태 플래그 + feedbackToken QR 팝업 원클릭.
+/// 후기 요청 = 이벤트 기록 + feedbackToken QR 팝업 원클릭.
 Future<void> requestCustomerReviewWithQr(
   BuildContext context, {
   required SoriStore store,
   required Customer customer,
+  String channel = 'qr',
 }) async {
   final chart = store.latestChart(customer.id);
   final token = chart?.feedbackToken?.trim() ?? '';
@@ -23,7 +24,11 @@ Future<void> requestCustomerReviewWithQr(
     return;
   }
 
-  store.markReviewRequested(customer.id);
+  await store.recordReviewRequest(
+    customerId: customer.id,
+    chartId: chart.id,
+    channel: channel,
+  );
   if (!context.mounted) return;
   await showCustomerLinkPopup(
     context,

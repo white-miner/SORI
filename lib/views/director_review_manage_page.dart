@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/customer.dart';
+import '../models/review_request_event.dart';
 import '../services/sori_share.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -13,6 +14,8 @@ import 'customer_link_popup.dart';
 import 'request_customer_review.dart';
 
 enum _ReviewSort { recent, ratingHigh, ratingLow }
+
+enum _RequestSegment { pending, sent, converted }
 
 /// 원장용 리뷰 관리 — 운영 콘솔 (우선순위 인박스 + 후기 요청).
 class DirectorReviewManagePage extends StatefulWidget {
@@ -35,6 +38,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
   final _search = TextEditingController();
 
   ReviewOpsLane _lane = ReviewOpsLane.unreplied;
+  _RequestSegment _requestSegment = _RequestSegment.pending;
   _ReviewSort _sort = _ReviewSort.recent;
   String? _careFilter;
   String? _bodyFilter;
@@ -50,6 +54,9 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     widget.store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.store.refreshReviewRequestEvents(soft: true);
+    });
   }
 
   @override
@@ -571,6 +578,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                 child: _KpiTile(
                   label: '요청중',
                   value: '${kpi.requestedPending}',
+                  accent: kpi.remindDue > 0,
                 ),
               ),
               const SizedBox(width: 8),
@@ -581,6 +589,13 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                 ),
               ),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: _WeeklySummaryCard(
+            kpi: kpi,
+            careStats: widget.store.careRatingStats(),
           ),
         ),
         const SizedBox(height: 10),
@@ -1105,9 +1120,84 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
 
   Widget _buildRequestTab() {
     final list = _todayDone;
+    final reviewedIds = <String>{
+      for (final r in widget.store.reviews)
+        if (r.isInboxVisible) r.customerId,
+    };
+
+    List<Customer> filtered;
+    switch (_requestSegment) {
+      case _RequestSegment.pending:
+        filtered = list
+            .where(
+              (c) =>
+                  !widget.store.isReviewRequested(c.id) &&
+                  !reviewedIds.contains(c.id),
+            )
+            .toList();
+      case _RequestSegment.sent:
+        filtered = list
+            .where(
+              (c) =>
+                  widget.store.isReviewRequested(c.id) &&
+                  !reviewedIds.contains(c.id),
+            )
+            .toList();
+      case _RequestSegment.converted:
+        filtered = list.where((c) => reviewedIds.contains(c.id)).toList();
+    }
+
+    final due = widget.store.reviewRequestEvents
+        .where((e) => e.isDueForRemind)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (due.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: SoriTokens.primarySoft.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: SoriTokens.primary.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.notifications_active_outlined,
+                      size: 18,
+                      color: SoriTokens.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '리마인드 대상 ${due.length}명 — 방문 후 24시간이 지났어요',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: SoriTokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        for (final e in due) {
+                          await widget.store.acknowledgeReviewRemind(e.id);
+                        }
+                      },
+                      child: const Text('확인'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         const Padding(
           padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
           child: Text(
@@ -1118,146 +1208,253 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              _requestSegChip(
+                '미요청',
+                _RequestSegment.pending,
+                list
+                    .where(
+                      (c) =>
+                          !widget.store.isReviewRequested(c.id) &&
+                          !reviewedIds.contains(c.id),
+                    )
+                    .length,
+              ),
+              _requestSegChip(
+                '요청됨',
+                _RequestSegment.sent,
+                list
+                    .where(
+                      (c) =>
+                          widget.store.isReviewRequested(c.id) &&
+                          !reviewedIds.contains(c.id),
+                    )
+                    .length,
+              ),
+              _requestSegChip(
+                '작성완료',
+                _RequestSegment.converted,
+                list.where((c) => reviewedIds.contains(c.id)).length,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         Expanded(
           child: list.isEmpty
               ? const Center(child: Text('오늘 케어 완료 고객이 없어요'))
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final c = list[index];
-                    final chart = widget.store.latestChart(c.id);
-                    final sent = _requestedIds.contains(c.id) ||
-                        widget.store.isReviewRequested(c.id);
-                    final hasLink = chart?.feedbackToken != null;
+              : filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        switch (_requestSegment) {
+                          _RequestSegment.pending => '미요청 고객이 없어요',
+                          _RequestSegment.sent => '대기 중인 요청이 없어요',
+                          _RequestSegment.converted => '작성 완료된 후기가 없어요',
+                        },
+                        style: const TextStyle(color: SoriTokens.textSecondary),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final c = filtered[index];
+                        final chart = widget.store.latestChart(c.id);
+                        final event =
+                            widget.store.latestReviewRequestFor(c.id);
+                        final sent = widget.store.isReviewRequested(c.id);
+                        final converted = reviewedIds.contains(c.id);
+                        final hasLink = chart?.feedbackToken != null;
+                        final dueRemind = event?.isDueForRemind ?? false;
 
-                    return SoriCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
+                        return SoriCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              CircleAvatar(
-                                backgroundColor: SoriTokens.primarySoft,
-                                child: Text(
-                                  c.name.characters.first,
-                                  style: const TextStyle(
-                                    color: SoriTokens.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      c.name,
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: SoriTokens.primarySoft,
+                                    child: Text(
+                                      c.name.characters.first,
                                       style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 15,
+                                        color: SoriTokens.primary,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      chart == null
-                                          ? c.treatmentType
-                                          : '${chart.visitNumber}회차 · ${chart.careName.isNotEmpty ? chart.careName : c.treatmentType}',
-                                      style: const TextStyle(
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          chart == null
+                                              ? c.treatmentType
+                                              : '${chart.visitNumber}회차 · ${chart.careName.isNotEmpty ? chart.careName : c.treatmentType}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: SoriTokens.textSecondary,
+                                          ),
+                                        ),
+                                        if (event != null) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${event.channel.label} · ${event.status.label}'
+                                            '${event.sentAt != null ? ' · ${_formatDate(event.sentAt!)}' : ''}'
+                                            '${dueRemind ? ' · 리마인드' : ''}',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: dueRemind
+                                                  ? SoriTokens.primary
+                                                  : SoriTokens.textTertiary,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (!converted)
+                                    FilledButton(
+                                      onPressed: sent && !dueRemind
+                                          ? null
+                                          : () => _requestReview(c),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: SoriTokens.primary,
+                                        disabledBackgroundColor: SoriTokens
+                                            .primary
+                                            .withValues(alpha: 0.35),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        dueRemind
+                                            ? '다시 요청'
+                                            : (sent ? '요청 완료' : '후기 요청하기'),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    const Text(
+                                      '작성완료',
+                                      style: TextStyle(
                                         fontSize: 12,
-                                        color: SoriTokens.textSecondary,
+                                        fontWeight: FontWeight.w800,
+                                        color: SoriTokens.primary,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (hasLink && !converted) ...[
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _shareCustomerLink(c),
+                                        icon: const Icon(
+                                          Icons.ios_share_rounded,
+                                          size: 16,
+                                        ),
+                                        label: const Text(
+                                          '링크 공유하기',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: SoriTokens.primary,
+                                          side: const BorderSide(
+                                            color: SoriTokens.primary,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      onPressed: () => showCustomerLinkPopup(
+                                        context,
+                                        chart: chart!,
+                                        store: widget.store,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: SoriTokens.primary,
+                                        side: const BorderSide(
+                                          color: SoriTokens.primary,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.qr_code_2_rounded,
+                                        size: 18,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              FilledButton(
-                                onPressed:
-                                    sent ? null : () => _requestReview(c),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: SoriTokens.primary,
-                                  disabledBackgroundColor: SoriTokens.primary
-                                      .withValues(alpha: 0.35),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                ),
-                                child: Text(
-                                  sent ? '요청 완료' : '후기 요청하기',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
+                              ],
                             ],
                           ),
-                          if (hasLink) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => _shareCustomerLink(c),
-                                    icon: const Icon(
-                                      Icons.ios_share_rounded,
-                                      size: 16,
-                                    ),
-                                    label: const Text(
-                                      '링크 공유하기',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: SoriTokens.primary,
-                                      side: const BorderSide(
-                                        color: SoriTokens.primary,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                OutlinedButton(
-                                  onPressed: () => showCustomerLinkPopup(
-                                    context,
-                                    chart: chart!,
-                                    store: widget.store,
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: SoriTokens.primary,
-                                    side: const BorderSide(
-                                      color: SoriTokens.primary,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.qr_code_2_rounded,
-                                    size: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
         ),
       ],
     );
   }
+
+  Widget _requestSegChip(String label, _RequestSegment seg, int count) {
+    final selected = _requestSegment == seg;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(
+          '$label $count',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        selected: selected,
+        onSelected: (_) => setState(() => _requestSegment = seg),
+        selectedColor: SoriTokens.primarySoft,
+        labelStyle: TextStyle(
+          color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
+        ),
+        side: BorderSide(
+          color: selected ? SoriTokens.primary : SoriTokens.border,
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
 }
 
 class _KpiTile extends StatelessWidget {
@@ -1310,3 +1507,104 @@ class _KpiTile extends StatelessWidget {
     );
   }
 }
+
+class _WeeklySummaryCard extends StatelessWidget {
+  const _WeeklySummaryCard({
+    required this.kpi,
+    required this.careStats,
+  });
+
+  final ReviewOpsKpi kpi;
+  final List<CareRatingStat> careStats;
+
+  @override
+  Widget build(BuildContext context) {
+    final avg = kpi.avgRating <= 0 ? '-' : kpi.avgRating.toStringAsFixed(1);
+    final reply = (kpi.replyRate * 100).round();
+    final naver = (kpi.naverRate * 100).round();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SoriTokens.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '이번 주 요약',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '후기 ${kpi.weekCount} · 평균 ★$avg · 답글율 $reply% · 네이버 $naver%',
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textSecondary,
+                height: 1.35,
+              ),
+            ),
+            if (careStats.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text(
+                '케어별 별점',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              ...careStats.map((s) {
+                final ratio = (s.avgRating / 5).clamp(0.0, 1.0);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 72,
+                        child: Text(
+                          s.careName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(
+                            value: ratio,
+                            minHeight: 6,
+                            backgroundColor: SoriTokens.border,
+                            color: SoriTokens.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '★${s.avgRating.toStringAsFixed(1)} (${s.count})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: SoriTokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+

@@ -9,6 +9,7 @@ import '../models/customer_review.dart';
 import '../models/kakao_alimtalk.dart';
 import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
+import '../models/review_request_event.dart';
 import '../models/shop.dart';
 import '../models/shop_gallery_slide.dart';
 import '../models/shop_post.dart';
@@ -261,6 +262,28 @@ abstract class SoriRepository {
     required String chartId,
     String? composedText,
   });
+
+  /// Review ops P1 — request events.
+  Future<List<ReviewRequestEvent>> loadReviewRequestEvents({
+    String? shopId,
+    int limit = 80,
+  });
+
+  Future<ReviewRequestEvent> insertReviewRequestEvent({
+    required String customerId,
+    String? chartId,
+    String channel = 'qr',
+    String? shopId,
+    int remindHours = 24,
+  });
+
+  Future<int> convertReviewRequestEvents({
+    required String customerId,
+    required String reviewId,
+    String? shopId,
+  });
+
+  Future<bool> markReviewRequestReminded(String eventId);
 
   /// Auth user id로 원장(shops.owner_user_id) / 고객(customers.user_id) 판별.
   Future<AuthRoleResolution> resolveAuthRole(String userId);
