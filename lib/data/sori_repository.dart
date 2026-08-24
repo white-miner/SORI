@@ -26,6 +26,7 @@ import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/subscription.dart';
+import '../models/whisper.dart';
 import 'auth_role_resolution.dart';
 
 export 'auth_role_resolution.dart';
@@ -341,6 +342,34 @@ abstract class SoriRepository {
     int limit = 40,
     String query = '',
   });
+
+  /// Phase 12 — Whisper Inbox
+  Future<WhisperAudiencePreview> previewWhisperAudience(
+    WhisperAudienceSpec spec,
+  );
+
+  Future<WhisperSendResult> sendWhisper({
+    required String body,
+    required WhisperAudienceSpec spec,
+  });
+
+  Future<List<WhisperMessage>> loadMyWhispers({
+    String box = 'inbox',
+    int limit = 40,
+  });
+
+  Future<void> markWhisperRead(String whisperId);
+
+  Future<int> countUnreadWhispers();
+
+  Future<List<WhisperAudiencePreset>> loadWhisperPresets();
+
+  Future<WhisperAudiencePreset> saveWhisperPreset({
+    required String name,
+    required WhisperAudienceSpec spec,
+  });
+
+  Future<void> deleteWhisperPreset(String presetId);
 
   /// 동일 고객·관리 태그 회차 타임라인 (RPC).
   Future<List<CaseTimelineEntry>> loadCaseTimelineGroup(String chartId);

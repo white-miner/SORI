@@ -15,6 +15,7 @@ import 'device_review_detail_page.dart';
 import 'seminar_class_detail_page.dart';
 import 'community_following_pane.dart';
 import 'community_discover_pane.dart';
+import 'whisper_inbox_page.dart';
 
 /// 글로벌 Community 허브 — [전체 | 팔로잉 | 탐색] (하단 5탭 Golden Rule 유지).
 class CommunityPage extends StatefulWidget {
@@ -59,6 +60,7 @@ class _CommunityPageState extends State<CommunityPage>
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.ensureCommunityHubWarm();
+      store.refreshWhisperInbox(box: 'inbox');
       final againHub = store.pendingCommunityHubTab;
       if (againHub != null && againHub >= 0 && againHub < 3) {
         store.pendingCommunityHubTab = null;
@@ -167,6 +169,24 @@ class _CommunityPageState extends State<CommunityPage>
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.4,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '위스퍼',
+                    onPressed: () =>
+                        WhisperInboxPage.open(context, store: store),
+                    icon: Badge(
+                      isLabelVisible: store.whisperUnreadCount > 0,
+                      label: Text(
+                        store.whisperUnreadCount > 9
+                            ? '9+'
+                            : '${store.whisperUnreadCount}',
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      child: const Icon(
+                        Icons.mail_outline_rounded,
+                        color: SoriTokens.textPrimary,
                       ),
                     ),
                   ),

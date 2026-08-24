@@ -29,6 +29,7 @@ import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
 import '../models/subscription.dart';
+import '../models/whisper.dart';
 import 'sori_repository.dart';
 
 /// 로컬 더미 데이터 (UI 하드코딩 분리용).
@@ -37,6 +38,36 @@ class MemorySoriRepository implements SoriRepository {
   static final Map<String, Set<String>> _followersByShop = {};
   /// followerUserId → subscriptions
   static final Map<String, List<Subscription>> _subscriptionsByUser = {};
+  static final List<_MemWhisper> _whispers = [];
+  static final List<_MemWhisperRecipient> _whisperRecipients = [];
+  static final List<WhisperAudiencePreset> _whisperPresets = [];
+  /// Seed graph for audience tests: userId → role
+  static final Map<String, String> _seedRoles = {
+    '00000000-0000-4000-8000-000000000201': 'director', // 서연
+    '00000000-0000-4000-8000-000000000202': 'director', // 준호
+    '00000000-0000-4000-8000-000000000203': 'director', // 하늘
+    '00000000-0000-4000-8000-000000000301': 'customer', // 민지 fan
+    '00000000-0000-4000-8000-000000000302': 'customer',
+    'fan-boost-user': 'customer',
+    'peer-director-a': 'director',
+    'peer-director-b': 'director',
+    'normal-follower': 'customer',
+  };
+  static final Set<String> _seedFollowersOfSender = {
+    'peer-director-a',
+    'peer-director-b',
+    'normal-follower',
+    'fan-boost-user',
+    '00000000-0000-4000-8000-000000000301',
+  };
+  static final Set<String> _seedSuperFans = {
+    'fan-boost-user',
+    '00000000-0000-4000-8000-000000000301',
+  };
+  static final Set<String> _seedVisited = {
+    '00000000-0000-4000-8000-000000000301',
+    'normal-follower',
+  };
   static final Map<String, Set<String>> _seminarRequestsByCase = {};
   static final List<SeminarClass> _seminarClasses = [];
   static int _seminarClassSeq = 0;
@@ -1122,6 +1153,206 @@ class MemorySoriRepository implements SoriRepository {
             )
             .toList();
     return filtered.take(limit).toList();
+  }
+
+  Map<String, int> _resolveAudience(WhisperAudienceSpec spec) {
+    const sender = 'memory-sender';
+    final bits = <String, int>{};
+    void add(String uid, int bit) {
+      if (uid.isEmpty || uid == sender) return;
+      bits[uid] = (bits[uid] ?? 0) | bit;
+    }
+
+    final atoms = spec.atoms.toSet();
+    if (atoms.contains(WhisperAtoms.visited)) {
+      for (final u in _seedVisited) {
+        add(u, 1);
+      }
+    }
+    if (atoms.contains(WhisperAtoms.followers)) {
+      for (final u in _seedFollowersOfSender) {
+        add(u, 2);
+      }
+    }
+    if (atoms.contains(WhisperAtoms.peerDirectors)) {
+      for (final u in _seedFollowersOfSender) {
+        if (_seedRoles[u] == 'director') add(u, 4);
+      }
+    }
+    if (atoms.contains(WhisperAtoms.superFans)) {
+      for (final u in _seedSuperFans) {
+        add(u, 8);
+      }
+    }
+    if (atoms.contains(WhisperAtoms.explicit)) {
+      for (final u in spec.explicitUserIds) {
+        add(u.trim(), 16);
+      }
+    }
+
+    if (spec.op == 'intersect') {
+      bits.removeWhere((uid, b) {
+        if (atoms.contains(WhisperAtoms.visited) && (b & 1) == 0) return true;
+        if (atoms.contains(WhisperAtoms.followers) && (b & 2) == 0) return true;
+        if (atoms.contains(WhisperAtoms.peerDirectors) && (b & 4) == 0) {
+          return true;
+        }
+        if (atoms.contains(WhisperAtoms.superFans) && (b & 8) == 0) return true;
+        if (atoms.contains(WhisperAtoms.explicit) && (b & 16) == 0) return true;
+        return false;
+      });
+    }
+    return bits;
+  }
+
+  @override
+  Future<WhisperAudiencePreview> previewWhisperAudience(
+    WhisperAudienceSpec spec,
+  ) async {
+    final bits = _resolveAudience(spec);
+    final people = bits.entries.take(12).map((e) {
+      return WhisperPreviewPerson(
+        userId: e.key,
+        nickname: e.key.startsWith('peer') ? '동료원장' : '팬',
+        atomBits: e.value,
+      );
+    }).toList();
+    return WhisperAudiencePreview(
+      count: bits.length,
+      preview: people,
+      op: spec.op,
+      atoms: spec.atoms,
+    );
+  }
+
+  @override
+  Future<WhisperSendResult> sendWhisper({
+    required String body,
+    required WhisperAudienceSpec spec,
+  }) async {
+    final text = body.trim();
+    if (text.isEmpty) throw StateError('body required');
+    if (spec.atoms.isEmpty) throw StateError('atoms required');
+    final bits = _resolveAudience(spec);
+    if (bits.isEmpty) throw StateError('no recipients matched');
+    final id = 'whisper-${_whispers.length + 1}';
+    _whispers.add(
+      _MemWhisper(
+        id: id,
+        senderUserId: 'memory-sender',
+        body: text,
+        op: spec.op,
+        atoms: List.of(spec.atoms),
+        recipientCount: bits.length,
+        createdAt: DateTime.now(),
+      ),
+    );
+    for (final e in bits.entries) {
+      _whisperRecipients.add(
+        _MemWhisperRecipient(
+          whisperId: id,
+          userId: e.key,
+          atomBits: e.value,
+        ),
+      );
+    }
+    return WhisperSendResult(
+      whisperId: id,
+      recipientCount: bits.length,
+    );
+  }
+
+  @override
+  Future<List<WhisperMessage>> loadMyWhispers({
+    String box = 'inbox',
+    int limit = 40,
+  }) async {
+    if (box == 'sent') {
+      return _whispers.reversed.take(limit).map((w) {
+        return WhisperMessage(
+          id: w.id,
+          body: w.body,
+          createdAt: w.createdAt,
+          box: 'sent',
+          recipientCount: w.recipientCount,
+          senderUserId: w.senderUserId,
+          senderNickname: '나',
+          audienceOp: w.op,
+        );
+      }).toList();
+    }
+    return _whisperRecipients
+        .where((r) => r.userId != 'memory-sender')
+        .map((r) {
+          final w = _whispers.firstWhere((e) => e.id == r.whisperId);
+          return WhisperMessage(
+            id: w.id,
+            body: w.body,
+            createdAt: w.createdAt,
+            box: 'inbox',
+            recipientCount: w.recipientCount,
+            readAt: r.readAt,
+            senderUserId: w.senderUserId,
+            senderNickname: '서연',
+            audienceOp: w.op,
+          );
+        })
+        .take(limit)
+        .toList();
+  }
+
+  @override
+  Future<void> markWhisperRead(String whisperId) async {
+    for (final r in _whisperRecipients) {
+      if (r.whisperId == whisperId) {
+        r.readAt ??= DateTime.now();
+      }
+    }
+  }
+
+  @override
+  Future<int> countUnreadWhispers() async {
+    return _whisperRecipients.where((r) => r.readAt == null).length;
+  }
+
+  @override
+  Future<List<WhisperAudiencePreset>> loadWhisperPresets() async {
+    return List.unmodifiable(_whisperPresets);
+  }
+
+  @override
+  Future<WhisperAudiencePreset> saveWhisperPreset({
+    required String name,
+    required WhisperAudienceSpec spec,
+  }) async {
+    final p = WhisperAudiencePreset(
+      id: 'preset-${_whisperPresets.length + 1}',
+      name: name.trim().isEmpty ? '나의 그룹' : name.trim(),
+      spec: spec,
+      op: spec.op,
+    );
+    _whisperPresets.insert(0, p);
+    return p;
+  }
+
+  @override
+  Future<void> deleteWhisperPreset(String presetId) async {
+    _whisperPresets.removeWhere((e) => e.id == presetId);
+  }
+
+  /// Test helper — recipients for a whisper id.
+  static List<String> debugWhisperRecipientIds(String whisperId) {
+    return _whisperRecipients
+        .where((r) => r.whisperId == whisperId)
+        .map((r) => r.userId)
+        .toList();
+  }
+
+  static int debugWhisperAtomBits(String whisperId, String userId) {
+    for (final r in _whisperRecipients) {
+      if (r.whisperId == whisperId && r.userId == userId) return r.atomBits;
+    }
+    return 0;
   }
 
   @override
@@ -2719,4 +2950,38 @@ class MemorySoriRepository implements SoriRepository {
         .where((c) => c.directorShopId == shopId)
         .toList(growable: false);
   }
+}
+
+class _MemWhisper {
+  _MemWhisper({
+    required this.id,
+    required this.senderUserId,
+    required this.body,
+    required this.op,
+    required this.atoms,
+    required this.recipientCount,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String senderUserId;
+  final String body;
+  final String op;
+  final List<String> atoms;
+  final int recipientCount;
+  final DateTime createdAt;
+}
+
+class _MemWhisperRecipient {
+  _MemWhisperRecipient({
+    required this.whisperId,
+    required this.userId,
+    required this.atomBits,
+    this.readAt,
+  });
+
+  final String whisperId;
+  final String userId;
+  final int atomBits;
+  DateTime? readAt;
 }

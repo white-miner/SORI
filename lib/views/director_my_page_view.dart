@@ -28,6 +28,7 @@ import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import 'ai_shop_report_page.dart';
 import 'app_settings_page.dart';
+import 'whisper_inbox_page.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'message_history_page.dart';
 import 'post_first_creation_page.dart';
@@ -60,6 +61,9 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      store.refreshWhisperInbox(box: 'inbox');
+    });
   }
 
   @override
@@ -504,6 +508,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     onPost: () => PostFirstCreationPage.open(context),
                     onNotifications: _openNotifications,
                     onSettings: _openSettings,
+                    onWhisper: () => WhisperInboxPage.open(context, store: store),
+                    whisperBadge: store.whisperUnreadCount,
                   ),
                 ),
               ),
@@ -617,9 +623,11 @@ class _ShopHeroCover extends StatelessWidget {
     required this.onPost,
     required this.onNotifications,
     required this.onSettings,
+    required this.onWhisper,
     this.onCoverPick,
     this.coverUploading = false,
     this.badgeCount = 0,
+    this.whisperBadge = 0,
   });
 
   final String shopName;
@@ -629,9 +637,11 @@ class _ShopHeroCover extends StatelessWidget {
   final VoidCallback onPost;
   final VoidCallback onNotifications;
   final VoidCallback onSettings;
+  final VoidCallback onWhisper;
   final VoidCallback? onCoverPick;
   final bool coverUploading;
   final int badgeCount;
+  final int whisperBadge;
 
   static const _fallbackCover =
       'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80';
@@ -713,6 +723,12 @@ class _ShopHeroCover extends StatelessWidget {
                     tooltip: '새 게시물',
                     icon: Icons.add_rounded,
                     onPressed: onPost,
+                  ),
+                  _HeroOverlayIcon(
+                    tooltip: '위스퍼',
+                    icon: Icons.mail_outline_rounded,
+                    onPressed: onWhisper,
+                    badgeCount: whisperBadge,
                   ),
                   _HeroOverlayIcon(
                     tooltip: '알림',

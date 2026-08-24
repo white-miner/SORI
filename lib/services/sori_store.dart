@@ -44,6 +44,7 @@ import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
 import '../models/subscription.dart';
+import '../models/whisper.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
 import '../utils/korean_choseong.dart';
@@ -188,6 +189,13 @@ class SoriStore implements Listenable {
   DateTime? discoverFetchedAt;
   String discoverQuery = '';
   DateTime? hubWarmedAt;
+  final List<WhisperMessage> whisperInbox = [];
+  final List<WhisperMessage> whisperSent = [];
+  final List<WhisperAudiencePreset> whisperPresets = [];
+  int whisperUnreadCount = 0;
+  bool whisperLoading = false;
+  WhisperAudiencePreview? whisperAudiencePreview;
+  bool whisperPreviewLoading = false;
   final List<ShopHighlight> shopHighlights = [];
   int shopFollowerCount = 0;
   bool shopFandomMetaLoading = false;
@@ -1951,6 +1959,101 @@ class SoriStore implements Listenable {
       }
     }());
     return followedShopIds.contains(id);
+  }
+
+  Future<void> refreshWhisperInbox({String box = 'inbox'}) async {
+    whisperLoading = true;
+    _notify();
+    try {
+      final rows = await _repository.loadMyWhispers(box: box);
+      if (box == 'sent') {
+        whisperSent
+          ..clear()
+          ..addAll(rows);
+      } else {
+        whisperInbox
+          ..clear()
+          ..addAll(rows);
+      }
+      whisperUnreadCount = await _repository.countUnreadWhispers();
+      whisperPresets
+        ..clear()
+        ..addAll(await _repository.loadWhisperPresets());
+    } catch (e) {
+      debugPrint('refreshWhisperInbox failed: $e');
+    } finally {
+      whisperLoading = false;
+      _notify();
+    }
+  }
+
+  Future<WhisperAudiencePreview> previewWhisperAudience(
+    WhisperAudienceSpec spec,
+  ) async {
+    whisperPreviewLoading = true;
+    _notify();
+    try {
+      final withShop = spec.shopId == null || spec.shopId!.isEmpty
+          ? spec.copyWith(shopId: shop.id)
+          : spec;
+      final preview = await _repository.previewWhisperAudience(withShop);
+      whisperAudiencePreview = preview;
+      return preview;
+    } catch (e) {
+      debugPrint('previewWhisperAudience failed: $e');
+      whisperAudiencePreview = const WhisperAudiencePreview(count: 0);
+      return whisperAudiencePreview!;
+    } finally {
+      whisperPreviewLoading = false;
+      _notify();
+    }
+  }
+
+  Future<WhisperSendResult> sendWhisper({
+    required String body,
+    required WhisperAudienceSpec spec,
+  }) async {
+    final withShop = spec.shopId == null || spec.shopId!.isEmpty
+        ? spec.copyWith(shopId: shop.id)
+        : spec;
+    final result = await _repository.sendWhisper(body: body, spec: withShop);
+    await refreshWhisperInbox(box: 'sent');
+    return result;
+  }
+
+  Future<void> markWhisperRead(String whisperId) async {
+    await _repository.markWhisperRead(whisperId);
+    for (var i = 0; i < whisperInbox.length; i++) {
+      final w = whisperInbox[i];
+      if (w.id == whisperId && w.readAt == null) {
+        whisperInbox[i] = WhisperMessage(
+          id: w.id,
+          body: w.body,
+          createdAt: w.createdAt,
+          box: w.box,
+          recipientCount: w.recipientCount,
+          truncated: w.truncated,
+          readAt: DateTime.now(),
+          senderUserId: w.senderUserId,
+          senderNickname: w.senderNickname,
+          senderAvatarUrl: w.senderAvatarUrl,
+          audienceOp: w.audienceOp,
+          audienceSpec: w.audienceSpec,
+        );
+      }
+    }
+    whisperUnreadCount = await _repository.countUnreadWhispers();
+    _notify();
+  }
+
+  Future<WhisperAudiencePreset> saveWhisperPreset({
+    required String name,
+    required WhisperAudienceSpec spec,
+  }) async {
+    final p = await _repository.saveWhisperPreset(name: name, spec: spec);
+    whisperPresets.insert(0, p);
+    _notify();
+    return p;
   }
 
   /// 하이라이트 · 팔로워 수 · 내 팔로우 상태 동기화.

@@ -32,6 +32,7 @@ import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/subscription.dart';
+import '../models/whisper.dart';
 import '../services/supabase_client.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
@@ -2403,6 +2404,146 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('loadDiscoverDirectors failed: $e\n$st');
       return const [];
     }
+  }
+
+  Map<String, dynamic>? _asJsonMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  @override
+  Future<WhisperAudiencePreview> previewWhisperAudience(
+    WhisperAudienceSpec spec,
+  ) async {
+    try {
+      final raw = await _db.rpc(
+        'preview_whisper_audience',
+        params: spec.toRpcParams(),
+      );
+      final map = _asJsonMap(raw);
+      if (map == null) {
+        return const WhisperAudiencePreview(count: 0);
+      }
+      return WhisperAudiencePreview.fromMap(map);
+    } catch (e, st) {
+      debugPrint('previewWhisperAudience failed: $e\n$st');
+      return const WhisperAudiencePreview(count: 0);
+    }
+  }
+
+  @override
+  Future<WhisperSendResult> sendWhisper({
+    required String body,
+    required WhisperAudienceSpec spec,
+  }) async {
+    final params = {
+      'p_body': body,
+      ...spec.toRpcParams(),
+    };
+    final raw = await _db.rpc('send_whisper', params: params);
+    final map = _asJsonMap(raw);
+    if (map == null) {
+      throw StateError('send_whisper empty response');
+    }
+    return WhisperSendResult.fromMap(map);
+  }
+
+  @override
+  Future<List<WhisperMessage>> loadMyWhispers({
+    String box = 'inbox',
+    int limit = 40,
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'list_my_whispers',
+        params: {'p_box': box, 'p_limit': limit},
+      );
+      final rows = raw is List ? raw : const [];
+      return [
+        for (final e in rows)
+          if (e is Map) WhisperMessage.fromMap(Map<String, dynamic>.from(e)),
+      ];
+    } catch (e, st) {
+      debugPrint('loadMyWhispers failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> markWhisperRead(String whisperId) async {
+    final id = whisperId.trim();
+    if (id.isEmpty) return;
+    try {
+      await _db.rpc('mark_whisper_read', params: {'p_whisper_id': id});
+    } catch (e, st) {
+      debugPrint('markWhisperRead failed: $e\n$st');
+    }
+  }
+
+  @override
+  Future<int> countUnreadWhispers() async {
+    try {
+      final raw = await _db.rpc('count_unread_whispers');
+      return DbMap.asInt(raw);
+    } catch (e, st) {
+      debugPrint('countUnreadWhispers failed: $e\n$st');
+      return 0;
+    }
+  }
+
+  @override
+  Future<List<WhisperAudiencePreset>> loadWhisperPresets() async {
+    try {
+      final rows = await _db
+          .from('whisper_audience_presets')
+          .select()
+          .order('updated_at', ascending: false);
+      return [
+        for (final e in (rows as List))
+          if (e is Map)
+            WhisperAudiencePreset.fromMap(Map<String, dynamic>.from(e)),
+      ];
+    } catch (e, st) {
+      debugPrint('loadWhisperPresets failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<WhisperAudiencePreset> saveWhisperPreset({
+    required String name,
+    required WhisperAudienceSpec spec,
+  }) async {
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null || uid.isEmpty) {
+      throw StateError('auth required');
+    }
+    final row = await _db
+        .from('whisper_audience_presets')
+        .insert({
+          'owner_user_id': uid,
+          'shop_id': spec.shopId,
+          'name': name.trim().isEmpty ? '나의 그룹' : name.trim(),
+          'audience_spec': {
+            'op': spec.op,
+            'atoms': spec.atoms,
+            'explicit_user_ids': spec.explicitUserIds,
+            'explicit_shop_ids': spec.explicitShopIds,
+            'shop_id': spec.shopId,
+          },
+          'audience_op': spec.op,
+        })
+        .select()
+        .single();
+    return WhisperAudiencePreset.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> deleteWhisperPreset(String presetId) async {
+    final id = presetId.trim();
+    if (id.isEmpty) return;
+    await _db.from('whisper_audience_presets').delete().eq('id', id);
   }
 
   @override

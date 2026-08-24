@@ -12,6 +12,7 @@ import '../widgets/sori_logo.dart';
 import '../widgets/debug_mode_chip.dart';
 import 'customer_review_dashboard_page.dart';
 import 'my_info_edit_page.dart';
+import 'whisper_inbox_page.dart';
 
 /// 고객 모드 마이페이지 — Weverse형 4탭 (여정 / 회원권 / 리뷰 / 스크랩).
 class CustomerMyPageView extends StatefulWidget {
@@ -137,6 +138,23 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                     ),
                   ),
                   if (kDebugMode) const DebugModeChip(),
+                  IconButton(
+                    tooltip: '위스퍼',
+                    onPressed: () {
+                      WhisperInboxPage.open(context, store: store);
+                    },
+                    icon: Badge(
+                      isLabelVisible: store.whisperUnreadCount > 0,
+                      label: Text(
+                        '${store.whisperUnreadCount}',
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      child: const Icon(
+                        Icons.mail_outline_rounded,
+                        color: SoriTokens.textPrimary,
+                      ),
+                    ),
+                  ),
                   IconButton(
                     tooltip: '리뷰 작성',
                     onPressed: () {
