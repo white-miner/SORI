@@ -161,7 +161,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
         ? const [
             (Icons.home_outlined, Icons.home_rounded, '홈', 0),
             (Icons.people_outline, Icons.people_rounded, '고객', 1),
-            (Icons.rate_review_outlined, Icons.rate_review_rounded, '리뷰', 2),
+            (Icons.photo_camera_outlined, Icons.photo_camera_rounded, '촬영', 2),
             (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티', 3),
             (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
           ]
@@ -173,13 +173,15 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
           ];
 
-    final labels = [
-      items[0].$3,
-      items[1].$3,
-      widget.reviewLabel.length > 4 ? '리뷰' : widget.reviewLabel,
-      items[3].$3,
-      items[4].$3,
-    ];
+    final labels = widget.isDirector
+        ? [for (final e in items) e.$3]
+        : [
+            items[0].$3,
+            items[1].$3,
+            widget.reviewLabel.length > 4 ? '리뷰' : widget.reviewLabel,
+            items[3].$3,
+            items[4].$3,
+          ];
 
     final visual = _visualIndex;
 

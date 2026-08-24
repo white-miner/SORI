@@ -90,6 +90,9 @@ class SoriStore implements Listenable {
   /// Community 허브 탭: 0 전체 · 1 팔로잉 · 2 탐색.
   int? pendingCommunityHubTab;
 
+  /// 원장 「고객」허브 세그먼트: 0 고객 · 1 리뷰.
+  int? pendingCustomerHubSegment;
+
   /// GNB 탭 (0=홈 … 4=마이) — 루트 오버레이에서 셸로 전환할 때.
   int? pendingAppTab;
 
@@ -100,6 +103,13 @@ class SoriStore implements Listenable {
   void requestHomeExplore() {
     pendingAppTab = 0;
     pendingHomeInnerTab = 1;
+    _notify();
+  }
+
+  /// 원장 GNB 「고객」→ 리뷰 세그먼트.
+  void requestCustomerReviews() {
+    pendingAppTab = 1;
+    pendingCustomerHubSegment = 1;
     _notify();
   }
 

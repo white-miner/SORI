@@ -14,11 +14,11 @@ import '../views/customer_care_page.dart';
 import '../views/customer_review_dashboard_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/customer_profile_page.dart';
-import '../views/director_customers_tab.dart';
-import '../views/director_review_manage_page.dart';
+import '../views/director_customer_hub_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_page.dart';
 import '../views/onboarding_page.dart';
+import '../views/shoot_hub_page.dart';
 import '../views/splash_page.dart';
 import '../views/seminar_class_detail_page.dart';
 import '../views/unified_home_feed_page.dart';
@@ -32,7 +32,9 @@ abstract final class AppPaths {
   static const app = '/app';
   static const appHome = '/app/home';
   static const appCustomers = '/app/customers';
+  /// 원장: 촬영 허브 / 고객: 리뷰 작성 (브랜치 index 2).
   static const appReview = '/app/review';
+  static const appShoot = '/app/shoot';
   /// B2B Community 광장 (구 관리 케이스 탭 자리).
   static const appCommunity = '/app/community';
   /// 레거시 경로 — Community로 리다이렉트.
@@ -352,7 +354,7 @@ class _RoleSecondTab extends StatelessWidget {
       builder: (context, _) {
         final isDirector = store.session?.activeMode == UserRole.director;
         if (isDirector) {
-          return DirectorCustomersTab(store: store);
+          return DirectorCustomerHubPage(store: store);
         }
         return CustomerCareTab(store: store);
       },
@@ -371,7 +373,7 @@ class _RoleReviewTab extends StatelessWidget {
       builder: (context, _) {
         final isDirector = store.session?.activeMode == UserRole.director;
         if (isDirector) {
-          return DirectorReviewManagePage(store: store);
+          return ShootHubPage(store: store);
         }
         return CustomerReviewDashboardPage(store: store);
       },

@@ -288,12 +288,12 @@ class _SoriNavigationRail extends StatelessWidget {
             NavigationRailDestination(
               icon: Icon(Icons.people_outline),
               selectedIcon: Icon(Icons.people),
-              label: Text('고객 관리'),
+              label: Text('고객'),
             ),
             NavigationRailDestination(
-              icon: Icon(Icons.rate_review_outlined),
-              selectedIcon: Icon(Icons.rate_review_rounded),
-              label: Text('리뷰 관리'),
+              icon: Icon(Icons.photo_camera_outlined),
+              selectedIcon: Icon(Icons.photo_camera_rounded),
+              label: Text('촬영'),
             ),
             NavigationRailDestination(
               icon: Icon(Icons.groups_outlined),
