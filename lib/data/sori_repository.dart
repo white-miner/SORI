@@ -25,6 +25,7 @@ import '../models/seminar_education_insight.dart';
 import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
+import '../models/subscription.dart';
 import 'auth_role_resolution.dart';
 
 export 'auth_role_resolution.dart';
@@ -319,6 +320,26 @@ abstract class SoriRepository {
     required String shopId,
     required String customerId,
     required bool following,
+  });
+
+  /// Phase 11 — subscriptions (user→shop|director).
+  Future<List<Subscription>> loadMySubscriptions({int limit = 200});
+
+  Future<void> setSubscription({
+    required SubscriptionTargetType targetType,
+    String? targetShopId,
+    String? targetUserId,
+    required bool following,
+    String source = 'discover',
+  });
+
+  /// 팔로잉 탭 피드 (구독한 원장/샵 포스트만).
+  Future<List<CommunityPost>> loadFollowingFeed({int limit = 40});
+
+  /// 탐색 디렉터리.
+  Future<List<DiscoverDirector>> loadDiscoverDirectors({
+    int limit = 40,
+    String query = '',
   });
 
   /// 동일 고객·관리 태그 회차 타임라인 (RPC).

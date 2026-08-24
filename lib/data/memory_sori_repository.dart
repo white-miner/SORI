@@ -28,12 +28,15 @@ import '../utils/feed_interleave.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
+import '../models/subscription.dart';
 import 'sori_repository.dart';
 
 /// 로컬 더미 데이터 (UI 하드코딩 분리용).
 class MemorySoriRepository implements SoriRepository {
   /// shopId → customerIds 팔로우 셋 (프로세스 내 유지).
   static final Map<String, Set<String>> _followersByShop = {};
+  /// followerUserId → subscriptions
+  static final Map<String, List<Subscription>> _subscriptionsByUser = {};
   static final Map<String, Set<String>> _seminarRequestsByCase = {};
   static final List<SeminarClass> _seminarClasses = [];
   static int _seminarClassSeq = 0;
@@ -965,6 +968,160 @@ class MemorySoriRepository implements SoriRepository {
     } else {
       set.remove(cid);
     }
+  }
+
+  @override
+  Future<List<Subscription>> loadMySubscriptions({int limit = 200}) async {
+    // Memory: aggregate all users' subs for local UI; filter by caller later via store.
+    final all = _subscriptionsByUser.values.expand((e) => e).toList();
+    all.sort(
+      (a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)),
+    );
+    return all.take(limit).toList();
+  }
+
+  @override
+  Future<void> setSubscription({
+    required SubscriptionTargetType targetType,
+    String? targetShopId,
+    String? targetUserId,
+    required bool following,
+    String source = 'discover',
+  }) async {
+    const uid = 'memory-user';
+    final list = _subscriptionsByUser.putIfAbsent(uid, () => <Subscription>[]);
+    if (!following) {
+      list.removeWhere((s) {
+        if (targetType == SubscriptionTargetType.shop) {
+          return s.targetType == SubscriptionTargetType.shop &&
+              s.targetShopId == targetShopId;
+        }
+        return s.targetType == SubscriptionTargetType.director &&
+            s.targetUserId == targetUserId;
+      });
+      return;
+    }
+    final exists = list.any((s) {
+      if (targetType == SubscriptionTargetType.shop) {
+        return s.targetType == SubscriptionTargetType.shop &&
+            s.targetShopId == targetShopId;
+      }
+      return s.targetType == SubscriptionTargetType.director &&
+          s.targetUserId == targetUserId;
+    });
+    if (exists) return;
+    list.add(
+      Subscription(
+        id: 'sub-${list.length + 1}',
+        followerUserId: uid,
+        targetType: targetType,
+        targetShopId: targetShopId,
+        targetUserId: targetUserId,
+        source: source,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Future<List<CommunityPost>> loadFollowingFeed({int limit = 40}) async {
+    final subs = await loadMySubscriptions();
+    if (subs.isEmpty) return const [];
+    final shopIds = subs
+        .where((s) => s.targetType == SubscriptionTargetType.shop)
+        .map((s) => s.targetShopId ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final directorIds = subs
+        .where((s) => s.targetType == SubscriptionTargetType.director)
+        .map((s) => s.targetUserId ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final posts = await loadCommunityPosts(limit: 80);
+    return posts
+        .where(
+          (p) =>
+              shopIds.contains(p.shopId) ||
+              directorIds.contains(p.authorUserId ?? ''),
+        )
+        .take(limit)
+        .toList();
+  }
+
+  @override
+  Future<List<DiscoverDirector>> loadDiscoverDirectors({
+    int limit = 40,
+    String query = '',
+  }) async {
+    final q = query.trim().toLowerCase();
+    final masters = <DiscoverDirector>[
+      const DiscoverDirector(
+        shopId: '00000000-0000-4000-8000-000000000101',
+        shopName: '글로우핏 청담',
+        nickname: '서연',
+        ownerUserId: '00000000-0000-4000-8000-000000000201',
+        avatarUrl: 'https://picsum.photos/seed/sori-seed-avatar-1/200',
+        address: '서울 강남구 청담동',
+        bio: '페이스·리프팅 전문',
+        followerCount: 1280,
+        sharedCaseCount: 48,
+        isSeed: true,
+      ),
+      const DiscoverDirector(
+        shopId: '00000000-0000-4000-8000-000000000102',
+        shopName: '바디아틀리에 성수',
+        nickname: '준호',
+        ownerUserId: '00000000-0000-4000-8000-000000000202',
+        avatarUrl: 'https://picsum.photos/seed/sori-seed-avatar-2/200',
+        address: '서울 성동구 성수동',
+        bio: '바디·순환 전문',
+        followerCount: 940,
+        sharedCaseCount: 36,
+        isSeed: true,
+      ),
+      const DiscoverDirector(
+        shopId: '00000000-0000-4000-8000-000000000103',
+        shopName: '루미에르 한남',
+        nickname: '하늘',
+        ownerUserId: '00000000-0000-4000-8000-000000000203',
+        avatarUrl: 'https://picsum.photos/seed/sori-seed-avatar-3/200',
+        address: '서울 용산구 한남동',
+        bio: '피부·장벽 전문',
+        followerCount: 1120,
+        sharedCaseCount: 41,
+        isSeed: true,
+      ),
+      const DiscoverDirector(
+        shopId: 'shop-gangnam-glow',
+        shopName: '글로우핏 강남',
+        nickname: '이서연',
+        ownerUserId: 'member-therapist-1',
+        avatarUrl: 'https://picsum.photos/seed/sori-member-avatar/200',
+        address: '서울 강남구',
+        followerCount: 320,
+        sharedCaseCount: 12,
+      ),
+      const DiscoverDirector(
+        shopId: 'shop-body-atelier',
+        shopName: '바디아틀리에 청담',
+        nickname: '김하은',
+        avatarUrl: 'https://picsum.photos/seed/sori-body-avatar/200',
+        address: '서울 강남구 청담동',
+        followerCount: 210,
+        sharedCaseCount: 8,
+      ),
+    ];
+    final filtered = q.isEmpty
+        ? masters
+        : masters
+            .where(
+              (d) =>
+                  d.nickname.toLowerCase().contains(q) ||
+                  d.shopName.toLowerCase().contains(q) ||
+                  d.address.toLowerCase().contains(q),
+            )
+            .toList();
+    return filtered.take(limit).toList();
   }
 
   @override

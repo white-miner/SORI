@@ -43,6 +43,7 @@ import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
+import '../models/subscription.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
 import '../utils/korean_choseong.dart';
@@ -78,8 +79,11 @@ class SoriStore implements Listenable {
   /// PC 우측 패널에 표시할 댓글 대상 게시물 ID (null이면 대시보드 표시).
   String? activeCommentPostId;
 
-  /// Community 탭 진입 시 선택될 세그먼트 (0=전체 … 4=세미나).
+  /// Community 탭 진입 시 선택될 세그먼트 (0=전체 … 4=세미나) — 허브「전체」내부.
   int? pendingCommunitySegment;
+
+  /// Community 허브 탭: 0 전체 · 1 팔로잉 · 2 탐색.
+  int? pendingCommunityHubTab;
 
   void openCommentPanel(String postId) {
     activeCommentPostId = postId;
@@ -174,6 +178,16 @@ class SoriStore implements Listenable {
   bool communityPostsLoading = false;
   final Set<String> reviewRequestedCustomerIds = {};
   final Set<String> followedShopIds = {};
+  final Set<String> followedDirectorIds = {};
+  final List<Subscription> mySubscriptions = [];
+  final List<CommunityPost> followingFeedPosts = [];
+  bool followingFeedLoading = false;
+  DateTime? followingFeedFetchedAt;
+  final List<DiscoverDirector> discoverDirectors = [];
+  bool discoverDirectorsLoading = false;
+  DateTime? discoverFetchedAt;
+  String discoverQuery = '';
+  DateTime? hubWarmedAt;
   final List<ShopHighlight> shopHighlights = [];
   int shopFollowerCount = 0;
   bool shopFandomMetaLoading = false;
@@ -1723,6 +1737,179 @@ class SoriStore implements Listenable {
     return id.isNotEmpty && followedShopIds.contains(id);
   }
 
+  bool isFollowingDirector(String? userId) {
+    final id = (userId ?? '').trim();
+    return id.isNotEmpty && followedDirectorIds.contains(id);
+  }
+
+  int get subscriptionCount =>
+      followedShopIds.length + followedDirectorIds.length;
+
+  void requestCommunityHubTab(int index) {
+    pendingCommunityHubTab = index.clamp(0, 2);
+    _notify();
+  }
+
+  /// Community 허브 첫 진입 — ForYou + subscriptions 병렬, Following/Discover idle.
+  Future<void> ensureCommunityHubWarm({bool force = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        hubWarmedAt != null &&
+        now.difference(hubWarmedAt!) < const Duration(minutes: 3)) {
+      return;
+    }
+    await Future.wait([
+      refreshCommunityPosts(),
+      refreshMySubscriptions(),
+      refreshSeminarClasses(),
+      refreshDiscoverDirectors(),
+      refreshFollowingFeed(soft: true),
+    ]);
+    hubWarmedAt = DateTime.now();
+  }
+
+  Future<void> refreshMySubscriptions() async {
+    try {
+      final rows = await _repository.loadMySubscriptions();
+      mySubscriptions
+        ..clear()
+        ..addAll(rows);
+      followedShopIds
+        ..clear()
+        ..addAll(
+          rows
+              .where((s) => s.targetType == SubscriptionTargetType.shop)
+              .map((s) => (s.targetShopId ?? '').trim())
+              .where((id) => id.isNotEmpty),
+        );
+      followedDirectorIds
+        ..clear()
+        ..addAll(
+          rows
+              .where((s) => s.targetType == SubscriptionTargetType.director)
+              .map((s) => (s.targetUserId ?? '').trim())
+              .where((id) => id.isNotEmpty),
+        );
+      _notify();
+    } catch (e) {
+      debugPrint('refreshMySubscriptions failed: $e');
+    }
+  }
+
+  Future<void> refreshFollowingFeed({bool soft = false}) async {
+    if (followingFeedLoading) return;
+    if (soft &&
+        followingFeedFetchedAt != null &&
+        DateTime.now().difference(followingFeedFetchedAt!) <
+            const Duration(minutes: 3) &&
+        followingFeedPosts.isNotEmpty) {
+      return;
+    }
+    followingFeedLoading = true;
+    if (!soft) _notify();
+    try {
+      final posts = await _repository.loadFollowingFeed();
+      followingFeedPosts
+        ..clear()
+        ..addAll(posts);
+      followingFeedFetchedAt = DateTime.now();
+    } catch (e) {
+      debugPrint('refreshFollowingFeed failed: $e');
+    } finally {
+      followingFeedLoading = false;
+      _notify();
+    }
+  }
+
+  Future<void> refreshDiscoverDirectors({
+    bool soft = false,
+    String? query,
+  }) async {
+    if (discoverDirectorsLoading) return;
+    final q = query ?? discoverQuery;
+    if (soft &&
+        query == null &&
+        discoverFetchedAt != null &&
+        DateTime.now().difference(discoverFetchedAt!) <
+            const Duration(minutes: 3) &&
+        discoverDirectors.isNotEmpty) {
+      return;
+    }
+    discoverDirectorsLoading = true;
+    if (!soft) _notify();
+    try {
+      discoverQuery = q;
+      final rows = await _repository.loadDiscoverDirectors(query: q);
+      discoverDirectors
+        ..clear()
+        ..addAll(rows);
+      discoverFetchedAt = DateTime.now();
+    } catch (e) {
+      debugPrint('refreshDiscoverDirectors failed: $e');
+    } finally {
+      discoverDirectorsLoading = false;
+      _notify();
+    }
+  }
+
+  /// Discover CTA — optimistic shop (+ optional director) subscription.
+  Future<bool> toggleDiscoverFollow(DiscoverDirector director) async {
+    final shopId = director.shopId.trim();
+    if (shopId.isEmpty) return false;
+    final wasFollowing = followedShopIds.contains(shopId);
+    final next = !wasFollowing;
+    if (next) {
+      followedShopIds.add(shopId);
+      final uid = director.ownerUserId?.trim() ?? '';
+      if (uid.isNotEmpty) followedDirectorIds.add(uid);
+      shopFollowerCount += 1;
+    } else {
+      followedShopIds.remove(shopId);
+      final uid = director.ownerUserId?.trim() ?? '';
+      if (uid.isNotEmpty) followedDirectorIds.remove(uid);
+      shopFollowerCount = (shopFollowerCount - 1).clamp(0, 999999);
+    }
+    followingFeedFetchedAt = null; // soft-invalidate
+    _notify();
+
+    try {
+      await _repository.setSubscription(
+        targetType: SubscriptionTargetType.shop,
+        targetShopId: shopId,
+        following: next,
+        source: 'discover',
+      );
+      final directorId = director.ownerUserId?.trim() ?? '';
+      if (directorId.isNotEmpty) {
+        await _repository.setSubscription(
+          targetType: SubscriptionTargetType.director,
+          targetUserId: directorId,
+          following: next,
+          source: 'discover',
+        );
+      }
+      final customerId = session?.customerId?.trim() ?? '';
+      if (customerId.isNotEmpty) {
+        await _repository.setShopFollow(
+          shopId: shopId,
+          customerId: customerId,
+          following: next,
+        );
+      }
+      unawaited(refreshFollowingFeed());
+      return next;
+    } catch (e) {
+      debugPrint('toggleDiscoverFollow failed: $e');
+      if (next) {
+        followedShopIds.remove(shopId);
+      } else {
+        followedShopIds.add(shopId);
+      }
+      _notify();
+      return followedShopIds.contains(shopId);
+    }
+  }
+
   bool toggleFollowShop([String? shopId]) {
     final id = (shopId ?? shop.id).trim();
     if (id.isEmpty) return false;
@@ -1734,12 +1921,19 @@ class SoriStore implements Listenable {
       followedShopIds.add(id);
       shopFollowerCount += 1;
     }
+    followingFeedFetchedAt = null;
     _notify();
 
     final customerId = session?.customerId?.trim() ?? '';
-    if (customerId.isNotEmpty) {
-      unawaited(() async {
-        try {
+    unawaited(() async {
+      try {
+        await _repository.setSubscription(
+          targetType: SubscriptionTargetType.shop,
+          targetShopId: id,
+          following: !wasFollowing,
+          source: 'shop_page',
+        );
+        if (customerId.isNotEmpty) {
           await _repository.setShopFollow(
             shopId: id,
             customerId: customerId,
@@ -1750,11 +1944,12 @@ class SoriStore implements Listenable {
             shopFollowerCount = count;
             _notify();
           }
-        } catch (e) {
-          debugPrint('toggleFollowShop remote failed: $e');
         }
-      }());
-    }
+        unawaited(refreshFollowingFeed());
+      } catch (e) {
+        debugPrint('toggleFollowShop remote failed: $e');
+      }
+    }());
     return followedShopIds.contains(id);
   }
 

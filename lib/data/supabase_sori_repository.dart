@@ -31,6 +31,7 @@ import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
+import '../models/subscription.dart';
 import '../services/supabase_client.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
@@ -2293,6 +2294,114 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('setShopFollow failed: $e\n$st');
       rethrow;
+    }
+  }
+
+  List<CommunityPost> _parseCommunityPostList(dynamic raw) {
+    final list = <CommunityPost>[];
+    final rows = raw is List
+        ? raw
+        : (raw is Map && raw['data'] is List)
+            ? raw['data'] as List
+            : const [];
+    for (final e in rows) {
+      if (e is! Map) continue;
+      list.add(CommunityPost.fromMap(Map<String, dynamic>.from(e)));
+    }
+    return list;
+  }
+
+  @override
+  Future<List<Subscription>> loadMySubscriptions({int limit = 200}) async {
+    try {
+      final raw = await _db.rpc(
+        'list_my_subscriptions',
+        params: {'p_limit': limit},
+      );
+      final rows = raw is List ? raw : const [];
+      return [
+        for (final e in rows)
+          if (e is Map)
+            Subscription.fromMap(Map<String, dynamic>.from(e)),
+      ];
+    } catch (e, st) {
+      debugPrint('loadMySubscriptions failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> setSubscription({
+    required SubscriptionTargetType targetType,
+    String? targetShopId,
+    String? targetUserId,
+    required bool following,
+    String source = 'discover',
+  }) async {
+    try {
+      await _db.rpc(
+        'set_subscription',
+        params: {
+          'p_target_type':
+              targetType == SubscriptionTargetType.director ? 'director' : 'shop',
+          'p_target_shop_id': targetShopId,
+          'p_target_user_id': targetUserId,
+          'p_following': following,
+          'p_source': source,
+        },
+      );
+    } catch (e, st) {
+      debugPrint('setSubscription failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<CommunityPost>> loadFollowingFeed({int limit = 40}) async {
+    try {
+      final raw = await _db.rpc(
+        'list_following_feed',
+        params: {'p_limit': limit},
+      );
+      final list = _parseCommunityPostList(raw);
+      final shopIds = list
+          .map((p) => p.shopId)
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      final verified = await loadShopBusinessVerified(shopIds);
+      return [
+        for (final p in list)
+          p.copyWith(businessVerified: verified[p.shopId] == true),
+      ];
+    } catch (e, st) {
+      debugPrint('loadFollowingFeed failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<List<DiscoverDirector>> loadDiscoverDirectors({
+    int limit = 40,
+    String query = '',
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'list_discover_directors',
+        params: {
+          'p_limit': limit,
+          'p_query': query,
+        },
+      );
+      final rows = raw is List ? raw : const [];
+      return [
+        for (final e in rows)
+          if (e is Map)
+            DiscoverDirector.fromMap(Map<String, dynamic>.from(e)),
+      ];
+    } catch (e, st) {
+      debugPrint('loadDiscoverDirectors failed: $e\n$st');
+      return const [];
     }
   }
 
