@@ -1084,8 +1084,8 @@ class _HomeTabBody extends StatelessWidget {
             ),
             subtitle: Text(
               store.subscriptionCount > 0
-                  ? '팔로잉 ${store.subscriptionCount} · 원장 탐색'
-                  : '팔로잉 피드와 원장 탐색',
+                  ? '팔로잉 ${store.subscriptionCount} · 홈 탐색에서 원장 찾기'
+                  : '팔로잉 피드 · 원장 찾기는 홈 탐색',
               style: const TextStyle(
                 fontSize: 12,
                 color: SoriTokens.textSecondary,

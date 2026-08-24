@@ -90,6 +90,19 @@ class SoriStore implements Listenable {
   /// Community 허브 탭: 0 전체 · 1 팔로잉 · 2 탐색.
   int? pendingCommunityHubTab;
 
+  /// GNB 탭 (0=홈 … 4=마이) — 루트 오버레이에서 셸로 전환할 때.
+  int? pendingAppTab;
+
+  /// 홈 내부 탭: 0 추천 · 1 탐색 · 2 우리 지역.
+  int? pendingHomeInnerTab;
+
+  /// 마이페이지 등에서 홈 탐색으로 이동.
+  void requestHomeExplore() {
+    pendingAppTab = 0;
+    pendingHomeInnerTab = 1;
+    _notify();
+  }
+
   void openCommentPanel(String postId) {
     activeCommentPostId = postId;
     _notify();

@@ -56,6 +56,14 @@ class _AppShellPageState extends State<AppShellPage> {
       context.go(AppPaths.login);
       return;
     }
+    final pendingTab = _store.pendingAppTab;
+    if (pendingTab != null) {
+      _store.pendingAppTab = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _selectTab(pendingTab.clamp(0, 4));
+      });
+    }
     setState(() {});
   }
 

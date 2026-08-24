@@ -153,7 +153,7 @@ class _CommunityDiscoverPaneState extends State<CommunityDiscoverPane>
               delegate: SliverChildBuilderDelegate(
                 (context, i) {
                   final d = rows[i];
-                  return _DiscoverRow(
+                  return DiscoverDirectorRow(
                     director: d,
                     following: store.isFollowingShop(d.shopId),
                     onToggle: () => store.toggleDiscoverFollow(d),
@@ -308,8 +308,10 @@ class _MyCommunityRingDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-class _DiscoverRow extends StatelessWidget {
-  const _DiscoverRow({
+/// 원장 디렉터리 1열 행 — 홈 탐색·마이 허브 공용.
+class DiscoverDirectorRow extends StatelessWidget {
+  const DiscoverDirectorRow({
+    super.key,
     required this.director,
     required this.following,
     required this.onToggle,

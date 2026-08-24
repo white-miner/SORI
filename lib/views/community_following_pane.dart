@@ -74,7 +74,7 @@ class _CommunityFollowingPaneState extends State<CommunityFollowingPane>
             ),
             const SizedBox(height: 10),
             const Text(
-              '탐색에서 더 많은 원장님을 팔로우해 보세요.',
+              '홈 탐색에서 더 많은 원장님을 팔로우해 보세요.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,
@@ -95,7 +95,7 @@ class _CommunityFollowingPaneState extends State<CommunityFollowingPane>
                   ),
                 ),
                 child: const Text(
-                  '탐색으로 이동',
+                  '홈 탐색으로 이동',
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -168,7 +168,7 @@ class _FollowingEmpty extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                '탐색에서 원장 찾기',
+                '홈 탐색에서 원장 찾기',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
               ),
             ),

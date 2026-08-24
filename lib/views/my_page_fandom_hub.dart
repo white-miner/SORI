@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
-import 'community_discover_pane.dart';
 import 'community_following_pane.dart';
 
-/// 팔로잉·탐색 — Community가 아닌 마이페이지 전용 허브.
+/// 팔로잉(구독) 허브 — 원장 찾기는 홈 탐색으로.
 class MyPageFandomHubPage extends StatefulWidget {
   const MyPageFandomHubPage({super.key, required this.store});
 
@@ -23,27 +22,21 @@ class MyPageFandomHubPage extends StatefulWidget {
   State<MyPageFandomHubPage> createState() => _MyPageFandomHubPageState();
 }
 
-class _MyPageFandomHubPageState extends State<MyPageFandomHubPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
-
+class _MyPageFandomHubPageState extends State<MyPageFandomHubPage> {
   SoriStore get store => widget.store;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshMySubscriptions();
-      store.refreshDiscoverDirectors(soft: true);
       store.refreshFollowingFeed(soft: true);
     });
   }
 
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
+  void _openHomeExplore() {
+    store.requestHomeExplore();
+    Navigator.of(context).pop();
   }
 
   @override
@@ -53,26 +46,19 @@ class _MyPageFandomHubPageState extends State<MyPageFandomHubPage>
       appBar: AppBar(
         title: const Text('팬덤 · 구독'),
         backgroundColor: SoriTokens.surface,
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: SoriTokens.primary,
-          unselectedLabelColor: SoriTokens.textSecondary,
-          indicatorColor: SoriTokens.primary,
-          tabs: const [
-            Tab(text: '팔로잉'),
-            Tab(text: '탐색'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [
-          CommunityFollowingPane(
-            store: store,
-            onOpenDiscover: () => _tabs.animateTo(1),
+        actions: [
+          TextButton(
+            onPressed: _openHomeExplore,
+            child: const Text(
+              '원장 찾기',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
-          CommunityDiscoverPane(store: store),
         ],
+      ),
+      body: CommunityFollowingPane(
+        store: store,
+        onOpenDiscover: _openHomeExplore,
       ),
     );
   }

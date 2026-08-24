@@ -15,8 +15,7 @@ import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
-import 'customer_management_cases_page.dart';
-import 'success_cases_page.dart';
+import 'home_explore_tab.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
 class UnifiedHomeFeedPage extends StatefulWidget {
@@ -33,32 +32,49 @@ class UnifiedHomeFeedPage extends StatefulWidget {
   State<UnifiedHomeFeedPage> createState() => _UnifiedHomeFeedPageState();
 }
 
-class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
+class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
+    with SingleTickerProviderStateMixin {
   final _liked = <String>{};
   final _bookmarked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_FeedComment>>{};
+  late final TabController _tabs;
 
   SoriStore get store => widget.store;
 
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: 3, vsync: this);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityHotCases();
       store.refreshShopFandomMeta();
+      _consumePendingInnerTab();
     });
   }
 
   @override
   void dispose() {
     store.removeListener(_onStore);
+    _tabs.dispose();
     super.dispose();
   }
 
   void _onStore() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _consumePendingInnerTab();
+    setState(() {});
+  }
+
+  void _consumePendingInnerTab() {
+    final pending = store.pendingHomeInnerTab;
+    if (pending == null) return;
+    store.pendingHomeInnerTab = null;
+    final i = pending.clamp(0, 2);
+    if (_tabs.index != i) {
+      _tabs.animateTo(i);
+    }
   }
 
   List<CommunityCaseItem> get _feed {
@@ -367,66 +383,63 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
     final localFeed = _localFeed;
     final loading = store.communityHotCasesLoading && feed.isEmpty;
 
-    return DefaultTabController(
-      length: 3,
-      child: ColoredBox(
-        color: SoriTokens.background,
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Material(
-                color: SoriTokens.background,
-                child: TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: SoriTokens.textSecondary,
-                  labelStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  indicatorColor: Colors.white,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  indicatorWeight: 2.5,
-                  dividerColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 14),
-                  tabs: const [
-                    Tab(text: '추천'),
-                    Tab(text: '탐색'),
-                    Tab(text: '우리 지역'),
-                  ],
+    return ColoredBox(
+      color: SoriTokens.background,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Material(
+              color: SoriTokens.background,
+              child: TabBar(
+                controller: _tabs,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: Colors.white,
+                unselectedLabelColor: SoriTokens.textSecondary,
+                labelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
                 ),
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _RecommendFeedTab(
-                      feed: feed,
-                      loading: loading,
-                      buildCard: _feedCard,
-                    ),
-                    store.session?.activeMode == UserRole.director
-                        ? SuccessCasesPage(store: store)
-                        : CustomerManagementCasesPage(store: store),
-                    _SimpleFeedTab(
-                      title: '우리 지역',
-                      subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
-                      feed: localFeed,
-                      loading: loading,
-                      buildCard: _feedCard,
-                    ),
-                  ],
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
+                indicatorColor: Colors.white,
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorWeight: 2.5,
+                dividerColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                tabs: const [
+                  Tab(text: '추천'),
+                  Tab(text: '탐색'),
+                  Tab(text: '우리 지역'),
+                ],
               ),
-            ],
-          ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabs,
+                children: [
+                  _RecommendFeedTab(
+                    feed: feed,
+                    loading: loading,
+                    buildCard: _feedCard,
+                  ),
+                  HomeExploreTab(store: store),
+                  _SimpleFeedTab(
+                    title: '우리 지역',
+                    subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
+                    feed: localFeed,
+                    loading: loading,
+                    buildCard: _feedCard,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
