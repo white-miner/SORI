@@ -7,7 +7,7 @@ import '../models/community_post.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../utils/sori_bottom_sheet.dart';
+import '../utils/whisper_feed.dart';
 import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
@@ -17,7 +17,18 @@ import 'device_review_detail_page.dart';
 import 'seminar_class_detail_page.dart';
 import 'whisper_composer_sheet.dart';
 
-/// 글로벌 Community 탭 — B2B 광장 (인테리어·리뷰·중고·세미나).
+/// Community 탭 인덱스 — 속삭임 탭 삽입 후 오프셋.
+abstract final class _CommunityTab {
+  static const all = 0;
+  static const whisper = 1;
+  static const interior = 2;
+  static const deviceReview = 3;
+  static const marketplace = 4;
+  static const seminar = 5;
+  static const length = 6;
+}
+
+/// 글로벌 Community 탭 — B2B 광장 (속삭임·인테리어·리뷰·중고·세미나).
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key, required this.store});
 
@@ -40,18 +51,24 @@ class _CommunityPageState extends State<CommunityPage>
   void initState() {
     super.initState();
     final pending = store.pendingCommunitySegment;
-    final initial = (pending != null && pending >= 0 && pending < 5)
+    final initial = (pending != null &&
+            pending >= 0 &&
+            pending < _CommunityTab.length)
         ? pending
         : 0;
     store.pendingCommunitySegment = null;
-    _tabs = TabController(length: 5, vsync: this, initialIndex: initial);
+    _tabs = TabController(
+      length: _CommunityTab.length,
+      vsync: this,
+      initialIndex: initial,
+    );
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityPosts();
       store.refreshSeminarClasses();
       store.refreshPointWallet();
       final again = store.pendingCommunitySegment;
-      if (again != null && again >= 0 && again < 5) {
+      if (again != null && again >= 0 && again < _CommunityTab.length) {
         store.pendingCommunitySegment = null;
         _tabs.animateTo(again);
       }
@@ -72,7 +89,7 @@ class _CommunityPageState extends State<CommunityPage>
   void _onStore() {
     if (!mounted) return;
     final pending = store.pendingCommunitySegment;
-    if (pending != null && pending >= 0 && pending < 5) {
+    if (pending != null && pending >= 0 && pending < _CommunityTab.length) {
       store.pendingCommunitySegment = null;
       _tabs.animateTo(pending);
     }
@@ -208,6 +225,7 @@ class _CommunityPageState extends State<CommunityPage>
                 labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 tabs: const [
                   Tab(text: '전체'),
+                  Tab(text: '속삭임'),
                   Tab(text: '인테리어'),
                   Tab(text: '기기 리뷰'),
                   Tab(text: '중고·신상'),
@@ -220,6 +238,11 @@ class _CommunityPageState extends State<CommunityPage>
                 controller: _tabs,
                 children: [
                   _RecommendSegment(store: store),
+                  _WhisperSegment(
+                    store: store,
+                    isDirector: _isDirector,
+                    onCompose: _composeWhisper,
+                  ),
                   _InteriorSegment(
                     store: store,
                     isOwner: _isDirector,
@@ -290,16 +313,304 @@ class _CommunityViewerBanner extends StatelessWidget {
   }
 }
 
+class _WhisperSegment extends StatelessWidget {
+  const _WhisperSegment({
+    required this.store,
+    required this.isDirector,
+    required this.onCompose,
+  });
+
+  final SoriStore store;
+  final bool isDirector;
+  final VoidCallback onCompose;
+
+  void _openPost(BuildContext context, CommunityPost post) {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: SoriTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          child: WhisperPostCard(post: post, store: store),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewerId = store.session?.id;
+    final incoming = whisperIncomingPosts(
+      store.communityPosts,
+      viewerId: viewerId,
+    );
+    final authored = whisperAuthoredPosts(
+      store.communityPosts,
+      viewerId: viewerId,
+    );
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF064E3B).withValues(alpha: 0.55),
+                        SoriTokens.surface,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF6EE7B7).withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              size: 20,
+                              color: Color(0xFF6EE7B7),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              '속삭임',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '많은 사람에게 말하기 부담스러울 때, 선택한 사람에게만 남겨 보세요.',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            height: 1.45,
+                            color: SoriTokens.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (isDirector) ...[
+                          const SizedBox(height: 14),
+                          FilledButton.icon(
+                            onPressed: onCompose,
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('속삭임 남기기'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF059669),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const _WhisperZoneHeader(
+                  title: '나에게 들려온 속삭임',
+                  subtitle: '조건에 맞아 나만 볼 수 있는 글이에요.',
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        ),
+        if (incoming.isEmpty)
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: _EmptyHint(
+                text: '아직 들려온 속삭임이 없어요. 팔로우·방문하면 여기에 모여요.',
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: _WhisperMasonryGrid(
+                posts: incoming,
+                store: store,
+                onOpen: (p) => _openPost(context, p),
+              ),
+            ),
+          ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _WhisperZoneHeader(
+                  title: '내가 남긴 속삭임',
+                  subtitle: '내가 선택한 사람에게만 전달된 글이에요.',
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        ),
+        if (authored.isEmpty)
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 120),
+            sliver: SliverToBoxAdapter(
+              child: _EmptyHint(
+                text: isDirector
+                    ? '첫 속삭임을 남겨 보세요. 선택한 사람에게만 전달됩니다.'
+                    : '아직 남긴 속삭임이 없어요.',
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            sliver: SliverToBoxAdapter(
+              child: _WhisperMasonryGrid(
+                posts: authored,
+                store: store,
+                onOpen: (p) => _openPost(context, p),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WhisperZoneHeader extends StatelessWidget {
+  const _WhisperZoneHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: SoriTokens.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WhisperMasonryGrid extends StatelessWidget {
+  const _WhisperMasonryGrid({
+    required this.posts,
+    required this.store,
+    required this.onOpen,
+  });
+
+  final List<CommunityPost> posts;
+  final SoriStore store;
+  final void Function(CommunityPost post) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    const cols = 3;
+    const gap = 8.0;
+    final columns = List.generate(cols, (_) => <CommunityPost>[]);
+    for (var i = 0; i < posts.length; i++) {
+      columns[i % cols].add(posts[i]);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Column(
+            children: [
+              for (final p in posts) ...[
+                WhisperPostCard(
+                  post: p,
+                  store: store,
+                  compact: true,
+                  onTap: () => onOpen(p),
+                ),
+                const SizedBox(height: gap),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var c = 0; c < cols; c++) ...[
+              if (c > 0) const SizedBox(width: gap),
+              Expanded(
+                child: Column(
+                  children: [
+                    for (final p in columns[c]) ...[
+                      WhisperPostCard(
+                        post: p,
+                        store: store,
+                        compact: true,
+                        onTap: () => onOpen(p),
+                      ),
+                      const SizedBox(height: gap),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _RecommendSegment extends StatelessWidget {
   const _RecommendSegment({required this.store});
   final SoriStore store;
 
   @override
   Widget build(BuildContext context) {
-    final whispers = store.communityPosts
-        .where((p) => p.isWhisper)
-        .take(8)
-        .toList();
     final interiors = store.communityPosts
         .where((p) => p.postType == CommunityPostType.interior && !p.isWhisper)
         .take(6)
@@ -329,29 +640,6 @@ class _RecommendSegment extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        if (whispers.isNotEmpty) ...[
-          const Text(
-            '속삭임',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            '나에게만 허락된 원장님의 글이에요.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...whispers.map(
-            (p) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: WhisperPostCard(post: p, store: store),
-            ),
-          ),
-          const SizedBox(height: 22),
-        ],
         const Text(
           '인테리어 쇼룸',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),

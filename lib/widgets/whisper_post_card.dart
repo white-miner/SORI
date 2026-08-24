@@ -11,34 +11,47 @@ class WhisperPostCard extends StatelessWidget {
     super.key,
     required this.post,
     required this.store,
+    this.compact = false,
+    this.onTap,
   });
 
   final CommunityPost post;
   final SoriStore store;
+
+  /// 3열 대시보드용 — 패딩·본문 줄 수 축소.
+  final bool compact;
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final locked = post.isBodyLocked;
     final body = post.body.trim();
 
-    return DecoratedBox(
+    final radius = compact ? 14.0 : 16.0;
+    final card = DecoratedBox(
       decoration: BoxDecoration(
         color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: const Color(0xFF6EE7B7).withValues(alpha: 0.45),
-          width: 1.2,
+          width: compact ? 1 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF34D399).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: compact ? 8 : 12,
+            offset: Offset(0, compact ? 2 : 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        padding: EdgeInsets.fromLTRB(
+          compact ? 10 : 14,
+          compact ? 10 : 12,
+          compact ? 10 : 14,
+          compact ? 10 : 12,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -90,7 +103,7 @@ class WhisperPostCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 16,
+                  radius: compact ? 13 : 16,
                   backgroundColor: SoriTokens.primary.withValues(alpha: 0.2),
                   backgroundImage: post.shopAvatarUrl != null &&
                           post.shopAvatarUrl!.trim().isNotEmpty
@@ -132,7 +145,7 @@ class WhisperPostCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 8 : 12),
             if (locked)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,13 +172,15 @@ class WhisperPostCard extends StatelessWidget {
             else
               Text(
                 body,
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  height: 1.5,
+                maxLines: compact ? 5 : null,
+                overflow: compact ? TextOverflow.ellipsis : null,
+                style: TextStyle(
+                  fontSize: compact ? 13 : 14.5,
+                  height: 1.45,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            if (!locked && post.commentCount > 0) ...[
+            if (!compact && !locked && post.commentCount > 0) ...[
               const SizedBox(height: 12),
               CommunityCommentsSection(
                 store: store,
@@ -174,6 +189,16 @@ class WhisperPostCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radius),
+        child: card,
       ),
     );
   }

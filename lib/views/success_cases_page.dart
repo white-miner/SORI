@@ -217,7 +217,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBooking(item.shop),
         onOpenCommunitySeminar: () {
-          widget.store.pendingCommunitySegment = 4;
+          widget.store.pendingCommunitySegment = 5;
           final shell = StatefulNavigationShell.maybeOf(context);
           shell?.goBranch(3);
         },

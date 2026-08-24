@@ -198,7 +198,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBookingOrProfile(item.shop),
         onOpenCommunitySeminar: () {
-          store.pendingCommunitySegment = 4;
+          store.pendingCommunitySegment = 5;
           widget.onSelectTab?.call(3);
         },
       ),
@@ -355,7 +355,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage> {
       onFanBoostPurchase:
           isCustomer && !isAuthor ? () => _buyFanBoost(item) : null,
       onOpenCommunitySeminar: () {
-        store.pendingCommunitySegment = 4; // 세미나
+        store.pendingCommunitySegment = 5; // 세미나
         widget.onSelectTab?.call(3);
       },
     );

@@ -45,7 +45,7 @@ void main() {
   test('openCommunityDeviceReviewComposer sets pending flags', () async {
     final store = await boot();
     store.openCommunityDeviceReviewComposer();
-    expect(store.pendingCommunitySegment, 2);
+    expect(store.pendingCommunitySegment, 3);
     expect(store.pendingCommunityComposeDevice, isTrue);
   });
 

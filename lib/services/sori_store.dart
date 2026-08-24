@@ -1847,7 +1847,7 @@ class SoriStore implements Listenable {
   }
 
   void openCommunityDeviceReviewComposer() {
-    pendingCommunitySegment = 2; // 기기 리뷰
+    pendingCommunitySegment = 3; // 기기 리뷰 (속삭임 탭 삽입 후)
     pendingCommunityComposeDevice = true;
     _notify();
   }
