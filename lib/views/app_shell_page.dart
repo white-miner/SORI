@@ -103,8 +103,9 @@ class _AppShellPageState extends State<AppShellPage> {
     final today = DateTime(now.year, now.month, now.day);
     if (session.activeMode == UserRole.director) {
       final careToday = _store.customersForDate(today).length;
-      final reviewReq = _store.reviewRequestedCustomerIds.length;
-      return (careToday + reviewReq).clamp(0, 99);
+      final reviewReq = _store.reviewRequestedPendingCount;
+      final unreplied = _store.reviewUnrepliedCount;
+      return (careToday + reviewReq + unreplied).clamp(0, 99);
     }
     final cid = session.customerId;
     if (cid != null && _store.isReviewRequested(cid)) return 1;

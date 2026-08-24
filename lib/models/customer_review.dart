@@ -103,6 +103,7 @@ class CustomerReview {
     DateTime? directorRepliedAt,
     DateTime? createdAt,
     bool clearDirectorReply = false,
+    bool clearNaverRegisteredAt = false,
   }) {
     return CustomerReview(
       id: id ?? this.id,
@@ -116,7 +117,9 @@ class CustomerReview {
       requestAiReply: requestAiReply ?? this.requestAiReply,
       acceptedAt: acceptedAt ?? this.acceptedAt,
       naverRegistered: naverRegistered ?? this.naverRegistered,
-      naverRegisteredAt: naverRegisteredAt ?? this.naverRegisteredAt,
+      naverRegisteredAt: clearNaverRegisteredAt
+          ? null
+          : (naverRegisteredAt ?? this.naverRegisteredAt),
       rating: rating ?? this.rating,
       directorReply:
           clearDirectorReply ? null : (directorReply ?? this.directorReply),

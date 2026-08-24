@@ -583,8 +583,9 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final today = DateTime(now.year, now.month, now.day);
     if (session.activeMode == UserRole.director) {
       final careToday = store.customersForDate(today).length;
-      final reviewReq = store.reviewRequestedCustomerIds.length;
-      return (careToday + reviewReq).clamp(0, 99);
+      final reviewReq = store.reviewRequestedPendingCount;
+      final unreplied = store.reviewUnrepliedCount;
+      return (careToday + reviewReq + unreplied).clamp(0, 99);
     }
     final cid = session.customerId;
     if (cid != null && store.isReviewRequested(cid)) return 1;

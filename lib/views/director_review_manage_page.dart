@@ -6,6 +6,7 @@ import '../models/customer.dart';
 import '../services/sori_share.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_bottom_sheet.dart';
 import '../widgets/review_qr_modal.dart';
 import '../widgets/sori_card.dart';
 import 'customer_link_popup.dart';
@@ -13,7 +14,7 @@ import 'request_customer_review.dart';
 
 enum _ReviewSort { recent, ratingHigh, ratingLow }
 
-/// 원장용 리뷰 관리 — 다차원 인박스 + 답글 + 후기 요청.
+/// 원장용 리뷰 관리 — 운영 콘솔 (우선순위 인박스 + 후기 요청).
 class DirectorReviewManagePage extends StatefulWidget {
   const DirectorReviewManagePage({super.key, required this.store});
 
@@ -33,6 +34,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
   final Set<String> _requestedIds = {};
   final _search = TextEditingController();
 
+  ReviewOpsLane _lane = ReviewOpsLane.unreplied;
   _ReviewSort _sort = _ReviewSort.recent;
   String? _careFilter;
   String? _bodyFilter;
@@ -41,6 +43,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
   String? _replyingReviewId;
   final _replyController = TextEditingController();
   bool _savingReply = false;
+  bool _togglingNaver = false;
 
   @override
   void initState() {
@@ -90,7 +93,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
   }
 
   List<DirectorReviewInboxItem> get _filteredInbox {
-    var list = widget.store.directorReviewInboxItems();
+    var list = widget.store.directorReviewInboxItems(lane: _lane);
     final q = _search.text.trim().toLowerCase();
     if (q.isNotEmpty) {
       list = list.where((item) {
@@ -116,7 +119,11 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     list = List.of(list);
     switch (_sort) {
       case _ReviewSort.recent:
-        list.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+        if (_lane == ReviewOpsLane.unreplied) {
+          list.sort((a, b) => a.sortDate.compareTo(b.sortDate));
+        } else {
+          list.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+        }
       case _ReviewSort.ratingHigh:
         list.sort((a, b) {
           final c = b.review.effectiveRating.compareTo(a.review.effectiveRating);
@@ -129,6 +136,16 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
         });
     }
     return list;
+  }
+
+  int get _activeFilterCount {
+    var n = 0;
+    if (_careFilter != null) n++;
+    if (_bodyFilter != null) n++;
+    if (_genderFilter != null) n++;
+    if (_ageFilter != null) n++;
+    if (_sort != _ReviewSort.recent) n++;
+    return n;
   }
 
   Future<void> _requestReview(Customer customer) async {
@@ -290,7 +307,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
             tabs: [
               Tab(
                 text:
-                    '인박스 ${_filteredInbox.length}/${widget.store.directorReviewInboxItems().length}',
+                    '인박스 ${widget.store.directorReviewInboxItems(lane: ReviewOpsLane.all).length}',
               ),
               const Tab(text: '후기 요청'),
             ],
@@ -309,14 +326,315 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     );
   }
 
+  Future<void> _toggleNaver(DirectorReviewInboxItem item, bool value) async {
+    if (_togglingNaver) return;
+    setState(() => _togglingNaver = true);
+    try {
+      await widget.store.setNaverRegistered(
+        chartId: item.review.chartId,
+        registered: value,
+        composedText: item.review.displayText,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value ? '네이버 등록으로 표시했어요.' : '네이버 등록 표시를 해제했어요.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: value ? const Color(0xFF03C75A) : null,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('네이버 상태 저장 실패: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _togglingNaver = false);
+    }
+  }
+
+  Future<void> _openFilterSheet() async {
+    await showSoriModalBottomSheet<void>(
+      context: context,
+      backgroundColor: SoriTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            void apply(VoidCallback fn) {
+              setModal(fn);
+              setState(fn);
+            }
+
+            final cares = _careOptions;
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  12,
+                  16,
+                  16 + kSoriFloatingNavClearance,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: SoriTokens.border,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '필터',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => apply(() {
+                              _sort = _ReviewSort.recent;
+                              _careFilter = null;
+                              _bodyFilter = null;
+                              _genderFilter = null;
+                              _ageFilter = null;
+                            }),
+                            child: const Text('초기화'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _filterRow(
+                        label: '정렬',
+                        children: [
+                          _chip(
+                            '최근순',
+                            selected: _sort == _ReviewSort.recent,
+                            onTap: () =>
+                                apply(() => _sort = _ReviewSort.recent),
+                          ),
+                          _chip(
+                            '별점높은순',
+                            selected: _sort == _ReviewSort.ratingHigh,
+                            onTap: () =>
+                                apply(() => _sort = _ReviewSort.ratingHigh),
+                          ),
+                          _chip(
+                            '별점낮은순',
+                            selected: _sort == _ReviewSort.ratingLow,
+                            onTap: () =>
+                                apply(() => _sort = _ReviewSort.ratingLow),
+                          ),
+                        ],
+                      ),
+                      _filterRow(
+                        label: '관리명',
+                        children: [
+                          _chip(
+                            '전체',
+                            selected: _careFilter == null,
+                            onTap: () => apply(() => _careFilter = null),
+                          ),
+                          ...cares.map(
+                            (c) => _chip(
+                              c,
+                              selected: _careFilter == c,
+                              onTap: () => apply(() => _careFilter = c),
+                            ),
+                          ),
+                        ],
+                      ),
+                      _filterRow(
+                        label: '부위',
+                        children: [
+                          _chip(
+                            '전체',
+                            selected: _bodyFilter == null,
+                            onTap: () => apply(() => _bodyFilter = null),
+                          ),
+                          ..._bodyParts.map(
+                            (p) => _chip(
+                              p,
+                              selected: _bodyFilter == p,
+                              onTap: () => apply(() => _bodyFilter = p),
+                            ),
+                          ),
+                        ],
+                      ),
+                      _filterRow(
+                        label: '성별·나이',
+                        children: [
+                          _chip(
+                            '전체',
+                            selected:
+                                _genderFilter == null && _ageFilter == null,
+                            onTap: () => apply(() {
+                              _genderFilter = null;
+                              _ageFilter = null;
+                            }),
+                          ),
+                          _chip(
+                            '여성',
+                            selected: _genderFilter == CustomerGender.female,
+                            onTap: () => apply(
+                              () => _genderFilter =
+                                  _genderFilter == CustomerGender.female
+                                      ? null
+                                      : CustomerGender.female,
+                            ),
+                          ),
+                          _chip(
+                            '남성',
+                            selected: _genderFilter == CustomerGender.male,
+                            onTap: () => apply(
+                              () => _genderFilter =
+                                  _genderFilter == CustomerGender.male
+                                      ? null
+                                      : CustomerGender.male,
+                            ),
+                          ),
+                          ..._ageBands.map(
+                            (a) => _chip(
+                              a,
+                              selected: _ageFilter == a,
+                              onTap: () => apply(
+                                () => _ageFilter = _ageFilter == a ? null : a,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SoriTokens.primary,
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text(
+                          '적용',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildInboxTab() {
     final items = _filteredInbox;
-    final cares = _careOptions;
+    final kpi = widget.store.reviewOpsKpi();
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: _KpiTile(
+                  label: '미답글',
+                  value: '${kpi.unreplied}',
+                  accent: kpi.unreplied > 0,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _KpiTile(
+                  label: '오늘신규',
+                  value: '${kpi.new24h}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _KpiTile(
+                  label: '요청중',
+                  value: '${kpi.requestedPending}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _KpiTile(
+                  label: '7일',
+                  value: '${kpi.weekCount}',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _laneChip(
+                        '미답글',
+                        ReviewOpsLane.unreplied,
+                        count: kpi.unreplied,
+                      ),
+                      _laneChip(
+                        '신규',
+                        ReviewOpsLane.new24h,
+                        count: kpi.new24h,
+                      ),
+                      _laneChip(
+                        '전체',
+                        ReviewOpsLane.all,
+                        count: kpi.inboxTotal,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _openFilterSheet,
+                icon: Badge(
+                  isLabelVisible: _activeFilterCount > 0,
+                  label: Text(
+                    '$_activeFilterCount',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  child: const Icon(Icons.tune_rounded, size: 20),
+                ),
+                label: const Text(
+                  '필터',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           child: TextField(
             controller: _search,
             onChanged: (_) => setState(() {}),
@@ -356,123 +674,9 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
           ),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 156,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: [
-              _filterRow(
-                label: '정렬',
-                children: [
-                  _chip(
-                    '최근순',
-                    selected: _sort == _ReviewSort.recent,
-                    onTap: () => setState(() => _sort = _ReviewSort.recent),
-                  ),
-                  _chip(
-                    '별점높은순',
-                    selected: _sort == _ReviewSort.ratingHigh,
-                    onTap: () => setState(() => _sort = _ReviewSort.ratingHigh),
-                  ),
-                  _chip(
-                    '별점낮은순',
-                    selected: _sort == _ReviewSort.ratingLow,
-                    onTap: () => setState(() => _sort = _ReviewSort.ratingLow),
-                  ),
-                ],
-              ),
-              _filterRow(
-                label: '관리명',
-                children: [
-                  _chip(
-                    '전체',
-                    selected: _careFilter == null,
-                    onTap: () => setState(() => _careFilter = null),
-                  ),
-                  ...cares.map(
-                    (c) => _chip(
-                      c,
-                      selected: _careFilter == c,
-                      onTap: () => setState(() => _careFilter = c),
-                    ),
-                  ),
-                ],
-              ),
-              _filterRow(
-                label: '부위',
-                children: [
-                  _chip(
-                    '전체',
-                    selected: _bodyFilter == null,
-                    onTap: () => setState(() => _bodyFilter = null),
-                  ),
-                  ..._bodyParts.map(
-                    (p) => _chip(
-                      p,
-                      selected: _bodyFilter == p,
-                      onTap: () => setState(() => _bodyFilter = p),
-                    ),
-                  ),
-                ],
-              ),
-              _filterRow(
-                label: '성별·나이',
-                children: [
-                  _chip(
-                    '전체',
-                    selected: _genderFilter == null && _ageFilter == null,
-                    onTap: () => setState(() {
-                      _genderFilter = null;
-                      _ageFilter = null;
-                    }),
-                  ),
-                  _chip(
-                    '여성',
-                    selected: _genderFilter == CustomerGender.female,
-                    onTap: () => setState(
-                      () => _genderFilter = _genderFilter == CustomerGender.female
-                          ? null
-                          : CustomerGender.female,
-                    ),
-                  ),
-                  _chip(
-                    '남성',
-                    selected: _genderFilter == CustomerGender.male,
-                    onTap: () => setState(
-                      () => _genderFilter = _genderFilter == CustomerGender.male
-                          ? null
-                          : CustomerGender.male,
-                    ),
-                  ),
-                  ..._ageBands.map(
-                    (a) => _chip(
-                      a,
-                      selected: _ageFilter == a,
-                      onTap: () => setState(
-                        () => _ageFilter = _ageFilter == a ? null : a,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child: items.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      '표시할 후기가 없습니다.\n고객이 리뷰를 작성하면 여기에 모입니다.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                )
+              ? _buildEmptyLane()
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                   itemCount: items.length,
@@ -482,6 +686,93 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _laneChip(String label, ReviewOpsLane lane, {required int count}) {
+    final selected = _lane == lane;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(
+          '$label $count',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        selected: selected,
+        onSelected: (_) => setState(() => _lane = lane),
+        selectedColor: SoriTokens.primarySoft,
+        labelStyle: TextStyle(
+          color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
+        ),
+        side: BorderSide(
+          color: selected ? SoriTokens.primary : SoriTokens.border,
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
+  Widget _buildEmptyLane() {
+    final String title;
+    final String body;
+    switch (_lane) {
+      case ReviewOpsLane.unreplied:
+        title = '답글 달 후기가 없어요';
+        body = '잘하고 있어요. 새 후기가 오면 여기에 모입니다.';
+      case ReviewOpsLane.new24h:
+        title = '최근 24시간 새 후기가 없어요';
+        body = '후기 요청으로 수집을 늘려 보세요.';
+      case ReviewOpsLane.all:
+        title = '표시할 후기가 없습니다';
+        body = '고객이 리뷰를 작성하면 여기에 모입니다.';
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+            if (_lane != ReviewOpsLane.all) ...[
+              const SizedBox(height: 16),
+              if (_lane == ReviewOpsLane.unreplied)
+                TextButton(
+                  onPressed: () => setState(() => _lane = ReviewOpsLane.new24h),
+                  child: const Text('신규 보기'),
+                ),
+              FilledButton(
+                onPressed: () => _tabs.animateTo(1),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SoriTokens.primary,
+                ),
+                child: const Text('후기 요청하기'),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -698,6 +989,58 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
             const SizedBox(height: 12),
             Row(
               children: [
+                Icon(
+                  review.hasDirectorReply
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 18,
+                  color: review.hasDirectorReply
+                      ? SoriTokens.primary
+                      : SoriTokens.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  review.hasDirectorReply ? '답글 완료' : '답글 대기',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: review.hasDirectorReply
+                        ? SoriTokens.primary
+                        : SoriTokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Icon(
+                  review.naverRegistered
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 18,
+                  color: review.naverRegistered
+                      ? const Color(0xFF03C75A)
+                      : SoriTokens.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  '네이버',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                Switch.adaptive(
+                  value: review.naverRegistered,
+                  activeThumbColor: const Color(0xFF03C75A),
+                  onChanged: _togglingNaver
+                      ? null
+                      : (v) => _toggleNaver(item, v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
@@ -723,7 +1066,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                     onPressed: () => _copyNaverReview(item),
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
                     label: const Text(
-                      '네이버 후기',
+                      '네이버 복사',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -913,6 +1256,57 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _KpiTile extends StatelessWidget {
+  const _KpiTile({
+    required this.label,
+    required this.value,
+    this.accent = false,
+  });
+
+  final String label;
+  final String value;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accent
+              ? SoriTokens.primary.withValues(alpha: 0.45)
+              : SoriTokens.border,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: accent ? SoriTokens.primary : SoriTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

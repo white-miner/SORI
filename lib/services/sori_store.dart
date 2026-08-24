@@ -1430,7 +1430,11 @@ class SoriStore implements Listenable {
   }
 
   /// 원장 리뷰 인박스용 조인 행 (리뷰 + 고객 + 차트).
-  List<DirectorReviewInboxItem> directorReviewInboxItems() {
+  List<DirectorReviewInboxItem> directorReviewInboxItems({
+    ReviewOpsLane lane = ReviewOpsLane.all,
+    DateTime? now,
+  }) {
+    final clock = now ?? DateTime.now();
     final items = <DirectorReviewInboxItem>[];
     for (final review in reviews) {
       if (!review.isInboxVisible) continue;
@@ -1441,15 +1445,112 @@ class SoriStore implements Listenable {
       } catch (_) {
         chart = null;
       }
-      items.add(
-        DirectorReviewInboxItem(
-          review: review,
-          customer: customer,
-          chart: chart,
-        ),
+      final item = DirectorReviewInboxItem(
+        review: review,
+        customer: customer,
+        chart: chart,
       );
+      if (!_matchesReviewOpsLane(item, lane, clock)) continue;
+      items.add(item);
+    }
+    if (lane == ReviewOpsLane.unreplied) {
+      items.sort((a, b) => a.sortDate.compareTo(b.sortDate));
     }
     return items;
+  }
+
+  bool _matchesReviewOpsLane(
+    DirectorReviewInboxItem item,
+    ReviewOpsLane lane,
+    DateTime now,
+  ) {
+    switch (lane) {
+      case ReviewOpsLane.all:
+        return true;
+      case ReviewOpsLane.unreplied:
+        return !item.review.hasDirectorReply;
+      case ReviewOpsLane.new24h:
+        final t = item.review.acceptedAt ?? item.review.createdAt;
+        if (t == null) return false;
+        return now.difference(t) <= const Duration(hours: 24);
+    }
+  }
+
+  int get reviewUnrepliedCount =>
+      directorReviewInboxItems(lane: ReviewOpsLane.unreplied).length;
+
+  int get reviewNew24hCount =>
+      directorReviewInboxItems(lane: ReviewOpsLane.new24h).length;
+
+  /// 요청됨인데 아직 인박스 후기가 없는 고객 수.
+  int get reviewRequestedPendingCount {
+    final reviewedCustomers = <String>{};
+    for (final r in reviews) {
+      if (!r.isInboxVisible) continue;
+      final id = r.customerId.trim();
+      if (id.isNotEmpty) reviewedCustomers.add(id);
+    }
+    var n = 0;
+    for (final id in reviewRequestedCustomerIds) {
+      if (!reviewedCustomers.contains(id)) n++;
+    }
+    return n;
+  }
+
+  ReviewOpsKpi reviewOpsKpi({
+    Duration window = const Duration(days: 7),
+    DateTime? now,
+  }) {
+    final clock = now ?? DateTime.now();
+    final inbox = directorReviewInboxItems(lane: ReviewOpsLane.all);
+    var weekCount = 0;
+    var ratingSum = 0;
+    var ratingN = 0;
+    var naverN = 0;
+    for (final item in inbox) {
+      final t = item.review.acceptedAt ?? item.review.createdAt;
+      if (t != null && clock.difference(t) <= window) {
+        weekCount++;
+      }
+      final stars = item.review.effectiveRating;
+      if (stars >= 1) {
+        ratingSum += stars;
+        ratingN++;
+      }
+      if (item.review.naverRegistered) naverN++;
+    }
+    return ReviewOpsKpi(
+      unreplied: reviewUnrepliedCount,
+      new24h: reviewNew24hCount,
+      requestedPending: reviewRequestedPendingCount,
+      weekCount: weekCount,
+      avgRating: ratingN == 0 ? 0 : ratingSum / ratingN,
+      naverRate: inbox.isEmpty ? 0 : naverN / inbox.length,
+      inboxTotal: inbox.length,
+    );
+  }
+
+  /// 네이버 등록 플래그 토글 (ON은 원격 sync, OFF는 로컬 즉시 반영).
+  Future<CustomerReview?> setNaverRegistered({
+    required String chartId,
+    required bool registered,
+    String? composedText,
+  }) async {
+    if (registered) {
+      return markNaverRegistered(
+        chartId: chartId,
+        composedText: composedText,
+      );
+    }
+    final local = reviewForChart(chartId);
+    if (local == null) return null;
+    final updated = local.copyWith(
+      naverRegistered: false,
+      clearNaverRegisteredAt: true,
+    );
+    _mergeReview(updated);
+    _notify();
+    return updated;
   }
 
   /// 원장 Review 탭 — 고객 차트에 연결된 published 리뷰 등록/갱신.
@@ -1575,10 +1676,23 @@ class SoriStore implements Listenable {
           composedText: composedText,
         );
         if (remote != null) {
-          _mergeReview(remote);
+          final existing = reviewForChart(chartId);
+          if (existing != null && existing.id != remote.id) {
+            _mergeReview(
+              existing.copyWith(
+                naverRegistered: true,
+                naverRegisteredAt:
+                    remote.naverRegisteredAt ?? DateTime.now(),
+                editedText: composedText ?? existing.editedText,
+                status: ReviewStatus.published,
+              ),
+            );
+          } else {
+            _mergeReview(remote);
+          }
           lastError = null;
           _notify();
-          return remote;
+          return reviewForChart(chartId) ?? remote;
         }
         if (!_repository.isRemote) {
           return reviewForChart(chartId);
@@ -4255,6 +4369,34 @@ class SoriStore implements Listenable {
     skinJournalEntries.insert(0, text);
     _notify();
   }
+}
+
+/// 리뷰 운영 콘솔 — 인박스 레인.
+enum ReviewOpsLane {
+  unreplied,
+  new24h,
+  all,
+}
+
+/// 리뷰 운영 콘솔 KPI (클라 파생).
+class ReviewOpsKpi {
+  const ReviewOpsKpi({
+    required this.unreplied,
+    required this.new24h,
+    required this.requestedPending,
+    required this.weekCount,
+    required this.avgRating,
+    required this.naverRate,
+    required this.inboxTotal,
+  });
+
+  final int unreplied;
+  final int new24h;
+  final int requestedPending;
+  final int weekCount;
+  final double avgRating;
+  final double naverRate;
+  final int inboxTotal;
 }
 
 /// 원장 리뷰 인박스 조인 뷰모델.
