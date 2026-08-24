@@ -189,11 +189,7 @@ class SoriStore implements Listenable {
   DateTime? discoverFetchedAt;
   String discoverQuery = '';
   DateTime? hubWarmedAt;
-  final List<WhisperMessage> whisperInbox = [];
-  final List<WhisperMessage> whisperSent = [];
   final List<WhisperAudiencePreset> whisperPresets = [];
-  int whisperUnreadCount = 0;
-  bool whisperLoading = false;
   WhisperAudiencePreview? whisperAudiencePreview;
   bool whisperPreviewLoading = false;
   final List<ShopHighlight> shopHighlights = [];
@@ -1961,29 +1957,14 @@ class SoriStore implements Listenable {
     return followedShopIds.contains(id);
   }
 
-  Future<void> refreshWhisperInbox({String box = 'inbox'}) async {
-    whisperLoading = true;
-    _notify();
+  Future<void> refreshWhisperPresets() async {
     try {
-      final rows = await _repository.loadMyWhispers(box: box);
-      if (box == 'sent') {
-        whisperSent
-          ..clear()
-          ..addAll(rows);
-      } else {
-        whisperInbox
-          ..clear()
-          ..addAll(rows);
-      }
-      whisperUnreadCount = await _repository.countUnreadWhispers();
       whisperPresets
         ..clear()
         ..addAll(await _repository.loadWhisperPresets());
-    } catch (e) {
-      debugPrint('refreshWhisperInbox failed: $e');
-    } finally {
-      whisperLoading = false;
       _notify();
+    } catch (e) {
+      debugPrint('refreshWhisperPresets failed: $e');
     }
   }
 
@@ -2017,33 +1998,8 @@ class SoriStore implements Listenable {
         ? spec.copyWith(shopId: shop.id)
         : spec;
     final result = await _repository.sendWhisper(body: body, spec: withShop);
-    await refreshWhisperInbox(box: 'sent');
+    await refreshCommunityPosts();
     return result;
-  }
-
-  Future<void> markWhisperRead(String whisperId) async {
-    await _repository.markWhisperRead(whisperId);
-    for (var i = 0; i < whisperInbox.length; i++) {
-      final w = whisperInbox[i];
-      if (w.id == whisperId && w.readAt == null) {
-        whisperInbox[i] = WhisperMessage(
-          id: w.id,
-          body: w.body,
-          createdAt: w.createdAt,
-          box: w.box,
-          recipientCount: w.recipientCount,
-          truncated: w.truncated,
-          readAt: DateTime.now(),
-          senderUserId: w.senderUserId,
-          senderNickname: w.senderNickname,
-          senderAvatarUrl: w.senderAvatarUrl,
-          audienceOp: w.audienceOp,
-          audienceSpec: w.audienceSpec,
-        );
-      }
-    }
-    whisperUnreadCount = await _repository.countUnreadWhispers();
-    _notify();
   }
 
   Future<WhisperAudiencePreset> saveWhisperPreset({
@@ -2260,8 +2216,9 @@ class SoriStore implements Listenable {
     CommunityPostType type, {
     String? viewerId,
   }) {
-    final organic =
-        communityPosts.where((p) => p.postType == type).toList();
+    final organic = communityPosts
+        .where((p) => p.postType == type && !p.isWhisper)
+        .toList();
     if (organic.isEmpty) return organic;
 
     final segment = type == CommunityPostType.interior

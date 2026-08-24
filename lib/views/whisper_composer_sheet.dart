@@ -46,7 +46,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   @override
   void initState() {
     super.initState();
-    unawaited(store.refreshWhisperInbox(box: 'sent'));
+    unawaited(store.refreshWhisperPresets());
     _schedulePreview();
   }
 
@@ -213,7 +213,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${result.recipientCount}명에게 속삭임을 보냈어요'
+            '${result.recipientCount}명에게 속삭임을 게시했어요'
             '${result.truncated ? ' (상한 적용)' : ''}',
           ),
           behavior: SnackBarBehavior.floating,
@@ -271,7 +271,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                 children: [
                   const Expanded(
                     child: Text(
-                      '위스퍼 작성',
+                      '속삭임 작성',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,

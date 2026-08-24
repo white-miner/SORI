@@ -448,6 +448,9 @@ class CommunityPost {
     this.sourceChartId,
     this.isBodyLocked = false,
     this.unlockCost = 5,
+    this.isWhisper = false,
+    this.audienceOp,
+    this.whisperRecipientCount = 0,
   });
 
   final String id;
@@ -479,6 +482,12 @@ class CommunityPost {
 
   /// Echo 페이월 해금 비용 (1E=₩100).
   final int unlockCost;
+
+  /// 속삭임 포스트 — 피드에 노출되나 수신자만 본문 열람.
+  final bool isWhisper;
+
+  final String? audienceOp;
+  final int whisperRecipientCount;
 
   String get authorDisplayName {
     final owner = shopOwnerName.trim();
@@ -512,6 +521,9 @@ class CommunityPost {
     String? sourceChartId,
     bool? isBodyLocked,
     int? unlockCost,
+    bool? isWhisper,
+    String? audienceOp,
+    int? whisperRecipientCount,
   }) {
     return CommunityPost(
       id: id,
@@ -539,6 +551,10 @@ class CommunityPost {
       sourceChartId: sourceChartId ?? this.sourceChartId,
       isBodyLocked: isBodyLocked ?? this.isBodyLocked,
       unlockCost: unlockCost ?? this.unlockCost,
+      isWhisper: isWhisper ?? this.isWhisper,
+      audienceOp: audienceOp ?? this.audienceOp,
+      whisperRecipientCount:
+          whisperRecipientCount ?? this.whisperRecipientCount,
     );
   }
 
@@ -649,6 +665,14 @@ class CommunityPost {
       isBodyLocked: map['is_body_locked'] == true ||
           map['isBodyLocked'] == true,
       unlockCost: DbMap.asInt(map['unlock_cost'] ?? map['unlockCost'], 5),
+      isWhisper:
+          map['is_whisper'] == true || map['isWhisper'] == true,
+      audienceOp: DbMap.asTextOrNull(
+        map['audience_op'] ?? map['audienceOp'],
+      ),
+      whisperRecipientCount: DbMap.asInt(
+        map['whisper_recipient_count'] ?? map['whisperRecipientCount'],
+      ),
     );
   }
 

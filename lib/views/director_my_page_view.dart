@@ -28,7 +28,8 @@ import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import 'ai_shop_report_page.dart';
 import 'app_settings_page.dart';
-import 'whisper_inbox_page.dart';
+import 'whisper_composer_sheet.dart';
+import 'my_page_fandom_hub.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'message_history_page.dart';
 import 'post_first_creation_page.dart';
@@ -61,9 +62,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.refreshWhisperInbox(box: 'inbox');
-    });
   }
 
   @override
@@ -508,8 +506,10 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     onPost: () => PostFirstCreationPage.open(context),
                     onNotifications: _openNotifications,
                     onSettings: _openSettings,
-                    onWhisper: () => WhisperInboxPage.open(context, store: store),
-                    whisperBadge: store.whisperUnreadCount,
+                    onComposeWhisper: () =>
+                        showWhisperComposer(context, store: store),
+                    onOpenFandom: () =>
+                        MyPageFandomHubPage.open(context, store: store),
                   ),
                 ),
               ),
@@ -558,6 +558,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 bio: _bio,
                 isOwner: isOwner,
                 onOpenSeminarTab: () => _tabController.animateTo(4),
+                onOpenFandom: () =>
+                    MyPageFandomHubPage.open(context, store: store),
               ),
               _ServiceGroupedFeedTab(
                 cases: cases,
@@ -623,11 +625,11 @@ class _ShopHeroCover extends StatelessWidget {
     required this.onPost,
     required this.onNotifications,
     required this.onSettings,
-    required this.onWhisper,
+    required this.onComposeWhisper,
+    required this.onOpenFandom,
     this.onCoverPick,
     this.coverUploading = false,
     this.badgeCount = 0,
-    this.whisperBadge = 0,
   });
 
   final String shopName;
@@ -637,11 +639,11 @@ class _ShopHeroCover extends StatelessWidget {
   final VoidCallback onPost;
   final VoidCallback onNotifications;
   final VoidCallback onSettings;
-  final VoidCallback onWhisper;
+  final VoidCallback onComposeWhisper;
+  final VoidCallback onOpenFandom;
   final VoidCallback? onCoverPick;
   final bool coverUploading;
   final int badgeCount;
-  final int whisperBadge;
 
   static const _fallbackCover =
       'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80';
@@ -725,10 +727,14 @@ class _ShopHeroCover extends StatelessWidget {
                     onPressed: onPost,
                   ),
                   _HeroOverlayIcon(
-                    tooltip: '위스퍼',
-                    icon: Icons.mail_outline_rounded,
-                    onPressed: onWhisper,
-                    badgeCount: whisperBadge,
+                    tooltip: '속삭임 작성',
+                    icon: Icons.lock_outline_rounded,
+                    onPressed: onComposeWhisper,
+                  ),
+                  _HeroOverlayIcon(
+                    tooltip: '팬덤 · 구독',
+                    icon: Icons.explore_outlined,
+                    onPressed: onOpenFandom,
                   ),
                   _HeroOverlayIcon(
                     tooltip: '알림',
@@ -940,6 +946,7 @@ class _HomeTabBody extends StatelessWidget {
     required this.bio,
     required this.isOwner,
     required this.onOpenSeminarTab,
+    required this.onOpenFandom,
   });
 
   final SoriStore store;
@@ -947,6 +954,7 @@ class _HomeTabBody extends StatelessWidget {
   final String bio;
   final bool isOwner;
   final VoidCallback onOpenSeminarTab;
+  final VoidCallback onOpenFandom;
 
   @override
   Widget build(BuildContext context) {
@@ -1061,6 +1069,33 @@ class _HomeTabBody extends StatelessWidget {
           avatarUrl: avatarUrl,
         ),
         const SizedBox(height: 20),
+        _SquircleCard(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading:
+                const Icon(Icons.people_outline_rounded, color: SoriTokens.primary),
+            title: const Text(
+              '팬덤 · 구독',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.textPrimary,
+              ),
+            ),
+            subtitle: Text(
+              store.subscriptionCount > 0
+                  ? '팔로잉 ${store.subscriptionCount} · 원장 탐색'
+                  : '팔로잉 피드와 원장 탐색',
+              style: const TextStyle(
+                fontSize: 12,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: SoriTokens.textSecondary),
+            onTap: onOpenFandom,
+          ),
+        ),
+        const SizedBox(height: 12),
         _SquircleCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,

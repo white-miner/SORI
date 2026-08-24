@@ -343,7 +343,7 @@ abstract class SoriRepository {
     String query = '',
   });
 
-  /// Phase 12 — Whisper Inbox
+  /// Phase 12 — Whisper as community_posts (composable audience).
   Future<WhisperAudiencePreview> previewWhisperAudience(
     WhisperAudienceSpec spec,
   );
@@ -352,15 +352,6 @@ abstract class SoriRepository {
     required String body,
     required WhisperAudienceSpec spec,
   });
-
-  Future<List<WhisperMessage>> loadMyWhispers({
-    String box = 'inbox',
-    int limit = 40,
-  });
-
-  Future<void> markWhisperRead(String whisperId);
-
-  Future<int> countUnreadWhispers();
 
   Future<List<WhisperAudiencePreset>> loadWhisperPresets();
 

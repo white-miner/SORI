@@ -2441,55 +2441,12 @@ class SupabaseSoriRepository implements SoriRepository {
       'p_body': body,
       ...spec.toRpcParams(),
     };
-    final raw = await _db.rpc('send_whisper', params: params);
+    final raw = await _db.rpc('send_whisper_post', params: params);
     final map = _asJsonMap(raw);
     if (map == null) {
-      throw StateError('send_whisper empty response');
+      throw StateError('send_whisper_post empty response');
     }
     return WhisperSendResult.fromMap(map);
-  }
-
-  @override
-  Future<List<WhisperMessage>> loadMyWhispers({
-    String box = 'inbox',
-    int limit = 40,
-  }) async {
-    try {
-      final raw = await _db.rpc(
-        'list_my_whispers',
-        params: {'p_box': box, 'p_limit': limit},
-      );
-      final rows = raw is List ? raw : const [];
-      return [
-        for (final e in rows)
-          if (e is Map) WhisperMessage.fromMap(Map<String, dynamic>.from(e)),
-      ];
-    } catch (e, st) {
-      debugPrint('loadMyWhispers failed: $e\n$st');
-      return const [];
-    }
-  }
-
-  @override
-  Future<void> markWhisperRead(String whisperId) async {
-    final id = whisperId.trim();
-    if (id.isEmpty) return;
-    try {
-      await _db.rpc('mark_whisper_read', params: {'p_whisper_id': id});
-    } catch (e, st) {
-      debugPrint('markWhisperRead failed: $e\n$st');
-    }
-  }
-
-  @override
-  Future<int> countUnreadWhispers() async {
-    try {
-      final raw = await _db.rpc('count_unread_whispers');
-      return DbMap.asInt(raw);
-    } catch (e, st) {
-      debugPrint('countUnreadWhispers failed: $e\n$st');
-      return 0;
-    }
   }
 
   @override

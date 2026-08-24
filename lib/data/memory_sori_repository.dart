@@ -38,7 +38,6 @@ class MemorySoriRepository implements SoriRepository {
   static final Map<String, Set<String>> _followersByShop = {};
   /// followerUserId → subscriptions
   static final Map<String, List<Subscription>> _subscriptionsByUser = {};
-  static final List<_MemWhisper> _whispers = [];
   static final List<_MemWhisperRecipient> _whisperRecipients = [];
   static final List<WhisperAudiencePreset> _whisperPresets = [];
   /// Seed graph for audience tests: userId → role
@@ -1235,84 +1234,36 @@ class MemorySoriRepository implements SoriRepository {
     if (spec.atoms.isEmpty) throw StateError('atoms required');
     final bits = _resolveAudience(spec);
     if (bits.isEmpty) throw StateError('no recipients matched');
-    final id = 'whisper-${_whispers.length + 1}';
-    _whispers.add(
-      _MemWhisper(
+    final id = 'cp-whisper-${_communityPosts.length + 1}';
+    _communityPosts.insert(
+      0,
+      CommunityPost(
         id: id,
-        senderUserId: 'memory-sender',
+        shopId: spec.shopId ?? 'shop-demo',
+        authorUserId: 'memory-sender',
+        postType: CommunityPostType.caseShare,
         body: text,
-        op: spec.op,
-        atoms: List.of(spec.atoms),
-        recipientCount: bits.length,
+        isWhisper: true,
+        audienceOp: spec.op,
+        whisperRecipientCount: bits.length,
+        shopName: 'SORI 에스테틱',
+        shopOwnerName: '김원장',
         createdAt: DateTime.now(),
       ),
     );
     for (final e in bits.entries) {
       _whisperRecipients.add(
         _MemWhisperRecipient(
-          whisperId: id,
+          postId: id,
           userId: e.key,
           atomBits: e.value,
         ),
       );
     }
     return WhisperSendResult(
-      whisperId: id,
+      postId: id,
       recipientCount: bits.length,
     );
-  }
-
-  @override
-  Future<List<WhisperMessage>> loadMyWhispers({
-    String box = 'inbox',
-    int limit = 40,
-  }) async {
-    if (box == 'sent') {
-      return _whispers.reversed.take(limit).map((w) {
-        return WhisperMessage(
-          id: w.id,
-          body: w.body,
-          createdAt: w.createdAt,
-          box: 'sent',
-          recipientCount: w.recipientCount,
-          senderUserId: w.senderUserId,
-          senderNickname: '나',
-          audienceOp: w.op,
-        );
-      }).toList();
-    }
-    return _whisperRecipients
-        .where((r) => r.userId != 'memory-sender')
-        .map((r) {
-          final w = _whispers.firstWhere((e) => e.id == r.whisperId);
-          return WhisperMessage(
-            id: w.id,
-            body: w.body,
-            createdAt: w.createdAt,
-            box: 'inbox',
-            recipientCount: w.recipientCount,
-            readAt: r.readAt,
-            senderUserId: w.senderUserId,
-            senderNickname: '서연',
-            audienceOp: w.op,
-          );
-        })
-        .take(limit)
-        .toList();
-  }
-
-  @override
-  Future<void> markWhisperRead(String whisperId) async {
-    for (final r in _whisperRecipients) {
-      if (r.whisperId == whisperId) {
-        r.readAt ??= DateTime.now();
-      }
-    }
-  }
-
-  @override
-  Future<int> countUnreadWhispers() async {
-    return _whisperRecipients.where((r) => r.readAt == null).length;
   }
 
   @override
@@ -1340,17 +1291,17 @@ class MemorySoriRepository implements SoriRepository {
     _whisperPresets.removeWhere((e) => e.id == presetId);
   }
 
-  /// Test helper — recipients for a whisper id.
-  static List<String> debugWhisperRecipientIds(String whisperId) {
+  /// Test helper — recipients for a whisper post id.
+  static List<String> debugWhisperRecipientIds(String postId) {
     return _whisperRecipients
-        .where((r) => r.whisperId == whisperId)
+        .where((r) => r.postId == postId)
         .map((r) => r.userId)
         .toList();
   }
 
-  static int debugWhisperAtomBits(String whisperId, String userId) {
+  static int debugWhisperAtomBits(String postId, String userId) {
     for (final r in _whisperRecipients) {
-      if (r.whisperId == whisperId && r.userId == userId) return r.atomBits;
+      if (r.postId == postId && r.userId == userId) return r.atomBits;
     }
     return 0;
   }
@@ -1921,9 +1872,17 @@ class MemorySoriRepository implements SoriRepository {
     CommunityPostType? type,
     int limit = 40,
   }) async {
+    const viewer = 'memory-sender';
     var list = List<CommunityPost>.from(_communityPosts);
+    list = list.where((p) {
+      if (!p.isWhisper) return true;
+      if (p.authorUserId == viewer) return true;
+      return _whisperRecipients.any(
+        (r) => r.postId == p.id && r.userId == viewer,
+      );
+    }).toList();
     if (type != null) {
-      list = list.where((e) => e.postType == type).toList();
+      list = list.where((e) => e.postType == type && !e.isWhisper).toList();
     }
     return list.take(limit).toList(growable: false);
   }
@@ -2952,36 +2911,14 @@ class MemorySoriRepository implements SoriRepository {
   }
 }
 
-class _MemWhisper {
-  _MemWhisper({
-    required this.id,
-    required this.senderUserId,
-    required this.body,
-    required this.op,
-    required this.atoms,
-    required this.recipientCount,
-    required this.createdAt,
-  });
-
-  final String id;
-  final String senderUserId;
-  final String body;
-  final String op;
-  final List<String> atoms;
-  final int recipientCount;
-  final DateTime createdAt;
-}
-
 class _MemWhisperRecipient {
   _MemWhisperRecipient({
-    required this.whisperId,
+    required this.postId,
     required this.userId,
     required this.atomBits,
-    this.readAt,
   });
 
-  final String whisperId;
+  final String postId;
   final String userId;
   final int atomBits;
-  DateTime? readAt;
 }

@@ -3,7 +3,7 @@ import 'package:sori/data/memory_sori_repository.dart';
 import 'package:sori/models/whisper.dart';
 
 void main() {
-  test('peer_directors ∪ super_fans materializes only matching users', () async {
+  test('sendWhisper creates feed post with materialized recipients', () async {
     final repo = MemorySoriRepository();
     final preview = await repo.previewWhisperAudience(
       const WhisperAudienceSpec(
@@ -22,14 +22,14 @@ void main() {
     );
     expect(result.recipientCount, preview.count);
 
-    final ids = MemorySoriRepository.debugWhisperRecipientIds(result.whisperId);
+    final ids = MemorySoriRepository.debugWhisperRecipientIds(result.postId);
     expect(ids, containsAll(['peer-director-a', 'peer-director-b', 'fan-boost-user']));
     expect(ids, isNot(contains('normal-follower')));
 
     // peer directors carry bit 4; super fans bit 8
     expect(
       MemorySoriRepository.debugWhisperAtomBits(
-        result.whisperId,
+        result.postId,
         'peer-director-a',
       ) &
           4,
@@ -37,7 +37,7 @@ void main() {
     );
     expect(
       MemorySoriRepository.debugWhisperAtomBits(
-        result.whisperId,
+        result.postId,
         'fan-boost-user',
       ) &
           8,

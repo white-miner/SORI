@@ -253,18 +253,24 @@ class WhisperAudiencePreset {
 
 class WhisperSendResult {
   const WhisperSendResult({
-    required this.whisperId,
+    required this.postId,
     required this.recipientCount,
     this.truncated = false,
   });
 
-  final String whisperId;
+  final String postId;
   final int recipientCount;
   final bool truncated;
 
+  /// 하위 호환 — post_id 와 동일.
+  String get whisperId => postId;
+
   factory WhisperSendResult.fromMap(Map<String, dynamic> map) {
+    final id = DbMap.asText(
+      map['post_id'] ?? map['postId'] ?? map['whisper_id'] ?? map['whisperId'],
+    );
     return WhisperSendResult(
-      whisperId: DbMap.asText(map['whisper_id'] ?? map['whisperId']),
+      postId: id,
       recipientCount: DbMap.asInt(
         map['recipient_count'] ?? map['recipientCount'],
       ),

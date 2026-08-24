@@ -13,11 +13,10 @@ import '../widgets/community_motivation.dart';
 import '../widgets/sori_insta_picker.dart';
 import 'device_review_detail_page.dart';
 import 'seminar_class_detail_page.dart';
-import 'community_following_pane.dart';
-import 'community_discover_pane.dart';
-import 'whisper_inbox_page.dart';
+import 'whisper_composer_sheet.dart';
+import '../widgets/whisper_post_card.dart';
 
-/// 글로벌 Community 허브 — [전체 | 팔로잉 | 탐색] (하단 5탭 Golden Rule 유지).
+/// 글로벌 Community 탭 — B2B 광장 (인테리어·리뷰·중고·세미나).
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key, required this.store});
 
@@ -28,9 +27,8 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage>
-    with TickerProviderStateMixin {
-  late final TabController _hub;
-  late final TabController _plaza;
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
 
   SoriStore get store => widget.store;
 
@@ -40,37 +38,21 @@ class _CommunityPageState extends State<CommunityPage>
   @override
   void initState() {
     super.initState();
-    final hubPending = store.pendingCommunityHubTab;
-    final hubInitial = (hubPending != null && hubPending >= 0 && hubPending < 3)
-        ? hubPending
-        : 0;
-    store.pendingCommunityHubTab = null;
-
     final pending = store.pendingCommunitySegment;
-    final plazaInitial = (pending != null && pending >= 0 && pending < 5)
+    final initial = (pending != null && pending >= 0 && pending < 5)
         ? pending
         : 0;
     store.pendingCommunitySegment = null;
-
-    _hub = TabController(length: 3, vsync: this, initialIndex: hubInitial);
-    _plaza = TabController(length: 5, vsync: this, initialIndex: plazaInitial);
-    _hub.addListener(() {
-      if (!_hub.indexIsChanging) setState(() {});
-    });
+    _tabs = TabController(length: 5, vsync: this, initialIndex: initial);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.ensureCommunityHubWarm();
-      store.refreshWhisperInbox(box: 'inbox');
-      final againHub = store.pendingCommunityHubTab;
-      if (againHub != null && againHub >= 0 && againHub < 3) {
-        store.pendingCommunityHubTab = null;
-        _hub.animateTo(againHub);
-      }
+      store.refreshCommunityPosts();
+      store.refreshSeminarClasses();
+      store.refreshPointWallet();
       final again = store.pendingCommunitySegment;
       if (again != null && again >= 0 && again < 5) {
         store.pendingCommunitySegment = null;
-        _hub.animateTo(0);
-        _plaza.animateTo(again);
+        _tabs.animateTo(again);
       }
     });
   }
@@ -78,29 +60,26 @@ class _CommunityPageState extends State<CommunityPage>
   @override
   void dispose() {
     store.removeListener(_onStore);
-    _hub.dispose();
-    _plaza.dispose();
+    _tabs.dispose();
     super.dispose();
   }
 
   void _onStore() {
     if (!mounted) return;
-    final hubPending = store.pendingCommunityHubTab;
-    if (hubPending != null && hubPending >= 0 && hubPending < 3) {
-      store.pendingCommunityHubTab = null;
-      _hub.animateTo(hubPending);
-    }
     final pending = store.pendingCommunitySegment;
     if (pending != null && pending >= 0 && pending < 5) {
       store.pendingCommunitySegment = null;
-      _hub.animateTo(0);
-      _plaza.animateTo(pending);
+      _tabs.animateTo(pending);
     }
     setState(() {});
   }
 
-  void _openDiscover() {
-    _hub.animateTo(2);
+  Future<void> _composeWhisper() async {
+    if (!_isDirector) {
+      _showDirectorOnly();
+      return;
+    }
+    await showWhisperComposer(context, store: store);
   }
 
   Future<void> _composeInterior() async {
@@ -172,25 +151,13 @@ class _CommunityPageState extends State<CommunityPage>
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: '위스퍼',
-                    onPressed: () =>
-                        WhisperInboxPage.open(context, store: store),
-                    icon: Badge(
-                      isLabelVisible: store.whisperUnreadCount > 0,
-                      label: Text(
-                        store.whisperUnreadCount > 9
-                            ? '9+'
-                            : '${store.whisperUnreadCount}',
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      child: const Icon(
-                        Icons.mail_outline_rounded,
-                        color: SoriTokens.textPrimary,
-                      ),
+                  if (_isDirector) ...[
+                    IconButton(
+                      tooltip: '속삭임 작성',
+                      onPressed: _composeWhisper,
+                      icon: const Icon(Icons.lock_outline_rounded),
+                      color: const Color(0xFF6EE7B7),
                     ),
-                  ),
-                  if (_isDirector && _hub.index == 0) ...[
                     IconButton(
                       tooltip: '인테리어 올리기',
                       onPressed: _composeInterior,
@@ -207,163 +174,69 @@ class _CommunityPageState extends State<CommunityPage>
                 ],
               ),
             ),
+            if (!_isDirector) const _CommunityViewerBanner(),
             Material(
               color: SoriTokens.background,
               child: TabBar(
-                controller: _hub,
-                labelColor: SoriTokens.textPrimary,
-                unselectedLabelColor: SoriTokens.textTertiary,
+                controller: _tabs,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: Colors.white,
+                unselectedLabelColor: SoriTokens.textSecondary,
                 labelStyle: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w800,
                 ),
                 unselectedLabelStyle: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w500,
                 ),
-                indicatorColor: SoriTokens.primary,
+                indicatorColor: Colors.white,
                 indicatorSize: TabBarIndicatorSize.label,
-                indicatorWeight: 2,
+                indicatorWeight: 2.5,
                 dividerColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 tabs: const [
                   Tab(text: '전체'),
-                  Tab(text: '팔로잉'),
-                  Tab(text: '탐색'),
+                  Tab(text: '인테리어'),
+                  Tab(text: '기기 리뷰'),
+                  Tab(text: '중고·신상'),
+                  Tab(text: '세미나'),
                 ],
               ),
             ),
             Expanded(
               child: TabBarView(
-                controller: _hub,
+                controller: _tabs,
                 children: [
-                  _PlazaKeepAlive(
-                    child: _CommunityPlazaBody(
-                      store: store,
-                      plaza: _plaza,
-                      isDirector: _isDirector,
-                      onComposeInterior: _composeInterior,
-                      onComposeDevice: _composeDeviceMarket,
-                      onDirectorOnly: _showDirectorOnly,
-                    ),
-                  ),
-                  CommunityFollowingPane(
+                  _RecommendSegment(store: store),
+                  _InteriorSegment(
                     store: store,
-                    onOpenDiscover: _openDiscover,
+                    isOwner: _isDirector,
+                    onCompose: _composeInterior,
                   ),
-                  CommunityDiscoverPane(store: store),
+                  _MarketSegment(
+                    store: store,
+                    isOwner: _isDirector,
+                    mode: _MarketRailMode.reviews,
+                    onCompose: () => _composeDeviceMarket(preferListing: false),
+                    onDirectorOnly: _showDirectorOnly,
+                  ),
+                  _MarketSegment(
+                    store: store,
+                    isOwner: _isDirector,
+                    mode: _MarketRailMode.listings,
+                    onCompose: () => _composeDeviceMarket(preferListing: true),
+                    onDirectorOnly: _showDirectorOnly,
+                  ),
+                  _SeminarSegment(store: store),
                 ],
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _PlazaKeepAlive extends StatefulWidget {
-  const _PlazaKeepAlive({required this.child});
-  final Widget child;
-
-  @override
-  State<_PlazaKeepAlive> createState() => _PlazaKeepAliveState();
-}
-
-class _PlazaKeepAliveState extends State<_PlazaKeepAlive>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
-  }
-}
-
-class _CommunityPlazaBody extends StatelessWidget {
-  const _CommunityPlazaBody({
-    required this.store,
-    required this.plaza,
-    required this.isDirector,
-    required this.onComposeInterior,
-    required this.onComposeDevice,
-    required this.onDirectorOnly,
-  });
-
-  final SoriStore store;
-  final TabController plaza;
-  final bool isDirector;
-  final VoidCallback onComposeInterior;
-  final void Function({bool preferListing}) onComposeDevice;
-  final VoidCallback onDirectorOnly;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!isDirector) const _CommunityViewerBanner(),
-        Material(
-          color: SoriTokens.background,
-          child: TabBar(
-            controller: plaza,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelColor: Colors.white,
-            unselectedLabelColor: SoriTokens.textSecondary,
-            labelStyle: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w500,
-            ),
-            indicatorColor: Colors.white,
-            indicatorSize: TabBarIndicatorSize.label,
-            indicatorWeight: 2,
-            dividerColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-            tabs: const [
-              Tab(text: '추천'),
-              Tab(text: '인테리어'),
-              Tab(text: '기기 리뷰'),
-              Tab(text: '중고·신상'),
-              Tab(text: '세미나'),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: plaza,
-            children: [
-              _RecommendSegment(store: store),
-              _InteriorSegment(
-                store: store,
-                isOwner: isDirector,
-                onCompose: onComposeInterior,
-              ),
-              _MarketSegment(
-                store: store,
-                isOwner: isDirector,
-                mode: _MarketRailMode.reviews,
-                onCompose: () => onComposeDevice(preferListing: false),
-                onDirectorOnly: onDirectorOnly,
-              ),
-              _MarketSegment(
-                store: store,
-                isOwner: isDirector,
-                mode: _MarketRailMode.listings,
-                onCompose: () => onComposeDevice(preferListing: true),
-                onDirectorOnly: onDirectorOnly,
-              ),
-              _SeminarSegment(store: store),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -377,7 +250,7 @@ class _CommunityViewerBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: SoriTokens.surface,
+          color: const Color(0xFF1A1228),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: SoriTokens.primary.withValues(alpha: 0.35),
@@ -387,8 +260,7 @@ class _CommunityViewerBanner extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.lock_outline_rounded,
-                  size: 18, color: SoriTokens.primary),
+              Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFFC4B5FD)),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -397,7 +269,7 @@ class _CommunityViewerBanner extends StatelessWidget {
                     fontSize: 12.5,
                     height: 1.35,
                     fontWeight: FontWeight.w700,
-                    color: SoriTokens.textSecondary,
+                    color: Color(0xFFE4E4E7),
                   ),
                 ),
               ),
@@ -415,16 +287,22 @@ class _RecommendSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final whispers = store.communityPosts
+        .where((p) => p.isWhisper)
+        .take(8)
+        .toList();
     final interiors = store.communityPosts
-        .where((p) => p.postType == CommunityPostType.interior)
+        .where((p) => p.postType == CommunityPostType.interior && !p.isWhisper)
         .take(6)
         .toList();
     final reviews = store.communityPosts
-        .where((p) => p.postType == CommunityPostType.deviceReview)
+        .where((p) =>
+            p.postType == CommunityPostType.deviceReview && !p.isWhisper)
         .take(4)
         .toList();
     final listings = store.communityPosts
-        .where((p) => p.postType == CommunityPostType.marketplace)
+        .where((p) =>
+            p.postType == CommunityPostType.marketplace && !p.isWhisper)
         .take(4)
         .toList();
     final seminars = store.seminarClasses.take(4).toList();
@@ -442,6 +320,29 @@ class _RecommendSegment extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
+        if (whispers.isNotEmpty) ...[
+          const Text(
+            '속삭임',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '나에게만 허락된 원장님의 글이에요.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...whispers.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: WhisperPostCard(post: p, store: store),
+            ),
+          ),
+          const SizedBox(height: 22),
+        ],
         const Text(
           '인테리어 쇼룸',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
@@ -850,6 +751,7 @@ class _MarketSegmentState extends State<_MarketSegment> {
   Widget build(BuildContext context) {
     var posts = _listingsMode
         ? widget.store.communityPosts.where((p) {
+            if (p.isWhisper) return false;
             return p.postType == CommunityPostType.marketplace ||
                 (p.postType == CommunityPostType.deviceReview &&
                     p.listing != null);
