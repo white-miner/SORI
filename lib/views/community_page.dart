@@ -7,6 +7,7 @@ import '../models/community_post.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_bottom_sheet.dart';
 import '../utils/whisper_feed.dart';
 import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
@@ -481,8 +482,8 @@ class _WhisperSegment extends StatelessWidget {
           ),
         ),
         if (authored.isEmpty)
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 120),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
             sliver: SliverToBoxAdapter(
               child: _EmptyHint(
                 text: isDirector
