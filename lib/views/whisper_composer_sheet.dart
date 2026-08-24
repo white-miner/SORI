@@ -56,6 +56,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _countTimer?.cancel();
     _bodyCtrl.dispose();
     super.dispose();
   }
@@ -89,28 +90,35 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
     });
   }
 
+  Timer? _countTimer;
+
   void _animateCount(int target) {
+    _countTimer?.cancel();
+    if ((target - _displayCount).abs() <= 1) {
+      setState(() => _displayCount = target);
+      return;
+    }
     final start = _displayCount;
     const steps = 10;
     var i = 0;
-    Timer.periodic(const Duration(milliseconds: 28), (t) {
+    _countTimer = Timer.periodic(const Duration(milliseconds: 40), (t) {
       i++;
       if (!mounted) {
         t.cancel();
         return;
       }
-      setState(() {
-        _displayCount =
-            start + (((target - start) * i) / steps).round();
-      });
+      final val = start + (((target - start) * i) / steps).round();
       if (i >= steps) {
-        _displayCount = target;
         t.cancel();
+        setState(() => _displayCount = target);
+      } else {
+        setState(() => _displayCount = val);
       }
     });
   }
 
   void _toggleAtom(String atom) {
+    _countTimer?.cancel();
     setState(() {
       if (_atoms.contains(atom)) {
         _atoms.remove(atom);
@@ -387,14 +395,12 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                       active: _atoms.contains(atom),
                       onTap: () => _toggleAtom(atom),
                       onPreviewStart: () {
-                        setState(() => _focusedAtom = atom);
-                        unawaited(_ensureChipPreview(atom));
-                      },
-                      onPreviewEnd: () {
-                        if (_focusedAtom == atom) {
-                          setState(() => _focusedAtom = null);
+                        if (_focusedAtom != atom) {
+                          setState(() => _focusedAtom = atom);
+                          unawaited(_ensureChipPreview(atom));
                         }
                       },
+                      onPreviewEnd: () {},
                     ),
                 ],
               ),
@@ -408,10 +414,12 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                 },
               ),
               const SizedBox(height: 12),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
                 child: _focusedAtom == null
-                    ? const SizedBox.shrink()
+                    ? const SizedBox(width: double.infinity)
                     : _ChipAudiencePreview(
                         key: ValueKey(_focusedAtom),
                         label: WhisperAtoms.label(_focusedAtom!),
