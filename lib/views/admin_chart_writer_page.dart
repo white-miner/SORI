@@ -29,6 +29,7 @@ import 'consent_pdf_preview_sheet.dart';
 import 'management_menu_field.dart';
 import 'membership_editor_sheet.dart';
 import 'my_app.dart';
+import 'smart_guide_camera_page.dart';
 import '../widgets/media_permission_dialogs.dart';
 
 Future<void> openChartWriterForCustomer(
@@ -1037,6 +1038,24 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                   leading: CircleAvatar(
                     backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
                     child: const Icon(
+                      Icons.camera_enhance_outlined,
+                      color: MyApp.soriPurple,
+                    ),
+                  ),
+                  title: const Text(
+                    '스마트 가이드 촬영',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('실루엣·타이머·After 잔상으로 맞춰 촬영'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openGuideCamera(isBefore: isBefore);
+                  },
+                ),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: MyApp.soriPurple.withValues(alpha: 0.12),
+                    child: const Icon(
                       Icons.photo_camera_outlined,
                       color: MyApp.soriPurple,
                     ),
@@ -1113,6 +1132,40 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         );
       },
     );
+  }
+
+  Future<void> _openGuideCamera({required bool isBefore}) async {
+    final customerId = _boundCustomerId.trim();
+    if (customerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('고객이 연결되지 않아 가이드 촬영을 열 수 없어요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final result = await SmartGuideCameraPage.open(
+      context,
+      shopId: widget.store.shop.id,
+      customerId: customerId,
+      kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
+      ghostBeforeUrl: isBefore ? null : _beforeUrl,
+    );
+    if (!mounted || result == null) return;
+
+    setState(() {
+      if (result.kind == GuideCameraKind.before) {
+        _beforeUrl = result.url;
+        _beforePreviewBytes = result.previewBytes;
+        _beforeUploading = false;
+      } else {
+        _afterUrl = result.url;
+        _afterPreviewBytes = result.previewBytes;
+        _afterUploading = false;
+      }
+    });
   }
 
   void _clearPhoto({required bool isBefore}) {
@@ -2348,6 +2401,56 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                                 uploading: _afterUploading,
                                 onTap: () => _attachPhoto(isBefore: false),
                                 onClear: () => _clearPhoto(isBefore: false),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _beforeUploading
+                                  ? null
+                                  : () => _openGuideCamera(isBefore: true),
+                              icon: const Icon(Icons.camera_enhance_outlined,
+                                  size: 18),
+                              label: const Text(
+                                'Before 가이드 촬영',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: MyApp.soriPurple,
+                                side: BorderSide(
+                                  color:
+                                      MyApp.soriPurple.withValues(alpha: 0.45),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _afterUploading
+                                  ? null
+                                  : () => _openGuideCamera(isBefore: false),
+                              icon: const Icon(Icons.camera_enhance_outlined,
+                                  size: 18),
+                              label: const Text(
+                                'After 가이드 촬영',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: MyApp.soriPurple,
+                                side: BorderSide(
+                                  color:
+                                      MyApp.soriPurple.withValues(alpha: 0.45),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                               ),
                             ),
                           ),

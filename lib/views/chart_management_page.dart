@@ -12,6 +12,7 @@ import '../widgets/before_after_slider.dart';
 import '../widgets/media_permission_dialogs.dart';
 import 'admin_chart_writer_page.dart';
 import 'my_app.dart';
+import 'smart_guide_camera_page.dart';
 
 /// 고객 상세 → 차트 관리: 회차 리스트 다이렉트 진입 + B/A·메타 상세.
 class ChartManagementPage extends StatefulWidget {
@@ -221,6 +222,65 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       );
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _guideCapture({required bool isBefore}) async {
+    final chart = _selected;
+    if (chart == null || _saving || _patchingAfter) return;
+    setState(() {
+      if (isBefore) {
+        _saving = true;
+      } else {
+        _patchingAfter = true;
+      }
+    });
+    try {
+      final result = await SmartGuideCameraPage.open(
+        context,
+        shopId: widget.store.shop.id,
+        customerId: widget.customerId,
+        kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
+        ghostBeforeUrl: isBefore ? null : chart.beforeImageUrl,
+      );
+      if (result == null || !mounted) return;
+      if (isBefore) {
+        await widget.store.updateCustomerChartFields(
+          chartId: chart.id,
+          beforeImageUrl: result.url,
+        );
+      } else {
+        await widget.store.patchChartAfterImage(
+          chartId: chart.id,
+          afterImageUrl: result.url,
+        );
+      }
+      if (!mounted) return;
+      MyApp.scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(
+            isBefore ? 'Before 가이드 촬영을 저장했어요' : 'After 가이드 촬영을 저장했어요',
+          ),
+          backgroundColor: SoriTokens.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('가이드 촬영 저장 실패: $e'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _patchingAfter = false;
+        });
+      }
     }
   }
 
@@ -659,23 +719,30 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
             if (chart.needsAfterPhoto) ...[
               const SizedBox(height: 10),
               FilledButton.icon(
-                onPressed: _patchingAfter ? null : _patchAfterOnly,
+                onPressed: _patchingAfter ? null : () => _guideCapture(isBefore: false),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF047857),
+                  backgroundColor: SoriTokens.primary,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
+                icon: const Icon(Icons.camera_enhance_outlined),
+                label: Text(
+                  _patchingAfter ? '등록 중…' : 'After 가이드 촬영',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _patchingAfter ? null : _patchAfterOnly,
                 icon: _patchingAfter
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.add_a_photo_outlined),
+                    : const Icon(Icons.photo_library_outlined),
                 label: Text(
-                  _patchingAfter ? '등록 중…' : 'After 사진 등록',
+                  _patchingAfter ? '등록 중…' : '갤러리에서 After 등록',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
