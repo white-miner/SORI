@@ -12,6 +12,7 @@ abstract final class KakaoAlimtalkPricing {
   static const String careReportTemplate = 'SORI_CARE_REPORT_V1';
   static const String careMessageTemplate = 'SORI_CARE_MESSAGE_V1';
   static const String membershipUsageTemplate = 'SORI_MEMBERSHIP_USAGE_V1';
+  static const String reviewRequestTemplate = 'SORI_REVIEW_REQUEST_V1';
 }
 
 class KakaoAlimtalkSendResult {

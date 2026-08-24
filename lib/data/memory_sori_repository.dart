@@ -583,6 +583,26 @@ class MemorySoriRepository implements SoriRepository {
       status: ReviewStatus.published,
       naverRegistered: true,
       naverRegisteredAt: DateTime.now(),
+      naverPublishStatus: NaverPublishStatus.registered,
+    );
+  }
+
+  @override
+  Future<CustomerReview?> setReviewNaverPublishStatus({
+    required String reviewId,
+    required String status,
+  }) async {
+    final st = NaverPublishStatusX.fromDb(status);
+    return CustomerReview(
+      id: reviewId,
+      chartId: 'chart-local',
+      customerId: 'local',
+      shopId: 'shop-demo',
+      status: ReviewStatus.published,
+      naverRegistered: st == NaverPublishStatus.registered ||
+          st == NaverPublishStatus.confirmed,
+      naverRegisteredAt: DateTime.now(),
+      naverPublishStatus: st,
     );
   }
 

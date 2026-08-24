@@ -263,6 +263,11 @@ abstract class SoriRepository {
     String? composedText,
   });
 
+  Future<CustomerReview?> setReviewNaverPublishStatus({
+    required String reviewId,
+    required String status,
+  });
+
   /// Review ops P1 — request events.
   Future<List<ReviewRequestEvent>> loadReviewRequestEvents({
     String? shopId,

@@ -8,6 +8,45 @@ enum ReviewStatus {
   published,
 }
 
+/// 네이버 퍼블리시 상태 사다리 (P2).
+enum NaverPublishStatus {
+  none,
+  copied,
+  registered,
+  confirmed,
+}
+
+extension NaverPublishStatusX on NaverPublishStatus {
+  String get dbValue => name;
+
+  String get label => switch (this) {
+        NaverPublishStatus.none => '미등록',
+        NaverPublishStatus.copied => '복사됨',
+        NaverPublishStatus.registered => '등록함',
+        NaverPublishStatus.confirmed => '확인됨',
+      };
+
+  static NaverPublishStatus fromDb(
+    String? raw, {
+    bool naverRegistered = false,
+  }) {
+    switch ((raw ?? '').trim().toLowerCase()) {
+      case 'copied':
+        return NaverPublishStatus.copied;
+      case 'registered':
+        return NaverPublishStatus.registered;
+      case 'confirmed':
+        return NaverPublishStatus.confirmed;
+      case 'none':
+        return NaverPublishStatus.none;
+      default:
+        return naverRegistered
+            ? NaverPublishStatus.registered
+            : NaverPublishStatus.none;
+    }
+  }
+}
+
 extension ReviewStatusX on ReviewStatus {
   String get dbValue => switch (this) {
         ReviewStatus.draft => 'draft',
@@ -40,6 +79,7 @@ class CustomerReview {
     this.acceptedAt,
     this.naverRegistered = false,
     this.naverRegisteredAt,
+    this.naverPublishStatus = NaverPublishStatus.none,
     this.rating,
     this.directorReply,
     this.directorRepliedAt,
@@ -58,6 +98,7 @@ class CustomerReview {
   final DateTime? acceptedAt;
   final bool naverRegistered;
   final DateTime? naverRegisteredAt;
+  final NaverPublishStatus naverPublishStatus;
 
   /// 1~5. null이면 [effectiveRating]으로 추정.
   final int? rating;
@@ -85,6 +126,15 @@ class CustomerReview {
   bool get hasDirectorReply =>
       directorReply != null && directorReply!.trim().isNotEmpty;
 
+  NaverPublishStatus get effectiveNaverStatus {
+    if (naverPublishStatus != NaverPublishStatus.none) {
+      return naverPublishStatus;
+    }
+    return naverRegistered
+        ? NaverPublishStatus.registered
+        : NaverPublishStatus.none;
+  }
+
   CustomerReview copyWith({
     String? id,
     String? chartId,
@@ -98,6 +148,7 @@ class CustomerReview {
     DateTime? acceptedAt,
     bool? naverRegistered,
     DateTime? naverRegisteredAt,
+    NaverPublishStatus? naverPublishStatus,
     int? rating,
     String? directorReply,
     DateTime? directorRepliedAt,
@@ -120,6 +171,7 @@ class CustomerReview {
       naverRegisteredAt: clearNaverRegisteredAt
           ? null
           : (naverRegisteredAt ?? this.naverRegisteredAt),
+      naverPublishStatus: naverPublishStatus ?? this.naverPublishStatus,
       rating: rating ?? this.rating,
       directorReply:
           clearDirectorReply ? null : (directorReply ?? this.directorReply),
@@ -143,6 +195,7 @@ class CustomerReview {
         'accepted_at': acceptedAt?.toIso8601String(),
         'naver_registered': naverRegistered,
         'naver_registered_at': naverRegisteredAt?.toIso8601String(),
+        'naver_publish_status': naverPublishStatus.dbValue,
         if (rating != null) 'rating': rating,
         'director_reply': directorReply,
         'director_replied_at': directorRepliedAt?.toIso8601String(),
@@ -168,6 +221,7 @@ class CustomerReview {
     } else if (rawRating is String) {
       rating = int.tryParse(rawRating)?.clamp(1, 5);
     }
+    final naverRegistered = DbMap.asBool(map['naver_registered']);
     return CustomerReview(
       id: id,
       chartId: chartId,
@@ -179,8 +233,12 @@ class CustomerReview {
       status: ReviewStatusX.fromDb(DbMap.asText(map['status'], 'draft')),
       requestAiReply: DbMap.asBool(map['request_ai_reply']),
       acceptedAt: DbMap.asDateTime(map['accepted_at']),
-      naverRegistered: DbMap.asBool(map['naver_registered']),
+      naverRegistered: naverRegistered,
       naverRegisteredAt: DbMap.asDateTime(map['naver_registered_at']),
+      naverPublishStatus: NaverPublishStatusX.fromDb(
+        DbMap.asTextOrNull(map['naver_publish_status'] ?? map['naverPublishStatus']),
+        naverRegistered: naverRegistered,
+      ),
       rating: rating,
       directorReply: DbMap.asTextOrNull(map['director_reply']),
       directorRepliedAt: DbMap.asDateTime(map['director_replied_at']),

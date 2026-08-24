@@ -1648,6 +1648,27 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<CustomerReview?> setReviewNaverPublishStatus({
+    required String reviewId,
+    required String status,
+  }) async {
+    final id = reviewId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final raw = await _db.rpc(
+        'set_review_naver_publish_status',
+        params: {'p_review_id': id, 'p_status': status},
+      );
+      final map = _asJsonMap(raw);
+      if (map == null) return null;
+      return CustomerReview.fromMap(map);
+    } catch (e, st) {
+      debugPrint('setReviewNaverPublishStatus failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
   Future<List<ReviewRequestEvent>> loadReviewRequestEvents({
     String? shopId,
     int limit = 80,

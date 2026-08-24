@@ -84,6 +84,9 @@ class SoriStore implements Listenable {
   /// Community 탭 진입 시 선택될 세그먼트 (0=전체 … 4=세미나) — 허브「전체」내부.
   int? pendingCommunitySegment;
 
+  /// Community 기기 리뷰 작성 시트 자동 오픈 (리뷰 콘솔 → 광장).
+  bool pendingCommunityComposeDevice = false;
+
   /// Community 허브 탭: 0 전체 · 1 팔로잉 · 2 탐색.
   int? pendingCommunityHubTab;
 
@@ -1712,10 +1715,141 @@ class SoriStore implements Listenable {
     final updated = local.copyWith(
       naverRegistered: false,
       clearNaverRegisteredAt: true,
+      naverPublishStatus: NaverPublishStatus.none,
     );
     _mergeReview(updated);
     _notify();
     return updated;
+  }
+
+  Future<CustomerReview?> setNaverPublishStatus({
+    required String reviewId,
+    required NaverPublishStatus status,
+  }) async {
+    final id = reviewId.trim();
+    if (id.isEmpty) return null;
+    final local = reviewById(id);
+    final optimistic = (local ??
+            CustomerReview(
+              id: id,
+              chartId: '',
+              customerId: '',
+              shopId: shop.id,
+            ))
+        .copyWith(
+          naverPublishStatus: status,
+          naverRegistered: status == NaverPublishStatus.registered ||
+              status == NaverPublishStatus.confirmed,
+          naverRegisteredAt: status == NaverPublishStatus.none
+              ? null
+              : (local?.naverRegisteredAt ?? DateTime.now()),
+          clearNaverRegisteredAt: status == NaverPublishStatus.none,
+        );
+    if (local != null) {
+      _mergeReview(optimistic);
+      _notify();
+    }
+    try {
+      final remote = await _repository.setReviewNaverPublishStatus(
+        reviewId: id,
+        status: status.dbValue,
+      );
+      if (remote != null) {
+        if (local != null && remote.chartId == 'chart-local') {
+          _mergeReview(optimistic);
+        } else {
+          _mergeReview(remote);
+        }
+        _notify();
+        return reviewById(id) ?? remote;
+      }
+    } catch (e) {
+      debugPrint('setNaverPublishStatus failed: $e');
+    }
+    return local == null ? null : reviewById(id);
+  }
+
+  /// 후기 연결 차트를 BA 포트폴리오(케이스 공유)로 승격. 동의 필수.
+  Future<String?> promoteReviewToPortfolio(String reviewId) async {
+    final review = reviewById(reviewId);
+    if (review == null) return '후기를 찾을 수 없습니다.';
+    CustomerChart? chart;
+    try {
+      chart = charts.firstWhere((c) => c.id == review.chartId);
+    } catch (_) {
+      chart = null;
+    }
+    if (chart == null) return '연결된 차트가 없습니다.';
+    final before = chart.beforeImageUrl?.trim() ?? '';
+    final after = chart.afterImageUrl?.trim() ?? '';
+    if (before.isEmpty && after.isEmpty) {
+      return 'BA 사진이 없어 포트폴리오에 올릴 수 없습니다.';
+    }
+    if (!chart.isConsentSigned && !chart.consentPhoto) {
+      return '사진 활용 동의가 없어 공개할 수 없습니다.';
+    }
+    final ok = setManagementCaseShared(chart.id, true);
+    if (!ok) return '동의 서명 없이는 공개할 수 없습니다.';
+    return null;
+  }
+
+  /// 후기 요청 알림톡 (옵트인: 마케팅/연락처 있는 고객).
+  Future<KakaoAlimtalkSendResult> sendReviewRequestAlimtalk({
+    required String customerId,
+    String? chartId,
+  }) async {
+    final customer = findCustomer(customerId);
+    if (customer == null) {
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'customer_not_found',
+        message: '고객을 찾을 수 없습니다.',
+      );
+    }
+    final phone = customer.phone.trim();
+    if (phone.isEmpty) {
+      return KakaoAlimtalkSendResult.fail(
+        errorCode: 'phone_missing',
+        message: '고객 연락처가 없습니다.',
+      );
+    }
+    final chartIdTrim = (chartId ?? '').trim();
+    CustomerChart? chart;
+    if (chartIdTrim.isNotEmpty) {
+      try {
+        chart = charts.firstWhere((c) => c.id == chartIdTrim);
+      } catch (_) {
+        chart = latestChart(customerId);
+      }
+    } else {
+      chart = latestChart(customerId);
+    }
+    final token = chart?.feedbackToken?.trim() ?? '';
+    final link = token.isEmpty
+        ? buildCareReportUrl(chart?.id ?? '')
+        : buildCustomerReviewUrl(token);
+    final name = customer.name.trim().isEmpty ? '고객' : customer.name.trim();
+    final content =
+        '$name님, 오늘 케어는 만족스러우셨나요? 짧은 후기를 남겨주시면 큰 힘이 됩니다.\n$link';
+
+    final result = await sendKakaoAlimtalk(
+      customerPhone: phone,
+      content: content,
+      templateCode: KakaoAlimtalkPricing.reviewRequestTemplate,
+    );
+    if (result.ok) {
+      await recordReviewRequest(
+        customerId: customerId,
+        chartId: chart?.id,
+        channel: 'alimtalk',
+      );
+    }
+    return result;
+  }
+
+  void openCommunityDeviceReviewComposer() {
+    pendingCommunitySegment = 2; // 기기 리뷰
+    pendingCommunityComposeDevice = true;
+    _notify();
   }
 
   /// 원장 Review 탭 — 고객 차트에 연결된 published 리뷰 등록/갱신.
@@ -1832,6 +1966,7 @@ class SoriStore implements Listenable {
         local.copyWith(
           naverRegistered: true,
           naverRegisteredAt: DateTime.now(),
+          naverPublishStatus: NaverPublishStatus.registered,
           editedText: composedText ?? local.editedText,
           status: ReviewStatus.published,
         ),
@@ -1854,6 +1989,7 @@ class SoriStore implements Listenable {
                 naverRegistered: true,
                 naverRegisteredAt:
                     remote.naverRegisteredAt ?? DateTime.now(),
+                naverPublishStatus: NaverPublishStatus.registered,
                 editedText: composedText ?? existing.editedText,
                 status: ReviewStatus.published,
               ),

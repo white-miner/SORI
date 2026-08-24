@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/customer.dart';
+import '../models/customer_review.dart';
 import '../models/review_request_event.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_share.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -189,6 +192,12 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     if (text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
     try {
+      if (item.review.effectiveNaverStatus == NaverPublishStatus.none) {
+        await widget.store.setNaverPublishStatus(
+          reviewId: item.review.id,
+          status: NaverPublishStatus.copied,
+        );
+      }
       await widget.store.markNaverRegistered(
         chartId: item.review.chartId,
         composedText: text,
@@ -291,6 +300,20 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                   ),
                 ),
                 TextButton.icon(
+                  onPressed: () {
+                    widget.store.openCommunityDeviceReviewComposer();
+                    context.go(AppPaths.appCommunity);
+                  },
+                  icon: const Icon(Icons.devices_other_outlined, size: 18),
+                  label: const Text(
+                    '기기후기',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.textPrimary,
+                  ),
+                ),
+                TextButton.icon(
                   onPressed: () =>
                       showShopReviewQrModal(context, store: widget.store),
                   icon: const Icon(Icons.qr_code_2_rounded, size: 20),
@@ -337,11 +360,17 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     if (_togglingNaver) return;
     setState(() => _togglingNaver = true);
     try {
-      await widget.store.setNaverRegistered(
-        chartId: item.review.chartId,
-        registered: value,
-        composedText: item.review.displayText,
-      );
+      if (value) {
+        await widget.store.setNaverPublishStatus(
+          reviewId: item.review.id,
+          status: NaverPublishStatus.registered,
+        );
+      } else {
+        await widget.store.setNaverPublishStatus(
+          reviewId: item.review.id,
+          status: NaverPublishStatus.none,
+        );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -361,6 +390,79 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
     } finally {
       if (mounted) setState(() => _togglingNaver = false);
     }
+  }
+
+  Future<void> _confirmNaver(DirectorReviewInboxItem item) async {
+    await widget.store.setNaverPublishStatus(
+      reviewId: item.review.id,
+      status: NaverPublishStatus.confirmed,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('네이버 게시 확인으로 표시했어요.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Color(0xFF03C75A),
+      ),
+    );
+  }
+
+  Future<void> _promotePortfolio(DirectorReviewInboxItem item) async {
+    final err = await widget.store.promoteReviewToPortfolio(item.review.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(err ?? 'BA 포트폴리오에 공개했어요.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: err == null ? SoriTokens.primary : null,
+      ),
+    );
+  }
+
+  Future<void> _draftAiReply(DirectorReviewInboxItem item) async {
+    try {
+      final ai = await widget.store.requestAiReplyFeedback(item.review.id);
+      if (!mounted) return;
+      setState(() {
+        _replyingReviewId = item.review.id;
+        _replyController.text = (ai.replyText ?? '').trim();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AI 답글 초안을 넣었어요. 확인하고 저장하세요.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: SoriTokens.primary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('AI 초안 실패: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendAlimtalkRemind(Customer customer) async {
+    final chart = widget.store.latestChart(customer.id);
+    final result = await widget.store.sendReviewRequestAlimtalk(
+      customerId: customer.id,
+      chartId: chart?.id,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.ok
+              ? '후기 요청 알림톡을 보냈어요.'
+              : (result.message ?? '알림톡 발송 실패'),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: result.ok ? SoriTokens.primary : null,
+      ),
+    );
   }
 
   Future<void> _openFilterSheet() async {
@@ -1043,9 +1145,23 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                     color: SoriTokens.textSecondary,
                   ),
                 ),
+                const SizedBox(width: 4),
+                Text(
+                  review.effectiveNaverStatus.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: review.effectiveNaverStatus == NaverPublishStatus.none
+                        ? SoriTokens.textTertiary
+                        : const Color(0xFF03C75A),
+                  ),
+                ),
                 const Spacer(),
                 Switch.adaptive(
-                  value: review.naverRegistered,
+                  value: review.effectiveNaverStatus ==
+                          NaverPublishStatus.registered ||
+                      review.effectiveNaverStatus ==
+                          NaverPublishStatus.confirmed,
                   activeThumbColor: const Color(0xFF03C75A),
                   onChanged: _togglingNaver
                       ? null
@@ -1092,6 +1208,36 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.auto_awesome, size: 16),
+                  label: const Text('AI 초안'),
+                  onPressed: () => _draftAiReply(item),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.photo_library_outlined, size: 16),
+                  label: const Text('포트폴리오'),
+                  onPressed: () => _promotePortfolio(item),
+                ),
+                if (review.effectiveNaverStatus != NaverPublishStatus.confirmed)
+                  ActionChip(
+                    avatar: const Icon(Icons.verified_outlined, size: 16),
+                    label: Text(
+                      '네이버 ${review.effectiveNaverStatus.label}→확인',
+                    ),
+                    onPressed: () => _confirmNaver(item),
+                  )
+                else
+                  const Chip(
+                    avatar: Icon(Icons.verified, size: 16, color: Color(0xFF03C75A)),
+                    label: Text('네이버 확인됨'),
+                  ),
               ],
             ),
           ],
@@ -1329,29 +1475,48 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                                     ),
                                   ),
                                   if (!converted)
-                                    FilledButton(
-                                      onPressed: sent && !dueRemind
-                                          ? null
-                                          : () => _requestReview(c),
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: SoriTokens.primary,
-                                        disabledBackgroundColor: SoriTokens
-                                            .primary
-                                            .withValues(alpha: 0.35),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 10,
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        FilledButton(
+                                          onPressed: sent && !dueRemind
+                                              ? null
+                                              : () => _requestReview(c),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: SoriTokens.primary,
+                                            disabledBackgroundColor: SoriTokens
+                                                .primary
+                                                .withValues(alpha: 0.35),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            dueRemind
+                                                ? '다시 요청'
+                                                : (sent
+                                                    ? '요청 완료'
+                                                    : '후기 요청하기'),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        dueRemind
-                                            ? '다시 요청'
-                                            : (sent ? '요청 완료' : '후기 요청하기'),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
+                                        TextButton(
+                                          onPressed: () =>
+                                              _sendAlimtalkRemind(c),
+                                          child: const Text(
+                                            '알림톡',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     )
                                   else
                                     const Text(

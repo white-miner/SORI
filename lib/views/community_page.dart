@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -11,10 +12,10 @@ import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
 import '../widgets/sori_insta_picker.dart';
+import '../widgets/whisper_post_card.dart';
 import 'device_review_detail_page.dart';
 import 'seminar_class_detail_page.dart';
 import 'whisper_composer_sheet.dart';
-import '../widgets/whisper_post_card.dart';
 
 /// 글로벌 Community 탭 — B2B 광장 (인테리어·리뷰·중고·세미나).
 class CommunityPage extends StatefulWidget {
@@ -54,6 +55,10 @@ class _CommunityPageState extends State<CommunityPage>
         store.pendingCommunitySegment = null;
         _tabs.animateTo(again);
       }
+      if (store.pendingCommunityComposeDevice) {
+        store.pendingCommunityComposeDevice = false;
+        unawaited(_composeDeviceMarket(preferListing: false));
+      }
     });
   }
 
@@ -70,6 +75,10 @@ class _CommunityPageState extends State<CommunityPage>
     if (pending != null && pending >= 0 && pending < 5) {
       store.pendingCommunitySegment = null;
       _tabs.animateTo(pending);
+    }
+    if (store.pendingCommunityComposeDevice) {
+      store.pendingCommunityComposeDevice = false;
+      unawaited(_composeDeviceMarket(preferListing: false));
     }
     setState(() {});
   }
