@@ -83,6 +83,18 @@ void main() {
     expect(list.map((e) => e.id), contains(saved.id));
     expect(list.first.atomsOrSpecContainsPeers, isTrue);
   });
+
+  test('everyone atom exposes broad audience preview', () async {
+    final repo = MemorySoriRepository();
+    final preview = await repo.previewWhisperAudience(
+      const WhisperAudienceSpec(
+        op: 'union',
+        atoms: [WhisperAtoms.everyone],
+      ),
+    );
+    expect(preview.count, greaterThanOrEqualTo(5));
+    expect(preview.preview.first.userId, isNotEmpty);
+  });
 }
 
 extension on WhisperAudiencePreset {

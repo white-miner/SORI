@@ -1272,6 +1272,11 @@ class MemorySoriRepository implements SoriRepository {
     }
 
     final atoms = spec.atoms.toSet();
+    if (atoms.contains(WhisperAtoms.everyone)) {
+      for (final uid in _seedRoles.keys) {
+        add(uid, 32);
+      }
+    }
     if (atoms.contains(WhisperAtoms.visited)) {
       for (final u in _seedVisited) {
         add(u, 1);
@@ -1292,6 +1297,22 @@ class MemorySoriRepository implements SoriRepository {
         add(u, 8);
       }
     }
+    if (atoms.contains(WhisperAtoms.seminarHosts)) {
+      for (final e in _seedRoles.entries) {
+        if (e.value == 'director' && e.key != sender) {
+          add(e.key, 64);
+        }
+      }
+    }
+    if (atoms.contains(WhisperAtoms.customerMode)) {
+      for (final e in _seedRoles.entries) {
+        if (e.value == 'customer' && e.key != sender) {
+          if (!_seedVisited.contains(e.key)) {
+            add(e.key, 128);
+          }
+        }
+      }
+    }
     if (atoms.contains(WhisperAtoms.explicit)) {
       for (final u in spec.explicitUserIds) {
         add(u.trim(), 16);
@@ -1300,6 +1321,7 @@ class MemorySoriRepository implements SoriRepository {
 
     if (spec.op == 'intersect') {
       bits.removeWhere((uid, b) {
+        if (atoms.contains(WhisperAtoms.everyone) && (b & 32) == 0) return true;
         if (atoms.contains(WhisperAtoms.visited) && (b & 1) == 0) return true;
         if (atoms.contains(WhisperAtoms.followers) && (b & 2) == 0) return true;
         if (atoms.contains(WhisperAtoms.peerDirectors) && (b & 4) == 0) {
@@ -1307,6 +1329,8 @@ class MemorySoriRepository implements SoriRepository {
         }
         if (atoms.contains(WhisperAtoms.superFans) && (b & 8) == 0) return true;
         if (atoms.contains(WhisperAtoms.explicit) && (b & 16) == 0) return true;
+        if (atoms.contains(WhisperAtoms.seminarHosts) && (b & 64) == 0) return true;
+        if (atoms.contains(WhisperAtoms.customerMode) && (b & 128) == 0) return true;
         return false;
       });
     }

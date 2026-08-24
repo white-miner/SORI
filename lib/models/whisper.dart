@@ -2,26 +2,46 @@ import '../utils/db_map.dart';
 
 /// Composable audience atom ids (064).
 abstract final class WhisperAtoms {
+  /// 관계 필터 없음 — 속삭임 탭을 보는 로그인 이용자.
+  static const everyone = 'everyone';
   static const visited = 'visited';
   static const followers = 'followers';
   static const peerDirectors = 'peer_directors';
   static const superFans = 'super_fans';
+  static const seminarHosts = 'seminar_hosts';
+  static const customerMode = 'customer_mode';
   static const explicit = 'explicit';
 
-  static const all = <String>[
+  static const composerChips = <String>[
+    everyone,
     visited,
     followers,
     peerDirectors,
     superFans,
+    seminarHosts,
+    customerMode,
+  ];
+
+  static const all = <String>[
+    everyone,
+    visited,
+    followers,
+    peerDirectors,
+    superFans,
+    seminarHosts,
+    customerMode,
     explicit,
   ];
 
   static String label(String atom) => switch (atom) {
+        everyone => '전체',
         visited => '방문 고객',
         followers => '내 팔로워',
         peerDirectors => '동료 원장',
-        superFans => '찐팬',
-        explicit => '지정',
+        superFans => 'VIP',
+        seminarHosts => '세미나 강사',
+        customerMode => '고객 모드',
+        explicit => '계정 지정',
         _ => atom,
       };
 }
