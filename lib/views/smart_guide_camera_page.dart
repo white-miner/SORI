@@ -920,7 +920,7 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
-/// Face ID 스타일 원형 뷰파인더 + 코너 브래킷 + 중앙 십자선.
+/// 원형 뷰파인더 — 정밀 가이드는 원 내부에만 배치.
 class _CircularFaceAlignPainter extends CustomPainter {
   _CircularFaceAlignPainter({
     required this.pose,
@@ -930,7 +930,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
   final GuideFacePose pose;
   final bool mirrored;
 
-  Color _guideColor(bool aligned) {
+  Color _borderColor(bool aligned) {
     if (!pose.detected) {
       return Colors.white.withValues(alpha: 0.55);
     }
@@ -939,65 +939,84 @@ class _CircularFaceAlignPainter extends CustomPainter {
         : const Color(0xFFFBBF24).withValues(alpha: 0.95);
   }
 
-  void _drawCornerBracket(
-    Canvas canvas,
-    Offset corner,
-    double dx,
-    double dy,
-    Color color,
-  ) {
-    const len = 22.0;
-    const stroke = 2.6;
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.45)
-      ..strokeWidth = stroke + 1.8
-      ..strokeCap = StrokeCap.square
-      ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.square
-      ..style = PaintingStyle.stroke;
-
-    final hEnd = Offset(corner.dx + dx * len, corner.dy);
-    final vEnd = Offset(corner.dx, corner.dy + dy * len);
-    for (final p in [shadow, paint]) {
-      canvas.drawLine(corner, hEnd, p);
-      canvas.drawLine(corner, vEnd, p);
+  /// 원 내부 보조선 — 정렬 시 에메랄드, 기본 반투명 화이트 (α ≈ 0.35).
+  Color _innerGuideColor(bool aligned) {
+    if (aligned) {
+      return SoriTokens.primary.withValues(alpha: 0.38);
     }
+    if (pose.detected) {
+      return const Color(0xFFFBBF24).withValues(alpha: 0.34);
+    }
+    return Colors.white.withValues(alpha: 0.34);
   }
 
   void _drawCenterCrosshair(Canvas canvas, Offset center, Color color) {
-    const arm = 14.0;
-    const gap = 4.0;
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.4)
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
+    const arm = 11.0;
+    const gap = 3.5;
     final paint = Paint()
-      ..color = color.withValues(alpha: 0.92)
-      ..strokeWidth = 1.35
+      ..color = color
+      ..strokeWidth = 1.05
       ..strokeCap = StrokeCap.round;
 
-    void line(Offset a, Offset b) {
-      canvas.drawLine(a.translate(0, 0.6), b.translate(0, 0.6), shadow);
-      canvas.drawLine(a, b, paint);
-    }
+    void line(Offset a, Offset b) => canvas.drawLine(a, b, paint);
 
     line(Offset(center.dx - arm, center.dy), Offset(center.dx - gap, center.dy));
     line(Offset(center.dx + gap, center.dy), Offset(center.dx + arm, center.dy));
     line(Offset(center.dx, center.dy - arm), Offset(center.dx, center.dy - gap));
     line(Offset(center.dx, center.dy + gap), Offset(center.dx, center.dy + arm));
 
-    canvas.drawCircle(
-      center,
-      2.2,
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
-    );
-    canvas.drawCircle(center, 1.6, Paint()..color = color);
+    canvas.drawCircle(center, 1.35, Paint()..color = color);
+  }
+
+  /// 원형 상단 ~37% 지점 — 눈높이 수평 점선 (원 현 폭에 맞춤).
+  void _drawEyeLevelGuideline(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    Color color,
+  ) {
+    const fromTop = 0.37; // 원 직경 기준 상단 35~40%
+    final eyeY = center.dy - radius + (2 * radius * fromTop);
+    final dy = eyeY - center.dy;
+    final halfChord = math.sqrt(math.max(0, radius * radius - dy * dy));
+    // 테두리와 살짝 간격
+    final halfW = halfChord * 0.88;
+    if (halfW < 8) return;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    const dash = 5.0;
+    const gap = 4.0;
+    var x = center.dx - halfW;
+    final endX = center.dx + halfW;
+    while (x < endX) {
+      final x2 = math.min(x + dash, endX);
+      canvas.drawLine(Offset(x, eyeY), Offset(x2, eyeY), paint);
+      x += dash + gap;
+    }
+  }
+
+  /// 원 하단 안쪽 — 턱끝 안착용 연한 호.
+  void _drawChinArcGuide(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    Color color,
+  ) {
+    // 턱선: 원 중심보다 아래, 테두리에서 안쪽으로 inset
+    final chinR = radius * 0.72;
+    final chinCy = center.dy + radius * 0.18;
+    final rect = Rect.fromCircle(center: Offset(center.dx, chinCy), radius: chinR);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.15
+      ..strokeCap = StrokeCap.round;
+    // 하단 호만 (약 110°)
+    canvas.drawArc(rect, math.pi * 0.22, math.pi * 0.56, false, paint);
   }
 
   @override
@@ -1007,7 +1026,8 @@ class _CircularFaceAlignPainter extends CustomPainter {
     final radius = math.min(size.width, size.height) * 0.36;
     final center = Offset(cx, cy);
     final aligned = pose.isAligned;
-    final borderColor = _guideColor(aligned);
+    final borderColor = _borderColor(aligned);
+    final innerColor = _innerGuideColor(aligned);
 
     // 원 밖 딤
     final dim = Path()
@@ -1019,7 +1039,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.48),
     );
 
-    // 소프트 글로우
+    // 소프트 글로우 (테두리만 — 가이드 요소 아님)
     canvas.drawCircle(
       center,
       radius,
@@ -1039,91 +1059,70 @@ class _CircularFaceAlignPainter extends CustomPainter {
         ..strokeWidth = aligned ? 4.5 : 3.2,
     );
 
-    // 안쪽 얇은 링
-    canvas.drawCircle(
-      center,
-      radius - 10,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.18)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+    // —— 원 내부 정밀 가이드만 ——
+    canvas.save();
+    canvas.clipPath(
+      Path()..addOval(Rect.fromCircle(center: center, radius: radius - 1.5)),
     );
 
-    // 프레임 코너 브래킷 ⌜ ⌝ ⌞ ⌟ (원 외곽 사각 프레임)
-    final framePad = radius * 0.22;
-    final frame = Rect.fromCenter(
-      center: center,
-      width: (radius + framePad) * 2,
-      height: (radius + framePad) * 2,
-    );
-    _drawCornerBracket(canvas, frame.topLeft, 1, 1, borderColor);
-    _drawCornerBracket(canvas, frame.topRight, -1, 1, borderColor);
-    _drawCornerBracket(canvas, frame.bottomLeft, 1, -1, borderColor);
-    _drawCornerBracket(canvas, frame.bottomRight, -1, -1, borderColor);
+    _drawEyeLevelGuideline(canvas, center, radius, innerColor);
+    _drawChinArcGuide(canvas, center, radius, innerColor);
+    _drawCenterCrosshair(canvas, center, innerColor);
 
-    // 중앙 십자선 — 코/미간 정렬
-    _drawCenterCrosshair(canvas, center, borderColor);
-
-    if (!pose.detected || aligned) return;
-
-    final yaw = mirrored ? -pose.yaw : pose.yaw;
-    final pitch = pose.pitch;
-    final roll = pose.roll;
-    const tol = GuideFacePose.alignToleranceDeg;
-
-    final arrowPaint = Paint()
-      ..color = const Color(0xFFFBBF24)
-      ..style = PaintingStyle.fill;
-
-    void drawArrow(Offset tip, double angleRad) {
-      canvas.save();
-      canvas.translate(tip.dx, tip.dy);
-      canvas.rotate(angleRad);
-      final path = Path()
-        ..moveTo(0, -14)
-        ..lineTo(11, 10)
-        ..lineTo(0, 5)
-        ..lineTo(-11, 10)
-        ..close();
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-      );
-      canvas.drawPath(path, arrowPaint);
-      canvas.restore();
-    }
-
-    if (yaw.abs() > tol) {
-      final dir = yaw > 0 ? 1.0 : -1.0;
-      drawArrow(
-        Offset(cx + dir * (radius + 22), cy),
-        dir > 0 ? math.pi / 2 : -math.pi / 2,
-      );
-    }
-    if (pitch.abs() > tol) {
-      final dir = pitch > 0 ? 1.0 : -1.0;
-      drawArrow(
-        Offset(cx, cy + dir * (radius + 22)),
-        dir > 0 ? math.pi : 0,
-      );
-    }
-    if (roll.abs() > tol) {
-      final sweep = (roll.clamp(-35, 35) / 35) * (math.pi * 0.55);
-      final arcPaint = Paint()
-        ..color = const Color(0xFFFBBF24)
+    // 미정렬 시 원 안쪽 방향 힌트 (외곽 화살표 제거)
+    if (pose.detected && !aligned) {
+      final yaw = mirrored ? -pose.yaw : pose.yaw;
+      final pitch = pose.pitch;
+      final roll = pose.roll;
+      const tol = GuideFacePose.alignToleranceDeg;
+      final hint = const Color(0xFFFBBF24).withValues(alpha: 0.40);
+      final hintPaint = Paint()
+        ..color = hint
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.5
+        ..strokeWidth = 1.4
         ..strokeCap = StrokeCap.round;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius + 6),
-        -math.pi / 2,
-        sweep,
-        false,
-        arcPaint,
-      );
+
+      void drawInnerChevron(Offset tip, double angleRad) {
+        canvas.save();
+        canvas.translate(tip.dx, tip.dy);
+        canvas.rotate(angleRad);
+        final path = Path()
+          ..moveTo(0, -7)
+          ..lineTo(5.5, 5)
+          ..moveTo(0, -7)
+          ..lineTo(-5.5, 5);
+        canvas.drawPath(path, hintPaint);
+        canvas.restore();
+      }
+
+      final inset = radius * 0.78;
+      if (yaw.abs() > tol) {
+        final dir = yaw > 0 ? 1.0 : -1.0;
+        drawInnerChevron(
+          Offset(cx + dir * inset, cy),
+          dir > 0 ? math.pi / 2 : -math.pi / 2,
+        );
+      }
+      if (pitch.abs() > tol) {
+        final dir = pitch > 0 ? 1.0 : -1.0;
+        drawInnerChevron(
+          Offset(cx, cy + dir * inset),
+          dir > 0 ? math.pi : 0,
+        );
+      }
+      if (roll.abs() > tol) {
+        final sweep = (roll.clamp(-35, 35) / 35) * (math.pi * 0.4);
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius * 0.82),
+          -math.pi / 2,
+          sweep,
+          false,
+          hintPaint,
+        );
+      }
     }
+
+    canvas.restore();
   }
 
   @override
