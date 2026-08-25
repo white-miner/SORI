@@ -24,8 +24,11 @@ abstract class GuideCameraSession {
   /// 하드웨어 줌 사용 중이면 true.
   bool get usingHardwareZoom;
 
+  /// MediaPipe 등 ML용 비디오 핸들 (웹 HTMLVideoElement). 그 외 null.
+  Object? get mlVideoHandle;
+
   /// [front] true = 전면(user), false = 후면(environment).
-  /// [zoom] 1m 거리 인물 화각용 목표 배율 (대략 1.5~2.0).
+  /// [zoom] 저장된/슬라이더 배율.
   Future<void> start({required bool front, double zoom = 1.7});
 
   /// 프리셋 변경 시 표시 배율만 갱신 (스트림 재시작 없음).

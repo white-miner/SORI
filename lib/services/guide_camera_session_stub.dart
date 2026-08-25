@@ -28,6 +28,9 @@ class _StubGuideCameraSession implements GuideCameraSession {
   bool get usingHardwareZoom => false;
 
   @override
+  Object? get mlVideoHandle => null;
+
+  @override
   Stream<double?> get rollDegrees => const Stream.empty();
 
   @override

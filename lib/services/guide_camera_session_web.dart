@@ -49,6 +49,9 @@ class WebGuideCameraSession implements GuideCameraSession {
   bool get usingHardwareZoom => _usingHardwareZoom;
 
   @override
+  Object? get mlVideoHandle => _video;
+
+  @override
   Stream<double?> get rollDegrees {
     _rollCtrl ??= StreamController<double?>.broadcast();
     return _rollCtrl!.stream;

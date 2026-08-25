@@ -120,7 +120,7 @@ bool isMediaPermissionDeniedError(Object error) {
 }
 
 /// 이미 허용되었거나 세션에서 안내를 수락했다면 사전 다이얼로그를 건너뛴다.
-Future<bool> _shouldSkipPermissionGuide(ImageSource source) async {
+Future<bool> shouldSkipMediaPermissionGuide(ImageSource source) async {
   if (MediaPermissionSession.guideAccepted) return true;
 
   // 웹 갤러리(파일 선택기)는 브라우저가 별도 권한 세션을 요구하지 않음.
@@ -133,6 +133,20 @@ Future<bool> _shouldSkipPermissionGuide(ImageSource source) async {
   }
   return false;
 }
+
+/// 카메라 사전 안내 — Permissions API `granted`면 다이얼로그 없이 true.
+Future<bool> ensureCameraPermissionGuide(BuildContext context) async {
+  final skip = await shouldSkipMediaPermissionGuide(ImageSource.camera);
+  if (skip) return true;
+  if (!context.mounted) return false;
+  final proceed = await showMediaPermissionGuideDialog(context);
+  if (proceed) MediaPermissionSession.guideAccepted = true;
+  return proceed;
+}
+
+/// 이미 허용되었거나 세션에서 안내를 수락했다면 사전 다이얼로그를 건너뛴다.
+Future<bool> _shouldSkipPermissionGuide(ImageSource source) =>
+    shouldSkipMediaPermissionGuide(source);
 
 /// 사전 안내(필요 시만) → ImagePicker → 거부 시 2차 안내.
 /// 권한을 앱에서 reset/revoke 하지 않으며, Granted면 즉시 피커를 연다.

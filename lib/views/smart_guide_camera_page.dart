@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/guide_camera_session.dart';
+import '../services/guide_camera_zoom_memory.dart';
+import '../services/guide_face_align.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/media_permission_dialogs.dart';
@@ -33,14 +35,9 @@ enum GuidePreset {
   bool get isSelfPreset =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// 태블릿 ~1m 거리에서 인물이 알맞게 차도록 하는 목표 배율.
-  double get targetZoom => switch (this) {
-        GuidePreset.face => 1.9,
-        GuidePreset.decollete => 1.7,
-        GuidePreset.abdomen => 1.55,
-        GuidePreset.lowerBody => 1.4,
-        GuidePreset.fullBody => 1.25,
-      };
+  /// MediaPipe 원형 정렬을 쓰는 프리셋.
+  bool get usesFaceAlign =>
+      this == GuidePreset.face || this == GuidePreset.decollete;
 }
 
 class GuideCameraResult {
@@ -55,7 +52,7 @@ class GuideCameraResult {
   final GuideCameraKind kind;
 }
 
-/// 스마트 가이드 카메라 — E0 캡처 + E1 Ghost(After).
+/// 스마트 가이드 카메라 V2 — 줌 메모리 + MediaPipe 3D 정렬.
 class SmartGuideCameraPage extends StatefulWidget {
   const SmartGuideCameraPage({
     super.key,
@@ -95,6 +92,7 @@ class SmartGuideCameraPage extends StatefulWidget {
 
 class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   late final GuideCameraSession _session;
+  late final GuideFaceAlign _faceAlign;
   GuideCaptureMode _mode = GuideCaptureMode.selfFront;
   GuidePreset _preset = GuidePreset.face;
   bool _ghostOn = true;
@@ -103,15 +101,21 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   String? _error;
   String? _viewType;
   int? _countdown;
-  double? _roll;
+  double? _deviceRoll;
+  GuideFacePose _facePose = GuideFacePose.none;
+  double _zoom = GuideCameraZoomMemory.defaultZoom;
   StreamSubscription<double?>? _rollSub;
+  StreamSubscription<GuideFacePose>? _poseSub;
   Timer? _timer;
+  Timer? _zoomSaveTimer;
 
   bool get _isAfter => widget.kind == GuideCameraKind.after;
   bool get _canGhost {
     final u = widget.ghostBeforeUrl?.trim() ?? '';
     return _isAfter && u.isNotEmpty;
   }
+
+  bool get _faceAlignActive => _preset.usesFaceAlign;
 
   List<GuidePreset> get _presets => _mode == GuideCaptureMode.selfFront
       ? const [GuidePreset.face, GuidePreset.decollete]
@@ -126,6 +130,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   void initState() {
     super.initState();
     _session = createGuideCameraSession();
+    _faceAlign = createGuideFaceAlign();
     if (_isAfter && !_canGhost) {
       _ghostOn = false;
     }
@@ -135,7 +140,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _zoomSaveTimer?.cancel();
     _rollSub?.cancel();
+    _poseSub?.cancel();
+    _faceAlign.dispose();
     unawaited(_session.stop());
     super.dispose();
   }
@@ -149,13 +157,16 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       return;
     }
 
-    final ok = await showMediaPermissionGuideDialog(context);
+    _zoom = await GuideCameraZoomMemory.load(widget.shopId);
+    if (!mounted) return;
+
+    // Permissions API granted → 안내 모달 즉시 스킵
+    final ok = await ensureCameraPermissionGuide(context);
     if (!mounted) return;
     if (!ok) {
       Navigator.pop(context);
       return;
     }
-    MediaPermissionSession.guideAccepted = true;
 
     await _startCamera();
   }
@@ -165,20 +176,36 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       _starting = true;
       _error = null;
       _viewType = null;
+      _facePose = GuideFacePose.none;
     });
+    await _faceAlign.stop();
     try {
       final front = _mode == GuideCaptureMode.selfFront;
-      await _session.start(front: front, zoom: _preset.targetZoom);
+      await _session.start(front: front, zoom: _zoom);
       if (_mode == GuideCaptureMode.directorRear) {
         await _session.requestOrientationPermission();
       }
       await _rollSub?.cancel();
       _rollSub = _session.rollDegrees.listen((r) {
-        if (!mounted) return;
-        final prev = _roll;
+        if (!mounted || _faceAlignActive) return;
+        final prev = _deviceRoll;
         if (prev != null && r != null && (prev - r).abs() < 0.6) return;
-        setState(() => _roll = r);
+        setState(() => _deviceRoll = r);
       });
+
+      await _poseSub?.cancel();
+      _poseSub = _faceAlign.poses.listen((p) {
+        if (!mounted) return;
+        setState(() => _facePose = p);
+      });
+
+      if (_faceAlignActive) {
+        final video = _session.mlVideoHandle;
+        if (video != null) {
+          unawaited(_faceAlign.start(video));
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _viewType = _session.viewType;
@@ -188,6 +215,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       debugPrint('guide camera start failed: $e');
       if (!mounted) return;
       if (isMediaPermissionDeniedError(e)) {
+        MediaPermissionSession.guideAccepted = false;
         await showMediaPermissionDeniedDialog(context);
       }
       setState(() {
@@ -208,10 +236,30 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   Future<void> _selectPreset(GuidePreset p) async {
     if (_preset == p) return;
-    setState(() => _preset = p);
-    if (_session.isRunning) {
-      await _session.setZoom(p.targetZoom);
+    setState(() {
+      _preset = p;
+      _facePose = GuideFacePose.none;
+    });
+    if (!_session.isRunning) return;
+    if (p.usesFaceAlign) {
+      final video = _session.mlVideoHandle;
+      if (video != null) unawaited(_faceAlign.start(video));
+    } else {
+      await _faceAlign.stop();
     }
+  }
+
+  void _onZoomChanged(double v) {
+    final clamped = v.clamp(
+      GuideCameraZoomMemory.minZoom,
+      GuideCameraZoomMemory.maxZoom,
+    );
+    setState(() => _zoom = clamped);
+    unawaited(_session.setZoom(clamped));
+    _zoomSaveTimer?.cancel();
+    _zoomSaveTimer = Timer(const Duration(milliseconds: 350), () {
+      unawaited(GuideCameraZoomMemory.save(widget.shopId, clamped));
+    });
   }
 
   void _startTimerCapture() {
@@ -282,6 +330,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         return;
       }
 
+      await GuideCameraZoomMemory.save(widget.shopId, _zoom);
+      if (!mounted) return;
+
       Navigator.pop(
         context,
         GuideCameraResult(
@@ -327,7 +378,6 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onClose: () => Navigator.pop(context),
         ),
         Expanded(child: _buildViewfinder()),
-        // 컨트롤은 뷰파인더 Stack 밖 — 플랫폼 뷰 오버플로와 분리
         _buildControls(),
       ],
     );
@@ -403,19 +453,28 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       ),
                     ),
                   ),
-                IgnorePointer(
-                  child: CustomPaint(
-                    painter: _GuideSilhouettePainter(
-                      preset: _preset,
-                      mode: _mode,
-                    ),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-                if (_mode == GuideCaptureMode.directorRear)
+                if (_faceAlignActive)
                   IgnorePointer(
                     child: CustomPaint(
-                      painter: _LevelCrosshairPainter(rollDegrees: _roll),
+                      painter: _CircularFaceAlignPainter(
+                        pose: _facePose,
+                        mirrored: _mode == GuideCaptureMode.selfFront,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  )
+                else
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: _BodyGuidePainter(preset: _preset),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                if (!_faceAlignActive &&
+                    _mode == GuideCaptureMode.directorRear)
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: _LevelCrosshairPainter(rollDegrees: _deviceRoll),
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -509,6 +568,29 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                 },
               ),
             ),
+            const SizedBox(height: 12),
+            _ZoomSlider(
+              value: _zoom,
+              onChanged: _onZoomChanged,
+            ),
+            if (_faceAlignActive) ...[
+              const SizedBox(height: 8),
+              Text(
+                !_facePose.detected
+                    ? '얼굴을 원 안에 맞춰 주세요'
+                    : (_facePose.isAligned
+                        ? '정렬됨 · 촬영 가능'
+                        : '고개를 정면으로 맞춰 주세요'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: _facePose.isAligned
+                      ? SoriTokens.primary
+                      : SoriTokens.textSecondary,
+                ),
+              ),
+            ],
             if (_canGhost) ...[
               const SizedBox(height: 10),
               Material(
@@ -601,7 +683,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: SoriTokens.primary,
+                      backgroundColor: _faceAlignActive && _facePose.isAligned
+                          ? SoriTokens.primary
+                          : SoriTokens.primary,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
@@ -612,6 +696,61 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ZoomSlider extends StatelessWidget {
+  const _ZoomSlider({required this.value, required this.onChanged});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Text(
+              '줌',
+              style: TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w800,
+                fontSize: 12.5,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${value.toStringAsFixed(2)}×',
+              style: const TextStyle(
+                color: SoriTokens.primary,
+                fontWeight: FontWeight.w900,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: SoriTokens.primary,
+            inactiveTrackColor: SoriTokens.surfaceOverlay,
+            thumbColor: SoriTokens.primary,
+            overlayColor: SoriTokens.primarySoft,
+            trackHeight: 3,
+          ),
+          child: Slider(
+            value: value.clamp(
+              GuideCameraZoomMemory.minZoom,
+              GuideCameraZoomMemory.maxZoom,
+            ),
+            min: GuideCameraZoomMemory.minZoom,
+            max: GuideCameraZoomMemory.maxZoom,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -695,293 +834,219 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
-/// 차트용 정밀 실루엣 + 드롭섀도우 (명암 배경 모두 시인성).
-class _GuideSilhouettePainter extends CustomPainter {
-  _GuideSilhouettePainter({required this.preset, required this.mode});
+/// Face ID 스타일 원형 뷰파인더 + Pitch/Yaw/Roll 인디케이터.
+class _CircularFaceAlignPainter extends CustomPainter {
+  _CircularFaceAlignPainter({
+    required this.pose,
+    required this.mirrored,
+  });
 
-  final GuidePreset preset;
-  final GuideCaptureMode mode;
+  final GuideFacePose pose;
+  final bool mirrored;
 
-  Paint get _fill => Paint()
-    ..color = Colors.white.withValues(alpha: 0.05)
-    ..style = PaintingStyle.fill;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height * 0.46;
+    final radius = math.min(size.width, size.height) * 0.36;
+    final center = Offset(cx, cy);
 
-  void _strokePath(Canvas canvas, Path path, {double width = 2.4}) {
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width + 2.2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-    final glow = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width + 3.5
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    final stroke = Paint()
-      ..color = Colors.white.withValues(alpha: 0.88)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(path, glow);
-    canvas.drawPath(path, shadow);
-    canvas.drawPath(path, stroke);
-  }
+    // 원 밖 딤
+    final dim = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawPath(
+      dim,
+      Paint()..color = Colors.black.withValues(alpha: 0.48),
+    );
 
-  void _dashedHLine(Canvas canvas, double y, double left, double right) {
-    const dash = 7.0;
-    const gap = 5.0;
-    var x = left;
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.45)
-      ..strokeWidth = 2.6
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round;
-    while (x < right) {
-      final x2 = math.min(x + dash, right);
-      canvas.drawLine(Offset(x, y + 0.8), Offset(x2, y + 0.8), shadow);
-      canvas.drawLine(Offset(x, y), Offset(x2, y), paint);
-      x += dash + gap;
+    final aligned = pose.isAligned;
+    final borderColor = !pose.detected
+        ? Colors.white.withValues(alpha: 0.55)
+        : (aligned
+            ? SoriTokens.primary
+            : const Color(0xFFFBBF24).withValues(alpha: 0.95));
+
+    // 소프트 글로우
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = borderColor.withValues(alpha: aligned ? 0.28 : 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = aligned ? 18 : 10
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = aligned ? 4.5 : 3.2,
+    );
+
+    // 안쪽 얇은 링
+    canvas.drawCircle(
+      center,
+      radius - 10,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.18)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+
+    if (!pose.detected || aligned) return;
+
+    final yaw = mirrored ? -pose.yaw : pose.yaw;
+    final pitch = pose.pitch;
+    final roll = pose.roll;
+    const tol = GuideFacePose.alignToleranceDeg;
+
+    final arrowPaint = Paint()
+      ..color = const Color(0xFFFBBF24)
+      ..style = PaintingStyle.fill;
+
+    void drawArrow(Offset tip, double angleRad) {
+      canvas.save();
+      canvas.translate(tip.dx, tip.dy);
+      canvas.rotate(angleRad);
+      final path = Path()
+        ..moveTo(0, -14)
+        ..lineTo(11, 10)
+        ..lineTo(0, 5)
+        ..lineTo(-11, 10)
+        ..close();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.35)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+      canvas.drawPath(path, arrowPaint);
+      canvas.restore();
+    }
+
+    // Yaw: 좌/우
+    if (yaw.abs() > tol) {
+      final dir = yaw > 0 ? 1.0 : -1.0; // +yaw → 오른쪽 화살 (고개를 왼쪽으로)
+      drawArrow(
+        Offset(cx + dir * (radius + 22), cy),
+        dir > 0 ? math.pi / 2 : -math.pi / 2,
+      );
+    }
+    // Pitch: 상/하
+    if (pitch.abs() > tol) {
+      final dir = pitch > 0 ? 1.0 : -1.0; // +pitch 아래
+      drawArrow(
+        Offset(cx, cy + dir * (radius + 22)),
+        dir > 0 ? math.pi : 0,
+      );
+    }
+    // Roll: 원 가장자리 회전 힌트
+    if (roll.abs() > tol) {
+      final sweep = (roll.clamp(-35, 35) / 35) * (math.pi * 0.55);
+      final arcPaint = Paint()
+        ..color = const Color(0xFFFBBF24)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius + 6),
+        -math.pi / 2,
+        sweep,
+        false,
+        arcPaint,
+      );
     }
   }
 
-  Path _faceOvalPath(Rect r) {
-    // 타원 + 살짝 좁은 턱선 (미용 차트용 얼굴형)
-    final cx = r.center.dx;
-    final top = r.top;
-    final bottom = r.bottom;
-    final left = r.left;
-    final right = r.right;
-    final midY = r.center.dy;
-    final path = Path();
-    path.moveTo(cx, top);
-    path.cubicTo(
-      right - r.width * 0.02,
-      top + r.height * 0.08,
-      right + r.width * 0.02,
-      midY - r.height * 0.05,
-      right - r.width * 0.06,
-      midY + r.height * 0.12,
-    );
-    path.cubicTo(
-      right - r.width * 0.12,
-      bottom - r.height * 0.08,
-      cx + r.width * 0.18,
-      bottom + r.height * 0.02,
-      cx,
-      bottom,
-    );
-    path.cubicTo(
-      cx - r.width * 0.18,
-      bottom + r.height * 0.02,
-      left + r.width * 0.12,
-      bottom - r.height * 0.08,
-      left + r.width * 0.06,
-      midY + r.height * 0.12,
-    );
-    path.cubicTo(
-      left - r.width * 0.02,
-      midY - r.height * 0.05,
-      left + r.width * 0.02,
-      top + r.height * 0.08,
-      cx,
-      top,
-    );
-    path.close();
-    return path;
+  @override
+  bool shouldRepaint(covariant _CircularFaceAlignPainter oldDelegate) {
+    return oldDelegate.pose.detected != pose.detected ||
+        oldDelegate.pose.pitch != pose.pitch ||
+        oldDelegate.pose.yaw != pose.yaw ||
+        oldDelegate.pose.roll != pose.roll ||
+        oldDelegate.mirrored != mirrored;
   }
+}
 
-  void _paintFace(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final face = Rect.fromCenter(
-      center: Offset(cx, size.height * 0.42),
-      width: size.width * 0.58,
-      height: size.height * 0.52,
-    );
-    final oval = _faceOvalPath(face);
-    canvas.drawPath(oval, _fill);
-    _strokePath(canvas, oval, width: 2.6);
+class _BodyGuidePainter extends CustomPainter {
+  _BodyGuidePainter({required this.preset});
 
-    // 눈 / 코 / 입 가로 점선 (얼굴 높이 기준)
-    final guideL = face.left + face.width * 0.14;
-    final guideR = face.right - face.width * 0.14;
-    _dashedHLine(canvas, face.top + face.height * 0.38, guideL, guideR); // 눈
-    _dashedHLine(canvas, face.top + face.height * 0.55, guideL + 18, guideR - 18); // 코
-    _dashedHLine(canvas, face.top + face.height * 0.72, guideL + 10, guideR - 10); // 입
+  final GuidePreset preset;
 
-    // 중앙 세로 미세 가이드
-    final vPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.28)
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(cx, face.top + face.height * 0.28),
-      Offset(cx, face.bottom - face.height * 0.12),
-      vPaint,
-    );
-  }
-
-  void _paintDecollete(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final head = Rect.fromCenter(
-      center: Offset(cx, size.height * 0.18),
-      width: size.width * 0.26,
-      height: size.height * 0.16,
-    );
-    final headPath = _faceOvalPath(head);
-    canvas.drawPath(headPath, _fill);
-    _strokePath(canvas, headPath, width: 2);
-
-    // 목 → 승모근 → 어깨 → 쇄골
-    final neckTop = head.bottom - 4;
-    final clavY = size.height * 0.42;
-    final shoulderY = size.height * 0.48;
-    final path = Path()
-      ..moveTo(cx - size.width * 0.07, neckTop)
-      ..quadraticBezierTo(
-        cx - size.width * 0.09,
-        size.height * 0.32,
-        cx - size.width * 0.16,
-        clavY,
-      )
-      ..quadraticBezierTo(
-        cx - size.width * 0.28,
-        shoulderY - 6,
-        size.width * 0.08,
-        shoulderY + size.height * 0.02,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.12,
-        size.height * 0.62,
-        size.width * 0.14,
-        size.height * 0.78,
-      )
-      ..lineTo(size.width * 0.86, size.height * 0.78)
-      ..quadraticBezierTo(
-        size.width * 0.88,
-        size.height * 0.62,
-        size.width * 0.92,
-        shoulderY + size.height * 0.02,
-      )
-      ..quadraticBezierTo(
-        cx + size.width * 0.28,
-        shoulderY - 6,
-        cx + size.width * 0.16,
-        clavY,
-      )
-      ..quadraticBezierTo(
-        cx + size.width * 0.09,
-        size.height * 0.32,
-        cx + size.width * 0.07,
-        neckTop,
-      );
-
-    canvas.drawPath(path, _fill);
-    _strokePath(canvas, path, width: 2.4);
-
-    // 쇄골 라인
-    final clav = Path()
-      ..moveTo(cx - size.width * 0.22, clavY + 4)
-      ..quadraticBezierTo(cx, clavY - 10, cx + size.width * 0.22, clavY + 4);
-    _strokePath(canvas, clav, width: 1.8);
-
-    // 어깨 윗선
-    final shoulder = Path()
-      ..moveTo(size.width * 0.12, shoulderY)
-      ..quadraticBezierTo(cx, shoulderY - size.height * 0.04, size.width * 0.88, shoulderY);
-    _strokePath(canvas, shoulder, width: 1.6);
-  }
-
-  void _paintAbdomen(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final box = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(cx, cy),
-            width: size.width * 0.58,
-            height: size.height * 0.48,
-          ),
-          const Radius.circular(18),
-        ),
-      );
-    _strokePath(canvas, box, width: 2);
-    _dashedHLine(canvas, cy, size.width * 0.22, size.width * 0.78);
-    canvas.drawCircle(
-      Offset(cx, cy),
-      5,
+  void _stroke(Canvas canvas, Path path) {
+    canvas.drawPath(
+      path,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.7)
+        ..color = Colors.black.withValues(alpha: 0.45)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6,
+        ..strokeWidth = 4.5
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
-  }
-
-  void _paintLowerBody(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final path = Path()
-      ..moveTo(cx, size.height * 0.12)
-      ..lineTo(cx, size.height * 0.9);
-    _strokePath(canvas, path, width: 2);
-    _dashedHLine(
-      canvas,
-      size.height * 0.55,
-      size.width * 0.25,
-      size.width * 0.75,
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.75)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2,
     );
-  }
-
-  void _paintFullBody(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final body = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(cx, size.height * 0.55),
-            width: size.width * 0.4,
-            height: size.height * 0.72,
-          ),
-          const Radius.circular(22),
-        ),
-      );
-    _strokePath(canvas, body, width: 2);
-    final head = _faceOvalPath(
-      Rect.fromCenter(
-        center: Offset(cx, size.height * 0.14),
-        width: size.width * 0.16,
-        height: size.height * 0.1,
-      ),
-    );
-    _strokePath(canvas, head, width: 1.8);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
     switch (preset) {
       case GuidePreset.face:
-        _paintFace(canvas, size);
       case GuidePreset.decollete:
-        _paintDecollete(canvas, size);
+        return;
       case GuidePreset.abdomen:
-        _paintAbdomen(canvas, size);
+        _stroke(
+          canvas,
+          Path()
+            ..addRRect(
+              RRect.fromRectAndRadius(
+                Rect.fromCenter(
+                  center: Offset(cx, cy),
+                  width: size.width * 0.58,
+                  height: size.height * 0.48,
+                ),
+                const Radius.circular(18),
+              ),
+            ),
+        );
       case GuidePreset.lowerBody:
-        _paintLowerBody(canvas, size);
+        _stroke(
+          canvas,
+          Path()
+            ..moveTo(cx, size.height * 0.12)
+            ..lineTo(cx, size.height * 0.9),
+        );
       case GuidePreset.fullBody:
-        _paintFullBody(canvas, size);
+        _stroke(
+          canvas,
+          Path()
+            ..addRRect(
+              RRect.fromRectAndRadius(
+                Rect.fromCenter(
+                  center: Offset(cx, cy),
+                  width: size.width * 0.4,
+                  height: size.height * 0.78,
+                ),
+                const Radius.circular(22),
+              ),
+            ),
+        );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _GuideSilhouettePainter oldDelegate) {
-    return oldDelegate.preset != preset || oldDelegate.mode != mode;
+  bool shouldRepaint(covariant _BodyGuidePainter oldDelegate) {
+    return oldDelegate.preset != preset;
   }
 }
 
