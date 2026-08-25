@@ -1,6 +1,6 @@
 /**
  * SORI Smart Guide Camera — MediaPipe FaceLandmarker bridge.
- * Inference is throttled inside requestAnimationFrame (~11fps) so Flutter UI stays responsive.
+ * Alignment requires: (1) frontal pose AND (2) face landmarks inside the circular guide.
  */
 (function () {
   'use strict';
@@ -15,6 +15,13 @@
   var videoEl = null;
   var onPose = null;
 
+  // Must match Flutter _CircularFaceAlignPainter (3:4 frame).
+  var GUIDE_CX = 0.5;
+  var GUIDE_CY = 0.46;
+  var GUIDE_R = 0.34; // slightly tighter than painted 0.36
+  var FRAME_ASPECT = 3 / 4; // w/h
+  var INV_ASPECT = 4 / 3; // h/w for circular metric in normalized coords
+
   function matrixData(m) {
     if (!m) return null;
     if (m.data) return m.data;
@@ -22,12 +29,11 @@
     return null;
   }
 
-  /** Column-major 4x4 → pitch/yaw/roll (degrees). */
   function eulerFromMatrix(data) {
     if (!data || data.length < 16) return null;
-    var r00 = data[0], r01 = data[4], r02 = data[8];
+    var r02 = data[8];
     var r10 = data[1], r11 = data[5], r12 = data[9];
-    var r20 = data[2], r21 = data[6], r22 = data[10];
+    var r22 = data[10];
     var pitch = Math.asin(Math.max(-1, Math.min(1, -r12))) * (180 / Math.PI);
     var yaw = Math.atan2(r02, r22) * (180 / Math.PI);
     var roll = Math.atan2(r10, r11) * (180 / Math.PI);
@@ -45,13 +51,56 @@
 
     var iod = Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y) || 1e-6;
     var midEyeX = (leftEye.x + rightEye.x) / 2;
-    var midEyeY = (leftEye.y + rightEye.y) / 2;
     var roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * (180 / Math.PI);
     var yaw = ((nose.x - midEyeX) / iod) * 48;
     var faceH = Math.hypot(chin.x - forehead.x, chin.y - forehead.y) || 1e-6;
     var midFaceY = (forehead.y + chin.y) / 2;
     var pitch = ((nose.y - midFaceY) / faceH) * 70;
     return { pitch: pitch, yaw: yaw, roll: roll };
+  }
+
+  /** Point inside painted circle (square metric in pixel space of 3:4 view). */
+  function pointInGuide(x, y) {
+    var dx = x - GUIDE_CX;
+    var dy = (y - GUIDE_CY) * INV_ASPECT;
+    return dx * dx + dy * dy <= GUIDE_R * GUIDE_R;
+  }
+
+  /**
+   * Key landmarks + face bbox must sit fully inside the circle.
+   * Indices: forehead 10, nose 1, chin 152, L/R eye 33/263, L/R cheek 234/454, jaw 172/397
+   */
+  function faceInsideGuide(lms) {
+    if (!lms || lms.length < 400) return false;
+    var keys = [10, 1, 152, 33, 263, 234, 454, 172, 397, 61, 291];
+    var i;
+    for (i = 0; i < keys.length; i++) {
+      var p = lms[keys[i]];
+      if (!p || !pointInGuide(p.x, p.y)) return false;
+    }
+    // Bounding box of sampled face outline must also fit
+    var minX = 1,
+      maxX = 0,
+      minY = 1,
+      maxY = 0;
+    for (i = 0; i < keys.length; i++) {
+      var q = lms[keys[i]];
+      if (q.x < minX) minX = q.x;
+      if (q.x > maxX) maxX = q.x;
+      if (q.y < minY) minY = q.y;
+      if (q.y > maxY) maxY = q.y;
+    }
+    // Corners of bbox must be inside (strict containment)
+    if (!pointInGuide(minX, minY)) return false;
+    if (!pointInGuide(maxX, minY)) return false;
+    if (!pointInGuide(minX, maxY)) return false;
+    if (!pointInGuide(maxX, maxY)) return false;
+    // Face must be large enough inside circle (reject tiny distant faces)
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 0.18 || bh < 0.22) return false;
+    if (bw > GUIDE_R * 2.05 || bh > GUIDE_R * 2.4) return false;
+    return true;
   }
 
   function emit(pose) {
@@ -75,31 +124,41 @@
     try {
       result = landmarker.detectForVideo(videoEl, ts);
     } catch (e) {
-      emit({ detected: false, pitch: 0, yaw: 0, roll: 0, error: String(e) });
+      emit({
+        detected: false,
+        inCircle: false,
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+        error: String(e),
+      });
       return;
     }
 
     var faces = (result && result.faceLandmarks) || [];
     if (!faces.length) {
-      emit({ detected: false, pitch: 0, yaw: 0, roll: 0 });
+      emit({ detected: false, inCircle: false, pitch: 0, yaw: 0, roll: 0 });
       return;
     }
 
+    var lms = faces[0];
     var euler = null;
     var mats = result.facialTransformationMatrixes;
     if (mats && mats.length) {
       euler = eulerFromMatrix(matrixData(mats[0]));
     }
     if (!euler) {
-      euler = poseFromLandmarks(faces[0]);
+      euler = poseFromLandmarks(lms);
     }
     if (!euler) {
-      emit({ detected: false, pitch: 0, yaw: 0, roll: 0 });
+      emit({ detected: false, inCircle: false, pitch: 0, yaw: 0, roll: 0 });
       return;
     }
 
+    var inCircle = faceInsideGuide(lms);
     emit({
       detected: true,
+      inCircle: inCircle,
       pitch: euler.pitch,
       yaw: euler.yaw,
       roll: euler.roll,

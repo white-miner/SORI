@@ -15,6 +15,20 @@ GuideCameraSession createGuideCameraSession() => WebGuideCameraSession();
 const int _kPreviewIdealWidth = 1280;
 const int _kPreviewIdealHeight = 960;
 
+web.MediaStream? _warmStream;
+bool? _warmFront;
+
+Future<void> releaseWarmCamera() async {
+  final stream = _warmStream;
+  _warmStream = null;
+  _warmFront = null;
+  if (stream == null) return;
+  final tracks = stream.getTracks().toDart;
+  for (final t in tracks) {
+    t.stop();
+  }
+}
+
 class WebGuideCameraSession implements GuideCameraSession {
   web.HTMLVideoElement? _video;
   web.MediaStream? _stream;
@@ -77,7 +91,8 @@ class WebGuideCameraSession implements GuideCameraSession {
 
   @override
   Future<void> start({required bool front, double zoom = 1.7}) async {
-    await stop();
+    // 비디오만 분리 — 동일 facing이면 warm 트랙 재사용 (시스템 재프롬프트 ↓)
+    await stop(releaseHardware: false);
     _mirrored = front;
     _zoomFactor = zoom.clamp(1.0, 3.0);
     _usingHardwareZoom = false;
@@ -95,29 +110,46 @@ class WebGuideCameraSession implements GuideCameraSession {
       ..style.pointerEvents = 'none';
 
     web.MediaStream stream;
-    try {
-      final constraints = {
-        'audio': false,
-        'video': {
-          'facingMode': {'ideal': front ? 'user' : 'environment'},
-          'width': {'ideal': _kPreviewIdealWidth, 'max': 1920},
-          'height': {'ideal': _kPreviewIdealHeight, 'max': 1440},
-          'frameRate': {'ideal': 24, 'max': 30},
-        },
-      }.jsify()! as web.MediaStreamConstraints;
-      stream =
-          await web.window.navigator.mediaDevices.getUserMedia(constraints).toDart;
-    } catch (e) {
-      debugPrint('getUserMedia facingMode failed, retry soft: $e');
-      final soft = {
-        'audio': false,
-        'video': {
-          'width': {'ideal': _kPreviewIdealWidth},
-          'height': {'ideal': _kPreviewIdealHeight},
-        },
-      }.jsify()! as web.MediaStreamConstraints;
-      stream =
-          await web.window.navigator.mediaDevices.getUserMedia(soft).toDart;
+    final warm = _warmStream;
+    if (warm != null &&
+        _warmFront == front &&
+        warm.getVideoTracks().toDart.any((t) => t.readyState == 'live')) {
+      stream = warm;
+    } else {
+      if (warm != null) {
+        for (final t in warm.getTracks().toDart) {
+          t.stop();
+        }
+      }
+      _warmStream = null;
+      _warmFront = null;
+      try {
+        final constraints = {
+          'audio': false,
+          'video': {
+            'facingMode': {'ideal': front ? 'user' : 'environment'},
+            'width': {'ideal': _kPreviewIdealWidth, 'max': 1920},
+            'height': {'ideal': _kPreviewIdealHeight, 'max': 1440},
+            'frameRate': {'ideal': 24, 'max': 30},
+          },
+        }.jsify()! as web.MediaStreamConstraints;
+        stream = await web.window.navigator.mediaDevices
+            .getUserMedia(constraints)
+            .toDart;
+      } catch (e) {
+        debugPrint('getUserMedia facingMode failed, retry soft: $e');
+        final soft = {
+          'audio': false,
+          'video': {
+            'width': {'ideal': _kPreviewIdealWidth},
+            'height': {'ideal': _kPreviewIdealHeight},
+          },
+        }.jsify()! as web.MediaStreamConstraints;
+        stream =
+            await web.window.navigator.mediaDevices.getUserMedia(soft).toDart;
+      }
+      _warmStream = stream;
+      _warmFront = front;
     }
 
     _stream = stream;
@@ -232,21 +264,18 @@ class WebGuideCameraSession implements GuideCameraSession {
   }
 
   @override
-  Future<void> stop() async {
+  Future<void> stop({bool releaseHardware = true}) async {
     _detachOrientation();
-    final stream = _stream;
-    if (stream != null) {
-      final tracks = stream.getTracks().toDart;
-      for (final t in tracks) {
-        t.stop();
-      }
-    }
-    _stream = null;
-    _videoTrack = null;
     _video?.srcObject = null;
     _video = null;
+    _videoTrack = null;
     _viewType = null;
     _usingHardwareZoom = false;
+    _stream = null;
+
+    if (releaseHardware) {
+      await releaseWarmCamera();
+    }
   }
 
   @override

@@ -112,6 +112,7 @@ class WebGuideFaceAlign implements GuideFaceAlign {
 
   bool _shouldEmit(GuideFacePose next) {
     if (next.detected != _last.detected) return true;
+    if (next.inCircle != _last.inCircle) return true;
     if (!next.detected) return false;
     if ((next.pitch - _last.pitch).abs() >= 0.8) return true;
     if ((next.yaw - _last.yaw).abs() >= 0.8) return true;
@@ -126,11 +127,13 @@ class WebGuideFaceAlign implements GuideFaceAlign {
     }
     final o = raw as JSObject;
     final detected = _bool(o.getProperty('detected'.toJS)) ?? false;
+    final inCircle = _bool(o.getProperty('inCircle'.toJS)) ?? false;
     final pitch = _num(o.getProperty('pitch'.toJS)) ?? 0;
     final yaw = _num(o.getProperty('yaw'.toJS)) ?? 0;
     final roll = _num(o.getProperty('roll'.toJS)) ?? 0;
     return GuideFacePose(
       detected: detected,
+      inCircle: inCircle,
       pitch: pitch,
       yaw: yaw,
       roll: roll,

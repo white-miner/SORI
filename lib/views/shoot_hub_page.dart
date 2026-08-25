@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/shoot_inbox_item.dart';
+import '../services/guide_camera_session.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'smart_guide_camera_page.dart';
@@ -42,6 +43,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
   void dispose() {
     store.removeListener(_onStore);
     _searchCtrl.dispose();
+    unawaited(releaseWarmGuideCamera());
     super.dispose();
   }
 

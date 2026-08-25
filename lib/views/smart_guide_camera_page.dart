@@ -149,7 +149,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _rollSub?.cancel();
     _poseSub?.cancel();
     _faceAlign.dispose();
-    unawaited(_session.stop());
+    unawaited(_session.stop(releaseHardware: false));
     super.dispose();
   }
 
@@ -197,6 +197,8 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     try {
       final front = _mode == GuideCaptureMode.selfFront;
       await _session.start(front: front, zoom: _zoom);
+      // 시스템 허용 성공 시 앱 사전 안내 영속 스킵
+      unawaited(MediaPermissionSession.setAlwaysAllowPersisted(true));
       if (_mode == GuideCaptureMode.directorRear) {
         await _session.requestOrientationPermission();
       }
@@ -664,9 +666,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                         ? 'AI 모듈 준비 중…'
                         : (!_facePose.detected
                             ? '얼굴을 원 안에 맞춰 주세요'
-                            : (_facePose.isAligned
-                                ? '정렬됨 · 촬영 가능'
-                                : '고개를 정면으로 맞춰 주세요')),
+                            : (!_facePose.inCircle
+                                ? '얼굴 전체가 원 안에 들어오게 맞춰 주세요'
+                                : (_facePose.isAligned
+                                    ? '정렬됨 · 촬영 가능'
+                                    : '고개를 정면으로 맞춰 주세요'))),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12.5,
@@ -1125,6 +1129,8 @@ class _CircularFaceAlignPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CircularFaceAlignPainter oldDelegate) {
     return oldDelegate.pose.detected != pose.detected ||
+        oldDelegate.pose.inCircle != pose.inCircle ||
+        oldDelegate.pose.isAligned != pose.isAligned ||
         oldDelegate.pose.pitch != pose.pitch ||
         oldDelegate.pose.yaw != pose.yaw ||
         oldDelegate.pose.roll != pose.roll ||

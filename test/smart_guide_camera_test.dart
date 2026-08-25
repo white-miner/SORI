@@ -27,13 +27,36 @@ void main() {
     expect(GuideCameraZoomMemory.minZoom, lessThan(GuideCameraZoomMemory.maxZoom));
   });
 
-  test('face pose alignment tolerance', () {
+  test('face pose alignment requires inCircle + pose tolerance', () {
     expect(
-      const GuideFacePose(detected: true, pitch: 3, yaw: -4, roll: 2).isAligned,
+      const GuideFacePose(
+        detected: true,
+        inCircle: true,
+        pitch: 3,
+        yaw: -4,
+        roll: 2,
+      ).isAligned,
       isTrue,
     );
     expect(
-      const GuideFacePose(detected: true, pitch: 20, yaw: 0, roll: 0).isAligned,
+      const GuideFacePose(
+        detected: true,
+        inCircle: false,
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+      ).isAligned,
+      isFalse,
+      reason: 'face outside circle must not align',
+    );
+    expect(
+      const GuideFacePose(
+        detected: true,
+        inCircle: true,
+        pitch: 20,
+        yaw: 0,
+        roll: 0,
+      ).isAligned,
       isFalse,
     );
     expect(GuideFacePose.none.isAligned, isFalse);
