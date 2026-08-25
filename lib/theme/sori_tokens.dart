@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// SORI design tokens — Weverse-style 4축.
-/// Black / Charcoal / White / Emerald(Accent).
+/// Black / Charcoal / White / Glass Emerald(Accent).
 /// 보라는 메인 금지 — [premium]은 Echo·VIP 등 명명된 예외만.
 abstract final class SoriTokens {
   /// Pure black canvas
@@ -16,24 +16,27 @@ abstract final class SoriTokens {
   /// Press / inactive chip fill
   static const Color surfaceOverlay = Color(0xFF2A2A2A);
 
-  /// Dark-mode primary — 묵직한 Emerald (`#059669`). CTA / chip / link.
-  /// `#34D399` 형광 민트는 폐기.
-  static const Color primary = Color(0xFF059669);
+  /// Glass / neon emerald — 다크 UI용 밝은 포인트 (`#00D289`).
+  /// 탁한 `#059669` 딥그린 폐기.
+  static const Color primary = Color(0xFF00D289);
 
-  /// Alias — PO 스펙 `primaryDark`
+  /// Alias
   static const Color primaryDark = primary;
 
-  /// Emerald wash (~18%)
-  static const Color primarySoft = Color(0x2E059669);
+  /// Glass fill — primary @ 80% opacity (CTA / chip fill)
+  static const Color primaryGlass = Color(0xCC00D289);
 
-  /// Filled CTA label on [primary] (white on deep emerald)
-  static const Color onPrimary = Color(0xFFFFFFFF);
+  /// Soft wash (~20%)
+  static const Color primarySoft = Color(0x3300D289);
 
-  /// Deeper emerald for gradients / secondary fills
-  static const Color primaryLight = Color(0xFF047857);
+  /// Label on glass emerald fills (dark for contrast)
+  static const Color onPrimary = Color(0xFF0B1220);
 
-  /// Filled CTA label on [primaryLight]
-  static const Color onPrimaryLight = Color(0xFFFFFFFF);
+  /// Brighter glass highlight (`#10DF9A`)
+  static const Color primaryLight = Color(0xFF10DF9A);
+
+  /// Filled CTA label on deep fills
+  static const Color onPrimaryLight = Color(0xFF0B1220);
 
   /// Alias for accent allowlist call sites
   static const Color accent = primary;
@@ -67,7 +70,7 @@ abstract final class SoriTokens {
   static const Color textQuaternary = Color(0x4DFFFFFF);
 
   static const Color border = Color(0x14FFFFFF);
-  static const Color success = Color(0xFF059669);
+  static const Color success = Color(0xFF00D289);
   static const Color warningBg = Color(0xFF2A2118);
   static const Color warningText = Color(0xFFFBBF24);
 
@@ -92,6 +95,27 @@ abstract final class SoriTokens {
     return BoxDecoration(
       color: color,
       borderRadius: BorderRadius.circular(radius),
+    );
+  }
+
+  /// Glassmorphism emerald surface (CTA / selected chip).
+  static BoxDecoration glassEmerald({
+    double radius = radiusMd,
+    bool border = true,
+  }) {
+    return BoxDecoration(
+      color: primaryGlass,
+      borderRadius: BorderRadius.circular(radius),
+      border: border
+          ? Border.all(color: primaryLight.withValues(alpha: 0.55), width: 1)
+          : null,
+      boxShadow: [
+        BoxShadow(
+          color: primary.withValues(alpha: 0.28),
+          blurRadius: 16,
+          spreadRadius: 0,
+        ),
+      ],
     );
   }
 }

@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -22,17 +9,14 @@
   <meta name="description" content="소통하는 리뷰, SORI — 에스테틱 케어 리포트와 AI 리뷰 작성">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
-  <!-- index.html은 항상 최신 조회 → 서비스 워커/번들 갱신 유도 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="sori-build" content="2026082518">
+  <meta name="sori-build" content="2026082519">
 
-  <!-- PWA / Android Chrome -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="application-name" content="소통하는 리뷰, SORI">
 
-  <!-- iOS Safari 홈 화면 추가 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="소통하는 리뷰, SORI">
@@ -40,21 +24,20 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>소통하는 리뷰, SORI</title>
-  <link rel="manifest" href="manifest.json?v=2026082518">
+  <link rel="manifest" href="manifest.json?v=2026082519">
 
-  <!-- printing 패키지 웹 PDF 미리보기용 Pdf.js -->
   <script>
     var dartPdfJsBaseUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
   </script>
 
   <style>
-    /* Flutter Web 순정 제스처 좌표계 유지 — fixed/platform-view 오버라이드 금지 */
+    /* Flutter Web 기본 좌표계 유지 — platform-view pointer-events 오버라이드 금지 */
     html, body {
       height: 100%;
+      height: 100dvh;
       width: 100%;
       margin: 0;
       padding: 0;
@@ -65,7 +48,6 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    /* Safe Area는 Flutter SafeArea / MediaQuery.padding 이 처리 (viewport-fit=cover) */
     flt-glass-pane, flutter-view {
       height: 100%;
       width: 100%;
@@ -73,14 +55,25 @@
   </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // iOS Safari URL 바/visualViewport 변화 → CSS 높이 동기화 (터치 오프셋 방지)
+    (function () {
+      var vv = window.visualViewport;
+      function sync() {
+        var h = (vv && vv.height) ? vv.height + 'px' : '';
+        if (h) {
+          document.documentElement.style.height = h;
+          document.body.style.height = h;
+        }
+      }
+      if (vv) {
+        vv.addEventListener('resize', sync);
+        vv.addEventListener('scroll', sync);
+      }
+      window.addEventListener('orientationchange', sync);
+      sync();
+    })();
+  </script>
   <script>
     (function () {
       var meta = document.querySelector('meta[name="sori-build"]');
@@ -114,6 +107,6 @@
       }).then(finish).catch(finish);
     })();
   </script>
-  <script src="flutter_bootstrap.js?v=2026082518" async></script>
+  <script src="flutter_bootstrap.js?v=2026082519" async></script>
 </body>
 </html>

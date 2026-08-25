@@ -12,6 +12,7 @@ import '../services/guide_face_align.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/media_permission_dialogs.dart';
+import '../widgets/sori_glass_button.dart';
 
 enum GuideCameraKind { before, after }
 
@@ -420,7 +421,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
+        // viewPadding 기준 — 모바일 웹 노치/툴바 오프셋으로 터치 좌표가 밀리지 않게
         body: SafeArea(
+          minimum: EdgeInsets.zero,
           child: portrait
               ? _buildPortrait(kindLabel)
               : _buildLandscape(kindLabel),
@@ -478,23 +481,30 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     child: HtmlElementView(viewType: _viewType!),
                   )
                 else if (_starting)
-                  const Center(
-                    child: CircularProgressIndicator(color: SoriTokens.primary),
+                  const IgnorePointer(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: SoriTokens.primary,
+                      ),
+                    ),
                   )
                 else if (_error != null)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          height: 1.4,
+                  IgnorePointer(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ),
                   ),
+                // —— 시각 가이드·오버레이: 전부 터치 통과 ——
                 if (_canGhost &&
                     _ghostOn &&
                     (widget.ghostBeforeUrl?.isNotEmpty ?? false))
@@ -514,6 +524,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                   ),
                 if (_faceAlignActive)
                   IgnorePointer(
+                    ignoring: true,
                     child: CustomPaint(
                       painter: _CircularFaceAlignPainter(
                         pose: _facePose,
@@ -524,6 +535,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                   )
                 else
                   IgnorePointer(
+                    ignoring: true,
                     child: CustomPaint(
                       painter: _BodyGuidePainter(preset: _preset),
                       child: const SizedBox.expand(),
@@ -532,6 +544,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                 if (!_faceAlignActive &&
                     _mode == GuideCaptureMode.directorRear)
                   IgnorePointer(
+                    ignoring: true,
                     child: CustomPaint(
                       painter: _LevelCrosshairPainter(rollDegrees: _deviceRoll),
                       child: const SizedBox.expand(),
@@ -539,6 +552,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                   ),
                 if (_countdown != null)
                   IgnorePointer(
+                    ignoring: true,
                     child: Center(
                       child: Text(
                         '$_countdown',
@@ -564,7 +578,6 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       ),
                     ),
                   ),
-                // MediaPipe CDN 로딩 — 로딩 중에만 마운트 (잔존 오버레이 터치 가로채기 방지)
                 if (_mlLoading)
                   Positioned.fill(
                     child: AbsorbPointer(
@@ -782,17 +795,21 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       const SizedBox(width: 10),
                     Expanded(
                       flex: 2,
-                      child: FilledButton.icon(
+                      child: SoriGlassButton(
                         onPressed: locked ? null : _captureAndUpload,
-                        icon: const Icon(Icons.camera_alt_rounded),
-                        label: Text(
-                          _busy ? '저장 중…' : '촬영',
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: SoriTokens.primary,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.camera_alt_rounded, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              _busy ? '저장 중…' : '촬영',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -921,18 +938,18 @@ class _ModeChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: active ? SoriTokens.primary : Colors.transparent,
-            ),
-          ),
+          decoration: active
+              ? SoriTokens.glassEmerald(radius: 12)
+              : BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: SoriTokens.surfaceOverlay,
+                ),
           child: Text(
             label,
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 13,
-              color: active ? SoriTokens.primary : SoriTokens.textSecondary,
+              color: active ? SoriTokens.onPrimary : SoriTokens.textSecondary,
             ),
           ),
         ),
@@ -956,14 +973,14 @@ class _CircularFaceAlignPainter extends CustomPainter {
       return Colors.white.withValues(alpha: 0.55);
     }
     return aligned
-        ? SoriTokens.primary
+        ? SoriTokens.primaryLight.withValues(alpha: 0.92)
         : const Color(0xFFFBBF24).withValues(alpha: 0.95);
   }
 
-  /// 원 내부 보조선 — 정렬 시 에메랄드, 기본 반투명 화이트 (α ≈ 0.35).
+  /// 원 내부 보조선 — 정렬 시 글래스 에메랄드.
   Color _innerGuideColor(bool aligned) {
     if (aligned) {
-      return SoriTokens.primary.withValues(alpha: 0.38);
+      return SoriTokens.primary.withValues(alpha: 0.42);
     }
     if (pose.detected) {
       return const Color(0xFFFBBF24).withValues(alpha: 0.34);
