@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,9 +26,18 @@ class AppShellPage extends StatefulWidget {
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
 
+  /// Store 전역 notify마다 셸을 리빌드하지 않도록 셸 관련 스냅샷만 추적.
+  bool _lastHydrating = false;
+  String? _lastSessionKey;
+  UserRole? _lastMode;
+  int _lastBadge = -1;
+  String? _lastCommentPostId;
+  bool _lastOnboarding = false;
+
   @override
   void initState() {
     super.initState();
+    _captureShellSnapshot();
     _store.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_store.authHydrating) return;
@@ -46,10 +53,39 @@ class _AppShellPageState extends State<AppShellPage> {
     super.dispose();
   }
 
+  void _captureShellSnapshot() {
+    final s = _store.session;
+    _lastHydrating = _store.authHydrating;
+    _lastSessionKey = s?.authUserId ?? s?.customerId ?? s?.phone;
+    _lastMode = s?.activeMode;
+    _lastOnboarding = s?.onboardingComplete ?? false;
+    _lastCommentPostId = _store.activeCommentPostId;
+    _lastBadge = s == null ? -1 : _notificationBadgeCount(s);
+  }
+
+  bool _shellSnapshotChanged() {
+    final s = _store.session;
+    final hydrating = _store.authHydrating;
+    final key = s?.authUserId ?? s?.customerId ?? s?.phone;
+    final mode = s?.activeMode;
+    final onboarding = s?.onboardingComplete ?? false;
+    final comment = _store.activeCommentPostId;
+    final badge = s == null ? -1 : _notificationBadgeCount(s);
+    return hydrating != _lastHydrating ||
+        key != _lastSessionKey ||
+        mode != _lastMode ||
+        onboarding != _lastOnboarding ||
+        comment != _lastCommentPostId ||
+        badge != _lastBadge;
+  }
+
   void _onChanged() {
     if (!mounted) return;
     if (_store.authHydrating) {
-      setState(() {});
+      if (!_lastHydrating) {
+        _lastHydrating = true;
+        setState(() {});
+      }
       return;
     }
     if (_store.session == null || !_store.session!.onboardingComplete) {
@@ -64,6 +100,8 @@ class _AppShellPageState extends State<AppShellPage> {
         _selectTab(pendingTab.clamp(0, 4));
       });
     }
+    if (!_shellSnapshotChanged()) return;
+    _captureShellSnapshot();
     setState(() {});
   }
 
@@ -335,19 +373,17 @@ class _SoriNavigationRail extends StatelessWidget {
           ];
 
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: SoriTokens.surface.withValues(alpha: 0.92),
-            border: const Border(
-              right: BorderSide(
-                color: SoriTokens.border,
-                width: 1,
-              ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: SoriTokens.surface.withValues(alpha: 0.97),
+          border: const Border(
+            right: BorderSide(
+              color: SoriTokens.border,
+              width: 1,
             ),
           ),
-          child: NavigationRail(
+        ),
+        child: NavigationRail(
             selectedIndex: currentIndex,
             onDestinationSelected: onTap,
             labelType: NavigationRailLabelType.all,
@@ -380,7 +416,6 @@ class _SoriNavigationRail extends StatelessWidget {
             ),
             destinations: destinations,
           ),
-        ),
       ),
     );
   }
@@ -411,81 +446,65 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                SoriTokens.surfaceElevated.withValues(alpha: 0.92),
-                SoriTokens.background.withValues(alpha: 0.88),
-              ],
-            ),
-            border: const Border(
-              bottom: BorderSide(
-                color: SoriTokens.border,
-                width: 1,
-              ),
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: SoriTokens.surfaceElevated.withValues(alpha: 0.97),
+        border: const Border(
+          bottom: BorderSide(
+            color: SoriTokens.border,
+            width: 1,
           ),
-          child: Stack(
-            children: [
-              SafeArea(
-                bottom: false,
-                child: SizedBox(
-                  height: toolbarHeight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              fontStyle: FontStyle.italic,
-                              height: 1.15,
-                              letterSpacing: -0.4,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (onPostFirst != null)
-                          _FlatAppBarIcon(
-                            tooltip: '새 게시물',
-                            icon: Icons.add_outlined,
-                            onPressed: onPostFirst!,
-                          ),
-                        _FlatAppBarIcon(
-                          tooltip: '알림',
-                          icon: Icons.notifications_none_outlined,
-                          onPressed: onNotifications,
-                          badgeCount: badgeCount,
-                        ),
-                        if (onArchive != null)
-                          _FlatAppBarIcon(
-                            tooltip: '보관함',
-                            icon: Icons.inventory_2_outlined,
-                            onPressed: onArchive!,
-                          ),
-                        if (onSettings != null)
-                          _FlatAppBarIcon(
-                            tooltip: '설정',
-                            icon: Icons.settings_outlined,
-                            onPressed: onSettings!,
-                          ),
-                      ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: toolbarHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic,
+                      height: 1.15,
+                      letterSpacing: -0.4,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-              ),
-            ],
+                if (onPostFirst != null)
+                  _FlatAppBarIcon(
+                    tooltip: '새 게시물',
+                    icon: Icons.add_outlined,
+                    onPressed: onPostFirst!,
+                  ),
+                _FlatAppBarIcon(
+                  tooltip: '알림',
+                  icon: Icons.notifications_none_outlined,
+                  onPressed: onNotifications,
+                  badgeCount: badgeCount,
+                ),
+                if (onArchive != null)
+                  _FlatAppBarIcon(
+                    tooltip: '보관함',
+                    icon: Icons.inventory_2_outlined,
+                    onPressed: onArchive!,
+                  ),
+                if (onSettings != null)
+                  _FlatAppBarIcon(
+                    tooltip: '설정',
+                    icon: Icons.settings_outlined,
+                    onPressed: onSettings!,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

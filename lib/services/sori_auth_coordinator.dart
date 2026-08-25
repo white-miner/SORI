@@ -52,7 +52,7 @@ class SoriAuthCoordinator {
                 s.event == AuthChangeEvent.signedIn ||
                 s.event == AuthChangeEvent.signedOut,
           )
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 2));
       debugPrint('[Auth] initial auth event: ${state.event.name}');
       await _applyAuthState(state.event, state.session, reason: 'initial');
     } on TimeoutException {

@@ -19,14 +19,12 @@ Future<void> main() async {
     // GitHub Pages `/#/...` 딥링크 유지
     setUrlStrategy(HashUrlStrategy());
 
-    // 전역 Error Boundary — 백그라운드/위젯 예외가 빨간 Exception 전체화면으로
-    // 차트 작성 State 를 날리지 않도록 흡수한다.
     FlutterError.onError = (details) {
       FlutterError.dumpErrorToConsole(details, forceReport: true);
     };
     PlatformDispatcher.instance.onError = (error, stack) {
       debugPrint('PlatformDispatcher.onError: $error\n$stack');
-      return true; // 처리됨 — 앱 크래시/전역 빨간 화면 방지
+      return true;
     };
     ErrorWidget.builder = (details) {
       debugPrint('ErrorWidget swallowed: ${details.exception}');
@@ -34,7 +32,6 @@ Future<void> main() async {
       if (raw.toLowerCase().contains('oauth state') ||
           raw.toLowerCase().contains('code verifier') ||
           raw.toLowerCase().contains('pkce')) {
-        // 깨진 OAuth 콜백 — 빨간 전체화면 대신 빈 캔버스 (세션은 coordinator가 정리)
         return const ColoredBox(
           color: Color(0xFF0A0A0C),
           child: SizedBox.expand(),
@@ -62,8 +59,8 @@ Future<void> main() async {
       );
     };
 
-    // PWA/모바일 풀스크린 Touch UX — 노치·홈 인디케이터는 SafeArea로 처리
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // 시스템 UI만 동기적으로 맞춘 뒤 즉시 첫 프레임
+    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -73,22 +70,39 @@ Future<void> main() async {
         systemNavigationBarContrastEnforced: false,
       ),
     );
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+    unawaited(
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]),
+    );
 
-    await Env.load();
-    await SoriSupabase.initialize();
-
+    // Seed 스냅샷으로 UI를 먼저 띄우고, 네트워크·Auth는 백그라운드.
     final store = SoriStore.instance;
-    store.bindRepository(createSoriRepository());
-    await store.bootstrap();
-    await SoriAuthCoordinator.instance.start();
-
-    // Hash routing 기본값 유지 → GitHub Pages `/#/review?token=...` 404 방지
+    store.setAuthHydrating(true); // 세션 복구 전 로그인 깜빡임 방지
     runApp(const MyApp());
+    unawaited(_warmStart(store));
   }, (error, stack) {
     debugPrint('runZonedGuarded: $error\n$stack');
   });
+}
+
+/// Env → Supabase → bootstrap → Auth. UI는 이미 표시된 상태.
+Future<void> _warmStart(SoriStore store) async {
+  try {
+    await Env.load();
+    await SoriSupabase.initialize();
+    store.bindRepository(createSoriRepository());
+    await Future.wait<void>([
+      store.bootstrap(),
+      SoriAuthCoordinator.instance.start(),
+    ]);
+  } catch (e, st) {
+    debugPrint('warmStart failed: $e\n$st');
+  } finally {
+    // coordinator hydrate가 이미 false로 내렸을 수 있음 — 미로그인 콜드스타트 정리
+    if (store.authHydrating && store.session == null) {
+      store.setAuthHydrating(false);
+    }
+  }
 }

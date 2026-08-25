@@ -15,6 +15,7 @@ class WebGuideFaceAlign implements GuideFaceAlign {
   bool _started = false;
   bool _prepared = false;
   GuideFacePose _last = GuideFacePose.none;
+  static Future<void>? _scriptLoad;
 
   @override
   Stream<GuideFacePose> get poses => _ctrl.stream;
@@ -25,9 +26,41 @@ class WebGuideFaceAlign implements GuideFaceAlign {
     return v as JSObject;
   }
 
+  Future<void> _ensureScript() async {
+    if (_api != null) return;
+    _scriptLoad ??= () async {
+      final existing = web.document.querySelector('script[data-sori-face-align]');
+      if (existing != null) {
+        // 다른 인스턴스가 로딩 중일 수 있음 — API 노출까지 폴링
+        for (var i = 0; i < 40; i++) {
+          if (_api != null) return;
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+        return;
+      }
+      final completer = Completer<void>();
+      final script = web.HTMLScriptElement()
+        ..src = 'sori_face_align.js'
+        ..async = true
+        ..setAttribute('data-sori-face-align', '1');
+      script.onload = ((web.Event _) {
+        if (!completer.isCompleted) completer.complete();
+      }).toJS;
+      script.onerror = ((web.Event _) {
+        if (!completer.isCompleted) {
+          completer.completeError(StateError('sori_face_align.js load failed'));
+        }
+      }).toJS;
+      web.document.head?.append(script);
+      await completer.future.timeout(const Duration(seconds: 15));
+    }();
+    await _scriptLoad;
+  }
+
   @override
   Future<void> prepare() async {
     if (_prepared) return;
+    await _ensureScript();
     final api = _api;
     if (api == null) {
       debugPrint('SoriFaceAlign JS not loaded');
@@ -49,6 +82,7 @@ class WebGuideFaceAlign implements GuideFaceAlign {
   @override
   Future<void> start(Object videoElement) async {
     await stop();
+    await prepare();
     final api = _api;
     if (api == null) {
       debugPrint('SoriFaceAlign JS not loaded');
@@ -59,8 +93,6 @@ class WebGuideFaceAlign implements GuideFaceAlign {
       return;
     }
     final video = videoElement as web.HTMLVideoElement;
-
-    await prepare();
 
     _jsCallback = ((JSAny? raw) {
       final pose = _parsePose(raw);

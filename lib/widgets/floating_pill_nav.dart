@@ -1,11 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 import '../theme/sori_tokens.dart';
 
-/// Weverse-style fluid drag bottom nav with glassmorphism highlight.
+/// Weverse-style fluid drag bottom nav — solid bar (no BackdropFilter on mobile web).
 class FloatingPillNav extends StatefulWidget {
   const FloatingPillNav({
     super.key,
@@ -20,8 +18,8 @@ class FloatingPillNav extends StatefulWidget {
   final String reviewLabel;
   final ValueChanged<int> onTap;
 
-  /// Glass fill ~62% over #121212
-  static const Color barBg = Color(0x9E121212);
+  /// Opaque enough without blur (~94% #121212)
+  static const Color barBg = Color(0xF0121212);
 
   @override
   State<FloatingPillNav> createState() => _FloatingPillNavState();
@@ -67,7 +65,8 @@ class _FloatingPillNavState extends State<FloatingPillNav>
     super.initState();
     _spring = AnimationController.unbounded(vsync: this)
       ..addListener(() {
-        setState(() => _highlightLeft = _spring.value);
+        _highlightLeft = _spring.value;
+        // 하이라이트만 리페인트 — 전체 setState 금지
       });
   }
 
@@ -126,9 +125,9 @@ class _FloatingPillNavState extends State<FloatingPillNav>
     if (_highlightW <= 0) return;
     final minL = _hInset;
     final maxL = _barWidth - _hInset - _highlightW;
-    setState(() {
-      _highlightLeft = (localX - _highlightW / 2).clamp(minL, maxL);
-    });
+    _highlightLeft = (localX - _highlightW / 2).clamp(minL, maxL);
+    // AnimatedBuilder가 _spring 미사용 드래그도 반영하려면 setState 최소화:
+    setState(() {});
   }
 
   void _onTapUp(TapUpDetails details) {
@@ -196,83 +195,91 @@ class _FloatingPillNavState extends State<FloatingPillNav>
           _syncBarWidth(constraints.maxWidth);
           return SizedBox(
             height: _barH,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(_radius),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: FloatingPillNav.barBg,
-                    borderRadius: BorderRadius.circular(_radius),
-                  ),
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      if (_laidOut && _highlightW > 0)
-                        Positioned(
-                          left: _highlightLeft,
-                          top: _vInset,
-                          bottom: _vInset,
-                          width: _highlightW,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(24),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: FloatingPillNav.barBg,
+                borderRadius: BorderRadius.circular(_radius),
+                border: Border.all(color: SoriTokens.border),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_radius),
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    if (_laidOut && _highlightW > 0)
+                      AnimatedBuilder(
+                        animation: _spring,
+                        builder: (context, _) {
+                          final left = _dragging
+                              ? _highlightLeft
+                              : (_spring.isAnimating
+                                  ? _spring.value
+                                  : _highlightLeft);
+                          return Positioned(
+                            left: left,
+                            top: _vInset,
+                            bottom: _vInset,
+                            width: _highlightW,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
                             ),
-                          ),
-                        ),
-                      Positioned.fill(
-                        child: Row(
-                          children: List.generate(_count, (i) {
-                            final selected = visual == i;
-                            return Expanded(
-                              child: IgnorePointer(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      selected ? items[i].$2 : items[i].$1,
-                                      size: 22,
+                          );
+                        },
+                      ),
+                    Positioned.fill(
+                      child: Row(
+                        children: List.generate(_count, (i) {
+                          final selected = visual == i;
+                          return Expanded(
+                            child: IgnorePointer(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    selected ? items[i].$2 : items[i].$1,
+                                    size: 22,
+                                    color: selected
+                                        ? SoriTokens.textPrimary
+                                        : SoriTokens.textTertiary,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    labels[i],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: selected
+                                          ? FontWeight.w800
+                                          : FontWeight.w500,
                                       color: selected
-                                          ? SoriTokens.textPrimary
+                                          ? SoriTokens.textSecondary
                                           : SoriTokens.textTertiary,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      labels[i],
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 9.5,
-                                        fontWeight: selected
-                                            ? FontWeight.w800
-                                            : FontWeight.w500,
-                                        color: selected
-                                            ? SoriTokens.textSecondary
-                                            : SoriTokens.textTertiary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }),
-                        ),
+                            ),
+                          );
+                        }),
                       ),
-                      Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapUp: _onTapUp,
-                          onHorizontalDragStart: _onDragStart,
-                          onHorizontalDragUpdate: _onDragUpdate,
-                          onHorizontalDragEnd: _onDragEnd,
-                          onHorizontalDragCancel: () {
-                            _animateToIndex(_visualIndex);
-                          },
-                        ),
+                    ),
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapUp: _onTapUp,
+                        onHorizontalDragStart: _onDragStart,
+                        onHorizontalDragUpdate: _onDragUpdate,
+                        onHorizontalDragEnd: _onDragEnd,
+                        onHorizontalDragCancel: () {
+                          _animateToIndex(_visualIndex);
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
