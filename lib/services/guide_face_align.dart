@@ -37,6 +37,10 @@ class GuideFacePose {
 abstract class GuideFaceAlign {
   Stream<GuideFacePose> get poses;
 
+  /// CDN/WASM 모델만 미리 로드 (추론 루프는 시작하지 않음).
+  Future<void> prepare();
+
+  /// 모델 준비 후 비디오에 추론 루프 연결.
   Future<void> start(Object videoElement);
 
   Future<void> stop();

@@ -11,6 +11,9 @@ class _StubGuideFaceAlign implements GuideFaceAlign {
   Stream<GuideFacePose> get poses => _ctrl.stream;
 
   @override
+  Future<void> prepare() async {}
+
+  @override
   Future<void> start(Object videoElement) async {}
 
   @override

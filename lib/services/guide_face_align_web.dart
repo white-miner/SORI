@@ -13,6 +13,7 @@ class WebGuideFaceAlign implements GuideFaceAlign {
   final _ctrl = StreamController<GuideFacePose>.broadcast();
   JSFunction? _jsCallback;
   bool _started = false;
+  bool _prepared = false;
   GuideFacePose _last = GuideFacePose.none;
 
   @override
@@ -25,6 +26,27 @@ class WebGuideFaceAlign implements GuideFaceAlign {
   }
 
   @override
+  Future<void> prepare() async {
+    if (_prepared) return;
+    final api = _api;
+    if (api == null) {
+      debugPrint('SoriFaceAlign JS not loaded');
+      return;
+    }
+    try {
+      final init = api.callMethod('init'.toJS);
+      if (init != null) {
+        await (init as JSPromise<JSAny?>).toDart;
+      }
+      _prepared = true;
+    } catch (e) {
+      debugPrint('SoriFaceAlign.prepare failed: $e');
+      _prepared = false;
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> start(Object videoElement) async {
     await stop();
     final api = _api;
@@ -32,21 +54,13 @@ class WebGuideFaceAlign implements GuideFaceAlign {
       debugPrint('SoriFaceAlign JS not loaded');
       return;
     }
-    if (videoElement is! JSObject) {
+    if (videoElement is! JSAny) {
       debugPrint('GuideFaceAlign: expected HTMLVideoElement');
       return;
     }
     final video = videoElement as web.HTMLVideoElement;
 
-    try {
-      final init = api.callMethod('init'.toJS);
-      if (init != null) {
-        await (init as JSPromise<JSAny?>).toDart;
-      }
-    } catch (e) {
-      debugPrint('SoriFaceAlign.init failed: $e');
-      return;
-    }
+    await prepare();
 
     _jsCallback = ((JSAny? raw) {
       final pose = _parsePose(raw);

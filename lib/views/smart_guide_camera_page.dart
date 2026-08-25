@@ -97,6 +97,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   GuidePreset _preset = GuidePreset.face;
   bool _ghostOn = true;
   bool _starting = true;
+  bool _mlLoading = false;
   bool _busy = false;
   String? _error;
   String? _viewType;
@@ -116,6 +117,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   bool get _faceAlignActive => _preset.usesFaceAlign;
+
+  /// 카메라/ML 준비 전에는 하단 조작 비활성.
+  bool get _controlsLocked =>
+      _starting || _mlLoading || _busy || _viewType == null || _countdown != null;
 
   List<GuidePreset> get _presets => _mode == GuideCaptureMode.selfFront
       ? const [GuidePreset.face, GuidePreset.decollete]
@@ -172,13 +177,23 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   Future<void> _startCamera() async {
+    final needMl = _preset.usesFaceAlign;
     setState(() {
       _starting = true;
+      _mlLoading = needMl;
       _error = null;
       _viewType = null;
       _facePose = GuideFacePose.none;
     });
     await _faceAlign.stop();
+
+    // 카메라 스트림과 CDN 모델 로드를 병렬로 — 오버레이로 대기 UX 제공
+    final prepareMl = needMl
+        ? _faceAlign.prepare().catchError((Object e, StackTrace st) {
+            debugPrint('face align prepare failed: $e\n$st');
+          })
+        : Future<void>.value();
+
     try {
       final front = _mode == GuideCaptureMode.selfFront;
       await _session.start(front: front, zoom: _zoom);
@@ -199,18 +214,26 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         setState(() => _facePose = p);
       });
 
-      if (_faceAlignActive) {
-        final video = _session.mlVideoHandle;
-        if (video != null) {
-          unawaited(_faceAlign.start(video));
-        }
-      }
-
       if (!mounted) return;
       setState(() {
         _viewType = _session.viewType;
         _starting = false;
       });
+
+      if (needMl) {
+        await prepareMl;
+        if (!mounted) return;
+        final video = _session.mlVideoHandle;
+        if (video != null) {
+          try {
+            await _faceAlign.start(video);
+          } catch (e) {
+            debugPrint('face align start failed: $e');
+          }
+        }
+        if (!mounted) return;
+        setState(() => _mlLoading = false);
+      }
     } catch (e) {
       debugPrint('guide camera start failed: $e');
       if (!mounted) return;
@@ -220,13 +243,14 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       }
       setState(() {
         _starting = false;
+        _mlLoading = false;
         _error = '카메라를 열 수 없어요. 브라우저 카메라 권한을 확인해 주세요.\n$e';
       });
     }
   }
 
   Future<void> _switchMode(GuideCaptureMode mode) async {
-    if (_mode == mode || _busy) return;
+    if (_mode == mode || _controlsLocked) return;
     setState(() {
       _mode = mode;
       _preset = _presets.first;
@@ -235,21 +259,32 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   Future<void> _selectPreset(GuidePreset p) async {
-    if (_preset == p) return;
+    if (_preset == p || _controlsLocked) return;
     setState(() {
       _preset = p;
       _facePose = GuideFacePose.none;
     });
     if (!_session.isRunning) return;
     if (p.usesFaceAlign) {
-      final video = _session.mlVideoHandle;
-      if (video != null) unawaited(_faceAlign.start(video));
+      setState(() => _mlLoading = true);
+      try {
+        await _faceAlign.prepare();
+        final video = _session.mlVideoHandle;
+        if (video != null) await _faceAlign.start(video);
+      } catch (e) {
+        debugPrint('preset face align failed: $e');
+      } finally {
+        if (mounted) setState(() => _mlLoading = false);
+      }
     } else {
       await _faceAlign.stop();
+      if (mounted) setState(() => _mlLoading = false);
     }
   }
 
   void _onZoomChanged(double v) {
+    if (_controlsLocked && !_busy) return;
+    if (_mlLoading || _starting) return;
     final clamped = v.clamp(
       GuideCameraZoomMemory.minZoom,
       GuideCameraZoomMemory.maxZoom,
@@ -503,6 +538,47 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       ),
                     ),
                   ),
+                // MediaPipe CDN 로딩 — 페이드아웃 후 조작 활성화
+                IgnorePointer(
+                  ignoring: !_mlLoading,
+                  child: AnimatedOpacity(
+                    opacity: _mlLoading ? 1 : 0,
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeOut,
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.62),
+                      child: const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  color: SoriTokens.primary,
+                                ),
+                              ),
+                              SizedBox(height: 18),
+                              Text(
+                                'AI 안면 인식 모듈을 준비 중입니다...',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14.5,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -512,188 +588,194 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   Widget _buildControls() {
-    return Material(
-      color: const Color(0xFF111113),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    final locked = _controlsLocked;
+    return AbsorbPointer(
+      absorbing: locked,
+      child: Opacity(
+        opacity: locked ? 0.45 : 1,
+        child: Material(
+          color: const Color(0xFF111113),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: _ModeChip(
-                    label: '셀프 · 전면',
-                    active: _mode == GuideCaptureMode.selfFront,
-                    onTap: () => _switchMode(GuideCaptureMode.selfFront),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _ModeChip(
-                    label: '원장 · 후면',
-                    active: _mode == GuideCaptureMode.directorRear,
-                    onTap: () => _switchMode(GuideCaptureMode.directorRear),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _presets.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final p = _presets[i];
-                  final active = _preset == p;
-                  return ChoiceChip(
-                    label: Text(p.label),
-                    selected: active,
-                    onSelected: (_) => unawaited(_selectPreset(p)),
-                    selectedColor: SoriTokens.primarySoft,
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                      color:
-                          active ? SoriTokens.primary : SoriTokens.textSecondary,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ModeChip(
+                        label: '셀프 · 전면',
+                        active: _mode == GuideCaptureMode.selfFront,
+                        onTap: () => _switchMode(GuideCaptureMode.selfFront),
+                      ),
                     ),
-                    backgroundColor: SoriTokens.surfaceOverlay,
-                    side: BorderSide(
-                      color: active ? SoriTokens.primary : Colors.transparent,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ModeChip(
+                        label: '원장 · 후면',
+                        active: _mode == GuideCaptureMode.directorRear,
+                        onTap: () => _switchMode(GuideCaptureMode.directorRear),
+                      ),
                     ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ZoomSlider(
-              value: _zoom,
-              onChanged: _onZoomChanged,
-            ),
-            if (_faceAlignActive) ...[
-              const SizedBox(height: 8),
-              Text(
-                !_facePose.detected
-                    ? '얼굴을 원 안에 맞춰 주세요'
-                    : (_facePose.isAligned
-                        ? '정렬됨 · 촬영 가능'
-                        : '고개를 정면으로 맞춰 주세요'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: _facePose.isAligned
-                      ? SoriTokens.primary
-                      : SoriTokens.textSecondary,
+                  ],
                 ),
-              ),
-            ],
-            if (_canGhost) ...[
-              const SizedBox(height: 10),
-              Material(
-                color: _ghostOn
-                    ? SoriTokens.primarySoft
-                    : SoriTokens.surfaceOverlay,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: () => setState(() => _ghostOn = !_ghostOn),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _ghostOn
-                              ? Icons.layers_rounded
-                              : Icons.layers_clear_rounded,
-                          color: _ghostOn
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _presets.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final p = _presets[i];
+                      final active = _preset == p;
+                      return ChoiceChip(
+                        label: Text(p.label),
+                        selected: active,
+                        onSelected:
+                            locked ? null : (_) => unawaited(_selectPreset(p)),
+                        selectedColor: SoriTokens.primarySoft,
+                        labelStyle: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                          color: active
                               ? SoriTokens.primary
                               : SoriTokens.textSecondary,
-                          size: 20,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _ghostOn ? '잔상 켜짐 (Before 25%)' : '잔상 꺼짐',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13.5,
-                              color: _ghostOn
-                                  ? SoriTokens.primary
-                                  : SoriTokens.textPrimary,
-                            ),
-                          ),
+                        backgroundColor: SoriTokens.surfaceOverlay,
+                        side: BorderSide(
+                          color:
+                              active ? SoriTokens.primary : Colors.transparent,
                         ),
-                        Text(
-                          _ghostOn ? '끄기' : '켜기',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            color: _ghostOn
-                                ? SoriTokens.primary
-                                : SoriTokens.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                if (_mode == GuideCaptureMode.selfFront)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed:
-                          (_busy || _countdown != null || _viewType == null)
-                              ? null
-                              : _startTimerCapture,
-                      icon: const Icon(Icons.timer_outlined),
-                      label: const Text(
-                        '3초 타이머',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: SoriTokens.border),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                if (_mode == GuideCaptureMode.selfFront)
-                  const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton.icon(
-                    onPressed:
-                        (_busy || _countdown != null || _viewType == null)
-                            ? null
-                            : _captureAndUpload,
-                    icon: const Icon(Icons.camera_alt_rounded),
-                    label: Text(
-                      _busy ? '저장 중…' : '촬영',
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _faceAlignActive && _facePose.isAligned
+                const SizedBox(height: 12),
+                _ZoomSlider(
+                  value: _zoom,
+                  onChanged: locked ? (_) {} : _onZoomChanged,
+                ),
+                if (_faceAlignActive) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _mlLoading
+                        ? 'AI 모듈 준비 중…'
+                        : (!_facePose.detected
+                            ? '얼굴을 원 안에 맞춰 주세요'
+                            : (_facePose.isAligned
+                                ? '정렬됨 · 촬영 가능'
+                                : '고개를 정면으로 맞춰 주세요')),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: _facePose.isAligned && !_mlLoading
                           ? SoriTokens.primary
-                          : SoriTokens.primary,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                          : SoriTokens.textSecondary,
                     ),
                   ),
+                ],
+                if (_canGhost) ...[
+                  const SizedBox(height: 10),
+                  Material(
+                    color: _ghostOn
+                        ? SoriTokens.primarySoft
+                        : SoriTokens.surfaceOverlay,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: locked
+                          ? null
+                          : () => setState(() => _ghostOn = !_ghostOn),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _ghostOn
+                                  ? Icons.layers_rounded
+                                  : Icons.layers_clear_rounded,
+                              color: _ghostOn
+                                  ? SoriTokens.primary
+                                  : SoriTokens.textSecondary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _ghostOn ? '잔상 켜짐 (Before 25%)' : '잔상 꺼짐',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13.5,
+                                  color: _ghostOn
+                                      ? SoriTokens.primary
+                                      : SoriTokens.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _ghostOn ? '끄기' : '켜기',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                                color: _ghostOn
+                                    ? SoriTokens.primary
+                                    : SoriTokens.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    if (_mode == GuideCaptureMode.selfFront)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: locked ? null : _startTimerCapture,
+                          icon: const Icon(Icons.timer_outlined),
+                          label: const Text(
+                            '3초 타이머',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: SoriTokens.border),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    if (_mode == GuideCaptureMode.selfFront)
+                      const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: locked ? null : _captureAndUpload,
+                        icon: const Icon(Icons.camera_alt_rounded),
+                        label: Text(
+                          _busy ? '저장 중…' : '촬영',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SoriTokens.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -834,7 +916,7 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
-/// Face ID 스타일 원형 뷰파인더 + Pitch/Yaw/Roll 인디케이터.
+/// Face ID 스타일 원형 뷰파인더 + 코너 브래킷 + 중앙 십자선.
 class _CircularFaceAlignPainter extends CustomPainter {
   _CircularFaceAlignPainter({
     required this.pose,
@@ -844,12 +926,84 @@ class _CircularFaceAlignPainter extends CustomPainter {
   final GuideFacePose pose;
   final bool mirrored;
 
+  Color _guideColor(bool aligned) {
+    if (!pose.detected) {
+      return Colors.white.withValues(alpha: 0.55);
+    }
+    return aligned
+        ? SoriTokens.primary
+        : const Color(0xFFFBBF24).withValues(alpha: 0.95);
+  }
+
+  void _drawCornerBracket(
+    Canvas canvas,
+    Offset corner,
+    double dx,
+    double dy,
+    Color color,
+  ) {
+    const len = 22.0;
+    const stroke = 2.6;
+    final shadow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.45)
+      ..strokeWidth = stroke + 1.8
+      ..strokeCap = StrokeCap.square
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.square
+      ..style = PaintingStyle.stroke;
+
+    final hEnd = Offset(corner.dx + dx * len, corner.dy);
+    final vEnd = Offset(corner.dx, corner.dy + dy * len);
+    for (final p in [shadow, paint]) {
+      canvas.drawLine(corner, hEnd, p);
+      canvas.drawLine(corner, vEnd, p);
+    }
+  }
+
+  void _drawCenterCrosshair(Canvas canvas, Offset center, Color color) {
+    const arm = 14.0;
+    const gap = 4.0;
+    final shadow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.4)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.92)
+      ..strokeWidth = 1.35
+      ..strokeCap = StrokeCap.round;
+
+    void line(Offset a, Offset b) {
+      canvas.drawLine(a.translate(0, 0.6), b.translate(0, 0.6), shadow);
+      canvas.drawLine(a, b, paint);
+    }
+
+    line(Offset(center.dx - arm, center.dy), Offset(center.dx - gap, center.dy));
+    line(Offset(center.dx + gap, center.dy), Offset(center.dx + arm, center.dy));
+    line(Offset(center.dx, center.dy - arm), Offset(center.dx, center.dy - gap));
+    line(Offset(center.dx, center.dy + gap), Offset(center.dx, center.dy + arm));
+
+    canvas.drawCircle(
+      center,
+      2.2,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
+    );
+    canvas.drawCircle(center, 1.6, Paint()..color = color);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
     final cy = size.height * 0.46;
     final radius = math.min(size.width, size.height) * 0.36;
     final center = Offset(cx, cy);
+    final aligned = pose.isAligned;
+    final borderColor = _guideColor(aligned);
 
     // 원 밖 딤
     final dim = Path()
@@ -860,13 +1014,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
       dim,
       Paint()..color = Colors.black.withValues(alpha: 0.48),
     );
-
-    final aligned = pose.isAligned;
-    final borderColor = !pose.detected
-        ? Colors.white.withValues(alpha: 0.55)
-        : (aligned
-            ? SoriTokens.primary
-            : const Color(0xFFFBBF24).withValues(alpha: 0.95));
 
     // 소프트 글로우
     canvas.drawCircle(
@@ -897,6 +1044,21 @@ class _CircularFaceAlignPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2,
     );
+
+    // 프레임 코너 브래킷 ⌜ ⌝ ⌞ ⌟ (원 외곽 사각 프레임)
+    final framePad = radius * 0.22;
+    final frame = Rect.fromCenter(
+      center: center,
+      width: (radius + framePad) * 2,
+      height: (radius + framePad) * 2,
+    );
+    _drawCornerBracket(canvas, frame.topLeft, 1, 1, borderColor);
+    _drawCornerBracket(canvas, frame.topRight, -1, 1, borderColor);
+    _drawCornerBracket(canvas, frame.bottomLeft, 1, -1, borderColor);
+    _drawCornerBracket(canvas, frame.bottomRight, -1, -1, borderColor);
+
+    // 중앙 십자선 — 코/미간 정렬
+    _drawCenterCrosshair(canvas, center, borderColor);
 
     if (!pose.detected || aligned) return;
 
@@ -929,23 +1091,20 @@ class _CircularFaceAlignPainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Yaw: 좌/우
     if (yaw.abs() > tol) {
-      final dir = yaw > 0 ? 1.0 : -1.0; // +yaw → 오른쪽 화살 (고개를 왼쪽으로)
+      final dir = yaw > 0 ? 1.0 : -1.0;
       drawArrow(
         Offset(cx + dir * (radius + 22), cy),
         dir > 0 ? math.pi / 2 : -math.pi / 2,
       );
     }
-    // Pitch: 상/하
     if (pitch.abs() > tol) {
-      final dir = pitch > 0 ? 1.0 : -1.0; // +pitch 아래
+      final dir = pitch > 0 ? 1.0 : -1.0;
       drawArrow(
         Offset(cx, cy + dir * (radius + 22)),
         dir > 0 ? math.pi : 0,
       );
     }
-    // Roll: 원 가장자리 회전 힌트
     if (roll.abs() > tol) {
       final sweep = (roll.clamp(-35, 35) / 35) * (math.pi * 0.55);
       final arcPaint = Paint()
