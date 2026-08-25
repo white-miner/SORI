@@ -177,7 +177,9 @@ bool isMediaPermissionDeniedError(Object error) {
       text.contains('not allowed');
 }
 
-Future<void> _applyGuideChoice(MediaPermissionGuideChoice choice) async {
+Future<void> applyMediaPermissionGuideChoice(
+  MediaPermissionGuideChoice choice,
+) async {
   if (choice == MediaPermissionGuideChoice.alwaysAllow) {
     await MediaPermissionSession.setAlwaysAllowPersisted(true);
   } else if (choice == MediaPermissionGuideChoice.proceedOnce) {
@@ -213,7 +215,7 @@ Future<bool> ensureCameraPermissionGuide(BuildContext context) async {
   if (!context.mounted) return false;
   final choice = await showMediaPermissionGuideDialog(context);
   if (choice == MediaPermissionGuideChoice.cancel) return false;
-  await _applyGuideChoice(choice);
+  await applyMediaPermissionGuideChoice(choice);
   return true;
 }
 
@@ -234,7 +236,7 @@ Future<XFile?> pickImageWithPermissionGuards({
     if (!context.mounted) return null;
     final choice = await showMediaPermissionGuideDialog(context);
     if (choice == MediaPermissionGuideChoice.cancel) return null;
-    await _applyGuideChoice(choice);
+    await applyMediaPermissionGuideChoice(choice);
   }
   if (!context.mounted) return null;
 
@@ -269,7 +271,7 @@ Future<List<XFile>> pickMultiImagesWithPermissionGuards({
     if (!context.mounted) return const [];
     final choice = await showMediaPermissionGuideDialog(context);
     if (choice == MediaPermissionGuideChoice.cancel) return const [];
-    await _applyGuideChoice(choice);
+    await applyMediaPermissionGuideChoice(choice);
   }
   if (!context.mounted) return const [];
 

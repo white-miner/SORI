@@ -63,11 +63,29 @@ jobs:
             --dart-define="SUPABASE_URL=${SUPABASE_URL}"
             --dart-define="SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
             --dart-define="SITE_URL=${SITE_URL}"
+            --dart-define="SORI_ASSET_V=${{ github.run_number }}"
           )
           if [ -n "$OPENAI_API_KEY" ]; then
             DEFINES+=(--dart-define="OPENAI_API_KEY=${OPENAI_API_KEY}")
           fi
-          flutter build web --release --base-href "/SORI/" "${DEFINES[@]}"
+          flutter build web --release --base-href "/SORI/" \
+            --build-name="1.0.0" \
+            --build-number="${{ github.run_number }}" \
+            "${DEFINES[@]}"
+
+      # index.html / 404.html 캐시 버스팅 쿼리·메타를 런 번호로 치환
+      - name: Bust web shell cache
+        run: |
+          BUILD="${{ github.run_number }}"
+          for f in build/web/index.html build/web/404.html; do
+            if [ -f "$f" ]; then
+              sed -i "s/2026082515/${BUILD}/g" "$f"
+            fi
+          done
+          # 서비스 워커가 옛 셸을 붙잡지 않도록 no-cache 헤더용 _headers는 Pages에서 제한적 —
+          # index는 위에서 no-cache 메타 + 쿼리로 강제 갱신.
+          echo "Cache bust applied: build=${BUILD}"
+          grep -n "sori-build\|flutter_bootstrap" build/web/index.html | head -20
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -14,11 +14,13 @@ Future<List<Uint8List>> openSoriInstaPicker(
   int maxAssets = 20,
   String title = '새 게시물',
 }) async {
-  final skipGuide = MediaPermissionSession.guideAccepted;
+  final skipGuide = MediaPermissionSession.guideAccepted ||
+      await MediaPermissionSession.isAlwaysAllowPersisted();
   if (!skipGuide) {
-    final proceed = await showMediaPermissionGuideDialog(context);
-    if (!proceed) return const [];
-    MediaPermissionSession.guideAccepted = true;
+    if (!context.mounted) return const [];
+    final choice = await showMediaPermissionGuideDialog(context);
+    if (choice == MediaPermissionGuideChoice.cancel) return const [];
+    await applyMediaPermissionGuideChoice(choice);
   }
   if (!context.mounted) return const [];
 
