@@ -27,7 +27,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="sori-build" content="2026082516">
+  <meta name="sori-build" content="2026082517">
 
   <!-- PWA / Android Chrome -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -45,7 +45,7 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>소통하는 리뷰, SORI</title>
-  <link rel="manifest" href="manifest.json?v=2026082516">
+  <link rel="manifest" href="manifest.json?v=2026082517">
 
   <!-- printing 패키지 웹 PDF 미리보기용 Pdf.js -->
   <script>
@@ -97,7 +97,41 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- ?v= 캐시 버스팅 — 빌드 번호 올릴 때 함께 갱신 -->
-  <script src="flutter_bootstrap.js?v=2026082516" async></script>
+  <!-- ?v= 캐시 버스팅 — CI가 run_number로 치환 -->
+  <script>
+    (function () {
+      var meta = document.querySelector('meta[name="sori-build"]');
+      var build = meta && meta.getAttribute('content');
+      if (!build) return;
+      var key = 'sori_web_build_v1';
+      var prev = null;
+      try { prev = localStorage.getItem(key); } catch (_) {}
+      function remember() {
+        try { localStorage.setItem(key, build); } catch (_) {}
+      }
+      if (!prev) { remember(); return; }
+      if (prev === build) return;
+      // 새 배포 감지 → SW/Cache Storage 폐기 후 1회 하드 리로드
+      var finish = function () {
+        remember();
+        var u = new URL(window.location.href);
+        u.searchParams.set('_sb', build);
+        window.location.replace(u.toString());
+      };
+      var p = Promise.resolve();
+      if ('serviceWorker' in navigator) {
+        p = navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        });
+      }
+      p.then(function () {
+        if (!window.caches || !caches.keys) return;
+        return caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        });
+      }).then(finish).catch(finish);
+    })();
+  </script>
+  <script src="flutter_bootstrap.js?v=2026082517" async></script>
 </body>
 </html>
