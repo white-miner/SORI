@@ -636,7 +636,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
             ),
             Switch.adaptive(
               value: shared,
-              activeThumbColor: const Color(0xFF22C55E),
+              activeThumbColor: SoriTokens.primary,
               onChanged: (v) => _onFeedShareChanged(chart, v),
             ),
           ],

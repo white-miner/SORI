@@ -14,6 +14,7 @@ void main() {
     expect(SoriTokens.surface, const Color(0xFF1A1A1A));
     expect(SoriTokens.surfaceElevated, const Color(0xFF222222));
     expect(SoriTokens.primary, const Color(0xFF34D399));
+    expect(SoriTokens.primaryDark, SoriTokens.primary);
     expect(SoriTokens.onPrimary, const Color(0xFF0B1220));
     expect(SoriTokens.primaryLight, const Color(0xFF047857));
     expect(SoriTokens.premium, const Color(0xFFA78BFA));

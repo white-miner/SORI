@@ -34,12 +34,12 @@ class WhisperPostCard extends StatelessWidget {
         color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: const Color(0xFF6EE7B7).withValues(alpha: 0.45),
+          color: SoriTokens.primary.withValues(alpha: 0.45),
           width: compact ? 1 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF34D399).withValues(alpha: 0.08),
+            color: SoriTokens.primary.withValues(alpha: 0.08),
             blurRadius: compact ? 8 : 12,
             offset: Offset(0, compact ? 2 : 4),
           ),
@@ -63,7 +63,7 @@ class WhisperPostCard extends StatelessWidget {
                     color: const Color(0xFF064E3B).withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: const Color(0xFF6EE7B7).withValues(alpha: 0.35),
+                      color: SoriTokens.primary.withValues(alpha: 0.35),
                     ),
                   ),
                   child: const Row(
@@ -72,7 +72,7 @@ class WhisperPostCard extends StatelessWidget {
                       Icon(
                         Icons.lock_outline_rounded,
                         size: 13,
-                        color: Color(0xFF6EE7B7),
+                        color: SoriTokens.primary,
                       ),
                       SizedBox(width: 4),
                       Text(
@@ -80,7 +80,7 @@ class WhisperPostCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF6EE7B7),
+                          color: SoriTokens.primary,
                           letterSpacing: 0.2,
                         ),
                       ),

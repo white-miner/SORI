@@ -183,7 +183,7 @@ class _CommunityPageState extends State<CommunityPage>
                       tooltip: '속삭임 작성',
                       onPressed: _composeWhisper,
                       icon: const Icon(Icons.lock_outline_rounded),
-                      color: const Color(0xFF6EE7B7),
+                      color: SoriTokens.primary,
                     ),
                     IconButton(
                       tooltip: '인테리어 올리기',
@@ -376,7 +376,7 @@ class _WhisperSegment extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFF6EE7B7).withValues(alpha: 0.35),
+                      color: SoriTokens.primary.withValues(alpha: 0.35),
                     ),
                   ),
                   child: Padding(
@@ -389,7 +389,7 @@ class _WhisperSegment extends StatelessWidget {
                             Icon(
                               Icons.lock_outline_rounded,
                               size: 20,
-                              color: Color(0xFF6EE7B7),
+                              color: SoriTokens.primary,
                             ),
                             SizedBox(width: 8),
                             Text(
@@ -419,7 +419,7 @@ class _WhisperSegment extends StatelessWidget {
                             icon: const Icon(Icons.edit_outlined, size: 18),
                             label: const Text('속삭임 남기기'),
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF059669),
+                              backgroundColor: SoriTokens.primaryLight,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
@@ -1416,7 +1416,7 @@ class _MarketCard extends StatelessWidget {
                           _ProsConsLine(
                             label: '장점',
                             text: review.pros.take(2).join(' · '),
-                            color: const Color(0xFF4ADE80),
+                            color: SoriTokens.primary,
                           ),
                         if (review.cons.isNotEmpty) ...[
                           const SizedBox(height: 4),

@@ -687,7 +687,7 @@ class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
       eyebrow: 'SORI SPOT',
       title: '이번 주 하이라이트 임상',
       subtitle: '장벽·민감 케어 B/A를 한눈에',
-      colors: [Color(0xFF064E3B), Color(0xFF10B981), Color(0xFF0A0A0C)],
+      colors: [Color(0xFF064E3B), SoriTokens.primary, Color(0xFF0A0A0C)],
     ),
     (
       eyebrow: 'BOOKING',

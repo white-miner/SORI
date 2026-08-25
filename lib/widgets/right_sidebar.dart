@@ -372,7 +372,7 @@ class _AiSummaryCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.auto_graph_rounded,
-                  size: 20, color: Color(0xFF2DD4BF)),
+                  size: 20, color: SoriTokens.primary),
               const SizedBox(width: 6),
               Text('AI 경영 · $month월',
                   style: const TextStyle(

@@ -184,7 +184,7 @@ class _DeviceReviewDetailPageState extends State<DeviceReviewDetailPage> {
                       _ProsCons(
                         label: '장점',
                         lines: review.pros,
-                        color: const Color(0xFF4ADE80),
+                        color: SoriTokens.primary,
                       ),
                     if (review.cons.isNotEmpty) ...[
                       const SizedBox(height: 10),

@@ -1117,7 +1117,7 @@ class _GalleryTab extends StatelessWidget {
                               child: _BaThumbTile(
                                 label: 'After',
                                 url: after.isEmpty ? null : after,
-                                accent: const Color(0xFF22C55E),
+                                accent: SoriTokens.primary,
                               ),
                             ),
                           ],

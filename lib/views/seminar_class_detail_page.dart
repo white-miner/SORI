@@ -504,7 +504,7 @@ class _EventInfoBox extends StatelessWidget {
           _InfoChip(
             icon: Icons.place_outlined,
             label: location.trim().isEmpty ? '장소 미정' : location.trim(),
-            tint: const Color(0xFF10B981),
+            tint: SoriTokens.primary,
             trailing: location.trim().isNotEmpty
                 ? const Icon(
                     Icons.map_outlined,

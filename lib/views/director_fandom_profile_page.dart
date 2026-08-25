@@ -101,7 +101,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF6EE7B7), Color(0xFF059669)],
+                      colors: [SoriTokens.primary, SoriTokens.primaryLight],
                     ),
                     border: Border.all(color: SoriTokens.surface, width: 3),
                   ),

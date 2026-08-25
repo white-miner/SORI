@@ -19,6 +19,9 @@ abstract final class SoriTokens {
   /// Dark-mode primary (Luminous Emerald) — CTA / link / toggle / active badge
   static const Color primary = Color(0xFF34D399);
 
+  /// Alias — PO 스펙 `primaryDark`
+  static const Color primaryDark = primary;
+
   /// Emerald wash (~15%)
   static const Color primarySoft = Color(0x2634D399);
 

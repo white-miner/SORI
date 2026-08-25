@@ -148,7 +148,7 @@ class CaseArchiveTile extends StatelessWidget {
                   children: [
                     Switch.adaptive(
                       value: shared,
-                      activeThumbColor: const Color(0xFF22C55E),
+                      activeThumbColor: SoriTokens.primary,
                       onChanged: onShareChanged,
                     ),
                     Text(
@@ -157,7 +157,7 @@ class CaseArchiveTile extends StatelessWidget {
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: shared
-                            ? const Color(0xFF86EFAC)
+                            ? SoriTokens.primary
                             : SoriTokens.textSecondary,
                       ),
                     ),

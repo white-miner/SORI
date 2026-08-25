@@ -210,7 +210,7 @@ class MyAiManagerTabBody extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF22C55E),
+                  color: SoriTokens.primary,
                 ),
               ),
               const SizedBox(height: 6),

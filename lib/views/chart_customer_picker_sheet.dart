@@ -144,9 +144,9 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF6EE7B7),
                       SoriTokens.primary,
-                      Color(0xFF059669),
+                      SoriTokens.primary,
+                      SoriTokens.primaryLight,
                     ],
                   ),
                   boxShadow: [

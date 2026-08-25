@@ -5,8 +5,6 @@ import 'guide_camera_session.dart';
 
 GuideCameraSession createGuideCameraSession() => _StubGuideCameraSession();
 
-Future<void> releaseWarmCamera() async {}
-
 class _StubGuideCameraSession implements GuideCameraSession {
   @override
   String? get viewType => null;
@@ -47,7 +45,7 @@ class _StubGuideCameraSession implements GuideCameraSession {
   Future<void> setZoom(double zoom) async {}
 
   @override
-  Future<void> stop({bool releaseHardware = true}) async {}
+  Future<void> stop() async {}
 
   @override
   Future<Uint8List?> captureJpeg({double quality = 0.92}) async => null;

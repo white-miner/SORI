@@ -6,9 +6,6 @@ import 'guide_camera_session_stub.dart'
 /// 웹 getUserMedia 세션 팩토리 (네이티브는 unsupported stub).
 GuideCameraSession createGuideCameraSession() => impl.createGuideCameraSession();
 
-/// 워밍 캐시된 카메라 트랙을 완전히 해제 (촬영 허브 이탈 등).
-Future<void> releaseWarmGuideCamera() => impl.releaseWarmCamera();
-
 /// 차트 촬영 고정 비율 (세로 3:4). 왜곡 없이 레터박스 표시.
 const double kGuideCameraAspectRatio = 3 / 4;
 
@@ -37,8 +34,8 @@ abstract class GuideCameraSession {
   /// 프리셋 변경 시 표시 배율만 갱신 (스트림 재시작 없음).
   Future<void> setZoom(double zoom);
 
-  /// [releaseHardware] false면 트랙을 유지해 재진입 시 getUserMedia 재요청을 줄인다.
-  Future<void> stop({bool releaseHardware = true});
+  /// 카메라 트랙·비디오 DOM을 즉시 해제한다 (워밍 캐시 없음).
+  Future<void> stop();
 
   /// 현재 비디오 프레임을 JPEG 바이트로 캡처.
   /// 디지털 줌이면 중앙 크롭해 프리뷰와 동일 화각으로 저장.

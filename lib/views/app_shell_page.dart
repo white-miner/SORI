@@ -243,16 +243,14 @@ class _AppShellPageState extends State<AppShellPage> {
                     return Stack(
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTap: () {
-                              if (_store.activeCommentPostId != null) {
-                                _store.closeCommentPanel();
-                              }
-                            },
+                        // 댓글 패널 열렸을 때만 바깥 탭으로 닫기 — 상시 translucent는 터치 좌표 왜곡
+                        if (hasComment)
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _store.closeCommentPanel(),
+                            ),
                           ),
-                        ),
                         if (extraWide && !hasComment)
                           const Positioned(
                             top: 0,

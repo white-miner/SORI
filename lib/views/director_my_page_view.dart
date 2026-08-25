@@ -2057,7 +2057,7 @@ class _AiManagementSheetBody extends StatelessWidget {
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: delta >= 0
-                            ? const Color(0xFF86EFAC)
+                            ? SoriTokens.primary
                             : const Color(0xFFFCA5A5),
                       ),
                     ),

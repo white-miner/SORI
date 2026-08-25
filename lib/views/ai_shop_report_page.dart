@@ -153,7 +153,7 @@ class AiShopReportEntryCard extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [SoriTokens.primary, Color(0xFF059669)],
+              colors: [SoriTokens.primary, SoriTokens.primaryLight],
             ),
             boxShadow: [
               BoxShadow(
@@ -472,7 +472,7 @@ class _SplitRevenueCard extends StatelessWidget {
                 child: _MiniMetric(
                   label: '단과 결제 (순수익)',
                   value: _won(single),
-                  color: const Color(0xFF059669),
+                  color: SoriTokens.primaryLight,
                 ),
               ),
               const SizedBox(width: 10),
@@ -494,7 +494,7 @@ class _SplitRevenueCard extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: (singleW * 1000).round().clamp(1, 999),
-                    child: Container(color: const Color(0xFF059669)),
+                    child: Container(color: SoriTokens.primaryLight),
                   ),
                   Expanded(
                     flex: ((1 - singleW) * 1000).round().clamp(1, 999),

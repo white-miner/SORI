@@ -223,8 +223,8 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                               shape: BoxShape.circle,
                               gradient: const LinearGradient(
                                 colors: [
-                                  Color(0xFF6EE7B7),
-                                  Color(0xFF059669),
+                                  SoriTokens.primary,
+                                  SoriTokens.primaryLight,
                                 ],
                               ),
                               border: Border.all(

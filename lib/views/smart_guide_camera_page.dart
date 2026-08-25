@@ -149,7 +149,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _rollSub?.cancel();
     _poseSub?.cancel();
     _faceAlign.dispose();
-    unawaited(_session.stop(releaseHardware: false));
+    unawaited(_session.stop());
     super.dispose();
   }
 
@@ -392,6 +392,16 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     }
   }
 
+  Future<void> _closePage() async {
+    _timer?.cancel();
+    _zoomSaveTimer?.cancel();
+    await _poseSub?.cancel();
+    await _rollSub?.cancel();
+    await _faceAlign.stop();
+    await _session.stop();
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final kindLabel =
@@ -399,10 +409,22 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     final orientation = MediaQuery.orientationOf(context);
     final portrait = orientation == Orientation.portrait;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: portrait ? _buildPortrait(kindLabel) : _buildLandscape(kindLabel),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        // 시스템 백/제스처로 이탈 시에도 트랙 즉시 해제
+        if (didPop) {
+          unawaited(_faceAlign.stop());
+          unawaited(_session.stop());
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: portrait
+              ? _buildPortrait(kindLabel)
+              : _buildLandscape(kindLabel),
+        ),
       ),
     );
   }
@@ -412,7 +434,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       children: [
         _TopBar(
           kindLabel: kindLabel,
-          onClose: () => Navigator.pop(context),
+          onClose: () => unawaited(_closePage()),
         ),
         Expanded(child: _buildViewfinder()),
         _buildControls(),
@@ -430,7 +452,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
             children: [
               _TopBar(
                 kindLabel: kindLabel,
-                onClose: () => Navigator.pop(context),
+                onClose: () => unawaited(_closePage()),
               ),
               Expanded(child: SingleChildScrollView(child: _buildControls())),
             ],
@@ -532,55 +554,54 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     ),
                   ),
                 if (_busy)
-                  const AbsorbPointer(
-                    child: ColoredBox(
-                      color: Color(0x59000000),
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                  const Positioned.fill(
+                    child: AbsorbPointer(
+                      child: ColoredBox(
+                        color: Color(0x59000000),
+                        child: Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
                       ),
                     ),
                   ),
-                // MediaPipe CDN 로딩 — 페이드아웃 후 조작 활성화
-                IgnorePointer(
-                  ignoring: !_mlLoading,
-                  child: AnimatedOpacity(
-                    opacity: _mlLoading ? 1 : 0,
-                    duration: const Duration(milliseconds: 380),
-                    curve: Curves.easeOut,
-                    child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.62),
-                      child: const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 28),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 36,
-                                height: 36,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  color: SoriTokens.primary,
+                // MediaPipe CDN 로딩 — 로딩 중에만 마운트 (잔존 오버레이 터치 가로채기 방지)
+                if (_mlLoading)
+                  Positioned.fill(
+                    child: AbsorbPointer(
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.62),
+                        child: const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 28),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 36,
+                                  height: 36,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: SoriTokens.primary,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 18),
-                              Text(
-                                'AI 안면 인식 모듈을 준비 중입니다...',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14.5,
-                                  height: 1.35,
+                                SizedBox(height: 18),
+                                Text(
+                                  'AI 안면 인식 모듈을 준비 중입니다...',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14.5,
+                                    height: 1.35,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1233,7 +1254,7 @@ class _LevelCrosshairPainter extends CustomPainter {
     final leveled = roll.abs() < 2.5;
     final levelPaint = Paint()
       ..color = leveled
-          ? const Color(0xFF34D399)
+          ? SoriTokens.primary
           : SoriTokens.primary.withValues(alpha: 0.9)
       ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round;
@@ -1247,7 +1268,7 @@ class _LevelCrosshairPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx, cy),
       4,
-      Paint()..color = leveled ? const Color(0xFF34D399) : Colors.white70,
+      Paint()..color = leveled ? SoriTokens.primary : Colors.white70,
     );
   }
 

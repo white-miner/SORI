@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'media_permission_query.dart';
+import '../theme/sori_tokens.dart';
 
 const _kCameraGuideAlwaysKey = 'sori_media_camera_guide_always_v1';
 
@@ -92,7 +93,7 @@ Future<MediaPermissionGuideChoice> showMediaPermissionGuideDialog(
               onPressed: () =>
                   Navigator.pop(ctx, MediaPermissionGuideChoice.alwaysAllow),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF34D399),
+                backgroundColor: SoriTokens.primary,
                 foregroundColor: const Color(0xFF0A0A0C),
               ),
               child: const Text('항상 허용'),
