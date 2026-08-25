@@ -22,6 +22,9 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
 
   SoriStore get store => widget.store;
 
+  int get _reviewBadge =>
+      store.reviewRequestedPendingCount + store.reviewUnrepliedCount;
+
   @override
   void initState() {
     super.initState();
@@ -39,13 +42,16 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
   }
 
   void _onStore() {
+    if (!mounted) return;
     final pending = store.pendingCustomerHubSegment;
-    if (pending == null) return;
-    store.pendingCustomerHubSegment = null;
-    final i = pending.clamp(0, 1);
-    if (_tabs.index != i) {
-      _tabs.animateTo(i);
+    if (pending != null) {
+      store.pendingCustomerHubSegment = null;
+      final i = pending.clamp(0, 1);
+      if (_tabs.index != i) {
+        _tabs.animateTo(i);
+      }
     }
+    setState(() {});
   }
 
   @override
@@ -73,9 +79,37 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
               indicatorSize: TabBarIndicatorSize.label,
               indicatorWeight: 2.5,
               dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: '고객'),
-                Tab(text: '리뷰'),
+              tabs: [
+                const Tab(text: '고객'),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('리뷰'),
+                      if (_reviewBadge > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: SoriTokens.primary,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            _reviewBadge > 99 ? '99+' : '$_reviewBadge',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

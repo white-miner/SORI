@@ -24,6 +24,7 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/review_request_event.dart';
 import '../models/session_user.dart';
+import '../models/shoot_inbox_item.dart';
 import '../models/shop.dart';
 import '../models/shop_business_hours.dart';
 import '../models/shop_equipment_item.dart';
@@ -51,8 +52,11 @@ import '../utils/feed_interleave.dart';
 import '../utils/korean_choseong.dart';
 import 'consent_pdf_generator.dart';
 import 'consent_pdf_storage.dart';
+import 'chart_photo_compressor.dart';
+import 'chart_photo_storage.dart';
 import 'shop_media_storage.dart';
 import 'shop_profile_storage.dart';
+import 'shoot_inbox_local.dart';
 import 'sori_auth_service.dart';
 import 'visit_trigger_service.dart';
 
@@ -226,6 +230,10 @@ class SoriStore implements Listenable {
   bool shopFandomMetaLoading = false;
   final List<CommunityCaseItem> communityHotCases = [];
   bool communityHotCasesLoading = false;
+
+  /// 촬영 허브 미연결(신규) 큐.
+  final List<ShootInboxItem> shootInbox = [];
+  bool shootInboxLoading = false;
   SeminarEducationInsight? seminarEducationInsight;
   bool seminarEducationLoading = false;
   List<SeminarEnrollment> mySeminarEnrollments = [];
@@ -3965,6 +3973,190 @@ class SoriStore implements Listenable {
       chartId: chartId,
       afterImageUrl: afterImageUrl,
     );
+  }
+
+  static bool _isSameCalendarDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  /// 촬영용 오늘 회차 — 있으면 재사용, 없으면 직전 케어 내용 복사해 생성.
+  Future<CustomerChart> ensureTodayShootChart({
+    required String customerId,
+    bool copyPreviousCare = true,
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) throw StateError('customerId required');
+    if (findCustomer(cid) == null) {
+      throw StateError('Customer not found');
+    }
+
+    final now = DateTime.now();
+    final todays = chartsForCustomer(cid).where((c) {
+      final t = c.createdAt ?? c.visitCheckedAt;
+      return t != null && _isSameCalendarDay(t, now);
+    }).toList();
+
+    if (todays.isNotEmpty) {
+      todays.sort((a, b) {
+        final aw = a.needsAfterPhoto ? 0 : 1;
+        final bw = b.needsAfterPhoto ? 0 : 1;
+        if (aw != bw) return aw.compareTo(bw);
+        return b.visitNumber.compareTo(a.visitNumber);
+      });
+      return todays.first;
+    }
+
+    final previous = latestChart(cid);
+    final nextVisit = (previous?.visitNumber ?? 0) + 1;
+    final copy = copyPreviousCare && previous != null;
+
+    return saveChartAndConfirmVisitAsync(
+      customerId: cid,
+      visitNumber: nextVisit < 1 ? 1 : nextVisit,
+      careName: copy ? previous.careName : '',
+      treatmentSummary: copy ? previous.treatmentSummary : '',
+      directorInsight: copy ? previous.directorInsight : '',
+      concernChips: copy ? previous.concernChips : const [],
+      firstVisitFearChips: copy ? previous.firstVisitFearChips : const [],
+      revisitFeedbackChips: copy ? previous.revisitFeedbackChips : const [],
+      deviceInfo: copy ? previous.deviceInfo : null,
+      allergyNotes: copy ? previous.allergyNotes : null,
+      skinSensitivity: copy ? previous.skinSensitivity : null,
+      sideEffectHistory: copy ? previous.sideEffectHistory : null,
+      customerRequests: copy ? previous.customerRequests : null,
+      homeCarePrescriptions:
+          copy ? previous.homeCarePrescriptions : const [],
+    );
+  }
+
+  /// After 대기 목록 (차트 단위, 최근 14일).
+  List<({Customer customer, CustomerChart chart})> shootAfterWaiting({
+    int maxAgeDays = 14,
+  }) {
+    final out = <({Customer customer, CustomerChart chart})>[];
+    final now = DateTime.now();
+    for (final c in customers) {
+      for (final chart in chartsForCustomer(c.id)) {
+        if (!chart.needsAfterPhoto) continue;
+        final created = chart.createdAt ?? chart.visitCheckedAt;
+        if (created != null &&
+            now.difference(created).inDays > maxAgeDays) {
+          continue;
+        }
+        out.add((customer: c, chart: chart));
+      }
+    }
+    out.sort((a, b) {
+      final ad = a.chart.createdAt ??
+          a.chart.visitCheckedAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.chart.createdAt ??
+          b.chart.visitCheckedAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    return out;
+  }
+
+  Future<void> refreshShootInbox() async {
+    shootInboxLoading = true;
+    _notify();
+    try {
+      final rows = await ShootInboxLocal.load(shop.id);
+      shootInbox
+        ..clear()
+        ..addAll(rows);
+    } finally {
+      shootInboxLoading = false;
+      _notify();
+    }
+  }
+
+  Future<void> _persistShootInbox() async {
+    await ShootInboxLocal.save(shop.id, List.of(shootInbox));
+  }
+
+  /// 신규 촬영 → 미연결 큐.
+  Future<ShootInboxItem> addUnboundShootPhoto({
+    required Uint8List jpegOrRaw,
+    required String kind,
+    String label = '',
+    String? sessionToken,
+    String? ghostBeforeUrl,
+  }) async {
+    final compressed = await ChartPhotoCompressor.toWebp(jpegOrRaw);
+    if (compressed == null || compressed.isEmpty) {
+      throw StateError('WebP 압축 실패');
+    }
+    final token = (sessionToken?.trim().isNotEmpty == true)
+        ? sessionToken!.trim()
+        : 'sess-${DateTime.now().millisecondsSinceEpoch}';
+    final url = await ChartPhotoStorage.uploadWebp(
+      bytes: compressed,
+      shopId: shop.id,
+      customerId: 'unbound',
+      kind: kind,
+    );
+    if (url == null || url.trim().isEmpty) {
+      throw StateError('업로드 실패');
+    }
+    final item = ShootInboxItem(
+      id: 'inbox-${DateTime.now().microsecondsSinceEpoch}',
+      shopId: shop.id,
+      kind: kind == 'after' ? 'after' : 'before',
+      imageUrl: url,
+      label: label.trim(),
+      sessionToken: token,
+      createdAt: DateTime.now(),
+      ghostBeforeUrl: ghostBeforeUrl,
+    );
+    shootInbox.insert(0, item);
+    await _persistShootInbox();
+    _notify();
+    return item;
+  }
+
+  Future<void> dismissShootInboxItem(String id) async {
+    shootInbox.removeWhere((e) => e.id == id);
+    await _persistShootInbox();
+    _notify();
+  }
+
+  Future<void> enqueueShootInboxItem(ShootInboxItem item) async {
+    shootInbox.removeWhere((e) => e.id == item.id);
+    shootInbox.insert(0, item);
+    await _persistShootInbox();
+    _notify();
+  }
+
+  /// 미연결 사진을 고객 오늘 회차에 연결.
+  Future<CustomerChart> bindShootInboxToCustomer({
+    required String inboxId,
+    required String customerId,
+    bool copyPreviousCare = true,
+  }) async {
+    final idx = shootInbox.indexWhere((e) => e.id == inboxId);
+    if (idx < 0) throw StateError('inbox item not found');
+    final item = shootInbox[idx];
+    final chart = await ensureTodayShootChart(
+      customerId: customerId,
+      copyPreviousCare: copyPreviousCare,
+    );
+    if (item.isBefore) {
+      await updateCustomerChartFields(
+        chartId: chart.id,
+        beforeImageUrl: item.imageUrl,
+      );
+    } else {
+      await patchChartAfterImage(
+        chartId: chart.id,
+        afterImageUrl: item.imageUrl,
+      );
+    }
+    shootInbox.removeWhere((e) => e.id == inboxId);
+    await _persistShootInbox();
+    _notify();
+    return findChartById(chart.id) ?? chart;
   }
 
   /// 세션 고객의 스마트 회원권 지갑 (다중 샵).
