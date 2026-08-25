@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,15 @@ enum GuidePreset {
 
   bool get isSelfPreset =>
       this == GuidePreset.face || this == GuidePreset.decollete;
+
+  /// 태블릿 ~1m 거리에서 인물이 알맞게 차도록 하는 목표 배율.
+  double get targetZoom => switch (this) {
+        GuidePreset.face => 1.9,
+        GuidePreset.decollete => 1.7,
+        GuidePreset.abdomen => 1.55,
+        GuidePreset.lowerBody => 1.4,
+        GuidePreset.fullBody => 1.25,
+      };
 }
 
 class GuideCameraResult {
@@ -158,13 +168,16 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     });
     try {
       final front = _mode == GuideCaptureMode.selfFront;
-      await _session.start(front: front);
+      await _session.start(front: front, zoom: _preset.targetZoom);
       if (_mode == GuideCaptureMode.directorRear) {
         await _session.requestOrientationPermission();
       }
       await _rollSub?.cancel();
       _rollSub = _session.rollDegrees.listen((r) {
-        if (mounted) setState(() => _roll = r);
+        if (!mounted) return;
+        final prev = _roll;
+        if (prev != null && r != null && (prev - r).abs() < 0.6) return;
+        setState(() => _roll = r);
       });
       if (!mounted) return;
       setState(() {
@@ -191,6 +204,14 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       _preset = _presets.first;
     });
     await _startCamera();
+  }
+
+  Future<void> _selectPreset(GuidePreset p) async {
+    if (_preset == p) return;
+    setState(() => _preset = p);
+    if (_session.isRunning) {
+      await _session.setZoom(p.targetZoom);
+    }
   }
 
   void _startTimerCapture() {
@@ -306,6 +327,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onClose: () => Navigator.pop(context),
         ),
         Expanded(child: _buildViewfinder()),
+        // 컨트롤은 뷰파인더 Stack 밖 — 플랫폼 뷰 오버플로와 분리
         _buildControls(),
       ],
     );
@@ -332,229 +354,263 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   Widget _buildViewfinder() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ColoredBox(color: Colors.black),
-        if (_viewType != null)
-          HtmlElementView(viewType: _viewType!)
-        else if (_starting)
-          const Center(
-            child: CircularProgressIndicator(color: SoriTokens.primary),
-          )
-        else if (_error != null)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, height: 1.4),
-              ),
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: kGuideCameraAspectRatio,
+          child: ClipRect(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: Colors.black),
+                if (_viewType != null)
+                  IgnorePointer(
+                    child: HtmlElementView(viewType: _viewType!),
+                  )
+                else if (_starting)
+                  const Center(
+                    child: CircularProgressIndicator(color: SoriTokens.primary),
+                  )
+                else if (_error != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_canGhost &&
+                    _ghostOn &&
+                    (widget.ghostBeforeUrl?.isNotEmpty ?? false))
+                  IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.25,
+                      child: Image.network(
+                        widget.ghostBeforeUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                IgnorePointer(
+                  child: CustomPaint(
+                    painter: _GuideSilhouettePainter(
+                      preset: _preset,
+                      mode: _mode,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                if (_mode == GuideCaptureMode.directorRear)
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: _LevelCrosshairPainter(rollDegrees: _roll),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                if (_countdown != null)
+                  IgnorePointer(
+                    child: Center(
+                      child: Text(
+                        '$_countdown',
+                        style: TextStyle(
+                          fontSize: 96,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white.withValues(alpha: 0.92),
+                          shadows: const [
+                            Shadow(blurRadius: 18, color: Colors.black54),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_busy)
+                  const AbsorbPointer(
+                    child: ColoredBox(
+                      color: Color(0x59000000),
+                      child: Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-        if (_canGhost && _ghostOn && (widget.ghostBeforeUrl?.isNotEmpty ?? false))
-          IgnorePointer(
-            child: Opacity(
-              opacity: 0.25,
-              child: Image.network(
-                widget.ghostBeforeUrl!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        CustomPaint(
-          painter: _GuideSilhouettePainter(
-            preset: _preset,
-            mode: _mode,
-          ),
-          child: const SizedBox.expand(),
         ),
-        if (_mode == GuideCaptureMode.directorRear)
-          CustomPaint(
-            painter: _LevelCrosshairPainter(rollDegrees: _roll),
-            child: const SizedBox.expand(),
-          ),
-        if (_countdown != null)
-          Center(
-            child: Text(
-              '$_countdown',
-              style: TextStyle(
-                fontSize: 96,
-                fontWeight: FontWeight.w900,
-                color: Colors.white.withValues(alpha: 0.92),
-                shadows: const [
-                  Shadow(blurRadius: 18, color: Colors.black54),
-                ],
-              ),
-            ),
-          ),
-        if (_busy)
-          ColoredBox(
-            color: Colors.black.withValues(alpha: 0.35),
-            child: const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
   Widget _buildControls() {
-    return Container(
-      width: double.infinity,
+    return Material(
       color: const Color(0xFF111113),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _ModeChip(
-                  label: '셀프 · 전면',
-                  active: _mode == GuideCaptureMode.selfFront,
-                  onTap: () => _switchMode(GuideCaptureMode.selfFront),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ModeChip(
-                  label: '원장 · 후면',
-                  active: _mode == GuideCaptureMode.directorRear,
-                  onTap: () => _switchMode(GuideCaptureMode.directorRear),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 36,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _presets.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                final p = _presets[i];
-                final active = _preset == p;
-                return ChoiceChip(
-                  label: Text(p.label),
-                  selected: active,
-                  onSelected: (_) => setState(() => _preset = p),
-                  selectedColor: SoriTokens.primarySoft,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12.5,
-                    color: active ? SoriTokens.primary : SoriTokens.textSecondary,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _ModeChip(
+                    label: '셀프 · 전면',
+                    active: _mode == GuideCaptureMode.selfFront,
+                    onTap: () => _switchMode(GuideCaptureMode.selfFront),
                   ),
-                  backgroundColor: SoriTokens.surfaceOverlay,
-                  side: BorderSide(
-                    color: active ? SoriTokens.primary : Colors.transparent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ModeChip(
+                    label: '원장 · 후면',
+                    active: _mode == GuideCaptureMode.directorRear,
+                    onTap: () => _switchMode(GuideCaptureMode.directorRear),
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-          if (_canGhost) ...[
             const SizedBox(height: 10),
-            Material(
-              color: _ghostOn
-                  ? SoriTokens.primarySoft
-                  : SoriTokens.surfaceOverlay,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () => setState(() => _ghostOn = !_ghostOn),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _presets.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final p = _presets[i];
+                  final active = _preset == p;
+                  return ChoiceChip(
+                    label: Text(p.label),
+                    selected: active,
+                    onSelected: (_) => unawaited(_selectPreset(p)),
+                    selectedColor: SoriTokens.primarySoft,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      color:
+                          active ? SoriTokens.primary : SoriTokens.textSecondary,
+                    ),
+                    backgroundColor: SoriTokens.surfaceOverlay,
+                    side: BorderSide(
+                      color: active ? SoriTokens.primary : Colors.transparent,
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_canGhost) ...[
+              const SizedBox(height: 10),
+              Material(
+                color: _ghostOn
+                    ? SoriTokens.primarySoft
+                    : SoriTokens.surfaceOverlay,
                 borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _ghostOn
-                            ? Icons.layers_rounded
-                            : Icons.layers_clear_rounded,
-                        color: _ghostOn
-                            ? SoriTokens.primary
-                            : SoriTokens.textSecondary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _ghostOn ? '잔상 켜짐 (Before 25%)' : '잔상 꺼짐',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13.5,
-                            color: _ghostOn
-                                ? SoriTokens.primary
-                                : SoriTokens.textPrimary,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _ghostOn ? '끄기' : '켜기',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
+                child: InkWell(
+                  onTap: () => setState(() => _ghostOn = !_ghostOn),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _ghostOn
+                              ? Icons.layers_rounded
+                              : Icons.layers_clear_rounded,
                           color: _ghostOn
                               ? SoriTokens.primary
                               : SoriTokens.textSecondary,
+                          size: 20,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _ghostOn ? '잔상 켜짐 (Before 25%)' : '잔상 꺼짐',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.5,
+                              color: _ghostOn
+                                  ? SoriTokens.primary
+                                  : SoriTokens.textPrimary,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _ghostOn ? '끄기' : '켜기',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            color: _ghostOn
+                                ? SoriTokens.primary
+                                : SoriTokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              if (_mode == GuideCaptureMode.selfFront)
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: (_busy || _countdown != null || _viewType == null)
-                        ? null
-                        : _startTimerCapture,
-                    icon: const Icon(Icons.timer_outlined),
-                    label: const Text(
-                      '3초 타이머',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                if (_mode == GuideCaptureMode.selfFront)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          (_busy || _countdown != null || _viewType == null)
+                              ? null
+                              : _startTimerCapture,
+                      icon: const Icon(Icons.timer_outlined),
+                      label: const Text(
+                        '3초 타이머',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: SoriTokens.border),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: SoriTokens.border),
+                  ),
+                if (_mode == GuideCaptureMode.selfFront)
+                  const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton.icon(
+                    onPressed:
+                        (_busy || _countdown != null || _viewType == null)
+                            ? null
+                            : _captureAndUpload,
+                    icon: const Icon(Icons.camera_alt_rounded),
+                    label: Text(
+                      _busy ? '저장 중…' : '촬영',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SoriTokens.primary,
+                      foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
                 ),
-              if (_mode == GuideCaptureMode.selfFront) const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: (_busy || _countdown != null || _viewType == null)
-                      ? null
-                      : _captureAndUpload,
-                  icon: const Icon(Icons.camera_alt_rounded),
-                  label: Text(
-                    _busy ? '저장 중…' : '촬영',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -568,27 +624,30 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: onClose,
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
-          ),
-          Expanded(
-            child: Text(
-              '가이드 촬영 · $kindLabel',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
+    return Material(
+      color: Colors.black,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: onClose,
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+            ),
+            Expanded(
+              child: Text(
+                '가이드 촬영 · $kindLabel',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 48),
-        ],
+            const SizedBox(width: 48),
+          ],
+        ),
       ),
     );
   }
@@ -636,111 +695,287 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
+/// 차트용 정밀 실루엣 + 드롭섀도우 (명암 배경 모두 시인성).
 class _GuideSilhouettePainter extends CustomPainter {
   _GuideSilhouettePainter({required this.preset, required this.mode});
 
   final GuidePreset preset;
   final GuideCaptureMode mode;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
+  Paint get _fill => Paint()
+    ..color = Colors.white.withValues(alpha: 0.05)
+    ..style = PaintingStyle.fill;
+
+  void _strokePath(Canvas canvas, Path path, {double width = 2.4}) {
+    final shadow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2;
+      ..strokeWidth = width + 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    final glow = Paint()
+      ..color = Colors.white.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width + 3.5
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final stroke = Paint()
+      ..color = Colors.white.withValues(alpha: 0.88)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(path, glow);
+    canvas.drawPath(path, shadow);
+    canvas.drawPath(path, stroke);
+  }
 
-    final fill = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
-      ..style = PaintingStyle.fill;
+  void _dashedHLine(Canvas canvas, double y, double left, double right) {
+    const dash = 7.0;
+    const gap = 5.0;
+    var x = left;
+    final shadow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.45)
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.55)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    while (x < right) {
+      final x2 = math.min(x + dash, right);
+      canvas.drawLine(Offset(x, y + 0.8), Offset(x2, y + 0.8), shadow);
+      canvas.drawLine(Offset(x, y), Offset(x2, y), paint);
+      x += dash + gap;
+    }
+  }
 
+  Path _faceOvalPath(Rect r) {
+    // 타원 + 살짝 좁은 턱선 (미용 차트용 얼굴형)
+    final cx = r.center.dx;
+    final top = r.top;
+    final bottom = r.bottom;
+    final left = r.left;
+    final right = r.right;
+    final midY = r.center.dy;
+    final path = Path();
+    path.moveTo(cx, top);
+    path.cubicTo(
+      right - r.width * 0.02,
+      top + r.height * 0.08,
+      right + r.width * 0.02,
+      midY - r.height * 0.05,
+      right - r.width * 0.06,
+      midY + r.height * 0.12,
+    );
+    path.cubicTo(
+      right - r.width * 0.12,
+      bottom - r.height * 0.08,
+      cx + r.width * 0.18,
+      bottom + r.height * 0.02,
+      cx,
+      bottom,
+    );
+    path.cubicTo(
+      cx - r.width * 0.18,
+      bottom + r.height * 0.02,
+      left + r.width * 0.12,
+      bottom - r.height * 0.08,
+      left + r.width * 0.06,
+      midY + r.height * 0.12,
+    );
+    path.cubicTo(
+      left - r.width * 0.02,
+      midY - r.height * 0.05,
+      left + r.width * 0.02,
+      top + r.height * 0.08,
+      cx,
+      top,
+    );
+    path.close();
+    return path;
+  }
+
+  void _paintFace(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final face = Rect.fromCenter(
+      center: Offset(cx, size.height * 0.42),
+      width: size.width * 0.58,
+      height: size.height * 0.52,
+    );
+    final oval = _faceOvalPath(face);
+    canvas.drawPath(oval, _fill);
+    _strokePath(canvas, oval, width: 2.6);
+
+    // 눈 / 코 / 입 가로 점선 (얼굴 높이 기준)
+    final guideL = face.left + face.width * 0.14;
+    final guideR = face.right - face.width * 0.14;
+    _dashedHLine(canvas, face.top + face.height * 0.38, guideL, guideR); // 눈
+    _dashedHLine(canvas, face.top + face.height * 0.55, guideL + 18, guideR - 18); // 코
+    _dashedHLine(canvas, face.top + face.height * 0.72, guideL + 10, guideR - 10); // 입
+
+    // 중앙 세로 미세 가이드
+    final vPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.28)
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(cx, face.top + face.height * 0.28),
+      Offset(cx, face.bottom - face.height * 0.12),
+      vPaint,
+    );
+  }
+
+  void _paintDecollete(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final head = Rect.fromCenter(
+      center: Offset(cx, size.height * 0.18),
+      width: size.width * 0.26,
+      height: size.height * 0.16,
+    );
+    final headPath = _faceOvalPath(head);
+    canvas.drawPath(headPath, _fill);
+    _strokePath(canvas, headPath, width: 2);
+
+    // 목 → 승모근 → 어깨 → 쇄골
+    final neckTop = head.bottom - 4;
+    final clavY = size.height * 0.42;
+    final shoulderY = size.height * 0.48;
+    final path = Path()
+      ..moveTo(cx - size.width * 0.07, neckTop)
+      ..quadraticBezierTo(
+        cx - size.width * 0.09,
+        size.height * 0.32,
+        cx - size.width * 0.16,
+        clavY,
+      )
+      ..quadraticBezierTo(
+        cx - size.width * 0.28,
+        shoulderY - 6,
+        size.width * 0.08,
+        shoulderY + size.height * 0.02,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.12,
+        size.height * 0.62,
+        size.width * 0.14,
+        size.height * 0.78,
+      )
+      ..lineTo(size.width * 0.86, size.height * 0.78)
+      ..quadraticBezierTo(
+        size.width * 0.88,
+        size.height * 0.62,
+        size.width * 0.92,
+        shoulderY + size.height * 0.02,
+      )
+      ..quadraticBezierTo(
+        cx + size.width * 0.28,
+        shoulderY - 6,
+        cx + size.width * 0.16,
+        clavY,
+      )
+      ..quadraticBezierTo(
+        cx + size.width * 0.09,
+        size.height * 0.32,
+        cx + size.width * 0.07,
+        neckTop,
+      );
+
+    canvas.drawPath(path, _fill);
+    _strokePath(canvas, path, width: 2.4);
+
+    // 쇄골 라인
+    final clav = Path()
+      ..moveTo(cx - size.width * 0.22, clavY + 4)
+      ..quadraticBezierTo(cx, clavY - 10, cx + size.width * 0.22, clavY + 4);
+    _strokePath(canvas, clav, width: 1.8);
+
+    // 어깨 윗선
+    final shoulder = Path()
+      ..moveTo(size.width * 0.12, shoulderY)
+      ..quadraticBezierTo(cx, shoulderY - size.height * 0.04, size.width * 0.88, shoulderY);
+    _strokePath(canvas, shoulder, width: 1.6);
+  }
+
+  void _paintAbdomen(Canvas canvas, Size size) {
     final cx = size.width / 2;
     final cy = size.height / 2;
+    final box = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(cx, cy),
+            width: size.width * 0.58,
+            height: size.height * 0.48,
+          ),
+          const Radius.circular(18),
+        ),
+      );
+    _strokePath(canvas, box, width: 2);
+    _dashedHLine(canvas, cy, size.width * 0.22, size.width * 0.78);
+    canvas.drawCircle(
+      Offset(cx, cy),
+      5,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+  }
 
+  void _paintLowerBody(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final path = Path()
+      ..moveTo(cx, size.height * 0.12)
+      ..lineTo(cx, size.height * 0.9);
+    _strokePath(canvas, path, width: 2);
+    _dashedHLine(
+      canvas,
+      size.height * 0.55,
+      size.width * 0.25,
+      size.width * 0.75,
+    );
+  }
+
+  void _paintFullBody(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final body = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(cx, size.height * 0.55),
+            width: size.width * 0.4,
+            height: size.height * 0.72,
+          ),
+          const Radius.circular(22),
+        ),
+      );
+    _strokePath(canvas, body, width: 2);
+    final head = _faceOvalPath(
+      Rect.fromCenter(
+        center: Offset(cx, size.height * 0.14),
+        width: size.width * 0.16,
+        height: size.height * 0.1,
+      ),
+    );
+    _strokePath(canvas, head, width: 1.8);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
     switch (preset) {
       case GuidePreset.face:
-        final r = Rect.fromCenter(
-          center: Offset(cx, cy - size.height * 0.04),
-          width: size.width * 0.52,
-          height: size.height * 0.42,
-        );
-        canvas.drawOval(r, fill);
-        canvas.drawOval(r, stroke);
-        // jaw hint
-        final jaw = Path()
-          ..moveTo(r.left + r.width * 0.18, r.center.dy + r.height * 0.15)
-          ..quadraticBezierTo(
-            cx,
-            r.bottom + 8,
-            r.right - r.width * 0.18,
-            r.center.dy + r.height * 0.15,
-          );
-        canvas.drawPath(jaw, stroke);
+        _paintFace(canvas, size);
       case GuidePreset.decollete:
-        final shoulderY = cy + size.height * 0.02;
-        final path = Path()
-          ..moveTo(size.width * 0.12, shoulderY)
-          ..quadraticBezierTo(cx, shoulderY - size.height * 0.08, size.width * 0.88, shoulderY)
-          ..lineTo(size.width * 0.92, size.height * 0.78)
-          ..lineTo(size.width * 0.08, size.height * 0.78)
-          ..close();
-        canvas.drawPath(path, fill);
-        canvas.drawPath(path, stroke);
-        // face oval small
-        canvas.drawOval(
-          Rect.fromCenter(
-            center: Offset(cx, cy - size.height * 0.22),
-            width: size.width * 0.28,
-            height: size.height * 0.2,
-          ),
-          stroke,
-        );
+        _paintDecollete(canvas, size);
       case GuidePreset.abdomen:
-        final lineY = cy;
-        canvas.drawLine(
-          Offset(size.width * 0.18, lineY),
-          Offset(size.width * 0.82, lineY),
-          stroke,
-        );
-        // navel mark
-        canvas.drawCircle(Offset(cx, lineY), 5, stroke);
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: Offset(cx, cy),
-            width: size.width * 0.55,
-            height: size.height * 0.45,
-          ),
-          stroke,
-        );
+        _paintAbdomen(canvas, size);
       case GuidePreset.lowerBody:
-        canvas.drawLine(
-          Offset(cx, size.height * 0.18),
-          Offset(cx, size.height * 0.88),
-          stroke,
-        );
-        // knees
-        final kneeY = size.height * 0.55;
-        canvas.drawLine(
-          Offset(size.width * 0.28, kneeY),
-          Offset(size.width * 0.72, kneeY),
-          stroke,
-        );
+        _paintLowerBody(canvas, size);
       case GuidePreset.fullBody:
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: Offset(cx, cy),
-            width: size.width * 0.42,
-            height: size.height * 0.82,
-          ),
-          stroke,
-        );
-        canvas.drawOval(
-          Rect.fromCenter(
-            center: Offset(cx, size.height * 0.16),
-            width: size.width * 0.16,
-            height: size.height * 0.1,
-          ),
-          stroke,
-        );
+        _paintFullBody(canvas, size);
     }
   }
 
@@ -776,7 +1011,7 @@ class _LevelCrosshairPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(cx, cy);
-    canvas.rotate(roll * 3.1415926535 / 180);
+    canvas.rotate(roll * math.pi / 180);
     canvas.drawLine(const Offset(-70, 0), const Offset(70, 0), levelPaint);
     canvas.restore();
 
