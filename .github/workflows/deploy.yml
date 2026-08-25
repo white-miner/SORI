@@ -79,7 +79,7 @@ jobs:
           BUILD="${{ github.run_number }}"
           for f in build/web/index.html build/web/404.html; do
             if [ -f "$f" ]; then
-              sed -i "s/2026082521/${BUILD}/g" "$f"
+              sed -i "s/2026082601/${BUILD}/g" "$f"
             fi
           done
           # 서비스 워커가 옛 셸을 붙잡지 않도록 no-cache 헤더용 _headers는 Pages에서 제한적 —
