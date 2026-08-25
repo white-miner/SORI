@@ -15,7 +15,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="sori-build" content="2026082520">
+  <meta name="sori-build" content="2026082521">
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -26,7 +26,31 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>소통하는 리뷰, SORI</title>
-  <link rel="manifest" href="manifest.json?v=2026082520">
+  <link rel="manifest" href="manifest.json?v=2026082521">
+
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000000;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    flt-glass-pane,
+    flutter-view {
+      height: 100%;
+      width: 100%;
+    }
+    flt-text-editing-host,
+    flt-text-editing-host *,
+    flt-platform-view,
+    flt-platform-view-slot {
+      pointer-events: none !important;
+    }
+  </style>
 </head>
 <body>
   <script>
@@ -62,6 +86,29 @@
       }).then(finish).catch(finish);
     })();
   </script>
-  <script src="flutter_bootstrap.js?v=2026082520" async></script>
+  <script>
+    (function () {
+      var SEL = 'flt-text-editing-host,flt-platform-view,flt-platform-view-slot';
+      function harden(node) {
+        if (!node || node.nodeType !== 1) return;
+        if (node.matches && node.matches(SEL)) {
+          node.style.setProperty('pointer-events', 'none', 'important');
+        }
+        if (node.querySelectorAll) {
+          node.querySelectorAll(SEL).forEach(function (el) {
+            el.style.setProperty('pointer-events', 'none', 'important');
+          });
+        }
+      }
+      harden(document.documentElement);
+      new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+          var nodes = records[i].addedNodes;
+          for (var j = 0; j < nodes.length; j++) harden(nodes[j]);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    })();
+  </script>
+  <script src="flutter_bootstrap.js?v=2026082521" async></script>
 </body>
 </html>

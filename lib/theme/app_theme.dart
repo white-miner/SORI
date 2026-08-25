@@ -26,6 +26,10 @@ abstract final class AppTheme {
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
       splashFactory: NoSplash.splashFactory,
+      tabBarTheme: const TabBarThemeData(
+        overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+      ),
       scaffoldBackgroundColor: SoriTokens.background,
       canvasColor: SoriTokens.background,
       cardColor: SoriTokens.surface,

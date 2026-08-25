@@ -59,17 +59,20 @@ Future<void> main() async {
       );
     };
 
-    // 시스템 UI만 동기적으로 맞춘 뒤 즉시 첫 프레임
-    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.light,
-        systemNavigationBarContrastEnforced: false,
-      ),
-    );
+    // 시스템 UI만 동기적으로 맞춘 뒤 즉시 첫 프레임.
+    // Web에서는 edgeToEdge가 viewPadding/터치 좌표계를 어긋나게 할 수 있어 제외.
+    if (!kIsWeb) {
+      unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarContrastEnforced: false,
+        ),
+      );
+    }
     unawaited(
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
