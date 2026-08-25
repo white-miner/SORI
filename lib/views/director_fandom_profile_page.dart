@@ -281,7 +281,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                           after: ChartImagePane(
                             url: chart.afterImageUrl,
                             fallbackLabel: 'After',
-                            tone: const Color(0xFF03C75A),
+                            tone: SoriTokens.primary,
                           ),
                         ),
                       ),

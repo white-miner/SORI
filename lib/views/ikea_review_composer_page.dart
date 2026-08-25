@@ -390,9 +390,9 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                         ? null
                         : _copyAndOpenNaver,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF03C75A),
+                      backgroundColor: SoriTokens.primary,
                       disabledBackgroundColor:
-                          const Color(0xFF03C75A).withValues(alpha: 0.5),
+                          SoriTokens.primary.withValues(alpha: 0.5),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

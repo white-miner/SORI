@@ -18,8 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <!-- 1:1 CSS px ↔ 터치: 줌/스케일 고정, visualViewport 왜곡 최소화 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="소통하는 리뷰, SORI — 에스테틱 케어 리포트와 AI 리뷰 작성">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
@@ -27,7 +26,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="sori-build" content="2026082517">
+  <meta name="sori-build" content="2026082518">
 
   <!-- PWA / Android Chrome -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -45,7 +44,7 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>소통하는 리뷰, SORI</title>
-  <link rel="manifest" href="manifest.json?v=2026082517">
+  <link rel="manifest" href="manifest.json?v=2026082518">
 
   <!-- printing 패키지 웹 PDF 미리보기용 Pdf.js -->
   <script>
@@ -53,38 +52,23 @@
   </script>
 
   <style>
+    /* Flutter Web 순정 제스처 좌표계 유지 — fixed/platform-view 오버라이드 금지 */
     html, body {
       height: 100%;
       width: 100%;
       margin: 0;
       padding: 0;
       background-color: #000000;
-      overflow: hidden;
-      position: fixed;
-      inset: 0;
       overscroll-behavior: none;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
     }
-    /* Flutter 루트 = 뷰포트 1:1 (100vh 스크롤바/주소창 오프셋 방지) */
-    flt-glass-pane,
-    flutter-view,
-    flt-scene-host {
-      position: absolute !important;
-      inset: 0 !important;
-      height: 100% !important;
-      width: 100% !important;
-      max-height: 100% !important;
-      max-width: 100% !important;
-      margin: 0 !important;
-      transform: none !important;
-    }
-    /* 카메라 HtmlElementView 등 플랫폼 뷰가 터치를 가로채지 않도록 */
-    flt-platform-view,
-    flt-platform-view-slot {
-      pointer-events: none !important;
+    /* Safe Area는 Flutter SafeArea / MediaQuery.padding 이 처리 (viewport-fit=cover) */
+    flt-glass-pane, flutter-view {
+      height: 100%;
+      width: 100%;
     }
   </style>
 </head>
@@ -97,7 +81,6 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- ?v= 캐시 버스팅 — CI가 run_number로 치환 -->
   <script>
     (function () {
       var meta = document.querySelector('meta[name="sori-build"]');
@@ -111,7 +94,6 @@
       }
       if (!prev) { remember(); return; }
       if (prev === build) return;
-      // 새 배포 감지 → SW/Cache Storage 폐기 후 1회 하드 리로드
       var finish = function () {
         remember();
         var u = new URL(window.location.href);
@@ -132,6 +114,6 @@
       }).then(finish).catch(finish);
     })();
   </script>
-  <script src="flutter_bootstrap.js?v=2026082517" async></script>
+  <script src="flutter_bootstrap.js?v=2026082518" async></script>
 </body>
 </html>

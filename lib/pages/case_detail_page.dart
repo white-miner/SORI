@@ -239,7 +239,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 ListTile(
                   leading: const Icon(
                     Icons.calendar_month_outlined,
-                    color: Color(0xFF03C75A),
+                    color: SoriTokens.primary,
                   ),
                   title: const Text('네이버 예약'),
                   onTap: () {
@@ -431,10 +431,10 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                       ? OutlinedButton.icon(
                           onPressed: _openBooking,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF03C75A),
+                            foregroundColor: SoriTokens.primary,
                             backgroundColor: SoriTokens.primarySoft,
                             side: const BorderSide(
-                              color: Color(0xFF03C75A),
+                              color: SoriTokens.primary,
                               width: 1.2,
                             ),
                             padding: const EdgeInsets.symmetric(

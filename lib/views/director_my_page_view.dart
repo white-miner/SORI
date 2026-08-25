@@ -2047,7 +2047,7 @@ class _AiManagementSheetBody extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: delta >= 0
-                          ? const Color(0x3322C55E)
+                          ? SoriTokens.primarySoft
                           : const Color(0x33EF4444),
                       borderRadius: BorderRadius.circular(99),
                     ),

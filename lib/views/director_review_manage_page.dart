@@ -376,7 +376,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
         SnackBar(
           content: Text(value ? '네이버 등록으로 표시했어요.' : '네이버 등록 표시를 해제했어요.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: value ? const Color(0xFF03C75A) : null,
+          backgroundColor: value ? SoriTokens.primary : null,
         ),
       );
     } catch (e) {
@@ -402,7 +402,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
       const SnackBar(
         content: Text('네이버 게시 확인으로 표시했어요.'),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Color(0xFF03C75A),
+        backgroundColor: SoriTokens.primary,
       ),
     );
   }
@@ -1133,7 +1133,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                       : Icons.radio_button_unchecked_rounded,
                   size: 18,
                   color: review.naverRegistered
-                      ? const Color(0xFF03C75A)
+                      ? SoriTokens.primary
                       : SoriTokens.textTertiary,
                 ),
                 const SizedBox(width: 6),
@@ -1153,7 +1153,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                     fontWeight: FontWeight.w700,
                     color: review.effectiveNaverStatus == NaverPublishStatus.none
                         ? SoriTokens.textTertiary
-                        : const Color(0xFF03C75A),
+                        : SoriTokens.primary,
                   ),
                 ),
                 const Spacer(),
@@ -1162,7 +1162,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                           NaverPublishStatus.registered ||
                       review.effectiveNaverStatus ==
                           NaverPublishStatus.confirmed,
-                  activeThumbColor: const Color(0xFF03C75A),
+                  activeThumbColor: SoriTokens.primary,
                   onChanged: _togglingNaver
                       ? null
                       : (v) => _toggleNaver(item, v),
@@ -1204,7 +1204,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                       ),
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF03C75A),
+                      backgroundColor: SoriTokens.primary,
                     ),
                   ),
                 ),
@@ -1235,7 +1235,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                   )
                 else
                   const Chip(
-                    avatar: Icon(Icons.verified, size: 16, color: Color(0xFF03C75A)),
+                    avatar: Icon(Icons.verified, size: 16, color: SoriTokens.primary),
                     label: Text('네이버 확인됨'),
                   ),
               ],

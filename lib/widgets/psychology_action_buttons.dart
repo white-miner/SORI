@@ -103,7 +103,7 @@ class DynamicReviewMainAction extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF03C75A),
+            backgroundColor: SoriTokens.primary,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(

@@ -646,7 +646,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ListTile(
                   leading: const Icon(
                     Icons.calendar_month_outlined,
-                    color: Color(0xFF03C75A),
+                    color: SoriTokens.primary,
                   ),
                   title: const Text('네이버 예약'),
                   onTap: () {

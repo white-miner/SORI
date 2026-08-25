@@ -16,19 +16,20 @@ abstract final class SoriTokens {
   /// Press / inactive chip fill
   static const Color surfaceOverlay = Color(0xFF2A2A2A);
 
-  /// Dark-mode primary (Luminous Emerald) — CTA / link / toggle / active badge
-  static const Color primary = Color(0xFF34D399);
+  /// Dark-mode primary — 묵직한 Emerald (`#059669`). CTA / chip / link.
+  /// `#34D399` 형광 민트는 폐기.
+  static const Color primary = Color(0xFF059669);
 
   /// Alias — PO 스펙 `primaryDark`
   static const Color primaryDark = primary;
 
-  /// Emerald wash (~15%)
-  static const Color primarySoft = Color(0x2634D399);
+  /// Emerald wash (~18%)
+  static const Color primarySoft = Color(0x2E059669);
 
-  /// Filled CTA label on [primary] (WCAG: dark on luminous emerald)
-  static const Color onPrimary = Color(0xFF0B1220);
+  /// Filled CTA label on [primary] (white on deep emerald)
+  static const Color onPrimary = Color(0xFFFFFFFF);
 
-  /// Light-mode primary (Deep Emerald) — 향후 라이트 테마용
+  /// Deeper emerald for gradients / secondary fills
   static const Color primaryLight = Color(0xFF047857);
 
   /// Filled CTA label on [primaryLight]
@@ -66,7 +67,7 @@ abstract final class SoriTokens {
   static const Color textQuaternary = Color(0x4DFFFFFF);
 
   static const Color border = Color(0x14FFFFFF);
-  static const Color success = Color(0xFF03C75A);
+  static const Color success = Color(0xFF059669);
   static const Color warningBg = Color(0xFF2A2118);
   static const Color warningText = Color(0xFFFBBF24);
 
