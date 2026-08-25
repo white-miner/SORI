@@ -605,7 +605,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
       onPressed: widget.onBookingCta,
       style: FilledButton.styleFrom(
         backgroundColor: SoriTokens.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: SoriTokens.onPrimary,
         padding: const EdgeInsets.symmetric(vertical: 10),
         minimumSize: const Size(double.infinity, 40),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -12,10 +12,14 @@ import '../widgets/app_scroll_behavior.dart';
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  static const Color soriMint = SoriTokens.primary;
+  /// Brand accent (Emerald). Prefer [SoriTokens.primary].
+  static const Color soriEmerald = SoriTokens.primary;
 
-  /// @deprecated Use [soriMint]
-  static const Color soriPurple = soriMint;
+  /// @deprecated Use [soriEmerald] / [SoriTokens.primary]
+  static const Color soriMint = soriEmerald;
+
+  /// @deprecated Legacy name — resolves to emerald, not purple.
+  static const Color soriPurple = soriEmerald;
 
   /// 라우트 Pop 이후에도 Toast를 남기기 위한 전역 ScaffoldMessenger.
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// SORI design tokens — Weverse Content-First dark (Phase 9).
-/// Neutrals carry the UI; mint accent is allowlisted (CTA / link / toggle / badge).
+/// SORI design tokens — Weverse-style 4축.
+/// Black / Charcoal / White / Emerald(Accent).
+/// 보라는 메인 금지 — [premium]은 Echo·VIP 등 명명된 예외만.
 abstract final class SoriTokens {
   /// Pure black canvas
   static const Color background = Color(0xFF000000);
@@ -15,20 +16,39 @@ abstract final class SoriTokens {
   /// Press / inactive chip fill
   static const Color surfaceOverlay = Color(0xFF2A2A2A);
 
-  /// Cool mint accent — Fan-Boost CTA, 더보기, toggle ON, active badge only
-  static const Color primary = Color(0xFF3EE0C5);
+  /// Dark-mode primary (Luminous Emerald) — CTA / link / toggle / active badge
+  static const Color primary = Color(0xFF34D399);
 
-  /// Mint wash (~15%)
-  static const Color primarySoft = Color(0x263EE0C5);
+  /// Emerald wash (~15%)
+  static const Color primarySoft = Color(0x2634D399);
+
+  /// Filled CTA label on [primary] (WCAG: dark on luminous emerald)
+  static const Color onPrimary = Color(0xFF0B1220);
+
+  /// Light-mode primary (Deep Emerald) — 향후 라이트 테마용
+  static const Color primaryLight = Color(0xFF047857);
+
+  /// Filled CTA label on [primaryLight]
+  static const Color onPrimaryLight = Color(0xFFFFFFFF);
 
   /// Alias for accent allowlist call sites
   static const Color accent = primary;
 
-  /// Legacy name → mint (no purple brand UI)
+  /// Legacy alias → emerald (do not reintroduce purple here)
   static const Color indigo = primary;
 
+  /// Echo / VIP / Master-tier glow only — never main UI chrome
+  static const Color premium = Color(0xFFA78BFA);
+
+  /// Premium wash (~20%)
+  static const Color premiumSoft = Color(0x33A78BFA);
+
   /// Hairline only when explicitly needed (default cards: none)
+  /// Legacy name kept for call-site stability (not a purple color).
   static const Color outlinePurple = Color(0x14FFFFFF);
+
+  /// Preferred hairline alias
+  static const Color outline = outlinePurple;
 
   /// 100% white — nicknames, section titles
   static const Color textPrimary = Color(0xFFFFFFFF);

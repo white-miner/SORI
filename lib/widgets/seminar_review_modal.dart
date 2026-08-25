@@ -227,7 +227,7 @@ class _SeminarReviewModalState extends State<SeminarReviewModal> {
         ),
         FilledButton(
           onPressed: _submitting || _selected.isEmpty ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: SoriTokens.primary),
+          style: FilledButton.styleFrom(backgroundColor: SoriTokens.primary, foregroundColor: SoriTokens.onPrimary),
           child: _submitting
               ? const SizedBox(
                   width: 20,

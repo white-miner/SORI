@@ -110,7 +110,7 @@ Future<void> showCustomerLinkPopup(
               );
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple),
+            style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple, foregroundColor: SoriTokens.onPrimary),
             icon: const Icon(Icons.ios_share_rounded, size: 18),
             label: const Text('링크 공유하기'),
           ),

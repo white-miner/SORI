@@ -14,7 +14,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  static const Color soriPurple = Color(0xFF6C5CE7);
+  static const Color soriPurple = SoriTokens.primary;
   late List<PendingMessage> _pendingMessages;
 
   @override
@@ -47,7 +47,7 @@ class _MyHomePageState extends State<MyHomePage> {
             child: const Text('취소'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: soriPurple, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: soriPurple, foregroundColor: SoriTokens.onPrimary),
             onPressed: () {
               Navigator.pop(context);
               setState(() {
@@ -110,7 +110,7 @@ class _MyHomePageState extends State<MyHomePage> {
             child: const Text('닫기'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: soriPurple, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: soriPurple, foregroundColor: SoriTokens.onPrimary),
             onPressed: () {
               Navigator.pop(context);
               setState(() {

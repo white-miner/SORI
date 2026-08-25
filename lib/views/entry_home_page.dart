@@ -206,7 +206,7 @@ class _EntryHomePageState extends State<EntryHomePage>
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF6C5CE7),
+            color: SoriTokens.primary,
             height: 1.3,
             letterSpacing: -0.2,
           ),

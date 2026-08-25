@@ -522,7 +522,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     label: const Text('퀵 전자 동의서 작성'),
                     style: FilledButton.styleFrom(
                       backgroundColor: SoriTokens.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: SoriTokens.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

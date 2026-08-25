@@ -261,7 +261,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF6C5CE7).withValues(alpha: 0.12)
+                              ? SoriTokens.primary.withValues(alpha: 0.12)
                               : null,
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -275,7 +275,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
                                     ? FontWeight.w800
                                     : FontWeight.w600,
                                 color: isSelected
-                                    ? const Color(0xFF6C5CE7)
+                                    ? SoriTokens.primary
                                     : SoriTokens.textPrimary,
                               ),
                             ),
@@ -399,8 +399,8 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF6C5CE7),
-                      side: const BorderSide(color: Color(0xFF6C5CE7)),
+                      foregroundColor: SoriTokens.primary,
+                      side: const BorderSide(color: SoriTokens.primary),
                     ),
                   ),
                 ],

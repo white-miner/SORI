@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sori_tokens.dart';
 import '../views/my_app.dart';
 
 /// 고객 심리 동선 표준 버튼: 후기 수락 / 수정 / 답글 피드백 요청
@@ -30,6 +31,7 @@ class PsychologyActionButtons extends StatelessWidget {
           onPressed: acceptEnabled ? onAccept : null,
           style: FilledButton.styleFrom(
             backgroundColor: MyApp.soriPurple,
+            foregroundColor: SoriTokens.onPrimary,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -137,6 +139,7 @@ class DynamicReviewMainAction extends StatelessWidget {
             label: const Text('공유하기'),
             style: FilledButton.styleFrom(
               backgroundColor: MyApp.soriPurple,
+              foregroundColor: SoriTokens.onPrimary,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

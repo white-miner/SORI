@@ -460,10 +460,10 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                       : OutlinedButton.icon(
                           onPressed: widget.onShopProfile,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF6D28D9),
+                            foregroundColor: SoriTokens.primary,
                             backgroundColor: SoriTokens.primarySoft,
                             side: const BorderSide(
-                              color: Color(0xFF7C3AED),
+                              color: SoriTokens.primary,
                               width: 1.2,
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -544,7 +544,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.purple.withValues(alpha: 0.1),
+                            color: SoriTokens.primarySoft,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -552,7 +552,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF6D28D9),
+                              color: SoriTokens.primary,
                             ),
                           ),
                         );

@@ -17,7 +17,7 @@ class MessageCard extends StatelessWidget {
   final String? scheduledTime;
   final VoidCallback? onTap;
 
-  static const Color soriPurple = Color(0xFF6C5CE7);
+  static const Color soriPurple = SoriTokens.primary;
 
   @override
   Widget build(BuildContext context) {

@@ -283,7 +283,7 @@ class _Header extends StatelessWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF2A2438), Color(0xFF2A1F30)],
+                      colors: [Color(0xFF1A1A1A), Color(0xFF222222)],
                     ),
                   ),
                   alignment: Alignment.center,
@@ -392,8 +392,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '차트 관리',
                 subtitle: '열람 · 수정',
                 icon: Icons.folder_open_rounded,
-                iconColors: const [Color(0xFF2A2438), Color(0xFF2E2550)],
-                iconFg: const Color(0xFF5B21B6),
+                iconColors: const [Color(0xFF0F2A22), Color(0xFF143528)],
+                iconFg: SoriTokens.primary,
                 onTap: onChartManage,
               ),
             ),
@@ -407,8 +407,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '회원권 관리',
                 subtitle: '등록·수정',
                 icon: Icons.card_membership_rounded,
-                iconColors: const [Color(0xFF3B2A55), Color(0xFF3A2540)],
-                iconFg: const Color(0xFF7C3AED),
+                iconColors: const [Color(0xFF0F2A22), Color(0xFF12352A)],
+                iconFg: SoriTokens.primary,
                 onTap: onMembership,
               ),
             ),
@@ -926,7 +926,7 @@ class _ChartDetailBody extends StatelessWidget {
           if (onConfirmOnly != null)
             FilledButton(
               onPressed: onConfirmOnly,
-              style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple),
+              style: FilledButton.styleFrom(backgroundColor: MyApp.soriPurple, foregroundColor: SoriTokens.onPrimary),
               child: const Text('방문 확인'),
             ),
           if (onShowLink != null)

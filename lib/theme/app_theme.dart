@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'sori_date_picker.dart';
 import 'sori_tokens.dart';
 
-/// Global dark theme — Content-First neutrals + mint accent (Phase 9).
+/// Global dark theme — Content-First neutrals + emerald accent.
 abstract final class AppTheme {
   static ThemeData get dark {
     final base = ColorScheme.fromSeed(
@@ -13,7 +13,9 @@ abstract final class AppTheme {
       primary: SoriTokens.primary,
       surface: SoriTokens.surface,
       onSurface: SoriTokens.textPrimary,
-      onPrimary: const Color(0xFF00140F),
+      onPrimary: SoriTokens.onPrimary,
+      secondary: SoriTokens.premium,
+      onSecondary: SoriTokens.textPrimary,
     );
 
     return ThemeData(
@@ -60,11 +62,21 @@ abstract final class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: SoriTokens.primary,
-          foregroundColor: const Color(0xFF00140F),
+          foregroundColor: SoriTokens.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
         ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: SoriTokens.primary,
+          foregroundColor: SoriTokens.onPrimary,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: SoriTokens.primary,
+        foregroundColor: SoriTokens.onPrimary,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -158,6 +170,9 @@ abstract final class AppTheme {
         textColor: SoriTokens.textPrimary,
       ),
       datePickerTheme: SoriDatePickerTheme.data,
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: SoriTokens.primary,
+      ),
     );
   }
 }

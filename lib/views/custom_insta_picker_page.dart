@@ -340,7 +340,7 @@ class _CustomInstaPickerPageState extends State<CustomInstaPickerPage> {
               onPressed: _exporting || _selected.isEmpty ? null : _export,
               style: FilledButton.styleFrom(
                 backgroundColor: SoriTokens.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: SoriTokens.onPrimary,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: const StadiumBorder(),
               ),
@@ -778,7 +778,7 @@ class _DeniedBody extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: onSettings,
-              style: FilledButton.styleFrom(backgroundColor: SoriTokens.primary),
+              style: FilledButton.styleFrom(backgroundColor: SoriTokens.primary, foregroundColor: SoriTokens.onPrimary),
               child: const Text('안내 보기'),
             ),
           ],

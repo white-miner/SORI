@@ -140,7 +140,7 @@ Future<bool> showBoostPurchaseSheet(
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFFA78BFA),
+                      color: SoriTokens.premium,
                     ),
                   ),
                   const SizedBox(height: 14),

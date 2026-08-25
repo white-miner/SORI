@@ -101,7 +101,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF8B7CFF), Color(0xFF4A3BCF)],
+                      colors: [Color(0xFF6EE7B7), Color(0xFF059669)],
                     ),
                     border: Border.all(color: SoriTokens.surface, width: 3),
                   ),
@@ -208,7 +208,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF2A2438), Color(0xFF1F1830)],
+                        colors: [Color(0xFF1A1A1A), Color(0xFF222222)],
                       ),
                       border: Border.all(
                         color: SoriTokens.primary.withValues(alpha: 0.25),

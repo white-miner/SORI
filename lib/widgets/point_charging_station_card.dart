@@ -21,8 +21,8 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
   bool _loading = true;
   bool _busy = false;
 
-  static const _accent = Color(0xFFA78BFA);
-  static const _accentSoft = Color(0x338B5CF6);
+  static const _accent = SoriTokens.premium;
+  static const _accentSoft = SoriTokens.premiumSoft;
 
   @override
   void initState() {
@@ -342,9 +342,9 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
   bool _loading = true;
   bool _busy = false;
 
-  static const _accent = Color(0xFF34D399);
-  static const _accentDeep = Color(0xFF059669);
-  static const _accentSoft = Color(0x33059669);
+  static const _accent = SoriTokens.primary;
+  static const _accentDeep = SoriTokens.primaryLight;
+  static const _accentSoft = Color(0x33047857);
 
   @override
   void initState() {

@@ -289,7 +289,7 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                     label: const Text('PDF 저장'),
                     style: FilledButton.styleFrom(
                       backgroundColor: SoriTokens.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: SoriTokens.onPrimary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 12,

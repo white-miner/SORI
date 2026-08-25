@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sori_tokens.dart';
+
 /// SORI 브랜드 로고 에셋 헬퍼.
 class SoriLogo extends StatelessWidget {
   const SoriLogo({
@@ -27,8 +29,8 @@ class SoriLogo extends StatelessWidget {
         return SizedBox(
           width: width ?? height ?? 48,
           height: height ?? width ?? 48,
-          child: const DecoratedBox(
-            decoration: BoxDecoration(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
               color: Color(0xFF18181B),
               shape: BoxShape.circle,
             ),
@@ -36,7 +38,7 @@ class SoriLogo extends StatelessWidget {
               child: Text(
                 'S',
                 style: TextStyle(
-                  color: Color(0xFF7C3AED),
+                  color: SoriTokens.primary,
                   fontWeight: FontWeight.w800,
                 ),
               ),

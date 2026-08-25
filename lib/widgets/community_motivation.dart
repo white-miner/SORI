@@ -27,7 +27,7 @@ class CommunityAuthorityFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMaster = post.tierBadge.rank >= ShopTierBadge.master.rank;
     final glow = isMaster
-        ? const Color(0xFFA78BFA)
+        ? SoriTokens.premium
         : const Color(0xFFEAB308);
 
     if (!_isElite) {

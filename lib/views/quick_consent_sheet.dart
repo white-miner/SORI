@@ -375,7 +375,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
                   onPressed: _saving ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: SoriTokens.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: SoriTokens.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),

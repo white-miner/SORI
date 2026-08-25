@@ -495,7 +495,7 @@ class _CasesEmptyState extends StatelessWidget {
               onPressed: onGoHome,
               style: FilledButton.styleFrom(
                 backgroundColor: SoriTokens.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: SoriTokens.onPrimary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 22,
                   vertical: 12,
@@ -896,7 +896,7 @@ class _CommentSheetState extends State<_CommentSheet> {
                     onPressed: _send,
                     style: IconButton.styleFrom(
                       backgroundColor: SoriTokens.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: SoriTokens.onPrimary,
                     ),
                     icon: const Icon(Icons.send_rounded),
                   ),

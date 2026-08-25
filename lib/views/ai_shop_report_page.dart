@@ -153,7 +153,7 @@ class AiShopReportEntryCard extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF5B4CDB), Color(0xFF7C6CF0)],
+              colors: [SoriTokens.primary, Color(0xFF059669)],
             ),
             boxShadow: [
               BoxShadow(

@@ -205,10 +205,10 @@ class _TierVisual {
       ShopTierBadge.master => const _TierVisual(
           foreground: Color(0xFFE9D5FF),
           background: Color(0xFF2E1065),
-          border: SoriTokens.primary,
+          border: Color(0xFFA78BFA),
           sparkle: true,
           gradient: LinearGradient(
-            colors: [Color(0xFF2E1065), Color(0xFF5B21B6), Color(0xFF1E1B4B)],
+            colors: [Color(0xFF2E1065), Color(0xFFA78BFA), Color(0xFF1E1B4B)],
           ),
         ),
       ShopTierBadge.grandMaster => const _TierVisual(

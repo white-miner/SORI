@@ -349,7 +349,7 @@ Future<HotspotPinDraft?> showHotspotPinForm(
                 );
               },
               style:
-                  FilledButton.styleFrom(backgroundColor: SoriTokens.primary),
+                  FilledButton.styleFrom(backgroundColor: SoriTokens.primary, foregroundColor: SoriTokens.onPrimary),
               child: const Text('핀 저장'),
             ),
           ],

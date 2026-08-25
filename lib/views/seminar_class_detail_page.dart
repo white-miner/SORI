@@ -161,7 +161,7 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
             pinned: true,
             stretch: true,
             backgroundColor: SoriTokens.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: SoriTokens.onPrimary,
             title: Text(
               cls.title,
               maxLines: 1,
