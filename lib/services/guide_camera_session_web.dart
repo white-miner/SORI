@@ -23,9 +23,9 @@ class WebGuideCameraSession implements GuideCameraSession {
   bool _mirrored = false;
   double _zoomFactor = 1.7;
   bool _usingHardwareZoom = false;
-  StreamController<double?>? _rollCtrl;
+  StreamController<GuideDeviceAttitude?>? _attitudeCtrl;
   web.EventListener? _orientListener;
-  DateTime? _lastRollEmit;
+  DateTime? _lastAttitudeEmit;
 
   @override
   String? get viewType => _viewType;
@@ -52,10 +52,14 @@ class WebGuideCameraSession implements GuideCameraSession {
   Object? get mlVideoHandle => _video;
 
   @override
-  Stream<double?> get rollDegrees {
-    _rollCtrl ??= StreamController<double?>.broadcast();
-    return _rollCtrl!.stream;
+  Stream<GuideDeviceAttitude?> get attitude {
+    _attitudeCtrl ??= StreamController<GuideDeviceAttitude?>.broadcast();
+    return _attitudeCtrl!.stream;
   }
+
+  @override
+  Stream<double?> get rollDegrees =>
+      attitude.map((a) => a?.roll);
 
   @override
   Future<bool> requestOrientationPermission() async {
@@ -205,20 +209,28 @@ class WebGuideCameraSession implements GuideCameraSession {
 
   void _attachOrientation() {
     _detachOrientation();
-    _rollCtrl ??= StreamController<double?>.broadcast();
+    _attitudeCtrl ??= StreamController<GuideDeviceAttitude?>.broadcast();
     void handler(web.Event e) {
       final oe = e as web.DeviceOrientationEvent;
       final gamma = oe.gamma?.toDouble();
-      // ~10Hz + 미세 변화 무시 → UI setState 폭주 방지
+      final beta = oe.beta?.toDouble();
+      // ~20Hz + 미세 변화 무시 → UI setState 폭주 방지
       final now = DateTime.now();
-      if (_lastRollEmit != null &&
-          now.difference(_lastRollEmit!) < const Duration(milliseconds: 100)) {
+      if (_lastAttitudeEmit != null &&
+          now.difference(_lastAttitudeEmit!) <
+              const Duration(milliseconds: 50)) {
         return;
       }
-      _lastRollEmit = now;
-      if (!(_rollCtrl?.isClosed ?? true)) {
-        _rollCtrl?.add(gamma);
+      _lastAttitudeEmit = now;
+      if (_attitudeCtrl?.isClosed ?? true) return;
+      if (gamma == null && beta == null) {
+        _attitudeCtrl?.add(null);
+        return;
       }
+      // portrait 세운 상태: beta≈90 → pitch 0, gamma 0 → roll 0
+      final roll = gamma ?? 0;
+      final pitch = (beta ?? 90) - 90;
+      _attitudeCtrl?.add(GuideDeviceAttitude(roll: roll, pitch: pitch));
     }
 
     _orientListener = handler.toJS;

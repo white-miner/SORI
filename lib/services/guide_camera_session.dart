@@ -9,6 +9,17 @@ GuideCameraSession createGuideCameraSession() => impl.createGuideCameraSession()
 /// 차트 촬영 고정 비율 (세로 3:4). 왜곡 없이 레터박스 표시.
 const double kGuideCameraAspectRatio = 3 / 4;
 
+/// DeviceOrientation 기반 기기 자세 (도).
+/// [roll] 좌우 기울기(gamma), [pitch] 앞뒤 기울기(beta−90, 세운 상태 기준 0).
+class GuideDeviceAttitude {
+  const GuideDeviceAttitude({required this.roll, required this.pitch});
+
+  final double roll;
+  final double pitch;
+
+  static const none = GuideDeviceAttitude(roll: 0, pitch: 0);
+}
+
 abstract class GuideCameraSession {
   /// HtmlElementView 용 viewType. start 이후에만 유효.
   String? get viewType;
@@ -41,7 +52,10 @@ abstract class GuideCameraSession {
   /// 디지털 줌이면 중앙 크롭해 프리뷰와 동일 화각으로 저장.
   Future<Uint8List?> captureJpeg({double quality = 0.92});
 
-  /// DeviceOrientation roll(도). 미지원/거부 시 null.
+  /// DeviceOrientation 자세 스트림. 미지원/거부 시 null 이벤트.
+  Stream<GuideDeviceAttitude?> get attitude;
+
+  /// @deprecated [attitude] 사용.
   Stream<double?> get rollDegrees;
 
   Future<bool> requestOrientationPermission();

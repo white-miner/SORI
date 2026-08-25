@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +10,7 @@ import '../services/guide_camera_session.dart';
 import '../services/guide_camera_zoom_memory.dart';
 import '../services/guide_face_align.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_haptic.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/media_permission_dialogs.dart';
 
@@ -130,11 +130,12 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   String? _error;
   String? _viewType;
   int? _countdown;
-  double? _deviceRoll;
+  GuideDeviceAttitude? _attitude;
+  bool _wasLevel = false;
   GuideFacePose _facePose = GuideFacePose.none;
   double _zoom = GuideCameraZoomMemory.defaultZoom;
   _ShutterTimerDelay _timerDelay = _ShutterTimerDelay.off;
-  StreamSubscription<double?>? _rollSub;
+  StreamSubscription<GuideDeviceAttitude?>? _attitudeSub;
   StreamSubscription<GuideFacePose>? _poseSub;
   Timer? _timer;
   Timer? _zoomSaveTimer;
@@ -175,7 +176,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   void dispose() {
     _timer?.cancel();
     _zoomSaveTimer?.cancel();
-    _rollSub?.cancel();
+    _attitudeSub?.cancel();
     _poseSub?.cancel();
     _faceAlign.dispose();
     unawaited(_session.stop());
@@ -229,13 +230,8 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       // 시스템 허용 성공 시 앱 사전 안내 영속 스킵
       unawaited(MediaPermissionSession.setAlwaysAllowPersisted(true));
       await _session.requestOrientationPermission();
-      await _rollSub?.cancel();
-      _rollSub = _session.rollDegrees.listen((r) {
-        if (!mounted) return;
-        final prev = _deviceRoll;
-        if (prev != null && r != null && (prev - r).abs() < 0.35) return;
-        setState(() => _deviceRoll = r);
-      });
+      await _attitudeSub?.cancel();
+      _attitudeSub = _session.attitude.listen(_onAttitude);
 
       await _poseSub?.cancel();
       _poseSub = _faceAlign.poses.listen((p) {
@@ -276,6 +272,25 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         _error = '카메라를 열 수 없어요. 브라우저 카메라 권한을 확인해 주세요.\n$e';
       });
     }
+  }
+
+  void _onAttitude(GuideDeviceAttitude? next) {
+    if (!mounted) return;
+    final prev = _attitude;
+    if (prev != null &&
+        next != null &&
+        (prev.roll - next.roll).abs() < 0.25 &&
+        (prev.pitch - next.pitch).abs() < 0.25) {
+      return;
+    }
+    final leveled = next != null &&
+        next.roll.abs() <= _kLevelToleranceDeg &&
+        next.pitch.abs() <= _kLevelToleranceDeg;
+    if (leveled && !_wasLevel) {
+      soriLightHaptic();
+    }
+    _wasLevel = leveled;
+    setState(() => _attitude = next);
   }
 
   Future<void> _switchMode(GuideCaptureMode mode) async {
@@ -438,7 +453,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _timer?.cancel();
     _zoomSaveTimer?.cancel();
     await _poseSub?.cancel();
-    await _rollSub?.cancel();
+    await _attitudeSub?.cancel();
     await _faceAlign.stop();
     await _session.stop();
     if (mounted) Navigator.pop(context);
@@ -482,63 +497,41 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   Widget _buildPortrait(String kindLabel) {
-    return Stack(
-      fit: StackFit.expand,
+    return Column(
       children: [
-        Column(
-          children: [
-            _TopBar(
-              kindLabel: kindLabel,
-              onClose: () => unawaited(_closePage()),
-              showGhostToggle: _canGhost,
-              ghostOn: _ghostOn,
-              onGhostToggle: _controlsLocked
-                  ? null
-                  : () => setState(() => _ghostOn = !_ghostOn),
-            ),
-            Expanded(child: _buildViewfinder()),
-          ],
+        _TopBar(
+          kindLabel: kindLabel,
+          onClose: () => unawaited(_closePage()),
+          showGhostToggle: _canGhost,
+          ghostOn: _ghostOn,
+          onGhostToggle: _controlsLocked
+              ? null
+              : () => setState(() => _ghostOn = !_ghostOn),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _CameraDock(
-            locked: _controlsLocked,
-            presets: _presets,
-            selectedPreset: _preset,
-            onPresetSelected: (p) => unawaited(_selectPreset(p)),
-            zoom: _zoom,
-            onZoomChanged: _onZoomChanged,
-            timerDelay: _timerDelay,
-            onTimerCycle: _cycleTimerDelay,
-            onShutter: _onShutterPressed,
-            faceHint: _faceAlignActive
-                ? (_mlLoading
-                    ? 'AI 준비 중'
-                    : (!_facePose.detected
-                        ? '얼굴을 원 안에'
-                        : (!_facePose.inCircle
-                            ? '원 안에 맞춰 주세요'
-                            : (_facePose.isAligned
-                                ? '정렬됨'
-                                : '정면으로 맞춰 주세요'))))
-                : null,
-            faceAligned: _facePose.isAligned && !_mlLoading,
-          ),
-        ),
-        Positioned(
-          right: 18,
-          bottom: MediaQuery.paddingOf(context).bottom + 108,
-          child: AbsorbPointer(
-            absorbing: _controlsLocked,
-            child: Opacity(
-              opacity: _controlsLocked ? 0.42 : 1,
-              child: _FlipCameraButton(
-                onTap: () => unawaited(_toggleCameraFacing()),
-              ),
-            ),
-          ),
+        Expanded(child: _buildViewfinder()),
+        _CameraDock(
+          locked: _controlsLocked,
+          presets: _presets,
+          selectedPreset: _preset,
+          onPresetSelected: (p) => unawaited(_selectPreset(p)),
+          zoom: _zoom,
+          onZoomChanged: _onZoomChanged,
+          timerDelay: _timerDelay,
+          onTimerCycle: _cycleTimerDelay,
+          onShutter: _onShutterPressed,
+          onFlip: () => unawaited(_toggleCameraFacing()),
+          faceHint: _faceAlignActive
+              ? (_mlLoading
+                  ? 'AI 준비 중'
+                  : (!_facePose.detected
+                      ? '얼굴을 원 안에'
+                      : (!_facePose.inCircle
+                          ? '원 안에 맞춰 주세요'
+                          : (_facePose.isAligned
+                              ? '정렬됨'
+                              : '정면으로 맞춰 주세요'))))
+              : null,
+          faceAligned: _facePose.isAligned && !_mlLoading,
         ),
       ],
     );
@@ -550,46 +543,48 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         Expanded(flex: 3, child: _buildViewfinder()),
         Expanded(
           flex: 2,
-          child: Column(
-            children: [
-              _TopBar(
-                kindLabel: kindLabel,
-                onClose: () => unawaited(_closePage()),
-                showGhostToggle: _canGhost,
-                ghostOn: _ghostOn,
-                onGhostToggle: _controlsLocked
-                    ? null
-                    : () => setState(() => _ghostOn = !_ghostOn),
-              ),
-              Expanded(
-                child: _CameraDock(
-                  locked: _controlsLocked,
-                  presets: _presets,
-                  selectedPreset: _preset,
-                  onPresetSelected: (p) => unawaited(_selectPreset(p)),
-                  zoom: _zoom,
-                  onZoomChanged: _onZoomChanged,
-                  timerDelay: _timerDelay,
-                  onTimerCycle: _cycleTimerDelay,
-                  onShutter: _onShutterPressed,
-                  faceHint: _faceAlignActive
-                      ? (_mlLoading
-                          ? 'AI 준비 중'
-                          : (!_facePose.detected
-                              ? '얼굴을 원 안에'
-                              : (!_facePose.inCircle
-                                  ? '원 안에 맞춰 주세요'
-                                  : (_facePose.isAligned
-                                      ? '정렬됨'
-                                      : '정면으로'))))
-                      : null,
-                  faceAligned: _facePose.isAligned && !_mlLoading,
-                  compact: true,
-                  showFlip: true,
-                  onFlip: () => unawaited(_toggleCameraFacing()),
+          child: ColoredBox(
+            color: Colors.black,
+            child: Column(
+              children: [
+                _TopBar(
+                  kindLabel: kindLabel,
+                  onClose: () => unawaited(_closePage()),
+                  showGhostToggle: _canGhost,
+                  ghostOn: _ghostOn,
+                  onGhostToggle: _controlsLocked
+                      ? null
+                      : () => setState(() => _ghostOn = !_ghostOn),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: _CameraDock(
+                    locked: _controlsLocked,
+                    presets: _presets,
+                    selectedPreset: _preset,
+                    onPresetSelected: (p) => unawaited(_selectPreset(p)),
+                    zoom: _zoom,
+                    onZoomChanged: _onZoomChanged,
+                    timerDelay: _timerDelay,
+                    onTimerCycle: _cycleTimerDelay,
+                    onShutter: _onShutterPressed,
+                    onFlip: () => unawaited(_toggleCameraFacing()),
+                    faceHint: _faceAlignActive
+                        ? (_mlLoading
+                            ? 'AI 준비 중'
+                            : (!_facePose.detected
+                                ? '얼굴을 원 안에'
+                                : (!_facePose.inCircle
+                                    ? '원 안에 맞춰 주세요'
+                                    : (_facePose.isAligned
+                                        ? '정렬됨'
+                                        : '정면으로'))))
+                        : null,
+                    faceAligned: _facePose.isAligned && !_mlLoading,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -681,7 +676,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                   ),
                 IgnorePointer(
                   ignoring: true,
-                  child: _GlassLevelCross(rollDegrees: _deviceRoll),
+                  child: _DynamicGyroLeveler(attitude: _attitude),
                 ),
                 if (_countdown != null)
                   IgnorePointer(
@@ -757,7 +752,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 }
 
-/// 하단 프로 카메라 도크 — 무채색 + 아이콘 중심.
+/// 하단 순수 블랙 컨트롤 패널 — 뷰파인더와 완전 분리.
 class _CameraDock extends StatelessWidget {
   const _CameraDock({
     required this.locked,
@@ -769,11 +764,10 @@ class _CameraDock extends StatelessWidget {
     required this.timerDelay,
     required this.onTimerCycle,
     required this.onShutter,
+    required this.onFlip,
     this.faceHint,
     this.faceAligned = false,
     this.compact = false,
-    this.showFlip = false,
-    this.onFlip,
   });
 
   final bool locked;
@@ -785,11 +779,10 @@ class _CameraDock extends StatelessWidget {
   final _ShutterTimerDelay timerDelay;
   final VoidCallback onTimerCycle;
   final VoidCallback onShutter;
+  final VoidCallback onFlip;
   final String? faceHint;
   final bool faceAligned;
   final bool compact;
-  final bool showFlip;
-  final VoidCallback? onFlip;
 
   @override
   Widget build(BuildContext context) {
@@ -798,21 +791,10 @@ class _CameraDock extends StatelessWidget {
       absorbing: locked,
       child: Opacity(
         opacity: locked ? 0.42 : 1,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0),
-                Colors.black.withValues(alpha: 0.72),
-                const Color(0xFF0A0A0A),
-              ],
-              stops: const [0, 0.35, 1],
-            ),
-          ),
+        child: ColoredBox(
+          color: Colors.black,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, compact ? 8 : 14, 16, bottom + 12),
+            padding: EdgeInsets.fromLTRB(16, compact ? 10 : 12, 16, bottom + 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -820,23 +802,23 @@ class _CameraDock extends StatelessWidget {
                   Text(
                     faceHint!,
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
                       color: faceAligned
                           ? SoriTokens.primary.withValues(alpha: 0.95)
-                          : Colors.white.withValues(alpha: 0.72),
+                          : Colors.white.withValues(alpha: 0.55),
                     ),
                   ),
-                  SizedBox(height: compact ? 8 : 10),
+                  const SizedBox(height: 8),
                 ],
                 SizedBox(
-                  height: 52,
+                  height: 36,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (var i = 0; i < presets.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 14),
+                        if (i > 0) const SizedBox(width: 10),
                         _PresetIconButton(
                           preset: presets[i],
                           selected: selectedPreset == presets[i],
@@ -848,31 +830,38 @@ class _CameraDock extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(height: compact ? 6 : 8),
+                SizedBox(height: compact ? 4 : 6),
                 _MonochromeZoomSlider(
                   value: zoom,
                   onChanged: locked ? (_) {} : onZoomChanged,
                 ),
-                SizedBox(height: compact ? 10 : 14),
+                SizedBox(height: compact ? 8 : 10),
                 SizedBox(
-                  height: 84,
+                  height: 76,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(width: 56),
-                      _ShutterButton(onPressed: onShutter),
-                      const SizedBox(width: 22),
-                      _TimerToggleButton(
-                        delay: timerDelay,
-                        onTap: onTimerCycle,
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 18),
+                            child: _TimerToggleButton(
+                              delay: timerDelay,
+                              onTap: onTimerCycle,
+                            ),
+                          ),
+                        ),
                       ),
-                      const Spacer(),
-                      if (showFlip && onFlip != null)
-                        _FlipCameraButton(onTap: onFlip!)
-                      else
-                        const SizedBox(width: 48),
-                      const SizedBox(width: 8),
+                      _ShutterButton(onPressed: onShutter),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 18),
+                            child: _FlipCameraButton(onTap: onFlip),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1036,25 +1025,23 @@ class _PresetIconButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          width: 48,
-          height: 48,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: selected
-                ? Colors.white.withValues(alpha: 0.14)
-                : Colors.transparent,
+            color: Colors.transparent,
             border: Border.all(
               color: selected
-                  ? Colors.white.withValues(alpha: 0.85)
-                  : Colors.white.withValues(alpha: 0.22),
-              width: selected ? 1.6 : 1,
+                  ? SoriTokens.primary.withValues(alpha: 0.95)
+                  : Colors.white.withValues(alpha: 0.28),
+              width: selected ? 1.4 : 1,
             ),
           ),
           child: CustomPaint(
             painter: _GuidePresetIconPainter(
               preset: preset,
               color: selected
-                  ? Colors.white
+                  ? SoriTokens.primary
                   : Colors.white.withValues(alpha: 0.55),
             ),
           ),
@@ -1077,19 +1064,20 @@ class _MonochromeZoomSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          Icons.zoom_out_rounded,
-          size: 18,
-          color: Colors.white.withValues(alpha: 0.45),
+                Icon(
+          Icons.remove_rounded,
+          size: 16,
+          color: Colors.white.withValues(alpha: 0.4),
         ),
         Expanded(
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: Colors.white.withValues(alpha: 0.85),
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.18),
+              activeTrackColor: Colors.white.withValues(alpha: 0.75),
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
               thumbColor: Colors.white,
-              overlayColor: Colors.white.withValues(alpha: 0.08),
+              overlayColor: Colors.white.withValues(alpha: 0.06),
               trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             ),
             child: Slider(
               value: value.clamp(
@@ -1102,12 +1090,16 @@ class _MonochromeZoomSlider extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          '${value.toStringAsFixed(1)}×',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.72),
-            fontWeight: FontWeight.w700,
-            fontSize: 11.5,
+        SizedBox(
+          width: 36,
+          child: Text(
+            '${value.toStringAsFixed(1)}×',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.65),
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
           ),
         ),
       ],
@@ -1136,121 +1128,138 @@ class _GridOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant _GridOverlayPainter oldDelegate) => false;
 }
 
-class _GlassLevelCross extends StatelessWidget {
-  const _GlassLevelCross({required this.rollDegrees});
+/// 고정 기준 십자 + pitch/roll에 반응하는 이동 마커.
+class _DynamicGyroLeveler extends StatelessWidget {
+  const _DynamicGyroLeveler({required this.attitude});
 
-  final double? rollDegrees;
-
-  bool get _leveled =>
-      rollDegrees != null && rollDegrees!.abs() <= _kLevelToleranceDeg;
+  final GuideDeviceAttitude? attitude;
 
   @override
   Widget build(BuildContext context) {
-    final roll = rollDegrees ?? 0;
-    return Center(
-      child: Transform.rotate(
-        angle: roll * math.pi / 180,
-        child: _GlassLevelCrossShape(leveled: _leveled),
-      ),
+    return CustomPaint(
+      painter: _DynamicGyroLevelerPainter(attitude: attitude),
+      child: const SizedBox.expand(),
     );
   }
 }
 
-class _GlassLevelCrossShape extends StatelessWidget {
-  const _GlassLevelCrossShape({required this.leveled});
+class _DynamicGyroLevelerPainter extends CustomPainter {
+  _DynamicGyroLevelerPainter({required this.attitude});
 
-  final bool leveled;
+  final GuideDeviceAttitude? attitude;
 
-  static const _arm = 52.0;
-  static const _gap = 6.0;
-  static const _thickness = 2.0;
+  static const _maxTravelPx = 42.0;
+  static const _maxDegVisual = 18.0;
+
+  bool get _leveled {
+    final a = attitude;
+    if (a == null) return false;
+    return a.roll.abs() <= _kLevelToleranceDeg &&
+        a.pitch.abs() <= _kLevelToleranceDeg;
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final glow = leveled
-        ? [
-            BoxShadow(
-              color: SoriTokens.primary.withValues(alpha: 0.65),
-              blurRadius: 18,
-              spreadRadius: 2,
-            ),
-            BoxShadow(
-              color: SoriTokens.primary.withValues(alpha: 0.35),
-              blurRadius: 32,
-              spreadRadius: 4,
-            ),
-          ]
-        : <BoxShadow>[];
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final center = Offset(cx, cy);
 
-    Widget bar({required double width, required double height}) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(_thickness),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              color: leveled
-                  ? SoriTokens.primary.withValues(alpha: 0.55)
-                  : Colors.white.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(_thickness),
-              boxShadow: glow,
-              border: Border.all(
-                color: leveled
-                    ? SoriTokens.primaryLight.withValues(alpha: 0.85)
-                    : Colors.white.withValues(alpha: 0.28),
-                width: 0.8,
-              ),
-            ),
-          ),
-        ),
+    // 1) 고정 기준 십자 (항상 화면 중앙)
+    _drawCross(
+      canvas,
+      center,
+      arm: 28,
+      gap: 5,
+      color: Colors.white.withValues(alpha: 0.38),
+      stroke: 1.2,
+    );
+    canvas.drawCircle(
+      center,
+      2.2,
+      Paint()..color = Colors.white.withValues(alpha: 0.45),
+    );
+
+    final a = attitude;
+    if (a == null) return;
+
+    final dx = (a.roll / _maxDegVisual).clamp(-1.0, 1.0) * _maxTravelPx;
+    final dy = (a.pitch / _maxDegVisual).clamp(-1.0, 1.0) * _maxTravelPx;
+    final bubble = Offset(cx + dx, cy + dy);
+    final leveled = _leveled;
+
+    // 2) 이동 마커 (자이로)
+    if (leveled) {
+      canvas.drawCircle(
+        bubble,
+        18,
+        Paint()
+          ..color = SoriTokens.primary.withValues(alpha: 0.28)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+      );
+      canvas.drawCircle(
+        bubble,
+        28,
+        Paint()
+          ..color = SoriTokens.primary.withValues(alpha: 0.16)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
       );
     }
 
-    return SizedBox(
-      width: _arm * 2 + _gap * 2,
-      height: _arm * 2 + _gap * 2,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              bar(width: _arm, height: _thickness),
-              SizedBox(width: _gap * 2),
-              bar(width: _arm, height: _thickness),
-            ],
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              bar(width: _thickness, height: _arm),
-              SizedBox(height: _gap * 2),
-              bar(width: _thickness, height: _arm),
-            ],
-          ),
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: leveled
-                  ? SoriTokens.primary
-                  : Colors.white.withValues(alpha: 0.65),
-              boxShadow: leveled
-                  ? [
-                      BoxShadow(
-                        color: SoriTokens.primary.withValues(alpha: 0.8),
-                        blurRadius: 10,
-                      ),
-                    ]
-                  : null,
-            ),
-          ),
-        ],
-      ),
+    final moveColor = leveled
+        ? SoriTokens.primary
+        : Colors.white.withValues(alpha: 0.72);
+    _drawCross(
+      canvas,
+      bubble,
+      arm: 22,
+      gap: 4,
+      color: moveColor,
+      stroke: leveled ? 2.2 : 1.6,
     );
+    canvas.drawCircle(
+      bubble,
+      leveled ? 4.5 : 3.5,
+      Paint()
+        ..color = moveColor
+        ..style = PaintingStyle.fill,
+    );
+    if (leveled) {
+      canvas.drawCircle(
+        bubble,
+        9,
+        Paint()
+          ..color = SoriTokens.primaryLight.withValues(alpha: 0.9)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4,
+      );
+    }
+  }
+
+  void _drawCross(
+    Canvas canvas,
+    Offset c, {
+    required double arm,
+    required double gap,
+    required Color color,
+    required double stroke,
+  }) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(c.dx - arm, c.dy), Offset(c.dx - gap, c.dy), paint);
+    canvas.drawLine(Offset(c.dx + gap, c.dy), Offset(c.dx + arm, c.dy), paint);
+    canvas.drawLine(Offset(c.dx, c.dy - arm), Offset(c.dx, c.dy - gap), paint);
+    canvas.drawLine(Offset(c.dx, c.dy + gap), Offset(c.dx, c.dy + arm), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DynamicGyroLevelerPainter oldDelegate) {
+    final a = attitude;
+    final b = oldDelegate.attitude;
+    if (identical(a, b)) return false;
+    if (a == null || b == null) return a != b;
+    return a.roll != b.roll || a.pitch != b.pitch;
   }
 }
 
@@ -1467,24 +1476,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
     return Colors.white.withValues(alpha: 0.34);
   }
 
-  void _drawCenterCrosshair(Canvas canvas, Offset center, Color color) {
-    const arm = 11.0;
-    const gap = 3.5;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.05
-      ..strokeCap = StrokeCap.round;
-
-    void line(Offset a, Offset b) => canvas.drawLine(a, b, paint);
-
-    line(Offset(center.dx - arm, center.dy), Offset(center.dx - gap, center.dy));
-    line(Offset(center.dx + gap, center.dy), Offset(center.dx + arm, center.dy));
-    line(Offset(center.dx, center.dy - arm), Offset(center.dx, center.dy - gap));
-    line(Offset(center.dx, center.dy + gap), Offset(center.dx, center.dy + arm));
-
-    canvas.drawCircle(center, 1.35, Paint()..color = color);
-  }
-
   /// 원형 상단 ~37% 지점 — 눈높이 수평 점선 (원 현 폭에 맞춤).
   void _drawEyeLevelGuideline(
     Canvas canvas,
@@ -1584,7 +1575,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
 
     _drawEyeLevelGuideline(canvas, center, radius, innerColor);
     _drawChinArcGuide(canvas, center, radius, innerColor);
-    _drawCenterCrosshair(canvas, center, innerColor);
 
     // 미정렬 시 원 안쪽 방향 힌트 (외곽 화살표 제거)
     if (pose.detected && !aligned) {

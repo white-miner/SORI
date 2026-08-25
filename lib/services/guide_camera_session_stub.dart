@@ -31,6 +31,9 @@ class _StubGuideCameraSession implements GuideCameraSession {
   Object? get mlVideoHandle => null;
 
   @override
+  Stream<GuideDeviceAttitude?> get attitude => const Stream.empty();
+
+  @override
   Stream<double?> get rollDegrees => const Stream.empty();
 
   @override
