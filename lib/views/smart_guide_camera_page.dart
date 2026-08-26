@@ -45,7 +45,7 @@ extension _ShutterTimerDelayX on _ShutterTimerDelay {
       };
 }
 
-const _kLevelToleranceDeg = 1.5;
+const _kLevelToleranceDeg = 1.0;
 
 enum GuidePreset {
   face,
@@ -287,13 +287,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     final prev = _attitude;
     if (prev != null &&
         next != null &&
-        (prev.roll - next.roll).abs() < 0.15 &&
-        (prev.pitch - next.pitch).abs() < 0.15) {
+        (prev.roll - next.roll).abs() < 0.12) {
       return;
     }
-    final leveled = next != null &&
-        next.roll.abs() <= _kLevelToleranceDeg &&
-        next.pitch.abs() <= _kLevelToleranceDeg;
+    final leveled = next != null && next.roll.abs() <= _kLevelToleranceDeg;
     if (leveled && !_wasLevel) {
       HapticFeedback.lightImpact();
       soriLightHaptic();
@@ -879,14 +876,14 @@ class _CameraDock extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
                 SizedBox(
-                  height: 56,
+                  height: 40,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         for (var i = 0; i < presets.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
+                          if (i > 0) const SizedBox(width: 12),
                           _PresetIconButton(
                             preset: presets[i],
                             selected: selectedPreset == presets[i],
@@ -1081,13 +1078,12 @@ class _PresetIconButton extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  static const _inactive = Color(0x80FFFFFF);
-  static const _active = Color(0xFFFFFFFF);
-  static const _emerald = Color(0xFF10B981);
+  static const _inactive = Color(0xFF71717A);
+  static const _emerald = Color(0xFF00D289);
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? _active : _inactive;
+    final fg = selected ? _emerald : _inactive;
     return Semantics(
       button: true,
       label: preset.label,
@@ -1096,40 +1092,16 @@ class _PresetIconButton extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          width: 52,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset(
-                preset.iconAsset,
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-                colorFilter: ColorFilter.mode(fg, BlendMode.srcIn),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                preset.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w400,
-                  color: fg,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: selected ? 18 : 0,
-                height: 2,
-                decoration: BoxDecoration(
-                  color: selected ? _emerald : Colors.transparent,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ],
+          width: 40,
+          height: 40,
+          child: Center(
+            child: SvgPicture.asset(
+              preset.iconAsset,
+              width: 26,
+              height: 26,
+              fit: BoxFit.contain,
+              colorFilter: ColorFilter.mode(fg, BlendMode.srcIn),
+            ),
           ),
         ),
       ),
@@ -1214,7 +1186,8 @@ class _GridOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant _GridOverlayPainter oldDelegate) => false;
 }
 
-/// 고정 타겟 링 + 센서 연동 이동 십자선 (iOS CMMotionManager 대응 웹 구현).
+/// 1축(Roll) 가로 막대 수평계 — iPhone 카메라 스타일.
+/// Pitch는 UI에서 완전 제외. Roll(gamma)만으로 막대를 회전한다.
 class _DynamicGyroLeveler extends StatelessWidget {
   const _DynamicGyroLeveler({
     required this.attitude,
@@ -1233,17 +1206,12 @@ class _DynamicGyroLeveler extends StatelessWidget {
   final VoidCallback onEnableMotion;
 
   static const _emerald = Color(0xFF00D289);
-  static const _glass = Color(0x66FFFFFF); // white @ 0.4
-  /// iOS `offset(x: roll * 3, y: pitch * 3)` 와 동일 감도.
-  static const _pxPerDeg = 3.0;
-  static const _maxTravelPx = 54.0;
-  static const _markerSize = 56.0;
+  static const _glass = Color(0x66FFFFFF);
 
   bool get _leveled {
     final a = attitude;
     if (a == null) return false;
-    return a.roll.abs() <= _kLevelToleranceDeg &&
-        a.pitch.abs() <= _kLevelToleranceDeg;
+    return a.roll.abs() <= _kLevelToleranceDeg;
   }
 
   @override
@@ -1252,74 +1220,29 @@ class _DynamicGyroLeveler extends StatelessWidget {
     final live = motionReady && attitude != null;
     final leveled = live && _leveled;
     final color = leveled ? _emerald : _glass;
-
-    final roll = attitude?.roll ?? 0;
-    final pitch = attitude?.pitch ?? 0;
-    final dx = (roll * _pxPerDeg).clamp(-_maxTravelPx, _maxTravelPx);
-    final dy = (pitch * _pxPerDeg).clamp(-_maxTravelPx, _maxTravelPx);
+    // Roll(도)만 사용 — Pitch는 수평계 UI에서 제외
+    final rollDeg = attitude?.roll ?? 0.0;
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 고정 타겟 링 (화면 정중앙)
-        Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: color,
-                width: leveled ? 2.4 : 1.6,
-              ),
-              boxShadow: leveled
-                  ? [
-                      BoxShadow(
-                        color: _emerald.withValues(alpha: 0.55),
-                        blurRadius: 14,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Center(
-              child: Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                ),
-              ),
-            ),
-          ),
+        // 고정 가이드: 중앙을 가로지르는 양옆 분리 얇은 선
+        CustomPaint(
+          painter: _FixedHorizonGuidesPainter(color: color, glow: leveled),
+          child: const SizedBox.expand(),
         ),
-        // 이동 십자선 — 센서 오프셋
+        // 회전하는 단일 가로 막대 (Roll만)
         if (live)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cx = constraints.maxWidth / 2;
-              final cy = constraints.maxHeight / 2;
-              return Stack(
-                children: [
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 60),
-                    curve: Curves.easeOut,
-                    left: cx + dx - _markerSize / 2,
-                    top: cy + dy - _markerSize / 2,
-                    width: _markerSize,
-                    height: _markerSize,
-                    child: CustomPaint(
-                      painter: _MovingCrossPainter(
-                        color: color,
-                        glow: leveled,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+          Center(
+            child: AnimatedRotation(
+              turns: rollDeg / 360.0,
+              duration: const Duration(milliseconds: 70),
+              curve: Curves.easeOut,
+              child: CustomPaint(
+                size: const Size(180, 24),
+                painter: _RollBarPainter(color: color, glow: leveled),
+              ),
+            ),
           ),
         // iOS 모션 권한 탭 게이트
         if (showPrompt)
@@ -1388,43 +1311,81 @@ class _DynamicGyroLeveler extends StatelessWidget {
   }
 }
 
-class _MovingCrossPainter extends CustomPainter {
-  _MovingCrossPainter({required this.color, required this.glow});
+/// 화면 정중앙 — 좌/우로 분리된 고정 가로 가이드선.
+class _FixedHorizonGuidesPainter extends CustomPainter {
+  _FixedHorizonGuidesPainter({required this.color, required this.glow});
 
   final Color color;
   final bool glow;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    if (glow) {
-      canvas.drawCircle(
-        c,
-        18,
-        Paint()
-          ..color = const Color(0xFF00D289).withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
-      );
-    }
+    final cy = size.height / 2;
+    final cx = size.width / 2;
     final paint = Paint()
       ..color = color
-      ..strokeWidth = glow ? 2.4 : 1.8
+      ..strokeWidth = glow ? 2.0 : 1.4
       ..strokeCap = StrokeCap.round;
-    const arm = 18.0;
-    const gap = 5.0;
-    canvas.drawLine(Offset(c.dx - arm, c.dy), Offset(c.dx - gap, c.dy), paint);
-    canvas.drawLine(Offset(c.dx + gap, c.dy), Offset(c.dx + arm, c.dy), paint);
-    canvas.drawLine(Offset(c.dx, c.dy - arm), Offset(c.dx, c.dy - gap), paint);
-    canvas.drawLine(Offset(c.dx, c.dy + gap), Offset(c.dx, c.dy + arm), paint);
+
+    if (glow) {
+      final glowPaint = Paint()
+        ..color = const Color(0xFF00D289).withValues(alpha: 0.35)
+        ..strokeWidth = 6
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawLine(Offset(cx - 92, cy), Offset(cx - 28, cy), glowPaint);
+      canvas.drawLine(Offset(cx + 28, cy), Offset(cx + 92, cy), glowPaint);
+    }
+
+    // 양옆 분리 (중앙 갭 — 회전 막대가 겹치는 자리)
+    canvas.drawLine(Offset(cx - 88, cy), Offset(cx - 30, cy), paint);
+    canvas.drawLine(Offset(cx + 30, cy), Offset(cx + 88, cy), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FixedHorizonGuidesPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.glow != glow;
+  }
+}
+
+/// Roll에 따라 Transform.rotate 되는 단일 가로 막대.
+class _RollBarPainter extends CustomPainter {
+  _RollBarPainter({required this.color, required this.glow});
+
+  final Color color;
+  final bool glow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cy = size.height / 2;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = glow ? 2.6 : 2.0
+      ..strokeCap = StrokeCap.round;
+
+    if (glow) {
+      canvas.drawLine(
+        Offset(8, cy),
+        Offset(size.width - 8, cy),
+        Paint()
+          ..color = const Color(0xFF00D289).withValues(alpha: 0.4)
+          ..strokeWidth = 8
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+
+    canvas.drawLine(Offset(8, cy), Offset(size.width - 8, cy), paint);
+    // 중앙 틱
     canvas.drawCircle(
-      c,
-      glow ? 4.0 : 3.0,
+      Offset(size.width / 2, cy),
+      glow ? 3.2 : 2.4,
       Paint()..color = color,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _MovingCrossPainter oldDelegate) {
+  bool shouldRepaint(covariant _RollBarPainter oldDelegate) {
     return oldDelegate.color != color || oldDelegate.glow != glow;
   }
 }
@@ -1439,8 +1400,7 @@ class _DecolleteGuidePainter extends CustomPainter {
   bool get _leveled {
     final a = attitude;
     if (a == null) return false;
-    return a.roll.abs() <= _kLevelToleranceDeg &&
-        a.pitch.abs() <= _kLevelToleranceDeg;
+    return a.roll.abs() <= _kLevelToleranceDeg;
   }
 
   Color get _guideColor {

@@ -41,7 +41,7 @@ class WebGuideFaceAlign implements GuideFaceAlign {
       final completer = Completer<void>();
       final script = web.HTMLScriptElement()
         ..src =
-            'sori_face_align.js?v=${const String.fromEnvironment('SORI_ASSET_V', defaultValue: '2026082609')}'
+            'sori_face_align.js?v=${const String.fromEnvironment('SORI_ASSET_V', defaultValue: '2026082610')}'
         ..async = true
         ..setAttribute('data-sori-face-align', '1');
       script.onload = ((web.Event _) {
