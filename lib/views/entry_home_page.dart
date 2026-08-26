@@ -192,8 +192,12 @@ class _EntryHomePageState extends State<EntryHomePage>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Center(
-          child: SoriLogo(forceWhite: true),
+        Center(
+          child: SoriLogo(
+            forceWhite: true,
+            width: SoriLogo.loginWidth(context),
+            fit: BoxFit.contain,
+          ),
         ),
         const SizedBox(height: 18),
         const Text(

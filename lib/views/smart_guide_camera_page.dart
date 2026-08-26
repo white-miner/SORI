@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
@@ -63,9 +64,16 @@ enum GuidePreset {
   bool get isSelfPreset =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// MediaPipe 원형 정렬을 쓰는 프리셋.
-  bool get usesFaceAlign =>
-      this == GuidePreset.face || this == GuidePreset.decollete;
+  /// MediaPipe 원형 정렬을 쓰는 프리셋 (페이스만).
+  bool get usesFaceAlign => this == GuidePreset.face;
+
+  String get iconAsset => switch (this) {
+        GuidePreset.face => 'assets/icons/ic_face.svg',
+        GuidePreset.decollete => 'assets/icons/ic_decollete.svg',
+        GuidePreset.abdomen => 'assets/icons/ic_abdomen.svg',
+        GuidePreset.lowerBody => 'assets/icons/ic_legs.svg',
+        GuidePreset.fullBody => 'assets/icons/ic_body.svg',
+      };
 }
 
 class GuideCameraResult {
@@ -152,14 +160,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   bool get _controlsLocked =>
       _starting || _mlLoading || _busy || _viewType == null || _countdown != null;
 
-  List<GuidePreset> get _presets => _mode == GuideCaptureMode.selfFront
-      ? const [GuidePreset.face, GuidePreset.decollete]
-      : const [
-          GuidePreset.face,
-          GuidePreset.abdomen,
-          GuidePreset.lowerBody,
-          GuidePreset.fullBody,
-        ];
+  List<GuidePreset> get _presets => GuidePreset.values;
 
   @override
   void initState() {
@@ -297,7 +298,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (_mode == mode || _controlsLocked) return;
     setState(() {
       _mode = mode;
-      _preset = _presets.first;
+      if (!_presets.contains(_preset)) {
+        _preset = _presets.first;
+      }
     });
     await _startCamera();
   }
@@ -655,13 +658,23 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-                if (_faceAlignActive)
+                if (_preset == GuidePreset.face)
                   IgnorePointer(
                     ignoring: true,
                     child: CustomPaint(
                       painter: _CircularFaceAlignPainter(
                         pose: _facePose,
                         mirrored: _mode == GuideCaptureMode.selfFront,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  )
+                else if (_preset == GuidePreset.decollete)
+                  IgnorePointer(
+                    ignoring: true,
+                    child: CustomPaint(
+                      painter: _DecolleteGuidePainter(
+                        attitude: _attitude,
                       ),
                       child: const SizedBox.expand(),
                     ),
@@ -813,21 +826,24 @@ class _CameraDock extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
                 SizedBox(
-                  height: 36,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 0; i < presets.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 10),
-                        _PresetIconButton(
-                          preset: presets[i],
-                          selected: selectedPreset == presets[i],
-                          onTap: locked
-                              ? null
-                              : () => onPresetSelected(presets[i]),
-                        ),
+                  height: 56,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < presets.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          _PresetIconButton(
+                            preset: presets[i],
+                            selected: selectedPreset == presets[i],
+                            onTap: locked
+                                ? null
+                                : () => onPresetSelected(presets[i]),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 SizedBox(height: compact ? 4 : 6),
@@ -1013,8 +1029,13 @@ class _PresetIconButton extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
+  static const _inactive = Color(0x80FFFFFF);
+  static const _active = Color(0xFFFFFFFF);
+  static const _emerald = Color(0xFF10B981);
+
   @override
   Widget build(BuildContext context) {
+    final fg = selected ? _active : _inactive;
     return Semantics(
       button: true,
       label: preset.label,
@@ -1022,28 +1043,41 @@ class _PresetIconButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.transparent,
-            border: Border.all(
-              color: selected
-                  ? SoriTokens.primary.withValues(alpha: 0.95)
-                  : Colors.white.withValues(alpha: 0.28),
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: CustomPaint(
-            painter: _GuidePresetIconPainter(
-              preset: preset,
-              color: selected
-                  ? SoriTokens.primary
-                  : Colors.white.withValues(alpha: 0.55),
-            ),
+        child: SizedBox(
+          width: 52,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                preset.iconAsset,
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+                colorFilter: ColorFilter.mode(fg, BlendMode.srcIn),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                preset.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w400,
+                  color: fg,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: selected ? 18 : 0,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: selected ? _emerald : Colors.transparent,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1263,127 +1297,115 @@ class _DynamicGyroLevelerPainter extends CustomPainter {
   }
 }
 
-class _GuidePresetIconPainter extends CustomPainter {
-  _GuidePresetIconPainter({required this.preset, required this.color});
+class _DecolleteGuidePainter extends CustomPainter {
+  _DecolleteGuidePainter({required this.attitude});
 
-  final GuidePreset preset;
-  final Color color;
+  final GuideDeviceAttitude? attitude;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.45
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+  static const _emeraldGlow = Color(0xFF00E599);
 
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final s = math.min(size.width, size.height) * 0.34;
+  bool get _leveled {
+    final a = attitude;
+    if (a == null) return false;
+    return a.roll.abs() <= _kLevelToleranceDeg &&
+        a.pitch.abs() <= _kLevelToleranceDeg;
+  }
 
-    switch (preset) {
-      case GuidePreset.face:
-        canvas.drawCircle(Offset(cx, cy - s * 0.35), s * 0.55, paint);
-        canvas.drawArc(
-          Rect.fromCenter(
-            center: Offset(cx, cy + s * 0.55),
-            width: s * 1.5,
-            height: s * 0.9,
-          ),
-          math.pi * 0.15,
-          math.pi * 0.7,
-          false,
-          paint,
-        );
-      case GuidePreset.decollete:
-        canvas.drawLine(
-          Offset(cx - s * 0.85, cy + s * 0.55),
-          Offset(cx, cy - s * 0.15),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx + s * 0.85, cy + s * 0.55),
-          Offset(cx, cy - s * 0.15),
-          paint,
-        );
-        canvas.drawArc(
-          Rect.fromCenter(
-            center: Offset(cx, cy + s * 0.45),
-            width: s * 1.7,
-            height: s * 0.75,
-          ),
-          math.pi * 0.08,
-          math.pi * 0.84,
-          false,
-          paint,
-        );
-      case GuidePreset.abdomen:
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromCenter(
-              center: Offset(cx, cy),
-              width: s * 1.55,
-              height: s * 1.25,
-            ),
-            const Radius.circular(6),
-          ),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx, cy - s * 0.62),
-          Offset(cx, cy + s * 0.62),
-          paint..strokeWidth = 1.1,
-        );
-      case GuidePreset.lowerBody:
-        canvas.drawLine(
-          Offset(cx - s * 0.35, cy - s * 0.85),
-          Offset(cx - s * 0.35, cy + s * 0.95),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx + s * 0.35, cy - s * 0.85),
-          Offset(cx + s * 0.35, cy + s * 0.95),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx - s * 0.35, cy - s * 0.85),
-          Offset(cx + s * 0.35, cy - s * 0.85),
-          paint,
-        );
-      case GuidePreset.fullBody:
-        canvas.drawCircle(Offset(cx, cy - s * 0.95), s * 0.38, paint);
-        canvas.drawLine(
-          Offset(cx, cy - s * 0.55),
-          Offset(cx, cy + s * 0.35),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx, cy - s * 0.2),
-          Offset(cx - s * 0.55, cy + s * 0.15),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx, cy - s * 0.2),
-          Offset(cx + s * 0.55, cy + s * 0.15),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx, cy + s * 0.35),
-          Offset(cx - s * 0.42, cy + s * 1.05),
-          paint,
-        );
-        canvas.drawLine(
-          Offset(cx, cy + s * 0.35),
-          Offset(cx + s * 0.42, cy + s * 1.05),
-          paint,
-        );
-    }
+  Color get _guideColor {
+    if (_leveled) return _emeraldGlow.withValues(alpha: 0.92);
+    return Colors.white.withValues(alpha: 0.42);
+  }
+
+  void _strokePath(Canvas canvas, Path path, Color color, {double width = 2.0}) {
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width + 2.2
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _GuidePresetIconPainter oldDelegate) {
-    return oldDelegate.preset != preset || oldDelegate.color != color;
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final color = _guideColor;
+
+    if (_leveled) {
+      // 에메랄드 글로우 — 수평 맞춤 시
+      final glowY = h * 0.34;
+      canvas.drawLine(
+        Offset(w * 0.08, glowY),
+        Offset(w * 0.92, glowY),
+        Paint()
+          ..color = _emeraldGlow.withValues(alpha: 0.28)
+          ..strokeWidth = 14
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+    }
+
+    // 어깨 라인 — 완만한 곡선 (반응형)
+    final shoulderY = h * 0.38;
+    final shoulderPath = Path()
+      ..moveTo(w * 0.06, shoulderY + h * 0.04)
+      ..quadraticBezierTo(
+        cx,
+        shoulderY - h * 0.02,
+        w * 0.94,
+        shoulderY + h * 0.04,
+      );
+    _strokePath(canvas, shoulderPath, color, width: _leveled ? 2.4 : 1.8);
+
+    // 쇄골 V 라인 (좌·우)
+    final neckY = h * 0.22;
+    final collarY = h * 0.34;
+    final leftCollar = Path()
+      ..moveTo(cx, neckY)
+      ..quadraticBezierTo(w * 0.28, collarY, w * 0.12, shoulderY);
+    final rightCollar = Path()
+      ..moveTo(cx, neckY)
+      ..quadraticBezierTo(w * 0.72, collarY, w * 0.88, shoulderY);
+    _strokePath(canvas, leftCollar, color, width: _leveled ? 2.2 : 1.6);
+    _strokePath(canvas, rightCollar, color, width: _leveled ? 2.2 : 1.6);
+
+    // 쇄골 수평 가이드 — 자이로 수평계와 동일 ±1.5° 기준
+    final horizY = collarY;
+    final horizPath = Path()
+      ..moveTo(w * 0.14, horizY)
+      ..lineTo(w * 0.86, horizY);
+    _strokePath(canvas, horizPath, color, width: _leveled ? 2.6 : 1.8);
+
+    // 데콜테 하단 곡선
+    final decolletePath = Path()
+      ..moveTo(w * 0.18, shoulderY + h * 0.06)
+      ..quadraticBezierTo(
+        cx,
+        shoulderY + h * 0.18,
+        w * 0.82,
+        shoulderY + h * 0.06,
+      );
+    _strokePath(canvas, decolletePath, color.withValues(alpha: 0.75), width: 1.6);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DecolleteGuidePainter oldDelegate) {
+    final a = attitude;
+    final b = oldDelegate.attitude;
+    if (identical(a, b)) return false;
+    if (a == null || b == null) return a != b;
+    return a.roll != b.roll || a.pitch != b.pitch;
   }
 }
 

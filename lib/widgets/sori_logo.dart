@@ -38,8 +38,18 @@ class SoriLogo extends StatelessWidget {
   /// GNB / 셸 헤더 표준 높이.
   static const double gnbHeight = 28;
 
-  /// 스플래시: 모바일 폭×0.65 / PC·태블릿 min(720, 60vw).
+  /// 스플래시: 기존 대비 20% 축소 (하단 Radial 발광 밸런스).
   static double splashWidth(BuildContext context) {
+    return splashWidthRaw(context) * 0.8;
+  }
+
+  /// 로그인/온보딩: 스플래시 기준 3배 (브랜드 시인성).
+  static double loginWidth(BuildContext context) {
+    return splashWidthRaw(context) * 3.0;
+  }
+
+  /// 스플래시 원본 스케일 — 모바일 65% / PC min(720, 60vw).
+  static double splashWidthRaw(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
     if (w >= 600) {
       final capped = w * 0.60;
@@ -48,8 +58,8 @@ class SoriLogo extends StatelessWidget {
     return w * 0.65;
   }
 
-  /// 인앱 기본 반응형 (로그인 등). 스플래시가 아니면 splashWidth와 동일 규칙.
-  static double responsiveWidth(BuildContext context) => splashWidth(context);
+  /// 인앱 기본 반응형 (로그인 등).
+  static double responsiveWidth(BuildContext context) => loginWidth(context);
 
   Brightness _resolveBrightness(BuildContext context) {
     if (forceWhite) return Brightness.dark;
