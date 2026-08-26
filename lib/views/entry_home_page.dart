@@ -10,6 +10,7 @@ import '../services/sori_auth_coordinator.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/sori_logo.dart';
 
 /// 공통 랜딩: 카카오 OAuth 단일 로그인.
 class EntryHomePage extends StatefulWidget {
@@ -193,11 +194,8 @@ class _EntryHomePageState extends State<EntryHomePage>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Image.asset(
-          'assets/images/sori_logo.png',
+        SoriLogo(
           width: logoWidth,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.high,
         ),
         const SizedBox(height: 20),
         const Text(

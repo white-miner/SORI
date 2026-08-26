@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,8 @@ import '../routing/sori_router.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
+import '../widgets/sori_logo.dart';
 
 enum _SplashDest {
   app,
@@ -16,7 +19,7 @@ enum _SplashDest {
   review,
 }
 
-/// 브랜드 스플래시 — 통합 로고 이미지 + 세션 체크 후 Fade 전환.
+/// 위버스/캔바 스타일 글래스모피즘 스플래시 — 시스템 Brightness 반응형.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key, this.initialToken});
 
@@ -30,8 +33,6 @@ class _SplashPageState extends State<SplashPage> {
   final _store = SoriStore.instance;
   final _auth = SoriAuthService.instance;
   bool _navigated = false;
-
-  static const String _combinedLogo = 'assets/images/sori_logo1.png';
 
   @override
   void initState() {
@@ -49,7 +50,7 @@ class _SplashPageState extends State<SplashPage> {
 
     late final _SplashDest dest;
     await Future.wait<void>([
-      Future<void>.delayed(const Duration(milliseconds: 800)),
+      Future<void>.delayed(const Duration(milliseconds: 900)),
       () async {
         dest = token.isNotEmpty
             ? _SplashDest.review
@@ -86,7 +87,6 @@ class _SplashPageState extends State<SplashPage> {
       return _SplashDest.review;
     }
 
-    // AuthCoordinator가 PKCE/스토리지 세션 복구를 마칠 때까지 대기
     var waited = 0;
     while (_store.authHydrating && waited < 60) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -122,43 +122,117 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final logoWidth = MediaQuery.of(context).size.width * 0.55;
+    final isDark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final size = MediaQuery.sizeOf(context);
+    final logoWidth = (size.width * 0.48).clamp(148.0, 280.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0C),
-      body: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
-          height: double.infinity,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: Image.asset(
-                  _combinedLogo,
-                  width: logoWidth,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  gaplessPlayback: true,
-                ),
+      backgroundColor: isDark ? Colors.black : Colors.white,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: isDark
+                    ? const [
+                        Color(0xE600D289), // glass emerald (strong)
+                        Color(0x9900D289),
+                        Color(0x3300D289),
+                        Color(0x0A00D289),
+                        Color(0xFF000000),
+                      ]
+                    : const [
+                        Color(0xCC00D289),
+                        Color(0x6600D289),
+                        Color(0x2800D289),
+                        Color(0x0D00D289),
+                        Color(0xFFFFFFFF),
+                      ],
+                stops: const [0.0, 0.18, 0.38, 0.58, 0.88],
               ),
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: 32,
-                child: Text(
-                  'Copyright © SORI. All Rights Reserved.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.grey[500],
+            ),
+          ),
+          // 하단 발광 보케 — 글래스 심도
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: IgnorePointer(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
+                child: Container(
+                  width: size.width * 1.15,
+                  height: size.height * 0.42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        SoriTokens.primaryLight.withValues(
+                          alpha: isDark ? 0.55 : 0.42,
+                        ),
+                        SoriTokens.primary.withValues(
+                          alpha: isDark ? 0.22 : 0.16,
+                        ),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 떠 있는 느낌 — 소프트 그림자
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isDark ? Colors.black : Colors.black)
+                              .withValues(alpha: isDark ? 0.35 : 0.08),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
+                        ),
+                        if (isDark)
+                          BoxShadow(
+                            color: SoriTokens.primary.withValues(alpha: 0.18),
+                            blurRadius: 36,
+                            spreadRadius: 2,
+                          ),
+                      ],
+                    ),
+                    child: SoriLogo(
+                      width: logoWidth,
+                      usePlatformBrightness: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.paddingOf(context).bottom + 28,
+            child: Text(
+              'Copyright © SORI. All Rights Reserved.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.38)
+                    : Colors.black.withValues(alpha: 0.38),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
