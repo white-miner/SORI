@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/chart_photo_compressor.dart';
@@ -140,6 +141,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   int? _countdown;
   GuideDeviceAttitude? _attitude;
   bool _wasLevel = false;
+  bool _motionReady = false;
+  bool _motionDenied = false;
+  bool _motionBusy = false;
   GuideFacePose _facePose = GuideFacePose.none;
   double _zoom = GuideCameraZoomMemory.defaultZoom;
   _ShutterTimerDelay _timerDelay = _ShutterTimerDelay.off;
@@ -230,20 +234,23 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       await _session.start(front: front, zoom: _zoom);
       // 시스템 허용 성공 시 앱 사전 안내 영속 스킵
       unawaited(MediaPermissionSession.setAlwaysAllowPersisted(true));
-      await _session.requestOrientationPermission();
       await _attitudeSub?.cancel();
       _attitudeSub = _session.attitude.listen(_onAttitude);
+
+      // Android/Chrome: start()에서 이미 리스너 연결. iOS는 사용자 탭 필요.
+      final motionReady = _session.orientationListening;
+      if (!mounted) return;
+      setState(() {
+        _viewType = _session.viewType;
+        _starting = false;
+        _motionReady = motionReady;
+        _motionDenied = false;
+      });
 
       await _poseSub?.cancel();
       _poseSub = _faceAlign.poses.listen((p) {
         if (!mounted) return;
         setState(() => _facePose = p);
-      });
-
-      if (!mounted) return;
-      setState(() {
-        _viewType = _session.viewType;
-        _starting = false;
       });
 
       if (needMl) {
@@ -280,18 +287,55 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     final prev = _attitude;
     if (prev != null &&
         next != null &&
-        (prev.roll - next.roll).abs() < 0.25 &&
-        (prev.pitch - next.pitch).abs() < 0.25) {
+        (prev.roll - next.roll).abs() < 0.15 &&
+        (prev.pitch - next.pitch).abs() < 0.15) {
       return;
     }
     final leveled = next != null &&
         next.roll.abs() <= _kLevelToleranceDeg &&
         next.pitch.abs() <= _kLevelToleranceDeg;
     if (leveled && !_wasLevel) {
+      HapticFeedback.lightImpact();
       soriLightHaptic();
     }
     _wasLevel = leveled;
-    setState(() => _attitude = next);
+    setState(() {
+      _attitude = next;
+      if (next != null) _motionReady = true;
+    });
+  }
+
+  /// iOS Safari: DeviceOrientationEvent.requestPermission 은 탭 제스처 필수.
+  Future<void> _enableMotionSensors() async {
+    if (_motionBusy || _session.orientationListening) {
+      if (_session.orientationListening && mounted) {
+        setState(() {
+          _motionReady = true;
+          _motionDenied = false;
+        });
+      }
+      return;
+    }
+    setState(() => _motionBusy = true);
+    try {
+      final ok = await _session.enableOrientationListening();
+      if (!mounted) return;
+      setState(() {
+        _motionReady = ok;
+        _motionDenied = !ok;
+        _motionBusy = false;
+      });
+      if (ok) {
+        HapticFeedback.selectionClick();
+      }
+    } catch (e) {
+      debugPrint('[Gyro] enable failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _motionDenied = true;
+        _motionBusy = false;
+      });
+    }
   }
 
   Future<void> _switchMode(GuideCaptureMode mode) async {
@@ -688,8 +732,17 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     ),
                   ),
                 IgnorePointer(
-                  ignoring: true,
-                  child: _DynamicGyroLeveler(attitude: _attitude),
+                  ignoring: _motionReady && _attitude != null,
+                  child: _DynamicGyroLeveler(
+                    attitude: _attitude,
+                    motionReady: _motionReady,
+                    motionDenied: _motionDenied,
+                    motionBusy: _motionBusy,
+                    needsPermissionPrompt:
+                        _session.requiresOrientationPermissionPrompt &&
+                            !_motionReady,
+                    onEnableMotion: () => unawaited(_enableMotionSensors()),
+                  ),
                 ),
                 if (_countdown != null)
                   IgnorePointer(
@@ -954,31 +1007,30 @@ class _TimerToggleButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Stack(
-            alignment: Alignment.center,
+          width: 52,
+          height: 52,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.timer_outlined,
-                size: 26,
+                size: 24,
                 color: active
                     ? Colors.white
                     : Colors.white.withValues(alpha: 0.55),
               ),
-              if (active)
-                Positioned(
-                  bottom: 4,
-                  child: Text(
-                    delay.badge,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
+              if (active) ...[
+                const SizedBox(height: 2),
+                Text(
+                  delay.badge,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
                   ),
                 ),
+              ],
             ],
           ),
         ),
@@ -1162,28 +1214,30 @@ class _GridOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant _GridOverlayPainter oldDelegate) => false;
 }
 
-/// 고정 기준 십자 + pitch/roll에 반응하는 이동 마커.
+/// 고정 타겟 링 + 센서 연동 이동 십자선 (iOS CMMotionManager 대응 웹 구현).
 class _DynamicGyroLeveler extends StatelessWidget {
-  const _DynamicGyroLeveler({required this.attitude});
+  const _DynamicGyroLeveler({
+    required this.attitude,
+    required this.motionReady,
+    required this.motionDenied,
+    required this.motionBusy,
+    required this.needsPermissionPrompt,
+    required this.onEnableMotion,
+  });
 
   final GuideDeviceAttitude? attitude;
+  final bool motionReady;
+  final bool motionDenied;
+  final bool motionBusy;
+  final bool needsPermissionPrompt;
+  final VoidCallback onEnableMotion;
 
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _DynamicGyroLevelerPainter(attitude: attitude),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _DynamicGyroLevelerPainter extends CustomPainter {
-  _DynamicGyroLevelerPainter({required this.attitude});
-
-  final GuideDeviceAttitude? attitude;
-
-  static const _maxTravelPx = 42.0;
-  static const _maxDegVisual = 18.0;
+  static const _emerald = Color(0xFF00D289);
+  static const _glass = Color(0x66FFFFFF); // white @ 0.4
+  /// iOS `offset(x: roll * 3, y: pitch * 3)` 와 동일 감도.
+  static const _pxPerDeg = 3.0;
+  static const _maxTravelPx = 54.0;
+  static const _markerSize = 56.0;
 
   bool get _leveled {
     final a = attitude;
@@ -1193,107 +1247,185 @@ class _DynamicGyroLevelerPainter extends CustomPainter {
   }
 
   @override
+  Widget build(BuildContext context) {
+    final showPrompt = needsPermissionPrompt || motionDenied;
+    final live = motionReady && attitude != null;
+    final leveled = live && _leveled;
+    final color = leveled ? _emerald : _glass;
+
+    final roll = attitude?.roll ?? 0;
+    final pitch = attitude?.pitch ?? 0;
+    final dx = (roll * _pxPerDeg).clamp(-_maxTravelPx, _maxTravelPx);
+    final dy = (pitch * _pxPerDeg).clamp(-_maxTravelPx, _maxTravelPx);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 고정 타겟 링 (화면 정중앙)
+        Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color,
+                width: leveled ? 2.4 : 1.6,
+              ),
+              boxShadow: leveled
+                  ? [
+                      BoxShadow(
+                        color: _emerald.withValues(alpha: 0.55),
+                        blurRadius: 14,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+        ),
+        // 이동 십자선 — 센서 오프셋
+        if (live)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cx = constraints.maxWidth / 2;
+              final cy = constraints.maxHeight / 2;
+              return Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 60),
+                    curve: Curves.easeOut,
+                    left: cx + dx - _markerSize / 2,
+                    top: cy + dy - _markerSize / 2,
+                    width: _markerSize,
+                    height: _markerSize,
+                    child: CustomPaint(
+                      painter: _MovingCrossPainter(
+                        color: color,
+                        glow: leveled,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        // iOS 모션 권한 탭 게이트
+        if (showPrompt)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 16,
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: motionBusy ? null : onEnableMotion,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (motionBusy)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white70,
+                              ),
+                            )
+                          else
+                            Icon(
+                              Icons.screen_rotation_alt_rounded,
+                              size: 18,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          const SizedBox(width: 10),
+                          Text(
+                            motionDenied
+                                ? '모션 권한 거부됨 · 다시 탭'
+                                : '탭하여 수평계(자이로) 활성화',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MovingCrossPainter extends CustomPainter {
+  _MovingCrossPainter({required this.color, required this.glow});
+
+  final Color color;
+  final bool glow;
+
+  @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final center = Offset(cx, cy);
-
-    // 1) 고정 기준 십자 (항상 화면 중앙)
-    _drawCross(
-      canvas,
-      center,
-      arm: 28,
-      gap: 5,
-      color: Colors.white.withValues(alpha: 0.38),
-      stroke: 1.2,
-    );
-    canvas.drawCircle(
-      center,
-      2.2,
-      Paint()..color = Colors.white.withValues(alpha: 0.45),
-    );
-
-    final a = attitude;
-    if (a == null) return;
-
-    final dx = (a.roll / _maxDegVisual).clamp(-1.0, 1.0) * _maxTravelPx;
-    final dy = (a.pitch / _maxDegVisual).clamp(-1.0, 1.0) * _maxTravelPx;
-    final bubble = Offset(cx + dx, cy + dy);
-    final leveled = _leveled;
-
-    // 2) 이동 마커 (자이로)
-    if (leveled) {
+    final c = Offset(size.width / 2, size.height / 2);
+    if (glow) {
       canvas.drawCircle(
-        bubble,
+        c,
         18,
         Paint()
-          ..color = SoriTokens.primary.withValues(alpha: 0.28)
+          ..color = const Color(0xFF00D289).withValues(alpha: 0.35)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
       );
-      canvas.drawCircle(
-        bubble,
-        28,
-        Paint()
-          ..color = SoriTokens.primary.withValues(alpha: 0.16)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
-      );
     }
-
-    final moveColor = leveled
-        ? SoriTokens.primary
-        : Colors.white.withValues(alpha: 0.72);
-    _drawCross(
-      canvas,
-      bubble,
-      arm: 22,
-      gap: 4,
-      color: moveColor,
-      stroke: leveled ? 2.2 : 1.6,
-    );
-    canvas.drawCircle(
-      bubble,
-      leveled ? 4.5 : 3.5,
-      Paint()
-        ..color = moveColor
-        ..style = PaintingStyle.fill,
-    );
-    if (leveled) {
-      canvas.drawCircle(
-        bubble,
-        9,
-        Paint()
-          ..color = SoriTokens.primaryLight.withValues(alpha: 0.9)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4,
-      );
-    }
-  }
-
-  void _drawCross(
-    Canvas canvas,
-    Offset c, {
-    required double arm,
-    required double gap,
-    required Color color,
-    required double stroke,
-  }) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = stroke
+      ..strokeWidth = glow ? 2.4 : 1.8
       ..strokeCap = StrokeCap.round;
+    const arm = 18.0;
+    const gap = 5.0;
     canvas.drawLine(Offset(c.dx - arm, c.dy), Offset(c.dx - gap, c.dy), paint);
     canvas.drawLine(Offset(c.dx + gap, c.dy), Offset(c.dx + arm, c.dy), paint);
     canvas.drawLine(Offset(c.dx, c.dy - arm), Offset(c.dx, c.dy - gap), paint);
     canvas.drawLine(Offset(c.dx, c.dy + gap), Offset(c.dx, c.dy + arm), paint);
+    canvas.drawCircle(
+      c,
+      glow ? 4.0 : 3.0,
+      Paint()..color = color,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _DynamicGyroLevelerPainter oldDelegate) {
-    final a = attitude;
-    final b = oldDelegate.attitude;
-    if (identical(a, b)) return false;
-    if (a == null || b == null) return a != b;
-    return a.roll != b.roll || a.pitch != b.pitch;
+  bool shouldRepaint(covariant _MovingCrossPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.glow != glow;
   }
 }
 
@@ -1302,7 +1434,7 @@ class _DecolleteGuidePainter extends CustomPainter {
 
   final GuideDeviceAttitude? attitude;
 
-  static const _emeraldGlow = Color(0xFF00E599);
+  static const _emeraldGlow = Color(0xFF00D289);
 
   bool get _leveled {
     final a = attitude;

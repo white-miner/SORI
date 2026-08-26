@@ -26,6 +26,8 @@ class WebGuideCameraSession implements GuideCameraSession {
   StreamController<GuideDeviceAttitude?>? _attitudeCtrl;
   web.EventListener? _orientListener;
   DateTime? _lastAttitudeEmit;
+  bool _orientationListening = false;
+  bool? _requiresPermissionPrompt;
 
   @override
   String? get viewType => _viewType;
@@ -52,6 +54,26 @@ class WebGuideCameraSession implements GuideCameraSession {
   Object? get mlVideoHandle => _video;
 
   @override
+  bool get orientationListening => _orientationListening;
+
+  @override
+  bool get requiresOrientationPermissionPrompt {
+    _requiresPermissionPrompt ??= _detectRequiresPermissionPrompt();
+    return _requiresPermissionPrompt!;
+  }
+
+  bool _detectRequiresPermissionPrompt() {
+    try {
+      final doe = globalContext.getProperty('DeviceOrientationEvent'.toJS);
+      if (doe == null || doe.isUndefinedOrNull) return false;
+      final req = (doe as JSObject).getProperty('requestPermission'.toJS);
+      return req != null && !req.isUndefinedOrNull;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
   Stream<GuideDeviceAttitude?> get attitude {
     _attitudeCtrl ??= StreamController<GuideDeviceAttitude?>.broadcast();
     return _attitudeCtrl!.stream;
@@ -61,22 +83,41 @@ class WebGuideCameraSession implements GuideCameraSession {
   Stream<double?> get rollDegrees =>
       attitude.map((a) => a?.roll);
 
+  /// iOS 13+ Safari: 사용자 제스처 스택에서 동기적으로 Promise를 시작해야 함.
   @override
   Future<bool> requestOrientationPermission() async {
     try {
       final doe = globalContext.getProperty('DeviceOrientationEvent'.toJS);
       if (doe == null || doe.isUndefinedOrNull) return true;
-      final req = (doe as JSObject).getProperty('requestPermission'.toJS);
+      final doeObj = doe as JSObject;
+      final req = doeObj.getProperty('requestPermission'.toJS);
       if (req == null || req.isUndefinedOrNull) return true;
-      final promise = (req as JSFunction).callAsFunction();
-      if (promise == null) return true;
-      final result = await (promise as JSPromise<JSAny?>).toDart;
-      final s = (result as JSString?)?.toDart ?? 'denied';
-      return s == 'granted';
+
+      // Static method: DeviceOrientationEvent.requestPermission()
+      final promiseAny = doeObj.callMethod('requestPermission'.toJS);
+      if (promiseAny == null || promiseAny.isUndefinedOrNull) return true;
+      final result = await (promiseAny as JSPromise<JSAny?>).toDart;
+      final granted = switch (result) {
+        final JSString s => s.toDart == 'granted',
+        _ => '$result' == 'granted',
+      };
+      debugPrint('[Gyro] DeviceOrientation permission: $granted');
+      return granted;
     } catch (e) {
       debugPrint('requestOrientationPermission: $e');
       return false;
     }
+  }
+
+  @override
+  Future<bool> enableOrientationListening() async {
+    final ok = await requestOrientationPermission();
+    if (!ok) {
+      debugPrint('[Gyro] permission denied — not attaching listener');
+      return false;
+    }
+    _attachOrientation();
+    return true;
   }
 
   @override
@@ -142,7 +183,11 @@ class WebGuideCameraSession implements GuideCameraSession {
       (int viewId) => video,
     );
 
-    _attachOrientation();
+    // iOS: permission은 사용자 탭에서 enableOrientationListening()으로만.
+    // Android/Chrome: requestPermission 없음 → 바로 리스너 연결.
+    if (!requiresOrientationPermissionPrompt) {
+      _attachOrientation();
+    }
   }
 
   @override
@@ -212,8 +257,8 @@ class WebGuideCameraSession implements GuideCameraSession {
     _attitudeCtrl ??= StreamController<GuideDeviceAttitude?>.broadcast();
     void handler(web.Event e) {
       final oe = e as web.DeviceOrientationEvent;
-      final gamma = oe.gamma?.toDouble();
-      final beta = oe.beta?.toDouble();
+      final gamma = oe.gamma;
+      final beta = oe.beta;
       // ~20Hz + 미세 변화 무시 → UI setState 폭주 방지
       final now = DateTime.now();
       if (_lastAttitudeEmit != null &&
@@ -235,13 +280,26 @@ class WebGuideCameraSession implements GuideCameraSession {
 
     _orientListener = handler.toJS;
     web.window.addEventListener('deviceorientation', _orientListener!);
+    // iOS: deviceorientationabsolute 폴백
+    try {
+      web.window.addEventListener('deviceorientationabsolute', _orientListener!);
+    } catch (_) {}
+    _orientationListening = true;
+    debugPrint('[Gyro] deviceorientation listener attached');
   }
 
   void _detachOrientation() {
     if (_orientListener != null) {
       web.window.removeEventListener('deviceorientation', _orientListener!);
+      try {
+        web.window.removeEventListener(
+          'deviceorientationabsolute',
+          _orientListener!,
+        );
+      } catch (_) {}
       _orientListener = null;
     }
+    _orientationListening = false;
   }
 
   /// 트랙·DOM을 즉시 해제 — 워밍 캐시 없음 (iOS 카메라 인디케이터 잔존 방지).

@@ -40,6 +40,15 @@ class _StubGuideCameraSession implements GuideCameraSession {
   Future<bool> requestOrientationPermission() async => false;
 
   @override
+  Future<bool> enableOrientationListening() async => false;
+
+  @override
+  bool get orientationListening => false;
+
+  @override
+  bool get requiresOrientationPermissionPrompt => false;
+
+  @override
   Future<void> start({required bool front, double zoom = 1.7}) async {
     throw UnsupportedError('Guide camera is web-only');
   }

@@ -58,5 +58,16 @@ abstract class GuideCameraSession {
   /// @deprecated [attitude] 사용.
   Stream<double?> get rollDegrees;
 
+  /// iOS Safari: 반드시 **사용자 탭 콜백 안**에서 호출.
+  /// `DeviceOrientationEvent.requestPermission()` 후 리스너를 연결한다.
   Future<bool> requestOrientationPermission();
+
+  /// 권한 승인(또는 비-iOS) 후 deviceorientation 리스너 시작.
+  Future<bool> enableOrientationListening();
+
+  /// 현재 모션 리스너가 붙어 있는지.
+  bool get orientationListening;
+
+  /// iOS 등 requestPermission API가 필요한 환경인지.
+  bool get requiresOrientationPermissionPrompt;
 }
