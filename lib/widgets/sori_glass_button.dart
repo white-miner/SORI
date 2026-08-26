@@ -1,10 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../theme/sori_tokens.dart';
+import 'sori_glass_surface.dart';
 
-/// 글래스모피즘 에메랄드 CTA — BackdropFilter + primaryGlass.
+/// Monochrome glass CTA — white blur fill + charcoal label.
 class SoriGlassButton extends StatelessWidget {
   const SoriGlassButton({
     super.key,
@@ -25,39 +24,36 @@ class SoriGlassButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     final radius = BorderRadius.circular(borderRadius);
-    final body = ClipRRect(
+    final body = SoriGlassSurface(
       borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: radius,
-            child: Ink(
-              decoration: enabled
-                  ? SoriTokens.glassEmerald(radius: borderRadius)
-                  : BoxDecoration(
-                      color: SoriTokens.surfaceOverlay,
-                      borderRadius: radius,
-                    ),
-              child: Padding(
-                padding: padding,
-                child: DefaultTextStyle.merge(
-                  style: TextStyle(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: radius,
+          child: Ink(
+            decoration: enabled
+                ? null
+                : BoxDecoration(
+                    color: SoriTokens.surfaceOverlay,
+                    borderRadius: radius,
+                  ),
+            child: Padding(
+              padding: padding,
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
+                  color: enabled
+                      ? SoriTokens.textPrimary
+                      : SoriTokens.textTertiary,
+                  fontWeight: FontWeight.w800,
+                ),
+                child: IconTheme.merge(
+                  data: IconThemeData(
                     color: enabled
-                        ? SoriTokens.onPrimary
+                        ? SoriTokens.textPrimary
                         : SoriTokens.textTertiary,
-                    fontWeight: FontWeight.w900,
                   ),
-                  child: IconTheme.merge(
-                    data: IconThemeData(
-                      color: enabled
-                          ? SoriTokens.onPrimary
-                          : SoriTokens.textTertiary,
-                    ),
-                    child: child,
-                  ),
+                  child: child,
                 ),
               ),
             ),

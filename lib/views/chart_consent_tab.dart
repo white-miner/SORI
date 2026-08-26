@@ -254,7 +254,7 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFFB45309),
             padding: const EdgeInsets.symmetric(vertical: 14),
-            side: const BorderSide(color: Color(0xFFFBBF24)),
+            side: const BorderSide(color: SoriTokens.warningText),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),

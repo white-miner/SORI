@@ -67,7 +67,7 @@ class _AiShopReportPageState extends State<AiShopReportPage> {
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor:
-              result.ok ? SoriTokens.primary : Colors.redAccent,
+              result.ok ? SoriTokens.primary : SoriTokens.primaryDark,
         ),
       );
     } finally {

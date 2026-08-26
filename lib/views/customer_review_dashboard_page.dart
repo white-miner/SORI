@@ -86,7 +86,7 @@ class _CustomerReviewDashboardPageState
         const SnackBar(
           content: Text('네이버 예약 링크가 준비 중입니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -98,7 +98,7 @@ class _CustomerReviewDashboardPageState
         const SnackBar(
           content: Text('네이버 예약 링크가 준비 중입니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;

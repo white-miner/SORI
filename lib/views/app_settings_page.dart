@@ -229,13 +229,13 @@ class _SettingsTile extends StatelessWidget {
     return ListTile(
       leading: Icon(
         icon,
-        color: danger ? Colors.redAccent : SoriTokens.primary,
+        color: danger ? SoriTokens.primaryDark : SoriTokens.primary,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: FontWeight.w700,
-          color: danger ? Colors.redAccent : SoriTokens.textPrimary,
+          color: danger ? SoriTokens.primaryDark : SoriTokens.textPrimary,
         ),
       ),
       trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),

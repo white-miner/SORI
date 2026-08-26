@@ -1521,7 +1521,7 @@ class _StarRow extends StatelessWidget {
           Icon(
             i <= full ? Icons.star_rounded : Icons.star_outline_rounded,
             size: 16,
-            color: const Color(0xFFFBBF24),
+            color: SoriTokens.warningText,
           ),
       ],
     );
@@ -1684,7 +1684,7 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('게시 실패 — DB 마이그레이션(049)을 확인해 주세요'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -1955,7 +1955,7 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('게시 실패 — DB 마이그레이션(049)을 확인해 주세요'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -2029,7 +2029,7 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
                       i <= _rating.round()
                           ? Icons.star_rounded
                           : Icons.star_outline_rounded,
-                      color: const Color(0xFFFBBF24),
+                      color: SoriTokens.warningText,
                     ),
                   ),
               ],

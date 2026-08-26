@@ -162,7 +162,7 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
         after: ChartImagePane(
           url: slide.afterUrl,
           fallbackLabel: 'After',
-          tone: Colors.green.shade700,
+          tone: SoriTokens.textSecondary,
         ),
       );
     }

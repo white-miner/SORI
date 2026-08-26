@@ -94,7 +94,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
       after: ChartImagePane(
         url: chart.afterImageUrl,
         fallbackLabel: 'After',
-        tone: Colors.green.shade700,
+        tone: SoriTokens.textSecondary,
       ),
     );
   }
@@ -289,7 +289,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                                   letterSpacing: 0.4,
                                   color: item.isFanBoosted
                                       ? const Color(0xFFF9A8D4)
-                                      : const Color(0xFFFBBF24),
+                                      : SoriTokens.warningText,
                                 ),
                               ),
                             ),
@@ -373,7 +373,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           fontWeight: FontWeight.w800,
                           color: item.isFanBoosted
                               ? const Color(0xFFF9A8D4)
-                              : const Color(0xFFFBBF24),
+                              : SoriTokens.warningText,
                           letterSpacing: 0.2,
                         ),
                       ),

@@ -538,7 +538,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           const SnackBar(
             content: Text('WebP 압축에 실패했어요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
           ),
         );
         return;
@@ -556,7 +556,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           const SnackBar(
             content: Text('업로드에 실패했어요. 네트워크·Storage를 확인해 주세요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
           ),
         );
         return;
@@ -579,7 +579,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         SnackBar(
           content: Text('촬영 실패: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {
@@ -1152,7 +1152,7 @@ class _AutoShootToggleButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
 
-  static const _emerald = Color(0xFF00D289);
+  static const _emerald = Color(0xFFFFFFFF);
 
   @override
   Widget build(BuildContext context) {
@@ -1241,7 +1241,7 @@ class _PresetIconButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   static const _inactive = Color(0x8CFFFFFF); // white @ ~55%
-  static const _emerald = Color(0xFF00D289);
+  static const _emerald = Color(0xFFFFFFFF);
 
   @override
   Widget build(BuildContext context) {
@@ -1375,7 +1375,7 @@ class _DynamicGyroLeveler extends StatelessWidget {
   final bool needsPermissionPrompt;
   final VoidCallback onEnableMotion;
 
-  static const _emerald = Color(0xFF00D289);
+  static const _emerald = Color(0xFFFFFFFF);
   static const _glass = Color(0x66FFFFFF);
 
   @override
@@ -1488,7 +1488,7 @@ class _FixedHorizonGuidesPainter extends CustomPainter {
 
     if (glow) {
       final glowPaint = Paint()
-        ..color = const Color(0xFF00D289).withValues(alpha: 0.35)
+        ..color = Colors.white.withValues(alpha: 0.35)
         ..strokeWidth = 6
         ..strokeCap = StrokeCap.round
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
@@ -1527,7 +1527,7 @@ class _RollBarPainter extends CustomPainter {
         Offset(8, cy),
         Offset(size.width - 8, cy),
         Paint()
-          ..color = const Color(0xFF00D289).withValues(alpha: 0.4)
+          ..color = Colors.white.withValues(alpha: 0.4)
           ..strokeWidth = 8
           ..strokeCap = StrokeCap.round
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
@@ -1554,7 +1554,7 @@ class _DecolleteGuidePainter extends CustomPainter {
 
   final bool leveled;
 
-  static const _emerald = Color(0xFF00D289);
+  static const _emerald = Color(0xFFFFFFFF);
   static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
 
   Color get _strokeColor =>
@@ -1722,7 +1722,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
   static const _outerWhite = Color(0x80FFFFFF); // 50%
   static const _innerWhite = Color(0x66FFFFFF); // 40%
   static const _trackGray = Color(0x66B0B0B0);
-  static const _emerald = Color(0xFF00D289);
+  static const _emerald = Color(0xFFFFFFFF);
 
   Offset _targetCenter(Size size) => Offset(
         size.width * GuideFacePose.guideCenterX,
@@ -1829,7 +1829,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
 
     // 미정렬 힌트 — 위치/거리
     if (pose.detected && !aligned) {
-      final hint = const Color(0xFFFBBF24).withValues(alpha: 0.42);
+      final hint = Colors.white.withValues(alpha: 0.42);
       final hintPaint = Paint()
         ..color = hint
         ..style = PaintingStyle.stroke

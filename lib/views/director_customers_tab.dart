@@ -141,7 +141,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
         SnackBar(
           content: Text('삭제 실패: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {
@@ -351,7 +351,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                                         ? null
                                         : _bulkDelete,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.redAccent,
+                                      backgroundColor: SoriTokens.primaryDark,
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
                                       ),

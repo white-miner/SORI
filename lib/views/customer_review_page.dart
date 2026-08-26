@@ -111,7 +111,7 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
         SnackBar(
           content: Text(e.message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } catch (e) {
@@ -120,7 +120,7 @@ class _CustomerReviewPageState extends State<CustomerReviewPage> {
         SnackBar(
           content: Text('카카오 로그인에 실패했어요: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {

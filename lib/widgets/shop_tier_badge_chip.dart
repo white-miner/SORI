@@ -193,41 +193,41 @@ class _TierVisual {
             colors: [
               Color(0xFF0F172A),
               Color(0xFF164E63),
-              Color(0xFF1E1B4B),
+              SoriTokens.primaryDark,
             ],
           ),
         ),
       ShopTierBadge.mentor => const _TierVisual(
           foreground: Color(0xFFC7D2FE),
-          background: Color(0xFF1E1B4B),
+          background: SoriTokens.primaryDark,
           border: Color(0xFF6366F1),
         ),
       ShopTierBadge.master => const _TierVisual(
           foreground: Color(0xFFE9D5FF),
-          background: Color(0xFF2E1065),
-          border: Color(0xFFA78BFA),
+          background: SoriTokens.primaryDark,
+          border: SoriTokens.premium,
           sparkle: true,
           gradient: LinearGradient(
-            colors: [Color(0xFF2E1065), Color(0xFFA78BFA), Color(0xFF1E1B4B)],
+            colors: [SoriTokens.primaryDark, SoriTokens.premium, SoriTokens.primaryDark],
           ),
         ),
       ShopTierBadge.grandMaster => const _TierVisual(
           foreground: Color(0xFFFFF7ED),
-          background: Color(0xFF1E1B4B),
-          border: Color(0xFFFBBF24),
+          background: SoriTokens.primaryDark,
+          border: SoriTokens.warningText,
           sparkle: true,
           gradient: LinearGradient(
-            colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF78350F)],
+            colors: [SoriTokens.primaryDark, Color(0xFF312E81), Color(0xFF78350F)],
           ),
         ),
       ShopTierBadge.grandDirector => const _TierVisual(
           foreground: Color(0xFFF5D0FE),
-          background: Color(0xFF2E1065),
+          background: SoriTokens.primaryDark,
           border: Color(0xFFA855F7),
           sparkle: true,
           gradient: LinearGradient(
             colors: [
-              Color(0xFF2E1065),
+              SoriTokens.primaryDark,
               Color(0xFF164E63),
               Color(0xFF4A044E),
               Color(0xFF14532D),

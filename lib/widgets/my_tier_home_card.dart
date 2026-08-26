@@ -186,7 +186,7 @@ Future<void> showFullTierGuideSheet(
                                     fontWeight: FontWeight.w700,
                                     color: isSocial
                                         ? const Color(0xFF38BDF8)
-                                        : const Color(0xFFFBBF24),
+                                        : SoriTokens.warningText,
                                   ),
                                 ),
                               ],

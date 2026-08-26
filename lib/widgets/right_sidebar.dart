@@ -320,7 +320,7 @@ class _TierCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.military_tech_rounded,
-                  size: 20, color: Color(0xFFFBBF24)),
+                  size: 20, color: SoriTokens.warningText),
               const SizedBox(width: 6),
               const Text('내 등급',
                   style: TextStyle(

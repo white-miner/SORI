@@ -744,7 +744,7 @@ class _VisitChartCard extends StatelessWidget {
                 Icon(
                   Icons.check_circle,
                   size: 18,
-                  color: Colors.green.shade500,
+                  color: SoriTokens.textSecondary,
                 ),
               const SizedBox(width: 4),
               const Icon(

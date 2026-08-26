@@ -239,7 +239,7 @@ class _BeforeAfterCompareSheetState extends State<_BeforeAfterCompareSheet> {
                                 after: ChartImagePane(
                                   url: _right!.url,
                                   fallbackLabel: _right!.shortLabel,
-                                  tone: Colors.green.shade700,
+                                  tone: SoriTokens.textSecondary,
                                 ),
                               )
                             else
@@ -286,7 +286,7 @@ class _BeforeAfterCompareSheetState extends State<_BeforeAfterCompareSheet> {
                                           child: ChartImagePane(
                                             url: _right!.url,
                                             fallbackLabel: _right!.shortLabel,
-                                            tone: Colors.green.shade700,
+                                            tone: SoriTokens.textSecondary,
                                           ),
                                         ),
                                       ],

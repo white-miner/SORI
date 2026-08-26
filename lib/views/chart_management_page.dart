@@ -162,7 +162,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('저장 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -216,7 +216,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('사진 저장 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -270,7 +270,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('가이드 촬영 저장 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -326,7 +326,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('After 등록 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           behavior: SnackBarBehavior.floating,
         ),
       );

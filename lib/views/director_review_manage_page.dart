@@ -468,10 +468,6 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
   Future<void> _openFilterSheet() async {
     await showSoriModalBottomSheet<void>(
       context: context,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModal) {

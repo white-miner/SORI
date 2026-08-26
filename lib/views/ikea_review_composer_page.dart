@@ -116,7 +116,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
         SnackBar(
           content: Text(e.message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } catch (_) {
@@ -129,7 +129,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
         const SnackBar(
           content: Text('AI 문장 생성에 실패했어요. 잠시 후 다시 시도해 주세요.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {
@@ -200,7 +200,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                 '네이버 리뷰 작성 URL이 없어요. 샵 정보에서 직행 링크를 등록해 주세요.',
               ),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.redAccent,
+              backgroundColor: SoriTokens.primaryDark,
             ),
           );
         }
@@ -213,7 +213,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
         SnackBar(
           content: Text('복사 중 문제가 생겼어요: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {
@@ -377,7 +377,7 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                     _aiError!,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.redAccent,
+                      color: SoriTokens.primaryDark,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

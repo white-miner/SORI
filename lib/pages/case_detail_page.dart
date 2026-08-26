@@ -108,7 +108,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
       after: ChartImagePane(
         url: chart.afterImageUrl,
         fallbackLabel: 'After',
-        tone: Colors.green.shade700,
+        tone: SoriTokens.textSecondary,
       ),
     );
   }

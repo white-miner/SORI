@@ -64,7 +64,7 @@ class _MySeminarTabBodyState extends State<MySeminarTabBody> {
         SeminarClassStatus.open => SoriTokens.primary,
         SeminarClassStatus.held => const Color(0xFF0EA5E9),
         SeminarClassStatus.completed => SoriTokens.textSecondary,
-        SeminarClassStatus.cancelled => Colors.redAccent,
+        SeminarClassStatus.cancelled => SoriTokens.primaryDark,
         SeminarClassStatus.draft => SoriTokens.textSecondary,
       };
 

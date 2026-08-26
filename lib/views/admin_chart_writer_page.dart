@@ -280,7 +280,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         SnackBar(
           content: Text(field.errorCopy),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -793,7 +793,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         SnackBar(
           content: Text('조회 실패: ${widget.store.lastError}'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       widget.store.clearError();
@@ -1097,17 +1097,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 if (hasPhoto)
                   ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Colors.redAccent.withValues(alpha: 0.12),
+                      backgroundColor: SoriTokens.primaryDark.withValues(alpha: 0.12),
                       child: const Icon(
                         Icons.delete_outline,
-                        color: Colors.redAccent,
+                        color: SoriTokens.primaryDark,
                       ),
                     ),
                     title: const Text(
                       '사진 삭제',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Colors.redAccent,
+                        color: SoriTokens.primaryDark,
                       ),
                     ),
                     onTap: () {
@@ -1222,7 +1222,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('사진 압축(WebP)에 실패했어요. 다른 사진으로 다시 시도해 주세요.'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1256,7 +1256,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('사진 업로드에 실패했어요. 네트워크·Storage 버킷을 확인해 주세요.'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1288,7 +1288,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('사진 선택 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1391,7 +1391,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
             SnackBar(
               content: Text('고객 정보 저장 실패: $e'),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.redAccent,
+              backgroundColor: SoriTokens.primaryDark,
             ),
           );
           return;
@@ -1425,7 +1425,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           const SnackBar(
             content: Text('서명이 저장되지 않았습니다. 전자 동의서 탭에서 다시 서명해 주세요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
           ),
         );
         _tabController.animateTo(1);
@@ -1566,7 +1566,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           duration: const Duration(seconds: 6),
         ),
       );

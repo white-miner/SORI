@@ -122,7 +122,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
         SnackBar(
           content: Text(e.message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {
@@ -142,7 +142,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
           SnackBar(
             content: Text('중복된 서비스명이에요: $name'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
           ),
         );
         return;
@@ -248,7 +248,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
                             tooltip: '삭제',
                             onPressed: () => _removeAt(index),
                             icon: const Icon(Icons.delete_outline_rounded),
-                            color: Colors.redAccent,
+                            color: SoriTokens.primaryDark,
                           ),
                         ],
                       ),

@@ -166,7 +166,7 @@ class _CustomerManagementCasesPageState
         const SnackBar(
           content: Text('네이버 예약 링크가 준비 중입니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -178,7 +178,7 @@ class _CustomerManagementCasesPageState
         const SnackBar(
           content: Text('네이버 예약 링크가 준비 중입니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -189,7 +189,7 @@ class _CustomerManagementCasesPageState
         const SnackBar(
           content: Text('네이버 예약 링크가 준비 중입니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     }
@@ -620,7 +620,7 @@ class _CustomerCaseCard extends StatelessWidget {
               after: ChartImagePane(
                 url: chart.afterImageUrl,
                 fallbackLabel: 'After',
-                tone: Colors.green.shade700,
+                tone: SoriTokens.textSecondary,
               ),
             ),
           ),

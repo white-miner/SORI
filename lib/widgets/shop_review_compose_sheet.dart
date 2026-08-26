@@ -104,7 +104,7 @@ Future<void> showShopReviewComposeSheet(
                           star <= rating
                               ? Icons.star_rounded
                               : Icons.star_outline_rounded,
-                          color: const Color(0xFFFBBF24),
+                          color: SoriTokens.warningText,
                         ),
                       );
                     }),
@@ -160,7 +160,7 @@ Future<void> showShopReviewComposeSheet(
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('등록 실패: $e'),
-        backgroundColor: Colors.redAccent,
+        backgroundColor: SoriTokens.primaryDark,
       ),
     );
   }

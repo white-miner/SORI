@@ -280,7 +280,7 @@ class _DealStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (status) {
       MarketListingStatus.active => SoriTokens.primary,
-      MarketListingStatus.reserved => const Color(0xFFFBBF24),
+      MarketListingStatus.reserved => SoriTokens.warningText,
       MarketListingStatus.sold => SoriTokens.textSecondary,
       _ => SoriTokens.textSecondary,
     };

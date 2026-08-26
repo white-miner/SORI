@@ -154,7 +154,7 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
                 ? widget.store.lastError!
                 : '세미나 개설에 실패했습니다.',
           ),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;

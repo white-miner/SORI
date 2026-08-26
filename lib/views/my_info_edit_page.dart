@@ -87,7 +87,7 @@ class _MyInfoEditPageState extends State<MyInfoEditPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            style: TextButton.styleFrom(foregroundColor: SoriTokens.primaryDark),
             child: const Text('탈퇴'),
           ),
         ],
@@ -241,7 +241,7 @@ class _MyInfoEditPageState extends State<MyInfoEditPage> {
             child: const Text(
               '회원탈퇴',
               style: TextStyle(
-                color: Colors.redAccent,
+                color: SoriTokens.primaryDark,
                 fontWeight: FontWeight.w700,
               ),
             ),

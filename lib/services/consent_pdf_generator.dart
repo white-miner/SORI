@@ -271,7 +271,7 @@ abstract final class ConsentPdfGenerator {
               style: pw.TextStyle(
                 fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
-                color: agreed ? PdfColors.green800 : PdfColors.grey600,
+                color: agreed ? PdfColors.grey800 : PdfColors.grey600,
               ),
             ),
           ],
@@ -340,7 +340,7 @@ abstract final class ConsentPdfGenerator {
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(
         shape: pw.BoxShape.circle,
-        border: pw.Border.all(color: PdfColors.red700, width: 2.2),
+        border: pw.Border.all(color: PdfColors.grey900, width: 2.2),
       ),
       child: pw.Container(
         width: 74,
@@ -348,7 +348,7 @@ abstract final class ConsentPdfGenerator {
         alignment: pw.Alignment.center,
         decoration: pw.BoxDecoration(
           shape: pw.BoxShape.circle,
-          border: pw.Border.all(color: PdfColors.red400, width: 0.8),
+          border: pw.Border.all(color: PdfColors.grey600, width: 0.8),
         ),
         padding: const pw.EdgeInsets.all(6),
         child: pw.Text(
@@ -357,7 +357,7 @@ abstract final class ConsentPdfGenerator {
           style: pw.TextStyle(
             fontSize: label.length > 6 ? 8.5 : 10,
             fontWeight: pw.FontWeight.bold,
-            color: PdfColors.red700,
+            color: PdfColors.grey900,
             lineSpacing: 1.5,
           ),
         ),

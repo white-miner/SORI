@@ -149,7 +149,7 @@ class _EntryHomePageState extends State<EntryHomePage>
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.redAccent,
+        backgroundColor: SoriTokens.primaryDark,
         duration: const Duration(seconds: 5),
       ),
     );
@@ -283,7 +283,7 @@ class _EntryHomePageState extends State<EntryHomePage>
             center: Alignment(0.0, 1.1),
             radius: 0.85,
             colors: [
-              Color(0xFF00E599),
+              SoriTokens.primaryLight,
               Color(0x80047857),
               Color(0x20022C22),
               Color(0xFF000000),

@@ -68,7 +68,7 @@ class _SeminarReviewModalState extends State<SeminarReviewModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('긍정 인사이트 태그를 1개 이상 선택해 주세요.'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -93,7 +93,7 @@ class _SeminarReviewModalState extends State<SeminarReviewModal> {
                 ? widget.store.lastError!.trim()
                 : '리뷰 저장에 실패했습니다.',
           ),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -112,7 +112,7 @@ class _SeminarReviewModalState extends State<SeminarReviewModal> {
                 ? widget.store.lastError!.trim()
                 : '정산에 실패했습니다.',
           ),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;

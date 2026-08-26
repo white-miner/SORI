@@ -142,7 +142,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
           const SnackBar(
             content: Text('서명을 저장하지 못했습니다. 다시 서명한 뒤 저장해 주세요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
           ),
         );
         return;
@@ -182,7 +182,7 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
         SnackBar(
           content: Text('동의서 저장 실패: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {

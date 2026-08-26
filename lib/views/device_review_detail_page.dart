@@ -285,7 +285,7 @@ class _DetailStars extends StatelessWidget {
                   ? Icons.star_rounded
                   : Icons.star_outline_rounded,
           size: 22,
-          color: const Color(0xFFFBBF24),
+          color: SoriTokens.warningText,
         );
       }),
     );

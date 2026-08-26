@@ -176,7 +176,7 @@ class _CaseTimelineModalState extends State<CaseTimelineModal> {
                       after: ChartImagePane(
                         url: selected.afterImageUrl,
                         fallbackLabel: 'After',
-                        tone: Colors.green.shade700,
+                        tone: SoriTokens.textSecondary,
                       ),
                     ),
                   ),

@@ -82,7 +82,7 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('모집이 마감되었습니다.'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
       return;
@@ -257,7 +257,7 @@ class _HeroHeader extends StatelessWidget {
               return ChartImagePane(
                 url: heroUrls[index],
                 fallbackLabel: label,
-                tone: index == 0 ? SoriTokens.primary : Colors.green.shade700,
+                tone: index == 0 ? SoriTokens.primary : SoriTokens.textSecondary,
               );
             },
           ),
@@ -320,7 +320,7 @@ class _HeroHeader extends StatelessWidget {
             after: ChartImagePane(
               url: c.afterImageUrl,
               fallbackLabel: 'After',
-              tone: Colors.green.shade700,
+              tone: SoriTokens.textSecondary,
             ),
           ),
           DecoratedBox(

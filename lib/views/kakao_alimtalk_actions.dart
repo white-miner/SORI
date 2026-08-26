@@ -44,7 +44,7 @@ Future<bool> sendKakaoAlimtalkWithUi(
       SnackBar(
         content: Text(result.message ?? '알림톡 발송에 실패했습니다.'),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.redAccent,
+        backgroundColor: SoriTokens.primaryDark,
       ),
     );
     return false;

@@ -114,7 +114,7 @@ class _MembershipEditorSheetState extends State<_MembershipEditorSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('저장 실패: ${widget.store.lastError}'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -127,7 +127,7 @@ class _MembershipEditorSheetState extends State<_MembershipEditorSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('저장 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
           behavior: SnackBarBehavior.floating,
         ),
       );

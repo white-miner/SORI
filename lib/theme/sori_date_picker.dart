@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'sori_tokens.dart';
 
-/// SORI DatePicker — 다크 서피스 + 퍼플 포인트 공통 테마.
+/// SORI DatePicker — light monochrome surface.
 abstract final class SoriDatePickerTheme {
   static const double radius = 24;
 

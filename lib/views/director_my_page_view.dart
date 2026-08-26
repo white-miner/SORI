@@ -147,7 +147,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
             ok ? '간판 이미지가 업데이트되었어요' : '업로드에 실패했어요',
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: ok ? SoriTokens.primary : Colors.redAccent,
+          backgroundColor: ok ? SoriTokens.primary : SoriTokens.primaryDark,
         ),
       );
     } catch (e) {
@@ -156,7 +156,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
         SnackBar(
           content: Text('업로드 오류: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {
@@ -998,7 +998,7 @@ class _HomeTabBody extends StatelessWidget {
                             behavior: SnackBarBehavior.floating,
                             backgroundColor: ok
                                 ? SoriTokens.primary
-                                : Colors.redAccent,
+                                : SoriTokens.primaryDark,
                           ),
                         );
                       }
@@ -1323,7 +1323,7 @@ class _ReviewTabBody extends StatelessWidget {
                                       ? Icons.star_rounded
                                       : Icons.star_outline_rounded,
                                   size: 18,
-                                  color: const Color(0xFFFBBF24),
+                                  color: SoriTokens.warningText,
                                 ),
                               ),
                             ],
@@ -1366,7 +1366,7 @@ class _ReviewTabBody extends StatelessWidget {
                         (_) => const Icon(
                           Icons.star_rounded,
                           size: 16,
-                          color: Color(0xFFFBBF24),
+                          color: SoriTokens.warningText,
                         ),
                       ),
                       const Spacer(),

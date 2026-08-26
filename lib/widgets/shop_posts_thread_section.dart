@@ -53,7 +53,7 @@ class ShopPostsThreadSection extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: FilledButton.styleFrom(backgroundColor: SoriTokens.primaryDark),
             child: const Text('삭제'),
           ),
         ],
@@ -66,7 +66,7 @@ class ShopPostsThreadSection extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('이 글을 삭제할 권한이 없어요'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     }
@@ -486,7 +486,7 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('게시 실패: $e'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: SoriTokens.primaryDark,
         ),
       );
     } finally {

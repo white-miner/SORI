@@ -60,7 +60,7 @@ class ShopGalleryHomeSection extends StatelessWidget {
               : '$okCount장 추가 · $failCount장 실패',
         ),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: okCount > 0 ? SoriTokens.primary : Colors.redAccent,
+        backgroundColor: okCount > 0 ? SoriTokens.primary : SoriTokens.primaryDark,
       ),
     );
   }

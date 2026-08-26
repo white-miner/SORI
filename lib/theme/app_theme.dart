@@ -4,24 +4,30 @@ import 'package:flutter/services.dart';
 import 'sori_date_picker.dart';
 import 'sori_tokens.dart';
 
-/// Global dark theme — Content-First neutrals + emerald accent.
+/// Global light monochrome theme — off-white canvas + charcoal primary.
 abstract final class AppTheme {
-  static ThemeData get dark {
-    final base = ColorScheme.fromSeed(
-      seedColor: SoriTokens.primary,
-      brightness: Brightness.dark,
+  static ThemeData get theme {
+    final scheme = ColorScheme(
+      brightness: Brightness.light,
       primary: SoriTokens.primary,
+      onPrimary: SoriTokens.onPrimary,
+      secondary: SoriTokens.primaryLight,
+      onSecondary: SoriTokens.onPrimary,
       surface: SoriTokens.surface,
       onSurface: SoriTokens.textPrimary,
-      onPrimary: SoriTokens.onPrimary,
-      secondary: SoriTokens.premium,
-      onSecondary: SoriTokens.textPrimary,
+      error: SoriTokens.primaryDark,
+      onError: SoriTokens.onPrimary,
     );
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: base,
+      brightness: Brightness.light,
+      colorScheme: scheme,
+      primaryColor: SoriTokens.primary,
+      scaffoldBackgroundColor: SoriTokens.background,
+      canvasColor: SoriTokens.background,
+      cardColor: SoriTokens.surface,
+      dividerColor: SoriTokens.border,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
@@ -29,11 +35,10 @@ abstract final class AppTheme {
       tabBarTheme: const TabBarThemeData(
         overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
         splashFactory: NoSplash.splashFactory,
+        labelColor: SoriTokens.textPrimary,
+        unselectedLabelColor: SoriTokens.textTertiary,
+        indicatorColor: SoriTokens.primary,
       ),
-      scaffoldBackgroundColor: SoriTokens.background,
-      canvasColor: SoriTokens.background,
-      cardColor: SoriTokens.surface,
-      dividerColor: SoriTokens.border,
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           backgroundColor: Colors.transparent,
@@ -49,7 +54,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         iconTheme: IconThemeData(color: SoriTokens.textPrimary),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
@@ -65,6 +70,7 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(SoriTokens.radiusLg),
+          side: const BorderSide(color: SoriTokens.border, width: SoriTokens.outlineWidth),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -82,20 +88,26 @@ abstract final class AppTheme {
           foregroundColor: SoriTokens.onPrimary,
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: SoriTokens.primary,
-        foregroundColor: SoriTokens.onPrimary,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: SoriTokens.textPrimary,
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: SoriTokens.glassFill,
+        foregroundColor: SoriTokens.textPrimary,
+        elevation: 0,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return SoriTokens.primary;
+            return SoriTokens.onPrimary;
           }
           return SoriTokens.textTertiary;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return SoriTokens.primarySoft;
+            return SoriTokens.primary;
           }
           return SoriTokens.surfaceOverlay;
         }),
@@ -112,7 +124,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: SoriTokens.surfaceElevated,
+        fillColor: SoriTokens.surface,
         hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
         labelStyle: const TextStyle(color: SoriTokens.textTertiary),
         prefixIconColor: SoriTokens.textTertiary,
@@ -121,11 +133,11 @@ abstract final class AppTheme {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: SoriTokens.border, width: SoriTokens.outlineWidth),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: SoriTokens.border, width: SoriTokens.outlineWidth),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -133,29 +145,39 @@ abstract final class AppTheme {
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: SoriTokens.border),
         ),
       ),
-      dialogTheme: SoriDatePickerTheme.dialogTheme.copyWith(
-        backgroundColor: SoriTokens.surfaceElevated,
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SoriTokens.radiusXl),
+        ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: SoriTokens.surfaceElevated,
-        modalBackgroundColor: SoriTokens.surfaceElevated,
+        backgroundColor: Colors.transparent,
+        modalBackgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
-      popupMenuTheme: const PopupMenuThemeData(
-        color: SoriTokens.surfaceElevated,
+      popupMenuTheme: PopupMenuThemeData(
+        color: SoriTokens.glassFill,
         surfaceTintColor: Colors.transparent,
-        textStyle: TextStyle(color: SoriTokens.textPrimary),
+        textStyle: const TextStyle(color: SoriTokens.textPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SoriTokens.radiusMd),
+          side: const BorderSide(color: SoriTokens.border, width: SoriTokens.outlineWidth),
+        ),
       ),
       snackBarTheme: const SnackBarThemeData(
-        backgroundColor: SoriTokens.surfaceElevated,
-        contentTextStyle: TextStyle(color: SoriTokens.textPrimary),
-        actionTextColor: SoriTokens.primary,
+        backgroundColor: SoriTokens.primary,
+        contentTextStyle: TextStyle(color: SoriTokens.onPrimary),
+        actionTextColor: SoriTokens.onPrimary,
         behavior: SnackBarBehavior.floating,
       ),
       chipTheme: ChipThemeData(
@@ -183,4 +205,7 @@ abstract final class AppTheme {
       ),
     );
   }
+
+  /// @deprecated Use [theme]
+  static ThemeData get dark => theme;
 }

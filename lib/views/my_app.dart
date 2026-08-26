@@ -12,13 +12,13 @@ import '../widgets/app_scroll_behavior.dart';
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  /// Brand accent (Emerald). Prefer [SoriTokens.primary].
+  /// Brand accent — monochrome charcoal. Prefer [SoriTokens.primary].
   static const Color soriEmerald = SoriTokens.primary;
 
-  /// @deprecated Use [soriEmerald] / [SoriTokens.primary]
+  /// @deprecated Use [SoriTokens.primary]
   static const Color soriMint = soriEmerald;
 
-  /// @deprecated Legacy name — resolves to emerald, not purple.
+  /// @deprecated Legacy name — resolves to charcoal primary.
   static const Color soriPurple = soriEmerald;
 
   /// 라우트 Pop 이후에도 Toast를 남기기 위한 전역 ScaffoldMessenger.
@@ -49,8 +49,8 @@ class _MyAppState extends State<MyApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       scrollBehavior: const AppScrollBehavior(),
-      theme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
+      theme: AppTheme.theme,
+      themeMode: ThemeMode.light,
       builder: (context, child) {
         return _StoreErrorHost(child: child ?? const SizedBox.shrink());
       },
@@ -99,7 +99,7 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
           SnackBar(
             content: Text(err),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
+            backgroundColor: SoriTokens.primaryDark,
             action: SnackBarAction(
               label: '닫기',
               textColor: Colors.white,
@@ -125,7 +125,7 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
             SnackBar(
               content: Text(authErr),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.redAccent,
+              backgroundColor: SoriTokens.primaryDark,
             ),
           );
           _store.clearAuthError();

@@ -338,7 +338,7 @@ class _CustomerListTile extends StatelessWidget {
                             Icon(
                               Icons.check_circle,
                               size: 16,
-                              color: Colors.green.shade500,
+                              color: SoriTokens.textSecondary,
                             ),
                           ],
                         ],

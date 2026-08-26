@@ -118,14 +118,14 @@ class _SplashPageState extends State<SplashPage> {
     return _SplashDest.login;
   }
 
-  /// 다크 럭셔리: 블랙 베이스 + 하단 에메랄드 방사 발광 (테마 무시, 단일화).
-  static const RadialGradient _darkLuxuryGlow = RadialGradient(
+  /// Monochrome splash — black base + subtle gray ambient.
+  static const RadialGradient _splashGlow = RadialGradient(
     center: Alignment(0.0, 1.1),
     radius: 0.85,
     colors: [
-      Color(0xFF00E599),
-      Color(0x80047857),
-      Color(0x20022C22),
+      Color(0xFF3A3A3A),
+      Color(0x80181818),
+      Color(0x20080808),
       Color(0xFF000000),
     ],
     stops: [0.0, 0.35, 0.65, 1.0],
@@ -141,7 +141,7 @@ class _SplashPageState extends State<SplashPage> {
         fit: StackFit.expand,
         children: [
           const DecoratedBox(
-            decoration: BoxDecoration(gradient: _darkLuxuryGlow),
+            decoration: BoxDecoration(gradient: _splashGlow),
           ),
           SafeArea(
             child: Center(
