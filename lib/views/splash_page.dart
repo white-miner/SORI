@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +8,6 @@ import '../routing/sori_router.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
-import '../theme/sori_brand_assets.dart';
 import '../widgets/sori_logo.dart';
 
 enum _SplashDest {
@@ -19,7 +17,7 @@ enum _SplashDest {
   review,
 }
 
-/// 위버스/캔바 스타일 글래스모피즘 스플래시 — 시스템 Brightness 반응형.
+/// 위버스/캔바 스타일 스플래시 — 상단 80% 단색 + 하단 20% 앰비언트 글로우.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key, this.initialToken});
 
@@ -120,35 +118,31 @@ class _SplashPageState extends State<SplashPage> {
     return _SplashDest.login;
   }
 
-  /// 다단계 stops로 밴딩 없는 글래스 광원 확산.
-  LinearGradient _glassGradient(bool isDark) {
+  /// 상단 80% 순수 단색 + 하단 20%만 앰비언트 글로우 (PO 수치 고정).
+  LinearGradient _ambientGradient(bool isDark) {
     if (isDark) {
-      // 하단 네온 에메랄드(글래스) → 딥 에메랄드/차콜 → 순수 블랙
       return const LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: [
-          Color(0x4010B981), // #10B981 @ 25%
-          Color(0x2E10B981), // ~18%
-          Color(0x1A0F766E), // deep teal wash
-          Color(0xFF0A0A0A), // near-black charcoal
           Color(0xFF000000),
+          Color(0xFF000000),
+          Color(0x2010B981),
+          Color(0x45059669),
         ],
-        stops: [0.0, 0.28, 0.52, 0.78, 1.0],
+        stops: [0.0, 0.75, 0.90, 1.0],
       );
     }
-    // 하단 소프트 에메랄드 → 밀키 민트 → 순수 화이트
     return const LinearGradient(
-      begin: Alignment.bottomCenter,
-      end: Alignment.topCenter,
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
       colors: [
-        Color(0x3334D399), // #34D399 @ 20%
-        Color(0x2634D399), // ~15%
-        Color(0x0D6EE7B7), // milky mint ~5%
-        Color(0xFFF8FFFB),
         Color(0xFFFFFFFF),
+        Color(0xFFFFFFFF),
+        Color(0x1534D399),
+        Color(0x3510B981),
       ],
-      stops: [0.0, 0.30, 0.55, 0.82, 1.0],
+      stops: [0.0, 0.75, 0.90, 1.0],
     );
   }
 
@@ -156,65 +150,22 @@ class _SplashPageState extends State<SplashPage> {
   Widget build(BuildContext context) {
     final isDark =
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final size = MediaQuery.sizeOf(context);
+    final logoWidth = SoriLogo.responsiveWidth(context);
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(decoration: BoxDecoration(gradient: _glassGradient(isDark))),
-          // 하단 soft glow — 그라데이션 밴딩을 추가로 완화
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: IgnorePointer(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 56, sigmaY: 56),
-                child: Container(
-                  width: size.width * 1.2,
-                  height: size.height * 0.48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        (isDark
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFF34D399))
-                            .withValues(alpha: isDark ? 0.28 : 0.20),
-                        (isDark
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFF34D399))
-                            .withValues(alpha: isDark ? 0.10 : 0.07),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.42, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          DecoratedBox(
+            decoration: BoxDecoration(gradient: _ambientGradient(isDark)),
           ),
           SafeArea(
             child: Center(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                    if (isDark)
-                      BoxShadow(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                        blurRadius: 32,
-                      ),
-                  ],
-                ),
-                child: const SoriLogo(
-                  height: SoriBrandAssets.logoHeightHero,
-                  usePlatformBrightness: true,
-                ),
+              child: SoriLogo(
+                width: logoWidth,
+                fit: BoxFit.contain,
+                usePlatformBrightness: true,
               ),
             ),
           ),

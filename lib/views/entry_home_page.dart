@@ -9,7 +9,6 @@ import '../services/pending_review_return.dart';
 import '../services/sori_auth_coordinator.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
-import '../theme/sori_brand_assets.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_logo.dart';
 
@@ -194,7 +193,7 @@ class _EntryHomePageState extends State<EntryHomePage>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Center(
-          child: SoriLogo(height: SoriBrandAssets.logoHeight),
+          child: SoriLogo(),
         ),
         const SizedBox(height: 18),
         const Text(
@@ -275,16 +274,17 @@ class _EntryHomePageState extends State<EntryHomePage>
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
+          // 상단 80% 단색 + 하단 20% 앰비언트 글로우 (스플래시와 동일 수치)
           gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Color(0x3310B981),
-              Color(0x1410B981),
-              Color(0xFF0A0A0A),
               Color(0xFF000000),
+              Color(0xFF000000),
+              Color(0x2010B981),
+              Color(0x45059669),
             ],
-            stops: [0.0, 0.35, 0.75, 1.0],
+            stops: [0.0, 0.75, 0.90, 1.0],
           ),
         ),
         child: SafeArea(
