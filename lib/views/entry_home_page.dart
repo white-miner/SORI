@@ -9,6 +9,7 @@ import '../services/pending_review_return.dart';
 import '../services/sori_auth_coordinator.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_brand_assets.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_logo.dart';
 
@@ -187,55 +188,59 @@ class _EntryHomePageState extends State<EntryHomePage>
   bool get _showLoading => _busy || _store.authHydrating || _routing;
 
   Widget _buildContent(BuildContext context, {required bool isWide}) {
-    final logoWidth = isWide ? 160.0 : MediaQuery.sizeOf(context).width * 0.38;
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SoriLogo(
-          width: logoWidth,
+        const Center(
+          child: SoriLogo(height: SoriBrandAssets.logoHeight),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         const Text(
           '소통하는 리뷰',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: SoriTokens.primary,
-            height: 1.3,
-            letterSpacing: -0.2,
+            fontSize: 18,
+            fontWeight: FontWeight.w300,
+            color: Color(0xFF94A3B8),
+            height: 1.35,
+            letterSpacing: 0.4,
           ),
         ),
-        const SizedBox(height: 10),
-        Text(
+        const SizedBox(height: 8),
+        const Text(
           '에스테틱 원장과 고객이 시술 차트와 후기로\n1:1 소통하는 CRM',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: Colors.grey.shade600,
-            height: 1.45,
+            fontSize: 13,
+            fontWeight: FontWeight.w300,
+            color: Color(0xFF64748B),
+            height: 1.5,
           ),
         ),
-        SizedBox(height: isWide ? 40 : 32),
+        SizedBox(height: isWide ? 36 : 28),
         if (_showLoading)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
             child: Column(
               children: [
-                const CircularProgressIndicator(color: SoriTokens.primary),
-                const SizedBox(height: 10),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: SoriTokens.primary,
+                  ),
+                ),
+                SizedBox(height: 12),
                 Text(
-                  _store.authHydrating
-                      ? '프로필을 불러오는 중…'
-                      : '카카오 로그인 연결 중…',
+                  '연결 중…',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w300,
+                    color: Color(0xFF94A3B8),
                   ),
                 ),
               ],
@@ -245,13 +250,14 @@ class _EntryHomePageState extends State<EntryHomePage>
           enabled: !_showLoading,
           onPressed: _kakaoLogin,
         ),
-        const SizedBox(height: 16),
-        Text(
+        const SizedBox(height: 14),
+        const Text(
           '로그인 시 이용약관·개인정보 처리에 동의하게 됩니다',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w300,
+            color: Color(0xFF64748B),
           ),
         ),
       ],
@@ -270,13 +276,15 @@ class _EntryHomePageState extends State<EntryHomePage>
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
             colors: [
-              SoriTokens.primarySoft,
-              SoriTokens.background,
-              SoriTokens.surface,
+              Color(0x3310B981),
+              Color(0x1410B981),
+              Color(0xFF0A0A0A),
+              Color(0xFF000000),
             ],
+            stops: [0.0, 0.35, 0.75, 1.0],
           ),
         ),
         child: SafeArea(
@@ -335,7 +343,7 @@ class _EntryHomePageState extends State<EntryHomePage>
   }
 }
 
-/// 카카오 로그인 — 전체 54px 영역 히트 테스트 + PC hover 커서.
+/// 카카오 공식 옐로우 — 다크 무드에 맞춘 미니멀 히트 영역.
 class _KakaoLoginButton extends StatelessWidget {
   const _KakaoLoginButton({
     required this.enabled,
@@ -345,7 +353,9 @@ class _KakaoLoginButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onPressed;
 
+  /// Kakao Brand Guide — #FEE500 / label #191919
   static const Color _kakaoYellow = Color(0xFFFEE500);
+  static const Color _kakaoLabel = Color(0xFF191919);
 
   @override
   Widget build(BuildContext context) {
@@ -355,26 +365,32 @@ class _KakaoLoginButton extends StatelessWidget {
       label: '카카오로 시작하기',
       child: MouseRegion(
         cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: Material(
-            color: enabled ? _kakaoYellow : _kakaoYellow.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(14),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: enabled ? onPressed : null,
-              borderRadius: BorderRadius.circular(14),
-              splashColor: Colors.black.withValues(alpha: 0.08),
-              highlightColor: Colors.black.withValues(alpha: 0.04),
-              child: const SizedBox.expand(
-                child: Center(
-                  child: Text(
-                    '카카오로 시작하기',
-                    style: TextStyle(
-                      color: Color(0xFF191919),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: Material(
+              color: enabled
+                  ? _kakaoYellow
+                  : _kakaoYellow.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: enabled ? onPressed : null,
+                borderRadius: BorderRadius.circular(12),
+                splashColor: Colors.black.withValues(alpha: 0.06),
+                highlightColor: Colors.black.withValues(alpha: 0.03),
+                child: const SizedBox.expand(
+                  child: Center(
+                    child: Text(
+                      '카카오로 시작하기',
+                      style: TextStyle(
+                        color: _kakaoLabel,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                   ),
                 ),

@@ -9,7 +9,7 @@ import '../routing/sori_router.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
-import '../theme/sori_tokens.dart';
+import '../theme/sori_brand_assets.dart';
 import '../widgets/sori_logo.dart';
 
 enum _SplashDest {
@@ -120,64 +120,74 @@ class _SplashPageState extends State<SplashPage> {
     return _SplashDest.login;
   }
 
+  /// 다단계 stops로 밴딩 없는 글래스 광원 확산.
+  LinearGradient _glassGradient(bool isDark) {
+    if (isDark) {
+      // 하단 네온 에메랄드(글래스) → 딥 에메랄드/차콜 → 순수 블랙
+      return const LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [
+          Color(0x4010B981), // #10B981 @ 25%
+          Color(0x2E10B981), // ~18%
+          Color(0x1A0F766E), // deep teal wash
+          Color(0xFF0A0A0A), // near-black charcoal
+          Color(0xFF000000),
+        ],
+        stops: [0.0, 0.28, 0.52, 0.78, 1.0],
+      );
+    }
+    // 하단 소프트 에메랄드 → 밀키 민트 → 순수 화이트
+    return const LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        Color(0x3334D399), // #34D399 @ 20%
+        Color(0x2634D399), // ~15%
+        Color(0x0D6EE7B7), // milky mint ~5%
+        Color(0xFFF8FFFB),
+        Color(0xFFFFFFFF),
+      ],
+      stops: [0.0, 0.30, 0.55, 0.82, 1.0],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark =
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final size = MediaQuery.sizeOf(context);
-    final logoWidth = (size.width * 0.48).clamp(148.0, 280.0);
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: isDark
-                    ? const [
-                        Color(0xE600D289), // glass emerald (strong)
-                        Color(0x9900D289),
-                        Color(0x3300D289),
-                        Color(0x0A00D289),
-                        Color(0xFF000000),
-                      ]
-                    : const [
-                        Color(0xCC00D289),
-                        Color(0x6600D289),
-                        Color(0x2800D289),
-                        Color(0x0D00D289),
-                        Color(0xFFFFFFFF),
-                      ],
-                stops: const [0.0, 0.18, 0.38, 0.58, 0.88],
-              ),
-            ),
-          ),
-          // 하단 발광 보케 — 글래스 심도
+          DecoratedBox(decoration: BoxDecoration(gradient: _glassGradient(isDark))),
+          // 하단 soft glow — 그라데이션 밴딩을 추가로 완화
           Align(
             alignment: Alignment.bottomCenter,
             child: IgnorePointer(
               child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
+                imageFilter: ImageFilter.blur(sigmaX: 56, sigmaY: 56),
                 child: Container(
-                  width: size.width * 1.15,
-                  height: size.height * 0.42,
+                  width: size.width * 1.2,
+                  height: size.height * 0.48,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        SoriTokens.primaryLight.withValues(
-                          alpha: isDark ? 0.55 : 0.42,
-                        ),
-                        SoriTokens.primary.withValues(
-                          alpha: isDark ? 0.22 : 0.16,
-                        ),
+                        (isDark
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF34D399))
+                            .withValues(alpha: isDark ? 0.28 : 0.20),
+                        (isDark
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF34D399))
+                            .withValues(alpha: isDark ? 0.10 : 0.07),
                         Colors.transparent,
                       ],
-                      stops: const [0.0, 0.45, 1.0],
+                      stops: const [0.0, 0.42, 1.0],
                     ),
                   ),
                 ),
@@ -186,33 +196,25 @@ class _SplashPageState extends State<SplashPage> {
           ),
           SafeArea(
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 떠 있는 느낌 — 소프트 그림자
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isDark ? Colors.black : Colors.black)
-                              .withValues(alpha: isDark ? 0.35 : 0.08),
-                          blurRadius: 28,
-                          offset: const Offset(0, 10),
-                        ),
-                        if (isDark)
-                          BoxShadow(
-                            color: SoriTokens.primary.withValues(alpha: 0.18),
-                            blurRadius: 36,
-                            spreadRadius: 2,
-                          ),
-                      ],
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
                     ),
-                    child: SoriLogo(
-                      width: logoWidth,
-                      usePlatformBrightness: true,
-                    ),
-                  ),
-                ],
+                    if (isDark)
+                      BoxShadow(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                        blurRadius: 32,
+                      ),
+                  ],
+                ),
+                child: const SoriLogo(
+                  height: SoriBrandAssets.logoHeightHero,
+                  usePlatformBrightness: true,
+                ),
               ),
             ),
           ),
@@ -225,10 +227,10 @@ class _SplashPageState extends State<SplashPage> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w300,
                 color: isDark
-                    ? Colors.white.withValues(alpha: 0.38)
-                    : Colors.black.withValues(alpha: 0.38),
+                    ? Colors.white.withValues(alpha: 0.34)
+                    : const Color(0xFF94A3B8),
               ),
             ),
           ),

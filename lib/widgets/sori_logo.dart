@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/sori_brand_assets.dart';
 import '../theme/sori_tokens.dart';
 
-/// SORI 브랜드 로고 — 테마 Brightness에 따라 화이트/블랙 에셋 자동 전환.
+/// SORI 브랜드 로고 — SVG + Brightness 자동 전환.
 class SoriLogo extends StatelessWidget {
   const SoriLogo({
     super.key,
     this.width,
-    this.height,
+    this.height = SoriBrandAssets.logoHeight,
     this.fit = BoxFit.contain,
     this.brightness,
     this.usePlatformBrightness = false,
@@ -21,7 +22,7 @@ class SoriLogo extends StatelessWidget {
   final bool usePlatformBrightness;
 
   final double? width;
-  final double? height;
+  final double height;
   final BoxFit fit;
 
   static String get assetPath => SoriBrandAssets.logoWhite;
@@ -37,34 +38,30 @@ class SoriLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = SoriBrandAssets.logoForBrightness(_resolveBrightness(context));
-    return Image.asset(
-      path,
+    return SizedBox(
       width: width,
       height: height,
-      fit: fit,
-      filterQuality: FilterQuality.high,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) {
-        return SizedBox(
-          width: width ?? height ?? 48,
-          height: height ?? width ?? 48,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Color(0xFF18181B),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                'S',
-                style: TextStyle(
-                  color: SoriTokens.primary,
-                  fontWeight: FontWeight.w800,
-                ),
+      child: SvgPicture.asset(
+        path,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: Alignment.center,
+        placeholderBuilder: (_) => SizedBox(
+          width: width ?? height,
+          height: height,
+          child: Center(
+            child: SizedBox(
+              width: height * 0.35,
+              height: height * 0.35,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: SoriTokens.primary.withValues(alpha: 0.5),
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
