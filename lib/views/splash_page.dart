@@ -118,31 +118,31 @@ class _SplashPageState extends State<SplashPage> {
     return _SplashDest.login;
   }
 
-  /// 상단 80% 순수 단색 + 하단 20%만 앰비언트 글로우 (PO 수치 고정).
-  LinearGradient _ambientGradient(bool isDark) {
+  /// 위버스형: 바닥 정중앙에서 피어오르는 방사형 발광 (PO 수치 고정).
+  RadialGradient _weverseGlow(bool isDark) {
     if (isDark) {
-      return const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+      return const RadialGradient(
+        center: Alignment(0.0, 1.1),
+        radius: 0.85,
         colors: [
+          Color(0xFF00E599),
+          Color(0x80047857),
+          Color(0x20022C22),
           Color(0xFF000000),
-          Color(0xFF000000),
-          Color(0x2010B981),
-          Color(0x45059669),
         ],
-        stops: [0.0, 0.75, 0.90, 1.0],
+        stops: [0.0, 0.35, 0.65, 1.0],
       );
     }
-    return const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
+    return const RadialGradient(
+      center: Alignment(0.0, 1.1),
+      radius: 0.85,
       colors: [
+        Color(0x5010B981),
+        Color(0x2034D399),
+        Color(0x08A7F3D0),
         Color(0xFFFFFFFF),
-        Color(0xFFFFFFFF),
-        Color(0x1534D399),
-        Color(0x3510B981),
       ],
-      stops: [0.0, 0.75, 0.90, 1.0],
+      stops: [0.0, 0.30, 0.60, 1.0],
     );
   }
 
@@ -158,7 +158,7 @@ class _SplashPageState extends State<SplashPage> {
         fit: StackFit.expand,
         children: [
           DecoratedBox(
-            decoration: BoxDecoration(gradient: _ambientGradient(isDark)),
+            decoration: BoxDecoration(gradient: _weverseGlow(isDark)),
           ),
           SafeArea(
             child: Center(

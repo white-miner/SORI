@@ -22,7 +22,7 @@ class SoriLogo extends StatelessWidget {
   /// true면 OS 시스템 밝기(스플래시용). false면 Theme.brightness.
   final bool usePlatformBrightness;
 
-  /// 가로 기준 스케일. 미지정 시 화면 폭의 45%(PC는 260).
+  /// 가로 기준 스케일. 미지정 시 화면 폭의 65%(태블릿/PC는 480).
   final double? width;
 
   /// 선택적 높이. 지정하지 않으면 비율만 유지하며 width에 맞춤.
@@ -32,11 +32,11 @@ class SoriLogo extends StatelessWidget {
 
   static String get assetPath => SoriBrandAssets.logoWhite;
 
-  /// 모바일: 화면 폭 × 0.45 / PC: 260.
+  /// 모바일: 화면 폭 × 0.65 / 태블릿·PC: 480 (위버스급 히어로).
   static double responsiveWidth(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    if (w >= 900) return 260;
-    return w * 0.45;
+    if (w >= 600) return 480;
+    return w * 0.65;
   }
 
   Brightness _resolveBrightness(BuildContext context) {

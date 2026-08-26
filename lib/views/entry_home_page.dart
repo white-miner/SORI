@@ -274,17 +274,17 @@ class _EntryHomePageState extends State<EntryHomePage>
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          // 상단 80% 단색 + 하단 20% 앰비언트 글로우 (스플래시와 동일 수치)
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+          // 위버스형 하단 방사 발광 (스플래시 다크와 동일)
+          gradient: RadialGradient(
+            center: Alignment(0.0, 1.1),
+            radius: 0.85,
             colors: [
+              Color(0xFF00E599),
+              Color(0x80047857),
+              Color(0x20022C22),
               Color(0xFF000000),
-              Color(0xFF000000),
-              Color(0x2010B981),
-              Color(0x45059669),
             ],
-            stops: [0.0, 0.75, 0.90, 1.0],
+            stops: [0.0, 0.35, 0.65, 1.0],
           ),
         ),
         child: SafeArea(
