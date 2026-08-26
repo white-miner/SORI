@@ -53,13 +53,22 @@ abstract final class SoriTokens {
 
   static const Color border = Color(0x14000000);
 
-  static const Color textPrimary = Color(0xFF18181B);
+  /// Deep charcoal — default body text on white backgrounds
+  static const Color textCharcoal = Color(0xFF111111);
 
-  static const Color textSecondary = Color(0xB318181B);
+  static const Color textPrimary = textCharcoal;
 
-  static const Color textTertiary = Color(0x7318181B);
+  static const Color textSecondary = Color(0xB3111111);
 
-  static const Color textQuaternary = Color(0x4D18181B);
+  static const Color textTertiary = Color(0x73111111);
+
+  static const Color textQuaternary = Color(0x4D111111);
+
+  /// Tab bar — unselected label on white canvas
+  static const Color tabUnselected = Color(0xFF71717A);
+
+  /// YouTube-style selected tab capsule background
+  static const Color tabCapsuleBg = Color(0xFFF1F1F1);
 
   static const Color success = primary;
 

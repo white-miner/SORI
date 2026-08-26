@@ -52,7 +52,15 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.theme,
       themeMode: ThemeMode.light,
       builder: (context, child) {
-        return _StoreErrorHost(child: child ?? const SizedBox.shrink());
+        return DefaultTextStyle(
+          style: const TextStyle(
+            color: SoriTokens.textCharcoal,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            decoration: TextDecoration.none,
+          ),
+          child: _StoreErrorHost(child: child ?? const SizedBox.shrink()),
+        );
       },
       routerConfig: _router,
     );

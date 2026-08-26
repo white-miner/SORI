@@ -1152,8 +1152,6 @@ class _AutoShootToggleButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
 
-  static const _cameraYellow = SoriTokens.cameraYellow;
-
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -1168,28 +1166,19 @@ class _AutoShootToggleButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: enabled
-                ? _cameraYellow.withValues(alpha: 0.16)
+                ? SoriTokens.cameraYellow.withValues(alpha: 0.16)
                 : Colors.white.withValues(alpha: 0.08),
             border: Border.all(
               color: enabled
-                  ? _cameraYellow.withValues(alpha: 0.88)
+                  ? SoriTokens.cameraYellow
                   : Colors.white.withValues(alpha: 0.14),
             ),
-            boxShadow: enabled
-                ? [
-                    BoxShadow(
-                      color: _cameraYellow.withValues(alpha: 0.28),
-                      blurRadius: 10,
-                      spreadRadius: 0.5,
-                    ),
-                  ]
-                : null,
           ),
           child: Icon(
             Icons.auto_fix_high_rounded,
             size: 22,
             color: enabled
-                ? _cameraYellow
+                ? SoriTokens.cameraYellow
                 : Colors.white.withValues(alpha: 0.55),
           ),
         ),
@@ -1388,7 +1377,7 @@ class _DynamicGyroLeveler extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         CustomPaint(
-          painter: _FixedHorizonGuidesPainter(color: color, glow: leveled),
+          painter: _FixedHorizonGuidesPainter(color: color),
           child: const SizedBox.expand(),
         ),
         if (live)
@@ -1399,7 +1388,7 @@ class _DynamicGyroLeveler extends StatelessWidget {
               curve: Curves.easeOutCubic,
               child: CustomPaint(
                 size: const Size(200, 24),
-                painter: _RollBarPainter(color: color, glow: leveled),
+                painter: _RollBarPainter(color: color),
               ),
             ),
           ),
@@ -1471,10 +1460,9 @@ class _DynamicGyroLeveler extends StatelessWidget {
 
 /// 화면 정중앙 — 좌/우로 분리된 고정 가로 가이드선.
 class _FixedHorizonGuidesPainter extends CustomPainter {
-  _FixedHorizonGuidesPainter({required this.color, required this.glow});
+  _FixedHorizonGuidesPainter({required this.color});
 
   final Color color;
-  final bool glow;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1482,69 +1470,44 @@ class _FixedHorizonGuidesPainter extends CustomPainter {
     final cx = size.width / 2;
     final paint = Paint()
       ..color = color
-      ..strokeWidth = glow ? 2.0 : 1.4
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
 
-    if (glow) {
-      final glowPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.35)
-        ..strokeWidth = 6
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-      canvas.drawLine(Offset(cx - 92, cy), Offset(cx - 28, cy), glowPaint);
-      canvas.drawLine(Offset(cx + 28, cy), Offset(cx + 92, cy), glowPaint);
-    }
-
-    // 양옆 분리 (중앙 갭 — 회전 막대가 겹치는 자리)
     canvas.drawLine(Offset(cx - 88, cy), Offset(cx - 30, cy), paint);
     canvas.drawLine(Offset(cx + 30, cy), Offset(cx + 88, cy), paint);
   }
 
   @override
   bool shouldRepaint(covariant _FixedHorizonGuidesPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.glow != glow;
+    return oldDelegate.color != color;
   }
 }
 
 /// Roll에 따라 Transform.rotate 되는 단일 가로 막대.
 class _RollBarPainter extends CustomPainter {
-  _RollBarPainter({required this.color, required this.glow});
+  _RollBarPainter({required this.color});
 
   final Color color;
-  final bool glow;
 
   @override
   void paint(Canvas canvas, Size size) {
     final cy = size.height / 2;
     final paint = Paint()
       ..color = color
-      ..strokeWidth = glow ? 2.6 : 2.0
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round;
 
-    if (glow) {
-      canvas.drawLine(
-        Offset(8, cy),
-        Offset(size.width - 8, cy),
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.4)
-          ..strokeWidth = 8
-          ..strokeCap = StrokeCap.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
-    }
-
     canvas.drawLine(Offset(8, cy), Offset(size.width - 8, cy), paint);
-    // 중앙 틱
     canvas.drawCircle(
       Offset(size.width / 2, cy),
-      glow ? 3.2 : 2.4,
+      3.0,
       Paint()..color = color,
     );
   }
 
   @override
   bool shouldRepaint(covariant _RollBarPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.glow != glow;
+    return oldDelegate.color != color;
   }
 }
 
@@ -1553,21 +1516,12 @@ class _DecolleteGuidePainter extends CustomPainter {
 
   final bool leveled;
 
-  static const _cameraYellow = SoriTokens.cameraYellow;
   static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
 
   Color get _strokeColor =>
-      leveled ? _guideWhite.withValues(alpha: 0.92) : _guideWhite;
+      leveled ? SoriTokens.cameraYellow : _guideWhite;
 
   void _strokePath(Canvas canvas, Path path, Color color, {double width = 1.8}) {
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.28)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width + 1.6
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-    );
     canvas.drawPath(
       path,
       Paint()
@@ -1585,19 +1539,6 @@ class _DecolleteGuidePainter extends CustomPainter {
     final h = size.height;
     final cx = w / 2;
     final color = _strokeColor;
-
-    if (leveled) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(w * 0.08, h * 0.30)
-          ..quadraticBezierTo(cx, h * 0.22, w * 0.92, h * 0.30),
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.22)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 16
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
-      );
-    }
 
     // 상반신 실루엣 — 역삼각형 + 어깨 아치
     final shoulderY = h * 0.30;
@@ -1757,18 +1698,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
     }
   }
 
-  void _drawEmeraldGlow(Canvas canvas, Offset center, double radius) {
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = SoriTokens.cameraYellow.withValues(alpha: 0.38)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 16
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
-    );
-  }
-
   @override
   void paint(Canvas canvas, Size size) {
     final targetCenter = _targetCenter(size);
@@ -1788,29 +1717,25 @@ class _CircularFaceAlignPainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.38),
     );
 
-    // 동적 얼굴 원 — 불일치: 연한 회색 / 일치: 에메랄드 실선
+    // 동적 얼굴 원 — 불일치: 연한 회색 / 일치: 단색 옐로우
     if (pose.detected && trackR > 0) {
-      if (aligned) {
-        _drawEmeraldGlow(canvas, trackCenter, trackR);
-      }
       canvas.drawCircle(
         trackCenter,
         trackR,
         Paint()
-          ..color = aligned ? SoriTokens.cameraYellow.withValues(alpha: 0.95) : _trackGray
+          ..color = aligned ? SoriTokens.cameraYellow : _trackGray
           ..style = PaintingStyle.stroke
           ..strokeWidth = aligned ? 2.6 : 1.6,
       );
     }
 
     // 내부 Target 점선 원 (Scale/Distance 기준)
-    if (aligned) _drawEmeraldGlow(canvas, targetCenter, innerR);
     _drawDashedCircle(
       canvas,
       targetCenter,
       innerR,
       Paint()
-        ..color = aligned ? SoriTokens.cameraYellow.withValues(alpha: 0.95) : _innerWhite
+        ..color = aligned ? SoriTokens.cameraYellow : _innerWhite
         ..style = PaintingStyle.stroke
         ..strokeWidth = aligned ? 2.4 : 1.5
         ..strokeCap = StrokeCap.round,
@@ -1821,7 +1746,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       targetCenter,
       outerR,
       Paint()
-        ..color = aligned ? SoriTokens.cameraYellow.withValues(alpha: 0.55) : _outerWhite
+        ..color = aligned ? SoriTokens.cameraYellow : _outerWhite
         ..style = PaintingStyle.stroke
         ..strokeWidth = aligned ? 2.0 : 1.6,
     );

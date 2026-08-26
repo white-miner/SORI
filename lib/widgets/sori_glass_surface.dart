@@ -41,7 +41,7 @@ class SoriGlassSurface extends StatelessWidget {
   }
 }
 
-/// Glass-wrapped dialog — use instead of raw [AlertDialog] chrome.
+/// Opaque white dialog — readable on any backdrop.
 Future<T?> showSoriGlassDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -52,13 +52,15 @@ Future<T?> showSoriGlassDialog<T>({
     barrierDismissible: barrierDismissible,
     builder: (ctx) {
       return Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: SoriTokens.surface,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.04),
+        surfaceTintColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: SoriGlassSurface(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(SoriTokens.radiusXl),
-          child: builder(ctx),
         ),
+        child: builder(ctx),
       );
     },
   );

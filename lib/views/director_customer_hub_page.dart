@@ -65,20 +65,6 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
             color: SoriTokens.background,
             child: TabBar(
               controller: _tabs,
-              labelColor: Colors.white,
-              unselectedLabelColor: SoriTokens.textSecondary,
-              labelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-              indicatorColor: Colors.white,
-              indicatorSize: TabBarIndicatorSize.label,
-              indicatorWeight: 2.5,
-              dividerColor: Colors.transparent,
               tabs: [
                 const Tab(text: '고객'),
                 Tab(

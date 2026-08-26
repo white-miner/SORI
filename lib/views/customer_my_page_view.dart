@@ -182,21 +182,8 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: Colors.white,
-              unselectedLabelColor: SoriTokens.textSecondary,
-              labelStyle: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w800,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w500,
-              ),
-              indicatorColor: Colors.white,
-              indicatorSize: TabBarIndicatorSize.label,
-              indicatorWeight: 2.4,
-              dividerColor: Colors.transparent,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              labelStyle: const TextStyle(fontSize: 14.5),
+              unselectedLabelStyle: const TextStyle(fontSize: 14.5),
               labelPadding: const EdgeInsets.symmetric(horizontal: 12),
               tabs: const [
                 Tab(text: '내 케어 여정'),

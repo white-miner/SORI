@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'sori_date_picker.dart';
+import 'sori_tab_indicator.dart';
 import 'sori_tokens.dart';
 
 /// Global light monochrome theme — off-white canvas + charcoal primary.
@@ -32,13 +33,7 @@ abstract final class AppTheme {
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
       splashFactory: NoSplash.splashFactory,
-      tabBarTheme: const TabBarThemeData(
-        overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
-        splashFactory: NoSplash.splashFactory,
-        labelColor: SoriTokens.textPrimary,
-        unselectedLabelColor: SoriTokens.textTertiary,
-        indicatorColor: SoriTokens.primary,
-      ),
+      tabBarTheme: soriTabBarTheme,
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           backgroundColor: Colors.transparent,
@@ -149,9 +144,21 @@ abstract final class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: SoriTokens.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.04),
+        titleTextStyle: const TextStyle(
+          color: SoriTokens.textCharcoal,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        contentTextStyle: const TextStyle(
+          color: SoriTokens.textCharcoal,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.45,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(SoriTokens.radiusXl),
         ),

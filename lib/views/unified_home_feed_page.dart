@@ -396,22 +396,6 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 controller: _tabs,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                labelColor: Colors.white,
-                unselectedLabelColor: SoriTokens.textSecondary,
-                labelStyle: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-                indicatorColor: Colors.white,
-                indicatorSize: TabBarIndicatorSize.label,
-                indicatorWeight: 2.5,
-                dividerColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 tabs: const [
                   Tab(text: '추천'),
                   Tab(text: '탐색'),
