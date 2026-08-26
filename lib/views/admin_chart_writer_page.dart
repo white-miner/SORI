@@ -280,7 +280,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         SnackBar(
           content: Text(field.errorCopy),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -793,7 +793,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         SnackBar(
           content: Text('조회 실패: ${widget.store.lastError}'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       widget.store.clearError();
@@ -1097,7 +1097,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 if (hasPhoto)
                   ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: SoriTokens.primaryDark.withValues(alpha: 0.12),
+                      backgroundColor: SoriTokens.systemRed.withValues(alpha: 0.12),
                       child: const Icon(
                         Icons.delete_outline,
                         color: SoriTokens.primaryDark,
@@ -1222,7 +1222,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('사진 압축(WebP)에 실패했어요. 다른 사진으로 다시 시도해 주세요.'),
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1256,7 +1256,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('사진 업로드에 실패했어요. 네트워크·Storage 버킷을 확인해 주세요.'),
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1288,7 +1288,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('사진 선택 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1391,7 +1391,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
             SnackBar(
               content: Text('고객 정보 저장 실패: $e'),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: SoriTokens.primaryDark,
+              backgroundColor: SoriTokens.systemRed,
             ),
           );
           return;
@@ -1425,7 +1425,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           const SnackBar(
             content: Text('서명이 저장되지 않았습니다. 전자 동의서 탭에서 다시 서명해 주세요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
           ),
         );
         _tabController.animateTo(1);
@@ -1566,7 +1566,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           duration: const Duration(seconds: 6),
         ),
       );
@@ -1939,7 +1939,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                               borderSide: BorderSide(
                                 color: _inlineErrorField ==
                                         _ChartRequiredField.name
-                                    ? const Color(0xFFE53935)
+                                    ? SoriTokens.systemRed
                                     : Colors.grey.shade400,
                               ),
                             ),
@@ -1947,7 +1947,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                               borderSide: BorderSide(
                                 color: _inlineErrorField ==
                                         _ChartRequiredField.name
-                                    ? const Color(0xFFE53935)
+                                    ? SoriTokens.systemRed
                                     : MyApp.soriPurple,
                                 width: 1.6,
                               ),
@@ -2036,7 +2036,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                               borderSide: BorderSide(
                                 color: _inlineErrorField ==
                                         _ChartRequiredField.phone
-                                    ? const Color(0xFFE53935)
+                                    ? SoriTokens.systemRed
                                     : Colors.grey.shade400,
                               ),
                             ),
@@ -2044,7 +2044,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                               borderSide: BorderSide(
                                 color: _inlineErrorField ==
                                         _ChartRequiredField.phone
-                                    ? const Color(0xFFE53935)
+                                    ? SoriTokens.systemRed
                                     : MyApp.soriPurple,
                                 width: 1.6,
                               ),
@@ -2939,7 +2939,7 @@ class _SmartFocusTarget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: highlighted
-                      ? const Color(0xFFE53935)
+                      ? SoriTokens.systemRed
                       : Colors.transparent,
                   width: highlighted ? 1.5 : 0,
                 ),
@@ -2968,7 +2968,7 @@ class _SmartFocusTarget extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           height: 1.25,
-                          color: Color(0xFFE53935),
+                          color: SoriTokens.systemRed,
                         ),
                       ),
                     ),

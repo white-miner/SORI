@@ -28,7 +28,7 @@ class CommunityAuthorityFrame extends StatelessWidget {
     final isMaster = post.tierBadge.rank >= ShopTierBadge.master.rank;
     final glow = isMaster
         ? SoriTokens.premium
-        : const Color(0xFFEAB308);
+        : SoriTokens.primaryLight;
 
     if (!_isElite) {
       return Container(
@@ -128,7 +128,7 @@ class CommunityLockedBody extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.lock_outline_rounded,
-                      color: Color(0xFFFDE68A),
+                      color: SoriTokens.textQuaternary,
                       size: 28,
                     ),
                     const SizedBox(height: 10),

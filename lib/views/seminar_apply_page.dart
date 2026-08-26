@@ -155,7 +155,7 @@ class _SeminarApplyPageState extends State<SeminarApplyPage> {
                 ? widget.store.lastError!
                 : '신청서 제출에 실패했습니다.',
           ),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;

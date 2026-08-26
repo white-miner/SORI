@@ -2,75 +2,77 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// SORI design tokens — YouTube/Instagram-style monochrome + glass.
-/// No chromatic accent colors (mint, emerald, purple, blue, etc.).
+/// SORI — iOS-style White Minimal + System Accent (Red alerts, Camera Yellow).
 abstract final class SoriTokens {
-  /// App canvas — warm off-white
-  static const Color background = Color(0xFFFAFAFA);
+  /// App canvas — soft off-white
+  static const Color background = Color(0xFFF8F9FA);
 
-  /// Cards, list rows, modals (opaque surface)
   static const Color surface = Color(0xFFFFFFFF);
 
-  /// Raised panels
   static const Color surfaceElevated = Color(0xFFFFFFFF);
 
-  /// Press / inactive chip fill
   static const Color surfaceOverlay = Color(0xFFF0F0F0);
 
-  /// CTA, active tab, loading indicator — charcoal black
-  static const Color primary = Color(0xFF111111);
+  /// CTA, active tab, loading — deep charcoal / pure black
+  static const Color primary = Color(0xFF18181B);
 
   static const Color primaryDark = Color(0xFF000000);
 
-  /// Destructive / error emphasis — charcoal (no red).
-  static const Color destructive = Color(0xFF111111);
-
-  /// Glass fill — white @ ~75% (floating overlays)
-  static const Color primaryGlass = Color(0xCCFFFFFF);
-
-  /// Soft wash (~10% charcoal)
-  static const Color primarySoft = Color(0x1A111111);
-
-  /// Label on charcoal fills
   static const Color onPrimary = Color(0xFFFFFFFF);
 
-  /// Secondary emphasis — dark gray
-  static const Color primaryLight = Color(0xFF333333);
+  static const Color primaryLight = Color(0xFF27272A);
 
   static const Color onPrimaryLight = Color(0xFFFFFFFF);
 
   static const Color accent = primary;
 
-  /// Legacy alias — monochrome only
   static const Color indigo = primary;
 
-  /// Tier / VIP emphasis — charcoal (no purple)
-  static const Color premium = Color(0xFF333333);
+  static const Color premium = primaryLight;
 
-  static const Color premiumSoft = Color(0x1A111111);
+  static const Color premiumSoft = Color(0x1A18181B);
+
+  /// iOS System Red — notification badges, warnings, delete ONLY.
+  static const Color systemRed = Color(0xFFFF3B30);
+
+  static const Color systemRedAlt = SoriTokens.systemRed;
+
+  static const Color destructive = systemRed;
+
+  /// Apple Camera Yellow — viewfinder alignment & preset dock ONLY.
+  static const Color cameraYellow = Color(0xFFFFD60A);
+
+  static const Color cameraYellowAlt = Color(0xFFFFCC00);
+
+  /// Inactive camera preset icon
+  static const Color inactiveGray = Color(0xFF71717A);
 
   static const Color outlinePurple = Color(0x14000000);
 
   static const Color outline = outlinePurple;
 
-  static const Color textPrimary = Color(0xFF111111);
-
-  static const Color textSecondary = Color(0xB3111111);
-
-  static const Color textTertiary = Color(0x73111111);
-
-  static const Color textQuaternary = Color(0x4D111111);
-
   static const Color border = Color(0x14000000);
+
+  static const Color textPrimary = Color(0xFF18181B);
+
+  static const Color textSecondary = Color(0xB318181B);
+
+  static const Color textTertiary = Color(0x7318181B);
+
+  static const Color textQuaternary = Color(0x4D18181B);
 
   static const Color success = primary;
 
   static const Color warningBg = Color(0xFFF5F5F5);
 
-  static const Color warningText = Color(0xFF555555);
+  static const Color warningText = Color(0xFF52525B);
 
-  /// Floating glass layers
+  /// Glass overlays — white @ 80%
   static const Color glassFill = Color(0xCCFFFFFF);
+
+  static const Color primaryGlass = glassFill;
+
+  static const Color primarySoft = Color(0x1418181B);
 
   static const double glassBlurSigma = 10;
 
@@ -79,11 +81,11 @@ abstract final class SoriTokens {
   static const double radiusMd = 14;
   static const double outlineWidth = 1;
 
-  static List<BoxShadow> get cardShadow => const [
+  static List<BoxShadow> get cardShadow => [
         BoxShadow(
-          color: Color(0x0A000000),
+          color: Colors.black.withValues(alpha: 0.04),
           blurRadius: 12,
-          offset: Offset(0, 4),
+          offset: const Offset(0, 4),
         ),
       ];
 
@@ -104,7 +106,6 @@ abstract final class SoriTokens {
     );
   }
 
-  /// Glassmorphism surface — semi-transparent white + optional hairline.
   static BoxDecoration glassSurface({
     double radius = radiusMd,
     bool showBorder = true,
@@ -118,7 +119,6 @@ abstract final class SoriTokens {
     );
   }
 
-  /// Legacy alias
   static BoxDecoration glassEmerald({
     double radius = radiusMd,
     bool border = true,

@@ -137,7 +137,7 @@ class _CtaButton extends StatelessWidget {
       icon: Icon(icon, size: 18),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFFC4B5FD),
+        foregroundColor: SoriTokens.textTertiary,
         side: BorderSide(color: SoriTokens.primary.withValues(alpha: 0.45)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         alignment: Alignment.centerLeft,

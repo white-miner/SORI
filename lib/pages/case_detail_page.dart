@@ -382,7 +382,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                                   : Icons.favorite_border,
                               size: 26,
                               color: _liked
-                                  ? const Color(0xFFE53935)
+                                  ? SoriTokens.systemRed
                                   : SoriTokens.textPrimary,
                             ),
                           ),

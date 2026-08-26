@@ -125,7 +125,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('촬영 저장 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -218,7 +218,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('임시 촬영 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -249,7 +249,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('연결 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );

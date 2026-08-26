@@ -104,10 +104,10 @@ class _BusinessVerifiedMark extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF0EA5E9).withValues(alpha: 0.14),
+        color: SoriTokens.primary.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(99),
         border: Border.all(
-          color: const Color(0xFF0EA5E9).withValues(alpha: 0.45),
+          color: SoriTokens.primary.withValues(alpha: 0.45),
         ),
       ),
       child: const Row(

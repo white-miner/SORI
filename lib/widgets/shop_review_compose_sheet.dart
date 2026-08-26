@@ -160,7 +160,7 @@ Future<void> showShopReviewComposeSheet(
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('등록 실패: $e'),
-        backgroundColor: SoriTokens.primaryDark,
+        backgroundColor: SoriTokens.systemRed,
       ),
     );
   }

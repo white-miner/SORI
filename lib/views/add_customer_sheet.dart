@@ -153,7 +153,7 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
             '등록 실패: ${widget.store.lastError ?? e.toString()}',
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       widget.store.clearError();

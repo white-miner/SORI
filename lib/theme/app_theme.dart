@@ -15,7 +15,7 @@ abstract final class AppTheme {
       onSecondary: SoriTokens.onPrimary,
       surface: SoriTokens.surface,
       onSurface: SoriTokens.textPrimary,
-      error: SoriTokens.primaryDark,
+      error: SoriTokens.systemRed,
       onError: SoriTokens.onPrimary,
     );
 
@@ -200,6 +200,10 @@ abstract final class AppTheme {
         textColor: SoriTokens.textPrimary,
       ),
       datePickerTheme: SoriDatePickerTheme.data,
+      badgeTheme: const BadgeThemeData(
+        backgroundColor: SoriTokens.systemRed,
+        textColor: SoriTokens.onPrimary,
+      ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: SoriTokens.primary,
       ),

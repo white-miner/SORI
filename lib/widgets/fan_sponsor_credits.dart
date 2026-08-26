@@ -52,7 +52,7 @@ class FanBoostCreditStrip extends StatelessWidget {
                     Icon(
                       Icons.local_fire_department_rounded,
                       size: 16,
-                      color: const Color(0xFFF472B6),
+                      color: SoriTokens.textSecondary,
                     ),
                     const SizedBox(width: 6),
                     SupporterFacepile(supporters: ranked, size: 22),
@@ -65,7 +65,7 @@ class FanBoostCreditStrip extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFFF9A8D4),
+                          color: SoriTokens.textSecondary,
                           letterSpacing: -0.2,
                           height: 1.2,
                         ),
@@ -140,7 +140,7 @@ class SupporterFacepile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: size < 24 ? 8.5 : 10,
                     fontWeight: FontWeight.w900,
-                    color: const Color(0xFFF9A8D4),
+                    color: SoriTokens.textSecondary,
                     height: 1,
                   ),
                 ),
@@ -179,7 +179,7 @@ class _FaceAvatar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: size * 0.42,
                   fontWeight: FontWeight.w900,
-                  color: const Color(0xFFF9A8D4),
+                  color: SoriTokens.textSecondary,
                 ),
               )
             : null,
@@ -273,7 +273,7 @@ Future<void> showFanSupportersSheet(
                   children: [
                     const Icon(
                       Icons.emoji_events_outlined,
-                      color: Color(0xFFF9A8D4),
+                      color: SoriTokens.textSecondary,
                       size: 22,
                     ),
                     const SizedBox(width: 8),
@@ -327,7 +327,7 @@ Future<void> showFanSupportersSheet(
                                     fontWeight: FontWeight.w900,
                                     fontSize: 15,
                                     color: rose
-                                        ? const Color(0xFFF9A8D4)
+                                        ? SoriTokens.textSecondary
                                         : SoriTokens.textSecondary,
                                   ),
                                 ),
@@ -351,7 +351,7 @@ Future<void> showFanSupportersSheet(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 13.5,
                                   color: rose
-                                      ? const Color(0xFFF9A8D4)
+                                      ? SoriTokens.textSecondary
                                       : SoriTokens.textSecondary,
                                 ),
                               ),
@@ -465,7 +465,7 @@ class ShopTopSupportersSection extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         color: rank <= 3
-                            ? const Color(0xFFF9A8D4)
+                            ? SoriTokens.textSecondary
                             : SoriTokens.textSecondary,
                       ),
                     ),
@@ -478,7 +478,7 @@ class ShopTopSupportersSection extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
-                        color: Color(0xFFF9A8D4),
+                        color: SoriTokens.textSecondary,
                       ),
                     ),
                   ),
@@ -493,7 +493,7 @@ class ShopTopSupportersSection extends StatelessWidget {
                     '${row.echoSpent}E',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFFF9A8D4),
+                      color: SoriTokens.textSecondary,
                       fontSize: 12.5,
                     ),
                   ),

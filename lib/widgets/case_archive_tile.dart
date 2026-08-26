@@ -133,7 +133,7 @@ class CaseArchiveTile extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFC4B5FD),
+                          color: SoriTokens.textTertiary,
                           height: 1.25,
                         ),
                       ),
@@ -182,7 +182,7 @@ class CaseArchiveTile extends StatelessWidget {
                                     : Icons.favorite_border_rounded,
                                 size: 20,
                                 color: liked
-                                    ? const Color(0xFFE11D48)
+                                    ? SoriTokens.systemRed
                                     : SoriTokens.textSecondary,
                               ),
                               Text(

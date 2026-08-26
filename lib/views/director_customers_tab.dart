@@ -141,7 +141,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
         SnackBar(
           content: Text('삭제 실패: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     } finally {
@@ -583,7 +583,7 @@ class _RedZoneDeleteDialogState extends State<_RedZoneDeleteDialog> {
                   child: Checkbox(
                     value: _acked,
                     onChanged: (v) => setState(() => _acked = v ?? false),
-                    activeColor: const Color(0xFFEF4444),
+                    activeColor: SoriTokens.systemRed,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -610,7 +610,7 @@ class _RedZoneDeleteDialogState extends State<_RedZoneDeleteDialog> {
         FilledButton(
           onPressed: _acked ? () => Navigator.pop(context, true) : null,
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: SoriTokens.systemRed,
             disabledBackgroundColor: const Color(0xFF3F3F46),
           ),
           child: const Text('영구 삭제'),

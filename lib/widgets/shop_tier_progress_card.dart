@@ -39,7 +39,7 @@ class ShopTierProgressCard extends StatelessWidget {
             title: '소셜 트랙',
             hint: snap.socialHint,
             ratio: snap.socialRatio,
-            color: const Color(0xFF0EA5E9),
+            color: SoriTokens.primary,
             activityScore: shop.communityActivityScore,
           ),
           const SizedBox(height: 12),

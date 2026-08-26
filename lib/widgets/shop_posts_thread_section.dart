@@ -66,7 +66,7 @@ class ShopPostsThreadSection extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('이 글을 삭제할 권한이 없어요'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     }
@@ -486,7 +486,7 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('게시 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     } finally {

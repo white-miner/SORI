@@ -113,7 +113,7 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
         const SnackBar(
           content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFFE53935),
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     }
@@ -269,7 +269,7 @@ class _ArchiveTabCard extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: selected ? SoriTokens.primary : const Color(0xFFB7791F),
+                color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
               ),
               const SizedBox(width: 8),
               Expanded(

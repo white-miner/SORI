@@ -251,7 +251,7 @@ class _TierBadgeChip extends StatelessWidget {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: Color(0xFFC4B5FD),
+          color: SoriTokens.textTertiary,
         ),
       ),
     );

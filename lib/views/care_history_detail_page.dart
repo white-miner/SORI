@@ -140,7 +140,7 @@ class _SimpleStepper extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: steps[i].upcoming
-                            ? const Color(0xFF6366F1)
+                            ? SoriTokens.textTertiary
                             : SoriTokens.primary,
                       ),
                     ),

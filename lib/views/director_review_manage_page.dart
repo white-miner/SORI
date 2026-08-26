@@ -729,6 +729,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                 onPressed: _openFilterSheet,
                 icon: Badge(
                   isLabelVisible: _activeFilterCount > 0,
+                  backgroundColor: SoriTokens.systemRed,
                   label: Text(
                     '$_activeFilterCount',
                     style: const TextStyle(fontSize: 10),
@@ -999,7 +1000,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
                   return Icon(
                     i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
                     size: 16,
-                    color: const Color(0xFFF5A524),
+                    color: SoriTokens.textSecondary,
                   );
                 }),
               ),

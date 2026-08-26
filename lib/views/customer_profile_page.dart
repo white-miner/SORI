@@ -202,7 +202,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         SnackBar(
           content: Text('저장 실패: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     } finally {

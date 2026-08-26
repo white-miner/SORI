@@ -99,7 +99,7 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
           SnackBar(
             content: Text(err),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
             action: SnackBarAction(
               label: '닫기',
               textColor: Colors.white,
@@ -125,7 +125,7 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
             SnackBar(
               content: Text(authErr),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: SoriTokens.primaryDark,
+              backgroundColor: SoriTokens.systemRed,
             ),
           );
           _store.clearAuthError();

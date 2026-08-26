@@ -70,7 +70,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('이름과 연락처를 정확히 입력해 주세요.'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;
@@ -88,7 +88,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('상호명·대표 전화·네이버 플레이스 URL을 모두 입력해 주세요.'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;

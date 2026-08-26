@@ -382,7 +382,7 @@ class _QuickActionDashboard extends StatelessWidget {
                 subtitle: '신규 회차 작성',
                 icon: Icons.bolt_rounded,
                 iconColors: const [Color(0xFF143528), Color(0xFF1A3D30)],
-                iconFg: const Color(0xFF047857),
+                iconFg: SoriTokens.primary,
                 onTap: onQuickChart,
               ),
             ),
@@ -419,7 +419,7 @@ class _QuickActionDashboard extends StatelessWidget {
                 subtitle: '경과 보기',
                 icon: Icons.compare_rounded,
                 iconColors: const [Color(0xFF1E2A3A), Color(0xFF252A40)],
-                iconFg: const Color(0xFF60A5FA),
+                iconFg: SoriTokens.primary,
                 onTap: onBeforeAfter,
               ),
             ),
@@ -907,7 +907,7 @@ class _ChartDetailBody extends StatelessWidget {
             FilledButton.icon(
               onPressed: onAddAfterPhoto,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF047857),
+                backgroundColor: SoriTokens.primary,
               ),
               icon: const Icon(Icons.add_a_photo_outlined, size: 18),
               label: const Text('After 사진 등록'),

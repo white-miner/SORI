@@ -143,7 +143,7 @@ Future<bool> showFanBoostPurchaseSheet(
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFFF9A8D4),
+                      color: SoriTokens.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -176,7 +176,7 @@ Future<bool> showFanBoostPurchaseSheet(
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFFF9A8D4),
+                        color: SoriTokens.textSecondary,
                         height: 1.35,
                       ),
                     ),
@@ -187,7 +187,7 @@ Future<bool> showFanBoostPurchaseSheet(
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFFF9A8D4),
+                      color: SoriTokens.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -209,7 +209,7 @@ Future<bool> showFanBoostPurchaseSheet(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: const Color(0xFFF472B6)
+                                color: SoriTokens.textSecondary
                                     .withValues(alpha: 0.45),
                               ),
                             ),
@@ -256,7 +256,7 @@ Future<bool> showFanBoostPurchaseSheet(
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 12.5,
-                                      color: Color(0xFFF9A8D4),
+                                      color: SoriTokens.textSecondary,
                                     ),
                                   ),
                               ],

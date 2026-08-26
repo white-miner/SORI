@@ -288,7 +288,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.4,
                                   color: item.isFanBoosted
-                                      ? const Color(0xFFF9A8D4)
+                                      ? SoriTokens.textSecondary
                                       : SoriTokens.warningText,
                                 ),
                               ),
@@ -372,7 +372,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           color: item.isFanBoosted
-                              ? const Color(0xFFF9A8D4)
+                              ? SoriTokens.textSecondary
                               : SoriTokens.warningText,
                           letterSpacing: 0.2,
                         ),
@@ -409,7 +409,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                             : Icons.favorite_border,
                         size: 24,
                         color: widget.liked
-                            ? const Color(0xFFE53935)
+                            ? SoriTokens.systemRed
                             : SoriTokens.textTertiary,
                       ),
                     ),
@@ -477,8 +477,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           Icons.local_fire_department_rounded,
                           size: 24,
                           color: item.isBoosted
-                              ? const Color(0xFFF472B6)
-                              : const Color(0xFFF97316),
+                              ? SoriTokens.textSecondary
+                              : SoriTokens.textSecondary,
                         ),
                       ),
                   ],
@@ -659,7 +659,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ListTile(
                   leading: const Icon(
                     Icons.local_fire_department_rounded,
-                    color: Color(0xFFF97316),
+                    color: SoriTokens.textSecondary,
                   ),
                   title: const Text('내 임상 케이스 띄우기'),
                   subtitle: const Text('우리 지역 피드 슬롯 혼합 노출'),
@@ -673,7 +673,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ListTile(
                   leading: const Icon(
                     Icons.local_fire_department_rounded,
-                    color: Color(0xFFF472B6),
+                    color: SoriTokens.textSecondary,
                   ),
                   title: const Text('원장님 게시물 응원하기'),
                   subtitle: const Text('Fan-Boost · 닉네임 공개'),

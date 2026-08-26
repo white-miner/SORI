@@ -83,7 +83,7 @@ class _AiShopReportPageState extends State<AiShopReportPage> {
     final finance = _finance;
     final hell = finance.isHellZone;
     final borderColor =
-        hell ? const Color(0xFFDC2626) : Colors.transparent;
+        hell ? SoriTokens.systemRed : Colors.transparent;
 
     return Scaffold(
       backgroundColor:
@@ -91,7 +91,7 @@ class _AiShopReportPageState extends State<AiShopReportPage> {
       appBar: AppBar(
         title: Text(hell ? '🚨 Hell-Zone · AI 샵 경영 리포트' : 'AI 샵 경영 리포트'),
         backgroundColor: hell ? const Color(0xFF2A1212) : SoriTokens.surface,
-        foregroundColor: hell ? const Color(0xFFFCA5A5) : SoriTokens.textPrimary,
+        foregroundColor: hell ? SoriTokens.systemRed.withValues(alpha: 0.45) : SoriTokens.textPrimary,
         elevation: 0,
       ),
       body: Container(
@@ -351,19 +351,19 @@ class _LaborDebtHero extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: hell
-              ? const [Color(0xFF991B1B), Color(0xFFDC2626)]
+              ? const [SoriTokens.primaryDark, SoriTokens.systemRed]
               : const [Color(0xFF1E293B), Color(0xFF334155)],
         ),
         boxShadow: [
           BoxShadow(
-            color: (hell ? const Color(0xFFDC2626) : Colors.black)
+            color: (hell ? SoriTokens.systemRed : Colors.black)
                 .withValues(alpha: 0.28),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
         ],
         border: hell
-            ? Border.all(color: const Color(0xFFFCA5A5), width: 2)
+            ? Border.all(color: SoriTokens.systemRed.withValues(alpha: 0.45), width: 2)
             : null,
       ),
       child: Column(
@@ -462,7 +462,7 @@ class _SplitRevenueCard extends StatelessWidget {
     return _ModuleShell(
       eyebrow: '재무',
       title: '매출 분리 · 단과(순수익) vs 회원권(부채)',
-      accent: hell ? const Color(0xFFDC2626) : null,
+      accent: hell ? SoriTokens.systemRed : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -480,7 +480,7 @@ class _SplitRevenueCard extends StatelessWidget {
                 child: _MiniMetric(
                   label: '회원권 결제 (부채)',
                   value: _won(membership),
-                  color: hell ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                  color: hell ? SoriTokens.systemRed : SoriTokens.textSecondary,
                 ),
               ),
             ],
@@ -500,7 +500,7 @@ class _SplitRevenueCard extends StatelessWidget {
                     flex: ((1 - singleW) * 1000).round().clamp(1, 999),
                     child: Container(
                       color: hell
-                          ? const Color(0xFFDC2626)
+                          ? SoriTokens.systemRed
                           : const Color(0xFFF59E0B),
                     ),
                   ),
@@ -819,7 +819,7 @@ class _RevenueModuleCard extends StatelessWidget {
                   label: '회원권 소진 가치',
                   value: _won(data.membershipBurnValueWon),
                   footnote: '소진률 ${data.membershipBurnRatePercent}%',
-                  accent: const Color(0xFF0F766E),
+                  accent: SoriTokens.primary,
                 ),
               ),
             ],
@@ -831,7 +831,7 @@ class _RevenueModuleCard extends StatelessWidget {
               value: data.membershipBurnRatePercent / 100,
               minHeight: 8,
               backgroundColor: SoriTokens.border,
-              color: const Color(0xFF0F766E),
+              color: SoriTokens.primary,
             ),
           ),
           const SizedBox(height: 10),

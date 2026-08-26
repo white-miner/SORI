@@ -1,9 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 import '../theme/sori_tokens.dart';
 
-/// Weverse-style fluid drag bottom nav — solid bar (no BackdropFilter on mobile web).
+/// Weverse-style fluid drag bottom nav — glass white bar with blur.
 class FloatingPillNav extends StatefulWidget {
   const FloatingPillNav({
     super.key,
@@ -18,8 +20,8 @@ class FloatingPillNav extends StatefulWidget {
   final String reviewLabel;
   final ValueChanged<int> onTap;
 
-  /// Opaque enough without blur (~94% #121212)
-  static const Color barBg = Color(0xF0121212);
+  /// Glass white floating bar
+  static Color get barBg => SoriTokens.glassFill;
 
   @override
   State<FloatingPillNav> createState() => _FloatingPillNavState();
@@ -195,15 +197,17 @@ class _FloatingPillNavState extends State<FloatingPillNav>
           _syncBarWidth(constraints.maxWidth);
           return SizedBox(
             height: _barH,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: FloatingPillNav.barBg,
-                borderRadius: BorderRadius.circular(_radius),
-                border: Border.all(color: SoriTokens.border),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_radius),
-                child: Stack(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_radius),
+              child: BackdropFilter(
+                filter: SoriTokens.glassBlurFilter,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: FloatingPillNav.barBg,
+                    borderRadius: BorderRadius.circular(_radius),
+                    border: Border.all(color: SoriTokens.border),
+                  ),
+                  child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
                     if (_laidOut && _highlightW > 0)
@@ -222,7 +226,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                             width: _highlightW,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
+                                color: SoriTokens.primarySoft,
                                 borderRadius: BorderRadius.circular(24),
                               ),
                             ),
@@ -280,6 +284,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                       ),
                     ),
                   ],
+                  ),
                 ),
               ),
             ),

@@ -29,7 +29,7 @@ class OfficialBadge extends StatelessWidget {
           Icon(
             Icons.verified_rounded,
             size: compact ? 11 : 12,
-            color: const Color(0xFF60A5FA),
+            color: SoriTokens.primary,
           ),
           SizedBox(width: compact ? 2 : 3),
           Text(

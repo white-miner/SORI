@@ -147,7 +147,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
             ok ? '간판 이미지가 업데이트되었어요' : '업로드에 실패했어요',
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: ok ? SoriTokens.primary : SoriTokens.primaryDark,
+          backgroundColor: ok ? SoriTokens.primary : SoriTokens.systemRed,
         ),
       );
     } catch (e) {
@@ -156,7 +156,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
         SnackBar(
           content: Text('업로드 오류: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     } finally {
@@ -664,7 +664,7 @@ class _ShopHeroCover extends StatelessWidget {
           fit: BoxFit.cover,
           alignment: Alignment.center,
           error: const ColoredBox(
-            color: Color(0xFF1A1028),
+            color: SoriTokens.primaryDark,
             child: Center(
               child: Icon(
                 Icons.spa_rounded,
@@ -865,7 +865,7 @@ class _HeroOverlayIcon extends StatelessWidget {
           '$badgeCount',
           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
         ),
-        backgroundColor: const Color(0xFFE11D48),
+        backgroundColor: SoriTokens.systemRed,
         child: Icon(
           icon,
           color: Colors.white,
@@ -2058,7 +2058,7 @@ class _AiManagementSheetBody extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         color: delta >= 0
                             ? SoriTokens.primary
-                            : const Color(0xFFFCA5A5),
+                            : SoriTokens.systemRed.withValues(alpha: 0.45),
                       ),
                     ),
                   ),
@@ -2238,7 +2238,7 @@ class _QuickDashboardRow extends StatelessWidget {
           Expanded(
             child: _QuickDashCard(
               icon: Icons.military_tech_rounded,
-              iconColor: const Color(0xFFB7791F),
+              iconColor: SoriTokens.textSecondary,
               iconBg: SoriTokens.warningBg,
               title: '내 등급',
               subtitle: tierSub,
@@ -2260,8 +2260,8 @@ class _QuickDashboardRow extends StatelessWidget {
           Expanded(
             child: _QuickDashCard(
               icon: Icons.auto_graph_rounded,
-              iconColor: const Color(0xFF0F766E),
-              iconBg: const Color(0xFFCCFBF1),
+              iconColor: SoriTokens.primary,
+              iconBg: SoriTokens.primarySoft,
               title: 'AI 경영',
               subtitle: '$month월 리포트',
               onTap: onAiTap,

@@ -162,7 +162,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('저장 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -216,7 +216,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('사진 저장 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -270,7 +270,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('가이드 촬영 저장 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -326,7 +326,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('After 등록 실패: $e'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -585,7 +585,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
         const SnackBar(
           content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFFE53935),
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     }

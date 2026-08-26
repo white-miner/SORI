@@ -122,7 +122,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
         SnackBar(
           content: Text(e.message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     } finally {
@@ -142,7 +142,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
           SnackBar(
             content: Text('중복된 서비스명이에요: $name'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
           ),
         );
         return;

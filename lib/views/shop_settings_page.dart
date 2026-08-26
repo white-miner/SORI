@@ -72,7 +72,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('네이버 플레이스 URL은 필수입니다.'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;

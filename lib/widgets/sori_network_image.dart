@@ -52,7 +52,7 @@ class SoriNetworkImage extends StatelessWidget {
       errorWidget: (_, _, _) =>
           error ??
           const ColoredBox(
-            color: Color(0xFF1A1028),
+            color: SoriTokens.primaryDark,
             child: Center(
               child: Icon(Icons.broken_image_outlined,
                   color: SoriTokens.textSecondary),

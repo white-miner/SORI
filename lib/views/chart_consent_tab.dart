@@ -479,7 +479,7 @@ class _ChartConsentTabState extends State<ChartConsentTab> {
                     border: Border.all(
                       color: widget.highlightSignature ||
                               widget.showSignatureError
-                          ? const Color(0xFFE53935)
+                          ? SoriTokens.systemRed
                           : SoriTokens.border,
                       width: widget.highlightSignature ||
                               widget.showSignatureError
@@ -873,7 +873,7 @@ class _ConsentValidationBlock extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: highlighted
-                    ? const Color(0xFFE53935)
+                    ? SoriTokens.systemRed
                     : Colors.transparent,
                 width: highlighted ? 1.5 : 0,
               ),
@@ -899,7 +899,7 @@ class _ConsentValidationBlock extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           height: 1.25,
-                          color: Color(0xFFE53935),
+                          color: SoriTokens.systemRed,
                         ),
                       ),
                     ),

@@ -138,7 +138,7 @@ class _CommunitySeminarBridgeState extends State<CommunitySeminarBridge> {
       icon: const Icon(Icons.school_outlined, size: 18),
       label: Text(widget.compactLabel ?? '이 원장님의 개설 세미나 보기'),
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFFC4B5FD),
+        foregroundColor: SoriTokens.textTertiary,
         side: BorderSide(
           color: SoriTokens.primary.withValues(alpha: 0.45),
         ),

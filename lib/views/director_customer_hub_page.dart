@@ -94,7 +94,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: SoriTokens.primary,
+                            color: SoriTokens.systemRed,
                             borderRadius: BorderRadius.circular(99),
                           ),
                           child: Text(
@@ -102,7 +102,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: Colors.black,
+                              color: SoriTokens.onPrimary,
                             ),
                           ),
                         ),

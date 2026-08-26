@@ -538,7 +538,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           const SnackBar(
             content: Text('WebP 압축에 실패했어요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
           ),
         );
         return;
@@ -556,7 +556,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           const SnackBar(
             content: Text('업로드에 실패했어요. 네트워크·Storage를 확인해 주세요.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: SoriTokens.primaryDark,
+            backgroundColor: SoriTokens.systemRed,
           ),
         );
         return;
@@ -579,7 +579,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         SnackBar(
           content: Text('촬영 실패: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
     } finally {
@@ -1152,7 +1152,7 @@ class _AutoShootToggleButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
 
-  static const _emerald = Color(0xFFFFFFFF);
+  static const _cameraYellow = SoriTokens.cameraYellow;
 
   @override
   Widget build(BuildContext context) {
@@ -1168,17 +1168,17 @@ class _AutoShootToggleButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: enabled
-                ? _emerald.withValues(alpha: 0.16)
+                ? _cameraYellow.withValues(alpha: 0.16)
                 : Colors.white.withValues(alpha: 0.08),
             border: Border.all(
               color: enabled
-                  ? _emerald.withValues(alpha: 0.88)
+                  ? _cameraYellow.withValues(alpha: 0.88)
                   : Colors.white.withValues(alpha: 0.14),
             ),
             boxShadow: enabled
                 ? [
                     BoxShadow(
-                      color: _emerald.withValues(alpha: 0.28),
+                      color: _cameraYellow.withValues(alpha: 0.28),
                       blurRadius: 10,
                       spreadRadius: 0.5,
                     ),
@@ -1189,7 +1189,7 @@ class _AutoShootToggleButton extends StatelessWidget {
             Icons.auto_fix_high_rounded,
             size: 22,
             color: enabled
-                ? _emerald
+                ? _cameraYellow
                 : Colors.white.withValues(alpha: 0.55),
           ),
         ),
@@ -1240,12 +1240,11 @@ class _PresetIconButton extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  static const _inactive = Color(0x8CFFFFFF); // white @ ~55%
-  static const _emerald = Color(0xFFFFFFFF);
+  static const _inactive = SoriTokens.inactiveGray;
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? _emerald : _inactive;
+    final fg = selected ? SoriTokens.cameraYellow : _inactive;
     return Semantics(
       button: true,
       label: preset.label,
@@ -1266,7 +1265,7 @@ class _PresetIconButton extends StatelessWidget {
                 width: selected ? 16 : 0,
                 height: 2,
                 decoration: BoxDecoration(
-                  color: selected ? _emerald : Colors.transparent,
+                  color: selected ? SoriTokens.cameraYellow : Colors.transparent,
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
@@ -1375,14 +1374,14 @@ class _DynamicGyroLeveler extends StatelessWidget {
   final bool needsPermissionPrompt;
   final VoidCallback onEnableMotion;
 
-  static const _emerald = Color(0xFFFFFFFF);
+  static const _cameraYellow = SoriTokens.cameraYellow;
   static const _glass = Color(0x66FFFFFF);
 
   @override
   Widget build(BuildContext context) {
     final showPrompt = needsPermissionPrompt || motionDenied;
     final live = motionReady && attitude != null;
-    final color = leveled ? _emerald : _glass;
+    final color = leveled ? SoriTokens.cameraYellow : _glass;
     final rollDeg = attitude?.roll ?? 0.0;
 
     return Stack(
@@ -1554,11 +1553,11 @@ class _DecolleteGuidePainter extends CustomPainter {
 
   final bool leveled;
 
-  static const _emerald = Color(0xFFFFFFFF);
+  static const _cameraYellow = SoriTokens.cameraYellow;
   static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
 
   Color get _strokeColor =>
-      leveled ? _emerald.withValues(alpha: 0.92) : _guideWhite;
+      leveled ? _guideWhite.withValues(alpha: 0.92) : _guideWhite;
 
   void _strokePath(Canvas canvas, Path path, Color color, {double width = 1.8}) {
     canvas.drawPath(
@@ -1593,7 +1592,7 @@ class _DecolleteGuidePainter extends CustomPainter {
           ..moveTo(w * 0.08, h * 0.30)
           ..quadraticBezierTo(cx, h * 0.22, w * 0.92, h * 0.30),
         Paint()
-          ..color = _emerald.withValues(alpha: 0.22)
+          ..color = Colors.white.withValues(alpha: 0.22)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 16
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
@@ -1722,7 +1721,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
   static const _outerWhite = Color(0x80FFFFFF); // 50%
   static const _innerWhite = Color(0x66FFFFFF); // 40%
   static const _trackGray = Color(0x66B0B0B0);
-  static const _emerald = Color(0xFFFFFFFF);
+  static const _cameraYellow = SoriTokens.cameraYellow;
 
   Offset _targetCenter(Size size) => Offset(
         size.width * GuideFacePose.guideCenterX,
@@ -1763,7 +1762,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       center,
       radius,
       Paint()
-        ..color = _emerald.withValues(alpha: 0.38)
+        ..color = SoriTokens.cameraYellow.withValues(alpha: 0.38)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 16
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
@@ -1798,7 +1797,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
         trackCenter,
         trackR,
         Paint()
-          ..color = aligned ? _emerald.withValues(alpha: 0.95) : _trackGray
+          ..color = aligned ? SoriTokens.cameraYellow.withValues(alpha: 0.95) : _trackGray
           ..style = PaintingStyle.stroke
           ..strokeWidth = aligned ? 2.6 : 1.6,
       );
@@ -1811,7 +1810,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       targetCenter,
       innerR,
       Paint()
-        ..color = aligned ? _emerald.withValues(alpha: 0.95) : _innerWhite
+        ..color = aligned ? SoriTokens.cameraYellow.withValues(alpha: 0.95) : _innerWhite
         ..style = PaintingStyle.stroke
         ..strokeWidth = aligned ? 2.4 : 1.5
         ..strokeCap = StrokeCap.round,
@@ -1822,7 +1821,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       targetCenter,
       outerR,
       Paint()
-        ..color = aligned ? _emerald.withValues(alpha: 0.55) : _outerWhite
+        ..color = aligned ? SoriTokens.cameraYellow.withValues(alpha: 0.55) : _outerWhite
         ..style = PaintingStyle.stroke
         ..strokeWidth = aligned ? 2.0 : 1.6,
     );

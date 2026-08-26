@@ -529,6 +529,7 @@ class _FlatAppBarIcon extends StatelessWidget {
         ),
         icon: badgeCount > 0
             ? Badge(
+                backgroundColor: SoriTokens.systemRed,
                 label: Text(
                   badgeCount > 9 ? '9+' : '$badgeCount',
                   style: const TextStyle(

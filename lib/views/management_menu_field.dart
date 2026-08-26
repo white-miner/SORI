@@ -127,7 +127,7 @@ class ManagementMenuField extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasValue = value.trim().isNotEmpty;
     final borderColor = hasError
-        ? const Color(0xFFE53935)
+        ? SoriTokens.systemRed
         : Colors.grey.shade400;
 
     return Column(
@@ -149,14 +149,14 @@ class ManagementMenuField extends StatelessWidget {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
-                  color: hasError ? const Color(0xFFE53935) : MyApp.soriPurple,
+                  color: hasError ? SoriTokens.systemRed : MyApp.soriPurple,
                   width: 1.6,
                 ),
               ),
               contentPadding: const EdgeInsets.fromLTRB(16, 18, 12, 18),
               suffixIcon: Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: hasError ? const Color(0xFFE53935) : MyApp.soriPurple,
+                color: hasError ? SoriTokens.systemRed : MyApp.soriPurple,
               ),
             ),
             child: Text(

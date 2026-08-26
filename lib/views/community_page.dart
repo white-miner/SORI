@@ -293,7 +293,7 @@ class _CommunityViewerBanner extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFFC4B5FD)),
+              Icon(Icons.lock_outline_rounded, size: 18, color: SoriTokens.textTertiary),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1452,7 +1452,7 @@ class _MarketCard extends StatelessWidget {
                       img,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) =>
-                          const ColoredBox(color: Color(0xFF1A1028)),
+                          const ColoredBox(color: SoriTokens.primaryDark),
                     ),
                   ),
                 CommunityCommentsSection(store: store, postId: post.id),
@@ -1684,7 +1684,7 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('게시 실패 — DB 마이그레이션(049)을 확인해 주세요'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;
@@ -1955,7 +1955,7 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('게시 실패 — DB 마이그레이션(049)을 확인해 주세요'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;

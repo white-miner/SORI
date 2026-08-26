@@ -82,7 +82,7 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('모집이 마감되었습니다.'),
-          backgroundColor: SoriTokens.primaryDark,
+          backgroundColor: SoriTokens.systemRed,
         ),
       );
       return;
@@ -499,7 +499,7 @@ class _EventInfoBox extends StatelessWidget {
           _InfoChip(
             icon: Icons.people_alt_outlined,
             label: '$currentEnrollment / $maxCapacity명',
-            tint: const Color(0xFF0EA5E9),
+            tint: SoriTokens.primary,
           ),
           _InfoChip(
             icon: Icons.place_outlined,
@@ -693,7 +693,7 @@ class _FomoProgressSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fomoColor = isAlmostFull
-        ? const Color(0xFFDC2626)
+        ? SoriTokens.systemRed
         : SoriTokens.textSecondary;
 
     return Container(
@@ -730,7 +730,7 @@ class _FomoProgressSection extends StatelessWidget {
               minHeight: 12,
               backgroundColor: SoriTokens.border,
               color: isAlmostFull
-                  ? const Color(0xFFEF4444)
+                  ? SoriTokens.systemRed
                   : SoriTokens.primary,
             ),
           ),

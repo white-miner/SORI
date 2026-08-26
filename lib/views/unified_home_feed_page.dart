@@ -840,7 +840,7 @@ class _TopEducatorsStrip extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 18,
-                          color: Color(0xFFC4B5FD),
+                          color: SoriTokens.textTertiary,
                         ),
                       ),
                     ),

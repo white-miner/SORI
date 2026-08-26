@@ -90,7 +90,7 @@ class _CommunityHotspotImageState extends State<CommunityHotspotImage>
                 SoriNetworkImage(url: widget.imageUrl!, fit: widget.fit)
               else
                 const ColoredBox(
-                  color: Color(0xFF1A1028),
+                  color: SoriTokens.primaryDark,
                   child: Icon(
                     Icons.apartment_outlined,
                     color: SoriTokens.primary,
