@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
@@ -45,7 +44,10 @@ extension _ShutterTimerDelayX on _ShutterTimerDelay {
       };
 }
 
-const _kLevelToleranceDeg = 1.0;
+const _kLevelEnterDeg = 2.0;
+const _kLevelExitDeg = 2.5;
+const _kRollDeadzoneDeg = 0.4;
+const _kRollEmaAlpha = 0.15;
 
 enum GuidePreset {
   face,
@@ -74,6 +76,15 @@ enum GuidePreset {
         GuidePreset.abdomen => 'assets/icons/ic_abdomen.svg',
         GuidePreset.lowerBody => 'assets/icons/ic_legs.svg',
         GuidePreset.fullBody => 'assets/icons/ic_body.svg',
+      };
+
+  /// SVG 래스터 이슈 회피용 Material 아이콘 (표시용).
+  IconData get materialIcon => switch (this) {
+        GuidePreset.face => Icons.face,
+        GuidePreset.decollete => Icons.diamond_outlined,
+        GuidePreset.abdomen => Icons.airline_seat_flat_angled_outlined,
+        GuidePreset.lowerBody => Icons.directions_walk,
+        GuidePreset.fullBody => Icons.accessibility_new,
       };
 }
 
@@ -140,6 +151,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   String? _viewType;
   int? _countdown;
   GuideDeviceAttitude? _attitude;
+  double _rollSmoothed = 0;
   bool _wasLevel = false;
   bool _motionReady = false;
   bool _motionDenied = false;
@@ -284,21 +296,37 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   void _onAttitude(GuideDeviceAttitude? next) {
     if (!mounted) return;
-    final prev = _attitude;
-    if (prev != null &&
-        next != null &&
-        (prev.roll - next.roll).abs() < 0.12) {
+    if (next == null) {
+      setState(() => _attitude = null);
       return;
     }
-    final leveled = next != null && next.roll.abs() <= _kLevelToleranceDeg;
+
+    // EMA low-pass (α≈0.15) — 손떨림 노이즈 억제
+    var roll = _kRollEmaAlpha * next.roll + (1 - _kRollEmaAlpha) * _rollSmoothed;
+    // Deadzone snap
+    if (roll.abs() < _kRollDeadzoneDeg) roll = 0;
+
+    // 미세 변화 스킵 (스무딩 이후 기준)
+    if ((roll - _rollSmoothed).abs() < 0.05 && _attitude != null) {
+      final stillLeveled = _wasLevel
+          ? roll.abs() <= _kLevelExitDeg
+          : roll.abs() <= _kLevelEnterDeg;
+      if (stillLeveled == _wasLevel) return;
+    }
+
+    // 히스테리시스: 진입 ±2.0° / 이탈 ±2.5°
+    final leveled = _wasLevel
+        ? roll.abs() <= _kLevelExitDeg
+        : roll.abs() <= _kLevelEnterDeg;
     if (leveled && !_wasLevel) {
       HapticFeedback.lightImpact();
       soriLightHaptic();
     }
     _wasLevel = leveled;
+    _rollSmoothed = roll;
     setState(() {
-      _attitude = next;
-      if (next != null) _motionReady = true;
+      _attitude = GuideDeviceAttitude(roll: roll, pitch: next.pitch);
+      _motionReady = true;
     });
   }
 
@@ -699,39 +727,51 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-                if (_preset == GuidePreset.face)
-                  IgnorePointer(
-                    ignoring: true,
-                    child: CustomPaint(
-                      painter: _CircularFaceAlignPainter(
-                        pose: _facePose,
-                        mirrored: _mode == GuideCaptureMode.selfFront,
+                // 프리셋 가이드 — 수평계와 혼동 방지: 기본 10% / 기울기 중 완전 숨김
+                Builder(
+                  builder: (context) {
+                    final tilting = _motionReady &&
+                        _attitude != null &&
+                        !_wasLevel &&
+                        _rollSmoothed.abs() > _kRollDeadzoneDeg;
+                    final guideOpacity = tilting ? 0.0 : 0.10;
+                    Widget guide;
+                    if (_preset == GuidePreset.face) {
+                      guide = CustomPaint(
+                        painter: _CircularFaceAlignPainter(
+                          pose: _facePose,
+                          mirrored: _mode == GuideCaptureMode.selfFront,
+                        ),
+                        child: const SizedBox.expand(),
+                      );
+                    } else if (_preset == GuidePreset.decollete) {
+                      guide = CustomPaint(
+                        painter: _DecolleteGuidePainter(
+                          attitude: _attitude,
+                        ),
+                        child: const SizedBox.expand(),
+                      );
+                    } else {
+                      guide = CustomPaint(
+                        painter: _BodyGuidePainter(preset: _preset),
+                        child: const SizedBox.expand(),
+                      );
+                    }
+                    return IgnorePointer(
+                      ignoring: true,
+                      child: AnimatedOpacity(
+                        opacity: guideOpacity,
+                        duration: const Duration(milliseconds: 180),
+                        child: guide,
                       ),
-                      child: const SizedBox.expand(),
-                    ),
-                  )
-                else if (_preset == GuidePreset.decollete)
-                  IgnorePointer(
-                    ignoring: true,
-                    child: CustomPaint(
-                      painter: _DecolleteGuidePainter(
-                        attitude: _attitude,
-                      ),
-                      child: const SizedBox.expand(),
-                    ),
-                  )
-                else
-                  IgnorePointer(
-                    ignoring: true,
-                    child: CustomPaint(
-                      painter: _BodyGuidePainter(preset: _preset),
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
+                    );
+                  },
+                ),
                 IgnorePointer(
                   ignoring: _motionReady && _attitude != null,
                   child: _DynamicGyroLeveler(
                     attitude: _attitude,
+                    leveled: _wasLevel,
                     motionReady: _motionReady,
                     motionDenied: _motionDenied,
                     motionBusy: _motionBusy,
@@ -876,14 +916,14 @@ class _CameraDock extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
                 SizedBox(
-                  height: 40,
+                  height: 48,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         for (var i = 0; i < presets.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 12),
+                          if (i > 0) const SizedBox(width: 10),
                           _PresetIconButton(
                             preset: presets[i],
                             selected: selectedPreset == presets[i],
@@ -1078,7 +1118,7 @@ class _PresetIconButton extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  static const _inactive = Color(0xFF71717A);
+  static const _inactive = Color(0x8CFFFFFF); // white @ ~55%
   static const _emerald = Color(0xFF00D289);
 
   @override
@@ -1092,16 +1132,23 @@ class _PresetIconButton extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Center(
-            child: SvgPicture.asset(
-              preset.iconAsset,
-              width: 26,
-              height: 26,
-              fit: BoxFit.contain,
-              colorFilter: ColorFilter.mode(fg, BlendMode.srcIn),
-            ),
+          width: 48,
+          height: 44,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(preset.materialIcon, size: 28, color: fg),
+              const SizedBox(height: 4),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: selected ? 16 : 0,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: selected ? _emerald : Colors.transparent,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1186,11 +1233,11 @@ class _GridOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant _GridOverlayPainter oldDelegate) => false;
 }
 
-/// 1축(Roll) 가로 막대 수평계 — iPhone 카메라 스타일.
-/// Pitch는 UI에서 완전 제외. Roll(gamma)만으로 막대를 회전한다.
+/// 1축(Roll) 가로 막대 수평계 — iPhone 카메라 스타일 + EMA 스무딩.
 class _DynamicGyroLeveler extends StatelessWidget {
   const _DynamicGyroLeveler({
     required this.attitude,
+    required this.leveled,
     required this.motionReady,
     required this.motionDenied,
     required this.motionBusy,
@@ -1199,6 +1246,7 @@ class _DynamicGyroLeveler extends StatelessWidget {
   });
 
   final GuideDeviceAttitude? attitude;
+  final bool leveled;
   final bool motionReady;
   final bool motionDenied;
   final bool motionBusy;
@@ -1208,43 +1256,32 @@ class _DynamicGyroLeveler extends StatelessWidget {
   static const _emerald = Color(0xFF00D289);
   static const _glass = Color(0x66FFFFFF);
 
-  bool get _leveled {
-    final a = attitude;
-    if (a == null) return false;
-    return a.roll.abs() <= _kLevelToleranceDeg;
-  }
-
   @override
   Widget build(BuildContext context) {
     final showPrompt = needsPermissionPrompt || motionDenied;
     final live = motionReady && attitude != null;
-    final leveled = live && _leveled;
     final color = leveled ? _emerald : _glass;
-    // Roll(도)만 사용 — Pitch는 수평계 UI에서 제외
     final rollDeg = attitude?.roll ?? 0.0;
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 고정 가이드: 중앙을 가로지르는 양옆 분리 얇은 선
         CustomPaint(
           painter: _FixedHorizonGuidesPainter(color: color, glow: leveled),
           child: const SizedBox.expand(),
         ),
-        // 회전하는 단일 가로 막대 (Roll만)
         if (live)
           Center(
             child: AnimatedRotation(
               turns: rollDeg / 360.0,
-              duration: const Duration(milliseconds: 70),
-              curve: Curves.easeOut,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
               child: CustomPaint(
-                size: const Size(180, 24),
+                size: const Size(200, 24),
                 painter: _RollBarPainter(color: color, glow: leveled),
               ),
             ),
           ),
-        // iOS 모션 권한 탭 게이트
         if (showPrompt)
           Positioned(
             left: 16,
@@ -1400,7 +1437,7 @@ class _DecolleteGuidePainter extends CustomPainter {
   bool get _leveled {
     final a = attitude;
     if (a == null) return false;
-    return a.roll.abs() <= _kLevelToleranceDeg;
+    return a.roll.abs() <= _kLevelEnterDeg;
   }
 
   Color get _guideColor {
