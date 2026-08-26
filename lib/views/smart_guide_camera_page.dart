@@ -70,21 +70,12 @@ enum GuidePreset {
   /// MediaPipe 원형 정렬을 쓰는 프리셋 (페이스만).
   bool get usesFaceAlign => this == GuidePreset.face;
 
-  String get iconAsset => switch (this) {
-        GuidePreset.face => 'assets/icons/ic_face.svg',
-        GuidePreset.decollete => 'assets/icons/ic_decollete.svg',
-        GuidePreset.abdomen => 'assets/icons/ic_abdomen.svg',
-        GuidePreset.lowerBody => 'assets/icons/ic_legs.svg',
-        GuidePreset.fullBody => 'assets/icons/ic_body.svg',
-      };
-
-  /// SVG 래스터 이슈 회피용 Material 아이콘 (표시용).
   IconData get materialIcon => switch (this) {
-        GuidePreset.face => Icons.face,
-        GuidePreset.decollete => Icons.diamond_outlined,
-        GuidePreset.abdomen => Icons.airline_seat_flat_angled_outlined,
+        GuidePreset.face => Icons.face_retouching_natural,
+        GuidePreset.decollete => Icons.portrait,
+        GuidePreset.abdomen => Icons.accessibility_new,
         GuidePreset.lowerBody => Icons.directions_walk,
-        GuidePreset.fullBody => Icons.accessibility_new,
+        GuidePreset.fullBody => Icons.woman_outlined,
       };
 }
 
@@ -318,6 +309,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     final leveled = _wasLevel
         ? roll.abs() <= _kLevelExitDeg
         : roll.abs() <= _kLevelEnterDeg;
+    if (leveled) roll = 0; // ±2.0° 이내 진입 시 0° 스냅
     if (leveled && !_wasLevel) {
       HapticFeedback.lightImpact();
       soriLightHaptic();
@@ -727,46 +719,36 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-                // 프리셋 가이드 — 수평계와 혼동 방지: 기본 10% / 기울기 중 완전 숨김
-                Builder(
-                  builder: (context) {
-                    final tilting = _motionReady &&
-                        _attitude != null &&
-                        !_wasLevel &&
-                        _rollSmoothed.abs() > _kRollDeadzoneDeg;
-                    final guideOpacity = tilting ? 0.0 : 0.10;
-                    Widget guide;
-                    if (_preset == GuidePreset.face) {
-                      guide = CustomPaint(
-                        painter: _CircularFaceAlignPainter(
-                          pose: _facePose,
-                          mirrored: _mode == GuideCaptureMode.selfFront,
-                        ),
-                        child: const SizedBox.expand(),
-                      );
-                    } else if (_preset == GuidePreset.decollete) {
-                      guide = CustomPaint(
-                        painter: _DecolleteGuidePainter(
-                          attitude: _attitude,
-                        ),
-                        child: const SizedBox.expand(),
-                      );
-                    } else {
-                      guide = CustomPaint(
-                        painter: _BodyGuidePainter(preset: _preset),
-                        child: const SizedBox.expand(),
-                      );
-                    }
-                    return IgnorePointer(
-                      ignoring: true,
-                      child: AnimatedOpacity(
-                        opacity: guideOpacity,
-                        duration: const Duration(milliseconds: 180),
-                        child: guide,
+                // 프리셋 가이드 — 페이스/데콜테는 항상 선명하게 표시
+                if (_preset == GuidePreset.face)
+                  IgnorePointer(
+                    ignoring: true,
+                    child: CustomPaint(
+                      painter: _CircularFaceAlignPainter(
+                        pose: _facePose,
+                        mirrored: _mode == GuideCaptureMode.selfFront,
                       ),
-                    );
-                  },
-                ),
+                      child: const SizedBox.expand(),
+                    ),
+                  )
+                else if (_preset == GuidePreset.decollete)
+                  IgnorePointer(
+                    ignoring: true,
+                    child: CustomPaint(
+                      painter: _DecolleteGuidePainter(
+                        leveled: _wasLevel,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  )
+                else
+                  IgnorePointer(
+                    ignoring: true,
+                    child: CustomPaint(
+                      painter: _BodyGuidePainter(preset: _preset),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
                 IgnorePointer(
                   ignoring: _motionReady && _attitude != null,
                   child: _DynamicGyroLeveler(
@@ -1428,30 +1410,23 @@ class _RollBarPainter extends CustomPainter {
 }
 
 class _DecolleteGuidePainter extends CustomPainter {
-  _DecolleteGuidePainter({required this.attitude});
+  _DecolleteGuidePainter({required this.leveled});
 
-  final GuideDeviceAttitude? attitude;
+  final bool leveled;
 
-  static const _emeraldGlow = Color(0xFF00D289);
+  static const _emerald = Color(0xFF00D289);
+  static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
 
-  bool get _leveled {
-    final a = attitude;
-    if (a == null) return false;
-    return a.roll.abs() <= _kLevelEnterDeg;
-  }
+  Color get _strokeColor =>
+      leveled ? _emerald.withValues(alpha: 0.92) : _guideWhite;
 
-  Color get _guideColor {
-    if (_leveled) return _emeraldGlow.withValues(alpha: 0.92);
-    return Colors.white.withValues(alpha: 0.42);
-  }
-
-  void _strokePath(Canvas canvas, Path path, Color color, {double width = 2.0}) {
+  void _strokePath(Canvas canvas, Path path, Color color, {double width = 1.8}) {
     canvas.drawPath(
       path,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.35)
+        ..color = Colors.black.withValues(alpha: 0.28)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = width + 2.2
+        ..strokeWidth = width + 1.6
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
     canvas.drawPath(
@@ -1470,71 +1445,68 @@ class _DecolleteGuidePainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    final color = _guideColor;
+    final color = _strokeColor;
 
-    if (_leveled) {
-      // 에메랄드 글로우 — 수평 맞춤 시
-      final glowY = h * 0.34;
-      canvas.drawLine(
-        Offset(w * 0.08, glowY),
-        Offset(w * 0.92, glowY),
+    if (leveled) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(w * 0.08, h * 0.30)
+          ..quadraticBezierTo(cx, h * 0.22, w * 0.92, h * 0.30),
         Paint()
-          ..color = _emeraldGlow.withValues(alpha: 0.28)
-          ..strokeWidth = 14
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+          ..color = _emerald.withValues(alpha: 0.22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 16
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
       );
     }
 
-    // 어깨 라인 — 완만한 곡선 (반응형)
-    final shoulderY = h * 0.38;
-    final shoulderPath = Path()
-      ..moveTo(w * 0.06, shoulderY + h * 0.04)
-      ..quadraticBezierTo(
-        cx,
-        shoulderY - h * 0.02,
-        w * 0.94,
-        shoulderY + h * 0.04,
-      );
-    _strokePath(canvas, shoulderPath, color, width: _leveled ? 2.4 : 1.8);
+    // 상반신 실루엣 — 역삼각형 + 어깨 아치
+    final shoulderY = h * 0.30;
+    final collarY = h * 0.38;
+    final bustY = h * 0.56;
+    final chinY = h * 0.68;
 
-    // 쇄골 V 라인 (좌·우)
-    final neckY = h * 0.22;
-    final collarY = h * 0.34;
-    final leftCollar = Path()
-      ..moveTo(cx, neckY)
-      ..quadraticBezierTo(w * 0.28, collarY, w * 0.12, shoulderY);
-    final rightCollar = Path()
-      ..moveTo(cx, neckY)
-      ..quadraticBezierTo(w * 0.72, collarY, w * 0.88, shoulderY);
-    _strokePath(canvas, leftCollar, color, width: _leveled ? 2.2 : 1.6);
-    _strokePath(canvas, rightCollar, color, width: _leveled ? 2.2 : 1.6);
+    // 어깨선 아치 (넓은 상단)
+    final shoulderArch = Path()
+      ..moveTo(w * 0.10, shoulderY + h * 0.02)
+      ..quadraticBezierTo(cx, shoulderY - h * 0.04, w * 0.90, shoulderY + h * 0.02);
+    _strokePath(canvas, shoulderArch, color, width: leveled ? 2.2 : 1.6);
 
-    // 쇄골 수평 가이드 — 자이로 수평계와 동일 ±1.5° 기준
-    final horizY = collarY;
-    final horizPath = Path()
-      ..moveTo(w * 0.14, horizY)
-      ..lineTo(w * 0.86, horizY);
-    _strokePath(canvas, horizPath, color, width: _leveled ? 2.6 : 1.8);
+    // 좌·우 쇄골 V + 역삼각형 측면
+    final leftSilhouette = Path()
+      ..moveTo(cx, h * 0.18)
+      ..lineTo(cx, collarY - h * 0.02)
+      ..quadraticBezierTo(w * 0.34, collarY, w * 0.12, shoulderY)
+      ..quadraticBezierTo(w * 0.08, bustY, cx, chinY);
+    final rightSilhouette = Path()
+      ..moveTo(cx, h * 0.18)
+      ..lineTo(cx, collarY - h * 0.02)
+      ..quadraticBezierTo(w * 0.66, collarY, w * 0.88, shoulderY)
+      ..quadraticBezierTo(w * 0.92, bustY, cx, chinY);
+    _strokePath(canvas, leftSilhouette, color, width: leveled ? 2.0 : 1.5);
+    _strokePath(canvas, rightSilhouette, color, width: leveled ? 2.0 : 1.5);
 
-    // 데콜테 하단 곡선
-    final decolletePath = Path()
-      ..moveTo(w * 0.18, shoulderY + h * 0.06)
-      ..quadraticBezierTo(
-        cx,
-        shoulderY + h * 0.18,
-        w * 0.82,
-        shoulderY + h * 0.06,
-      );
-    _strokePath(canvas, decolletePath, color.withValues(alpha: 0.75), width: 1.6);
+    // 쇄골 수평 가이드
+    final collarLine = Path()
+      ..moveTo(w * 0.22, collarY)
+      ..lineTo(w * 0.78, collarY);
+    _strokePath(canvas, collarLine, color, width: leveled ? 2.0 : 1.4);
+
+    // 데콜테 하단 아치 (가슴 상단 곡선)
+    final bustArc = Path()
+      ..moveTo(w * 0.24, bustY - h * 0.02)
+      ..quadraticBezierTo(cx, bustY + h * 0.05, w * 0.76, bustY - h * 0.02);
+    _strokePath(
+      canvas,
+      bustArc,
+      color.withValues(alpha: leveled ? 0.92 : 0.72),
+      width: 1.4,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _DecolleteGuidePainter oldDelegate) {
-    final a = attitude;
-    final b = oldDelegate.attitude;
-    if (identical(a, b)) return false;
-    if (a == null || b == null) return a != b;
-    return a.roll != b.roll || a.pitch != b.pitch;
+    return oldDelegate.leveled != leveled;
   }
 }
 
@@ -1597,7 +1569,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// 원형 뷰파인더 — 정밀 가이드는 원 내부에만 배치.
+/// 원형 뷰파인더 — B/A 동일 구도용 얇은 흰색 원 + 눈/코 십자 가이드.
 class _CircularFaceAlignPainter extends CustomPainter {
   _CircularFaceAlignPainter({
     required this.pose,
@@ -1607,75 +1579,63 @@ class _CircularFaceAlignPainter extends CustomPainter {
   final GuideFacePose pose;
   final bool mirrored;
 
+  static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
+  static const _emerald = Color(0xFF00D289);
+
   Color _borderColor(bool aligned) {
-    if (!pose.detected) {
-      return Colors.white.withValues(alpha: 0.55);
-    }
-    return aligned
-        ? SoriTokens.primaryLight.withValues(alpha: 0.92)
-        : const Color(0xFFFBBF24).withValues(alpha: 0.95);
+    if (aligned) return _emerald.withValues(alpha: 0.95);
+    return _guideWhite;
   }
 
-  /// 원 내부 보조선 — 정렬 시 글래스 에메랄드.
-  Color _innerGuideColor(bool aligned) {
-    if (aligned) {
-      return SoriTokens.primary.withValues(alpha: 0.42);
-    }
-    if (pose.detected) {
-      return const Color(0xFFFBBF24).withValues(alpha: 0.34);
-    }
-    return Colors.white.withValues(alpha: 0.34);
-  }
-
-  /// 원형 상단 ~37% 지점 — 눈높이 수평 점선 (원 현 폭에 맞춤).
-  void _drawEyeLevelGuideline(
+  void _drawCrosshair(
     Canvas canvas,
     Offset center,
     double radius,
     Color color,
   ) {
-    const fromTop = 0.37; // 원 직경 기준 상단 35~40%
-    final eyeY = center.dy - radius + (2 * radius * fromTop);
-    final dy = eyeY - center.dy;
-    final halfChord = math.sqrt(math.max(0, radius * radius - dy * dy));
-    // 테두리와 살짝 간격
-    final halfW = halfChord * 0.88;
-    if (halfW < 8) return;
-
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.0
+      ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
 
-    const dash = 5.0;
-    const gap = 4.0;
-    var x = center.dx - halfW;
-    final endX = center.dx + halfW;
-    while (x < endX) {
-      final x2 = math.min(x + dash, endX);
-      canvas.drawLine(Offset(x, eyeY), Offset(x2, eyeY), paint);
-      x += dash + gap;
-    }
-  }
+    // 세로 중심선 (코 축)
+    canvas.drawLine(
+      Offset(center.dx, center.dy - radius * 0.72),
+      Offset(center.dx, center.dy + radius * 0.62),
+      paint,
+    );
 
-  /// 원 하단 안쪽 — 턱끝 안착용 연한 호.
-  void _drawChinArcGuide(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    Color color,
-  ) {
-    // 턱선: 원 중심보다 아래, 테두리에서 안쪽으로 inset
-    final chinR = radius * 0.72;
-    final chinCy = center.dy + radius * 0.18;
-    final rect = Rect.fromCircle(center: Offset(center.dx, chinCy), radius: chinR);
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.15
-      ..strokeCap = StrokeCap.round;
-    // 하단 호만 (약 110°)
-    canvas.drawArc(rect, math.pi * 0.22, math.pi * 0.56, false, paint);
+    // 눈높이 수평선 (~37%)
+    final eyeY = center.dy - radius + (2 * radius * 0.37);
+    canvas.drawLine(
+      Offset(center.dx - radius * 0.42, eyeY),
+      Offset(center.dx + radius * 0.42, eyeY),
+      paint,
+    );
+    // 눈 위치 짧은 세로 틱
+    canvas.drawLine(
+      Offset(center.dx - radius * 0.18, eyeY - 6),
+      Offset(center.dx - radius * 0.18, eyeY + 6),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(center.dx + radius * 0.18, eyeY - 6),
+      Offset(center.dx + radius * 0.18, eyeY + 6),
+      paint,
+    );
+
+    // 코 위치 십자 (~52%)
+    final noseY = center.dy - radius + (2 * radius * 0.52);
+    canvas.drawLine(
+      Offset(center.dx - radius * 0.12, noseY),
+      Offset(center.dx + radius * 0.12, noseY),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(center.dx, noseY - 7),
+      Offset(center.dx, noseY + 7),
+      paint,
+    );
   }
 
   @override
@@ -1686,54 +1646,50 @@ class _CircularFaceAlignPainter extends CustomPainter {
     final center = Offset(cx, cy);
     final aligned = pose.isAligned;
     final borderColor = _borderColor(aligned);
-    final innerColor = _innerGuideColor(aligned);
 
-    // 원 밖 딤
+    // 원 밖 딤 — 구도 집중
     final dim = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addOval(Rect.fromCircle(center: center, radius: radius));
     canvas.drawPath(
       dim,
-      Paint()..color = Colors.black.withValues(alpha: 0.48),
+      Paint()..color = Colors.black.withValues(alpha: 0.42),
     );
 
-    // 소프트 글로우 (테두리만 — 가이드 요소 아님)
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = borderColor.withValues(alpha: aligned ? 0.28 : 0.12)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 18 : 10
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-    );
+    if (aligned) {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = _emerald.withValues(alpha: 0.30)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 16
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+      );
+    }
 
+    // 얇고 선명한 원형 뷰파인더
     canvas.drawCircle(
       center,
       radius,
       Paint()
         ..color = borderColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 4.5 : 3.2,
+        ..strokeWidth = aligned ? 2.4 : 1.8,
     );
 
-    // —— 원 내부 정밀 가이드만 ——
     canvas.save();
     canvas.clipPath(
       Path()..addOval(Rect.fromCircle(center: center, radius: radius - 1.5)),
     );
+    _drawCrosshair(canvas, center, radius, _guideWhite);
+    canvas.restore();
 
-    _drawEyeLevelGuideline(canvas, center, radius, innerColor);
-    _drawChinArcGuide(canvas, center, radius, innerColor);
-
-    // 미정렬 시 원 안쪽 방향 힌트 (외곽 화살표 제거)
+    // ML 정렬 힌트 (감지 시에만)
     if (pose.detected && !aligned) {
       final yaw = mirrored ? -pose.yaw : pose.yaw;
-      final pitch = pose.pitch;
-      final roll = pose.roll;
-      const tol = GuideFacePose.alignToleranceDeg;
-      final hint = const Color(0xFFFBBF24).withValues(alpha: 0.40);
+      final hint = const Color(0xFFFBBF24).withValues(alpha: 0.45);
       final hintPaint = Paint()
         ..color = hint
         ..style = PaintingStyle.stroke
@@ -1754,6 +1710,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       }
 
       final inset = radius * 0.78;
+      const tol = GuideFacePose.alignToleranceDeg;
       if (yaw.abs() > tol) {
         final dir = yaw > 0 ? 1.0 : -1.0;
         drawInnerChevron(
@@ -1761,26 +1718,14 @@ class _CircularFaceAlignPainter extends CustomPainter {
           dir > 0 ? math.pi / 2 : -math.pi / 2,
         );
       }
-      if (pitch.abs() > tol) {
-        final dir = pitch > 0 ? 1.0 : -1.0;
+      if (pose.pitch.abs() > tol) {
+        final dir = pose.pitch > 0 ? 1.0 : -1.0;
         drawInnerChevron(
           Offset(cx, cy + dir * inset),
           dir > 0 ? math.pi : 0,
         );
       }
-      if (roll.abs() > tol) {
-        final sweep = (roll.clamp(-35, 35) / 35) * (math.pi * 0.4);
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: radius * 0.82),
-          -math.pi / 2,
-          sweep,
-          false,
-          hintPaint,
-        );
-      }
     }
-
-    canvas.restore();
   }
 
   @override
