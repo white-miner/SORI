@@ -118,54 +118,37 @@ class _SplashPageState extends State<SplashPage> {
     return _SplashDest.login;
   }
 
-  /// 위버스형: 바닥 정중앙에서 피어오르는 방사형 발광 (PO 수치 고정).
-  RadialGradient _weverseGlow(bool isDark) {
-    if (isDark) {
-      return const RadialGradient(
-        center: Alignment(0.0, 1.1),
-        radius: 0.85,
-        colors: [
-          Color(0xFF00E599),
-          Color(0x80047857),
-          Color(0x20022C22),
-          Color(0xFF000000),
-        ],
-        stops: [0.0, 0.35, 0.65, 1.0],
-      );
-    }
-    return const RadialGradient(
-      center: Alignment(0.0, 1.1),
-      radius: 0.85,
-      colors: [
-        Color(0x5010B981),
-        Color(0x2034D399),
-        Color(0x08A7F3D0),
-        Color(0xFFFFFFFF),
-      ],
-      stops: [0.0, 0.30, 0.60, 1.0],
-    );
-  }
+  /// 다크 럭셔리: 블랙 베이스 + 하단 에메랄드 방사 발광 (테마 무시, 단일화).
+  static const RadialGradient _darkLuxuryGlow = RadialGradient(
+    center: Alignment(0.0, 1.1),
+    radius: 0.85,
+    colors: [
+      Color(0xFF00E599),
+      Color(0x80047857),
+      Color(0x20022C22),
+      Color(0xFF000000),
+    ],
+    stops: [0.0, 0.35, 0.65, 1.0],
+  );
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final logoWidth = SoriLogo.responsiveWidth(context);
+    final logoWidth = SoriLogo.splashWidth(context);
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
+      backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(gradient: _weverseGlow(isDark)),
+          const DecoratedBox(
+            decoration: BoxDecoration(gradient: _darkLuxuryGlow),
           ),
           SafeArea(
             child: Center(
               child: SoriLogo(
                 width: logoWidth,
                 fit: BoxFit.contain,
-                usePlatformBrightness: true,
+                forceWhite: true,
               ),
             ),
           ),
@@ -179,9 +162,7 @@ class _SplashPageState extends State<SplashPage> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w300,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.34)
-                    : const Color(0xFF94A3B8),
+                color: Colors.white.withValues(alpha: 0.34),
               ),
             ),
           ),

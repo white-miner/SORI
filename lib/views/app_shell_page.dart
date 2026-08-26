@@ -8,6 +8,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
+import '../widgets/sori_logo.dart';
 import 'app_settings_page.dart';
 import 'case_archive_page.dart';
 import 'message_history_page.dart';
@@ -142,8 +143,6 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  String _brandTitle() => 'Sori';
-
   int _notificationBadgeCount(SessionUser session) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -192,7 +191,8 @@ class _AppShellPageState extends State<AppShellPage> {
         final appBar = hideShellAppBar
             ? null
             : _ShellAppBar(
-                title: _brandTitle(),
+                // PC: 레일에만 로고 — 상단바 중복 제거. 모바일: 상단 좌측 앵커.
+                showLogo: !wide,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
                 onPostFirst: tab == 0
@@ -402,15 +402,7 @@ class _SoriNavigationRail extends StatelessWidget {
             ),
             leading: const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 16),
-              child: Text(
-                'SORI',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: SoriTokens.textPrimary,
-                  letterSpacing: -0.5,
-                ),
-              ),
+              child: SoriLogo(height: SoriLogo.gnbHeight),
             ),
             destinations: destinations,
           ),
@@ -422,7 +414,7 @@ class _SoriNavigationRail extends StatelessWidget {
 /// 글래스모피즘 셸 AppBar — 메인 타이틀 + 하이그로시 알림.
 class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _ShellAppBar({
-    required this.title,
+    required this.showLogo,
     required this.badgeCount,
     required this.onNotifications,
     this.onPostFirst,
@@ -430,7 +422,7 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSettings,
   });
 
-  final String title;
+  final bool showLogo;
   final int badgeCount;
   final VoidCallback onNotifications;
   final VoidCallback? onPostFirst;
@@ -462,21 +454,14 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      fontStyle: FontStyle.italic,
-                      height: 1.15,
-                      letterSpacing: -0.4,
-                      color: Colors.white,
-                    ),
+                if (showLogo) ...[
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: SoriLogo(height: SoriLogo.gnbHeight),
                   ),
-                ),
+                  const Spacer(),
+                ] else
+                  const Spacer(),
                 if (onPostFirst != null)
                   _FlatAppBarIcon(
                     tooltip: '새 게시물',
