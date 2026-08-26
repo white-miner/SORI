@@ -40,21 +40,34 @@
     return { pitch: pitch, yaw: yaw, roll: roll };
   }
 
-  function faceCenterFromLandmarks(lms) {
+  function faceBBoxFromLandmarks(lms) {
     if (!lms || lms.length < 300) return null;
-    var leftEye = lms[33];
-    var rightEye = lms[263];
-    var nose = lms[1];
-    var chin = lms[152];
-    var forehead = lms[10];
-    if (!leftEye || !rightEye || !nose || !chin || !forehead) return null;
-    var cx = (leftEye.x + rightEye.x + nose.x) / 3;
-    var cy = (leftEye.y + rightEye.y + nose.y) / 3;
-    var iod = Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y) || 1e-6;
-    var faceH =
-      Math.hypot(chin.x - forehead.x, chin.y - forehead.y) || iod * 2;
-    var radius = Math.max(iod * 1.05, faceH * 0.42);
-    return { centerX: cx, centerY: cy, faceRadius: radius };
+    var keys = [10, 1, 152, 33, 263, 234, 454, 172, 397, 61, 291, 468, 448];
+    var minX = 1,
+      maxX = 0,
+      minY = 1,
+      maxY = 0;
+    var i;
+    for (i = 0; i < keys.length; i++) {
+      var p = lms[keys[i]];
+      if (!p) continue;
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    if (maxX <= minX || maxY <= minY) return null;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    // min-dimension normalized radius (3:4 frame metric)
+    var radiusNorm = Math.max(bw, bh * INV_ASPECT) / 2;
+    return { centerX: cx, centerY: cy, faceRadius: radiusNorm };
+  }
+
+  function faceCenterFromLandmarks(lms) {
+    return faceBBoxFromLandmarks(lms);
   }
 
   function poseFromLandmarks(lms) {

@@ -41,7 +41,7 @@ class WebGuideFaceAlign implements GuideFaceAlign {
       final completer = Completer<void>();
       final script = web.HTMLScriptElement()
         ..src =
-            'sori_face_align.js?v=${const String.fromEnvironment('SORI_ASSET_V', defaultValue: '2026082613')}'
+            'sori_face_align.js?v=${const String.fromEnvironment('SORI_ASSET_V', defaultValue: '2026082614')}'
         ..async = true
         ..setAttribute('data-sori-face-align', '1');
       script.onload = ((web.Event _) {
@@ -118,8 +118,9 @@ class WebGuideFaceAlign implements GuideFaceAlign {
     if ((next.pitch - _last.pitch).abs() >= 0.8) return true;
     if ((next.yaw - _last.yaw).abs() >= 0.8) return true;
     if ((next.roll - _last.roll).abs() >= 0.8) return true;
-    if ((next.centerX - _last.centerX).abs() >= 0.012) return true;
-    if ((next.centerY - _last.centerY).abs() >= 0.012) return true;
+    if ((next.centerX - _last.centerX).abs() >= 0.008) return true;
+    if ((next.centerY - _last.centerY).abs() >= 0.008) return true;
+    if ((next.faceRadius - _last.faceRadius).abs() >= 0.008) return true;
     if (next.isAligned != _last.isAligned) return true;
     if (next.isCenterAligned != _last.isCenterAligned) return true;
     return false;

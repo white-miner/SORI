@@ -1,9 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'guide_face_align_stub.dart'
     if (dart.library.html) 'guide_face_align_web.dart' as impl;
 
-/// MediaPipe 얼굴 Pitch/Yaw/Roll + 중심 좌표 + 원형 가이드 정렬 상태.
+/// MediaPipe 얼굴 bbox 중심·반경 + B/A 임상 정렬 판정.
 class GuideFacePose {
   const GuideFacePose({
     required this.detected,
@@ -18,17 +19,17 @@ class GuideFacePose {
 
   final bool detected;
 
-  /// 눈·코·턱 등 주요 랜드마크가 원형 뷰파인더 안에 온전히 들어옴.
+  /// 레거시 — UI/힌트 보조. 정렬 판정에는 사용하지 않음.
   final bool inCircle;
   final double pitch;
   final double yaw;
   final double roll;
 
-  /// 정규화 얼굴 중심 (0~1). MediaPipe 랜드마크 기준.
+  /// 정규화 얼굴 중심 (0~1). bbox 기준.
   final double centerX;
   final double centerY;
 
-  /// 추적 원 반경 (프레임 짧은 변 대비 정규화).
+  /// bbox circumscribed 반경 (프레임 짧은 변 대비 정규화).
   final double faceRadius;
 
   static const none = GuideFacePose(
@@ -42,49 +43,83 @@ class GuideFacePose {
     faceRadius: 0,
   );
 
-  /// 고정 가이드 원 중심 — Flutter painter / JS bridge 공통.
+  /// 고정 가이드 원 — Flutter painter / JS bridge 공통.
   static const guideCenterX = 0.5;
   static const guideCenterY = 0.46;
-  static const guideRadiusNorm = 0.36;
+  static const outerRadiusNorm = 0.36;
 
-  /// 중심(x,y) 오차 허용 — 3:4 프레임 metric 보정.
-  static const centerAlignToleranceNorm = 0.055;
+  /// 내부 Target Scale 점선 원 = 외부의 75%.
+  static const innerTargetRadiusRatio = 0.75;
 
-  /// 정면 정렬 허용 오차 (도).
-  static const alignToleranceDeg = 8.0;
+  static const innerTargetRadiusNorm =
+      outerRadiusNorm * innerTargetRadiusRatio;
 
-  /// 고정 가이드 원 ↔ 동적 추적 원 중심 거리 (정규화).
-  double get centerDistanceNorm {
-    if (!detected) return double.infinity;
-    final dx = centerX - guideCenterX;
-    final dy = (centerY - guideCenterY) * (4 / 3);
-    return math.sqrt(dx * dx + dy * dy);
+  /// 조건 A: 중심 위치 허용 오차 (px).
+  static const centerAlignTolerancePx = 15.0;
+
+  /// 조건 B: 반경(거리) 허용 오차 ±10%.
+  static const scaleAlignToleranceRatio = 0.10;
+
+  /// 테스트·폴백용 3:4 프레임.
+  static const referenceFrame = Size(360, 480);
+
+  Offset faceCenterPx(Size frameSize, {bool mirrored = false}) {
+    final nx = mirrored ? 1.0 - centerX : centerX;
+    return Offset(nx * frameSize.width, centerY * frameSize.height);
   }
 
-  bool get isCenterAligned =>
-      detected && centerDistanceNorm <= centerAlignToleranceNorm;
+  Offset targetCenterPx(Size frameSize) => Offset(
+        frameSize.width * guideCenterX,
+        frameSize.height * guideCenterY,
+      );
 
-  /// 3D 자세 + 중심 좌표 모두 허용 범위.
-  bool get isAligned {
-    if (!isCenterAligned) return false;
-    return pitch.abs() <= alignToleranceDeg &&
-        yaw.abs() <= alignToleranceDeg &&
-        roll.abs() <= alignToleranceDeg;
+  double outerRadiusPx(Size frameSize) =>
+      math.min(frameSize.width, frameSize.height) * outerRadiusNorm;
+
+  double innerTargetRadiusPx(Size frameSize) =>
+      outerRadiusPx(frameSize) * innerTargetRadiusRatio;
+
+  double faceRadiusPx(Size frameSize) {
+    if (faceRadius <= 0) return 0;
+    return math.min(frameSize.width, frameSize.height) * faceRadius;
   }
+
+  /// 조건 A — Position Match.
+  bool isPositionAligned(Size frameSize, {bool mirrored = false}) {
+    if (!detected) return false;
+    final dist = (faceCenterPx(frameSize, mirrored: mirrored) -
+            targetCenterPx(frameSize))
+        .distance;
+    return dist <= centerAlignTolerancePx;
+  }
+
+  /// 조건 B — Scale/Distance Match.
+  bool isScaleAligned(Size frameSize) {
+    if (!detected || faceRadius <= 0) return false;
+    final targetR = innerTargetRadiusPx(frameSize);
+    if (targetR <= 0) return false;
+    final err = (faceRadiusPx(frameSize) - targetR).abs() / targetR;
+    return err <= scaleAlignToleranceRatio;
+  }
+
+  /// A + B 동시 충족 시에만 정렬.
+  bool computeAligned(Size frameSize, {bool mirrored = false}) {
+    return isPositionAligned(frameSize, mirrored: mirrored) &&
+        isScaleAligned(frameSize);
+  }
+
+  bool get isAligned => computeAligned(referenceFrame);
+
+  bool get isCenterAligned => isPositionAligned(referenceFrame);
 }
 
 /// 웹 MediaPipe FaceLandmarker 세션. 네이티브는 no-op.
 abstract class GuideFaceAlign {
   Stream<GuideFacePose> get poses;
 
-  /// CDN/WASM 모델만 미리 로드 (추론 루프는 시작하지 않음).
   Future<void> prepare();
-
-  /// 모델 준비 후 비디오에 추론 루프 연결.
   Future<void> start(Object videoElement);
-
   Future<void> stop();
-
   void dispose();
 }
 

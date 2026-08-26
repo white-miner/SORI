@@ -27,17 +27,21 @@ void main() {
     expect(GuideCameraZoomMemory.minZoom, lessThan(GuideCameraZoomMemory.maxZoom));
   });
 
-  test('face pose alignment requires center + pose tolerance', () {
+  test('face pose alignment requires position and scale match', () {
+    const frame = GuideFacePose.referenceFrame;
+    const targetR = GuideFacePose.innerTargetRadiusNorm;
+
     expect(
       const GuideFacePose(
         detected: true,
         inCircle: true,
-        pitch: 3,
-        yaw: -4,
-        roll: 2,
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
         centerX: 0.5,
         centerY: 0.46,
-      ).isAligned,
+        faceRadius: targetR,
+      ).computeAligned(frame),
       isTrue,
     );
     expect(
@@ -49,21 +53,24 @@ void main() {
         roll: 0,
         centerX: 0.62,
         centerY: 0.46,
-      ).isCenterAligned,
+        faceRadius: targetR,
+      ).isPositionAligned(frame),
       isFalse,
-      reason: 'face center far from guide must not align',
+      reason: 'center offset beyond 15px must not align',
     );
     expect(
       const GuideFacePose(
         detected: true,
         inCircle: true,
-        pitch: 20,
+        pitch: 0,
         yaw: 0,
         roll: 0,
         centerX: 0.5,
         centerY: 0.46,
-      ).isAligned,
+        faceRadius: targetR * 1.25,
+      ).isScaleAligned(frame),
       isFalse,
+      reason: 'face too large (too close) must not align',
     );
     expect(GuideFacePose.none.isAligned, isFalse);
   });

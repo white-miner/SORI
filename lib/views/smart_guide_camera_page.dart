@@ -148,6 +148,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   bool _motionDenied = false;
   bool _motionBusy = false;
   GuideFacePose _facePose = GuideFacePose.none;
+  Size _viewfinderSize = GuideFacePose.referenceFrame;
   double _zoom = GuideCameraZoomMemory.defaultZoom;
   _ShutterTimerDelay _timerDelay = _ShutterTimerDelay.off;
   bool _autoShootEnabled = false;
@@ -285,16 +286,24 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     }
   }
 
+  bool get _faceMirrored => _mode == GuideCaptureMode.selfFront;
+
+  bool get _faceAligned => _facePose.computeAligned(
+        _viewfinderSize,
+        mirrored: _faceMirrored,
+      );
+
   void _onFacePose(GuideFacePose next) {
     if (!mounted) return;
-    final wasAligned = _facePose.isAligned;
+    final wasAligned = _faceAligned;
     setState(() => _facePose = next);
+    final aligned = next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
 
-    if (next.isAligned && !wasAligned) {
+    if (aligned && !wasAligned) {
       HapticFeedback.mediumImpact();
       soriLightHaptic();
       _scheduleAutoShootIfEnabled();
-    } else if (!next.isAligned) {
+    } else if (!aligned) {
       _cancelAutoShootSchedule();
     }
   }
@@ -302,7 +311,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   void _toggleAutoShoot() {
     if (_controlsLocked) return;
     setState(() => _autoShootEnabled = !_autoShootEnabled);
-    if (_autoShootEnabled && _facePose.isAligned) {
+    if (_autoShootEnabled && _faceAligned) {
       _scheduleAutoShootIfEnabled();
     } else {
       _cancelAutoShootSchedule();
@@ -322,7 +331,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _autoShootHoldTimer = Timer(const Duration(milliseconds: 1500), () {
       if (!mounted ||
           !_autoShootEnabled ||
-          !_facePose.isAligned ||
+          !_faceAligned ||
           _busy ||
           _countdown != null) {
         return;
@@ -340,8 +349,12 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (!_faceAlignActive) return null;
     if (_mlLoading) return 'AI 준비 중';
     if (!_facePose.detected) return '얼굴을 찾는 중';
-    if (!_facePose.isCenterAligned) return '에메랄드 원을 가이드에 맞춰 주세요';
-    if (!_facePose.isAligned) return '정면으로 맞춰 주세요';
+    if (!_facePose.isPositionAligned(_viewfinderSize, mirrored: _faceMirrored)) {
+      return '위치를 맞춰 주세요';
+    }
+    if (!_facePose.isScaleAligned(_viewfinderSize)) {
+      return '촬영 거리(크기)를 맞춰 주세요';
+    }
     return _autoShootEnabled ? '정렬됨 · 자동 촬영 대기' : '정렬됨';
   }
 
@@ -649,7 +662,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onShutter: _onShutterPressed,
           onFlip: () => unawaited(_toggleCameraFacing()),
           faceHint: _faceHintText,
-          faceAligned: _facePose.isAligned && !_mlLoading,
+          faceAligned: _faceAligned && !_mlLoading,
         ),
       ],
     );
@@ -689,7 +702,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     onShutter: _onShutterPressed,
                     onFlip: () => unawaited(_toggleCameraFacing()),
                     faceHint: _faceHintText,
-                    faceAligned: _facePose.isAligned && !_mlLoading,
+                    faceAligned: _faceAligned && !_mlLoading,
                     compact: true,
                   ),
                 ),
@@ -707,8 +720,24 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       child: Center(
         child: AspectRatio(
           aspectRatio: kGuideCameraAspectRatio,
-          child: ClipRect(
-            child: Stack(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              if (_viewfinderSize != size) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _viewfinderSize = size);
+                });
+              }
+              return ClipRect(child: _buildViewfinderStack(size));
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewfinderStack(Size viewfinderSize) {
+    return Stack(
               fit: StackFit.expand,
               children: [
                 const ColoredBox(color: Colors.black),
@@ -875,10 +904,6 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     ),
                   ),
               ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1684,7 +1709,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// 고정 가이드 원 + MediaPipe 동적 추적 원 (점선 에메랄드).
+/// B/A 임상 — 이중 정적 가이드(외부 실선 + 내부 Target 점선) + bbox 동적 원.
 class _CircularFaceAlignPainter extends CustomPainter {
   _CircularFaceAlignPainter({
     required this.pose,
@@ -1694,39 +1719,23 @@ class _CircularFaceAlignPainter extends CustomPainter {
   final GuideFacePose pose;
   final bool mirrored;
 
-  static const _guideWhite = Color(0x99FFFFFF); // white @ ~60%
+  static const _outerWhite = Color(0x80FFFFFF); // 50%
+  static const _innerWhite = Color(0x66FFFFFF); // 40%
+  static const _trackGray = Color(0x66B0B0B0);
   static const _emerald = Color(0xFF00D289);
 
-  Offset _guideCenter(Size size) => Offset(
+  Offset _targetCenter(Size size) => Offset(
         size.width * GuideFacePose.guideCenterX,
         size.height * GuideFacePose.guideCenterY,
       );
 
-  double _guideRadius(Size size) =>
-      math.min(size.width, size.height) * GuideFacePose.guideRadiusNorm;
+  double _outerRadius(Size size) => pose.outerRadiusPx(size);
 
-  Offset _faceCenter(Size size) {
-    final nx = mirrored ? 1.0 - pose.centerX : pose.centerX;
-    return Offset(nx * size.width, pose.centerY * size.height);
-  }
+  double _innerRadius(Size size) => pose.innerTargetRadiusPx(size);
 
-  double _trackRadius(Size size) {
-    final base = math.min(size.width, size.height);
-    final r = pose.faceRadius > 0 ? pose.faceRadius : 0.18;
-    return base * r;
-  }
+  Offset _faceCenter(Size size) => pose.faceCenterPx(size, mirrored: mirrored);
 
-  void _drawGlow(Canvas canvas, Offset center, double radius) {
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = _emerald.withValues(alpha: 0.34)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 14
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
-    );
-  }
+  double _faceRadius(Size size) => pose.faceRadiusPx(size);
 
   void _drawDashedCircle(
     Canvas canvas,
@@ -1734,7 +1743,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
     double radius,
     Paint paint,
   ) {
-    const segments = 44;
+    const segments = 40;
     const dashRatio = 0.55;
     for (var i = 0; i < segments; i++) {
       final start = (i / segments) * 2 * math.pi;
@@ -1749,159 +1758,122 @@ class _CircularFaceAlignPainter extends CustomPainter {
     }
   }
 
-  void _drawCrosshair(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    Color color,
-  ) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(
-      Offset(center.dx, center.dy - radius * 0.72),
-      Offset(center.dx, center.dy + radius * 0.62),
-      paint,
-    );
-
-    final eyeY = center.dy - radius + (2 * radius * 0.37);
-    canvas.drawLine(
-      Offset(center.dx - radius * 0.42, eyeY),
-      Offset(center.dx + radius * 0.42, eyeY),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx - radius * 0.18, eyeY - 6),
-      Offset(center.dx - radius * 0.18, eyeY + 6),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx + radius * 0.18, eyeY - 6),
-      Offset(center.dx + radius * 0.18, eyeY + 6),
-      paint,
-    );
-
-    final noseY = center.dy - radius + (2 * radius * 0.52);
-    canvas.drawLine(
-      Offset(center.dx - radius * 0.12, noseY),
-      Offset(center.dx + radius * 0.12, noseY),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, noseY - 7),
-      Offset(center.dx, noseY + 7),
-      paint,
+  void _drawEmeraldGlow(Canvas canvas, Offset center, double radius) {
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = _emerald.withValues(alpha: 0.38)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 16
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
     );
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final guideCenter = _guideCenter(size);
-    final guideRadius = _guideRadius(size);
-    final aligned = pose.isAligned;
+    final targetCenter = _targetCenter(size);
+    final outerR = _outerRadius(size);
+    final innerR = _innerRadius(size);
+    final aligned = pose.computeAligned(size, mirrored: mirrored);
     final trackCenter = _faceCenter(size);
-    final trackRadius = _trackRadius(size);
+    final trackR = _faceRadius(size);
 
-    // 원 밖 딤
+    // 원 밖 딤 — 1차 바운더리 강조
     final dim = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
-      ..addOval(Rect.fromCircle(center: guideCenter, radius: guideRadius));
+      ..addOval(Rect.fromCircle(center: targetCenter, radius: outerR));
     canvas.drawPath(
       dim,
-      Paint()..color = Colors.black.withValues(alpha: 0.40),
+      Paint()..color = Colors.black.withValues(alpha: 0.38),
     );
 
-    // 동적 추적 원 — 얼굴 감지 시 점선 에메랄드
-    if (pose.detected) {
-      if (aligned) _drawGlow(canvas, trackCenter, trackRadius);
-      _drawDashedCircle(
-        canvas,
+    // 동적 얼굴 원 — 불일치: 연한 회색 / 일치: 에메랄드 실선
+    if (pose.detected && trackR > 0) {
+      if (aligned) {
+        _drawEmeraldGlow(canvas, trackCenter, trackR);
+      }
+      canvas.drawCircle(
         trackCenter,
-        trackRadius,
+        trackR,
         Paint()
-          ..color = aligned
-              ? _emerald.withValues(alpha: 0.95)
-              : _emerald.withValues(alpha: 0.52)
+          ..color = aligned ? _emerald.withValues(alpha: 0.95) : _trackGray
           ..style = PaintingStyle.stroke
-          ..strokeWidth = aligned ? 2.4 : 1.8
-          ..strokeCap = StrokeCap.round,
+          ..strokeWidth = aligned ? 2.6 : 1.6,
       );
     }
 
-    // 고정 3D 정렬 가이드 원 — 실선 흰색 반투명
-    if (aligned) _drawGlow(canvas, guideCenter, guideRadius);
-    canvas.drawCircle(
-      guideCenter,
-      guideRadius,
+    // 내부 Target 점선 원 (Scale/Distance 기준)
+    if (aligned) _drawEmeraldGlow(canvas, targetCenter, innerR);
+    _drawDashedCircle(
+      canvas,
+      targetCenter,
+      innerR,
       Paint()
-        ..color = aligned ? _emerald.withValues(alpha: 0.95) : _guideWhite
+        ..color = aligned ? _emerald.withValues(alpha: 0.95) : _innerWhite
         ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 2.6 : 1.8,
+        ..strokeWidth = aligned ? 2.4 : 1.5
+        ..strokeCap = StrokeCap.round,
     );
 
-    canvas.save();
-    canvas.clipPath(
-      Path()
-        ..addOval(Rect.fromCircle(center: guideCenter, radius: guideRadius - 1.5)),
+    // 외부 실선 원 (1차 바운더리)
+    canvas.drawCircle(
+      targetCenter,
+      outerR,
+      Paint()
+        ..color = aligned ? _emerald.withValues(alpha: 0.55) : _outerWhite
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = aligned ? 2.0 : 1.6,
     );
-    _drawCrosshair(canvas, guideCenter, guideRadius, _guideWhite);
-    canvas.restore();
 
-    // 미정렬 방향 힌트
+    // 미정렬 힌트 — 위치/거리
     if (pose.detected && !aligned) {
-      final yaw = mirrored ? -pose.yaw : pose.yaw;
-      final hint = const Color(0xFFFBBF24).withValues(alpha: 0.45);
+      final hint = const Color(0xFFFBBF24).withValues(alpha: 0.42);
       final hintPaint = Paint()
         ..color = hint
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
+        ..strokeWidth = 1.3
         ..strokeCap = StrokeCap.round;
 
-      void drawInnerChevron(Offset tip, double angleRad) {
+      void chevron(Offset tip, double angleRad) {
         canvas.save();
         canvas.translate(tip.dx, tip.dy);
         canvas.rotate(angleRad);
-        final path = Path()
-          ..moveTo(0, -7)
-          ..lineTo(5.5, 5)
-          ..moveTo(0, -7)
-          ..lineTo(-5.5, 5);
-        canvas.drawPath(path, hintPaint);
+        canvas.drawPath(
+          Path()
+            ..moveTo(0, -6)
+            ..lineTo(4.5, 4)
+            ..moveTo(0, -6)
+            ..lineTo(-4.5, 4),
+          hintPaint,
+        );
         canvas.restore();
       }
 
-      final inset = guideRadius * 0.78;
-      const tol = GuideFacePose.alignToleranceDeg;
-      if (!pose.isCenterAligned) {
-        final dx = trackCenter.dx - guideCenter.dx;
-        final dy = trackCenter.dy - guideCenter.dy;
-        if (dx.abs() > 8) {
+      if (!pose.isPositionAligned(size, mirrored: mirrored)) {
+        final dx = trackCenter.dx - targetCenter.dx;
+        final dy = trackCenter.dy - targetCenter.dy;
+        final inset = innerR * 0.85;
+        if (dx.abs() > 6) {
           final dir = dx > 0 ? 1.0 : -1.0;
-          drawInnerChevron(
-            Offset(guideCenter.dx + dir * inset, guideCenter.dy),
+          chevron(
+            Offset(targetCenter.dx + dir * inset, targetCenter.dy),
             dir > 0 ? math.pi / 2 : -math.pi / 2,
           );
         }
-        if (dy.abs() > 8) {
+        if (dy.abs() > 6) {
           final dir = dy > 0 ? 1.0 : -1.0;
-          drawInnerChevron(
-            Offset(guideCenter.dx, guideCenter.dy + dir * inset),
+          chevron(
+            Offset(targetCenter.dx, targetCenter.dy + dir * inset),
             dir > 0 ? math.pi : 0,
           );
         }
-      } else if (yaw.abs() > tol) {
-        final dir = yaw > 0 ? 1.0 : -1.0;
-        drawInnerChevron(
-          Offset(guideCenter.dx + dir * inset, guideCenter.dy),
-          dir > 0 ? math.pi / 2 : -math.pi / 2,
-        );
-      } else if (pose.pitch.abs() > tol) {
-        final dir = pose.pitch > 0 ? 1.0 : -1.0;
-        drawInnerChevron(
-          Offset(guideCenter.dx, guideCenter.dy + dir * inset),
+      } else if (!pose.isScaleAligned(size)) {
+        final tooBig = trackR > innerR;
+        final dir = tooBig ? -1.0 : 1.0;
+        chevron(
+          Offset(targetCenter.dx, targetCenter.dy + dir * innerR * 0.55),
           dir > 0 ? math.pi : 0,
         );
       }
@@ -1912,11 +1884,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
   bool shouldRepaint(covariant _CircularFaceAlignPainter oldDelegate) {
     return oldDelegate.pose.detected != pose.detected ||
         oldDelegate.pose.inCircle != pose.inCircle ||
-        oldDelegate.pose.isAligned != pose.isAligned ||
-        oldDelegate.pose.isCenterAligned != pose.isCenterAligned ||
-        oldDelegate.pose.pitch != pose.pitch ||
-        oldDelegate.pose.yaw != pose.yaw ||
-        oldDelegate.pose.roll != pose.roll ||
         oldDelegate.pose.centerX != pose.centerX ||
         oldDelegate.pose.centerY != pose.centerY ||
         oldDelegate.pose.faceRadius != pose.faceRadius ||
