@@ -40,6 +40,23 @@
     return { pitch: pitch, yaw: yaw, roll: roll };
   }
 
+  function faceCenterFromLandmarks(lms) {
+    if (!lms || lms.length < 300) return null;
+    var leftEye = lms[33];
+    var rightEye = lms[263];
+    var nose = lms[1];
+    var chin = lms[152];
+    var forehead = lms[10];
+    if (!leftEye || !rightEye || !nose || !chin || !forehead) return null;
+    var cx = (leftEye.x + rightEye.x + nose.x) / 3;
+    var cy = (leftEye.y + rightEye.y + nose.y) / 3;
+    var iod = Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y) || 1e-6;
+    var faceH =
+      Math.hypot(chin.x - forehead.x, chin.y - forehead.y) || iod * 2;
+    var radius = Math.max(iod * 1.05, faceH * 0.42);
+    return { centerX: cx, centerY: cy, faceRadius: radius };
+  }
+
   function poseFromLandmarks(lms) {
     if (!lms || lms.length < 300) return null;
     var leftEye = lms[33];
@@ -130,6 +147,9 @@
         pitch: 0,
         yaw: 0,
         roll: 0,
+        centerX: 0.5,
+        centerY: 0.5,
+        faceRadius: 0,
         error: String(e),
       });
       return;
@@ -137,7 +157,16 @@
 
     var faces = (result && result.faceLandmarks) || [];
     if (!faces.length) {
-      emit({ detected: false, inCircle: false, pitch: 0, yaw: 0, roll: 0 });
+      emit({
+        detected: false,
+        inCircle: false,
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+        centerX: 0.5,
+        centerY: 0.5,
+        faceRadius: 0,
+      });
       return;
     }
 
@@ -151,17 +180,30 @@
       euler = poseFromLandmarks(lms);
     }
     if (!euler) {
-      emit({ detected: false, inCircle: false, pitch: 0, yaw: 0, roll: 0 });
+      emit({
+        detected: false,
+        inCircle: false,
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+        centerX: 0.5,
+        centerY: 0.5,
+        faceRadius: 0,
+      });
       return;
     }
 
     var inCircle = faceInsideGuide(lms);
+    var center = faceCenterFromLandmarks(lms);
     emit({
       detected: true,
       inCircle: inCircle,
       pitch: euler.pitch,
       yaw: euler.yaw,
       roll: euler.roll,
+      centerX: center ? center.centerX : 0.5,
+      centerY: center ? center.centerY : 0.5,
+      faceRadius: center ? center.faceRadius : 0.18,
     });
   }
 

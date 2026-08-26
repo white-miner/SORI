@@ -12,9 +12,9 @@ void main() {
     expect(GuidePreset.fullBody.label, '전신');
   });
 
-  test('face/decollete use MediaPipe align', () {
+  test('face preset uses MediaPipe align', () {
     expect(GuidePreset.face.usesFaceAlign, isTrue);
-    expect(GuidePreset.decollete.usesFaceAlign, isTrue);
+    expect(GuidePreset.decollete.usesFaceAlign, isFalse);
     expect(GuidePreset.abdomen.usesFaceAlign, isFalse);
   });
 
@@ -27,7 +27,7 @@ void main() {
     expect(GuideCameraZoomMemory.minZoom, lessThan(GuideCameraZoomMemory.maxZoom));
   });
 
-  test('face pose alignment requires inCircle + pose tolerance', () {
+  test('face pose alignment requires center + pose tolerance', () {
     expect(
       const GuideFacePose(
         detected: true,
@@ -35,19 +35,23 @@ void main() {
         pitch: 3,
         yaw: -4,
         roll: 2,
+        centerX: 0.5,
+        centerY: 0.46,
       ).isAligned,
       isTrue,
     );
     expect(
       const GuideFacePose(
         detected: true,
-        inCircle: false,
+        inCircle: true,
         pitch: 0,
         yaw: 0,
         roll: 0,
-      ).isAligned,
+        centerX: 0.62,
+        centerY: 0.46,
+      ).isCenterAligned,
       isFalse,
-      reason: 'face outside circle must not align',
+      reason: 'face center far from guide must not align',
     );
     expect(
       const GuideFacePose(
@@ -56,6 +60,8 @@ void main() {
         pitch: 20,
         yaw: 0,
         roll: 0,
+        centerX: 0.5,
+        centerY: 0.46,
       ).isAligned,
       isFalse,
     );

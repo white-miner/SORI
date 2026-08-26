@@ -150,9 +150,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   GuideFacePose _facePose = GuideFacePose.none;
   double _zoom = GuideCameraZoomMemory.defaultZoom;
   _ShutterTimerDelay _timerDelay = _ShutterTimerDelay.off;
+  bool _autoShootEnabled = false;
   StreamSubscription<GuideDeviceAttitude?>? _attitudeSub;
   StreamSubscription<GuideFacePose>? _poseSub;
   Timer? _timer;
+  Timer? _autoShootHoldTimer;
   Timer? _zoomSaveTimer;
 
   bool get _isAfter => widget.kind == GuideCameraKind.after;
@@ -183,6 +185,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _autoShootHoldTimer?.cancel();
     _zoomSaveTimer?.cancel();
     _attitudeSub?.cancel();
     _poseSub?.cancel();
@@ -251,10 +254,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       });
 
       await _poseSub?.cancel();
-      _poseSub = _faceAlign.poses.listen((p) {
-        if (!mounted) return;
-        setState(() => _facePose = p);
-      });
+      _poseSub = _faceAlign.poses.listen(_onFacePose);
 
       if (needMl) {
         await prepareMl;
@@ -283,6 +283,66 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         _error = '카메라를 열 수 없어요. 브라우저 카메라 권한을 확인해 주세요.\n$e';
       });
     }
+  }
+
+  void _onFacePose(GuideFacePose next) {
+    if (!mounted) return;
+    final wasAligned = _facePose.isAligned;
+    setState(() => _facePose = next);
+
+    if (next.isAligned && !wasAligned) {
+      HapticFeedback.mediumImpact();
+      soriLightHaptic();
+      _scheduleAutoShootIfEnabled();
+    } else if (!next.isAligned) {
+      _cancelAutoShootSchedule();
+    }
+  }
+
+  void _toggleAutoShoot() {
+    if (_controlsLocked) return;
+    setState(() => _autoShootEnabled = !_autoShootEnabled);
+    if (_autoShootEnabled && _facePose.isAligned) {
+      _scheduleAutoShootIfEnabled();
+    } else {
+      _cancelAutoShootSchedule();
+    }
+    HapticFeedback.selectionClick();
+  }
+
+  void _scheduleAutoShootIfEnabled() {
+    _cancelAutoShootSchedule();
+    if (!_autoShootEnabled ||
+        !_faceAlignActive ||
+        _mlLoading ||
+        _busy ||
+        _countdown != null) {
+      return;
+    }
+    _autoShootHoldTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted ||
+          !_autoShootEnabled ||
+          !_facePose.isAligned ||
+          _busy ||
+          _countdown != null) {
+        return;
+      }
+      _startTimerCapture(3);
+    });
+  }
+
+  void _cancelAutoShootSchedule() {
+    _autoShootHoldTimer?.cancel();
+    _autoShootHoldTimer = null;
+  }
+
+  String? get _faceHintText {
+    if (!_faceAlignActive) return null;
+    if (_mlLoading) return 'AI 준비 중';
+    if (!_facePose.detected) return '얼굴을 찾는 중';
+    if (!_facePose.isCenterAligned) return '에메랄드 원을 가이드에 맞춰 주세요';
+    if (!_facePose.isAligned) return '정면으로 맞춰 주세요';
+    return _autoShootEnabled ? '정렬됨 · 자동 촬영 대기' : '정렬됨';
   }
 
   void _onAttitude(GuideDeviceAttitude? next) {
@@ -422,6 +482,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   void _startTimerCapture(int seconds) {
     if (_busy || _countdown != null) return;
+    _cancelAutoShootSchedule();
     var n = seconds;
     setState(() => _countdown = n);
     _timer?.cancel();
@@ -515,6 +576,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   Future<void> _closePage() async {
     _timer?.cancel();
+    _cancelAutoShootSchedule();
     _zoomSaveTimer?.cancel();
     await _poseSub?.cancel();
     await _attitudeSub?.cancel();
@@ -582,19 +644,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onZoomChanged: _onZoomChanged,
           timerDelay: _timerDelay,
           onTimerCycle: _cycleTimerDelay,
+          autoShootEnabled: _autoShootEnabled,
+          onAutoShootToggle: _toggleAutoShoot,
           onShutter: _onShutterPressed,
           onFlip: () => unawaited(_toggleCameraFacing()),
-          faceHint: _faceAlignActive
-              ? (_mlLoading
-                  ? 'AI 준비 중'
-                  : (!_facePose.detected
-                      ? '얼굴을 원 안에'
-                      : (!_facePose.inCircle
-                          ? '원 안에 맞춰 주세요'
-                          : (_facePose.isAligned
-                              ? '정렬됨'
-                              : '정면으로 맞춰 주세요'))))
-              : null,
+          faceHint: _faceHintText,
           faceAligned: _facePose.isAligned && !_mlLoading,
         ),
       ],
@@ -630,19 +684,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     onZoomChanged: _onZoomChanged,
                     timerDelay: _timerDelay,
                     onTimerCycle: _cycleTimerDelay,
+                    autoShootEnabled: _autoShootEnabled,
+                    onAutoShootToggle: _toggleAutoShoot,
                     onShutter: _onShutterPressed,
                     onFlip: () => unawaited(_toggleCameraFacing()),
-                    faceHint: _faceAlignActive
-                        ? (_mlLoading
-                            ? 'AI 준비 중'
-                            : (!_facePose.detected
-                                ? '얼굴을 원 안에'
-                                : (!_facePose.inCircle
-                                    ? '원 안에 맞춰 주세요'
-                                    : (_facePose.isAligned
-                                        ? '정렬됨'
-                                        : '정면으로'))))
-                        : null,
+                    faceHint: _faceHintText,
                     faceAligned: _facePose.isAligned && !_mlLoading,
                     compact: true,
                   ),
@@ -848,6 +894,8 @@ class _CameraDock extends StatelessWidget {
     required this.onZoomChanged,
     required this.timerDelay,
     required this.onTimerCycle,
+    required this.autoShootEnabled,
+    required this.onAutoShootToggle,
     required this.onShutter,
     required this.onFlip,
     this.faceHint,
@@ -863,6 +911,8 @@ class _CameraDock extends StatelessWidget {
   final ValueChanged<double> onZoomChanged;
   final _ShutterTimerDelay timerDelay;
   final VoidCallback onTimerCycle;
+  final bool autoShootEnabled;
+  final VoidCallback onAutoShootToggle;
   final VoidCallback onShutter;
   final VoidCallback onFlip;
   final String? faceHint;
@@ -932,10 +982,20 @@ class _CameraDock extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.centerRight,
                           child: Padding(
-                            padding: const EdgeInsets.only(right: 18),
-                            child: _TimerToggleButton(
-                              delay: timerDelay,
-                              onTap: onTimerCycle,
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _TimerToggleButton(
+                                  delay: timerDelay,
+                                  onTap: onTimerCycle,
+                                ),
+                                const SizedBox(width: 8),
+                                _AutoShootToggleButton(
+                                  enabled: autoShootEnabled,
+                                  onTap: onAutoShootToggle,
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -1051,6 +1111,61 @@ class _TimerToggleButton extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AutoShootToggleButton extends StatelessWidget {
+  const _AutoShootToggleButton({
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  static const _emerald = Color(0xFF00D289);
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: enabled ? '자동 촬영 켜짐' : '자동 촬영 꺼짐',
+      selected: enabled,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: enabled
+                ? _emerald.withValues(alpha: 0.16)
+                : Colors.white.withValues(alpha: 0.08),
+            border: Border.all(
+              color: enabled
+                  ? _emerald.withValues(alpha: 0.88)
+                  : Colors.white.withValues(alpha: 0.14),
+            ),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: _emerald.withValues(alpha: 0.28),
+                      blurRadius: 10,
+                      spreadRadius: 0.5,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Icon(
+            Icons.auto_fix_high_rounded,
+            size: 22,
+            color: enabled
+                ? _emerald
+                : Colors.white.withValues(alpha: 0.55),
           ),
         ),
       ),
@@ -1569,7 +1684,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// 원형 뷰파인더 — B/A 동일 구도용 얇은 흰색 원 + 눈/코 십자 가이드.
+/// 고정 가이드 원 + MediaPipe 동적 추적 원 (점선 에메랄드).
 class _CircularFaceAlignPainter extends CustomPainter {
   _CircularFaceAlignPainter({
     required this.pose,
@@ -1579,12 +1694,59 @@ class _CircularFaceAlignPainter extends CustomPainter {
   final GuideFacePose pose;
   final bool mirrored;
 
-  static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
+  static const _guideWhite = Color(0x99FFFFFF); // white @ ~60%
   static const _emerald = Color(0xFF00D289);
 
-  Color _borderColor(bool aligned) {
-    if (aligned) return _emerald.withValues(alpha: 0.95);
-    return _guideWhite;
+  Offset _guideCenter(Size size) => Offset(
+        size.width * GuideFacePose.guideCenterX,
+        size.height * GuideFacePose.guideCenterY,
+      );
+
+  double _guideRadius(Size size) =>
+      math.min(size.width, size.height) * GuideFacePose.guideRadiusNorm;
+
+  Offset _faceCenter(Size size) {
+    final nx = mirrored ? 1.0 - pose.centerX : pose.centerX;
+    return Offset(nx * size.width, pose.centerY * size.height);
+  }
+
+  double _trackRadius(Size size) {
+    final base = math.min(size.width, size.height);
+    final r = pose.faceRadius > 0 ? pose.faceRadius : 0.18;
+    return base * r;
+  }
+
+  void _drawGlow(Canvas canvas, Offset center, double radius) {
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = _emerald.withValues(alpha: 0.34)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 14
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+    );
+  }
+
+  void _drawDashedCircle(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    Paint paint,
+  ) {
+    const segments = 44;
+    const dashRatio = 0.55;
+    for (var i = 0; i < segments; i++) {
+      final start = (i / segments) * 2 * math.pi;
+      final sweep = (2 * math.pi / segments) * dashRatio;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        start,
+        sweep,
+        false,
+        paint,
+      );
+    }
   }
 
   void _drawCrosshair(
@@ -1598,21 +1760,18 @@ class _CircularFaceAlignPainter extends CustomPainter {
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
 
-    // 세로 중심선 (코 축)
     canvas.drawLine(
       Offset(center.dx, center.dy - radius * 0.72),
       Offset(center.dx, center.dy + radius * 0.62),
       paint,
     );
 
-    // 눈높이 수평선 (~37%)
     final eyeY = center.dy - radius + (2 * radius * 0.37);
     canvas.drawLine(
       Offset(center.dx - radius * 0.42, eyeY),
       Offset(center.dx + radius * 0.42, eyeY),
       paint,
     );
-    // 눈 위치 짧은 세로 틱
     canvas.drawLine(
       Offset(center.dx - radius * 0.18, eyeY - 6),
       Offset(center.dx - radius * 0.18, eyeY + 6),
@@ -1624,7 +1783,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
       paint,
     );
 
-    // 코 위치 십자 (~52%)
     final noseY = center.dy - radius + (2 * radius * 0.52);
     canvas.drawLine(
       Offset(center.dx - radius * 0.12, noseY),
@@ -1640,53 +1798,59 @@ class _CircularFaceAlignPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height * 0.46;
-    final radius = math.min(size.width, size.height) * 0.36;
-    final center = Offset(cx, cy);
+    final guideCenter = _guideCenter(size);
+    final guideRadius = _guideRadius(size);
     final aligned = pose.isAligned;
-    final borderColor = _borderColor(aligned);
+    final trackCenter = _faceCenter(size);
+    final trackRadius = _trackRadius(size);
 
-    // 원 밖 딤 — 구도 집중
+    // 원 밖 딤
     final dim = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
-      ..addOval(Rect.fromCircle(center: center, radius: radius));
+      ..addOval(Rect.fromCircle(center: guideCenter, radius: guideRadius));
     canvas.drawPath(
       dim,
-      Paint()..color = Colors.black.withValues(alpha: 0.42),
+      Paint()..color = Colors.black.withValues(alpha: 0.40),
     );
 
-    if (aligned) {
-      canvas.drawCircle(
-        center,
-        radius,
+    // 동적 추적 원 — 얼굴 감지 시 점선 에메랄드
+    if (pose.detected) {
+      if (aligned) _drawGlow(canvas, trackCenter, trackRadius);
+      _drawDashedCircle(
+        canvas,
+        trackCenter,
+        trackRadius,
         Paint()
-          ..color = _emerald.withValues(alpha: 0.30)
+          ..color = aligned
+              ? _emerald.withValues(alpha: 0.95)
+              : _emerald.withValues(alpha: 0.52)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 16
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+          ..strokeWidth = aligned ? 2.4 : 1.8
+          ..strokeCap = StrokeCap.round,
       );
     }
 
-    // 얇고 선명한 원형 뷰파인더
+    // 고정 3D 정렬 가이드 원 — 실선 흰색 반투명
+    if (aligned) _drawGlow(canvas, guideCenter, guideRadius);
     canvas.drawCircle(
-      center,
-      radius,
+      guideCenter,
+      guideRadius,
       Paint()
-        ..color = borderColor
+        ..color = aligned ? _emerald.withValues(alpha: 0.95) : _guideWhite
         ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 2.4 : 1.8,
+        ..strokeWidth = aligned ? 2.6 : 1.8,
     );
 
     canvas.save();
     canvas.clipPath(
-      Path()..addOval(Rect.fromCircle(center: center, radius: radius - 1.5)),
+      Path()
+        ..addOval(Rect.fromCircle(center: guideCenter, radius: guideRadius - 1.5)),
     );
-    _drawCrosshair(canvas, center, radius, _guideWhite);
+    _drawCrosshair(canvas, guideCenter, guideRadius, _guideWhite);
     canvas.restore();
 
-    // ML 정렬 힌트 (감지 시에만)
+    // 미정렬 방향 힌트
     if (pose.detected && !aligned) {
       final yaw = mirrored ? -pose.yaw : pose.yaw;
       final hint = const Color(0xFFFBBF24).withValues(alpha: 0.45);
@@ -1709,19 +1873,35 @@ class _CircularFaceAlignPainter extends CustomPainter {
         canvas.restore();
       }
 
-      final inset = radius * 0.78;
+      final inset = guideRadius * 0.78;
       const tol = GuideFacePose.alignToleranceDeg;
-      if (yaw.abs() > tol) {
+      if (!pose.isCenterAligned) {
+        final dx = trackCenter.dx - guideCenter.dx;
+        final dy = trackCenter.dy - guideCenter.dy;
+        if (dx.abs() > 8) {
+          final dir = dx > 0 ? 1.0 : -1.0;
+          drawInnerChevron(
+            Offset(guideCenter.dx + dir * inset, guideCenter.dy),
+            dir > 0 ? math.pi / 2 : -math.pi / 2,
+          );
+        }
+        if (dy.abs() > 8) {
+          final dir = dy > 0 ? 1.0 : -1.0;
+          drawInnerChevron(
+            Offset(guideCenter.dx, guideCenter.dy + dir * inset),
+            dir > 0 ? math.pi : 0,
+          );
+        }
+      } else if (yaw.abs() > tol) {
         final dir = yaw > 0 ? 1.0 : -1.0;
         drawInnerChevron(
-          Offset(cx + dir * inset, cy),
+          Offset(guideCenter.dx + dir * inset, guideCenter.dy),
           dir > 0 ? math.pi / 2 : -math.pi / 2,
         );
-      }
-      if (pose.pitch.abs() > tol) {
+      } else if (pose.pitch.abs() > tol) {
         final dir = pose.pitch > 0 ? 1.0 : -1.0;
         drawInnerChevron(
-          Offset(cx, cy + dir * inset),
+          Offset(guideCenter.dx, guideCenter.dy + dir * inset),
           dir > 0 ? math.pi : 0,
         );
       }
@@ -1733,9 +1913,13 @@ class _CircularFaceAlignPainter extends CustomPainter {
     return oldDelegate.pose.detected != pose.detected ||
         oldDelegate.pose.inCircle != pose.inCircle ||
         oldDelegate.pose.isAligned != pose.isAligned ||
+        oldDelegate.pose.isCenterAligned != pose.isCenterAligned ||
         oldDelegate.pose.pitch != pose.pitch ||
         oldDelegate.pose.yaw != pose.yaw ||
         oldDelegate.pose.roll != pose.roll ||
+        oldDelegate.pose.centerX != pose.centerX ||
+        oldDelegate.pose.centerY != pose.centerY ||
+        oldDelegate.pose.faceRadius != pose.faceRadius ||
         oldDelegate.mirrored != mirrored;
   }
 }
