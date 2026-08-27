@@ -4,7 +4,7 @@ import '../theme/sori_tokens.dart';
 import 'before_after_slider.dart';
 import 'sori_network_image.dart';
 
-/// Naver-style horizontal media carousel with top-right `2/5` pill.
+/// Feed media — B/A slider when both images exist; else image carousel.
 class FeedMediaCarousel extends StatefulWidget {
   const FeedMediaCarousel({
     super.key,
@@ -23,8 +23,6 @@ class FeedMediaCarousel extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDoubleTap;
   final String? heroTag;
-
-  /// Extra overlay (e.g. Sponsored) — placed left of page pill when both exist.
   final Widget? topTrailing;
 
   @override
@@ -35,9 +33,9 @@ class FeedMediaSlide {
   const FeedMediaSlide.image({
     required this.url,
     this.label = '',
-  }) : isBaPair = false,
-       beforeUrl = null,
-       afterUrl = null;
+  })  : isBaPair = false,
+        beforeUrl = null,
+        afterUrl = null;
 
   const FeedMediaSlide.baPair({
     required this.beforeUrl,
@@ -69,6 +67,9 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
     super.dispose();
   }
 
+  bool get _isSingleBa =>
+      widget.slides.length == 1 && widget.slides.first.isBaPair;
+
   @override
   Widget build(BuildContext context) {
     final slides = widget.slides;
@@ -83,13 +84,16 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              PageView.builder(
-                controller: _controller,
-                itemCount: slides.length,
-                onPageChanged: (i) => setState(() => _index = i),
-                itemBuilder: (context, i) => _buildSlide(slides[i]),
-              ),
-              if (slides.length > 1)
+              if (_isSingleBa)
+                _buildSlide(slides.first)
+              else
+                PageView.builder(
+                  controller: _controller,
+                  itemCount: slides.length,
+                  onPageChanged: (i) => setState(() => _index = i),
+                  itemBuilder: (context, i) => _buildSlide(slides[i]),
+                ),
+              if (!_isSingleBa && slides.length > 1)
                 Positioned(
                   top: 10,
                   right: 10,
@@ -104,7 +108,29 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
                   left: 10,
                   child: widget.topTrailing!,
                 ),
-              if (slides.length > 1)
+              // Open detail — does not steal horizontal B/A drag
+              if (widget.onTap != null)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onTap,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.open_in_full_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (!_isSingleBa && slides.length > 1)
                 Positioned(
                   bottom: 10,
                   left: 0,
@@ -133,19 +159,16 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
       ),
     );
 
+    // Double-tap opens detail; single horizontal drag stays on B/A slider.
     final tappable = GestureDetector(
-      onTap: widget.onTap,
-      onDoubleTap: widget.onDoubleTap,
-      behavior: HitTestBehavior.opaque,
+      onDoubleTap: widget.onDoubleTap ?? widget.onTap,
+      behavior: HitTestBehavior.deferToChild,
       child: media,
     );
 
     final tag = widget.heroTag?.trim() ?? '';
     if (tag.isEmpty) return tappable;
-    return Hero(
-      tag: tag,
-      child: tappable,
-    );
+    return Hero(tag: tag, child: tappable);
   }
 
   Widget _buildSlide(FeedMediaSlide slide) {
@@ -178,10 +201,11 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
         ),
       );
     }
-    return SizedBox.expand(
-      child: SoriNetworkImage(
-        url: url,
-        fit: BoxFit.cover,
+    return GestureDetector(
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox.expand(
+        child: SoriNetworkImage(url: url, fit: BoxFit.cover),
       ),
     );
   }
@@ -195,9 +219,7 @@ class _PagePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = total > 5 && current >= 5
-        ? '$current/5+'
-        : '$current/$total';
+    final label = total > 5 && current >= 5 ? '$current/5+' : '$current/$total';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -218,14 +240,17 @@ class _PagePill extends StatelessWidget {
   }
 }
 
-/// Build default case slides: Before, After (Naver-style swipe).
+/// Prefer interactive B/A pair when both images exist.
 List<FeedMediaSlide> feedSlidesForCase({
   String? beforeUrl,
   String? afterUrl,
 }) {
-  final out = <FeedMediaSlide>[];
   final b = beforeUrl?.trim() ?? '';
   final a = afterUrl?.trim() ?? '';
+  if (b.isNotEmpty && a.isNotEmpty) {
+    return [FeedMediaSlide.baPair(beforeUrl: b, afterUrl: a)];
+  }
+  final out = <FeedMediaSlide>[];
   if (b.isNotEmpty) {
     out.add(FeedMediaSlide.image(url: b, label: 'Before'));
   }

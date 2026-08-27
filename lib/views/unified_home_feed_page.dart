@@ -482,6 +482,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
         return false;
       },
       child: CustomScrollView(
+        primary: true,
         physics: const ClampingScrollPhysics(),
         slivers: [
           const SliverToBoxAdapter(child: _HomeHeroCarousel()),

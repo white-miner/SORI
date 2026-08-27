@@ -8,6 +8,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
+import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/sori_logo.dart';
 import 'app_settings_page.dart';
 import 'case_archive_page.dart';
@@ -26,6 +27,9 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
+
+  /// PC YouTube-style left drawer (collapsed icons ↔ extended labels).
+  bool _pcDrawerExtended = false;
 
   /// Store 전역 notify마다 셸을 리빌드하지 않도록 셸 관련 스냅샷만 추적.
   bool _lastHydrating = false;
@@ -185,14 +189,21 @@ class _AppShellPageState extends State<AppShellPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
+        // PC breakpoint — 800px+ (mobile layout preserved below).
+        final wide = constraints.maxWidth >= 800;
         final extraWide = constraints.maxWidth >= 1200;
 
         final appBar = hideShellAppBar
             ? null
             : _ShellAppBar(
-                // PC: 레일에만 로고 — 상단바 중복 제거. 모바일: 상단 좌측 앵커.
-                showLogo: !wide,
+                showLogo: true,
+                showMenuButton: wide,
+                menuExpanded: _pcDrawerExtended,
+                onMenuTap: wide
+                    ? () => setState(
+                          () => _pcDrawerExtended = !_pcDrawerExtended,
+                        )
+                    : null,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
                 onPostFirst: tab == 0
@@ -217,7 +228,7 @@ class _AppShellPageState extends State<AppShellPage> {
           );
         }
 
-        // PC/Tablet: rail + stacked feed (fixed center) + comment drawer
+        // PC: hamburger drawer + centered feed + margin scroll
         final hasComment = _store.activeCommentPostId != null;
 
         return Scaffold(
@@ -225,10 +236,13 @@ class _AppShellPageState extends State<AppShellPage> {
           appBar: appBar,
           body: Row(
             children: [
-              _SoriNavigationRail(
+              _PcSideDrawer(
+                extended: _pcDrawerExtended,
                 currentIndex: tab,
                 isDirector: isDirector,
-                onTap: _selectTab,
+                onTap: (i) {
+                  _selectTab(i);
+                },
               ),
               Expanded(
                 child: LayoutBuilder(
@@ -243,7 +257,10 @@ class _AppShellPageState extends State<AppShellPage> {
                     return Stack(
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        // 댓글 패널 열렸을 때만 바깥 탭으로 닫기 — 상시 translucent는 터치 좌표 왜곡
+                        // Empty left/right margins receive wheel → feed scrolls
+                        const Positioned.fill(
+                          child: MarginScrollForwarder(),
+                        ),
                         if (hasComment)
                           Positioned.fill(
                             child: GestureDetector(
@@ -300,132 +317,170 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 }
 
-/// PC/태블릿용 좌측 네비게이션 레일.
-class _SoriNavigationRail extends StatelessWidget {
-  const _SoriNavigationRail({
+/// YouTube-style collapsible left drawer (icons ↔ labels).
+class _PcSideDrawer extends StatelessWidget {
+  const _PcSideDrawer({
+    required this.extended,
     required this.currentIndex,
     required this.isDirector,
     required this.onTap,
   });
 
+  final bool extended;
   final int currentIndex;
   final bool isDirector;
   final ValueChanged<int> onTap;
 
+  static const double collapsedW = 72;
+  static const double extendedW = 240;
+
   @override
   Widget build(BuildContext context) {
-    final destinations = isDirector
+    final items = isDirector
         ? const [
-            NavigationRailDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: Text('홈'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: Text('고객'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.photo_camera_outlined),
-              selectedIcon: Icon(Icons.photo_camera_rounded),
-              label: Text('촬영'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups_rounded),
-              label: Text('Community'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: Text('마이페이지'),
-            ),
+            (Icons.home_outlined, Icons.home_rounded, '홈'),
+            (Icons.people_outline, Icons.people_rounded, '고객'),
+            (Icons.photo_camera_outlined, Icons.photo_camera_rounded, '촬영'),
+            (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티'),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ]
         : const [
-            NavigationRailDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: Text('홈'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.spa_outlined),
-              selectedIcon: Icon(Icons.spa_rounded),
-              label: Text('케어'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.rate_review_outlined),
-              selectedIcon: Icon(Icons.rate_review_rounded),
-              label: Text('리뷰 작성'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups_rounded),
-              label: Text('Community'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: Text('마이페이지'),
-            ),
+            (Icons.home_outlined, Icons.home_rounded, '홈'),
+            (Icons.spa_outlined, Icons.spa_rounded, '케어'),
+            (Icons.rate_review_outlined, Icons.rate_review_rounded, '리뷰'),
+            (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티'),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ];
 
-    return ClipRect(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: SoriTokens.surface.withValues(alpha: 0.97),
-          border: const Border(
-            right: BorderSide(
-              color: SoriTokens.border,
-              width: 1,
-            ),
-          ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOut,
+      width: extended ? extendedW : collapsedW,
+      decoration: BoxDecoration(
+        color: SoriTokens.surface.withValues(alpha: 0.98),
+        border: const Border(
+          right: BorderSide(color: SoriTokens.border, width: 1),
         ),
-        child: NavigationRail(
-            selectedIndex: currentIndex,
-            onDestinationSelected: onTap,
-            labelType: NavigationRailLabelType.all,
-            backgroundColor: Colors.transparent,
-            indicatorColor: SoriTokens.tabCapsuleBg,
-            selectedIconTheme:
-                const IconThemeData(color: SoriTokens.textPrimary),
-            unselectedIconTheme:
-                const IconThemeData(color: SoriTokens.textTertiary),
-            selectedLabelTextStyle: const TextStyle(
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
-            unselectedLabelTextStyle: const TextStyle(
-              color: SoriTokens.textTertiary,
-              fontSize: 11,
-            ),
-            leading: const Padding(
-              padding: EdgeInsets.only(top: 8, bottom: 16, left: 4, right: 4),
-              child: IconTheme(
-                data: IconThemeData(),
-                child: SoriLogo(height: SoriLogo.gnbHeight),
+      ),
+      child: SafeArea(
+        right: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 8),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: extended ? 16 : 12,
+                vertical: 8,
+              ),
+              child: Align(
+                alignment:
+                    extended ? Alignment.centerLeft : Alignment.center,
+                child: const IconTheme(
+                  data: IconThemeData(),
+                  child: SoriLogo(height: SoriLogo.gnbHeight),
+                ),
               ),
             ),
-            destinations: destinations,
-          ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < items.length; i++)
+              _DrawerNavItem(
+                icon: items[i].$1,
+                selectedIcon: items[i].$2,
+                label: items[i].$3,
+                selected: currentIndex == i,
+                extended: extended,
+                onTap: () => onTap(i),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 글래스모피즘 셸 AppBar — 메인 타이틀 + 하이그로시 알림.
+class _DrawerNavItem extends StatelessWidget {
+  const _DrawerNavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.extended,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final bool extended;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? SoriTokens.textCharcoal : SoriTokens.tabUnselected;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: selected ? SoriTokens.tabCapsuleBg : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            height: 48,
+            padding: EdgeInsets.symmetric(horizontal: extended ? 14 : 0),
+            child: Row(
+              mainAxisAlignment: extended
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                Icon(selected ? selectedIcon : icon, size: 22, color: fg),
+                if (extended) ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w500,
+                        color: fg,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 글래스모피즘 셸 AppBar — 로고 + (PC) 햄버거 + 알림.
 class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _ShellAppBar({
     required this.showLogo,
     required this.badgeCount,
     required this.onNotifications,
+    this.showMenuButton = false,
+    this.menuExpanded = false,
+    this.onMenuTap,
     this.onPostFirst,
     this.onArchive,
     this.onSettings,
   });
 
   final bool showLogo;
+  final bool showMenuButton;
+  final bool menuExpanded;
+  final VoidCallback? onMenuTap;
   final int badgeCount;
   final VoidCallback onNotifications;
   final VoidCallback? onPostFirst;
@@ -454,12 +509,18 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: SizedBox(
           height: toolbarHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
+                if (showMenuButton)
+                  _FlatAppBarIcon(
+                    tooltip: menuExpanded ? '메뉴 접기' : '메뉴 펼치기',
+                    icon: Icons.menu_rounded,
+                    onPressed: onMenuTap ?? () {},
+                  ),
                 if (showLogo) ...[
                   const Padding(
-                    padding: EdgeInsets.only(right: 8),
+                    padding: EdgeInsets.only(left: 4, right: 8),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: IconTheme(
@@ -468,9 +529,8 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ),
                   ),
-                  const Spacer(),
-                ] else
-                  const Spacer(),
+                ],
+                const Spacer(),
                 if (onPostFirst != null)
                   _FlatAppBarIcon(
                     tooltip: '새 게시물',

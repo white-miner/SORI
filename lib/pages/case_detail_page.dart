@@ -58,6 +58,52 @@ class CaseDetailPage extends StatefulWidget {
     BuildContext context, {
     required CaseDetailPage page,
   }) {
+    final width = MediaQuery.sizeOf(context).width;
+    // PC: modal dialog — no fullscreen route that stretches mobile layout.
+    if (width >= 800) {
+      return showGeneralDialog<void>(
+        context: context,
+        useRootNavigator: true,
+        barrierDismissible: true,
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black.withValues(alpha: 0.55),
+        transitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (ctx, animation, secondaryAnimation) {
+          final maxH = MediaQuery.sizeOf(ctx).height * 0.92;
+          return SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 920,
+                  maxHeight: maxH,
+                ),
+                child: Material(
+                  color: SoriTokens.background,
+                  elevation: 12,
+                  shadowColor: Colors.black.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: page,
+                ),
+              ),
+            ),
+          );
+        },
+        transitionBuilder: (ctx, animation, secondary, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+              child: child,
+            ),
+          );
+        },
+      );
+    }
     return pushRootPage<void>(context, page);
   }
 
