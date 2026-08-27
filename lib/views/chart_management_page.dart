@@ -8,6 +8,7 @@ import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/ai_case_story_sheet.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/media_permission_dialogs.dart';
 import 'admin_chart_writer_page.dart';
@@ -578,9 +579,22 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     );
   }
 
-  void _onFeedShareChanged(CustomerChart chart, bool value) {
-    final ok = widget.store.setManagementCaseShared(chart.id, value);
-    if (!ok) {
+  Future<void> _onFeedShareChanged(CustomerChart chart, bool value) async {
+    if (!value) {
+      final ok = widget.store.setManagementCaseShared(chart.id, false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: SoriTokens.systemRed,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!chart.isConsentSigned) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
@@ -588,7 +602,34 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
           backgroundColor: SoriTokens.systemRed,
         ),
       );
+      return;
     }
+
+    // Already shared — leave flag on without re-opening sheet.
+    if (chart.caseShared) return;
+
+    Customer? customer;
+    for (final c in widget.store.customers) {
+      if (c.id == chart.customerId) {
+        customer = c;
+        break;
+      }
+    }
+
+    final result = await showAiCaseStorySheet(
+      context: context,
+      store: widget.store,
+      chart: chart,
+      customer: customer,
+    );
+
+    if (!mounted) return;
+    if (result == AiCaseStorySheetResult.cancelled) {
+      // Switch stays OFF — never published.
+      return;
+    }
+    // Publish path already set caseShared via RPC / store.
+    setState(() {});
   }
 
   Widget _buildFeedShareBar(CustomerChart chart) {
@@ -623,7 +664,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                     canShare
                         ? (shared
                             ? '커뮤니티 피드에 공개 중'
-                            : '동의 완료 · 공유하면 피드에 노출됩니다')
+                            : '공유 시 AI 임상 스토리 초안을 준비합니다')
                         : '동의서 서명 후 공유할 수 있습니다',
                     style: const TextStyle(
                       fontSize: 11.5,

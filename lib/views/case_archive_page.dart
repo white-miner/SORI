@@ -5,6 +5,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/ai_case_story_sheet.dart';
 import '../widgets/case_archive_tile.dart';
 import '../widgets/case_timeline_modal.dart';
 
@@ -106,9 +107,22 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
     return out;
   }
 
-  void _onShareToggle(CustomerChart chart, bool value) {
-    final ok = widget.store.setManagementCaseShared(chart.id, value);
-    if (!ok) {
+  Future<void> _onShareToggle(CustomerChart chart, bool value) async {
+    if (!value) {
+      final ok = widget.store.setManagementCaseShared(chart.id, false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: SoriTokens.systemRed,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!chart.isConsentSigned) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
@@ -116,7 +130,28 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
           backgroundColor: SoriTokens.systemRed,
         ),
       );
+      return;
     }
+
+    if (chart.caseShared) return;
+
+    Customer? customer;
+    for (final c in widget.store.customers) {
+      if (c.id == chart.customerId) {
+        customer = c;
+        break;
+      }
+    }
+
+    final result = await showAiCaseStorySheet(
+      context: context,
+      store: widget.store,
+      chart: chart,
+      customer: customer,
+    );
+    if (!mounted) return;
+    if (result == AiCaseStorySheetResult.cancelled) return;
+    setState(() {});
   }
 
   void _toggleLike(String id) {

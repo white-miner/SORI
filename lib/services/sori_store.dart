@@ -3556,7 +3556,12 @@ class SoriStore implements Listenable {
   }
 
   /// 차트 → Community case_share (개인정보 마스킹, DB 트랜잭션 RPC).
-  Future<CommunityPost?> publishChartCaseToCommunity(CustomerChart chart) async {
+  /// [title]/[body]가 있으면 AI/편집본을 그대로 발행한다.
+  Future<CommunityPost?> publishChartCaseToCommunity(
+    CustomerChart chart, {
+    String? title,
+    String? body,
+  }) async {
     final shopId = shop.id.trim();
     if (shopId.isEmpty) return null;
     // Avoid duplicate publish for same chart.
@@ -3570,12 +3575,16 @@ class SoriStore implements Listenable {
     final care = chart.careName.trim().isEmpty ? '시술 케이스' : chart.careName.trim();
     final insight = chart.directorInsight.trim();
     final summary = chart.treatmentSummary.trim();
-    final body = [
-      if (summary.isNotEmpty) summary,
-      if (insight.isNotEmpty) insight,
-      if (summary.isEmpty && insight.isEmpty)
-        '$care 임상 기록 공유 (고객 정보는 비식별화되었습니다)',
-    ].join('\n\n');
+    final resolvedTitle =
+        (title ?? '').trim().isNotEmpty ? title!.trim() : '$care · 임상 케이스';
+    final resolvedBody = (body ?? '').trim().isNotEmpty
+        ? body!.trim()
+        : [
+            if (summary.isNotEmpty) summary,
+            if (insight.isNotEmpty) insight,
+            if (summary.isEmpty && insight.isEmpty)
+              '$care 임상 기록 공유 (고객 정보는 비식별화되었습니다)',
+          ].join('\n\n');
 
     final urls = <String>[];
     final before = (chart.beforeImageUrl ?? '').trim();
@@ -3594,8 +3603,8 @@ class SoriStore implements Listenable {
           chartId: chart.id,
           shopId: shopId,
           publish: true,
-          title: '$care · 임상 케이스',
-          body: body,
+          title: resolvedTitle,
+          body: resolvedBody,
           imageUrls: urls,
           authorUserId: session?.id,
         );
@@ -3607,8 +3616,8 @@ class SoriStore implements Listenable {
         post = await _repository.insertCommunityPost(
           shopId: shopId,
           postType: CommunityPostType.caseShare,
-          title: '$care · 임상 케이스',
-          body: body,
+          title: resolvedTitle,
+          body: resolvedBody,
           authorUserId: session?.id,
           imageUrls: urls,
           styleTags: const ['케이스공유', '비식별'],
