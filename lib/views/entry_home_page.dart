@@ -194,7 +194,6 @@ class _EntryHomePageState extends State<EntryHomePage>
       children: [
         Center(
           child: SoriLogo(
-            forceWhite: true,
             width: SoriLogo.loginWidth(context),
             fit: BoxFit.contain,
           ),

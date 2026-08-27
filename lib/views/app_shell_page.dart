@@ -401,7 +401,7 @@ class _SoriNavigationRail extends StatelessWidget {
               fontSize: 11,
             ),
             leading: const Padding(
-              padding: EdgeInsets.only(top: 8, bottom: 16),
+              padding: EdgeInsets.only(top: 8, bottom: 16, left: 4, right: 4),
               child: SoriLogo(height: SoriLogo.gnbHeight),
             ),
             destinations: destinations,
@@ -455,9 +455,12 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Row(
               children: [
                 if (showLogo) ...[
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: SoriLogo(height: SoriLogo.gnbHeight),
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SoriLogo(height: SoriLogo.gnbHeight),
+                    ),
                   ),
                   const Spacer(),
                 ] else

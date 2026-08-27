@@ -148,7 +148,6 @@ class _SplashPageState extends State<SplashPage> {
               child: SoriLogo(
                 width: logoWidth,
                 fit: BoxFit.contain,
-                forceWhite: true,
               ),
             ),
           ),

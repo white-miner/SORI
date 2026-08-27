@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 
 /// SORI 브랜드 로고 에셋 매니저.
-/// 투명 PNG — 다크 배경은 화이트, 라이트 배경은 블랙.
+/// 신규 브랜드 SVG(`logo_sori.svg`)는 Purple & Black 원본 컬러를 유지한다.
+/// ColorFilter / color 틴트를 적용하지 말 것.
 abstract final class SoriBrandAssets {
+  /// 확정 브랜드 로고 (원본 컬러).
+  static const String logoSori = 'assets/images/logo_sori.svg';
+
+  /// @deprecated 레거시 PNG — [logoSori] 사용.
   static const String logoWhite = 'assets/images/logo_white.png';
+
+  /// @deprecated 레거시 PNG — [logoSori] 사용.
   static const String logoBlack = 'assets/images/logo_black.png';
+
+  /// @deprecated 레거시 PNG — [logoSori] 사용.
   static const String logoOutline = 'assets/images/logo_outline.png';
 
-  /// GNB 표준 높이 (26~30px 규격).
+  /// GNB 표준 높이 (24~28px).
   static const double logoHeightGnb = 28;
 
   /// 인앱 기본 로고 높이.
@@ -16,21 +25,12 @@ abstract final class SoriBrandAssets {
   /// 스플래시 등 히어로 로고 높이 힌트.
   static const double logoHeightHero = 52;
 
-  /// 어두운 배경 → 화이트 로고 / 밝은 배경 → 블랙 로고.
-  static String logoForBrightness(Brightness brightness) {
-    return brightness == Brightness.dark ? logoWhite : logoBlack;
-  }
+  /// 항상 신규 브랜드 SVG.
+  static String logoForBrightness(Brightness brightness) => logoSori;
 
-  /// [ThemeData.brightness] 기준 (앱 테마).
-  static String logoForTheme(BuildContext context) {
-    return logoForBrightness(Theme.of(context).brightness);
-  }
+  static String logoForTheme(BuildContext context) => logoSori;
 
-  /// OS 시스템 밝기 기준.
-  static String logoForPlatform(BuildContext context) {
-    return logoForBrightness(MediaQuery.platformBrightnessOf(context));
-  }
+  static String logoForPlatform(BuildContext context) => logoSori;
 
-  /// 아웃라인 변형 — 다크 표면용 화이트와 동일.
-  static String get outline => logoOutline;
+  static String get outline => logoSori;
 }
