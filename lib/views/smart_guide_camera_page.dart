@@ -390,14 +390,14 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   Color get _decolleteGuideColor {
-    if (_faceAligned) return SoriTokens.alignEmerald;
+    if (_faceAligned) return SoriTokens.cameraYellow;
     return Colors.white.withValues(alpha: 0.4);
   }
 
   Color get _faceProximityColor {
     if (!_facePose.detected) return SoriTokens.alignCold;
     if (_facePose.computeAligned(_viewfinderSize, mirrored: _faceMirrored)) {
-      return SoriTokens.alignEmerald;
+      return SoriTokens.cameraYellow;
     }
     final d = _facePose.alignmentDistance(
       _viewfinderSize,
@@ -1015,7 +1015,7 @@ class _CameraDock extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.2,
                       color: faceAligned
-                          ? SoriTokens.alignEmerald
+                          ? SoriTokens.cameraYellow
                           : Colors.white.withValues(alpha: 0.72),
                     ),
                   ),
@@ -1614,20 +1614,11 @@ class _DecolleteAlignGuideLayer extends StatelessWidget {
                   height: displayR * 2,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: Colors.transparent,
                     border: Border.all(
                       color: guideColor,
-                      width: aligned ? 3.2 : 2.0,
+                      width: aligned ? 2.8 : 2.0,
                     ),
-                    boxShadow: aligned
-                        ? [
-                            BoxShadow(
-                              color: SoriTokens.alignEmerald
-                                  .withValues(alpha: 0.55),
-                              blurRadius: 16,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : null,
                   ),
                 ),
               ),
@@ -1653,104 +1644,124 @@ class _DecolleteGuidePainter extends CustomPainter {
   final Offset? staticCenter;
   final double staticRadius;
 
-  static const _ghostFill = Color(0x1AFFFFFF);
-
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
 
-    final headTop = h * 0.06;
-    final headBottom = h * 0.46;
-    final headWidth = w * 0.34;
-    final neckTop = headBottom - h * 0.02;
-    final shoulderY = h * 0.52;
-    final shoulderLeft = w * 0.08;
-    final shoulderRight = w * 0.92;
-    final torsoBottom = h * 0.78;
+    // Clinical upper-body proportions (shorter oval head, natural trapezius):
+    // head ~22% of frame height, shoulders ~ mid frame, décolleté below.
+    final headTop = h * 0.08;
+    final headH = h * 0.22;
+    final headBottom = headTop + headH;
+    final headW = w * 0.26;
+    final neckBottom = headBottom + h * 0.05;
+    final shoulderY = h * 0.42;
+    final shoulderLeft = w * 0.10;
+    final shoulderRight = w * 0.90;
+    final torsoBottom = h * 0.64;
 
+    // Soft vignette only (dim outside frame) — not a filled silhouette.
     final safe = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTRB(shoulderLeft, headTop, shoulderRight, torsoBottom),
-          const Radius.circular(18),
+          const Radius.circular(20),
         ),
       );
     canvas.drawPath(
       safe,
-      Paint()..color = Colors.black.withValues(alpha: 0.28),
+      Paint()..color = Colors.black.withValues(alpha: 0.22),
     );
 
-    final ghost = Path()
-      ..moveTo(cx, headTop)
+    final strokeColor =
+        aligned ? guideColor : Colors.white.withValues(alpha: 0.4);
+    final stroke = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = aligned ? 2.6 : 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Round head oval (stroke only)
+    final headRect = Rect.fromCenter(
+      center: Offset(cx, headTop + headH * 0.52),
+      width: headW,
+      height: headH,
+    );
+    canvas.drawOval(headRect, stroke);
+
+    // Neck column
+    final neckHalf = w * 0.055;
+    canvas.drawLine(
+      Offset(cx - neckHalf, headBottom - h * 0.01),
+      Offset(cx - neckHalf * 0.95, neckBottom),
+      stroke,
+    );
+    canvas.drawLine(
+      Offset(cx + neckHalf, headBottom - h * 0.01),
+      Offset(cx + neckHalf * 0.95, neckBottom),
+      stroke,
+    );
+
+    // Trapezius → shoulder line (soft S-curves, aesthetic upper body)
+    final leftShoulder = Path()
+      ..moveTo(cx - neckHalf * 0.95, neckBottom)
       ..cubicTo(
-        cx - headWidth * 0.55,
-        headTop,
-        cx - headWidth * 0.58,
-        headBottom,
-        cx - headWidth * 0.22,
-        neckTop,
-      )
-      ..quadraticBezierTo(
-        cx - headWidth * 0.18,
-        shoulderY - h * 0.04,
+        cx - w * 0.12,
+        neckBottom + h * 0.01,
+        cx - w * 0.22,
+        shoulderY - h * 0.02,
         shoulderLeft,
         shoulderY,
-      )
-      ..quadraticBezierTo(
-        shoulderLeft - w * 0.01,
-        (shoulderY + torsoBottom) / 2,
-        cx - w * 0.12,
-        torsoBottom,
-      )
-      ..lineTo(cx + w * 0.12, torsoBottom)
-      ..quadraticBezierTo(
-        shoulderRight + w * 0.01,
-        (shoulderY + torsoBottom) / 2,
+      );
+    final rightShoulder = Path()
+      ..moveTo(cx + neckHalf * 0.95, neckBottom)
+      ..cubicTo(
+        cx + w * 0.12,
+        neckBottom + h * 0.01,
+        cx + w * 0.22,
+        shoulderY - h * 0.02,
         shoulderRight,
         shoulderY,
-      )
-      ..quadraticBezierTo(
-        cx + headWidth * 0.18,
-        shoulderY - h * 0.04,
-        cx + headWidth * 0.22,
-        neckTop,
-      )
-      ..cubicTo(
-        cx + headWidth * 0.58,
-        headBottom,
-        cx + headWidth * 0.55,
-        headTop,
-        cx,
-        headTop,
-      )
-      ..close();
+      );
+    canvas.drawPath(leftShoulder, stroke);
+    canvas.drawPath(rightShoulder, stroke);
 
-    final silhouetteStroke = aligned
-        ? guideColor
-        : Colors.white.withValues(alpha: 0.4);
-
-    canvas.drawPath(ghost, Paint()..color = _ghostFill);
-    canvas.drawPath(
-      ghost,
-      Paint()
-        ..color = silhouetteStroke
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 2.4 : 1.3
-        ..maskFilter = aligned
-            ? const MaskFilter.blur(BlurStyle.normal, 1.5)
-            : null,
+    // Clavicle / shoulder span (level guide)
+    canvas.drawLine(
+      Offset(shoulderLeft, shoulderY),
+      Offset(shoulderRight, shoulderY),
+      stroke,
     );
 
-    // Static target ring (dashed) — scale reference
+    // Soft décolleté hem (upper chest arc) — stroke only
+    final bust = Path()
+      ..moveTo(shoulderLeft + w * 0.06, shoulderY + h * 0.02)
+      ..quadraticBezierTo(
+        cx,
+        torsoBottom,
+        shoulderRight - w * 0.06,
+        shoulderY + h * 0.02,
+      );
+    canvas.drawPath(
+      bust,
+      Paint()
+        ..color = strokeColor.withValues(alpha: aligned ? 0.95 : 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = aligned ? 2.2 : 1.3
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Static target ring (dashed) — scale reference, stroke only
     if (showStaticRing && staticCenter != null && staticRadius > 0) {
       final ringPaint = Paint()
-        ..color = silhouetteStroke
+        ..color = strokeColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 2.6 : 1.6
+        ..strokeWidth = aligned ? 2.4 : 1.5
         ..strokeCap = StrokeCap.round;
       const segments = 48;
       const dashRatio = 0.55;
@@ -1767,13 +1778,14 @@ class _DecolleteGuidePainter extends CustomPainter {
       }
     }
 
-    // Faint symmetry axis (grid already handles thirds)
+    // Faint center axis
     canvas.drawLine(
-      Offset(cx, headTop + h * 0.04),
-      Offset(cx, torsoBottom - h * 0.04),
+      Offset(cx, headTop),
+      Offset(cx, torsoBottom),
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.16)
-        ..strokeWidth = 1,
+        ..color = Colors.white.withValues(alpha: 0.14)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke,
     );
   }
 
@@ -1900,19 +1912,11 @@ class _FaceAlignGuideLayer extends StatelessWidget {
                   height: displayR * 2,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: Colors.transparent,
                     border: Border.all(
                       color: proximityColor,
-                      width: aligned ? 3.0 : 2.0,
+                      width: aligned ? 2.8 : 2.0,
                     ),
-                    boxShadow: aligned
-                        ? [
-                            BoxShadow(
-                              color: proximityColor.withValues(alpha: 0.45),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
                   ),
                 ),
               ),
@@ -1971,22 +1975,19 @@ class _CircularFaceAlignPainter extends CustomPainter {
   }
 
   void _drawGhostFace(Canvas canvas, Offset center, double outerR) {
-    final ghost = Paint()
-      ..color = SoriTokens.ghostImage.withValues(alpha: 0.10)
-      ..style = PaintingStyle.fill;
     final stroke = Paint()
-      ..color = SoriTokens.ghostImage.withValues(alpha: 0.10)
+      ..color = SoriTokens.ghostImage.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
 
-    // Oval face silhouette inside outer guide.
+    // Oval face silhouette inside outer guide — stroke only (no fill).
     final faceR = outerR * 0.72;
     final faceRect = Rect.fromCenter(
       center: center.translate(0, outerR * 0.02),
       width: faceR * 1.55,
       height: faceR * 1.95,
     );
-    canvas.drawOval(faceRect, ghost);
+    canvas.drawOval(faceRect, stroke);
 
     // Eyes
     final eyeY = faceRect.top + faceRect.height * 0.42;
