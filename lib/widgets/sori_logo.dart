@@ -28,16 +28,17 @@ class SoriLogo extends StatelessWidget {
   final BoxFit fit;
 
   static String get assetPath => SoriBrandAssets.logoSoriSvg;
-  static const double gnbHeight = 28;
+  /// AppBar / GNB wordmark height (purple mark + black SORI).
+  static const double gnbHeight = 32;
 
   static double splashWidth(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    return (w * 0.45).clamp(150.0, 200.0);
+    return (w * 0.52).clamp(180.0, 240.0);
   }
 
   static double loginWidth(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    return (w * 0.40).clamp(140.0, 160.0);
+    return (w * 0.48).clamp(168.0, 220.0);
   }
 
   static double splashWidthRaw(BuildContext context) => splashWidth(context);
@@ -48,7 +49,8 @@ class SoriLogo extends StatelessWidget {
     final logoW = width;
     final logoH = height ?? (width == null ? gnbHeight : null);
 
-    // IconTheme/AppBar tint가 SVG에 전파되지 않도록 격리
+    // IconTheme/AppBar tint가 SVG에 전파되지 않도록 격리.
+    // 원본 컬러(Purple mark + Black SORI) — ColorFilter 절대 금지.
     return IconTheme(
       data: const IconThemeData(),
       child: SvgPicture.asset(
@@ -56,20 +58,24 @@ class SoriLogo extends StatelessWidget {
         width: logoW,
         height: logoH,
         fit: fit,
-        alignment: Alignment.center,
-        allowDrawingOutsideViewBox: true,
-        placeholderBuilder: (context) => SizedBox(
-          width: logoW ?? (logoH != null ? logoH * 2.4 : 72),
-          height: logoH ?? (logoW != null ? logoW * 0.42 : gnbHeight),
+        alignment: Alignment.centerLeft,
+        allowDrawingOutsideViewBox: false,
+        placeholderBuilder: (context) => Image.asset(
+          SoriBrandAssets.logoSoriPng,
+          width: logoW,
+          height: logoH,
+          fit: fit,
+          alignment: Alignment.centerLeft,
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
         ),
         errorBuilder: (context, error, stackTrace) {
-          // SVG 파싱 실패 시에만 PNG 폴백 — ColorFilter 없음
           return Image.asset(
             SoriBrandAssets.logoSoriPng,
             width: logoW,
             height: logoH,
             fit: fit,
-            alignment: Alignment.center,
+            alignment: Alignment.centerLeft,
             filterQuality: FilterQuality.high,
             gaplessPlayback: true,
           );

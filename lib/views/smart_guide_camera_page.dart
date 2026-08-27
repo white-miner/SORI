@@ -350,12 +350,28 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (_mlLoading) return 'AI 준비 중';
     if (!_facePose.detected) return '얼굴을 찾는 중';
     if (!_facePose.isPositionAligned(_viewfinderSize, mirrored: _faceMirrored)) {
-      return '위치를 맞춰 주세요';
+      return '얼굴을 중앙에 두세요';
     }
-    if (!_facePose.isScaleAligned(_viewfinderSize)) {
-      return '촬영 거리(크기)를 맞춰 주세요';
+    final scaleDir = _facePose.scaleDirection(_viewfinderSize);
+    if (scaleDir > 0) return '조금 더 가까이 오세요';
+    if (scaleDir < 0) return '조금 더 멀리 움직이세요';
+    if (!_facePose.computeAligned(_viewfinderSize, mirrored: _faceMirrored)) {
+      return '거의 맞았어요';
     }
     return _autoShootEnabled ? '정렬됨 · 자동 촬영 대기' : '정렬됨';
+  }
+
+  Color get _faceProximityColor {
+    if (!_facePose.detected) return SoriTokens.alignCold;
+    if (_facePose.computeAligned(_viewfinderSize, mirrored: _faceMirrored)) {
+      return SoriTokens.alignEmerald;
+    }
+    final d = _facePose.alignmentDistance(
+      _viewfinderSize,
+      mirrored: _faceMirrored,
+    );
+    if (d <= 1.35) return SoriTokens.alignWarm;
+    return SoriTokens.alignCold;
   }
 
   void _onAttitude(GuideDeviceAttitude? next) {
@@ -798,12 +814,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                 if (_preset == GuidePreset.face)
                   IgnorePointer(
                     ignoring: true,
-                    child: CustomPaint(
-                      painter: _CircularFaceAlignPainter(
-                        pose: _facePose,
-                        mirrored: _mode == GuideCaptureMode.selfFront,
-                      ),
-                      child: const SizedBox.expand(),
+                    child: _FaceAlignGuideLayer(
+                      pose: _facePose,
+                      mirrored: _mode == GuideCaptureMode.selfFront,
+                      proximityColor: _faceProximityColor,
                     ),
                   )
                 else if (_preset == GuidePreset.decollete)
@@ -962,12 +976,12 @@ class _CameraDock extends StatelessWidget {
                   Text(
                     faceHint!,
                     style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: 0.2,
                       color: faceAligned
-                          ? SoriTokens.primary.withValues(alpha: 0.95)
-                          : Colors.white.withValues(alpha: 0.55),
+                          ? SoriTokens.alignEmerald
+                          : Colors.white.withValues(alpha: 0.72),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1649,20 +1663,99 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// B/A 임상 — 이중 정적 가이드(외부 실선 + 내부 Target 점선) + bbox 동적 원.
-class _CircularFaceAlignPainter extends CustomPainter {
-  _CircularFaceAlignPainter({
+/// Face viewfinder — fixed guides + ghost silhouette + magnet-snap track circle.
+class _FaceAlignGuideLayer extends StatelessWidget {
+  const _FaceAlignGuideLayer({
     required this.pose,
     required this.mirrored,
+    required this.proximityColor,
   });
 
   final GuideFacePose pose;
   final bool mirrored;
+  final Color proximityColor;
 
-  static const _outerWhite = Color(0x80FFFFFF); // 50%
-  static const _innerWhite = Color(0x66FFFFFF); // 40%
-  static const _trackGray = Color(0x66B0B0B0);
-  static const _cameraYellow = SoriTokens.cameraYellow;
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        final target = pose.targetCenterPx(size);
+        final innerR = pose.innerTargetRadiusPx(size);
+        final snap = pose.isInSnapZone(size, mirrored: mirrored);
+        final aligned = pose.computeAligned(size, mirrored: mirrored);
+        final faceC = pose.faceCenterPx(size, mirrored: mirrored);
+        final faceR = pose.faceRadiusPx(size);
+
+        // Magnet snap: when in soft zone, stick to dashed target circle.
+        final displayC = (snap || aligned) ? target : faceC;
+        final displayR = (snap || aligned) ? innerR : faceR;
+        final animateSnap = snap || aligned;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(
+              painter: _CircularFaceAlignPainter(
+                pose: pose,
+                mirrored: mirrored,
+                guideColor: proximityColor,
+                drawTrack: false,
+              ),
+              child: const SizedBox.expand(),
+            ),
+            if (pose.detected && displayR > 0)
+              AnimatedPositioned(
+                duration: Duration(milliseconds: animateSnap ? 240 : 70),
+                curve: animateSnap ? Curves.easeOutBack : Curves.linear,
+                left: displayC.dx - displayR,
+                top: displayC.dy - displayR,
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: animateSnap ? 240 : 70),
+                  curve: animateSnap ? Curves.easeOutBack : Curves.linear,
+                  width: displayR * 2,
+                  height: displayR * 2,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: proximityColor,
+                      width: aligned ? 3.0 : 2.0,
+                    ),
+                    boxShadow: aligned
+                        ? [
+                            BoxShadow(
+                              color: proximityColor.withValues(alpha: 0.45),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// B/A 임상 — 이중 정적 가이드 + ghost silhouette (+ optional track).
+class _CircularFaceAlignPainter extends CustomPainter {
+  _CircularFaceAlignPainter({
+    required this.pose,
+    required this.mirrored,
+    required this.guideColor,
+    this.drawTrack = true,
+  });
+
+  final GuideFacePose pose;
+  final bool mirrored;
+  final Color guideColor;
+  final bool drawTrack;
+
+  static const _outerWhite = Color(0x80FFFFFF);
+  static const _innerWhite = Color(0x66FFFFFF);
 
   Offset _targetCenter(Size size) => Offset(
         size.width * GuideFacePose.guideCenterX,
@@ -1672,10 +1765,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
   double _outerRadius(Size size) => pose.outerRadiusPx(size);
 
   double _innerRadius(Size size) => pose.innerTargetRadiusPx(size);
-
-  Offset _faceCenter(Size size) => pose.faceCenterPx(size, mirrored: mirrored);
-
-  double _faceRadius(Size size) => pose.faceRadiusPx(size);
 
   void _drawDashedCircle(
     Canvas canvas,
@@ -1698,16 +1787,54 @@ class _CircularFaceAlignPainter extends CustomPainter {
     }
   }
 
+  void _drawGhostFace(Canvas canvas, Offset center, double outerR) {
+    final ghost = Paint()
+      ..color = SoriTokens.ghostImage.withValues(alpha: 0.10)
+      ..style = PaintingStyle.fill;
+    final stroke = Paint()
+      ..color = SoriTokens.ghostImage.withValues(alpha: 0.10)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+
+    // Oval face silhouette inside outer guide.
+    final faceR = outerR * 0.72;
+    final faceRect = Rect.fromCenter(
+      center: center.translate(0, outerR * 0.02),
+      width: faceR * 1.55,
+      height: faceR * 1.95,
+    );
+    canvas.drawOval(faceRect, ghost);
+
+    // Eyes
+    final eyeY = faceRect.top + faceRect.height * 0.42;
+    final eyeDx = faceRect.width * 0.22;
+    final eyeR = faceR * 0.09;
+    canvas.drawCircle(Offset(center.dx - eyeDx, eyeY), eyeR, stroke);
+    canvas.drawCircle(Offset(center.dx + eyeDx, eyeY), eyeR, stroke);
+
+    // Nose bridge
+    canvas.drawLine(
+      Offset(center.dx, eyeY + eyeR * 1.2),
+      Offset(center.dx, faceRect.top + faceRect.height * 0.58),
+      stroke,
+    );
+
+    // Mouth arc
+    final mouthRect = Rect.fromCenter(
+      center: Offset(center.dx, faceRect.top + faceRect.height * 0.70),
+      width: faceR * 0.55,
+      height: faceR * 0.22,
+    );
+    canvas.drawArc(mouthRect, 0.15, math.pi - 0.3, false, stroke);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final targetCenter = _targetCenter(size);
     final outerR = _outerRadius(size);
     final innerR = _innerRadius(size);
     final aligned = pose.computeAligned(size, mirrored: mirrored);
-    final trackCenter = _faceCenter(size);
-    final trackR = _faceRadius(size);
 
-    // 원 밖 딤 — 1차 바운더리 강조
     final dim = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
@@ -1717,101 +1844,54 @@ class _CircularFaceAlignPainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.38),
     );
 
-    // 동적 얼굴 원 — 불일치: 연한 회색 / 일치: 단색 옐로우
-    if (pose.detected && trackR > 0) {
-      canvas.drawCircle(
-        trackCenter,
-        trackR,
-        Paint()
-          ..color = aligned ? SoriTokens.cameraYellow : _trackGray
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = aligned ? 2.6 : 1.6,
-      );
+    // Ghost silhouette under guide rings
+    _drawGhostFace(canvas, targetCenter, outerR);
+
+    if (drawTrack && pose.detected) {
+      final trackCenter = pose.faceCenterPx(size, mirrored: mirrored);
+      final trackR = pose.faceRadiusPx(size);
+      if (trackR > 0) {
+        canvas.drawCircle(
+          trackCenter,
+          trackR,
+          Paint()
+            ..color = guideColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = aligned ? 2.6 : 1.6,
+        );
+      }
     }
 
-    // 내부 Target 점선 원 (Scale/Distance 기준)
     _drawDashedCircle(
       canvas,
       targetCenter,
       innerR,
       Paint()
-        ..color = aligned ? SoriTokens.cameraYellow : _innerWhite
+        ..color = aligned ? guideColor : _innerWhite
         ..style = PaintingStyle.stroke
         ..strokeWidth = aligned ? 2.4 : 1.5
         ..strokeCap = StrokeCap.round,
     );
 
-    // 외부 실선 원 (1차 바운더리)
     canvas.drawCircle(
       targetCenter,
       outerR,
       Paint()
-        ..color = aligned ? SoriTokens.cameraYellow : _outerWhite
+        ..color = aligned ? guideColor : _outerWhite
         ..style = PaintingStyle.stroke
         ..strokeWidth = aligned ? 2.0 : 1.6,
     );
-
-    // 미정렬 힌트 — 위치/거리
-    if (pose.detected && !aligned) {
-      final hint = Colors.white.withValues(alpha: 0.42);
-      final hintPaint = Paint()
-        ..color = hint
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.3
-        ..strokeCap = StrokeCap.round;
-
-      void chevron(Offset tip, double angleRad) {
-        canvas.save();
-        canvas.translate(tip.dx, tip.dy);
-        canvas.rotate(angleRad);
-        canvas.drawPath(
-          Path()
-            ..moveTo(0, -6)
-            ..lineTo(4.5, 4)
-            ..moveTo(0, -6)
-            ..lineTo(-4.5, 4),
-          hintPaint,
-        );
-        canvas.restore();
-      }
-
-      if (!pose.isPositionAligned(size, mirrored: mirrored)) {
-        final dx = trackCenter.dx - targetCenter.dx;
-        final dy = trackCenter.dy - targetCenter.dy;
-        final inset = innerR * 0.85;
-        if (dx.abs() > 6) {
-          final dir = dx > 0 ? 1.0 : -1.0;
-          chevron(
-            Offset(targetCenter.dx + dir * inset, targetCenter.dy),
-            dir > 0 ? math.pi / 2 : -math.pi / 2,
-          );
-        }
-        if (dy.abs() > 6) {
-          final dir = dy > 0 ? 1.0 : -1.0;
-          chevron(
-            Offset(targetCenter.dx, targetCenter.dy + dir * inset),
-            dir > 0 ? math.pi : 0,
-          );
-        }
-      } else if (!pose.isScaleAligned(size)) {
-        final tooBig = trackR > innerR;
-        final dir = tooBig ? -1.0 : 1.0;
-        chevron(
-          Offset(targetCenter.dx, targetCenter.dy + dir * innerR * 0.55),
-          dir > 0 ? math.pi : 0,
-        );
-      }
-    }
   }
 
   @override
   bool shouldRepaint(covariant _CircularFaceAlignPainter oldDelegate) {
     return oldDelegate.pose.detected != pose.detected ||
-        oldDelegate.pose.inCircle != pose.inCircle ||
         oldDelegate.pose.centerX != pose.centerX ||
         oldDelegate.pose.centerY != pose.centerY ||
         oldDelegate.pose.faceRadius != pose.faceRadius ||
-        oldDelegate.mirrored != mirrored;
+        oldDelegate.mirrored != mirrored ||
+        oldDelegate.guideColor != guideColor ||
+        oldDelegate.drawTrack != drawTrack;
   }
 }
 

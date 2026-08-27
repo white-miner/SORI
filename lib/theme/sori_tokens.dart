@@ -44,6 +44,14 @@ abstract final class SoriTokens {
 
   static const Color cameraYellowAlt = Color(0xFFFFCC00);
 
+  /// Face ghost silhouette overlay (use with opacity ~10%).
+  static const Color ghostImage = Color(0xFFFFFFFF);
+
+  /// Viewfinder proximity feedback — cold / warm / locked.
+  static const Color alignCold = Color(0xFF8E9AAF);
+  static const Color alignWarm = Color(0xFFFF9F0A);
+  static const Color alignEmerald = Color(0xFF34C759);
+
   /// Inactive camera preset icon
   static const Color inactiveGray = Color(0xFF71717A);
 

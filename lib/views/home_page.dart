@@ -3,6 +3,7 @@ import '../models/customer.dart';
 import '../services/message_service.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/message_card.dart';
+import '../widgets/sori_logo.dart';
 
 class MyHomePage extends StatefulWidget {
   final List<Customer> customers;
@@ -197,21 +198,9 @@ class _MyHomePageState extends State<MyHomePage> {
       children: [
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: soriPurple.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'SORI',
-                style: TextStyle(
-                  color: soriPurple,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  letterSpacing: 1.2,
-                ),
-              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 2),
+              child: SoriLogo(height: 28),
             ),
           ],
         ),

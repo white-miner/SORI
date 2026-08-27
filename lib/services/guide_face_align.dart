@@ -54,11 +54,15 @@ class GuideFacePose {
   static const innerTargetRadiusNorm =
       outerRadiusNorm * innerTargetRadiusRatio;
 
-  /// 조건 A: 중심 위치 허용 오차 (px).
-  static const centerAlignTolerancePx = 15.0;
+  /// 조건 A: 중심 위치 허용 오차 (px) — 사용성 위해 완화.
+  static const centerAlignTolerancePx = 30.0;
 
-  /// 조건 B: 반경(거리) 허용 오차 ±10%.
-  static const scaleAlignToleranceRatio = 0.10;
+  /// 조건 B: 반경(거리) 허용 오차 ±20%.
+  static const scaleAlignToleranceRatio = 0.20;
+
+  /// Soft magnet snap zone (slightly wider than hard align).
+  static const snapPositionTolerancePx = 42.0;
+  static const snapScaleToleranceRatio = 0.28;
 
   /// 테스트·폴백용 3:4 프레임.
   static const referenceFrame = Size(360, 480);
@@ -111,6 +115,49 @@ class GuideFacePose {
   bool get isAligned => computeAligned(referenceFrame);
 
   bool get isCenterAligned => isPositionAligned(referenceFrame);
+
+  /// 0 = perfect, 1+ = far — combined position + scale error for hot/cold UI.
+  double alignmentDistance(Size frameSize, {bool mirrored = false}) {
+    if (!detected || faceRadius <= 0) return 1.0;
+    final posErr = (faceCenterPx(frameSize, mirrored: mirrored) -
+            targetCenterPx(frameSize))
+        .distance;
+    final posNorm = (posErr / centerAlignTolerancePx).clamp(0.0, 3.0);
+    final targetR = innerTargetRadiusPx(frameSize);
+    final scaleErr = targetR <= 0
+        ? 1.0
+        : ((faceRadiusPx(frameSize) - targetR).abs() / targetR);
+    final scaleNorm =
+        (scaleErr / scaleAlignToleranceRatio).clamp(0.0, 3.0);
+    return math.max(posNorm, scaleNorm);
+  }
+
+  /// Soft snap — within magnet zone (wider than hard align).
+  bool isInSnapZone(Size frameSize, {bool mirrored = false}) {
+    if (!detected || faceRadius <= 0) return false;
+    final posOk = (faceCenterPx(frameSize, mirrored: mirrored) -
+                targetCenterPx(frameSize))
+            .distance <=
+        snapPositionTolerancePx;
+    final targetR = innerTargetRadiusPx(frameSize);
+    if (targetR <= 0) return false;
+    final scaleOk =
+        ((faceRadiusPx(frameSize) - targetR).abs() / targetR) <=
+            snapScaleToleranceRatio;
+    return posOk && scaleOk;
+  }
+
+  /// -1 too close (face too big), +1 too far, 0 ok.
+  int scaleDirection(Size frameSize) {
+    if (!detected || faceRadius <= 0) return 0;
+    final targetR = innerTargetRadiusPx(frameSize);
+    if (targetR <= 0) return 0;
+    final r = faceRadiusPx(frameSize);
+    final err = (r - targetR) / targetR;
+    if (err > scaleAlignToleranceRatio) return -1;
+    if (err < -scaleAlignToleranceRatio) return 1;
+    return 0;
+  }
 }
 
 /// 웹 MediaPipe FaceLandmarker 세션. 네이티브는 no-op.
