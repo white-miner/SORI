@@ -50,7 +50,8 @@ abstract final class SoriTokens {
   /// Viewfinder proximity feedback — cold / warm / locked.
   static const Color alignCold = Color(0xFF8E9AAF);
   static const Color alignWarm = Color(0xFFFF9F0A);
-  static const Color alignEmerald = Color(0xFF34C759);
+  /// Apple System-like emerald — decollete / face lock glow.
+  static const Color alignEmerald = Color(0xFF00D289);
 
   /// Inactive camera preset icon
   static const Color inactiveGray = Color(0xFF71717A);

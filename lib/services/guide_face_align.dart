@@ -158,6 +158,85 @@ class GuideFacePose {
     if (err < -scaleAlignToleranceRatio) return 1;
     return 0;
   }
+
+  // ── Decollete: face landmark → expanded ring vs static shoulder silhouette ──
+
+  /// Static target center — head+shoulder composition midpoint.
+  static const decolleteGuideCenterX = 0.5;
+  static const decolleteGuideCenterY = 0.38;
+
+  /// Static ring radius (short-side norm) covering head → both shoulders.
+  static const decolleteTargetRadiusNorm = 0.40;
+
+  /// faceRadius × scale ≈ decollete ring when framed at clinical distance.
+  static const decolleteRingFromFaceScale = 2.35;
+
+  static const decolleteCenterAlignTolerancePx = 15.0;
+  static const decolleteScaleAlignToleranceRatio = 0.10;
+  static const decolleteSnapPositionTolerancePx = 22.0;
+  static const decolleteSnapScaleToleranceRatio = 0.14;
+
+  Offset decolleteTargetCenterPx(Size frameSize) => Offset(
+        frameSize.width * decolleteGuideCenterX,
+        frameSize.height * decolleteGuideCenterY,
+      );
+
+  double decolleteTargetRadiusPx(Size frameSize) =>
+      math.min(frameSize.width, frameSize.height) * decolleteTargetRadiusNorm;
+
+  /// Dynamic ring radius — grows/shrinks with camera distance via face bbox.
+  double decolleteDynamicRadiusPx(Size frameSize) {
+    final faceR = faceRadiusPx(frameSize);
+    if (faceR <= 0) return 0;
+    return faceR * decolleteRingFromFaceScale;
+  }
+
+  bool isDecolletePositionAligned(Size frameSize, {bool mirrored = false}) {
+    if (!detected) return false;
+    final dist = (faceCenterPx(frameSize, mirrored: mirrored) -
+            decolleteTargetCenterPx(frameSize))
+        .distance;
+    return dist <= decolleteCenterAlignTolerancePx;
+  }
+
+  bool isDecolleteScaleAligned(Size frameSize) {
+    if (!detected || faceRadius <= 0) return false;
+    final targetR = decolleteTargetRadiusPx(frameSize);
+    final dynR = decolleteDynamicRadiusPx(frameSize);
+    if (targetR <= 0 || dynR <= 0) return false;
+    final err = (dynR - targetR).abs() / targetR;
+    return err <= decolleteScaleAlignToleranceRatio;
+  }
+
+  bool computeDecolleteAligned(Size frameSize, {bool mirrored = false}) {
+    return isDecolletePositionAligned(frameSize, mirrored: mirrored) &&
+        isDecolleteScaleAligned(frameSize);
+  }
+
+  bool isDecolleteInSnapZone(Size frameSize, {bool mirrored = false}) {
+    if (!detected || faceRadius <= 0) return false;
+    final posOk = (faceCenterPx(frameSize, mirrored: mirrored) -
+                decolleteTargetCenterPx(frameSize))
+            .distance <=
+        decolleteSnapPositionTolerancePx;
+    final targetR = decolleteTargetRadiusPx(frameSize);
+    final dynR = decolleteDynamicRadiusPx(frameSize);
+    if (targetR <= 0 || dynR <= 0) return false;
+    final scaleOk =
+        ((dynR - targetR).abs() / targetR) <= decolleteSnapScaleToleranceRatio;
+    return posOk && scaleOk;
+  }
+
+  int decolleteScaleDirection(Size frameSize) {
+    if (!detected || faceRadius <= 0) return 0;
+    final targetR = decolleteTargetRadiusPx(frameSize);
+    final dynR = decolleteDynamicRadiusPx(frameSize);
+    if (targetR <= 0 || dynR <= 0) return 0;
+    final err = (dynR - targetR) / targetR;
+    if (err > decolleteScaleAlignToleranceRatio) return -1; // too close
+    if (err < -decolleteScaleAlignToleranceRatio) return 1; // too far
+    return 0;
+  }
 }
 
 /// 웹 MediaPipe FaceLandmarker 세션. 네이티브는 no-op.

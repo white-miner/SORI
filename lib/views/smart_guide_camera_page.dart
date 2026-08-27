@@ -67,8 +67,9 @@ enum GuidePreset {
   bool get isSelfPreset =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// MediaPipe 원형 정렬을 쓰는 프리셋 (페이스만).
-  bool get usesFaceAlign => this == GuidePreset.face;
+  /// MediaPipe 정렬 — 페이스 + 데콜테(확장 링).
+  bool get usesFaceAlign =>
+      this == GuidePreset.face || this == GuidePreset.decollete;
 
   IconData get materialIcon => switch (this) {
         GuidePreset.face => Icons.face_retouching_natural,
@@ -288,16 +289,29 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   bool get _faceMirrored => _mode == GuideCaptureMode.selfFront;
 
-  bool get _faceAligned => _facePose.computeAligned(
+  bool get _faceAligned {
+    if (_preset == GuidePreset.decollete) {
+      return _facePose.computeDecolleteAligned(
         _viewfinderSize,
         mirrored: _faceMirrored,
       );
+    }
+    return _facePose.computeAligned(
+      _viewfinderSize,
+      mirrored: _faceMirrored,
+    );
+  }
 
   void _onFacePose(GuideFacePose next) {
     if (!mounted) return;
     final wasAligned = _faceAligned;
     setState(() => _facePose = next);
-    final aligned = next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
+    final aligned = _preset == GuidePreset.decollete
+        ? next.computeDecolleteAligned(
+            _viewfinderSize,
+            mirrored: _faceMirrored,
+          )
+        : next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
 
     if (aligned && !wasAligned) {
       HapticFeedback.mediumImpact();
@@ -347,10 +361,18 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   String? get _faceHintText {
     if (_preset == GuidePreset.decollete) {
-      if (!_motionReady) return '어깨를 화면 안에 · 수평을 맞춰 주세요';
-      return _wasLevel
-          ? '어깨·수평 정렬됨'
-          : '양쪽 어깨를 프레임 안에 두고 수평을 맞추세요';
+      if (_mlLoading) return 'AI 준비 중';
+      if (!_facePose.detected) return '얼굴을 찾는 중';
+      if (!_facePose.isDecolletePositionAligned(
+        _viewfinderSize,
+        mirrored: _faceMirrored,
+      )) {
+        return '촬영 거리(크기)를 맞춰 주세요';
+      }
+      if (!_facePose.isDecolleteScaleAligned(_viewfinderSize)) {
+        return '촬영 거리(크기)를 맞춰 주세요';
+      }
+      return _autoShootEnabled ? '거리·중심 정렬됨 · 자동 촬영 대기' : '거리·중심 정렬됨';
     }
     if (!_faceAlignActive) return null;
     if (_mlLoading) return 'AI 준비 중';
@@ -365,6 +387,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       return '거의 맞았어요';
     }
     return _autoShootEnabled ? '정렬됨 · 자동 촬영 대기' : '정렬됨';
+  }
+
+  Color get _decolleteGuideColor {
+    if (_faceAligned) return SoriTokens.alignEmerald;
+    return Colors.white.withValues(alpha: 0.4);
   }
 
   Color get _faceProximityColor {
@@ -829,11 +856,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                 else if (_preset == GuidePreset.decollete)
                   IgnorePointer(
                     ignoring: true,
-                    child: CustomPaint(
-                      painter: _DecolleteGuidePainter(
-                        leveled: _wasLevel,
-                      ),
-                      child: const SizedBox.expand(),
+                    child: _DecolleteAlignGuideLayer(
+                      pose: _facePose,
+                      mirrored: _mode == GuideCaptureMode.selfFront,
+                      guideColor: _decolleteGuideColor,
+                      aligned: _faceAligned,
                     ),
                   )
                 else
@@ -844,20 +871,22 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       child: const SizedBox.expand(),
                     ),
                   ),
-                IgnorePointer(
-                  ignoring: _motionReady && _attitude != null,
-                  child: _DynamicGyroLeveler(
-                    attitude: _attitude,
-                    leveled: _wasLevel,
-                    motionReady: _motionReady,
-                    motionDenied: _motionDenied,
-                    motionBusy: _motionBusy,
-                    needsPermissionPrompt:
-                        _session.requiresOrientationPermissionPrompt &&
-                            !_motionReady,
-                    onEnableMotion: () => unawaited(_enableMotionSensors()),
+                // Roll bar — face/body only; decollete uses distance+center lock.
+                if (_preset != GuidePreset.decollete)
+                  IgnorePointer(
+                    ignoring: _motionReady && _attitude != null,
+                    child: _DynamicGyroLeveler(
+                      attitude: _attitude,
+                      leveled: _wasLevel,
+                      motionReady: _motionReady,
+                      motionDenied: _motionDenied,
+                      motionBusy: _motionBusy,
+                      needsPermissionPrompt:
+                          _session.requiresOrientationPermissionPrompt &&
+                              !_motionReady,
+                      onEnableMotion: () => unawaited(_enableMotionSensors()),
+                    ),
                   ),
-                ),
                 if (_countdown != null)
                   IgnorePointer(
                     ignoring: true,
@@ -1531,16 +1560,100 @@ class _RollBarPainter extends CustomPainter {
   }
 }
 
+class _DecolleteAlignGuideLayer extends StatelessWidget {
+  const _DecolleteAlignGuideLayer({
+    required this.pose,
+    required this.mirrored,
+    required this.guideColor,
+    required this.aligned,
+  });
+
+  final GuideFacePose pose;
+  final bool mirrored;
+  final Color guideColor;
+  final bool aligned;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        final target = pose.decolleteTargetCenterPx(size);
+        final targetR = pose.decolleteTargetRadiusPx(size);
+        final snap = pose.isDecolleteInSnapZone(size, mirrored: mirrored);
+        final faceC = pose.faceCenterPx(size, mirrored: mirrored);
+        final dynR = pose.decolleteDynamicRadiusPx(size);
+
+        final displayC = (snap || aligned) ? target : faceC;
+        final displayR = (snap || aligned) ? targetR : dynR;
+        final animateSnap = snap || aligned;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(
+              painter: _DecolleteGuidePainter(
+                aligned: aligned,
+                guideColor: guideColor,
+                showStaticRing: true,
+                staticCenter: target,
+                staticRadius: targetR,
+              ),
+              child: const SizedBox.expand(),
+            ),
+            if (pose.detected && displayR > 0)
+              AnimatedPositioned(
+                duration: Duration(milliseconds: animateSnap ? 260 : 70),
+                curve: animateSnap ? Curves.easeOutBack : Curves.linear,
+                left: displayC.dx - displayR,
+                top: displayC.dy - displayR,
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: animateSnap ? 260 : 70),
+                  curve: animateSnap ? Curves.easeOutBack : Curves.linear,
+                  width: displayR * 2,
+                  height: displayR * 2,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: guideColor,
+                      width: aligned ? 3.2 : 2.0,
+                    ),
+                    boxShadow: aligned
+                        ? [
+                            BoxShadow(
+                              color: SoriTokens.alignEmerald
+                                  .withValues(alpha: 0.55),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _DecolleteGuidePainter extends CustomPainter {
-  _DecolleteGuidePainter({required this.leveled});
+  _DecolleteGuidePainter({
+    required this.aligned,
+    required this.guideColor,
+    this.showStaticRing = false,
+    this.staticCenter,
+    this.staticRadius = 0,
+  });
 
-  final bool leveled;
+  final bool aligned;
+  final Color guideColor;
+  final bool showStaticRing;
+  final Offset? staticCenter;
+  final double staticRadius;
 
-  /// Ghost fill — ~10% charcoal/white mix for white & dark preview.
-  static const _ghostFill = Color(0x1AFFFFFF); // ~10% white
-  static const _ghostStroke = Color(0x33F1F1F1); // soft outline
-  static const _guideIdle = Color(0x66FFFFFF);
-  static const _guideLevel = SoriTokens.cameraYellow;
+  static const _ghostFill = Color(0x1AFFFFFF);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1548,9 +1661,6 @@ class _DecolleteGuidePainter extends CustomPainter {
     final h = size.height;
     final cx = w / 2;
 
-    // Composition from clinical reference:
-    // head upper-center, both shoulders fully inside (~8% side margin),
-    // décolleté / clavicle in lower-middle third.
     final headTop = h * 0.06;
     final headBottom = h * 0.46;
     final headWidth = w * 0.34;
@@ -1560,7 +1670,6 @@ class _DecolleteGuidePainter extends CustomPainter {
     final shoulderRight = w * 0.92;
     final torsoBottom = h * 0.78;
 
-    // Soft dim outside shoulder safe frame (pushes user to keep shoulders in).
     final safe = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
@@ -1575,7 +1684,6 @@ class _DecolleteGuidePainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.28),
     );
 
-    // Ghost silhouette: head → neck → shoulders → upper chest
     final ghost = Path()
       ..moveTo(cx, headTop)
       ..cubicTo(
@@ -1621,77 +1729,61 @@ class _DecolleteGuidePainter extends CustomPainter {
       )
       ..close();
 
+    final silhouetteStroke = aligned
+        ? guideColor
+        : Colors.white.withValues(alpha: 0.4);
+
     canvas.drawPath(ghost, Paint()..color = _ghostFill);
     canvas.drawPath(
       ghost,
       Paint()
-        ..color = _ghostStroke
+        ..color = silhouetteStroke
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+        ..strokeWidth = aligned ? 2.4 : 1.3
+        ..maskFilter = aligned
+            ? const MaskFilter.blur(BlurStyle.normal, 1.5)
+            : null,
     );
 
-    // Eye / symmetry axis (very faint)
-    final axisPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..strokeWidth = 1;
+    // Static target ring (dashed) — scale reference
+    if (showStaticRing && staticCenter != null && staticRadius > 0) {
+      final ringPaint = Paint()
+        ..color = silhouetteStroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = aligned ? 2.6 : 1.6
+        ..strokeCap = StrokeCap.round;
+      const segments = 48;
+      const dashRatio = 0.55;
+      for (var i = 0; i < segments; i++) {
+        final start = (i / segments) * 2 * math.pi;
+        final sweep = (2 * math.pi / segments) * dashRatio;
+        canvas.drawArc(
+          Rect.fromCircle(center: staticCenter!, radius: staticRadius),
+          start,
+          sweep,
+          false,
+          ringPaint,
+        );
+      }
+    }
+
+    // Faint symmetry axis (grid already handles thirds)
     canvas.drawLine(
       Offset(cx, headTop + h * 0.04),
       Offset(cx, torsoBottom - h * 0.04),
-      axisPaint,
-    );
-
-    // Eye line (upper third) + clavicle / shoulder level line
-    final eyeY = h * 0.28;
-    final guide = leveled ? _guideLevel : _guideIdle;
-    final guidePaint = Paint()
-      ..color = guide
-      ..strokeWidth = leveled ? 2.0 : 1.3
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(Offset(cx - headWidth * 0.28, eyeY), Offset(cx - headWidth * 0.08, eyeY), guidePaint);
-    canvas.drawLine(Offset(cx + headWidth * 0.08, eyeY), Offset(cx + headWidth * 0.28, eyeY), guidePaint);
-
-    // Shoulder span brackets — both shoulders must sit inside these marks
-    final bracketPaint = Paint()
-      ..color = guide
-      ..strokeWidth = leveled ? 2.2 : 1.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    void shoulderBracket(double x, {required bool left}) {
-      final dir = left ? 1.0 : -1.0;
-      final path = Path()
-        ..moveTo(x + dir * 14, shoulderY - 10)
-        ..lineTo(x, shoulderY - 10)
-        ..lineTo(x, shoulderY + 10)
-        ..lineTo(x + dir * 14, shoulderY + 10);
-      canvas.drawPath(path, bracketPaint);
-    }
-
-    shoulderBracket(shoulderLeft, left: true);
-    shoulderBracket(shoulderRight, left: false);
-
-    // Continuous shoulder level guide between brackets
-    canvas.drawLine(
-      Offset(shoulderLeft + 16, shoulderY),
-      Offset(shoulderRight - 16, shoulderY),
       Paint()
-        ..color = guide.withValues(alpha: leveled ? 0.95 : 0.55)
-        ..strokeWidth = leveled ? 1.8 : 1.2
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Tiny hint dots at clavicle center
-    canvas.drawCircle(
-      Offset(cx, shoulderY + h * 0.06),
-      2.2,
-      Paint()..color = guide.withValues(alpha: 0.7),
+        ..color = Colors.white.withValues(alpha: 0.16)
+        ..strokeWidth = 1,
     );
   }
 
   @override
   bool shouldRepaint(covariant _DecolleteGuidePainter oldDelegate) {
-    return oldDelegate.leveled != leveled;
+    return oldDelegate.aligned != aligned ||
+        oldDelegate.guideColor != guideColor ||
+        oldDelegate.showStaticRing != showStaticRing ||
+        oldDelegate.staticCenter != staticCenter ||
+        oldDelegate.staticRadius != staticRadius;
   }
 }
 
