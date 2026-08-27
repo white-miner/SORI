@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/sori_brand_assets.dart';
-import '../theme/sori_tokens.dart';
 
-/// SORI 브랜드 로고 — 원본 Purple & Black PNG. ColorFilter 금지.
+/// SORI 브랜드 로고 — `logo_sori.svg` 원본 컬러 그대로.
+/// color / colorFilter 절대 주입 금지. 부모 IconTheme 영향 차단.
 class SoriLogo extends StatelessWidget {
   const SoriLogo({
     super.key,
@@ -15,18 +16,18 @@ class SoriLogo extends StatelessWidget {
     this.forceWhite = false,
   });
 
-  @deprecated
+  @Deprecated('SVG renders original colors; brightness ignored')
   final Brightness? brightness;
-  @deprecated
+  @Deprecated('SVG renders original colors; brightness ignored')
   final bool usePlatformBrightness;
-  @deprecated
+  @Deprecated('SVG renders original colors; forceWhite ignored')
   final bool forceWhite;
 
   final double? width;
   final double? height;
   final BoxFit fit;
 
-  static String get assetPath => SoriBrandAssets.logoSori;
+  static String get assetPath => SoriBrandAssets.logoSoriSvg;
   static const double gnbHeight = 28;
 
   static double splashWidth(BuildContext context) {
@@ -47,24 +48,32 @@ class SoriLogo extends StatelessWidget {
     final logoW = width;
     final logoH = height ?? (width == null ? gnbHeight : null);
 
-    return Image.asset(
-      SoriBrandAssets.logoSori,
-      width: logoW,
-      height: logoH,
-      fit: fit,
-      alignment: Alignment.center,
-      filterQuality: FilterQuality.high,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => SizedBox(
-        width: logoW ?? (logoH != null ? logoH * 2.4 : 72),
-        height: logoH ?? (logoW != null ? logoW * 0.42 : gnbHeight),
-        child: Center(
-          child: Icon(
-            Icons.image_outlined,
-            size: 18,
-            color: SoriTokens.primary.withValues(alpha: 0.35),
-          ),
+    // IconTheme/AppBar tint가 SVG에 전파되지 않도록 격리
+    return IconTheme(
+      data: const IconThemeData(),
+      child: SvgPicture.asset(
+        SoriBrandAssets.logoSoriSvg,
+        width: logoW,
+        height: logoH,
+        fit: fit,
+        alignment: Alignment.center,
+        allowDrawingOutsideViewBox: true,
+        placeholderBuilder: (context) => SizedBox(
+          width: logoW ?? (logoH != null ? logoH * 2.4 : 72),
+          height: logoH ?? (logoW != null ? logoW * 0.42 : gnbHeight),
         ),
+        errorBuilder: (context, error, stackTrace) {
+          // SVG 파싱 실패 시에만 PNG 폴백 — ColorFilter 없음
+          return Image.asset(
+            SoriBrandAssets.logoSoriPng,
+            width: logoW,
+            height: logoH,
+            fit: fit,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            gaplessPlayback: true,
+          );
+        },
       ),
     );
   }

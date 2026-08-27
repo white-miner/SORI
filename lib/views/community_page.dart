@@ -209,11 +209,16 @@ class _CommunityPageState extends State<CommunityPage>
                 controller: _tabs,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                indicator: const SoriCapsuleTabIndicator(),
+                indicator: soriTabCapsuleIndicator,
                 indicatorSize: TabBarIndicatorSize.label,
+                indicatorPadding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 labelColor: SoriTokens.textCharcoal,
                 unselectedLabelColor: SoriTokens.tabUnselected,
                 dividerColor: Colors.transparent,
+                dividerHeight: 0,
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
                 labelStyle: const TextStyle(fontSize: 14.5),
                 unselectedLabelStyle: const TextStyle(fontSize: 14.5),
                 tabs: const [

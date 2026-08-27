@@ -397,11 +397,16 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 controller: _tabs,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                indicator: const SoriCapsuleTabIndicator(),
+                indicator: soriTabCapsuleIndicator,
                 indicatorSize: TabBarIndicatorSize.label,
+                indicatorPadding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 labelColor: SoriTokens.textCharcoal,
                 unselectedLabelColor: SoriTokens.tabUnselected,
                 dividerColor: Colors.transparent,
+                dividerHeight: 0,
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
                 tabs: const [
                   Tab(text: '추천'),
                   Tab(text: '탐색'),
