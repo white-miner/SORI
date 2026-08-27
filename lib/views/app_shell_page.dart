@@ -27,7 +27,9 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
-  final GlobalKey<ScaffoldState> _pcScaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// PC push sidebar — YouTube-style expand / collapse (not overlay drawer).
+  bool _isSidebarExpanded = true;
 
   /// Store 전역 notify마다 셸을 리빌드하지 않도록 셸 관련 스냅샷만 추적.
   bool _lastHydrating = false;
@@ -188,7 +190,7 @@ class _AppShellPageState extends State<AppShellPage> {
         final wide = constraints.maxWidth >= 800;
         final extraWide = constraints.maxWidth >= 1200;
         // Mobile: hide shell AppBar on My / customer detail for immersion.
-        // PC: always keep AppBar so hamburger can open Scaffold.drawer.
+        // PC: AppBar always fixed (hamburger + logo) regardless of tab.
         final hideShellAppBar = !wide &&
             (tab == 4 || _isCustomerDetailRoute(context));
 
@@ -198,15 +200,9 @@ class _AppShellPageState extends State<AppShellPage> {
                 showLogo: true,
                 showMenuButton: wide,
                 onMenuTap: wide
-                    ? () {
-                        final scaffold = _pcScaffoldKey.currentState;
-                        if (scaffold == null) return;
-                        if (scaffold.isDrawerOpen) {
-                          scaffold.closeDrawer();
-                        } else {
-                          scaffold.openDrawer();
-                        }
-                      }
+                    ? () => setState(
+                          () => _isSidebarExpanded = !_isSidebarExpanded,
+                        )
                     : null,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
@@ -232,82 +228,87 @@ class _AppShellPageState extends State<AppShellPage> {
           );
         }
 
-        // PC: Scaffold.drawer (toggle) + centered feed + margin scroll
+        // PC: Row push-sidebar (no Scaffold.drawer overlay).
         final hasComment = _store.activeCommentPostId != null;
 
         return Scaffold(
-          key: _pcScaffoldKey,
           backgroundColor: SoriTokens.background,
           appBar: appBar,
-          drawer: _PcNavDrawer(
-            currentIndex: tab,
-            isDirector: isDirector,
-            onTap: (i) {
-              Navigator.of(context).maybePop();
-              _selectTab(i);
-            },
-          ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              const feedMaxWidth = 720.0;
-              const feedHalf = feedMaxWidth / 2;
-              const drawerTarget = 380.0;
-              final remainingRight =
-                  (constraints.maxWidth / 2) - feedHalf;
-              final drawerWidth = remainingRight.clamp(0.0, drawerTarget);
+          body: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _PcSidePanel(
+                expanded: _isSidebarExpanded,
+                currentIndex: tab,
+                isDirector: isDirector,
+                onTap: _selectTab,
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, bodyConstraints) {
+                    const feedMaxWidth = 720.0;
+                    const feedHalf = feedMaxWidth / 2;
+                    const drawerTarget = 380.0;
+                    final remainingRight =
+                        (bodyConstraints.maxWidth / 2) - feedHalf;
+                    final commentWidth =
+                        remainingRight.clamp(0.0, drawerTarget);
 
-              return Stack(
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  const Positioned.fill(
-                    child: MarginScrollForwarder(),
-                  ),
-                  if (hasComment)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _store.closeCommentPanel(),
-                      ),
-                    ),
-                  if (extraWide && !hasComment)
-                    const Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: RightSidebar(dashboardOnly: true),
-                    ),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: feedMaxWidth,
-                      ),
-                      child: SizedBox(
-                        width: feedMaxWidth,
-                        child: widget.navigationShell,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: (constraints.maxWidth / 2) + feedHalf,
-                    top: 0,
-                    bottom: 0,
-                    child: ClipRect(
-                      child: AnimatedSize(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        alignment: Alignment.centerLeft,
-                        child: SizedBox(
-                          width: hasComment ? drawerWidth : 0,
-                          child: hasComment
-                              ? const RightSidebar()
-                              : const SizedBox.shrink(),
+                    return Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        const Positioned.fill(
+                          child: MarginScrollForwarder(),
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+                        if (hasComment)
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _store.closeCommentPanel(),
+                            ),
+                          ),
+                        if (extraWide && !hasComment)
+                          const Positioned(
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: RightSidebar(dashboardOnly: true),
+                          ),
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: feedMaxWidth,
+                            ),
+                            child: SizedBox(
+                              width: feedMaxWidth,
+                              child: widget.navigationShell,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: (bodyConstraints.maxWidth / 2) + feedHalf,
+                          top: 0,
+                          bottom: 0,
+                          child: ClipRect(
+                            child: AnimatedSize(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: hasComment ? commentWidth : 0,
+                                child: hasComment
+                                    ? const RightSidebar()
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -315,14 +316,19 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 }
 
-/// PC Scaffold drawer — opens from hamburger, closes on barrier tap.
-class _PcNavDrawer extends StatelessWidget {
-  const _PcNavDrawer({
+/// PC push sidebar — expands/collapses in-flow (YouTube-style).
+class _PcSidePanel extends StatelessWidget {
+  const _PcSidePanel({
+    required this.expanded,
     required this.currentIndex,
     required this.isDirector,
     required this.onTap,
   });
 
+  static const double expandedWidth = 240;
+  static const double collapsedWidth = 72;
+
+  final bool expanded;
   final int currentIndex;
   final bool isDirector;
   final ValueChanged<int> onTap;
@@ -345,56 +351,41 @@ class _PcNavDrawer extends StatelessWidget {
             (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ];
 
-    return Drawer(
-      backgroundColor: SoriTokens.surface,
-      width: 280,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-              child: Row(
-                children: [
-                  const IconTheme(
-                    data: IconThemeData(),
-                    child: SoriLogo(height: SoriLogo.gnbHeight),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: '닫기',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close_rounded),
-                    color: SoriTokens.textCharcoal,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            for (var i = 0; i < items.length; i++)
-              _DrawerNavItem(
-                icon: items[i].$1,
-                selectedIcon: items[i].$2,
-                label: items[i].$3,
-                selected: currentIndex == i,
-                extended: true,
-                onTap: () => onTap(i),
-              ),
-          ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOut,
+      width: expanded ? expandedWidth : collapsedWidth,
+      decoration: const BoxDecoration(
+        color: SoriTokens.surface,
+        border: Border(
+          right: BorderSide(color: SoriTokens.border, width: 1),
         ),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 12, 0, 16),
+        children: [
+          for (var i = 0; i < items.length; i++)
+            _PcSideNavItem(
+              icon: items[i].$1,
+              selectedIcon: items[i].$2,
+              label: items[i].$3,
+              selected: currentIndex == i,
+              expanded: expanded,
+              onTap: () => onTap(i),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _DrawerNavItem extends StatelessWidget {
-  const _DrawerNavItem({
+class _PcSideNavItem extends StatelessWidget {
+  const _PcSideNavItem({
     required this.icon,
     required this.selectedIcon,
     required this.label,
     required this.selected,
-    required this.extended,
+    required this.expanded,
     required this.onTap,
   });
 
@@ -402,49 +393,86 @@ class _DrawerNavItem extends StatelessWidget {
   final IconData selectedIcon;
   final String label;
   final bool selected;
-  final bool extended;
+  final bool expanded;
   final VoidCallback onTap;
+
+  static const Color _activeBg = Color(0xFFF1F1F1);
+  static const Color _charcoal = Color(0xFF111111);
+  static const Color _idle = Color(0xFF71717A);
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? SoriTokens.textCharcoal : SoriTokens.tabUnselected;
+    final fg = selected ? _charcoal : _idle;
+    final radius = BorderRadius.circular(10);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: expanded ? 12 : 8,
+        vertical: 2,
+      ),
       child: Material(
-        color: selected ? SoriTokens.tabCapsuleBg : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? _activeBg : Colors.transparent,
+        borderRadius: radius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: radius,
+          hoverColor: const Color(0xFFF1F1F1).withValues(alpha: 0.65),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
-            height: 48,
-            padding: EdgeInsets.symmetric(horizontal: extended ? 14 : 0),
-            child: Row(
-              mainAxisAlignment: extended
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                Icon(selected ? selectedIcon : icon, size: 22, color: fg),
-                if (extended) ...[
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: expanded ? 12 : 4,
+              vertical: expanded ? 12 : 10,
+            ),
+            child: expanded
+                ? Row(
+                    children: [
+                      Icon(
+                        selected ? selectedIcon : icon,
+                        size: 22,
                         color: fg,
                       ),
-                    ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: fg,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        selected ? selectedIcon : icon,
+                        size: 22,
+                        color: fg,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                          color: fg,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ],
-            ),
           ),
         ),
       ),
