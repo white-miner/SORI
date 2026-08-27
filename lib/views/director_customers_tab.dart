@@ -26,6 +26,7 @@ class DirectorCustomersTab extends StatefulWidget {
 
 class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   String _query = '';
   _CustomerSort _sort = _CustomerSort.recentVisit;
   CrmListMode _mode = CrmListMode.browse;
@@ -46,6 +47,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
   void dispose() {
     widget.store.removeListener(_onStore);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -278,35 +280,23 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
     final list = _sortedList();
     final bottomPad = 100 + MediaQuery.paddingOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        bottom: false,
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
+    return PrimaryScrollController(
+      controller: _scrollController,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          bottom: false,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
               if (!_isSelecting)
-                SliverAppBar(
-                  pinned: false,
-                  floating: true,
-                  snap: true,
-                  expandedHeight: 248,
-                  collapsedHeight: 0,
-                  toolbarHeight: 0,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  forceElevated: false,
-                  flexibleSpace: FlexibleSpaceBar(
-                    collapseMode: CollapseMode.parallax,
-                    background: Align(
-                      alignment: Alignment.topCenter,
-                      child: TodayCareSchedulePanel(
-                        store: widget.store,
-                        slim: true,
-                      ),
-                    ),
+                SliverToBoxAdapter(
+                  child: TodayCareSchedulePanel(
+                    store: widget.store,
+                    slim: true,
                   ),
                 ),
               SliverPersistentHeader(
@@ -461,11 +451,13 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                   ),
                 ),
               ),
-            ];
-          },
-          body: isEmptyDb
-              ? _EmptyCustomersState(onAdd: _addCustomer)
-              : _CustomerListBody(
+              if (isEmptyDb)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _EmptyCustomersState(onAdd: _addCustomer),
+                )
+              else
+                ..._CustomerListSlivers.build(
                   list: list,
                   emptyLabel: '검색 결과가 없습니다',
                   formatDate: _formatDate,
@@ -489,6 +481,8 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                     }
                   },
                 ),
+            ],
+          ),
         ),
       ),
     );
@@ -650,117 +644,109 @@ class _CrmStickyToolbarDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-class _CustomerListBody extends StatelessWidget {
-  const _CustomerListBody({
-    required this.list,
-    required this.emptyLabel,
-    required this.formatDate,
-    required this.lastVisitOf,
-    required this.daysSince,
-    required this.showDormantHint,
-    required this.selecting,
-    required this.selectedIds,
-    required this.onAdd,
-    required this.onOpen,
-    required this.onRequestReview,
-    required this.onToggleSelect,
-    required this.onLongPress,
-    this.bottomPadding = 100,
-  });
-
-  final List<Customer> list;
-  final String emptyLabel;
-  final String Function(DateTime) formatDate;
-  final DateTime Function(Customer) lastVisitOf;
-  final int Function(Customer) daysSince;
-  final bool showDormantHint;
-  final bool selecting;
-  final Set<String> selectedIds;
-  final VoidCallback onAdd;
-  final ValueChanged<Customer> onOpen;
-  final ValueChanged<Customer> onRequestReview;
-  final ValueChanged<String> onToggleSelect;
-  final ValueChanged<Customer> onLongPress;
-  final double bottomPadding;
-
-  @override
-  Widget build(BuildContext context) {
+class _CustomerListSlivers {
+  static List<Widget> build({
+    required List<Customer> list,
+    required String emptyLabel,
+    required String Function(DateTime) formatDate,
+    required DateTime Function(Customer) lastVisitOf,
+    required int Function(Customer) daysSince,
+    required bool showDormantHint,
+    required bool selecting,
+    required Set<String> selectedIds,
+    required VoidCallback onAdd,
+    required ValueChanged<Customer> onOpen,
+    required ValueChanged<Customer> onRequestReview,
+    required ValueChanged<String> onToggleSelect,
+    required ValueChanged<Customer> onLongPress,
+    double bottomPadding = 100,
+  }) {
     if (list.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              emptyLabel,
-              style: const TextStyle(
-                color: SoriTokens.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  emptyLabel,
+                  style: const TextStyle(
+                    color: SoriTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: const Text('새 고객 등록'),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text('새 고객 등록'),
-            ),
-          ],
+          ),
         ),
-      );
+      ];
     }
 
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
-      itemCount: list.length + (showDormantHint ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (showDormantHint && index == 0) {
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: SoriTokens.warningBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: SoriTokens.warningText.withValues(alpha: 0.45),
-              ),
-            ),
-            child: const Text(
-              '90일 이상 미방문 고객이 위에 모여 있습니다. 케어 리마인드·티켓팅 제안 타이밍을 확인해 주세요.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: SoriTokens.warningText,
-              ),
-            ),
-          );
-        }
-        final c = list[showDormantHint ? index - 1 : index];
-        final remain = c.membershipRemainingVisits;
-        final hasMembership = c.isMembershipCustomer;
-        final ticketingUrgent = hasMembership && remain >= 1 && remain <= 2;
-        final selected = selectedIds.contains(c.id);
-        return _DenseCustomerTile(
-          name: c.name,
-          phone: c.phone,
-          lastVisitLabel: formatDate(lastVisitOf(c)),
-          dormantDays: daysSince(c),
-          remainLabel: hasMembership ? '잔여 $remain회' : '회원권 미등록',
-          remainUrgent: ticketingUrgent,
-          remainWarn: hasMembership && c.isMembershipLow && !ticketingUrgent,
-          selecting: selecting,
-          selected: selected,
-          onTap: () {
-            if (selecting) {
-              onToggleSelect(c.id);
-            } else {
-              onOpen(c);
+    final itemCount = list.length + (showDormantHint ? 1 : 0);
+    return [
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+        sliver: SliverList.separated(
+          itemCount: itemCount,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            if (showDormantHint && index == 0) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: SoriTokens.warningBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: SoriTokens.warningText.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: const Text(
+                  '90일 이상 미방문 고객이 위에 모여 있습니다. 케어 리마인드·티켓팅 제안 타이밍을 확인해 주세요.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                    color: SoriTokens.warningText,
+                  ),
+                ),
+              );
             }
+            final c = list[showDormantHint ? index - 1 : index];
+            final remain = c.membershipRemainingVisits;
+            final hasMembership = c.isMembershipCustomer;
+            final ticketingUrgent = hasMembership && remain >= 1 && remain <= 2;
+            final selected = selectedIds.contains(c.id);
+            return _DenseCustomerTile(
+              name: c.name,
+              phone: c.phone,
+              lastVisitLabel: formatDate(lastVisitOf(c)),
+              dormantDays: daysSince(c),
+              remainLabel: hasMembership ? '잔여 $remain회' : '회원권 미등록',
+              remainUrgent: ticketingUrgent,
+              remainWarn: hasMembership && c.isMembershipLow && !ticketingUrgent,
+              selecting: selecting,
+              selected: selected,
+              onTap: () {
+                if (selecting) {
+                  onToggleSelect(c.id);
+                } else {
+                  onOpen(c);
+                }
+              },
+              onLongPress: () => onLongPress(c),
+              onRequestReview: selecting ? null : () => onRequestReview(c),
+            );
           },
-          onLongPress: () => onLongPress(c),
-          onRequestReview: selecting ? null : () => onRequestReview(c),
-        );
-      },
-    );
+        ),
+      ),
+    ];
   }
 }
 

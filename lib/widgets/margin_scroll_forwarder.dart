@@ -18,10 +18,8 @@ class MarginScrollForwarder extends StatelessWidget {
         if (primary == null || !primary.hasClients) return;
         final pos = primary.position;
         if (!pos.hasContentDimensions) return;
-        final next = (pos.pixels + event.scrollDelta.dy)
-            .clamp(pos.minScrollExtent, pos.maxScrollExtent);
-        if ((next - pos.pixels).abs() < 0.5) return;
-        primary.jumpTo(next);
+        // Native scroll delta — avoids jumpTo stutter on PC wheel / trackpad.
+        pos.pointerScroll(-event.scrollDelta.dy);
       },
       child: child ?? const SizedBox.expand(),
     );

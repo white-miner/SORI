@@ -8,6 +8,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/care_episode_group.dart';
+import '../widgets/sori_sliver_tab_bar.dart';
 import '../widgets/case_review_inline.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
@@ -35,19 +36,27 @@ class AdminChartPage extends StatefulWidget {
 class _AdminChartPageState extends State<AdminChartPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     widget.store.addListener(_onStoreChanged);
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _scrollController.dispose();
     widget.store.removeListener(_onStoreChanged);
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onStoreChanged() {
@@ -175,61 +184,74 @@ class _AdminChartPageState extends State<AdminChartPage>
             ),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: SoriTokens.onPrimary,
-          unselectedLabelColor: SoriTokens.textCharcoal,
-          indicator: const BoxDecoration(
-            color: SoriTokens.primary,
-            borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      body: PrimaryScrollController(
+        controller: _scrollController,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-          indicatorSize: TabBarIndicatorSize.tab,
-          dividerColor: Colors.transparent,
-          tabs: const [
-            Tab(text: '타임라인'),
-            Tab(text: 'Before/After'),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: _Header(
+                  customer: customer,
+                  lastVisitLabel: timeline.isEmpty
+                      ? null
+                      : _formatChartDate(timeline.first),
+                  onTap: () =>
+                      context.push(AppPaths.customerProfile(customer.id)),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: _QuickActionDashboard(
+                  onMembership: _openMembershipSheet,
+                  onQuickChart: () => _openWriter(forceQuickChart: true),
+                  onChartManage: _openChartManagement,
+                  onBeforeAfter: _openBeforeAfterCompare,
+                ),
+              ),
+            ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: SoriSliverTabBarDelegate(
+                tabBar: TabBar(
+                  controller: _tabController,
+                  onTap: (_) => setState(() {}),
+                  labelColor: SoriTokens.onPrimary,
+                  unselectedLabelColor: SoriTokens.textCharcoal,
+                  indicator: const BoxDecoration(
+                    color: SoriTokens.primary,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  tabs: const [
+                    Tab(text: '타임라인'),
+                    Tab(text: 'Before/After'),
+                  ],
+                ),
+              ),
+            ),
+            if (_tabController.index == 0)
+              ..._TimelineTab.buildSlivers(
+                timeline: timeline,
+                onOpenChart: (chart) =>
+                    _openChartManagement(chartId: chart.id),
+              )
+            else
+              ..._GalleryTab.buildSlivers(
+                timeline: timeline,
+                onOpenChart: (chart) =>
+                    _openChartManagement(chartId: chart.id),
+              ),
           ],
         ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: _Header(
-              customer: customer,
-              lastVisitLabel: timeline.isEmpty
-                  ? null
-                  : _formatChartDate(timeline.first),
-              onTap: () => context.push(AppPaths.customerProfile(customer.id)),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: _QuickActionDashboard(
-              onMembership: _openMembershipSheet,
-              onQuickChart: () => _openWriter(forceQuickChart: true),
-              onChartManage: _openChartManagement,
-              onBeforeAfter: _openBeforeAfterCompare,
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _TimelineTab(
-                  timeline: timeline,
-                  onOpenChart: (chart) =>
-                      _openChartManagement(chartId: chart.id),
-                ),
-                _GalleryTab(
-                  timeline: timeline,
-                  onOpenChart: (chart) =>
-                      _openChartManagement(chartId: chart.id),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -533,32 +555,28 @@ class _QuickIcon extends StatelessWidget {
   }
 }
 
-class _TimelineTab extends StatelessWidget {
-  const _TimelineTab({
-    required this.timeline,
-    required this.onOpenChart,
-  });
-
-  final List<CustomerChart> timeline;
-  final ValueChanged<CustomerChart> onOpenChart;
-
-  @override
-  Widget build(BuildContext context) {
+class _TimelineTab {
+  static List<Widget> buildSlivers({
+    required List<CustomerChart> timeline,
+    required ValueChanged<CustomerChart> onOpenChart,
+  }) {
     if (timeline.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: SoriTokens.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: SoriTokens.border),
+      return [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: SoriTokens.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SoriTokens.border),
+              ),
+              child: const Text('아직 작성된 차트가 없습니다. 새 차트를 작성해 주세요.'),
             ),
-            child: const Text('아직 작성된 차트가 없습니다. 새 차트를 작성해 주세요.'),
           ),
-        ],
-      );
+        ),
+      ];
     }
 
     final episodes = groupChartsByCareName(timeline);
@@ -599,10 +617,14 @@ class _TimelineTab extends StatelessWidget {
       }
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-      children: rows,
-    );
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate(rows),
+        ),
+      ),
+    ];
   }
 }
 
@@ -963,17 +985,11 @@ class _ChartDetailBody extends StatelessWidget {
   }
 }
 
-class _GalleryTab extends StatelessWidget {
-  const _GalleryTab({
-    required this.timeline,
-    required this.onOpenChart,
-  });
-
-  final List<CustomerChart> timeline;
-  final ValueChanged<CustomerChart> onOpenChart;
-
-  @override
-  Widget build(BuildContext context) {
+class _GalleryTab {
+  static List<Widget> buildSlivers({
+    required List<CustomerChart> timeline,
+    required ValueChanged<CustomerChart> onOpenChart,
+  }) {
     final withPhotos = timeline.where((c) {
       final b = c.beforeImageUrl?.trim() ?? '';
       final a = c.afterImageUrl?.trim() ?? '';
@@ -981,22 +997,24 @@ class _GalleryTab extends StatelessWidget {
     }).toList();
 
     if (withPhotos.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: SoriTokens.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: SoriTokens.border),
-            ),
-            child: const Text(
-              '누적된 Before/After 사진이 없습니다.\n차트 작성 시 사진을 첨부하면 여기에 모입니다.',
+      return [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: SoriTokens.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SoriTokens.border),
+              ),
+              child: const Text(
+                '누적된 Before/After 사진이 없습니다.\n차트 작성 시 사진을 첨부하면 여기에 모입니다.',
+              ),
             ),
           ),
-        ],
-      );
+        ),
+      ];
     }
 
     final episodes = groupChartsByCareName(withPhotos);
@@ -1100,10 +1118,14 @@ class _GalleryTab extends StatelessWidget {
       }
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-      children: rows,
-    );
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate(rows),
+        ),
+      ),
+    ];
   }
 }
 
