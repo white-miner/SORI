@@ -29,7 +29,8 @@ class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
 
   /// PC push sidebar — YouTube-style expand / collapse (not overlay drawer).
-  bool _isSidebarExpanded = true;
+  /// Default collapsed so the main work area stays wide on first load.
+  bool _isSidebarExpanded = false;
 
   /// Store 전역 notify마다 셸을 리빌드하지 않도록 셸 관련 스냅샷만 추적.
   bool _lastHydrating = false;
