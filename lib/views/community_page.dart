@@ -205,29 +205,15 @@ class _CommunityPageState extends State<CommunityPage>
             if (!_isDirector) const _CommunityViewerBanner(),
             Material(
               color: SoriTokens.background,
-              child: TabBar(
+              child: SoriYoutubeTabBar(
                 controller: _tabs,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                indicator: soriTabCapsuleIndicator,
-                indicatorSize: TabBarIndicatorSize.label,
-                indicatorPadding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                labelColor: SoriTokens.textCharcoal,
-                unselectedLabelColor: SoriTokens.tabUnselected,
-                dividerColor: Colors.transparent,
-                dividerHeight: 0,
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-                labelStyle: const TextStyle(fontSize: 14.5),
-                unselectedLabelStyle: const TextStyle(fontSize: 14.5),
-                tabs: const [
-                  Tab(text: '전체'),
-                  Tab(text: '속삭임'),
-                  Tab(text: '인테리어'),
-                  Tab(text: '기기 리뷰'),
-                  Tab(text: '중고·신상'),
-                  Tab(text: '세미나'),
+                labels: const [
+                  '전체',
+                  '속삭임',
+                  '인테리어',
+                  '기기 리뷰',
+                  '중고·신상',
+                  '세미나',
                 ],
               ),
             ),

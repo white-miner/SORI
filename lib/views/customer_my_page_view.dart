@@ -5,6 +5,7 @@ import '../models/customer_chart.dart';
 import '../models/session_user.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../utils/storage_image_url.dart';
@@ -178,18 +179,13 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
               ),
             ),
             const SizedBox(height: 8),
-            TabBar(
+            SoriYoutubeTabBar(
               controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelStyle: const TextStyle(fontSize: 14.5),
-              unselectedLabelStyle: const TextStyle(fontSize: 14.5),
-              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-              tabs: const [
-                Tab(text: '내 케어 여정'),
-                Tab(text: '단골 샵/회원권'),
-                Tab(text: '내 리뷰'),
-                Tab(text: '스크랩'),
+              labels: const [
+                '내 케어 여정',
+                '단골 샵/회원권',
+                '내 리뷰',
+                '스크랩',
               ],
             ),
             Expanded(

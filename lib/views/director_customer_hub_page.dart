@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/sori_store.dart';
+import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import 'director_customers_tab.dart';
 import 'director_review_manage_page.dart';
@@ -63,40 +64,10 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
         children: [
           Material(
             color: SoriTokens.background,
-            child: TabBar(
+            child: SoriYoutubeTabBar(
               controller: _tabs,
-              tabs: [
-                const Tab(text: '고객'),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('리뷰'),
-                      if (_reviewBadge > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: SoriTokens.systemRed,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Text(
-                            _reviewBadge > 99 ? '99+' : '$_reviewBadge',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              color: SoriTokens.onPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+              labels: const ['고객', '리뷰'],
+              badges: [0, _reviewBadge],
             ),
           ),
           Expanded(

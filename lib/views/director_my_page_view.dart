@@ -11,6 +11,7 @@ import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../utils/storage_image_url.dart';
@@ -516,33 +517,15 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyTabBarDelegate(
-                  tabBar: TabBar(
+                  child: SoriYoutubeTabBar(
                     controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    labelColor: SoriTokens.primary,
-                    unselectedLabelColor: SoriTokens.textSecondary,
-                    labelStyle: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    indicatorColor: SoriTokens.primary,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    indicatorWeight: 2.4,
-                    dividerColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 18),
-                    tabs: const [
-                      Tab(text: 'Home'),
-                      Tab(text: 'Feed'),
-                      Tab(text: 'Shop'),
-                      Tab(text: 'Review'),
-                      Tab(text: 'Seminar'),
-                      Tab(text: 'AI'),
+                    labels: const [
+                      'Home',
+                      'Feed',
+                      'Shop',
+                      'Review',
+                      'Seminar',
+                      'AI',
                     ],
                   ),
                 ),
@@ -889,15 +872,15 @@ class _HeroOverlayIcon extends StatelessWidget {
 }
 
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
-  _StickyTabBarDelegate({required this.tabBar});
+  _StickyTabBarDelegate({required this.child});
 
-  final TabBar tabBar;
-
-  @override
-  double get minExtent => 48;
+  final Widget child;
 
   @override
-  double get maxExtent => 48;
+  double get minExtent => 56;
+
+  @override
+  double get maxExtent => 56;
 
   @override
   Widget build(
@@ -907,13 +890,13 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   ) {
     return ColoredBox(
       color: SoriTokens.background,
-      child: tabBar,
+      child: child,
     );
   }
 
   @override
   bool shouldRebuild(covariant _StickyTabBarDelegate oldDelegate) =>
-      tabBar != oldDelegate.tabBar;
+      child != oldDelegate.child;
 }
 
 class _SquircleCard extends StatelessWidget {

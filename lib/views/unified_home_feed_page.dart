@@ -393,25 +393,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           children: [
             Material(
               color: SoriTokens.background,
-              child: TabBar(
+              child: SoriYoutubeTabBar(
                 controller: _tabs,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                indicator: soriTabCapsuleIndicator,
-                indicatorSize: TabBarIndicatorSize.label,
-                indicatorPadding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                labelColor: SoriTokens.textCharcoal,
-                unselectedLabelColor: SoriTokens.tabUnselected,
-                dividerColor: Colors.transparent,
-                dividerHeight: 0,
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-                tabs: const [
-                  Tab(text: '추천'),
-                  Tab(text: '탐색'),
-                  Tab(text: '우리 지역'),
-                ],
+                labels: const ['추천', '탐색', '우리 지역'],
               ),
             ),
             Expanded(

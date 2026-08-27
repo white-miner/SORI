@@ -108,11 +108,11 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
                   left: 10,
                   child: widget.topTrailing!,
                 ),
-              // Open detail — does not steal horizontal B/A drag
+              // Open detail — bottom-right, clear of Before/After labels
               if (widget.onTap != null)
                 Positioned(
-                  top: 8,
-                  right: 8,
+                  bottom: 16,
+                  right: 16,
                   child: Material(
                     color: Colors.black.withValues(alpha: 0.45),
                     shape: const CircleBorder(),

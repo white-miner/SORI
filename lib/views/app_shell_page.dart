@@ -27,9 +27,7 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   final _store = SoriStore.instance;
-
-  /// PC YouTube-style left drawer (collapsed icons ↔ extended labels).
-  bool _pcDrawerExtended = false;
+  final GlobalKey<ScaffoldState> _pcScaffoldKey = GlobalKey<ScaffoldState>();
 
   /// Store 전역 notify마다 셸을 리빌드하지 않도록 셸 관련 스냅샷만 추적.
   bool _lastHydrating = false;
@@ -183,26 +181,32 @@ class _AppShellPageState extends State<AppShellPage> {
     final isDirector = session.activeMode == UserRole.director;
     final reviewLabel = isDirector ? '리뷰 관리' : '리뷰 작성';
     final tab = widget.navigationShell.currentIndex;
-    // My 탭(4) · 고객 상세: 시네마틱/디테일 몰입을 위해 글로벌 Shell AppBar 숨김
-    final hideShellAppBar =
-        tab == 4 || _isCustomerDetailRoute(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         // PC breakpoint — 800px+ (mobile layout preserved below).
         final wide = constraints.maxWidth >= 800;
         final extraWide = constraints.maxWidth >= 1200;
+        // Mobile: hide shell AppBar on My / customer detail for immersion.
+        // PC: always keep AppBar so hamburger can open Scaffold.drawer.
+        final hideShellAppBar = !wide &&
+            (tab == 4 || _isCustomerDetailRoute(context));
 
         final appBar = hideShellAppBar
             ? null
             : _ShellAppBar(
                 showLogo: true,
                 showMenuButton: wide,
-                menuExpanded: _pcDrawerExtended,
                 onMenuTap: wide
-                    ? () => setState(
-                          () => _pcDrawerExtended = !_pcDrawerExtended,
-                        )
+                    ? () {
+                        final scaffold = _pcScaffoldKey.currentState;
+                        if (scaffold == null) return;
+                        if (scaffold.isDrawerOpen) {
+                          scaffold.closeDrawer();
+                        } else {
+                          scaffold.openDrawer();
+                        }
+                      }
                     : null,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
@@ -228,88 +232,82 @@ class _AppShellPageState extends State<AppShellPage> {
           );
         }
 
-        // PC: hamburger drawer + centered feed + margin scroll
+        // PC: Scaffold.drawer (toggle) + centered feed + margin scroll
         final hasComment = _store.activeCommentPostId != null;
 
         return Scaffold(
+          key: _pcScaffoldKey,
           backgroundColor: SoriTokens.background,
           appBar: appBar,
-          body: Row(
-            children: [
-              _PcSideDrawer(
-                extended: _pcDrawerExtended,
-                currentIndex: tab,
-                isDirector: isDirector,
-                onTap: (i) {
-                  _selectTab(i);
-                },
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    const feedMaxWidth = 720.0;
-                    const feedHalf = feedMaxWidth / 2;
-                    const drawerTarget = 380.0;
-                    final remainingRight =
-                        (constraints.maxWidth / 2) - feedHalf;
-                    final drawerWidth = remainingRight.clamp(0.0, drawerTarget);
+          drawer: _PcNavDrawer(
+            currentIndex: tab,
+            isDirector: isDirector,
+            onTap: (i) {
+              Navigator.of(context).maybePop();
+              _selectTab(i);
+            },
+          ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              const feedMaxWidth = 720.0;
+              const feedHalf = feedMaxWidth / 2;
+              const drawerTarget = 380.0;
+              final remainingRight =
+                  (constraints.maxWidth / 2) - feedHalf;
+              final drawerWidth = remainingRight.clamp(0.0, drawerTarget);
 
-                    return Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        // Empty left/right margins receive wheel → feed scrolls
-                        const Positioned.fill(
-                          child: MarginScrollForwarder(),
+              return Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  const Positioned.fill(
+                    child: MarginScrollForwarder(),
+                  ),
+                  if (hasComment)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _store.closeCommentPanel(),
+                      ),
+                    ),
+                  if (extraWide && !hasComment)
+                    const Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: RightSidebar(dashboardOnly: true),
+                    ),
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: feedMaxWidth,
+                      ),
+                      child: SizedBox(
+                        width: feedMaxWidth,
+                        child: widget.navigationShell,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: (constraints.maxWidth / 2) + feedHalf,
+                    top: 0,
+                    bottom: 0,
+                    child: ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: hasComment ? drawerWidth : 0,
+                          child: hasComment
+                              ? const RightSidebar()
+                              : const SizedBox.shrink(),
                         ),
-                        if (hasComment)
-                          Positioned.fill(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => _store.closeCommentPanel(),
-                            ),
-                          ),
-                        if (extraWide && !hasComment)
-                          const Positioned(
-                            top: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: RightSidebar(dashboardOnly: true),
-                          ),
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: feedMaxWidth,
-                            ),
-                            child: SizedBox(
-                              width: feedMaxWidth,
-                              child: widget.navigationShell,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: (constraints.maxWidth / 2) + feedHalf,
-                          top: 0,
-                          bottom: 0,
-                          child: ClipRect(
-                            child: AnimatedSize(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                width: hasComment ? drawerWidth : 0,
-                                child: hasComment
-                                    ? const RightSidebar()
-                                    : const SizedBox.shrink(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
@@ -317,22 +315,17 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 }
 
-/// YouTube-style collapsible left drawer (icons ↔ labels).
-class _PcSideDrawer extends StatelessWidget {
-  const _PcSideDrawer({
-    required this.extended,
+/// PC Scaffold drawer — opens from hamburger, closes on barrier tap.
+class _PcNavDrawer extends StatelessWidget {
+  const _PcNavDrawer({
     required this.currentIndex,
     required this.isDirector,
     required this.onTap,
   });
 
-  final bool extended;
   final int currentIndex;
   final bool isDirector;
   final ValueChanged<int> onTap;
-
-  static const double collapsedW = 72;
-  static const double extendedW = 240;
 
   @override
   Widget build(BuildContext context) {
@@ -352,44 +345,40 @@ class _PcSideDrawer extends StatelessWidget {
             (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
           ];
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeInOut,
-      width: extended ? extendedW : collapsedW,
-      decoration: BoxDecoration(
-        color: SoriTokens.surface.withValues(alpha: 0.98),
-        border: const Border(
-          right: BorderSide(color: SoriTokens.border, width: 1),
-        ),
-      ),
+    return Drawer(
+      backgroundColor: SoriTokens.surface,
+      width: 280,
       child: SafeArea(
-        right: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 8),
             Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: extended ? 16 : 12,
-                vertical: 8,
-              ),
-              child: Align(
-                alignment:
-                    extended ? Alignment.centerLeft : Alignment.center,
-                child: const IconTheme(
-                  data: IconThemeData(),
-                  child: SoriLogo(height: SoriLogo.gnbHeight),
-                ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+              child: Row(
+                children: [
+                  const IconTheme(
+                    data: IconThemeData(),
+                    child: SoriLogo(height: SoriLogo.gnbHeight),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: '닫기',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: SoriTokens.textCharcoal,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
             for (var i = 0; i < items.length; i++)
               _DrawerNavItem(
                 icon: items[i].$1,
                 selectedIcon: items[i].$2,
                 label: items[i].$3,
                 selected: currentIndex == i,
-                extended: extended,
+                extended: true,
                 onTap: () => onTap(i),
               ),
           ],
@@ -470,7 +459,6 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.badgeCount,
     required this.onNotifications,
     this.showMenuButton = false,
-    this.menuExpanded = false,
     this.onMenuTap,
     this.onPostFirst,
     this.onArchive,
@@ -479,7 +467,6 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   final bool showLogo;
   final bool showMenuButton;
-  final bool menuExpanded;
   final VoidCallback? onMenuTap;
   final int badgeCount;
   final VoidCallback onNotifications;
@@ -514,8 +501,8 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
               children: [
                 if (showMenuButton)
                   _FlatAppBarIcon(
-                    tooltip: menuExpanded ? '메뉴 접기' : '메뉴 펼치기',
-                    icon: Icons.menu_rounded,
+                    tooltip: '메뉴',
+                    icon: Icons.menu,
                     onPressed: onMenuTap ?? () {},
                   ),
                 if (showLogo) ...[

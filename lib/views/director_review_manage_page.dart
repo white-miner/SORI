@@ -9,6 +9,7 @@ import '../models/review_request_event.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_share.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../widgets/review_qr_modal.dart';
@@ -328,18 +329,11 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
               ],
             ),
           ),
-          TabBar(
+          SoriYoutubeTabBar(
             controller: _tabs,
-            labelColor: SoriTokens.primary,
-            unselectedLabelColor: SoriTokens.textSecondary,
-            indicatorColor: SoriTokens.primary,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
-            tabs: [
-              Tab(
-                text:
-                    '인박스 ${widget.store.directorReviewInboxItems(lane: ReviewOpsLane.all).length}',
-              ),
-              const Tab(text: '후기 요청'),
+            labels: [
+              '인박스 ${widget.store.directorReviewInboxItems(lane: ReviewOpsLane.all).length}',
+              '후기 요청',
             ],
           ),
           Expanded(
