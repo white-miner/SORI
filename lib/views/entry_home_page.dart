@@ -45,12 +45,7 @@ class _EntryHomePageState extends State<EntryHomePage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(
-        precacheImage(
-          const AssetImage('assets/images/logo_sori.png'),
-          context,
-        ),
-      );
+      unawaited(SoriLogo.precache(context));
     });
 
     final token = widget.initialToken?.trim();
