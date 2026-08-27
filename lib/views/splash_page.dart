@@ -37,6 +37,13 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        precacheImage(
+          const AssetImage('assets/images/logo_sori.png'),
+          context,
+        ),
+      );
       unawaited(_bootstrapAndRoute());
     });
   }

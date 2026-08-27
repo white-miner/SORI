@@ -43,6 +43,16 @@ class _EntryHomePageState extends State<EntryHomePage>
 
     _store.addListener(_onStoreChanged);
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        precacheImage(
+          const AssetImage('assets/images/logo_sori.png'),
+          context,
+        ),
+      );
+    });
+
     final token = widget.initialToken?.trim();
     if (token != null && token.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

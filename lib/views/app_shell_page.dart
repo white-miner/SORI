@@ -535,14 +535,14 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onPressed: onMenuTap ?? () {},
                   ),
                 if (showLogo) ...[
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4, right: 8),
-                    child: Align(
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: showMenuButton ? 4 : 2,
+                      right: 8,
+                    ),
+                    child: const Align(
                       alignment: Alignment.centerLeft,
-                      child: IconTheme(
-                        data: IconThemeData(),
-                        child: SoriLogo(height: SoriLogo.gnbHeight),
-                      ),
+                      child: SoriLogo(height: SoriLogo.gnbHeight),
                     ),
                   ),
                 ],

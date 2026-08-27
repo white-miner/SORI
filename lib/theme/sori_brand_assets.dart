@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-/// SORI brand logo assets — SVG primary, PNG web fallback.
+/// SORI brand logo assets — PNG primary (mobile-safe), SVG fallback.
 abstract final class SoriBrandAssets {
-  /// Primary brand logo (Purple & Black, original SVG colors).
-  static const String logoSoriSvg = 'assets/images/logo_sori.svg';
-
-  /// PNG extracted from SVG — used only when flutter_svg fails on web.
+  /// Raster wordmark (Purple mark + Black SORI). Preferred on all platforms.
   static const String logoSoriPng = 'assets/images/logo_sori.png';
 
-  static const double logoHeightGnb = 28;
+  /// SVG wrapper (embedded raster). Mobile WebKit may paint empty — use PNG.
+  static const String logoSoriSvg = 'assets/images/logo_sori.svg';
+
+  static const double logoHeightGnb = 26;
   static const double logoHeight = 48;
   static const double logoHeightHero = 52;
 
-  static String logoForBrightness(Brightness brightness) => logoSoriSvg;
-  static String logoForTheme(BuildContext context) => logoSoriSvg;
-  static String logoForPlatform(BuildContext context) => logoSoriSvg;
-  static String get outline => logoSoriSvg;
+  static String logoForBrightness(Brightness brightness) => logoSoriPng;
+  static String logoForTheme(BuildContext context) => logoSoriPng;
+  static String logoForPlatform(BuildContext context) => logoSoriPng;
+  static String get outline => logoSoriPng;
 }
