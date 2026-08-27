@@ -3,6 +3,7 @@ import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_merge_preview.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/kakao_alimtalk.dart';
@@ -432,6 +433,24 @@ class MemorySoriRepository implements SoriRepository {
     final ids =
         customerIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     return BulkDeleteResult(deletedIds: ids);
+  }
+
+  @override
+  Future<CustomerMergeResult> mergeShopCustomers({
+    required String primaryId,
+    required List<String> sourceIds,
+  }) async {
+    final sources = sourceIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && e != primaryId)
+        .toList();
+    return CustomerMergeResult(
+      primaryId: primaryId,
+      mergedIds: sources,
+      chartsTotal: 0,
+      reviewsMoved: 0,
+      walletsMerged: 0,
+    );
   }
 
   @override

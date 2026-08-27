@@ -5,14 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
+import '../services/customer_crm_status_resolver.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/care_episode_group.dart';
+import '../widgets/sori_crm_status_avatar.dart';
 import '../widgets/sori_sliver_tab_bar.dart';
 import '../widgets/case_review_inline.dart';
 import 'admin_chart_writer_page.dart';
 import 'before_after_compare_sheet.dart';
 import 'chart_management_page.dart';
+import 'customer_merge_wizard.dart';
 import 'customer_link_popup.dart';
 import 'membership_editor_sheet.dart';
 import 'my_app.dart';
@@ -171,6 +174,31 @@ class _AdminChartPageState extends State<AdminChartPage>
           },
         ),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: '더보기',
+            onSelected: (value) async {
+              if (value == 'merge') {
+                final selected = await pickCustomersForMerge(
+                  context: context,
+                  store: widget.store,
+                  seed: customer,
+                );
+                if (selected != null && selected.length >= 2 && context.mounted) {
+                  await showCustomerMergeWizard(
+                    context: context,
+                    store: widget.store,
+                    selected: selected,
+                  );
+                }
+              }
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(
+                value: 'merge',
+                child: Text('중복 계정 병합'),
+              ),
+            ],
+          ),
           TextButton.icon(
             onPressed: () => requestCustomerReviewWithQr(
               context,
@@ -198,6 +226,7 @@ class _AdminChartPageState extends State<AdminChartPage>
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 child: _Header(
                   customer: customer,
+                  charts: timeline,
                   lastVisitLabel: timeline.isEmpty
                       ? null
                       : _formatChartDate(timeline.first),
@@ -269,16 +298,20 @@ String _formatChartDate(CustomerChart chart) {
 class _Header extends StatelessWidget {
   const _Header({
     required this.customer,
+    required this.charts,
     required this.onTap,
     this.lastVisitLabel,
   });
 
   final Customer customer;
+  final List<CustomerChart> charts;
   final VoidCallback onTap;
   final String? lastVisitLabel;
 
   @override
   Widget build(BuildContext context) {
+    final ringVisual = CustomerCrmStatusResolver.resolve(customer, charts);
+
     return Material(
       color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(22),
@@ -301,22 +334,12 @@ class _Header extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: const Color(0xFFE5E5EA),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    customer.name.characters.first,
-                    style: const TextStyle(
-                      color: Color(0xFF111111),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                    ),
-                  ),
+                SoriCrmStatusAvatar(
+                  name: customer.name,
+                  visual: ringVisual,
+                  radius: 24,
+                  fontSize: 18,
+                  animateWhenVisible: true,
                 ),
                 const SizedBox(width: 14),
                 Expanded(

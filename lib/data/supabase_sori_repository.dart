@@ -8,6 +8,7 @@ import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_merge_preview.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
@@ -922,6 +923,43 @@ class SupabaseSoriRepository implements SoriRepository {
       return BulkDeleteResult(deletedIds: deleted, failedIds: failed);
     } catch (e, st) {
       debugPrint('delete_shop_customers rpc failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<CustomerMergeResult> mergeShopCustomers({
+    required String primaryId,
+    required List<String> sourceIds,
+  }) async {
+    final primary = primaryId.trim();
+    final sources = sourceIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && e != primary)
+        .toSet()
+        .toList();
+    if (primary.isEmpty || sources.isEmpty) {
+      throw ArgumentError('Primary와 Secondary 고객이 필요합니다.');
+    }
+    if (sources.length > 10) {
+      throw ArgumentError('한 번에 최대 10명까지 병합할 수 있습니다.');
+    }
+
+    try {
+      final raw = await _db.rpc(
+        'merge_shop_customers',
+        params: {
+          'p_primary_id': primary,
+          'p_source_ids': sources,
+          'p_options': {'membershipStrategy': 'combine_by_name'},
+        },
+      );
+      if (raw is Map) {
+        return CustomerMergeResult.fromMap(Map<String, dynamic>.from(raw));
+      }
+      throw StateError('merge_shop_customers returned unexpected payload');
+    } catch (e, st) {
+      debugPrint('merge_shop_customers rpc failed: $e\n$st');
       rethrow;
     }
   }

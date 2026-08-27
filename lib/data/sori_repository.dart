@@ -4,6 +4,7 @@ import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_merge_preview.dart';
 import '../models/customer_membership.dart';
 import '../models/customer_review.dart';
 import '../models/kakao_alimtalk.dart';
@@ -198,6 +199,12 @@ abstract class SoriRepository {
   /// 고객 일괄 삭제. CASCADE/FK에 따라 차트·리뷰도 함께 제거되는 환경 전제.
   /// 부분 실패 시 [BulkDeleteResult.failedIds]에 남긴다.
   Future<BulkDeleteResult> bulkDeleteCustomers(List<String> customerIds);
+
+  /// 중복 고객 병합 — Primary 유지, Secondary 삭제.
+  Future<CustomerMergeResult> mergeShopCustomers({
+    required String primaryId,
+    required List<String> sourceIds,
+  });
 
   Future<Shop> upsertShop(Shop shop);
 

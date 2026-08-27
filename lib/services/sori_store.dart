@@ -16,7 +16,9 @@ import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_merge_preview.dart';
 import '../models/customer_membership.dart';
+import '../services/customer_merge_service.dart';
 import '../models/customer_review.dart';
 import '../models/home_care_prescriptions.dart';
 import '../models/kakao_alimtalk.dart';
@@ -4487,7 +4489,145 @@ class SoriStore implements Listenable {
     reviewRequestedCustomerIds.removeWhere(idSet.contains);
   }
 
-  /// 차트 없이 고객 회원권만 저장 (CRM 퀵 액션 / 바텀 시트).
+  /// 중복 고객 병합 — Primary 유지, Secondary purge + 차트 재번호.
+  Future<CustomerMergeResult> mergeShopCustomers({
+    required String primaryId,
+    required List<String> sourceIds,
+  }) async {
+    final primary = primaryId.trim();
+    final sources = sourceIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && e != primary)
+        .toSet()
+        .toList();
+    if (primary.isEmpty || sources.isEmpty) {
+      throw ArgumentError('Primary와 Secondary 고객을 선택해 주세요.');
+    }
+    if (sources.length > 10) {
+      throw ArgumentError('한 번에 최대 10명까지 병합할 수 있습니다.');
+    }
+
+    final primaryCustomer = findCustomer(primary);
+    if (primaryCustomer == null) {
+      throw StateError('Primary 고객을 찾을 수 없습니다.');
+    }
+    final mergeTargets = sources
+        .map(findCustomer)
+        .whereType<Customer>()
+        .toList();
+    if (mergeTargets.isEmpty) {
+      throw StateError('병합 가능한 Secondary 고객이 없습니다.');
+    }
+
+    isLoading = true;
+    lastError = null;
+    _notify();
+    try {
+      CustomerMergeResult result;
+      if (_repository.isRemote) {
+        result = await _repository.mergeShopCustomers(
+          primaryId: primary,
+          sourceIds: sources,
+        );
+        await reloadCustomersAndCharts();
+      } else {
+        result = _mergeCustomersLocally(
+          primary: primaryCustomer,
+          sources: mergeTargets,
+        );
+      }
+      return result;
+    } catch (e) {
+      _setError(e, userFacing: true);
+      rethrow;
+    } finally {
+      isLoading = false;
+      _notify();
+    }
+  }
+
+  CustomerMergeResult _mergeCustomersLocally({
+    required Customer primary,
+    required List<Customer> sources,
+  }) {
+    final sourceIds = sources.map((c) => c.id).toSet();
+    var reviewsMoved = 0;
+
+    for (final chart in charts) {
+      if (sourceIds.contains(chart.customerId)) {
+        final idx = charts.indexOf(chart);
+        charts[idx] = chart.copyWith(customerId: primary.id);
+      }
+    }
+
+    for (var i = 0; i < reviews.length; i++) {
+      if (sourceIds.contains(reviews[i].customerId)) {
+        reviews[i] = reviews[i].copyWith(customerId: primary.id);
+        reviewsMoved++;
+      }
+    }
+
+    final primaryCharts = charts.where((c) => c.customerId == primary.id).toList()
+      ..sort((a, b) {
+        final ad = a.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return ad.compareTo(bd);
+      });
+    for (var i = 0; i < primaryCharts.length; i++) {
+      final ch = primaryCharts[i];
+      final idx = charts.indexWhere((c) => c.id == ch.id);
+      if (idx >= 0) {
+        charts[idx] = ch.copyWith(visitNumber: i + 1);
+      }
+    }
+
+    final mergedMemberships = CustomerMergeService.mergeMembershipsCombineByName(
+      [primary, ...sources],
+    );
+    final latestVisit = primaryCharts.isEmpty
+        ? primary.lastTreatmentDate
+        : primaryCharts.last.feedPostedAt ?? primary.lastTreatmentDate;
+
+    final updated = primary
+        .copyWith(
+          memberships: mergedMemberships,
+          lastTreatmentDate: latestVisit,
+          memo: [
+            primary.memo,
+            ...sources.map((s) => s.memo).where((m) => m.trim().isNotEmpty),
+          ].where((m) => m.trim().isNotEmpty).join('\n'),
+        )
+        .withSyncedMembershipMirrors();
+    _mergeCustomer(updated);
+    _purgeCustomersLocally(sourceIds.toList());
+
+    _notify();
+    return CustomerMergeResult(
+      primaryId: primary.id,
+      mergedIds: sourceIds.toList(),
+      chartsTotal: primaryCharts.length,
+      reviewsMoved: reviewsMoved,
+      walletsMerged: 0,
+    );
+  }
+
+  /// 차트·고객 원격 재로드 (병합 후 SSOT 동기화).
+  Future<void> reloadCustomersAndCharts() async {
+    if (!_repository.isRemote) return;
+    final snap = await _repository.loadInitialData();
+    customers
+      ..clear()
+      ..addAll(snap.customers);
+    charts
+      ..clear()
+      ..addAll(snap.charts);
+    reviews
+      ..clear()
+      ..addAll(snap.reviews);
+    _notify();
+  }
+
+  /// 고객 회원권만 저장 (CRM 퀵 액션 / 바텀 시트).
   Future<Customer> saveCustomerMemberships({
     required String customerId,
     required List<CustomerMembership> memberships,

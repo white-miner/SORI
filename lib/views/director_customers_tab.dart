@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/customer.dart';
+import '../services/customer_crm_status_resolver.dart';
 import '../services/sori_store.dart';
 import '../routing/sori_router.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
+import '../widgets/sori_crm_status_avatar.dart';
 import '../widgets/today_care_schedule_panel.dart';
 import 'add_customer_sheet.dart';
+import 'customer_merge_wizard.dart';
 import 'request_customer_review.dart';
 
 enum _CustomerSort { recentVisit, nameAsc, chartNo, dormantDaysDesc }
 
-enum CrmListMode { browse, selecting }
+enum CrmListMode { browse, selectingDelete, selectingMerge }
 
 /// 원장 모드 [고객] 탭 — CRM 대시보드 (초성검색·정렬·다중선택).
 class DirectorCustomersTab extends StatefulWidget {
@@ -24,7 +27,8 @@ class DirectorCustomersTab extends StatefulWidget {
   State<DirectorCustomersTab> createState() => _DirectorCustomersTabState();
 }
 
-class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
+class _DirectorCustomersTabState extends State<DirectorCustomersTab>
+    with CrmRingScrollVisibility {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   String _query = '';
@@ -35,12 +39,21 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
 
   static const _dormantDays = 90;
 
-  bool get _isSelecting => _mode == CrmListMode.selecting;
+  @override
+  ScrollController get crmRingScrollController => _scrollController;
+
+  bool get _isSelecting => _mode != CrmListMode.browse;
+  bool get _isSelectingMerge => _mode == CrmListMode.selectingMerge;
 
   @override
   void initState() {
     super.initState();
     widget.store.addListener(_onStore);
+    _scrollController.addListener(_onScrollForRing);
+  }
+
+  void _onScrollForRing() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -55,9 +68,19 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
     if (mounted) setState(() {});
   }
 
-  void _enterSelecting({String? seedId}) {
+  void _enterSelectingDelete({String? seedId}) {
     setState(() {
-      _mode = CrmListMode.selecting;
+      _mode = CrmListMode.selectingDelete;
+      _selectedIds.clear();
+      if (seedId != null && seedId.isNotEmpty) {
+        _selectedIds.add(seedId);
+      }
+    });
+  }
+
+  void _enterSelectingMerge({String? seedId}) {
+    setState(() {
+      _mode = CrmListMode.selectingMerge;
       _selectedIds.clear();
       if (seedId != null && seedId.isNotEmpty) {
         _selectedIds.add(seedId);
@@ -86,6 +109,22 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
         ..clear()
         ..addAll(list.map((c) => c.id));
     });
+  }
+
+  Future<void> _bulkMerge() async {
+    final ids = _selectedIds.toList();
+    if (ids.length < 2) return;
+    final selected = widget.store.customers
+        .where((c) => ids.contains(c.id))
+        .toList();
+    if (selected.length < 2) return;
+
+    final ok = await showCustomerMergeWizard(
+      context: context,
+      store: widget.store,
+      selected: selected,
+    );
+    if (ok && mounted) _exitSelecting();
   }
 
   Future<void> _bulkDelete() async {
@@ -331,25 +370,40 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                                     child: const Text('전체'),
                                   ),
                                   TextButton(
-                                    onPressed:
-                                        _deleting ? null : _exitSelecting,
+                                    onPressed: _deleting ? null : _exitSelecting,
                                     child: const Text('취소'),
                                   ),
-                                  FilledButton(
-                                    onPressed: _deleting ||
-                                            _selectedIds.isEmpty
-                                        ? null
-                                        : _bulkDelete,
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: SoriTokens.primaryDark,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
+                                  if (_isSelectingMerge)
+                                    FilledButton(
+                                      onPressed: _selectedIds.length < 2
+                                          ? null
+                                          : _bulkMerge,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: SoriTokens.primary,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '병합 (${_selectedIds.length})',
+                                      ),
+                                    )
+                                  else
+                                    FilledButton(
+                                      onPressed: _deleting ||
+                                              _selectedIds.isEmpty
+                                          ? null
+                                          : _bulkDelete,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: SoriTokens.primaryDark,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _deleting ? '삭제 중…' : '삭제',
                                       ),
                                     ),
-                                    child: Text(
-                                      _deleting ? '삭제 중…' : '삭제',
-                                    ),
-                                  ),
                                 ] else ...[
                                   if (!isEmptyDb)
                                     Padding(
@@ -365,12 +419,22 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                                     ),
                                   const Spacer(),
                                   IconButton(
-                                    tooltip: '편집',
+                                    tooltip: '선택 삭제',
                                     onPressed: isEmptyDb
                                         ? null
-                                        : () => _enterSelecting(),
+                                        : () => _enterSelectingDelete(),
                                     icon: const Icon(
                                       Icons.checklist_rtl_rounded,
+                                    ),
+                                    color: SoriTokens.primary,
+                                  ),
+                                  IconButton(
+                                    tooltip: '중복 병합',
+                                    onPressed: isEmptyDb
+                                        ? null
+                                        : () => _enterSelectingMerge(),
+                                    icon: const Icon(
+                                      Icons.merge_type_rounded,
                                     ),
                                     color: SoriTokens.primary,
                                   ),
@@ -459,6 +523,8 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
               else
                 ..._CustomerListSlivers.build(
                   list: list,
+                  store: widget.store,
+                  ringAnimateForIndex: crmRingAnimateForIndex,
                   emptyLabel: '검색 결과가 없습니다',
                   formatDate: _formatDate,
                   lastVisitOf: _lastVisitOf,
@@ -477,7 +543,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab> {
                     if (_isSelecting) {
                       _toggleSelected(c.id);
                     } else {
-                      _enterSelecting(seedId: c.id);
+                      _enterSelectingDelete(seedId: c.id);
                     }
                   },
                 ),
@@ -647,6 +713,8 @@ class _CrmStickyToolbarDelegate extends SliverPersistentHeaderDelegate {
 class _CustomerListSlivers {
   static List<Widget> build({
     required List<Customer> list,
+    required SoriStore store,
+    required bool Function(int index) ringAnimateForIndex,
     required String emptyLabel,
     required String Function(DateTime) formatDate,
     required DateTime Function(Customer) lastVisitOf,
@@ -723,9 +791,16 @@ class _CustomerListSlivers {
             final hasMembership = c.isMembershipCustomer;
             final ticketingUrgent = hasMembership && remain >= 1 && remain <= 2;
             final selected = selectedIds.contains(c.id);
+            final listIndex = showDormantHint ? index - 1 : index;
+            final ringVisual = CustomerCrmStatusResolver.resolve(
+              c,
+              store.charts,
+            );
             return _DenseCustomerTile(
               name: c.name,
               phone: c.phone,
+              ringVisual: ringVisual,
+              animateRing: ringAnimateForIndex(listIndex),
               lastVisitLabel: formatDate(lastVisitOf(c)),
               dormantDays: daysSince(c),
               remainLabel: hasMembership ? '잔여 $remain회' : '회원권 미등록',
@@ -828,6 +903,8 @@ class _DenseCustomerTile extends StatelessWidget {
   const _DenseCustomerTile({
     required this.name,
     required this.phone,
+    required this.ringVisual,
+    required this.animateRing,
     required this.lastVisitLabel,
     required this.remainLabel,
     required this.onTap,
@@ -842,6 +919,8 @@ class _DenseCustomerTile extends StatelessWidget {
 
   final String name;
   final String phone;
+  final CrmRingVisual ringVisual;
+  final bool animateRing;
   final String lastVisitLabel;
   final int dormantDays;
   final String remainLabel;
@@ -875,17 +954,11 @@ class _DenseCustomerTile extends StatelessWidget {
             ),
             const SizedBox(width: 4),
           ],
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: SoriTokens.primarySoft,
-            child: Text(
-              name.characters.first,
-              style: const TextStyle(
-                color: SoriTokens.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+          SoriCrmStatusAvatar(
+            name: name,
+            visual: ringVisual,
+            radius: 20,
+            animateWhenVisible: animateRing,
           ),
           const SizedBox(width: 12),
           Expanded(
