@@ -524,12 +524,22 @@ class _MembershipTab extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '잔여 ${t.remainingVisits}회',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: SoriTokens.primary,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: SoriTokens.systemRed,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '잔여 ${t.remainingVisits}회',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],

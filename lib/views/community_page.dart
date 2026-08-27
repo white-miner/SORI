@@ -1201,18 +1201,17 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? SoriTokens.primarySoft : SoriTokens.surface,
+          color: selected ? SoriTokens.primary : SoriTokens.chipIdleBg,
           borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: selected ? SoriTokens.primary : SoriTokens.outlinePurple,
-          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
-            color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
+            color: selected
+                ? SoriTokens.onPrimary
+                : SoriTokens.tabUnselected,
           ),
         ),
       ),
@@ -1804,6 +1803,7 @@ class _InteriorComposerSheetState extends State<_InteriorComposerSheet> {
                   onPressed: _saving ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: SoriTokens.primary,
+                    foregroundColor: SoriTokens.onPrimary,
                   ),
                   child: Text(_saving ? '등록 중…' : '게시'),
                 ),
@@ -2129,6 +2129,7 @@ class _DeviceMarketComposerSheetState extends State<_DeviceMarketComposerSheet> 
                   onPressed: _saving ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: SoriTokens.primary,
+                    foregroundColor: SoriTokens.onPrimary,
                   ),
                   child: Text(_saving ? '등록 중…' : '게시'),
                 ),

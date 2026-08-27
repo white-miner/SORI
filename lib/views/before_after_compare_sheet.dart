@@ -379,10 +379,22 @@ class _VisitPhotoPicker extends StatelessWidget {
                 final slot = options[index];
                 final selectedNow = selected?.key == slot.key;
                 return ChoiceChip(
-                  label: Text(slot.shortLabel, style: const TextStyle(fontSize: 11)),
+                  label: Text(
+                    slot.shortLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: selectedNow
+                          ? SoriTokens.onPrimary
+                          : SoriTokens.tabUnselected,
+                    ),
+                  ),
                   selected: selectedNow,
                   onSelected: (_) => onChanged(slot),
-                  selectedColor: MyApp.soriPurple.withValues(alpha: 0.18),
+                  selectedColor: SoriTokens.primary,
+                  backgroundColor: SoriTokens.chipIdleBg,
+                  side: BorderSide.none,
+                  showCheckmark: false,
                   visualDensity: VisualDensity.compact,
                 );
               },

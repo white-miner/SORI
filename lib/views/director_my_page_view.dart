@@ -846,9 +846,14 @@ class _HeroOverlayIcon extends StatelessWidget {
         isLabelVisible: badgeCount > 0,
         label: Text(
           '$badgeCount',
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: SoriTokens.systemRed,
+        textColor: Colors.white,
         child: Icon(
           icon,
           color: Colors.white,

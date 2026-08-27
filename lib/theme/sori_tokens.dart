@@ -61,6 +61,12 @@ abstract final class SoriTokens {
 
   static const Color border = Color(0x14000000);
 
+  /// Form field outline — light gray (white mode).
+  static const Color inputBorder = Color(0xFFE5E5EA);
+
+  /// Idle chip / unselected control fill.
+  static const Color chipIdleBg = Color(0xFFF1F1F1);
+
   /// Deep charcoal — default body text on white backgrounds
   static const Color textCharcoal = Color(0xFF111111);
 

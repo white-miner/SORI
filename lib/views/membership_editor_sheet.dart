@@ -311,10 +311,10 @@ class _MembershipEditorSheetState extends State<_MembershipEditorSheet> {
                                 '잔여 $remain회',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                   color: remain <= 2 && m.totalVisits > 0
-                                      ? SoriTokens.textSecondary
-                                      : MyApp.soriPurple,
+                                      ? SoriTokens.systemRed
+                                      : SoriTokens.textCharcoal,
                                 ),
                               ),
                             ],

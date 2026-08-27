@@ -336,7 +336,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         backgroundColor: SoriTokens.background,
-        foregroundColor: Colors.black,
+        foregroundColor: SoriTokens.onPrimary,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         leading: IconButton(

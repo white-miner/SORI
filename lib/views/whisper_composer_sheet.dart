@@ -510,7 +510,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                     : _send,
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: SoriTokens.onPrimary,
                   disabledBackgroundColor: SoriTokens.surfaceOverlay,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -561,18 +561,15 @@ class _AtomChip extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? SoriTokens.primarySoft : SoriTokens.surfaceOverlay,
+            color: active ? SoriTokens.primary : SoriTokens.chipIdleBg,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: active ? SoriTokens.primary : Colors.transparent,
-            ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: active ? SoriTokens.primary : SoriTokens.textSecondary,
+              color: active ? SoriTokens.onPrimary : SoriTokens.tabUnselected,
             ),
           ),
         ),

@@ -352,11 +352,23 @@ class CommunityVisibilityPicker extends StatelessWidget {
             if (s.isNotEmpty) onChanged(s.first);
           },
           style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
                 return SoriTokens.primary;
               }
-              return SoriTokens.textSecondary;
+              return SoriTokens.chipIdleBg;
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return SoriTokens.onPrimary;
+              }
+              return SoriTokens.tabUnselected;
+            }),
+            iconColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return SoriTokens.onPrimary;
+              }
+              return SoriTokens.tabUnselected;
             }),
           ),
         ),

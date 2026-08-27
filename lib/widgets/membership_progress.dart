@@ -41,11 +41,11 @@ class MembershipProgressView extends StatelessWidget {
     }
 
     final accent = customer.isMembershipLow
-        ? SoriTokens.warningText
+        ? SoriTokens.systemRed
         : SoriTokens.primary;
     final soft = customer.isMembershipLow
-        ? SoriTokens.warningBg
-        : SoriTokens.primarySoft;
+        ? SoriTokens.systemRed.withValues(alpha: 0.12)
+        : SoriTokens.chipIdleBg;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +88,9 @@ class MembershipProgressView extends StatelessWidget {
                 vertical: compact ? 3 : 4,
               ),
               decoration: BoxDecoration(
-                color: soft,
+                color: customer.isMembershipLow
+                    ? SoriTokens.systemRed
+                    : SoriTokens.chipIdleBg,
                 borderRadius: BorderRadius.circular(99),
               ),
               child: Text(
@@ -96,7 +98,9 @@ class MembershipProgressView extends StatelessWidget {
                 style: TextStyle(
                   fontSize: compact ? 10 : 11,
                   fontWeight: FontWeight.w800,
-                  color: accent,
+                  color: customer.isMembershipLow
+                      ? Colors.white
+                      : SoriTokens.tabUnselected,
                 ),
               ),
             ),

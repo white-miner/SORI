@@ -726,7 +726,7 @@ class _SelectedCard extends StatelessWidget {
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: SoriTokens.primary,
-                    foregroundColor: Colors.black,
+                    foregroundColor: SoriTokens.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),

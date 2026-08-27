@@ -722,7 +722,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                 onPressed: _patchingAfter ? null : () => _guideCapture(isBefore: false),
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: SoriTokens.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 icon: const Icon(Icons.camera_enhance_outlined),

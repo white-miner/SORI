@@ -807,17 +807,17 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected
+                ? SoriTokens.onPrimary
+                : SoriTokens.tabUnselected,
           ),
         ),
         selected: selected,
         onSelected: (_) => setState(() => _lane = lane),
-        selectedColor: SoriTokens.primarySoft,
-        labelStyle: TextStyle(
-          color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
-        ),
-        side: BorderSide(
-          color: selected ? SoriTokens.primary : SoriTokens.border,
-        ),
+        selectedColor: SoriTokens.primary,
+        backgroundColor: SoriTokens.chipIdleBg,
+        side: BorderSide.none,
+        showCheckmark: false,
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -928,15 +928,17 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected
+                ? SoriTokens.onPrimary
+                : SoriTokens.tabUnselected,
           ),
         ),
         selected: selected,
         onSelected: (_) => onTap(),
-        selectedColor: SoriTokens.primarySoft,
-        checkmarkColor: SoriTokens.primary,
-        side: BorderSide(
-          color: selected ? SoriTokens.primary : SoriTokens.border,
-        ),
+        selectedColor: SoriTokens.primary,
+        backgroundColor: SoriTokens.chipIdleBg,
+        checkmarkColor: SoriTokens.onPrimary,
+        side: BorderSide.none,
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -1594,17 +1596,17 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected
+                ? SoriTokens.onPrimary
+                : SoriTokens.tabUnselected,
           ),
         ),
         selected: selected,
         onSelected: (_) => setState(() => _requestSegment = seg),
-        selectedColor: SoriTokens.primarySoft,
-        labelStyle: TextStyle(
-          color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
-        ),
-        side: BorderSide(
-          color: selected ? SoriTokens.primary : SoriTokens.border,
-        ),
+        selectedColor: SoriTokens.primary,
+        backgroundColor: SoriTokens.chipIdleBg,
+        side: BorderSide.none,
+        showCheckmark: false,
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),

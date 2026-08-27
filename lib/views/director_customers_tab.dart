@@ -869,12 +869,12 @@ class _DenseCustomerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeBg = remainUrgent
-        ? const Color(0xFF2A1518)
-        : (remainWarn ? SoriTokens.warningBg : SoriTokens.primarySoft);
-    final badgeFg = remainUrgent
-        ? const Color(0xFFEF9A9A)
-        : (remainWarn ? SoriTokens.warningText : SoriTokens.primary);
+    final badgeBg = remainUrgent || remainWarn
+        ? SoriTokens.systemRed
+        : SoriTokens.chipIdleBg;
+    final badgeFg = remainUrgent || remainWarn
+        ? Colors.white
+        : SoriTokens.tabUnselected;
 
     return SoriCard(
       onTap: onTap,
@@ -963,9 +963,6 @@ class _DenseCustomerTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: badgeBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: remainUrgent
-                        ? Border.all(color: const Color(0xFF7F1D1D))
-                        : null,
                   ),
                   child: Text(
                     remainLabel,

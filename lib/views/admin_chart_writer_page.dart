@@ -1979,7 +1979,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                               children: [
                                 Expanded(
                                   child: ChoiceChip(
-                                    label: const Center(child: Text('여성')),
+                                    label: Center(
+                                      child: Text(
+                                        '여성',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: _gender == CustomerGender.female
+                                              ? SoriTokens.onPrimary
+                                              : SoriTokens.tabUnselected,
+                                        ),
+                                      ),
+                                    ),
                                     selected:
                                         _gender == CustomerGender.female,
                                     onSelected: (_) {
@@ -1989,14 +1999,26 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                                       );
                                       _pruneResolvedValidationErrors();
                                     },
-                                    selectedColor: MyApp.soriPurple
-                                        .withValues(alpha: 0.2),
+                                    selectedColor: SoriTokens.primary,
+                                    backgroundColor: SoriTokens.chipIdleBg,
+                                    side: BorderSide.none,
+                                    showCheckmark: false,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: ChoiceChip(
-                                    label: const Center(child: Text('남성')),
+                                    label: Center(
+                                      child: Text(
+                                        '남성',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: _gender == CustomerGender.male
+                                              ? SoriTokens.onPrimary
+                                              : SoriTokens.tabUnselected,
+                                        ),
+                                      ),
+                                    ),
                                     selected: _gender == CustomerGender.male,
                                     onSelected: (_) {
                                       setState(
@@ -2004,8 +2026,10 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                                       );
                                       _pruneResolvedValidationErrors();
                                     },
-                                    selectedColor: MyApp.soriPurple
-                                        .withValues(alpha: 0.2),
+                                    selectedColor: SoriTokens.primary,
+                                    backgroundColor: SoriTokens.chipIdleBg,
+                                    side: BorderSide.none,
+                                    showCheckmark: false,
                                   ),
                                 ),
                               ],
@@ -2123,12 +2147,26 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         setState(() => _isFirstVisitMode = selected.first);
                       },
                       style: ButtonStyle(
+                        backgroundColor:
+                            WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return SoriTokens.primary;
+                          }
+                          return SoriTokens.chipIdleBg;
+                        }),
                         foregroundColor:
                             WidgetStateProperty.resolveWith((states) {
                           if (states.contains(WidgetState.selected)) {
-                            return MyApp.soriPurple;
+                            return SoriTokens.onPrimary;
                           }
-                          return const Color(0xFF6B7280);
+                          return SoriTokens.tabUnselected;
+                        }),
+                        iconColor:
+                            WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return SoriTokens.onPrimary;
+                          }
+                          return SoriTokens.tabUnselected;
                         }),
                       ),
                     ),
@@ -2329,9 +2367,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                                 }
                               });
                             },
-                            selectedColor:
-                                MyApp.soriPurple.withValues(alpha: 0.18),
-                            checkmarkColor: MyApp.soriPurple,
+                            selectedColor: SoriTokens.primary,
+                            checkmarkColor: SoriTokens.onPrimary,
                           );
                         }).toList(),
                       ),
@@ -2367,9 +2404,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                                 }
                               });
                             },
-                            selectedColor:
-                                MyApp.soriPurple.withValues(alpha: 0.18),
-                            checkmarkColor: MyApp.soriPurple,
+                            selectedColor: SoriTokens.primary,
+                            checkmarkColor: SoriTokens.onPrimary,
                           );
                         }).toList(),
                       ),
@@ -2522,9 +2558,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                                 }
                               });
                             },
-                            selectedColor:
-                                MyApp.soriPurple.withValues(alpha: 0.18),
-                            checkmarkColor: MyApp.soriPurple,
+                            selectedColor: SoriTokens.primary,
+                            checkmarkColor: SoriTokens.onPrimary,
                           );
                         }).toList(),
                       ),
@@ -2613,8 +2648,8 @@ class _MedicalChipGroup extends StatelessWidget {
               label: Text(label, style: const TextStyle(fontSize: 12)),
               selected: isSelected,
               onSelected: (_) => onToggle(label),
-              selectedColor: MyApp.soriPurple.withValues(alpha: 0.18),
-              checkmarkColor: MyApp.soriPurple,
+              selectedColor: SoriTokens.primary,
+              checkmarkColor: SoriTokens.onPrimary,
               side: BorderSide(
                 color: isSelected
                     ? MyApp.soriPurple.withValues(alpha: 0.45)

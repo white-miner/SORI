@@ -168,7 +168,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                       decoration: BoxDecoration(
                         color: selected
                             ? SoriTokens.primary
-                            : SoriTokens.primarySoft,
+                            : SoriTokens.chipIdleBg,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -177,9 +177,10 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                             labels[day.weekday - 1],
                             style: TextStyle(
                               fontSize: 10,
+                              fontWeight: FontWeight.w600,
                               color: selected
-                                  ? Colors.white70
-                                  : SoriTokens.textSecondary,
+                                  ? Colors.white
+                                  : SoriTokens.tabUnselected,
                             ),
                           ),
                           Text(
@@ -188,7 +189,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                               fontWeight: FontWeight.w800,
                               color: selected
                                   ? Colors.white
-                                  : SoriTokens.textPrimary,
+                                  : SoriTokens.textCharcoal,
                             ),
                           ),
                           if (count > 0)
@@ -200,7 +201,7 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                                 shape: BoxShape.circle,
                                 color: selected
                                     ? Colors.white
-                                    : SoriTokens.primary,
+                                    : SoriTokens.systemRed,
                               ),
                             ),
                         ],

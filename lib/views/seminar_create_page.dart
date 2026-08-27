@@ -235,19 +235,21 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
               children: SeminarClass.formatOptions.map((o) {
                 final selected = _format == o.value;
                 return ChoiceChip(
-                  label: Text(o.label),
+                  label: Text(
+                    o.label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: selected
+                          ? SoriTokens.onPrimary
+                          : SoriTokens.tabUnselected,
+                    ),
+                  ),
                   selected: selected,
                   onSelected: (_) => setState(() => _format = o.value),
-                  selectedColor: SoriTokens.primarySoft,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
-                  ),
-                  side: BorderSide(
-                    color: selected
-                        ? SoriTokens.primary.withValues(alpha: 0.5)
-                        : SoriTokens.border,
-                  ),
+                  selectedColor: SoriTokens.primary,
+                  backgroundColor: SoriTokens.chipIdleBg,
+                  side: BorderSide.none,
+                  showCheckmark: false,
                 );
               }).toList(),
             ),

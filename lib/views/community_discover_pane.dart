@@ -423,7 +423,7 @@ class DiscoverDirectorRow extends StatelessWidget {
                       onPressed: onToggle,
                       style: FilledButton.styleFrom(
                         backgroundColor: SoriTokens.primary,
-                        foregroundColor: Colors.black,
+                        foregroundColor: SoriTokens.onPrimary,
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

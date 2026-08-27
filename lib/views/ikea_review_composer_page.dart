@@ -309,13 +309,15 @@ class _IkeaReviewComposerPageState extends State<IkeaReviewComposerPage> {
                           }
                         });
                       },
-                      selectedColor: SoriTokens.primarySoft,
-                      checkmarkColor: SoriTokens.primary,
+                      selectedColor: SoriTokens.primary,
+                      backgroundColor: SoriTokens.chipIdleBg,
+                      checkmarkColor: SoriTokens.onPrimary,
+                      side: BorderSide.none,
                       labelStyle: TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: selected
-                            ? SoriTokens.primary
-                            : SoriTokens.textPrimary,
+                            ? SoriTokens.onPrimary
+                            : SoriTokens.tabUnselected,
                       ),
                     );
                   }).toList(),

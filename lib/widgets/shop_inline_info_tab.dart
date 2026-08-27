@@ -156,8 +156,8 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
                                       }
                                     });
                                   },
-                                  selectedColor: SoriTokens.primarySoft,
-                                  checkmarkColor: SoriTokens.primary,
+                                  selectedColor: SoriTokens.primary,
+                                  checkmarkColor: SoriTokens.onPrimary,
                                   labelStyle: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
@@ -637,8 +637,8 @@ Future<void> showShopOpsEditSheet(
                             }
                           });
                         },
-                        selectedColor: SoriTokens.primarySoft,
-                        checkmarkColor: SoriTokens.primary,
+                        selectedColor: SoriTokens.primary,
+                        checkmarkColor: SoriTokens.onPrimary,
                         labelStyle: TextStyle(
                           fontWeight: FontWeight.w800,
                           color: selected

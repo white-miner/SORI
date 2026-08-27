@@ -295,8 +295,8 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
                                     selected: selected,
                                     onSelected: (v) =>
                                         _toggleChip(index, chip, v),
-                                    selectedColor: SoriTokens.primarySoft,
-                                    checkmarkColor: SoriTokens.primary,
+                                    selectedColor: SoriTokens.primary,
+                                    checkmarkColor: SoriTokens.onPrimary,
                                     labelStyle: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 12,

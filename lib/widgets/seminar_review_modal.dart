@@ -196,8 +196,8 @@ class _SeminarReviewModalState extends State<SeminarReviewModal> {
                               }
                             });
                           },
-                    selectedColor: SoriTokens.primarySoft,
-                    checkmarkColor: SoriTokens.primary,
+                    selectedColor: SoriTokens.primary,
+                    checkmarkColor: SoriTokens.onPrimary,
                     side: BorderSide(
                       color: _selected.contains(tag)
                           ? SoriTokens.primary.withValues(alpha: 0.4)

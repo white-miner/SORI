@@ -619,7 +619,8 @@ class _FlatAppBarIcon extends StatelessWidget {
                   badgeCount > 9 ? '9+' : '$badgeCount',
                   style: const TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
                   ),
                 ),
                 child: iconWidget,

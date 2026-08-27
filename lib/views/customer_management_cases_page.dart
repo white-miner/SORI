@@ -338,8 +338,8 @@ class _CustomerManagementCasesPageState
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                           color: selected
-                              ? SoriTokens.primary
-                              : SoriTokens.textSecondary,
+                              ? SoriTokens.onPrimary
+                              : SoriTokens.tabUnselected,
                         ),
                       ),
                       selected: selected,
@@ -347,13 +347,9 @@ class _CustomerManagementCasesPageState
                         _category = cat;
                         _visibleCount = 8;
                       }),
-                      selectedColor: SoriTokens.primarySoft,
-                      backgroundColor: SoriTokens.surface,
-                      side: BorderSide(
-                        color: selected
-                            ? SoriTokens.primary.withValues(alpha: 0.45)
-                            : SoriTokens.outlinePurple,
-                      ),
+                      selectedColor: SoriTokens.primary,
+                      backgroundColor: SoriTokens.chipIdleBg,
+                      side: BorderSide.none,
                       showCheckmark: false,
                     ),
                   );

@@ -88,7 +88,7 @@ class _CommunityFollowingPaneState extends State<CommunityFollowingPane>
                 onPressed: widget.onOpenDiscover,
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: SoriTokens.onPrimary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 22,
                     vertical: 12,
@@ -161,7 +161,7 @@ class _FollowingEmpty extends StatelessWidget {
               onPressed: onDiscover,
               style: FilledButton.styleFrom(
                 backgroundColor: SoriTokens.primary,
-                foregroundColor: Colors.black,
+                foregroundColor: SoriTokens.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
