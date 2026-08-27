@@ -140,6 +140,7 @@ declare
   v_pw public.wallets%rowtype;
   v_sw public.wallets%rowtype;
   v_result jsonb;
+  v_row_count int;
 begin
   if v_uid is null then
     raise exception '로그인이 필요합니다.';
@@ -206,13 +207,13 @@ begin
     update public.customer_charts
     set customer_id = p_primary_id, updated_at = now()
     where customer_id = v_source_id;
-    get diagnostics v_charts_moved = row_count;
 
     -- Reviews
     update public.customer_reviews
     set customer_id = p_primary_id, updated_at = now()
     where customer_id = v_source_id;
-    get diagnostics v_reviews_moved = v_reviews_moved + row_count;
+    get diagnostics v_row_count = row_count;
+    v_reviews_moved := v_reviews_moved + v_row_count;
 
     -- Care diary (concat on date conflict)
     update public.care_diary_notes n
