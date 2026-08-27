@@ -53,52 +53,105 @@ Future<MediaPermissionGuideChoice> showMediaPermissionGuideDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
+      backgroundColor: SoriTokens.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text(
         '카메라 및 사진첩 접근 안내',
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+          color: SoriTokens.textCharcoal,
+        ),
       ),
       content: const Text(
         '고객님의 관리 전/후(B/A) 경과 비교 및 동의서 생성을 위해 '
         '사진첩 접근과 카메라 권한이 필요합니다.\n\n'
         '「항상 허용」을 선택하면 이 기기에서 사전 안내를 다시 묻지 않습니다.',
-        style: TextStyle(height: 1.45, fontWeight: FontWeight.w500),
-      ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        TextButton(
-          onPressed: () =>
-              Navigator.pop(ctx, MediaPermissionGuideChoice.cancel),
-          child: Text(
-            '취소',
-            style: TextStyle(
-              color: Theme.of(ctx).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+        style: TextStyle(
+          height: 1.45,
+          fontWeight: FontWeight.w500,
+          color: SoriTokens.textCharcoal,
         ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: () =>
-                  Navigator.pop(ctx, MediaPermissionGuideChoice.proceedOnce),
-              child: const Text(
-                '이번만',
-                style: TextStyle(fontWeight: FontWeight.w600),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        SizedBox(
+          width: double.infinity,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () =>
+                      Navigator.pop(ctx, MediaPermissionGuideChoice.cancel),
+                  style: TextButton.styleFrom(
+                    backgroundColor: SoriTokens.chipIdleBg,
+                    foregroundColor: SoriTokens.tabUnselected,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '취소',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: SoriTokens.tabUnselected,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.pop(ctx, MediaPermissionGuideChoice.alwaysAllow),
-              style: FilledButton.styleFrom(
-                backgroundColor: SoriTokens.primary,
-                foregroundColor: const Color(0xFF0A0A0C),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(
+                    ctx,
+                    MediaPermissionGuideChoice.proceedOnce,
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: SoriTokens.chipIdleBg,
+                    foregroundColor: SoriTokens.tabUnselected,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '이번만',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: SoriTokens.tabUnselected,
+                    ),
+                  ),
+                ),
               ),
-              child: const Text('항상 허용'),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(
+                    ctx,
+                    MediaPermissionGuideChoice.alwaysAllow,
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
+                    foregroundColor: SoriTokens.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '항상 허용',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.onPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -111,10 +164,16 @@ Future<void> showMediaPermissionDeniedDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
+      backgroundColor: SoriTokens.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text(
         '접근 권한 필요',
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+          color: SoriTokens.textCharcoal,
+        ),
       ),
       content: const Column(
         mainAxisSize: MainAxisSize.min,
@@ -123,7 +182,11 @@ Future<void> showMediaPermissionDeniedDialog(BuildContext context) {
           Text(
             '사진 촬영 및 불러오기를 위해 카메라/사진첩 접근 권한이 필요합니다. '
             '기기 설정에서 권한을 허용해 주세요.',
-            style: TextStyle(height: 1.45, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+              color: SoriTokens.textCharcoal,
+            ),
           ),
           SizedBox(height: 12),
           Text(
@@ -132,7 +195,7 @@ Future<void> showMediaPermissionDeniedDialog(BuildContext context) {
               height: 1.4,
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF4B5563),
+              color: SoriTokens.tabUnselected,
             ),
           ),
         ],
@@ -141,10 +204,16 @@ Future<void> showMediaPermissionDeniedDialog(BuildContext context) {
         FilledButton(
           onPressed: () => Navigator.pop(ctx),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF111827),
-            foregroundColor: Colors.white,
+            backgroundColor: SoriTokens.primary,
+            foregroundColor: SoriTokens.onPrimary,
           ),
-          child: const Text('확인'),
+          child: const Text(
+            '확인',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.onPrimary,
+            ),
+          ),
         ),
       ],
     ),

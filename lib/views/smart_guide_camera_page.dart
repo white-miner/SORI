@@ -346,6 +346,12 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   String? get _faceHintText {
+    if (_preset == GuidePreset.decollete) {
+      if (!_motionReady) return '어깨를 화면 안에 · 수평을 맞춰 주세요';
+      return _wasLevel
+          ? '어깨·수평 정렬됨'
+          : '양쪽 어깨를 프레임 안에 두고 수평을 맞추세요';
+    }
     if (!_faceAlignActive) return null;
     if (_mlLoading) return 'AI 준비 중';
     if (!_facePose.detected) return '얼굴을 찾는 중';
@@ -1530,71 +1536,156 @@ class _DecolleteGuidePainter extends CustomPainter {
 
   final bool leveled;
 
-  static const _guideWhite = Color(0xA6FFFFFF); // white @ ~65%
-
-  Color get _strokeColor =>
-      leveled ? SoriTokens.cameraYellow : _guideWhite;
-
-  void _strokePath(Canvas canvas, Path path, Color color, {double width = 1.8}) {
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
+  /// Ghost fill — ~10% charcoal/white mix for white & dark preview.
+  static const _ghostFill = Color(0x1AFFFFFF); // ~10% white
+  static const _ghostStroke = Color(0x33F1F1F1); // soft outline
+  static const _guideIdle = Color(0x66FFFFFF);
+  static const _guideLevel = SoriTokens.cameraYellow;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    final color = _strokeColor;
 
-    // 상반신 실루엣 — 역삼각형 + 어깨 아치
-    final shoulderY = h * 0.30;
-    final collarY = h * 0.38;
-    final bustY = h * 0.56;
-    final chinY = h * 0.68;
+    // Composition from clinical reference:
+    // head upper-center, both shoulders fully inside (~8% side margin),
+    // décolleté / clavicle in lower-middle third.
+    final headTop = h * 0.06;
+    final headBottom = h * 0.46;
+    final headWidth = w * 0.34;
+    final neckTop = headBottom - h * 0.02;
+    final shoulderY = h * 0.52;
+    final shoulderLeft = w * 0.08;
+    final shoulderRight = w * 0.92;
+    final torsoBottom = h * 0.78;
 
-    // 어깨선 아치 (넓은 상단)
-    final shoulderArch = Path()
-      ..moveTo(w * 0.10, shoulderY + h * 0.02)
-      ..quadraticBezierTo(cx, shoulderY - h * 0.04, w * 0.90, shoulderY + h * 0.02);
-    _strokePath(canvas, shoulderArch, color, width: leveled ? 2.2 : 1.6);
+    // Soft dim outside shoulder safe frame (pushes user to keep shoulders in).
+    final safe = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(shoulderLeft, headTop, shoulderRight, torsoBottom),
+          const Radius.circular(18),
+        ),
+      );
+    canvas.drawPath(
+      safe,
+      Paint()..color = Colors.black.withValues(alpha: 0.28),
+    );
 
-    // 좌·우 쇄골 V + 역삼각형 측면
-    final leftSilhouette = Path()
-      ..moveTo(cx, h * 0.18)
-      ..lineTo(cx, collarY - h * 0.02)
-      ..quadraticBezierTo(w * 0.34, collarY, w * 0.12, shoulderY)
-      ..quadraticBezierTo(w * 0.08, bustY, cx, chinY);
-    final rightSilhouette = Path()
-      ..moveTo(cx, h * 0.18)
-      ..lineTo(cx, collarY - h * 0.02)
-      ..quadraticBezierTo(w * 0.66, collarY, w * 0.88, shoulderY)
-      ..quadraticBezierTo(w * 0.92, bustY, cx, chinY);
-    _strokePath(canvas, leftSilhouette, color, width: leveled ? 2.0 : 1.5);
-    _strokePath(canvas, rightSilhouette, color, width: leveled ? 2.0 : 1.5);
+    // Ghost silhouette: head → neck → shoulders → upper chest
+    final ghost = Path()
+      ..moveTo(cx, headTop)
+      ..cubicTo(
+        cx - headWidth * 0.55,
+        headTop,
+        cx - headWidth * 0.58,
+        headBottom,
+        cx - headWidth * 0.22,
+        neckTop,
+      )
+      ..quadraticBezierTo(
+        cx - headWidth * 0.18,
+        shoulderY - h * 0.04,
+        shoulderLeft,
+        shoulderY,
+      )
+      ..quadraticBezierTo(
+        shoulderLeft - w * 0.01,
+        (shoulderY + torsoBottom) / 2,
+        cx - w * 0.12,
+        torsoBottom,
+      )
+      ..lineTo(cx + w * 0.12, torsoBottom)
+      ..quadraticBezierTo(
+        shoulderRight + w * 0.01,
+        (shoulderY + torsoBottom) / 2,
+        shoulderRight,
+        shoulderY,
+      )
+      ..quadraticBezierTo(
+        cx + headWidth * 0.18,
+        shoulderY - h * 0.04,
+        cx + headWidth * 0.22,
+        neckTop,
+      )
+      ..cubicTo(
+        cx + headWidth * 0.58,
+        headBottom,
+        cx + headWidth * 0.55,
+        headTop,
+        cx,
+        headTop,
+      )
+      ..close();
 
-    // 쇄골 수평 가이드
-    final collarLine = Path()
-      ..moveTo(w * 0.22, collarY)
-      ..lineTo(w * 0.78, collarY);
-    _strokePath(canvas, collarLine, color, width: leveled ? 2.0 : 1.4);
+    canvas.drawPath(ghost, Paint()..color = _ghostFill);
+    canvas.drawPath(
+      ghost,
+      Paint()
+        ..color = _ghostStroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
 
-    // 데콜테 하단 아치 (가슴 상단 곡선)
-    final bustArc = Path()
-      ..moveTo(w * 0.24, bustY - h * 0.02)
-      ..quadraticBezierTo(cx, bustY + h * 0.05, w * 0.76, bustY - h * 0.02);
-    _strokePath(
-      canvas,
-      bustArc,
-      color.withValues(alpha: leveled ? 0.92 : 0.72),
-      width: 1.4,
+    // Eye / symmetry axis (very faint)
+    final axisPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.18)
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(cx, headTop + h * 0.04),
+      Offset(cx, torsoBottom - h * 0.04),
+      axisPaint,
+    );
+
+    // Eye line (upper third) + clavicle / shoulder level line
+    final eyeY = h * 0.28;
+    final guide = leveled ? _guideLevel : _guideIdle;
+    final guidePaint = Paint()
+      ..color = guide
+      ..strokeWidth = leveled ? 2.0 : 1.3
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(Offset(cx - headWidth * 0.28, eyeY), Offset(cx - headWidth * 0.08, eyeY), guidePaint);
+    canvas.drawLine(Offset(cx + headWidth * 0.08, eyeY), Offset(cx + headWidth * 0.28, eyeY), guidePaint);
+
+    // Shoulder span brackets — both shoulders must sit inside these marks
+    final bracketPaint = Paint()
+      ..color = guide
+      ..strokeWidth = leveled ? 2.2 : 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    void shoulderBracket(double x, {required bool left}) {
+      final dir = left ? 1.0 : -1.0;
+      final path = Path()
+        ..moveTo(x + dir * 14, shoulderY - 10)
+        ..lineTo(x, shoulderY - 10)
+        ..lineTo(x, shoulderY + 10)
+        ..lineTo(x + dir * 14, shoulderY + 10);
+      canvas.drawPath(path, bracketPaint);
+    }
+
+    shoulderBracket(shoulderLeft, left: true);
+    shoulderBracket(shoulderRight, left: false);
+
+    // Continuous shoulder level guide between brackets
+    canvas.drawLine(
+      Offset(shoulderLeft + 16, shoulderY),
+      Offset(shoulderRight - 16, shoulderY),
+      Paint()
+        ..color = guide.withValues(alpha: leveled ? 0.95 : 0.55)
+        ..strokeWidth = leveled ? 1.8 : 1.2
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Tiny hint dots at clavicle center
+    canvas.drawCircle(
+      Offset(cx, shoulderY + h * 0.06),
+      2.2,
+      Paint()..color = guide.withValues(alpha: 0.7),
     );
   }
 
