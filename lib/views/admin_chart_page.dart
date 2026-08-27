@@ -177,10 +177,14 @@ class _AdminChartPageState extends State<AdminChartPage>
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: SoriTokens.textPrimary,
-          unselectedLabelColor: SoriTokens.textSecondary,
-          indicatorColor: SoriTokens.primary,
-          indicatorWeight: 2.5,
+          labelColor: SoriTokens.onPrimary,
+          unselectedLabelColor: SoriTokens.textCharcoal,
+          indicator: const BoxDecoration(
+            color: SoriTokens.primary,
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
           tabs: const [
             Tab(text: '타임라인'),
             Tab(text: 'Before/After'),
@@ -280,17 +284,13 @@ class _Header extends StatelessWidget {
                   height: 52,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF1A1A1A), Color(0xFF222222)],
-                    ),
+                    color: const Color(0xFFE5E5EA),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     customer.name.characters.first,
                     style: const TextStyle(
-                      color: SoriTokens.textPrimary,
+                      color: Color(0xFF111111),
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
                     ),
@@ -381,8 +381,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '1초 간편 차트',
                 subtitle: '신규 회차 작성',
                 icon: Icons.bolt_rounded,
-                iconColors: const [Color(0xFF143528), Color(0xFF1A3D30)],
-                iconFg: SoriTokens.primary,
+                iconBg: const Color(0xFFF4F4F5),
+                iconFg: const Color(0xFF111111),
                 onTap: onQuickChart,
               ),
             ),
@@ -392,8 +392,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '차트 관리',
                 subtitle: '열람 · 수정',
                 icon: Icons.folder_open_rounded,
-                iconColors: const [Color(0xFF0F2A22), Color(0xFF143528)],
-                iconFg: SoriTokens.primary,
+                iconBg: const Color(0xFFF4F4F5),
+                iconFg: const Color(0xFF111111),
                 onTap: onChartManage,
               ),
             ),
@@ -407,8 +407,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: '회원권 관리',
                 subtitle: '등록·수정',
                 icon: Icons.card_membership_rounded,
-                iconColors: const [Color(0xFF0F2A22), Color(0xFF12352A)],
-                iconFg: SoriTokens.primary,
+                iconBg: const Color(0xFFE5E5EA),
+                iconFg: const Color(0xFF111111),
                 onTap: onMembership,
               ),
             ),
@@ -418,8 +418,8 @@ class _QuickActionDashboard extends StatelessWidget {
                 title: 'B/A 비교',
                 subtitle: '경과 보기',
                 icon: Icons.compare_rounded,
-                iconColors: const [Color(0xFF1E2A3A), Color(0xFF252A40)],
-                iconFg: SoriTokens.primary,
+                iconBg: const Color(0xFFE5E5EA),
+                iconFg: const Color(0xFF111111),
                 onTap: onBeforeAfter,
               ),
             ),
@@ -435,7 +435,7 @@ class _BentoCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.iconColors,
+    required this.iconBg,
     required this.iconFg,
     required this.onTap,
   });
@@ -443,7 +443,7 @@ class _BentoCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final List<Color> iconColors;
+  final Color iconBg;
   final Color iconFg;
   final VoidCallback onTap;
 
@@ -472,9 +472,9 @@ class _BentoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _GlossyIcon(
+                _QuickIcon(
                   icon: icon,
-                  colors: iconColors,
+                  bg: iconBg,
                   fg: iconFg,
                   size: 42,
                 ),
@@ -505,16 +505,16 @@ class _BentoCard extends StatelessWidget {
   }
 }
 
-class _GlossyIcon extends StatelessWidget {
-  const _GlossyIcon({
+class _QuickIcon extends StatelessWidget {
+  const _QuickIcon({
     required this.icon,
-    required this.colors,
+    required this.bg,
     required this.fg,
     required this.size,
   });
 
   final IconData icon;
-  final List<Color> colors;
+  final Color bg;
   final Color fg;
   final double size;
 
@@ -524,44 +524,11 @@ class _GlossyIcon extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
+        color: bg,
         borderRadius: BorderRadius.circular(size * 0.34),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colors.last.withValues(alpha: 0.45),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 3,
-            left: 4,
-            right: 4,
-            height: size * 0.38,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(size),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.55),
-                    Colors.white.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Center(child: Icon(icon, color: fg, size: size * 0.46)),
-        ],
-      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: fg, size: size * 0.46),
     );
   }
 }

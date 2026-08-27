@@ -4,13 +4,13 @@ import 'sori_tokens.dart';
 
 /// Active chip — deep charcoal fill, white label.
 const BoxDecoration soriTabSelectedChip = BoxDecoration(
-  color: Color(0xFF111111),
+  color: Color(0xFF18181B),
   borderRadius: BorderRadius.all(Radius.circular(8)),
 );
 
 /// Inactive chip — light gray fill.
 const BoxDecoration soriTabUnselectedChip = BoxDecoration(
-  color: Color(0xFFF1F1F1),
+  color: Color(0xFFF4F4F5),
   borderRadius: BorderRadius.all(Radius.circular(8)),
 );
 
@@ -105,7 +105,7 @@ class _SoriYoutubeChip extends StatelessWidget {
     final labelColor =
         selected ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
     return Material(
-      color: selected ? const Color(0xFF111111) : const Color(0xFFF1F1F1),
+      color: selected ? const Color(0xFF18181B) : const Color(0xFFF4F4F5),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
