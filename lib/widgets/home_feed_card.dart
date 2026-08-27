@@ -505,40 +505,53 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          if (tags.isNotEmpty)
+          if (tags.isNotEmpty || hasBooking)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: tags.take(8).map((raw) {
-                  final label = raw.trim().startsWith('#')
-                      ? raw.trim()
-                      : '#${raw.trim()}';
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: SoriTokens.surfaceOverlay,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: SoriTokens.textSecondary,
-                        height: 1.2,
-                      ),
-                    ),
-                  );
-                }).toList(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: tags.isEmpty
+                        ? const SizedBox.shrink()
+                        : Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: tags.take(8).map((raw) {
+                              final label = raw.trim().startsWith('#')
+                                  ? raw.trim()
+                                  : '#${raw.trim()}';
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: SoriTokens.surfaceOverlay,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: SoriTokens.textSecondary,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                  ),
+                  if (hasBooking) ...[
+                    if (tags.isNotEmpty) const SizedBox(width: 8),
+                    _ReservationChip(onTap: widget.onBookingCta),
+                  ],
+                ],
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
             child: hasReview
                 ? CaseReviewInlineBlock(
                     review: review!,
@@ -558,30 +571,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     ),
                   ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: hasBooking
-                ? _naverBookingButton()
-                : OutlinedButton.icon(
-                    onPressed: widget.onShopProfile,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: SoriTokens.textSecondary,
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      minimumSize: const Size(double.infinity, 40),
-                    ),
-                    icon: const Icon(Icons.storefront_outlined, size: 16),
-                    label: const Text(
-                      '샵 보기',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-          ),
         ],
       ),
     );
@@ -598,27 +587,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
       return widget.onFanBoostPurchase;
     }
     return null;
-  }
-
-  Widget _naverBookingButton() {
-    return FilledButton.icon(
-      onPressed: widget.onBookingCta,
-      style: FilledButton.styleFrom(
-        backgroundColor: SoriTokens.primary,
-        foregroundColor: SoriTokens.onPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        minimumSize: const Size(double.infinity, 40),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      icon: const Icon(Icons.calendar_month_outlined, size: 16),
-      label: const Text(
-        '네이버 예약',
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-      ),
-    );
   }
 
   void _openMore() {
@@ -700,6 +668,48 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
           ),
         );
       },
+    );
+  }
+}
+
+/// YouTube-style minimal booking chip — wrap-content capsule beside hashtags.
+class _ReservationChip extends StatelessWidget {
+  const _ReservationChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  static const _bg = Color(0xFFF1F1F1);
+  static const _fg = Color(0xFF111111);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _bg,
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.calendar_month_outlined, size: 12, color: _fg),
+              SizedBox(width: 4),
+              Text(
+                '예약',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _fg,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
