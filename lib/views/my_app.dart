@@ -50,6 +50,7 @@ class _MyAppState extends State<MyApp> {
       ],
       scrollBehavior: const AppScrollBehavior(),
       theme: AppTheme.theme,
+      darkTheme: null,
       themeMode: ThemeMode.light,
       builder: (context, child) {
         return DefaultTextStyle(

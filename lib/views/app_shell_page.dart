@@ -386,7 +386,7 @@ class _SoriNavigationRail extends StatelessWidget {
             onDestinationSelected: onTap,
             labelType: NavigationRailLabelType.all,
             backgroundColor: Colors.transparent,
-            indicatorColor: Colors.white.withValues(alpha: 0.12),
+            indicatorColor: SoriTokens.tabCapsuleBg,
             selectedIconTheme:
                 const IconThemeData(color: SoriTokens.textPrimary),
             unselectedIconTheme:
@@ -514,7 +514,7 @@ class _FlatAppBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = Icon(icon, size: 22, color: Colors.white);
+    final iconWidget = Icon(icon, size: 22, color: SoriTokens.textCharcoal);
     return Tooltip(
       message: tooltip,
       child: IconButton(
@@ -524,7 +524,7 @@ class _FlatAppBarIcon extends StatelessWidget {
         splashRadius: 20,
         style: IconButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
+          foregroundColor: SoriTokens.textCharcoal,
           shadowColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,

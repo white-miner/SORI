@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/community_post.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../utils/whisper_feed.dart';
@@ -208,6 +209,11 @@ class _CommunityPageState extends State<CommunityPage>
                 controller: _tabs,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
+                indicator: const SoriCapsuleTabIndicator(),
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: SoriTokens.textCharcoal,
+                unselectedLabelColor: SoriTokens.tabUnselected,
+                dividerColor: Colors.transparent,
                 labelStyle: const TextStyle(fontSize: 14.5),
                 unselectedLabelStyle: const TextStyle(fontSize: 14.5),
                 tabs: const [

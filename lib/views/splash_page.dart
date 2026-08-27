@@ -8,6 +8,7 @@ import '../routing/sori_router.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tokens.dart';
 import '../widgets/sori_logo.dart';
 
 enum _SplashDest {
@@ -17,7 +18,7 @@ enum _SplashDest {
   review,
 }
 
-/// 위버스/캔바 스타일 스플래시 — 상단 80% 단색 + 하단 20% 앰비언트 글로우.
+/// White minimal splash — off-white canvas + centered brand logo.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key, this.initialToken});
 
@@ -118,54 +119,38 @@ class _SplashPageState extends State<SplashPage> {
     return _SplashDest.login;
   }
 
-  /// Monochrome splash — black base + subtle gray ambient.
-  static const RadialGradient _splashGlow = RadialGradient(
-    center: Alignment(0.0, 1.1),
-    radius: 0.85,
-    colors: [
-      Color(0xFF3A3A3A),
-      Color(0x80181818),
-      Color(0x20080808),
-      Color(0xFF000000),
-    ],
-    stops: [0.0, 0.35, 0.65, 1.0],
-  );
-
   @override
   Widget build(BuildContext context) {
     final logoWidth = SoriLogo.splashWidth(context);
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(gradient: _splashGlow),
-          ),
-          SafeArea(
-            child: Center(
+      backgroundColor: SoriTokens.background,
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
               child: SoriLogo(
                 width: logoWidth,
                 fit: BoxFit.contain,
               ),
             ),
-          ),
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: MediaQuery.paddingOf(context).bottom + 28,
-            child: Text(
-              'Copyright © SORI. All Rights Reserved.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w300,
-                color: Colors.white.withValues(alpha: 0.34),
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: MediaQuery.paddingOf(context).bottom + 28,
+              child: const Text(
+                'Copyright © SORI. All Rights Reserved.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: SoriTokens.tabUnselected,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

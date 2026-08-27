@@ -79,7 +79,7 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
       child: AspectRatio(
         aspectRatio: widget.aspectRatio,
         child: Material(
-          color: const Color(0xFF111113),
+          color: SoriTokens.surfaceOverlay,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -169,11 +169,11 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
     final url = slide.url?.trim() ?? '';
     if (url.isEmpty) {
       return ColoredBox(
-        color: const Color(0xFF111113),
+        color: SoriTokens.surfaceOverlay,
         child: Center(
           child: Text(
             slide.label.isEmpty ? '이미지' : slide.label,
-            style: const TextStyle(color: Colors.white54),
+            style: const TextStyle(color: SoriTokens.tabUnselected),
           ),
         ),
       );

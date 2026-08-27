@@ -246,8 +246,8 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                                     selected ? items[i].$2 : items[i].$1,
                                     size: 22,
                                     color: selected
-                                        ? SoriTokens.textPrimary
-                                        : SoriTokens.textTertiary,
+                                        ? SoriTokens.textCharcoal
+                                        : SoriTokens.tabUnselected,
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -260,8 +260,8 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                                           ? FontWeight.w800
                                           : FontWeight.w500,
                                       color: selected
-                                          ? SoriTokens.textSecondary
-                                          : SoriTokens.textTertiary,
+                                          ? SoriTokens.textCharcoal
+                                          : SoriTokens.tabUnselected,
                                     ),
                                   ),
                                 ],

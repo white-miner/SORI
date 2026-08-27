@@ -204,8 +204,8 @@ class _EntryHomePageState extends State<EntryHomePage>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF94A3B8),
+            fontWeight: FontWeight.w600,
+            color: SoriTokens.textCharcoal,
             height: 1.35,
             letterSpacing: 0.4,
           ),
@@ -216,8 +216,8 @@ class _EntryHomePageState extends State<EntryHomePage>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w400,
+            color: SoriTokens.tabUnselected,
             height: 1.5,
           ),
         ),
@@ -241,8 +241,8 @@ class _EntryHomePageState extends State<EntryHomePage>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w300,
-                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w400,
+                    color: SoriTokens.tabUnselected,
                   ),
                 ),
               ],
@@ -258,8 +258,8 @@ class _EntryHomePageState extends State<EntryHomePage>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w400,
+            color: SoriTokens.tabUnselected,
           ),
         ),
       ],
@@ -273,72 +273,45 @@ class _EntryHomePageState extends State<EntryHomePage>
         MediaQuery.sizeOf(context).height - viewPadding.vertical;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          // 위버스형 하단 방사 발광 (스플래시 다크와 동일)
-          gradient: RadialGradient(
-            center: Alignment(0.0, 1.1),
-            radius: 0.85,
-            colors: [
-              SoriTokens.primaryLight,
-              Color(0x80047857),
-              Color(0x20022C22),
-              Color(0xFF000000),
-            ],
-            stops: [0.0, 0.35, 0.65, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fade,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 600;
-                final horizontalPad = isWide ? 32.0 : 28.0;
-                final verticalPad = isWide ? 40.0 : 24.0;
+      backgroundColor: SoriTokens.background,
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fade,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 600;
+              final horizontalPad = isWide ? 32.0 : 28.0;
+              final verticalPad = isWide ? 40.0 : 24.0;
 
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPad,
-                      verticalPad,
-                      horizontalPad,
-                      verticalPad,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isWide ? 440 : double.infinity,
-                        minHeight: viewportHeight - verticalPad * 2,
-                      ),
-                      child: isWide
-                          ? DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: SoriTokens.surface.withValues(alpha: 0.92),
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.06),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 40,
-                                ),
-                                child: _buildContent(context, isWide: true),
-                              ),
-                            )
-                          : _buildContent(context, isWide: false),
-                    ),
+              return Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPad,
+                    verticalPad,
+                    horizontalPad,
+                    verticalPad,
                   ),
-                );
-              },
-            ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isWide ? 440 : double.infinity,
+                      minHeight: viewportHeight - verticalPad * 2,
+                    ),
+                    child: isWide
+                        ? DecoratedBox(
+                            decoration: SoriTokens.card(radius: 24),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 40,
+                              ),
+                              child: _buildContent(context, isWide: true),
+                            ),
+                          )
+                        : _buildContent(context, isWide: false),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

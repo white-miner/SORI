@@ -9,6 +9,7 @@ import '../models/shop.dart';
 import '../pages/case_detail_page.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/boost_purchase_sheet.dart';
@@ -396,6 +397,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 controller: _tabs,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
+                indicator: const SoriCapsuleTabIndicator(),
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: SoriTokens.textCharcoal,
+                unselectedLabelColor: SoriTokens.tabUnselected,
+                dividerColor: Colors.transparent,
                 tabs: const [
                   Tab(text: '추천'),
                   Tab(text: '탐색'),
@@ -665,25 +671,21 @@ class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
     String eyebrow,
     String title,
     String subtitle,
-    List<Color> colors,
   })>[
     (
       eyebrow: 'SORI SPOT',
       title: '이번 주 하이라이트 임상',
       subtitle: '장벽·민감 케어 B/A를 한눈에',
-      colors: [Color(0xFF064E3B), SoriTokens.primary, Color(0xFF0A0A0C)],
     ),
     (
       eyebrow: 'BOOKING',
       title: '마음에 드는 샵 예약하기',
       subtitle: 'B/A를 보고 네이버 예약으로 바로 연결',
-      colors: [Color(0xFF0F172A), Color(0xFF1E3A5F), Color(0xFF0A0A0C)],
     ),
     (
       eyebrow: 'LOCAL',
       title: '우리 지역 인기 샵',
       subtitle: '가까운 원장님의 관리 사례를 탐색',
-      colors: [Color(0xFF14532D), Color(0xFF064E3B), Color(0xFF0A0A0C)],
     ),
   ];
 
@@ -711,33 +713,18 @@ class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
           return Padding(
             padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
             child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: b.colors,
-                ),
-                border: Border.all(color: SoriTokens.outlinePurple, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
+              decoration: SoriTokens.card(radius: 20),
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     b.eyebrow,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: SoriTokens.tabUnselected,
                     ),
                   ),
                   const Spacer(),
@@ -746,17 +733,17 @@ class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: SoriTokens.textCharcoal,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     b.subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.78),
+                      color: SoriTokens.tabUnselected,
                       height: 1.35,
                     ),
                   ),
