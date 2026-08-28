@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/fan_supporter.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../views/my_page_fandom_hub.dart';
@@ -59,25 +61,28 @@ class _PeopleListSheetState extends State<_PeopleListSheet> {
     switch (widget.kind) {
       case PeopleListKind.supporter:
         await store.refreshShopSupporterHeader();
-        final header = store.shopSupporterHeader;
-        for (final s in FanSupporterEntry.ranked(header.facepile)) {
+        for (final s in FanSupporterEntry.ranked(store.shopSupporterHeader.facepile)) {
           rows.add(_PersonRow(
             id: s.customerId ?? '',
             name: s.name.trim().isEmpty ? 'Supporter' : s.name.trim(),
             subtitle: '${s.echoSpent}E',
             avatarUrl: s.avatarUrl,
+            routeKind: _PersonRouteKind.customer,
           ));
         }
+        break;
       case PeopleListKind.follower:
         await store.refreshShopSupporterHeader();
         final n = store.shopSupporterHeader.followerCount;
         if (n > 0) {
           rows.add(_PersonRow(
             id: 'followers',
-            name: 'Follower $n명',
-            subtitle: '팔로워 허브에서 관리',
+            name: 'Follower $n',
+            subtitle: 'Open Follower hub',
+            routeKind: _PersonRouteKind.fandomHub,
           ));
         }
+        break;
       case PeopleListKind.following:
         await store.refreshDiscoverDirectors(soft: true);
         for (final id in store.followedShopIds) {
@@ -87,11 +92,13 @@ class _PeopleListSheetState extends State<_PeopleListSheet> {
             id: id,
             name: d?.shopName.trim().isNotEmpty == true
                 ? d!.shopName.trim()
-                : '샵',
+                : 'Shop',
             subtitle: d?.nickname.trim() ?? '',
             avatarUrl: d?.avatarUrl,
+            routeKind: _PersonRouteKind.fandomHub,
           ));
         }
+        break;
     }
 
     if (!mounted) return;
@@ -103,7 +110,16 @@ class _PeopleListSheetState extends State<_PeopleListSheet> {
 
   Future<void> _openRow(_PersonRow row) async {
     Navigator.pop(context);
-    await MyPageFandomHubPage.open(context, store: widget.store);
+    switch (row.routeKind) {
+      case _PersonRouteKind.customer:
+        final cid = row.id.trim();
+        if (cid.isEmpty) return;
+        if (!context.mounted) return;
+        context.go(AppPaths.customerDetail(cid));
+      case _PersonRouteKind.fandomHub:
+        if (!context.mounted) return;
+        await MyPageFandomHubPage.open(context, store: widget.store);
+    }
   }
 
   @override
@@ -147,7 +163,7 @@ class _PeopleListSheetState extends State<_PeopleListSheet> {
                   : _rows.isEmpty
                       ? const Center(
                           child: Text(
-                            '아직 목록이 없어요.',
+                            'No entries yet.',
                             style: TextStyle(
                               color: SoriTokens.textSecondary,
                               fontWeight: FontWeight.w600,
@@ -211,10 +227,13 @@ class _PeopleListSheetState extends State<_PeopleListSheet> {
   }
 }
 
+enum _PersonRouteKind { customer, fandomHub }
+
 class _PersonRow {
   const _PersonRow({
     required this.id,
     required this.name,
+    required this.routeKind,
     this.subtitle = '',
     this.avatarUrl,
   });
@@ -223,4 +242,5 @@ class _PersonRow {
   final String name;
   final String subtitle;
   final String? avatarUrl;
+  final _PersonRouteKind routeKind;
 }

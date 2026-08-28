@@ -143,16 +143,16 @@ class _BaPostsPane extends StatelessWidget {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: SoriTokens.surface,
-          title: const Text('SNS 공유 동의 필요'),
+          title: const Text('SNS consent required'),
           content: Text(gate.alertMessage),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('취소'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('확인'),
+              child: const Text('OK'),
             ),
           ],
         ),

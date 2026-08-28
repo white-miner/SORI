@@ -76,7 +76,7 @@ class WhisperPostCard extends StatelessWidget {
                       ),
                       SizedBox(width: 4),
                       Text(
-                        '속삭임',
+                        'Whisper',
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
@@ -158,7 +158,7 @@ class WhisperPostCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '이 속삭임은 지정된 수신자만 볼 수 있어요.',
+                      'This Whisper is visible to selected recipients only.',
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.45,

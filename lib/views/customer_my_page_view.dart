@@ -152,7 +152,7 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                     ),
                   ),
                   IconButton(
-                    tooltip: '팔로워 · 구독',
+                    tooltip: 'Following',
                     onPressed: () {
                       MyPageFandomHubPage.open(context, store: store);
                     },

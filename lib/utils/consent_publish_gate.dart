@@ -32,9 +32,9 @@ extension ConsentPublishGateX on ConsentPublishGate {
 
   /// UI 배지용 짧은 라벨.
   String get badgeLabel => switch (this) {
-        ConsentPublishGate.ok => 'SNS 공유 가능',
-        ConsentPublishGate.notSigned => '동의 미체결',
-        ConsentPublishGate.offlineOnly => '원내만',
-        ConsentPublishGate.missingMarketing => 'SNS 동의 필요',
+        ConsentPublishGate.ok => 'SNS publish OK',
+        ConsentPublishGate.notSigned => 'Consent pending',
+        ConsentPublishGate.offlineOnly => 'Shop internal only',
+        ConsentPublishGate.missingMarketing => 'SNS consent needed',
       };
 }

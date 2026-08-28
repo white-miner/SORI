@@ -91,7 +91,7 @@ class _DeviceMarketListingsPageState extends State<DeviceMarketListingsPage> {
     final posts = widget.store.communityPosts.where((p) {
       if (p.listing == null) return false;
       if (scored.containsKey(p.id)) return true;
-      return matchesDevice(p, widget.deviceName);
+      return DeviceMarketListingsPage.matchesDevice(p, widget.deviceName);
     }).toList();
 
     posts.sort((a, b) {

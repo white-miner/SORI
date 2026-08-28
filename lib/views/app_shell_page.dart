@@ -136,10 +136,10 @@ class _AppShellPageState extends State<AppShellPage> {
 
   Future<void> _goHomeAndRefresh() async {
     if (_store.appHomeRefreshing) return;
-    _popRootOverlays();
     _store.closeCommentPanel();
-    widget.navigationShell.goBranch(0, initialLocation: true);
     if (mounted) context.go(AppPaths.appHome);
+    widget.navigationShell.goBranch(0, initialLocation: true);
+    _popRootOverlays();
     await _store.refreshAppHomeFromLogo();
   }
 
@@ -229,8 +229,10 @@ class _AppShellPageState extends State<AppShellPage> {
                 onPostFirst: (tab == 0 || onMy)
                     ? () => PostFirstCreationPage.open(context)
                     : null,
-                onArchive: (tab == 0 || tab == 3 || onMy) ? _openArchive : null,
-                onSettings: onMy ? _openSettings : null,
+                onArchive: wide || tab == 0 || tab == 3 || onMy
+                    ? _openArchive
+                    : null,
+                onSettings: wide || onMy ? _openSettings : null,
               );
 
         if (!wide) {

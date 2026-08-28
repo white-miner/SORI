@@ -30,7 +30,6 @@ import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import 'ai_shop_report_page.dart';
-import 'my_page_fandom_hub.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'seminar_class_open_page.dart';
 import 'seminar_feedback_inbox_page.dart';
@@ -552,8 +551,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 bio: _bio,
                 isOwner: isOwner,
                 onOpenSeminarTab: () => _tabController.animateTo(4),
-                onOpenFandom: () =>
-                    MyPageFandomHubPage.open(context, store: store),
               ),
               _ServiceGroupedFeedTab(
                 cases: cases,
@@ -924,7 +921,6 @@ class _HomeTabBody extends StatelessWidget {
     required this.bio,
     required this.isOwner,
     required this.onOpenSeminarTab,
-    required this.onOpenFandom,
   });
 
   final SoriStore store;
@@ -932,7 +928,6 @@ class _HomeTabBody extends StatelessWidget {
   final String bio;
   final bool isOwner;
   final VoidCallback onOpenSeminarTab;
-  final VoidCallback onOpenFandom;
 
   @override
   Widget build(BuildContext context) {
@@ -1047,33 +1042,6 @@ class _HomeTabBody extends StatelessWidget {
           avatarUrl: avatarUrl,
         ),
         const SizedBox(height: 20),
-        _SquircleCard(
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading:
-                const Icon(Icons.people_outline_rounded, color: SoriTokens.primary),
-            title: const Text(
-              '팔로워 · 구독',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: SoriTokens.textPrimary,
-              ),
-            ),
-            subtitle: Text(
-              store.subscriptionCount > 0
-                  ? '팔로잉 ${store.subscriptionCount} · 홈 탐색에서 원장 찾기'
-                  : '팔로잉 피드 · 원장 찾기는 홈 탐색',
-              style: const TextStyle(
-                fontSize: 12,
-                color: SoriTokens.textSecondary,
-              ),
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded,
-                color: SoriTokens.textSecondary),
-            onTap: onOpenFandom,
-          ),
-        ),
-        const SizedBox(height: 12),
         _SquircleCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
