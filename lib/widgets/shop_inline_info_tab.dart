@@ -11,6 +11,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import 'shop_equipment_strip_section.dart';
 import 'shop_gallery_home_section.dart';
+import 'shop_trust_score_card.dart';
 import 'sori_insta_picker.dart';
 
 /// Shop 탭 — 갤러리 · 샵 정보 · 메뉴 · 기기 (Home=소통 / Shop=정보).
@@ -36,6 +37,9 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
   void initState() {
     super.initState();
     store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      store.refreshShopTrustScore();
+    });
   }
 
   @override
@@ -242,6 +246,11 @@ class _ShopInlineInfoTabState extends State<ShopInlineInfoTab> {
       padding: const EdgeInsets.fromLTRB(0, 16, 0, 140),
       children: [
         ShopGalleryHomeSection(store: store, isOwner: widget.isOwner),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ShopTrustScoreCard(trust: store.shopTrustScore),
+        ),
         const SizedBox(height: 22),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),

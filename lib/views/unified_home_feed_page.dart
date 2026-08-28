@@ -16,6 +16,7 @@ import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
+import '../widgets/shop_trust_score_card.dart';
 import 'home_explore_tab.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
@@ -253,6 +254,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     }
 
     if (!mounted) return;
+    await store.refreshShopTrustScore(shop.id);
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
@@ -316,6 +319,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              ShopTrustScoreCard(
+                trust: store.trustScoreForShop(shop.id),
+                compact: true,
+              ),
               if (bio.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(

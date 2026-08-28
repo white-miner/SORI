@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../models/care_diary_note.dart';
 import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
@@ -22,6 +24,7 @@ import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
+import '../models/shop_trust_score.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -3466,6 +3469,61 @@ class MemorySoriRepository implements SoriRepository {
       pendingThanks: pending,
       estimatedTotalReach: reach,
     );
+  }
+
+  @override
+  Future<ShopTrustScore> loadShopTrustScore(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return ShopTrustScore.empty;
+
+    var bookmarks = 0;
+    var echo = 0;
+    var gifts = 0;
+    var thankYous = 0;
+
+    for (final g in _fanGifts) {
+      if (g['beneficiary_shop_id'] != sid) continue;
+      if (g['status'] != 'completed') continue;
+      final kind = g['gift_kind']?.toString() ?? '';
+      if (!kind.startsWith('boost')) continue;
+      gifts++;
+      echo += g['echo_spent'] as int? ?? 0;
+      final giftId = g['id']?.toString() ?? '';
+      if (_thankYouPostByGiftId.containsKey(giftId)) thankYous++;
+    }
+
+    for (final set in _caseBookmarksByUser.values) {
+      bookmarks += set.length;
+    }
+
+    final seminarCount =
+        _seminarClasses.where((c) => c.directorShopId == sid).length;
+    final thankRate = gifts > 0 ? thankYous / gifts : 0.0;
+    final raw = 15 * _ln(1 + bookmarks) +
+        25 * _ln(1 + echo / 50) +
+        10 * _ln(1 + gifts) +
+        10 * _ln(1 + seminarCount) +
+        20 * thankRate;
+    final score = raw.round().clamp(0, 100);
+
+    return ShopTrustScore(
+      score: score,
+      tierLabel: score >= 75
+          ? '검증된 레퍼런스'
+          : score >= 45
+              ? '신뢰 쌓이는 중'
+              : '성장 중',
+      bookmarkCount: bookmarks,
+      supporterEcho: echo,
+      supporterGiftCount: gifts,
+      seminarCount: seminarCount,
+      thankYouRate: thankRate,
+    );
+  }
+
+  static double _ln(num x) {
+    if (x <= 0) return 0;
+    return math.log(x.toDouble());
   }
 
   @override

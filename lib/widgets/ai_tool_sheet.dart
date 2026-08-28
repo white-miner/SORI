@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/ai_tool.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../widgets/case_kakao_share_button.dart';
 import '../services/ai_tool_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
@@ -344,6 +345,12 @@ class _AiToolSheetState extends State<AiToolSheet>
                     OutlinedButton(
                       onPressed: _copyMarketing,
                       child: const Text('복사'),
+                    ),
+                    const SizedBox(width: 8),
+                    CaseKakaoShareButton(
+                      title: _draft!.title,
+                      body: _draft!.marketingBody,
+                      shopName: widget.store.shop.name,
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton(

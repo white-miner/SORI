@@ -28,6 +28,7 @@ import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
+import '../models/shop_trust_score.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -4544,6 +4545,20 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('loadShopSponsorshipImpact failed: $e\n$st');
       return ShopSponsorshipImpact.empty;
+    }
+  }
+
+  @override
+  Future<ShopTrustScore> loadShopTrustScore(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return ShopTrustScore.empty;
+    try {
+      final raw = await _db.rpc('get_shop_trust_score', params: {'p_shop_id': sid});
+      if (raw is! Map) return ShopTrustScore.empty;
+      return ShopTrustScore.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('loadShopTrustScore failed: $e\n$st');
+      return ShopTrustScore.empty;
     }
   }
 

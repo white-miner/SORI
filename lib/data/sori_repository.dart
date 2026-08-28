@@ -23,6 +23,7 @@ import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
+import '../models/shop_trust_score.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
@@ -720,6 +721,9 @@ abstract class SoriRepository {
     String shopId, {
     int periodDays = 30,
   });
+
+  /// 샵 신뢰 스코어 (S5, 읽기 전용).
+  Future<ShopTrustScore> loadShopTrustScore(String shopId);
 
   /// 원장 → 후원자 감사 위스퍼 (1:1).
   Future<WhisperSendResult> sendThankYouWhisper({

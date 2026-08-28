@@ -42,6 +42,7 @@ import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
+import '../models/shop_trust_score.dart';
 import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
@@ -2852,6 +2853,8 @@ class SoriStore implements Listenable {
   List<MyBoostGiftItem> myBoostGifts = [];
   List<BoostGiftImpactReport> boostGiftImpactReports = [];
   ShopSponsorshipImpact shopSponsorshipImpact = ShopSponsorshipImpact.empty;
+  ShopTrustScore shopTrustScore = ShopTrustScore.empty;
+  final Map<String, ShopTrustScore> trustScoreByShopId = {};
   Set<String> bookmarkedChartIds = {};
 
   Future<SoriPointWallet> refreshCustomerEchoWallet() async {
@@ -3056,6 +3059,30 @@ class SoriStore implements Listenable {
     } catch (e, st) {
       debugPrint('refreshShopSponsorshipImpact failed: $e\n$st');
     }
+  }
+
+  Future<ShopTrustScore> refreshShopTrustScore([String? shopId]) async {
+    final sid = (shopId ?? shop.id).trim();
+    if (sid.isEmpty) return ShopTrustScore.empty;
+    try {
+      final score = await _repository.loadShopTrustScore(sid);
+      trustScoreByShopId[sid] = score;
+      if (sid == shop.id.trim()) {
+        shopTrustScore = score;
+      }
+      _notify();
+      return score;
+    } catch (e, st) {
+      debugPrint('refreshShopTrustScore failed: $e\n$st');
+      return ShopTrustScore.empty;
+    }
+  }
+
+  ShopTrustScore trustScoreForShop(String shopId) {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return ShopTrustScore.empty;
+    if (sid == shop.id.trim()) return shopTrustScore;
+    return trustScoreByShopId[sid] ?? ShopTrustScore.empty;
   }
 
   Future<WhisperSendResult?> sendThankYouWhisperForGift({
