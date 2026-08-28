@@ -25,6 +25,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
+import '../models/my_boost_gift.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -4445,6 +4446,77 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('loadShopNotifications failed: $e\n$st');
       return const [];
     }
+  }
+
+  @override
+  Future<List<SupporterNotificationItem>> loadSupporterNotifications(
+    String shopId, {
+    int limit = 30,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final raw = await _db.rpc(
+        'list_pending_supporter_notifications',
+        params: {'p_shop_id': sid, 'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => SupporterNotificationItem.fromMap(
+                Map<String, dynamic>.from(e),
+              ))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadSupporterNotifications failed: $e\n$st');
+      final rows = await loadShopNotifications(sid, limit: limit);
+      return rows
+          .where((n) =>
+              n['kind'] == 'fan_boost' || n['kind'] == 'special_supporter')
+          .map((e) => SupporterNotificationItem.fromMap(e))
+          .toList();
+    }
+  }
+
+  @override
+  Future<List<MyBoostGiftItem>> loadMyBoostGifts(
+    String customerId, {
+    int limit = 50,
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return const [];
+    try {
+      final raw = await _db.rpc(
+        'list_my_boost_gifts_for_customer',
+        params: {'p_customer_id': cid, 'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => MyBoostGiftItem.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadMyBoostGifts failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<WhisperSendResult> sendThankYouWhisper({
+    required String fanGiftId,
+    String body = '',
+  }) async {
+    final id = fanGiftId.trim();
+    if (id.isEmpty) throw StateError('fan_gift_id required');
+    final raw = await _db.rpc(
+      'send_thank_you_whisper',
+      params: {'p_fan_gift_id': id, 'p_body': body},
+    );
+    final map = _asJsonMap(raw);
+    if (map == null || map['ok'] != true) {
+      throw StateError('send_thank_you_whisper failed');
+    }
+    return WhisperSendResult.fromMap(map);
   }
 
   @override

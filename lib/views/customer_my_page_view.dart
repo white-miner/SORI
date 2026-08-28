@@ -14,6 +14,7 @@ import '../widgets/debug_mode_chip.dart';
 import 'customer_review_dashboard_page.dart';
 import 'my_info_edit_page.dart';
 import 'my_page_fandom_hub.dart';
+import 'my_boost_gifts_page.dart';
 
 /// 고객 모드 마이페이지 — Weverse형 4탭 (여정 / 회원권 / 리뷰 / 스크랩).
 class CustomerMyPageView extends StatefulWidget {
@@ -43,6 +44,7 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
     _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshMembershipWallet();
+      store.refreshMyBoostGifts();
     });
   }
 
@@ -139,6 +141,16 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                     ),
                   ),
                   if (kDebugMode) const DebugModeChip(),
+                  IconButton(
+                    tooltip: '내가 후원한 케이스',
+                    onPressed: () {
+                      MyBoostGiftsPage.open(context, store: store);
+                    },
+                    icon: const Icon(
+                      Icons.volunteer_activism_outlined,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
                   IconButton(
                     tooltip: '팔로워 · 구독',
                     onPressed: () {

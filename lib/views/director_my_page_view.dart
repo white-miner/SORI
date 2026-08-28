@@ -34,6 +34,7 @@ import 'ai_shop_report_page.dart';
 import 'app_settings_page.dart';
 import 'whisper_composer_sheet.dart';
 import 'my_page_fandom_hub.dart';
+import '../widgets/supporter_notifications_sheet.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'message_history_page.dart';
 import 'post_first_creation_page.dart';
@@ -67,6 +68,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
     unawaited(store.refreshShopSupporterHeader());
+    unawaited(store.refreshShopNotifications());
   }
 
   @override
@@ -469,6 +471,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final topInset = MediaQuery.paddingOf(context).top;
     final heroExpanded = 320 + topInset;
     final badgeCount = _notificationBadgeCount(session);
+    final supporterPending =
+        store.supporterNotifications.where((e) => e.canThank).length;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(
@@ -514,6 +518,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     onSettings: _openSettings,
                     onComposeWhisper: () =>
                         showWhisperComposer(context, store: store),
+                    onOpenSupporterInbox: _openSupporterInbox,
+                    supporterInboxBadge: supporterPending,
                     onOpenFandom: () =>
                         MyPageFandomHubPage.open(context, store: store),
                   ),
@@ -580,6 +586,10 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     return 0;
   }
 
+  Future<void> _openSupporterInbox() async {
+    await showSupporterNotificationsSheet(context, store: store);
+  }
+
   Future<void> _openNotifications() async {
     await pushRootPage<void>(
       context,
@@ -616,6 +626,8 @@ class _ShopHeroCover extends StatelessWidget {
     required this.onNotifications,
     required this.onSettings,
     required this.onComposeWhisper,
+    required this.onOpenSupporterInbox,
+    this.supporterInboxBadge = 0,
     required this.onOpenFandom,
     this.onCoverPick,
     this.coverUploading = false,
@@ -631,6 +643,8 @@ class _ShopHeroCover extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback onSettings;
   final VoidCallback onComposeWhisper;
+  final VoidCallback onOpenSupporterInbox;
+  final int supporterInboxBadge;
   final VoidCallback onOpenFandom;
   final VoidCallback? onCoverPick;
   final bool coverUploading;
@@ -724,6 +738,12 @@ class _ShopHeroCover extends StatelessWidget {
                     tooltip: '속삭임 작성',
                     icon: Icons.lock_outline_rounded,
                     onPressed: onComposeWhisper,
+                  ),
+                  _HeroOverlayIcon(
+                    tooltip: '후원 알림',
+                    icon: Icons.volunteer_activism_outlined,
+                    onPressed: onOpenSupporterInbox,
+                    badgeCount: supporterInboxBadge,
                   ),
                   _HeroOverlayIcon(
                     tooltip: '팔로워 · 구독',

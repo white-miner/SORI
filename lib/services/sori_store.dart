@@ -39,6 +39,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
+import '../models/my_boost_gift.dart';
 import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
@@ -2845,6 +2846,8 @@ class SoriStore implements Listenable {
 
   SoriPointWallet customerEchoWallet = SoriPointWallet.empty;
   List<Map<String, dynamic>> shopNotifications = [];
+  List<SupporterNotificationItem> supporterNotifications = [];
+  List<MyBoostGiftItem> myBoostGifts = [];
 
   Future<SoriPointWallet> refreshCustomerEchoWallet() async {
     final cid = session?.customerId?.trim() ?? '';
@@ -3015,9 +3018,54 @@ class SoriStore implements Listenable {
     try {
       shopNotifications =
           await _repository.loadShopNotifications(sid, limit: 20);
+      supporterNotifications =
+          await _repository.loadSupporterNotifications(sid, limit: 30);
       _notify();
     } catch (e, st) {
       debugPrint('refreshShopNotifications failed: $e\n$st');
+    }
+  }
+
+  Future<void> refreshMyBoostGifts() async {
+    final cid = session?.customerId?.trim() ?? '';
+    if (cid.isEmpty) return;
+    try {
+      myBoostGifts = await _repository.loadMyBoostGifts(cid, limit: 50);
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshMyBoostGifts failed: $e\n$st');
+    }
+  }
+
+  Future<WhisperSendResult?> sendThankYouWhisperForGift({
+    required String fanGiftId,
+    String body = '',
+  }) async {
+    final id = fanGiftId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final result = await _repository.sendThankYouWhisper(
+        fanGiftId: id,
+        body: body,
+      );
+      await refreshSupporterNotificationsOnly();
+      await refreshCommunityPosts();
+      return result;
+    } catch (e, st) {
+      debugPrint('sendThankYouWhisperForGift failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  Future<void> refreshSupporterNotificationsOnly() async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) return;
+    try {
+      supporterNotifications =
+          await _repository.loadSupporterNotifications(sid, limit: 30);
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshSupporterNotificationsOnly failed: $e\n$st');
     }
   }
 

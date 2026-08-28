@@ -20,6 +20,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
+import '../models/my_boost_gift.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
@@ -692,6 +693,24 @@ abstract class SoriRepository {
   Future<List<Map<String, dynamic>>> loadShopNotifications(
     String shopId, {
     int limit = 20,
+  });
+
+  /// 원장 후원 알림 — 감사 위스퍼 대기 목록.
+  Future<List<SupporterNotificationItem>> loadSupporterNotifications(
+    String shopId, {
+    int limit = 30,
+  });
+
+  /// 고객이 후원한 케이스 목록.
+  Future<List<MyBoostGiftItem>> loadMyBoostGifts(
+    String customerId, {
+    int limit = 50,
+  });
+
+  /// 원장 → 후원자 감사 위스퍼 (1:1).
+  Future<WhisperSendResult> sendThankYouWhisper({
+    required String fanGiftId,
+    String body = '',
   });
 
   /// 원장 샵 세미나 클래스 목록 (최신순).

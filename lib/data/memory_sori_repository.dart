@@ -19,6 +19,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
+import '../models/my_boost_gift.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -2007,6 +2008,8 @@ class MemorySoriRepository implements SoriRepository {
   static final List<SettlementTransaction> _settlementTx = [];
   static final List<BoostPlacement> _boosts = [];
   static final List<PremiumOverlay> _premiumOverlays = [];
+  static final List<Map<String, dynamic>> _fanGifts = [];
+  static final Map<String, String> _thankYouPostByGiftId = {};
   static final List<Map<String, dynamic>> _shopNotifications = [];
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
@@ -2015,6 +2018,8 @@ class MemorySoriRepository implements SoriRepository {
   static void resetFanBoostStateForTest() {
     _boosts.clear();
     _premiumOverlays.clear();
+    _fanGifts.clear();
+    _thankYouPostByGiftId.clear();
     _shopNotifications.clear();
   }
 
@@ -2847,6 +2852,21 @@ class MemorySoriRepository implements SoriRepository {
     );
     _boosts.insert(0, placement);
 
+    final giftId = 'fg-${DateTime.now().millisecondsSinceEpoch}';
+    _fanGifts.insert(0, {
+      'id': giftId,
+      'beneficiary_shop_id': resolvedShop,
+      'target_type': type,
+      'target_id': targetId,
+      'fan_customer_id': customerId,
+      'fan_display_name': name,
+      'gift_kind': 'boost',
+      'sku': item.sku,
+      'echo_spent': item.pricePoints,
+      'status': 'completed',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
     final shopAfter = _walletOf(resolvedShop);
     assert(shopAfter.settlementBalance == settlementBefore);
 
@@ -2858,8 +2878,11 @@ class MemorySoriRepository implements SoriRepository {
       'body': '$name님이 부스터를 지원했습니다',
       'payload': {
         'placement_id': placement.id,
+        'fan_gift_id': giftId,
         'customer_id': customerId,
         'fan_name': name,
+        'supporter_name': name,
+        'chart_id': type == 'chart' ? targetId : null,
       },
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -2986,6 +3009,23 @@ class MemorySoriRepository implements SoriRepository {
     );
     _premiumOverlays.insert(0, overlay);
 
+    final giftId = 'fg-${DateTime.now().millisecondsSinceEpoch}';
+    final giftKind =
+        tier == 'platinum' ? 'boost_special_platinum' : 'boost_special_gold';
+    _fanGifts.insert(0, {
+      'id': giftId,
+      'beneficiary_shop_id': resolvedShop,
+      'target_type': type,
+      'target_id': targetId,
+      'fan_customer_id': customerId,
+      'fan_display_name': name,
+      'gift_kind': giftKind,
+      'sku': item.sku,
+      'echo_spent': item.pricePoints,
+      'status': 'completed',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
     final shopAfter = _walletOf(resolvedShop);
     assert(shopAfter.settlementBalance == settlementBefore);
 
@@ -2997,9 +3037,12 @@ class MemorySoriRepository implements SoriRepository {
       'body': '$name님이 ${tier == 'platinum' ? '플래티넘' : '골드'} 스페셜 후원을 보냈습니다',
       'payload': {
         'overlay_id': overlay.id,
+        'fan_gift_id': giftId,
         'customer_id': customerId,
         'tier': tier,
         'fan_name': name,
+        'supporter_name': name,
+        'chart_id': type == 'chart' ? targetId : null,
       },
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -3254,6 +3297,118 @@ class MemorySoriRepository implements SoriRepository {
         .take(limit)
         .map((e) => Map<String, dynamic>.from(e))
         .toList(growable: false);
+  }
+
+  @override
+  Future<List<SupporterNotificationItem>> loadSupporterNotifications(
+    String shopId, {
+    int limit = 30,
+  }) async {
+    final rows = await loadShopNotifications(shopId, limit: limit);
+    return rows
+        .where((n) =>
+            n['kind'] == 'fan_boost' || n['kind'] == 'special_supporter')
+        .map((n) {
+          final payload = n['payload'];
+          final p = payload is Map
+              ? Map<String, dynamic>.from(payload)
+              : <String, dynamic>{};
+          final giftId = p['fan_gift_id']?.toString() ?? '';
+          return SupporterNotificationItem(
+            id: n['id']?.toString() ?? '',
+            kind: n['kind']?.toString() ?? 'fan_boost',
+            title: n['title']?.toString() ?? '',
+            body: n['body']?.toString() ?? '',
+            createdAt: DateTime.tryParse(n['created_at']?.toString() ?? ''),
+            fanGiftId: giftId.isEmpty ? null : giftId,
+            chartId: p['chart_id']?.toString(),
+            supporterName: p['supporter_name']?.toString() ??
+                p['fan_name']?.toString() ??
+                '후원자',
+            supporterCustomerId: p['customer_id']?.toString(),
+            hasThankYou: giftId.isNotEmpty &&
+                _thankYouPostByGiftId.containsKey(giftId),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<MyBoostGiftItem>> loadMyBoostGifts(
+    String customerId, {
+    int limit = 50,
+  }) async {
+    final cid = customerId.trim();
+    final items = <MyBoostGiftItem>[];
+    for (final g in _fanGifts) {
+      if (g['fan_customer_id'] != cid) continue;
+      if (g['status'] != 'completed') continue;
+      final giftId = g['id']?.toString() ?? '';
+      String shopName = 'SORI';
+      final shopId = g['beneficiary_shop_id']?.toString() ?? '';
+      try {
+        final hot = await loadCommunityHotCases(limit: 80);
+        for (final c in hot) {
+          if (c.shop.id == shopId) {
+            shopName = c.shop.name;
+            break;
+          }
+        }
+      } catch (_) {}
+      items.add(MyBoostGiftItem(
+        fanGiftId: giftId,
+        targetType: g['target_type']?.toString() ?? 'chart',
+        chartId: g['target_id']?.toString(),
+        shopId: shopId,
+        shopName: shopName,
+        sku: g['sku']?.toString() ?? '',
+        echoSpent: g['echo_spent'] as int? ?? 0,
+        giftKind: g['gift_kind']?.toString() ?? 'boost',
+        createdAt: DateTime.tryParse(g['created_at']?.toString() ?? ''),
+        caseTitle: '케이스',
+        hasThankYou: _thankYouPostByGiftId.containsKey(giftId),
+        thankYouPostId: _thankYouPostByGiftId[giftId],
+      ));
+      if (items.length >= limit) break;
+    }
+    return items;
+  }
+
+  @override
+  Future<WhisperSendResult> sendThankYouWhisper({
+    required String fanGiftId,
+    String body = '',
+  }) async {
+    final id = fanGiftId.trim();
+    if (id.isEmpty) throw StateError('fan_gift_id required');
+    if (_thankYouPostByGiftId.containsKey(id)) {
+      throw StateError('already thanked');
+    }
+    final gift = _fanGifts.cast<Map<String, dynamic>?>().firstWhere(
+          (g) => g?['id'] == id,
+          orElse: () => null,
+        );
+    if (gift == null) throw StateError('fan_gift not found');
+    final text = body.trim().isEmpty
+        ? '${gift['fan_display_name']}님, 후원해 주셔서 감사합니다!'
+        : body.trim();
+    final postId = 'cp-thank-${DateTime.now().millisecondsSinceEpoch}';
+    _thankYouPostByGiftId[id] = postId;
+    _communityPosts.insert(
+      0,
+      CommunityPost(
+        id: postId,
+        shopId: gift['beneficiary_shop_id']?.toString() ?? 'shop-demo',
+        authorUserId: 'memory-director',
+        postType: CommunityPostType.caseShare,
+        body: text,
+        isWhisper: true,
+        whisperRecipientCount: 1,
+        shopName: 'SORI',
+        createdAt: DateTime.now(),
+      ),
+    );
+    return WhisperSendResult(postId: postId, recipientCount: 1);
   }
 
   @override

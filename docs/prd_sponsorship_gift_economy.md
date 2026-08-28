@@ -36,7 +36,8 @@
 | 후원자 명칭 UI | ✅ `080` + Flutter v3 카피 |
 | 마이페이지 Facepile 간판 | ✅ `get_shop_supporter_header` + `ShopSupporterHeaderBanner` |
 | 후원자 대시보드 (3종 정렬) | ✅ `SupporterDashboardSheet` |
-| 감사 위스퍼 숏컷 | ⏳ Phase 2 |
+| 감사 위스퍼 숏컷 | ✅ `082` + `ThankYouWhisperSheet` |
+| 내가 후원한 게시물 | ✅ `list_my_boost_gifts` + `MyBoostGiftsPage` |
 
 ---
 
@@ -95,12 +96,12 @@
 | S1 | Boost & Fill + 오로라 + Facepile | ✅ Shipped |
 | S1a | 후원자 명칭 + 080 | ✅ Shipped |
 | S1c | 마이페이지 Facepile + 대시보드 | ✅ Shipped |
-| S2 | 감사 위스퍼 숏컷 + 내가 후원한 게시물 | ⏳ |
+| S2 | 감사 위스퍼 숏컷 + 내가 후원한 게시물 | ✅ Shipped |
 
 ---
 
 ## 6. PO 배포 체크리스트
 
-1. Supabase: `078`, `079`, `080` SQL 적용
+1. Supabase: `078`–`082` SQL 적용
 2. Edge: `ai-case-story` 재배포
 3. Web: `main` push → GitHub Pages 자동 배포
