@@ -60,7 +60,7 @@ class AppSettingsPage extends StatelessWidget {
                         ),
                         subtitle: Text(
                           isDirector
-                              ? '고객 모드로 전환하면 팬덤 홈을 볼 수 있어요'
+                              ? '고객 모드로 전환하면 팔로워 홈을 볼 수 있어요'
                               : '원장 모드로 전환하면 샵 관리 대시보드를 열어요',
                           style: TextStyle(
                             fontSize: 12,

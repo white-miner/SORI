@@ -7,7 +7,7 @@ import '../widgets/before_after_slider.dart';
 import '../widgets/feed_ba_frame.dart';
 import '../widgets/sori_logo.dart';
 
-/// 원장 브랜드 팬덤 프로필 — 소식 · B/A 케이스 · 스토리.
+/// 원장 브랜드 프로필 — 소식 · B/A 케이스 · 스토리.
 class DirectorFandomProfilePage extends StatefulWidget {
   const DirectorFandomProfilePage({super.key, required this.store});
 
@@ -70,7 +70,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text(
-          '원장 팬덤 프로필',
+          '원장 프로필',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         backgroundColor: SoriTokens.surface,
@@ -138,7 +138,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            on ? '단골 팬으로 등록했어요' : '단골 팬 등록을 해제했어요',
+                            on ? '팔로워로 등록했어요' : '팔로우를 해제했어요',
                           ),
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -150,7 +150,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                           : Icons.favorite_border_rounded,
                     ),
                     label: Text(
-                      following ? '단골 팬 · 팔로잉' : '단골 팬 등록 / 팔로우',
+                      following ? '팔로워 · 팔로잉' : '팔로우',
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     style: FilledButton.styleFrom(

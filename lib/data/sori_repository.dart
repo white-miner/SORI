@@ -20,6 +20,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/fan_supporter.dart';
+import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -646,6 +647,16 @@ abstract class SoriRepository {
     required List<String> targetIds,
     String targetType = 'chart',
     int limitPerTarget = 50,
+  });
+
+  /// 샵 단위 후원자 헤더 (마이페이지 Facepile).
+  Future<ShopSupporterHeader> loadShopSupporterHeader(String shopId);
+
+  /// 샵 후원자 목록 — echo_desc | recent | count_desc.
+  Future<List<FanSupporterEntry>> loadShopSupporters(
+    String shopId, {
+    String sort = 'echo_desc',
+    int limit = 50,
   });
 
   /// 세그먼트별 스코어 부스터 후보 (059).

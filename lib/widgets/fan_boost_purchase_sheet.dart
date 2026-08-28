@@ -5,7 +5,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'insufficient_points_sheet.dart';
 
-/// 고객 Fan-Boost 구매 시트 — 부족 시 55E IAP 원탭.
+/// 부스터 후원 구매 시트 — 부족 시 55E IAP 원탭.
 Future<bool> showFanBoostPurchaseSheet(
   BuildContext context, {
   required SoriStore store,
@@ -46,7 +46,7 @@ Future<bool> showFanBoostPurchaseSheet(
                   store: store,
                   need: item.pricePoints,
                   have: bal,
-                  productLabel: 'Fan-Boost',
+                  productLabel: '부스터 후원',
                   useCustomerWallet: true,
                 );
                 if (charged != true || !ctx.mounted) {
@@ -68,7 +68,7 @@ Future<bool> showFanBoostPurchaseSheet(
                   store: store,
                   need: result.need > 0 ? result.need : item.pricePoints,
                   have: result.have,
-                  productLabel: 'Fan-Boost',
+                  productLabel: '부스터 후원',
                   useCustomerWallet: true,
                 );
                 if (charged == true && ctx.mounted) {
@@ -92,7 +92,7 @@ Future<bool> showFanBoostPurchaseSheet(
                 SnackBar(
                   content: Text(
                     result.message.isEmpty
-                        ? 'Fan-Boost에 실패했습니다.'
+                        ? '부스터 후원에 실패했습니다.'
                         : result.message,
                   ),
                   behavior: SnackBarBehavior.floating,
@@ -102,7 +102,7 @@ Future<bool> showFanBoostPurchaseSheet(
               if (!ctx.mounted) return;
               ScaffoldMessenger.of(ctx).showSnackBar(
                 const SnackBar(
-                  content: Text('Fan-Boost 실패. 마이그레이션 057을 확인해 주세요.'),
+                  content: Text('부스터 후원 실패. 마이그레이션을 확인해 주세요.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -139,7 +139,7 @@ Future<bool> showFanBoostPurchaseSheet(
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Fan-Boost',
+                    '🔥 부스터 후원',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
@@ -150,7 +150,7 @@ Future<bool> showFanBoostPurchaseSheet(
                   Text(
                     caseTitle.trim().isEmpty
                         ? '내 Echo로 원장님 케이스를 「우리 지역」 상단에 올려요. 닉네임이 피드에 공개됩니다 · 정산금 변동 없음.'
-                        : '「$caseTitle」를 Fan-Boost로 고정합니다. 내 닉네임이 스폰서로 노출됩니다.',
+                        : '「$caseTitle」에 부스터를 지원합니다. 내 닉네임이 후원자로 노출됩니다.',
                     style: const TextStyle(
                       fontSize: 13,
                       color: SoriTokens.textSecondary,
@@ -171,8 +171,8 @@ Future<bool> showFanBoostPurchaseSheet(
                     ),
                     child: Text(
                       (store.session?.name ?? '').trim().isNotEmpty
-                          ? '🔥 스폰서 표기: ${(store.session?.name ?? '').trim()} (익명 불가)'
-                          : '🔥 스폰서 닉네임이 피드·상세에 강제 노출됩니다 (익명 불가)',
+                          ? '🔥 후원자 표기: ${(store.session?.name ?? '').trim()} (익명 불가)'
+                          : '🔥 후원자 닉네임이 피드·상세에 공개됩니다 (익명 불가)',
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,

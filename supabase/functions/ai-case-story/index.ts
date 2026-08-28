@@ -111,6 +111,57 @@ function userPromptForMode(mode: string, deid: DeIdentifiedPayload): string {
   return `${base}\nSORI B/A 피드용 마케팅 스토리를 작성하세요.`;
 }
 
+async function applyFanBoostFill(
+  admin: ReturnType<typeof createClient>,
+  chartId: string,
+  payload: {
+    title: string;
+    body: string;
+    clinical_report: string;
+    source: string;
+  },
+  fanGiftId?: string | null,
+): Promise<void> {
+  const body = payload.body.trim();
+  const clinical = payload.clinical_report.trim();
+  const combined = clinical ? `${body}\n\n${clinical}` : body;
+  if (!body) return;
+
+  await admin
+    .from("customer_charts")
+    .update({
+      treatment_summary: body,
+      director_insight: clinical || undefined,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", chartId);
+
+  const { data: posts } = await admin
+    .from("community_posts")
+    .select("id")
+    .eq("source_chart_id", chartId)
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const postId = posts?.[0]?.id;
+  if (postId) {
+    await admin
+      .from("community_posts")
+      .update({
+        title: payload.title || undefined,
+        body: combined,
+        ai_generated_body: combined,
+        ai_generated_at: new Date().toISOString(),
+        ai_model: payload.source,
+        body_source: "fan_boost_fill",
+        ai_filled_by_fan_gift_id: fanGiftId ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", postId);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -125,40 +176,83 @@ Deno.serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? serviceKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-      error: userErr,
-    } = await anonClient.auth.getUser();
-    if (userErr || !user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
-    }
+    const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const isServiceRole = bearer !== "" && bearer === serviceKey;
 
     const body = await req.json().catch(() => ({}));
     const chartId = String(body.chart_id ?? "").trim();
     const mode = String(body.mode ?? "marketing").trim().toLowerCase();
     const jobId = String(body.job_id ?? "").trim();
+    const internalFanFill = body.internal_fan_fill === true;
     if (!chartId) {
       return jsonResponse({ error: "chart_id required" }, 400);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
 
+    let fanGiftId: string | null = null;
+    let fanBoostInternal = internalFanFill && isServiceRole;
+
     if (jobId) {
       const { data: job } = await admin
         .from("ai_tool_jobs")
-        .select("id, shop_id, chart_id, status")
+        .select(
+          "id, shop_id, chart_id, status, charged_via, fan_gift_id",
+        )
         .eq("id", jobId)
         .maybeSingle();
-      if (!job || job.chart_id !== chartId || job.status !== "queued") {
+      if (!job || job.chart_id !== chartId) {
         return jsonResponse({ error: "Invalid or expired job" }, 403);
       }
-      await admin
-        .from("ai_tool_jobs")
-        .update({ status: "processing" })
-        .eq("id", jobId);
+      fanGiftId = job.fan_gift_id ?? null;
+      if (job.charged_via === "fan_boost_bundle") {
+        fanBoostInternal = true;
+        if (job.status === "queued") {
+          await admin
+            .from("ai_tool_jobs")
+            .update({ status: "processing" })
+            .eq("id", jobId);
+        }
+      } else if (job.status !== "queued") {
+        return jsonResponse({ error: "Invalid or expired job" }, 403);
+      } else {
+        await admin
+          .from("ai_tool_jobs")
+          .update({ status: "processing" })
+          .eq("id", jobId);
+      }
+    } else if (internalFanFill && isServiceRole) {
+      fanBoostInternal = true;
+    }
+
+    if (!fanBoostInternal) {
+      const anonClient = createClient(
+        supabaseUrl,
+        Deno.env.get("SUPABASE_ANON_KEY") ?? serviceKey,
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const {
+        data: { user },
+        error: userErr,
+      } = await anonClient.auth.getUser();
+      if (userErr || !user) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+      }
+
+      const { data: chartForAuth } = await admin
+        .from("customer_charts")
+        .select("shop_id")
+        .eq("id", chartId)
+        .maybeSingle();
+      const { data: shop } = await admin
+        .from("shops")
+        .select("id, owner_user_id")
+        .eq("id", chartForAuth?.shop_id ?? "")
+        .maybeSingle();
+
+      if (!shop || shop.owner_user_id !== user.id) {
+        return jsonResponse({ error: "Forbidden" }, 403);
+      }
     }
 
     const { data: chart, error: chartErr } = await admin
@@ -171,16 +265,6 @@ Deno.serve(async (req) => {
 
     if (chartErr || !chart) {
       return jsonResponse({ error: "Chart not found" }, 404);
-    }
-
-    const { data: shop } = await admin
-      .from("shops")
-      .select("id, owner_user_id")
-      .eq("id", chart.shop_id)
-      .maybeSingle();
-
-    if (!shop || shop.owner_user_id !== user.id) {
-      return jsonResponse({ error: "Forbidden" }, 403);
     }
 
     const { data: customer } = await admin
@@ -259,7 +343,7 @@ Deno.serve(async (req) => {
     }
     if (hashtags.length === 0 && mode !== "clinical") hashtags = defaultHashtags(deid);
 
-    return jsonResponse({
+    const responsePayload = {
       title,
       body: story,
       clinical_report: clinical,
@@ -267,7 +351,27 @@ Deno.serve(async (req) => {
       source: "openai",
       mode,
       deidentified: deid,
-    });
+    };
+
+    if (fanBoostInternal) {
+      await applyFanBoostFill(admin, chartId, {
+        title,
+        body: story,
+        clinical_report: clinical,
+        source: "openai",
+      }, fanGiftId);
+
+      if (jobId) {
+        await admin.rpc("complete_ai_tool_job", {
+          p_job_id: jobId,
+          p_result: responsePayload,
+          p_status: "done",
+          p_error_message: "",
+        });
+      }
+    }
+
+    return jsonResponse(responsePayload);
   } catch (e) {
     console.error(e);
     return jsonResponse({ error: "Internal error" }, 500);

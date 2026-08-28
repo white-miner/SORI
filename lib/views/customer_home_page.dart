@@ -91,7 +91,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          nowFollowing ? '단골 팬으로 등록했어요' : '단골 팬 등록을 해제했어요',
+          nowFollowing ? '팔로워로 등록했어요' : '팔로우를 해제했어요',
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: SoriTokens.primary,
@@ -258,7 +258,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                                 Expanded(
                                   child: _StatColumn(
                                     value: _formatCount(followers),
-                                    label: '단골 팬',
+                                    label: '팔로워',
                                   ),
                                 ),
                                 Expanded(
@@ -314,7 +314,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
                             size: 18,
                           ),
                           label: Text(
-                            following ? '단골 팬 · 팔로잉' : '♡ 단골 팬 등록',
+                            following ? '팔로워 · 팔로잉' : '♡ 팔로우',
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 14,

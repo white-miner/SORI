@@ -12,11 +12,11 @@ import '../pages/case_detail_page.dart';
 import '../utils/case_persona.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
+import 'fan_boost_aurora_avatar.dart';
 import 'fan_sponsor_credits.dart';
 import 'feed_expandable_caption.dart';
 import 'feed_media_carousel.dart';
 import 'official_badge.dart';
-import 'sori_logo.dart';
 
 /// 홈 탐색 피드 카드 — 모듈형 둥근 카드.
 class HomeFeedCard extends StatefulWidget {
@@ -217,19 +217,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               children: [
                 GestureDetector(
                   onTap: widget.onShopProfile,
-                  child: CircleAvatar(
+                  child: FanBoostAuroraAvatar(
+                    imageUrl: avatar,
+                    isBoostActive: item.isBoosted,
+                    isFanBoost: item.isFanBoosted,
                     radius: 18,
-                    backgroundColor: SoriTokens.surfaceOverlay,
-                    backgroundImage:
-                        avatar.isNotEmpty && !avatar.startsWith('data:')
-                            ? NetworkImage(avatar)
-                            : null,
-                    child: avatar.isEmpty || avatar.startsWith('data:')
-                        ? const Padding(
-                            padding: EdgeInsets.all(5),
-                            child: SoriLogo(width: 20, height: 20),
-                          )
-                        : null,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -280,7 +272,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                               child: Text(
                                 item.isFanBoosted
                                     ? (item.fanDisplayName.trim().isEmpty
-                                        ? 'Fans'
+                                        ? '후원'
                                         : item.fanDisplayName.trim())
                                     : 'AD',
                                 style: TextStyle(
@@ -365,8 +357,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       child: Text(
                         item.isFanBoosted
                             ? (item.fanDisplayName.trim().isEmpty
-                                ? 'Fans'
-                                : 'by ${item.fanDisplayName.trim()}')
+                                ? '후원'
+                                : '${item.fanDisplayName.trim()}님 후원')
                             : 'Sponsored',
                         style: TextStyle(
                           fontSize: 10,
@@ -644,7 +636,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     color: SoriTokens.textSecondary,
                   ),
                   title: const Text('원장님 게시물 응원하기'),
-                  subtitle: const Text('Fan-Boost · 닉네임 공개'),
+                  subtitle: const Text('부스터 후원 · 닉네임 공개'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onFanBoostPurchase!();

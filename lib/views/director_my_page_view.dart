@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import '../models/customer_chart.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
+import '../models/shop_supporter_header.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
@@ -23,6 +25,7 @@ import '../widgets/seminar_review_modal.dart';
 import '../widgets/shop_inline_info_tab.dart';
 import '../widgets/shop_posts_thread_section.dart';
 import '../widgets/shop_review_compose_sheet.dart';
+import '../widgets/shop_supporter_header.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
@@ -63,6 +66,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
+    unawaited(store.refreshShopSupporterHeader());
   }
 
   @override
@@ -208,7 +212,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                   ),
                 ),
                 subtitle: const Text(
-                  '팬덤 Home 탭 공지/프로모션',
+                  'Home 탭 공지/프로모션',
                   style: TextStyle(color: SoriTokens.textSecondary),
                 ),
                 onTap: () {
@@ -499,6 +503,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                   background: _ShopHeroCover(
                     shopName: shopName,
                     coverUrl: coverUrl,
+                    supporterHeader: store.shopSupporterHeader,
                     regularCount: regularCount,
                     isOwner: isOwner,
                     badgeCount: badgeCount,
@@ -604,6 +609,7 @@ class _ShopHeroCover extends StatelessWidget {
   const _ShopHeroCover({
     required this.shopName,
     required this.coverUrl,
+    required this.supporterHeader,
     required this.regularCount,
     required this.isOwner,
     required this.onPost,
@@ -618,6 +624,7 @@ class _ShopHeroCover extends StatelessWidget {
 
   final String shopName;
   final String coverUrl;
+  final ShopSupporterHeader supporterHeader;
   final int regularCount;
   final bool isOwner;
   final VoidCallback onPost;
@@ -635,9 +642,12 @@ class _ShopHeroCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final src = coverUrl.trim().isNotEmpty ? coverUrl : _fallbackCover;
-    final metric = regularCount > 0
-        ? '$regularCount명의 단골 고객'
-        : '단골과 함께하는 케어';
+    final metric = supporterHeader.supporterCount > 0 ||
+            supporterHeader.followerCount > 0
+        ? supporterHeader.metricsLine
+        : regularCount > 0
+            ? '고객 $regularCount명 · 팔로워를 모아보세요'
+            : '팔로워와 후원자를 모아보세요';
 
     return Stack(
       fit: StackFit.expand,
@@ -716,7 +726,7 @@ class _ShopHeroCover extends StatelessWidget {
                     onPressed: onComposeWhisper,
                   ),
                   _HeroOverlayIcon(
-                    tooltip: '팬덤 · 구독',
+                    tooltip: '팔로워 · 구독',
                     icon: Icons.explore_outlined,
                     onPressed: onOpenFandom,
                   ),
@@ -745,16 +755,19 @@ class _ShopHeroCover extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    metric,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.78),
-                      letterSpacing: 0.2,
+                  if (supporterHeader.facepile.isNotEmpty)
+                    ShopSupporterHeaderBanner(header: supporterHeader)
+                  else
+                    Text(
+                      metric,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.78),
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 8),
                   Text(
                     shopName,
@@ -1064,7 +1077,7 @@ class _HomeTabBody extends StatelessWidget {
             leading:
                 const Icon(Icons.people_outline_rounded, color: SoriTokens.primary),
             title: const Text(
-              '팬덤 · 구독',
+              '팔로워 · 구독',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: SoriTokens.textPrimary,

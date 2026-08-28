@@ -110,7 +110,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     if (cid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('고객 로그인 후 Fan-Boost를 사용할 수 있어요.'),
+          content: Text('고객 로그인 후 부스터 후원을 사용할 수 있어요.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -127,7 +127,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Fan-Boost가 적용되었습니다! 원장님에게 알림이 전달돼요.'),
+          content: Text('부스터 후원이 적용되었습니다! 원장님에게 알림이 전달돼요.'),
           behavior: SnackBarBehavior.floating,
         ),
       );

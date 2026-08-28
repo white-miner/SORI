@@ -22,7 +22,7 @@ void main() {
 
     final a1 = await repo.purchaseFanBoost(
       customerId: 'cust-a',
-      sku: 'boost_local_7d',
+      sku: 'boost_spotlight_7d',
       targetType: 'chart',
       targetId: chartId,
       targetShopId: shopId,
@@ -31,7 +31,7 @@ void main() {
     expect(a1.ok, isTrue);
     await repo.purchaseFanBoost(
       customerId: 'cust-b',
-      sku: 'boost_local_1d',
+      sku: 'boost_spotlight_12h',
       targetType: 'chart',
       targetId: chartId,
       targetShopId: shopId,
@@ -39,7 +39,7 @@ void main() {
     );
     await repo.purchaseFanBoost(
       customerId: 'cust-c',
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: chartId,
       targetShopId: shopId,
@@ -47,7 +47,7 @@ void main() {
     );
     await repo.purchaseFanBoost(
       customerId: 'cust-d',
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: chartId,
       targetShopId: shopId,
@@ -55,7 +55,7 @@ void main() {
     );
     await repo.purchaseFanBoost(
       customerId: 'cust-a',
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: chartId,
       targetShopId: shopId,
@@ -65,9 +65,9 @@ void main() {
     final ranked = await repo.loadFanBoostSupporters(targetId: chartId);
     expect(ranked.length, 4);
     expect(ranked.first.name, '민지');
-    expect(ranked.first.echoSpent, 449 + 29); // 7d + 2h
+    expect(ranked.first.echoSpent, 59 + 5); // 7d + bump
     expect(ranked[1].name, '수연');
-    expect(ranked[1].echoSpent, 89);
+    expect(ranked[1].echoSpent, 9);
 
     await store.refreshCommunityHotCases();
     final item =
@@ -105,7 +105,7 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('민지님 외 4명 지원사격'), findsOneWidget);
+    expect(find.textContaining('민지님 외 4명이 후원'), findsOneWidget);
     expect(find.text('+2'), findsOneWidget); // 5 total → top3 +2
 
     final strip = tester.getSize(find.byType(FanBoostCreditStrip));

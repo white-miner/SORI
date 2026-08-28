@@ -19,6 +19,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/fan_supporter.dart';
+import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -2821,7 +2822,7 @@ class MemorySoriRepository implements SoriRepository {
     }
     final starts = DateTime.now();
     final ends = starts.add(Duration(hours: item.durationHours));
-    final name = fanDisplayName.trim().isEmpty ? '팬' : fanDisplayName.trim();
+    final name = fanDisplayName.trim().isEmpty ? '후원자' : fanDisplayName.trim();
     final walletId = 'cw-$customerId';
     final placement = BoostPlacement(
       id: 'bp-fan-${DateTime.now().millisecondsSinceEpoch}',
@@ -2850,8 +2851,8 @@ class MemorySoriRepository implements SoriRepository {
       'id': 'n-${DateTime.now().millisecondsSinceEpoch}',
       'shop_id': resolvedShop,
       'kind': 'fan_boost',
-      'title': '팬 부스터 선물',
-      'body': '팬 $name님이 노출 부스터를 선물했습니다!',
+      'title': '후원 알림',
+      'body': '$name님이 부스터를 지원했습니다',
       'payload': {
         'placement_id': placement.id,
         'customer_id': customerId,
@@ -2889,7 +2890,7 @@ class MemorySoriRepository implements SoriRepository {
       final prev = map[key];
       if (prev == null) {
         map[key] = FanSupporterEntry(
-          name: b.fanDisplayName.trim().isEmpty ? '팬' : b.fanDisplayName.trim(),
+          name: b.fanDisplayName.trim().isEmpty ? '후원자' : b.fanDisplayName.trim(),
           echoSpent: b.pointsSpent,
           customerId: b.paidByCustomerId,
           walletId: b.paidByWalletId,
@@ -2924,6 +2925,54 @@ class MemorySoriRepository implements SoriRepository {
       if (list.isNotEmpty) out[id] = list;
     }
     return out;
+  }
+
+  @override
+  Future<ShopSupporterHeader> loadShopSupporterHeader(String shopId) async {
+    final supporters = await loadShopSupporters(shopId, limit: 3);
+    final followers = await countShopFollowers(shopId);
+    final all = await loadShopSupporters(shopId, limit: 200);
+    return ShopSupporterHeader(
+      followerCount: followers,
+      supporterCount: all.length,
+      facepile: supporters,
+      topSupporter: supporters.isEmpty ? null : supporters.first,
+    );
+  }
+
+  @override
+  Future<List<FanSupporterEntry>> loadShopSupporters(
+    String shopId, {
+    String sort = 'echo_desc',
+    int limit = 50,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    final map = <String, FanSupporterEntry>{};
+    for (final b in _boosts) {
+      if (b.shopId != sid || !b.isFanBoost) continue;
+      final cid = b.paidByCustomerId?.trim() ?? '';
+      final key = cid.isNotEmpty ? cid : b.fanDisplayName.trim();
+      if (key.isEmpty) continue;
+      final name = b.fanDisplayName.trim().isEmpty ? '후원자' : b.fanDisplayName.trim();
+      final prev = map[key];
+      if (prev == null) {
+        map[key] = FanSupporterEntry(
+          name: name,
+          echoSpent: b.pointsSpent,
+          customerId: cid.isEmpty ? null : cid,
+          boostCount: 1,
+        );
+      } else {
+        map[key] = FanSupporterEntry(
+          name: prev.name,
+          echoSpent: prev.echoSpent + b.pointsSpent,
+          customerId: prev.customerId,
+          boostCount: prev.boostCount + 1,
+        );
+      }
+    }
+    return FanSupporterEntry.ranked(map.values).take(limit).toList();
   }
 
   @override

@@ -140,7 +140,7 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                   ),
                   if (kDebugMode) const DebugModeChip(),
                   IconButton(
-                    tooltip: '팬덤 · 구독',
+                    tooltip: '팔로워 · 구독',
                     onPressed: () {
                       MyPageFandomHubPage.open(context, store: store);
                     },

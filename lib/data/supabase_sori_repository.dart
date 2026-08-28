@@ -25,6 +25,7 @@ import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/fan_supporter.dart';
+import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -4145,7 +4146,7 @@ class SupabaseSoriRepository implements SoriRepository {
     }
     try {
       final raw = await _db.rpc(
-        'purchase_fan_boost',
+        'purchase_fan_gift',
         params: {
           'p_customer_id': cid,
           'p_sku': sku.trim(),
@@ -4243,6 +4244,60 @@ class SupabaseSoriRepository implements SoriRepository {
         );
       }
       return out;
+    }
+  }
+
+  @override
+  Future<ShopSupporterHeader> loadShopSupporterHeader(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const ShopSupporterHeader();
+    try {
+      final raw = await _db.rpc(
+        'get_shop_supporter_header',
+        params: {'p_shop_id': id},
+      );
+      if (raw is Map) {
+        return ShopSupporterHeader.fromMap(Map<String, dynamic>.from(raw));
+      }
+    } catch (e, st) {
+      debugPrint('loadShopSupporterHeader failed: $e\n$st');
+    }
+    final followers = await countShopFollowers(id);
+    final supporters = await loadShopSupporters(id, limit: 3);
+    return ShopSupporterHeader(
+      followerCount: followers,
+      supporterCount: supporters.length,
+      facepile: supporters.take(3).toList(),
+      topSupporter: supporters.isEmpty ? null : supporters.first,
+    );
+  }
+
+  @override
+  Future<List<FanSupporterEntry>> loadShopSupporters(
+    String shopId, {
+    String sort = 'echo_desc',
+    int limit = 50,
+  }) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const [];
+    try {
+      final raw = await _db.rpc(
+        'list_shop_supporters',
+        params: {
+          'p_shop_id': id,
+          'p_sort': sort,
+          'p_limit': limit,
+        },
+      );
+      if (raw is! List) return const [];
+      return FanSupporterEntry.ranked(
+        raw
+            .whereType<Map>()
+            .map((e) => FanSupporterEntry.fromMap(Map<String, dynamic>.from(e))),
+      );
+    } catch (e, st) {
+      debugPrint('loadShopSupporters failed: $e\n$st');
+      return const [];
     }
   }
 

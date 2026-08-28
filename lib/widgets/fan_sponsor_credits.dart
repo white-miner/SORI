@@ -22,11 +22,11 @@ class FanBoostCreditStrip extends StatelessWidget {
     final ranked = FanSupporterEntry.ranked(supporters);
     if (ranked.isEmpty) return const SizedBox.shrink();
 
-    final lead = ranked.first.name.trim().isEmpty ? '팬' : ranked.first.name.trim();
+    final lead = ranked.first.name.trim().isEmpty ? '후원자' : ranked.first.name.trim();
     final others = ranked.length - 1;
     final copy = others <= 0
-        ? '팬 $lead님의 지원사격'
-        : '팬 $lead님 외 ${others}명 지원사격';
+        ? '$lead님의 후원'
+        : '$lead님 외 ${others}명이 후원';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -201,7 +201,7 @@ class FanSponsorCreditBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = fanName.trim().isEmpty ? '팬' : fanName.trim();
+    final name = fanName.trim().isEmpty ? '후원자' : fanName.trim();
     return FanBoostCreditStrip(
       supporters: [FanSupporterEntry(name: name, echoSpent: 0)],
     );
@@ -237,7 +237,7 @@ class FanSupportersAvatarRow extends StatelessWidget {
 Future<void> showFanSupportersSheet(
   BuildContext context, {
   required List<FanSupporterEntry> supporters,
-  String title = '이 게시물의 Top 서포터즈',
+  String title = '이 게시물의 후원자',
 }) {
   final ranked = FanSupporterEntry.ranked(supporters);
   return showModalBottomSheet<void>(
@@ -292,7 +292,7 @@ Future<void> showFanSupportersSheet(
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Text(
-                  'Fan-Boost · 누적 Echo · 닉네임 공개',
+                  '부스터 후원 · 누적 Echo · 닉네임 공개',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -305,7 +305,7 @@ Future<void> showFanSupportersSheet(
                 child: ranked.isEmpty
                     ? const Center(
                         child: Text(
-                          '아직 서포터즈가 없어요.',
+                          '아직 후원자가 없어요.',
                           style: TextStyle(color: SoriTokens.textSecondary),
                         ),
                       )
@@ -411,7 +411,7 @@ class ShopTopSupportersSection extends StatelessWidget {
         const Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            '우리 샵 TOP 서포터즈',
+            '우리 샵 TOP 후원자',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w900,
@@ -421,7 +421,7 @@ class ShopTopSupportersSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Fan-Boost로 샵을 밀어준 팬 랭킹',
+          '부스터로 샵을 응원해 준 후원자 랭킹',
           style: TextStyle(
             fontSize: 11.5,
             color: SoriTokens.textSecondary,
@@ -438,7 +438,7 @@ class ShopTopSupportersSection extends StatelessWidget {
               border: Border.all(color: SoriTokens.border),
             ),
             child: const Text(
-              '아직 서포터즈가 없어요. 첫 Fan-Boost로 랭킹을 열어보세요.',
+              '아직 후원자가 없어요. 첫 부스터 후원으로 랭킹을 열어보세요.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,

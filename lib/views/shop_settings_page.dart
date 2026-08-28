@@ -211,7 +211,7 @@ class _ShopSettingsPageState extends State<ShopSettingsPage> {
           ),
           const SizedBox(height: 6),
           const Text(
-            '마이페이지·팬덤 프로필에 노출되는 소개 문구입니다',
+            '마이페이지·프로필에 노출되는 소개 문구입니다',
             style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 12),

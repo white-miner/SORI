@@ -120,7 +120,7 @@ class ShopPostsThreadSection extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Text(
                         isOwner
-                            ? '팬덤에게 팁이나 프로모션을 남겨보세요'
+                            ? '팔로워에게 팁이나 프로모션을 남겨보세요'
                             : '아직 소식이 없어요',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
@@ -525,7 +525,7 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
             decoration: InputDecoration(
-              hintText: '팬덤에게 전할 팁이나 프로모션을 적어주세요',
+              hintText: '팔로워에게 전할 팁이나 프로모션을 적어주세요',
               filled: true,
               fillColor: SoriTokens.background,
               border: OutlineInputBorder(

@@ -27,14 +27,19 @@ class FanSupporterEntry {
   factory FanSupporterEntry.fromMap(Map<String, dynamic> map) {
     return FanSupporterEntry(
       name: DbMap.asText(
-        map['fan_display_name'] ?? map['fanDisplayName'] ?? map['name'],
-        '팬',
+        map['fan_display_name'] ??
+            map['fanDisplayName'] ??
+            map['display_name'] ??
+            map['name'],
+        '후원자',
       ),
       echoSpent: DbMap.asInt(
         map['echo_spent'] ?? map['echoSpent'] ?? map['points_spent'],
       ),
       customerId: DbMap.asTextOrNull(
-        map['paid_by_customer_id'] ?? map['customerId'],
+        map['paid_by_customer_id'] ??
+            map['customerId'] ??
+            map['supporter_customer_id'],
       ),
       walletId: DbMap.asTextOrNull(
         map['paid_by_wallet_id'] ?? map['walletId'],

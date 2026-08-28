@@ -185,6 +185,7 @@ class BoostPurchaseResult {
     this.have = 0,
     this.need = 0,
     this.message = '',
+    this.raw,
   });
 
   final bool ok;
@@ -198,6 +199,9 @@ class BoostPurchaseResult {
   final int have;
   final int need;
   final String message;
+
+  /// Full RPC payload (ai_fill, fan_gift, etc.).
+  final Map<String, dynamic>? raw;
 
   int get gap => (need - have).clamp(0, 1 << 30);
 
@@ -219,6 +223,7 @@ class BoostPurchaseResult {
       placement: placementRaw is Map
           ? BoostPlacement.fromMap(Map<String, dynamic>.from(placementRaw))
           : null,
+      raw: map,
     );
   }
 

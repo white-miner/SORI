@@ -28,6 +28,7 @@ import '../models/review_request_event.dart';
 import '../models/session_user.dart';
 import '../models/shoot_inbox_item.dart';
 import '../models/shop.dart';
+import '../models/shop_supporter_header.dart';
 import '../models/shop_business_hours.dart';
 import '../models/shop_equipment_item.dart';
 import '../models/shop_gallery_slide.dart';
@@ -53,6 +54,7 @@ import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
 import '../utils/korean_choseong.dart';
 import 'consent_pdf_generator.dart';
+import 'fan_boost_fill_service.dart';
 import 'consent_pdf_storage.dart';
 import 'chart_photo_compressor.dart';
 import 'chart_photo_storage.dart';
@@ -229,6 +231,7 @@ class SoriStore implements Listenable {
   bool whisperPreviewLoading = false;
   final List<ShopHighlight> shopHighlights = [];
   int shopFollowerCount = 0;
+  ShopSupporterHeader shopSupporterHeader = const ShopSupporterHeader();
   bool shopFandomMetaLoading = false;
   final List<CommunityCaseItem> communityHotCases = [];
   bool communityHotCasesLoading = false;
@@ -2860,7 +2863,7 @@ class SoriStore implements Listenable {
     if (fanName.isEmpty) {
       return const BoostPurchaseResult(
         ok: false,
-        message: '스폰서 닉네임이 필요합니다. 프로필에서 이름을 설정해 주세요.',
+        message: '후원자 닉네임이 필요합니다. 프로필에서 이름을 설정해 주세요.',
       );
     }
     try {
@@ -2876,6 +2879,17 @@ class SoriStore implements Listenable {
         await refreshCustomerEchoWallet();
         await refreshCommunityHotCases();
         await refreshShopNotifications();
+        await refreshShopSupporterHeader();
+        // Best-effort OpenAI upgrade (sync fill already applied in RPC).
+        final raw = result.raw;
+        if (raw != null &&
+            FanBoostFillService.edgeQueuedFromPurchase(raw)) {
+          await FanBoostFillService.tryEdgeUpgrade(
+            chartId: chartId.trim(),
+            jobId: FanBoostFillService.jobIdFromPurchase(raw) ?? '',
+          );
+          await refreshCommunityHotCases();
+        }
       } else if (result.insufficient) {
         await refreshCustomerEchoWallet();
       }
@@ -2895,6 +2909,17 @@ class SoriStore implements Listenable {
       }
       _setError(e, userFacing: true);
       rethrow;
+    }
+  }
+
+  Future<void> refreshShopSupporterHeader() async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) return;
+    try {
+      shopSupporterHeader = await _repository.loadShopSupporterHeader(sid);
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshShopSupporterHeader failed: $e\n$st');
     }
   }
 
