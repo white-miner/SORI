@@ -24,6 +24,7 @@ import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
 import '../models/shop_trust_score.dart';
+import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
@@ -505,6 +506,29 @@ abstract class SoriRepository {
     required String listingId,
     required MarketListingStatus status,
   });
+
+  /// E3 — 신뢰순 마켓 리스팅.
+  Future<List<MarketListingScoredRow>> loadMarketListingsScored({
+    String deviceName = '',
+    int limit = 50,
+  });
+
+  /// E3 — 중고 문의 제출.
+  Future<ListingInquiryResult> createMarketListingInquiry({
+    required String listingId,
+    String message = '',
+  });
+
+  /// E3 — 에스크로 라이트 (판매자).
+  Future<MarketEscrowResult> holdMarketEscrow({
+    required String listingId,
+    String? inquiryId,
+    int? amount,
+  });
+
+  Future<MarketEscrowResult> completeMarketEscrow(String listingId);
+
+  Future<MarketEscrowResult> refundMarketEscrow(String listingId);
 
   /// shop_id → 사업자 인증 여부 (`business_verified`).
   Future<Map<String, bool>> loadShopBusinessVerified(List<String> shopIds);

@@ -366,6 +366,9 @@ class MarketListing {
     this.contactPhone,
     this.contactNote = '',
     this.region,
+    this.sellerTrustScore = 0,
+    this.sellerTrustLabel = '성장 중',
+    this.escrowHeld = false,
   });
 
   final String id;
@@ -380,8 +383,16 @@ class MarketListing {
   final String? contactPhone;
   final String contactNote;
   final String? region;
+  final int sellerTrustScore;
+  final String sellerTrustLabel;
+  final bool escrowHeld;
 
-  MarketListing copyWith({MarketListingStatus? status}) {
+  MarketListing copyWith({
+    MarketListingStatus? status,
+    int? sellerTrustScore,
+    String? sellerTrustLabel,
+    bool? escrowHeld,
+  }) {
     return MarketListing(
       id: id,
       postId: postId,
@@ -395,6 +406,9 @@ class MarketListing {
       contactPhone: contactPhone,
       contactNote: contactNote,
       region: region,
+      sellerTrustScore: sellerTrustScore ?? this.sellerTrustScore,
+      sellerTrustLabel: sellerTrustLabel ?? this.sellerTrustLabel,
+      escrowHeld: escrowHeld ?? this.escrowHeld,
     );
   }
 
@@ -416,6 +430,14 @@ class MarketListing {
       ),
       contactNote: DbMap.asText(map['contact_note'] ?? map['contactNote']),
       region: DbMap.asTextOrNull(map['region']),
+      sellerTrustScore: DbMap.asInt(
+        map['seller_trust_score'] ?? map['sellerTrustScore'],
+      ),
+      sellerTrustLabel: DbMap.asText(
+        map['seller_trust_label'] ?? map['sellerTrustLabel'],
+        '성장 중',
+      ),
+      escrowHeld: map['escrow_held'] == true || map['escrowHeld'] == true,
     );
   }
 }

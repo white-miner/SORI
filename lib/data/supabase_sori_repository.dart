@@ -29,6 +29,7 @@ import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
 import '../models/shop_trust_score.dart';
+import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -3455,6 +3456,88 @@ class SupabaseSoriRepository implements SoriRepository {
       payload['sold_at'] = DateTime.now().toUtc().toIso8601String();
     }
     await _db.from('market_listings').update(payload).eq('id', id);
+  }
+
+  @override
+  Future<List<MarketListingScoredRow>> loadMarketListingsScored({
+    String deviceName = '',
+    int limit = 50,
+  }) async {
+    try {
+      final raw = await _db.rpc(
+        'list_market_listings_scored',
+        params: {'p_device_name': deviceName, 'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) =>
+              MarketListingScoredRow.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadMarketListingsScored failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ListingInquiryResult> createMarketListingInquiry({
+    required String listingId,
+    String message = '',
+  }) async {
+    final id = listingId.trim();
+    if (id.isEmpty) {
+      return const ListingInquiryResult(ok: false);
+    }
+    try {
+      final raw = await _db.rpc(
+        'create_market_listing_inquiry',
+        params: {'p_listing_id': id, 'p_message': message},
+      );
+      if (raw is! Map) return const ListingInquiryResult(ok: false);
+      return ListingInquiryResult.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('createMarketListingInquiry failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<MarketEscrowResult> holdMarketEscrow({
+    required String listingId,
+    String? inquiryId,
+    int? amount,
+  }) async {
+    final raw = await _db.rpc(
+      'hold_market_escrow',
+      params: {
+        'p_listing_id': listingId.trim(),
+        'p_inquiry_id': inquiryId,
+        'p_amount': amount,
+      },
+    );
+    if (raw is! Map) return const MarketEscrowResult(ok: false);
+    return MarketEscrowResult.fromMap(Map<String, dynamic>.from(raw));
+  }
+
+  @override
+  Future<MarketEscrowResult> completeMarketEscrow(String listingId) async {
+    final raw = await _db.rpc(
+      'complete_market_escrow',
+      params: {'p_listing_id': listingId.trim()},
+    );
+    if (raw is! Map) return const MarketEscrowResult(ok: false);
+    return MarketEscrowResult.fromMap(Map<String, dynamic>.from(raw));
+  }
+
+  @override
+  Future<MarketEscrowResult> refundMarketEscrow(String listingId) async {
+    final raw = await _db.rpc(
+      'refund_market_escrow',
+      params: {'p_listing_id': listingId.trim()},
+    );
+    if (raw is! Map) return const MarketEscrowResult(ok: false);
+    return MarketEscrowResult.fromMap(Map<String, dynamic>.from(raw));
   }
 
   @override

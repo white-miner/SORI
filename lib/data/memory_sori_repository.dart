@@ -25,6 +25,7 @@ import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
 import '../models/shop_trust_score.dart';
+import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -2015,6 +2016,8 @@ class MemorySoriRepository implements SoriRepository {
   static final List<PremiumOverlay> _premiumOverlays = [];
   static final List<Map<String, dynamic>> _fanGifts = [];
   static final Map<String, String> _thankYouPostByGiftId = {};
+  static final List<Map<String, dynamic>> _listingInquiries = [];
+  static final List<Map<String, dynamic>> _marketEscrowHolds = [];
   static final Map<String, Set<String>> _caseBookmarksByUser = {};
   static final List<Map<String, dynamic>> _shopNotifications = [];
   static final Set<String> _unlocks = {};
@@ -2027,6 +2030,8 @@ class MemorySoriRepository implements SoriRepository {
     _fanGifts.clear();
     _thankYouPostByGiftId.clear();
     _caseBookmarksByUser.clear();
+    _listingInquiries.clear();
+    _marketEscrowHolds.clear();
     _shopNotifications.clear();
   }
 
@@ -2166,6 +2171,116 @@ class MemorySoriRepository implements SoriRepository {
       _communityPosts[i] = p.copyWith(listing: l.copyWith(status: status));
       break;
     }
+  }
+
+  @override
+  Future<List<MarketListingScoredRow>> loadMarketListingsScored({
+    String deviceName = '',
+    int limit = 50,
+  }) async {
+    final q = deviceName.trim().toLowerCase();
+    final rows = <MarketListingScoredRow>[];
+    for (final p in _communityPosts) {
+      final l = p.listing;
+      if (l == null) continue;
+      if (l.status == MarketListingStatus.removed ||
+          l.status == MarketListingStatus.hidden) {
+        continue;
+      }
+      if (q.isNotEmpty && !l.deviceName.toLowerCase().contains(q)) continue;
+      final trust = await loadShopTrustScore(l.shopId);
+      final escrow = _marketEscrowHolds.any(
+        (e) => e['listing_id'] == l.id && e['status'] == 'held',
+      );
+      rows.add(MarketListingScoredRow(
+        listingId: l.id,
+        postId: l.postId,
+        shopId: l.shopId,
+        shopName: p.shopName,
+        deviceName: l.deviceName,
+        price: l.price,
+        listingStatus: l.status.dbValue,
+        sellerTrustScore: trust.score,
+        sellerTrustLabel: trust.tierLabel,
+        escrowStatus: escrow ? 'held' : '',
+        createdAt: p.createdAt,
+      ));
+      if (rows.length >= limit) break;
+    }
+    rows.sort((a, b) => b.sellerTrustScore.compareTo(a.sellerTrustScore));
+    return rows;
+  }
+
+  @override
+  Future<ListingInquiryResult> createMarketListingInquiry({
+    required String listingId,
+    String message = '',
+  }) async {
+    final id = listingId.trim();
+    final inquiryId = 'inq-${DateTime.now().millisecondsSinceEpoch}';
+    _listingInquiries.add({
+      'id': inquiryId,
+      'listing_id': id,
+      'message': message.trim().isEmpty ? '구매 문의드립니다.' : message.trim(),
+    });
+    return ListingInquiryResult(ok: true, inquiryId: inquiryId, listingId: id);
+  }
+
+  @override
+  Future<MarketEscrowResult> holdMarketEscrow({
+    required String listingId,
+    String? inquiryId,
+    int? amount,
+  }) async {
+    final id = listingId.trim();
+    _marketEscrowHolds.removeWhere(
+      (e) => e['listing_id'] == id && e['status'] == 'held',
+    );
+    final escrowId = 'esc-${DateTime.now().millisecondsSinceEpoch}';
+    _marketEscrowHolds.add({
+      'id': escrowId,
+      'listing_id': id,
+      'inquiry_id': inquiryId,
+      'amount': amount ?? 0,
+      'status': 'held',
+    });
+    await updateMarketListingStatus(
+      listingId: id,
+      status: MarketListingStatus.reserved,
+    );
+    return MarketEscrowResult(ok: true, escrowId: escrowId, status: 'held');
+  }
+
+  @override
+  Future<MarketEscrowResult> completeMarketEscrow(String listingId) async {
+    final id = listingId.trim();
+    for (final e in _marketEscrowHolds) {
+      if (e['listing_id'] == id && e['status'] == 'held') {
+        e['status'] = 'completed';
+        break;
+      }
+    }
+    await updateMarketListingStatus(
+      listingId: id,
+      status: MarketListingStatus.sold,
+    );
+    return const MarketEscrowResult(ok: true, status: 'completed');
+  }
+
+  @override
+  Future<MarketEscrowResult> refundMarketEscrow(String listingId) async {
+    final id = listingId.trim();
+    for (final e in _marketEscrowHolds) {
+      if (e['listing_id'] == id && e['status'] == 'held') {
+        e['status'] = 'refunded';
+        break;
+      }
+    }
+    await updateMarketListingStatus(
+      listingId: id,
+      status: MarketListingStatus.active,
+    );
+    return const MarketEscrowResult(ok: true, status: 'refunded');
   }
 
   @override

@@ -7,6 +7,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/ai_tool_sheet.dart';
 import '../widgets/case_archive_tile.dart';
+import '../widgets/case_marketing_wizard_sheet.dart';
 import '../widgets/case_timeline_modal.dart';
 
 enum _ArchiveView { favorites, myCases }
@@ -193,6 +194,27 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
         backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
+        actions: [
+          if (_view == _ArchiveView.myCases && widget.store.charts.isNotEmpty)
+            IconButton(
+              tooltip: '카톡 마케팅 원탭',
+              onPressed: () {
+                final chart = widget.store.charts.firstWhere(
+                  (c) =>
+                      (c.beforeImageUrl?.trim().isNotEmpty ?? false) ||
+                      (c.afterImageUrl?.trim().isNotEmpty ?? false),
+                  orElse: () => widget.store.charts.first,
+                );
+                showCaseMarketingWizard(
+                  context,
+                  store: widget.store,
+                  chart: chart,
+                  customer: widget.store.findCustomer(chart.customerId),
+                );
+              },
+              icon: const Icon(Icons.chat_bubble_outline_rounded),
+            ),
+        ],
       ),
       body: Column(
         children: [

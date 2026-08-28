@@ -42,6 +42,7 @@ import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
 import '../models/boost_contribution_report.dart';
+import '../models/market_listing_trust.dart';
 import '../models/shop_trust_score.dart';
 import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
@@ -4112,6 +4113,78 @@ class SoriStore implements Listenable {
       debugPrint('updateMarketListingStatus failed: $e\n$st');
       _setError(e, userFacing: true);
       _notify();
+      return false;
+    }
+  }
+
+  List<MarketListingScoredRow> marketListingsScored = [];
+
+  Future<void> refreshMarketListingsScored({
+    String deviceName = '',
+    int limit = 50,
+  }) async {
+    try {
+      marketListingsScored = await _repository.loadMarketListingsScored(
+        deviceName: deviceName,
+        limit: limit,
+      );
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshMarketListingsScored failed: $e\n$st');
+    }
+  }
+
+  Future<bool> submitMarketListingInquiry({
+    required String listingId,
+    String message = '',
+  }) async {
+    try {
+      final r = await _repository.createMarketListingInquiry(
+        listingId: listingId,
+        message: message,
+      );
+      return r.ok;
+    } catch (e, st) {
+      debugPrint('submitMarketListingInquiry failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  Future<bool> holdMarketEscrowForListing(String listingId) async {
+    try {
+      final r = await _repository.holdMarketEscrow(listingId: listingId);
+      if (r.ok) await refreshMarketListingsScored();
+      return r.ok;
+    } catch (e, st) {
+      debugPrint('holdMarketEscrowForListing failed: $e\n$st');
+      return false;
+    }
+  }
+
+  Future<bool> completeMarketEscrowForListing(String listingId) async {
+    try {
+      final r = await _repository.completeMarketEscrow(listingId);
+      if (r.ok) {
+        await updateMarketListingStatus(
+          listingId: listingId,
+          status: MarketListingStatus.sold,
+        );
+        await refreshMarketListingsScored();
+      }
+      return r.ok;
+    } catch (e, st) {
+      debugPrint('completeMarketEscrowForListing failed: $e\n$st');
+      return false;
+    }
+  }
+
+  Future<bool> refundMarketEscrowForListing(String listingId) async {
+    try {
+      final r = await _repository.refundMarketEscrow(listingId);
+      if (r.ok) await refreshMarketListingsScored();
+      return r.ok;
+    } catch (e, st) {
+      debugPrint('refundMarketEscrowForListing failed: $e\n$st');
       return false;
     }
   }
