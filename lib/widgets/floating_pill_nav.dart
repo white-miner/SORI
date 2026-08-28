@@ -199,9 +199,10 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             height: _barH,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_radius),
-              child: BackdropFilter(
-                filter: SoriTokens.glassBlurFilter,
-                child: DecoratedBox(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: SoriTokens.glassBlurFilter,
+                  child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: FloatingPillNav.barBg,
                     borderRadius: BorderRadius.circular(_radius),
@@ -286,6 +287,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                   ],
                   ),
                 ),
+              ),
               ),
             ),
           );

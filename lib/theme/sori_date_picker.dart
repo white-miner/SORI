@@ -178,9 +178,10 @@ class SoriGlassPanel extends StatelessWidget {
         : BorderRadius.circular(borderRadius);
     return ClipRRect(
       borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: DecoratedBox(
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
           decoration: BoxDecoration(
             color: SoriTokens.surface.withValues(alpha: 0.96),
             borderRadius: radius,
@@ -197,6 +198,7 @@ class SoriGlassPanel extends StatelessWidget {
               ? child
               : Padding(padding: padding!, child: child),
         ),
+      ),
       ),
     );
   }

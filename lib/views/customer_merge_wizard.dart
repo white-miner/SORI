@@ -7,7 +7,9 @@ import '../routing/sori_router.dart';
 import '../services/customer_merge_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../views/my_app.dart';
 import '../utils/remote_error_message.dart';
+import '../utils/sori_bottom_sheet.dart';
 
 /// 상세 페이지 등 1명만 있는 경우 — 추가 고객 선택 후 병합.
 Future<List<Customer>?> pickCustomersForMerge({
@@ -27,67 +29,72 @@ Future<List<Customer>?> pickCustomersForMerge({
   final picked = <String>{seed.id};
   return showModalBottomSheet<List<Customer>>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
+    backgroundColor: SoriTokens.surface,
     builder: (ctx) {
-      return StatefulBuilder(
-        builder: (context, setModalState) {
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '병합할 중복 고객 선택',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Primary: ${seed.name} (${seed.phone})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: SoriTokens.textSecondary,
+      return Padding(
+        padding: soriSheetSafePadding(ctx),
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '병합할 중복 고객 선택',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: others.map((c) {
-                      final checked = picked.contains(c.id);
-                      return CheckboxListTile(
-                        value: checked,
-                        onChanged: (v) {
-                          setModalState(() {
-                            if (v == true) {
-                              picked.add(c.id);
-                            } else {
-                              picked.remove(c.id);
-                            }
-                          });
-                        },
-                        title: Text(c.name),
-                        subtitle: Text(c.phone),
-                      );
-                    }).toList(),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Primary: ${seed.name} (${seed.phone})',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: SoriTokens.textSecondary,
+                    ),
                   ),
-                ),
-                FilledButton(
-                  onPressed: picked.length < 2
-                      ? null
-                      : () {
-                          final selected = store.customers
-                              .where((c) => picked.contains(c.id))
-                              .toList();
-                          Navigator.pop(ctx, selected);
-                        },
-                  child: Text('선택 완료 (${picked.length}명)'),
-                ),
-              ],
-            ),
-          );
-        },
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: others.map((c) {
+                        final checked = picked.contains(c.id);
+                        return CheckboxListTile(
+                          value: checked,
+                          onChanged: (v) {
+                            setModalState(() {
+                              if (v == true) {
+                                picked.add(c.id);
+                              } else {
+                                picked.remove(c.id);
+                              }
+                            });
+                          },
+                          title: Text(c.name),
+                          subtitle: Text(c.phone),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: picked.length < 2
+                        ? null
+                        : () {
+                            final selected = store.customers
+                                .where((c) => picked.contains(c.id))
+                                .toList();
+                            Navigator.pop(ctx, selected);
+                          },
+                    child: Text('선택 완료 (${picked.length}명)'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       );
     },
   );
@@ -99,7 +106,9 @@ void _showMergeSnackBar(
   bool isError = false,
   Duration duration = const Duration(seconds: 8),
 }) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final messenger =
+      MyApp.scaffoldMessengerKey.currentState ??
+      ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(
@@ -124,17 +133,21 @@ Future<bool> showCustomerMergeWizard({
 
   return showModalBottomSheet<bool>(
     context: hostContext,
+    useRootNavigator: true,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     backgroundColor: SoriTokens.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (ctx) => _CustomerMergeWizard(
-      store: store,
-      selected: selected,
-      hostContext: hostContext,
-      sheetNavigator: navigator,
+    builder: (ctx) => Padding(
+      padding: soriSheetSafePadding(ctx),
+      child: _CustomerMergeWizard(
+        store: store,
+        selected: selected,
+        hostContext: hostContext,
+        sheetNavigator: navigator,
+      ),
     ),
   ).then((v) => v ?? false);
 }
