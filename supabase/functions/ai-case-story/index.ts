@@ -76,13 +76,40 @@ function buildDeIdentified(chart: Record<string, unknown>, customer: Record<stri
   };
 }
 
-const SYSTEM_PROMPT = `당신은 한국 1인 에스테틱·뷰티 클리닉 원장의 톤으로 임상 B/A 케이스 스토리를 씁니다.
+const SYSTEM_PROMPT_MARKETING = `당신은 한국 1인 에스테틱·뷰티 클리닉 원장의 톤으로 임상 B/A 케이스 스토리를 씁니다.
 규칙:
 1. 과장·허위·의료 단정(완치, 진단명 확정 등) 금지. 관찰·케어 중심의 따뜻한 전문가 톤.
 2. 본문(body)은 한국어 180~420자. 구조: 맥락 → 고민 → 시술/기기 → 결과 체감.
 3. 실명·연락처·정확한 나이를 절대 쓰지 말 것. 연령대·성별만 사용.
 4. 반드시 JSON만 출력: {"title":"...","body":"...","hashtags":["#a","#b"]}
 5. title은 28자 이내. hashtags는 3~6개, # 포함.`;
+
+const SYSTEM_PROMPT_CLINICAL = `당신은 에스테틱 클리닉 원장을 위한 임상 참고 요약을 작성합니다.
+규칙:
+1. 의료 진단·완치 단정 금지. 관찰·프로토콜·후속 케어 제안 중심.
+2. clinical_report는 한국어 120~350자. 불릿 없이 단락 형식.
+3. 반드시 JSON만 출력: {"title":"...","clinical_report":"..."}
+4. title은 28자 이내.`;
+
+const SYSTEM_PROMPT_DUAL = `당신은 에스테틱 클리닉 원장을 돕습니다. 마케팅 카피와 임상 참고 요약을 동시에 작성하세요.
+규칙:
+1. 과장·허위·의료 단정 금지.
+2. body(마케팅): 180~420자, 인스타 톤. clinical_report: 120~350자, 원장 참고용.
+3. 반드시 JSON만 출력: {"title":"...","body":"...","clinical_report":"...","hashtags":["#a"]}
+4. hashtags 3~6개.`;
+
+function systemPromptForMode(mode: string): string {
+  if (mode === "clinical") return SYSTEM_PROMPT_CLINICAL;
+  if (mode === "dual") return SYSTEM_PROMPT_DUAL;
+  return SYSTEM_PROMPT_MARKETING;
+}
+
+function userPromptForMode(mode: string, deid: DeIdentifiedPayload): string {
+  const base = `다음 비식별 임상 데이터를 사용하세요.\n${JSON.stringify(deid, null, 2)}`;
+  if (mode === "clinical") return `${base}\n임상 참고 요약만 작성하세요.`;
+  if (mode === "dual") return `${base}\n마케팅 카피(body)와 임상 요약(clinical_report)을 모두 작성하세요.`;
+  return `${base}\nSORI B/A 피드용 마케팅 스토리를 작성하세요.`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -111,11 +138,29 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const chartId = String(body.chart_id ?? "").trim();
+    const mode = String(body.mode ?? "marketing").trim().toLowerCase();
+    const jobId = String(body.job_id ?? "").trim();
     if (!chartId) {
       return jsonResponse({ error: "chart_id required" }, 400);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    if (jobId) {
+      const { data: job } = await admin
+        .from("ai_tool_jobs")
+        .select("id, shop_id, chart_id, status")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (!job || job.chart_id !== chartId || job.status !== "queued") {
+        return jsonResponse({ error: "Invalid or expired job" }, 403);
+      }
+      await admin
+        .from("ai_tool_jobs")
+        .update({ status: "processing" })
+        .eq("id", jobId);
+    }
+
     const { data: chart, error: chartErr } = await admin
       .from("customer_charts")
       .select(
@@ -147,16 +192,11 @@ Deno.serve(async (req) => {
     const deid = buildDeIdentified(chart as Record<string, unknown>, customer as Record<string, unknown> | null);
 
     if (!openaiKey) {
-      return jsonResponse({
-        title: `${deid.care_name || "시술"} · 임상 케이스`,
-        body: localFallbackBody(deid),
-        hashtags: defaultHashtags(deid),
-        source: "fallback",
-        deidentified: deid,
-      });
+      const fb = fallbackResponse(deid, mode);
+      return jsonResponse(fb);
     }
 
-    const userPrompt = `다음 비식별 임상 데이터로 SORI B/A 피드용 스토리를 작성하세요.\n${JSON.stringify(deid, null, 2)}`;
+    const userPrompt = userPromptForMode(mode, deid);
 
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -169,7 +209,7 @@ Deno.serve(async (req) => {
         temperature: 0.65,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPromptForMode(mode) },
           { role: "user", content: userPrompt },
         ],
       }),
@@ -178,18 +218,17 @@ Deno.serve(async (req) => {
     if (!aiRes.ok) {
       const errText = await aiRes.text();
       console.error("OpenAI error", aiRes.status, errText);
-      return jsonResponse({
-        title: `${deid.care_name || "시술"} · 임상 케이스`,
-        body: localFallbackBody(deid),
-        hashtags: defaultHashtags(deid),
-        source: "fallback_openai_error",
-        deidentified: deid,
-      });
+      return jsonResponse(fallbackResponse(deid, mode, "fallback_openai_error"));
     }
 
     const aiJson = await aiRes.json();
     const content = aiJson?.choices?.[0]?.message?.content ?? "{}";
-    let parsed: { title?: string; body?: string; hashtags?: unknown };
+    let parsed: {
+      title?: string;
+      body?: string;
+      clinical_report?: string;
+      hashtags?: unknown;
+    };
     try {
       parsed = JSON.parse(content);
     } catch {
@@ -198,31 +237,35 @@ Deno.serve(async (req) => {
 
     const title = String(parsed.title ?? "").trim() ||
       `${deid.care_name || "시술"} · 임상 케이스`;
-    let story = String(parsed.body ?? "").trim() || localFallbackBody(deid);
-    if (story.length > 420) story = story.slice(0, 420);
-    if (story.length < 80) story = localFallbackBody(deid);
+    let story = String(parsed.body ?? "").trim();
+    if (mode !== "clinical") {
+      if (!story) story = localFallbackBody(deid);
+      if (story.length > 420) story = story.slice(0, 420);
+      if (story.length < 80) story = localFallbackBody(deid);
+    }
+
+    let clinical = String(parsed.clinical_report ?? "").trim();
+    if ((mode === "clinical" || mode === "dual") && !clinical) {
+      clinical = localClinicalFallback(deid);
+    }
 
     let hashtags: string[] = [];
-    if (Array.isArray(parsed.hashtags)) {
+    if (mode !== "clinical" && Array.isArray(parsed.hashtags)) {
       hashtags = parsed.hashtags.map((h) => {
         const t = String(h).trim();
         if (!t) return "";
         return t.startsWith("#") ? t : `#${t}`;
       }).filter(Boolean);
-    } else if (typeof parsed.hashtags === "string") {
-      hashtags = parsed.hashtags
-        .split(/\s+/)
-        .map((t: string) => t.trim())
-        .filter(Boolean)
-        .map((t: string) => (t.startsWith("#") ? t : `#${t}`));
     }
-    if (hashtags.length === 0) hashtags = defaultHashtags(deid);
+    if (hashtags.length === 0 && mode !== "clinical") hashtags = defaultHashtags(deid);
 
     return jsonResponse({
       title,
       body: story,
+      clinical_report: clinical,
       hashtags,
       source: "openai",
+      mode,
       deidentified: deid,
     });
   } catch (e) {
@@ -230,6 +273,36 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Internal error" }, 500);
   }
 });
+
+function fallbackResponse(
+  deid: DeIdentifiedPayload,
+  mode: string,
+  source = "fallback",
+) {
+  const title = `${deid.care_name || "시술"} · 임상 케이스`;
+  const body = mode === "clinical" ? "" : localFallbackBody(deid);
+  const clinical = mode === "marketing"
+    ? ""
+    : localClinicalFallback(deid);
+  return {
+    title,
+    body,
+    clinical_report: clinical,
+    hashtags: mode === "clinical" ? [] : defaultHashtags(deid),
+    source,
+    mode,
+    deidentified: deid,
+  };
+}
+
+function localClinicalFallback(deid: DeIdentifiedPayload): string {
+  const care = deid.care_name || "케어";
+  const concern = deid.concern_chips.join(", ") || "피부 컨디션";
+  const device = deid.device_info ? ` 사용 기기: ${deid.device_info}.` : "";
+  const insight = deid.director_insight || deid.treatment_summary ||
+    "추가 관찰 기록 없음.";
+  return `【임상 참고 · 의료 진단 아님】 시술 ${care}, 주요 고민 ${concern}.${device} 원장 메모: ${insight.slice(0, 200)}`;
+}
 
 function defaultHashtags(deid: DeIdentifiedPayload): string[] {
   const tags = ["#SORI", "#비포애프터", "#에스테틱"];

@@ -5,7 +5,7 @@ import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/ai_case_story_sheet.dart';
+import '../widgets/ai_tool_sheet.dart';
 import '../widgets/case_archive_tile.dart';
 import '../widgets/case_timeline_modal.dart';
 
@@ -143,14 +143,14 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
       }
     }
 
-    final result = await showAiCaseStorySheet(
+    final result = await showAiToolSheet(
       context: context,
       store: widget.store,
       chart: chart,
       customer: customer,
     );
     if (!mounted) return;
-    if (result == AiCaseStorySheetResult.cancelled) return;
+    if (result == AiToolSheetResult.cancelled) return;
     setState(() {});
   }
 

@@ -8,7 +8,7 @@ import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/ai_case_story_sheet.dart';
+import '../widgets/ai_tool_sheet.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/media_permission_dialogs.dart';
 import 'admin_chart_writer_page.dart';
@@ -616,7 +616,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       }
     }
 
-    final result = await showAiCaseStorySheet(
+    final result = await showAiToolSheet(
       context: context,
       store: widget.store,
       chart: chart,
@@ -624,7 +624,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     );
 
     if (!mounted) return;
-    if (result == AiCaseStorySheetResult.cancelled) {
+    if (result == AiToolSheetResult.cancelled) {
       // Switch stays OFF — never published.
       return;
     }

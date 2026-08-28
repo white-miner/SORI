@@ -47,31 +47,44 @@ class PointShopItem {
     );
   }
 
-  /// 오프라인/메모리 시드 (056 Echo 앵커 가격).
+  /// 오프라인/메모리 시드 (075 Split & Micro).
+  static const catalogBump = PointShopItem(
+    id: 'item-boost-bump',
+    sku: 'boost_bump_4h',
+    title: '피드 끌어올리기 · 4시간',
+    description: '카테고리 피드 상단 재정렬',
+    pricePoints: 5,
+    durationHours: 4,
+    badge: '추천',
+  );
+
+  static const catalogSpotlight12h = PointShopItem(
+    id: 'item-boost-spot-12h',
+    sku: 'boost_spotlight_12h',
+    title: '스포트라이트 · 12시간',
+    description: 'Home+커뮤니티 인터리브 슬롯',
+    pricePoints: 9,
+    durationHours: 12,
+  );
+
   static const catalogBoosters = <PointShopItem>[
+    catalogBump,
+    catalogSpotlight12h,
     PointShopItem(
-      id: 'item-boost-2h',
-      sku: 'boost_local_2h',
-      title: '우리 지역 노출 부스터 · 2시간',
-      description: 'Home 「우리 지역」탭 최상단 고정 노출 (AD)',
-      pricePoints: 29,
-      durationHours: 2,
-    ),
-    PointShopItem(
-      id: 'item-boost-1d',
-      sku: 'boost_local_1d',
-      title: '우리 지역 노출 부스터 · 1일',
-      description: 'Home 「우리 지역」탭 최상단 고정 노출 24시간',
-      pricePoints: 89,
+      id: 'item-boost-spot-24h',
+      sku: 'boost_spotlight_24h',
+      title: '스포트라이트 · 24시간',
+      description: 'Home+커뮤니티 인터리브 슬롯 24시간',
+      pricePoints: 15,
       durationHours: 24,
       badge: '인기',
     ),
     PointShopItem(
-      id: 'item-boost-7d',
-      sku: 'boost_local_7d',
-      title: '우리 지역 노출 부스터 · 7일',
-      description: 'Home 「우리 지역」탭 최상단 고정 노출 7일',
-      pricePoints: 449,
+      id: 'item-boost-spot-7d',
+      sku: 'boost_spotlight_7d',
+      title: '스포트라이트 · 7일',
+      description: 'Home+커뮤니티 인터리브 슬롯 7일',
+      pricePoints: 59,
       durationHours: 168,
     ),
   ];
