@@ -725,11 +725,13 @@ class SupabaseSoriRepository implements SoriRepository {
     try {
       final row = await _db
           .from('customers')
-          .select('id, shop_id, phone, memberships')
+          .select('id, shop_id, phone, name, memberships')
           .eq('id', customerId)
           .maybeSingle();
       if (row == null) return;
       final phone = _digits(DbMap.asText(row['phone']));
+      final userPhone = DbMap.asText(row['phone']);
+      final customerName = DbMap.asText(row['name'], '고객');
       final shopId = DbMap.asText(row['shop_id']);
       final memberships = <CustomerMembership>[];
       final raw = row['memberships'];
@@ -750,6 +752,8 @@ class SupabaseSoriRepository implements SoriRepository {
           'shop_id': shopId,
           'customer_id': customerId,
           'customer_phone_digits': phone,
+          'user_phone': userPhone,
+          'customer_name': customerName,
           'ticket_name': m.serviceName,
           'total_visits': m.totalVisits,
           'used_visits': m.usedVisits,
