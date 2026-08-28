@@ -218,7 +218,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       builder: (ctx) => AlertDialog(
         backgroundColor: SoriTokens.surfaceElevated,
         title: const Text(
-          '속삭임을 보낼까요?',
+          'Whisper를 보낼까요?',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
         content: Text(
@@ -252,7 +252,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${result.recipientCount}명에게 속삭임을 게시했어요'
+            '${result.recipientCount}명에게 Whisper를 게시했어요'
             '${result.truncated ? ' (상한 적용)' : ''}',
           ),
           behavior: SnackBarBehavior.floating,
@@ -334,7 +334,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                 children: [
                   const Expanded(
                     child: Text(
-                      '속삭임 작성',
+                      'Whisper 작성',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -518,7 +518,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                   ),
                 ),
                 child: Text(
-                  _sending ? '보내는 중…' : '속삭임 보내기',
+                  _sending ? '보내는 중…' : 'Whisper 보내기',
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 15,

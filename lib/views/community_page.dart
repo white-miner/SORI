@@ -181,7 +181,7 @@ class _CommunityPageState extends State<CommunityPage>
                   ),
                   if (_isDirector) ...[
                     IconButton(
-                      tooltip: '속삭임 작성',
+                      tooltip: 'Whisper 작성',
                       onPressed: _composeWhisper,
                       icon: const Icon(Icons.lock_outline_rounded),
                       color: SoriTokens.primary,
@@ -209,7 +209,7 @@ class _CommunityPageState extends State<CommunityPage>
                 controller: _tabs,
                 labels: const [
                   '전체',
-                  '속삭임',
+                  'Whisper',
                   '인테리어',
                   '기기 리뷰',
                   '중고·신상',
@@ -376,7 +376,7 @@ class _WhisperSegment extends StatelessWidget {
                             ),
                             SizedBox(width: 8),
                             Text(
-                              '속삭임',
+                              'Whisper',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
@@ -400,7 +400,7 @@ class _WhisperSegment extends StatelessWidget {
                           FilledButton.icon(
                             onPressed: onCompose,
                             icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text('속삭임 남기기'),
+                            label: const Text('Whisper 남기기'),
                             style: FilledButton.styleFrom(
                               backgroundColor: SoriTokens.primaryLight,
                               foregroundColor: Colors.white,
@@ -421,7 +421,7 @@ class _WhisperSegment extends StatelessWidget {
                 ),
                 const SizedBox(height: 22),
                 const _WhisperZoneHeader(
-                  title: '나에게 들려온 속삭임',
+                  title: '나에게 들려온 Whisper',
                   subtitle: '조건에 맞아 나만 볼 수 있는 글이에요.',
                 ),
                 const SizedBox(height: 10),
@@ -434,7 +434,7 @@ class _WhisperSegment extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             sliver: SliverToBoxAdapter(
               child: _EmptyHint(
-                text: '아직 들려온 속삭임이 없어요. 팔로우·방문하면 여기에 모여요.',
+                text: '아직 들려온 Whisper가 없어요. 팔로우·방문하면 여기에 모여요.',
               ),
             ),
           )
@@ -456,7 +456,7 @@ class _WhisperSegment extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _WhisperZoneHeader(
-                  title: '내가 남긴 속삭임',
+                  title: '내가 남긴 Whisper',
                   subtitle: '내가 선택한 사람에게만 전달된 글이에요.',
                 ),
                 const SizedBox(height: 10),
@@ -470,8 +470,8 @@ class _WhisperSegment extends StatelessWidget {
             sliver: SliverToBoxAdapter(
               child: _EmptyHint(
                 text: isDirector
-                    ? '첫 속삭임을 남겨 보세요. 선택한 사람에게만 전달됩니다.'
-                    : '아직 남긴 속삭임이 없어요.',
+                    ? '첫 Whisper를 남겨 보세요. 선택한 사람에게만 전달됩니다.'
+                    : '아직 남긴 Whisper가 없어요.',
               ),
             ),
           )

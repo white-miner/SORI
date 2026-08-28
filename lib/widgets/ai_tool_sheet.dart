@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/ai_tool.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../routing/sori_router.dart';
 import '../widgets/case_kakao_share_button.dart';
 import '../services/ai_tool_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/consent_publish_gate.dart';
 import 'boost_bump_sheet.dart';
 
 enum AiToolSheetResult {
@@ -128,6 +131,35 @@ class _AiToolSheetState extends State<AiToolSheet>
 
   Future<void> _publish() async {
     if (_publishing || _draft == null) return;
+    final gate = canPublishBa(widget.chart);
+    if (!gate.allowsPublish) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: SoriTokens.surface,
+          title: const Text('SNS 공유 동의 필요'),
+          content: Text(gate.alertMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('고객 동의 확인'),
+            ),
+          ],
+        ),
+      );
+      if (go == true && mounted) {
+        Navigator.of(context).pop(AiToolSheetResult.cancelled);
+        final cid = widget.chart.customerId.trim();
+        if (cid.isNotEmpty) {
+          context.go('${AppPaths.appCustomers}/$cid');
+        }
+      }
+      return;
+    }
     setState(() => _publishing = true);
     try {
       final d = _draft!;

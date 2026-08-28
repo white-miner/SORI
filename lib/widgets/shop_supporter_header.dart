@@ -59,7 +59,7 @@ class ShopSupporterHeaderBanner extends StatelessWidget {
             Text(
               hero != null
                   ? '플래티넘 스페셜 ${hero.name.trim()}'
-                  : '탑 후원자 ${top.name.trim()}',
+                  : 'Top Supporter ${top.name.trim()}',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.5,

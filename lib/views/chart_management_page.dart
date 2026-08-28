@@ -1,13 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../routing/sori_router.dart';
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/consent_publish_gate.dart';
 import '../widgets/ai_tool_sheet.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/media_permission_dialogs.dart';
@@ -585,7 +588,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
+            content: Text('공유 해제에 실패했습니다.'),
             behavior: SnackBarBehavior.floating,
             backgroundColor: SoriTokens.systemRed,
           ),
@@ -594,14 +597,32 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       return;
     }
 
-    if (!chart.isConsentSigned) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.systemRed,
+    final gate = canPublishBa(chart);
+    if (!gate.allowsPublish) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: SoriTokens.surface,
+          title: const Text('SNS 공유 동의 필요'),
+          content: Text(gate.alertMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('고객 동의 확인'),
+            ),
+          ],
         ),
       );
+      if (go == true && mounted) {
+        final cid = chart.customerId.trim();
+        if (cid.isNotEmpty) {
+          context.go('${AppPaths.appCustomers}/$cid');
+        }
+      }
       return;
     }
 
@@ -633,8 +654,8 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
   }
 
   Widget _buildFeedShareBar(CustomerChart chart) {
-    final shared = chart.caseShared && chart.isConsentSigned;
-    final canShare = chart.isConsentSigned;
+    final shared = chart.caseShared && canPublishBa(chart).allowsPublish;
+    final canShare = canPublishBa(chart).allowsPublish;
     return Material(
       color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(14),

@@ -57,8 +57,8 @@ class ShopSupporterHeader {
   String get metricsLine {
     final parts = <String>[];
     if (followerCount > 0) parts.add('팔로워 +$followerCount명');
-    if (supporterCount > 0) parts.add('후원자 $supporterCount명');
-    if (parts.isEmpty) return '팔로워와 후원자를 모아보세요';
+    if (supporterCount > 0) parts.add('Supporter $supporterCount명');
+    if (parts.isEmpty) return 'Follower와 Supporter를 모아보세요';
     return parts.join(' · ');
   }
 }

@@ -190,11 +190,11 @@ class _AppShellPageState extends State<AppShellPage> {
         // PC breakpoint — 800px+ (mobile layout preserved below).
         final wide = constraints.maxWidth >= 800;
         final extraWide = constraints.maxWidth >= 1200;
-        // Mobile: hide shell AppBar on My / customer detail for immersion.
-        // PC: AppBar always fixed (hamburger + logo) regardless of tab.
-        final hideShellAppBar = !wide &&
-            (tab == 4 || _isCustomerDetailRoute(context));
+        // Mobile: hide shell AppBar only on customer detail for immersion.
+        // My 탭은 셸 AppBar(+ / 알림 / 보관함 / 설정)를 유지한다 (S-A).
+        final hideShellAppBar = !wide && _isCustomerDetailRoute(context);
 
+        final onMy = tab == 4;
         final appBar = hideShellAppBar
             ? null
             : _ShellAppBar(
@@ -207,11 +207,11 @@ class _AppShellPageState extends State<AppShellPage> {
                     : null,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
-                onPostFirst: tab == 0
+                onPostFirst: (tab == 0 || onMy)
                     ? () => PostFirstCreationPage.open(context)
                     : null,
-                onArchive: tab == 0 || tab == 3 ? _openArchive : null,
-                onSettings: null,
+                onArchive: (tab == 0 || tab == 3 || onMy) ? _openArchive : null,
+                onSettings: onMy ? _openSettings : null,
               );
 
         if (!wide) {

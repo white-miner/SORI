@@ -108,10 +108,13 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
         color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _accent.withValues(alpha: 0.55)),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A1428), Color(0xFF18181B)],
+          colors: [
+            _accentSoft,
+            SoriTokens.surface,
+          ],
         ),
       ),
       child: Column(
@@ -466,7 +469,10 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0F1F1A), Color(0xFF18181B)],
+          colors: [
+            Color(0x1A047857),
+            SoriTokens.surface,
+          ],
         ),
       ),
       child: Column(

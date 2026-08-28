@@ -67,9 +67,9 @@ class _SupporterDashboardSheetState extends State<_SupporterDashboardSheet> {
   }
 
   String _tierLabel(int rank, FanSupporterEntry row) {
-    if (rank == 1 && row.echoSpent >= 50) return '탑 후원자';
-    if (rank <= 3 && row.echoSpent >= 200) return '프리미엄 후원자';
-    return '후원자';
+    if (rank == 1 && row.echoSpent >= 50) return 'Top Supporter';
+    if (rank <= 3 && row.echoSpent >= 200) return 'Premium Supporter';
+    return 'Supporter';
   }
 
   @override
@@ -97,14 +97,14 @@ class _SupporterDashboardSheetState extends State<_SupporterDashboardSheet> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Text(
-                '후원자 관리',
+                'Supporter 관리',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(
-                '팔로워 ${widget.followerCount}명 · 후원자 ${widget.supporterCount}명',
+                '팔로워 ${widget.followerCount}명 · Supporter ${widget.supporterCount}명',
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -139,7 +139,7 @@ class _SupporterDashboardSheetState extends State<_SupporterDashboardSheet> {
               child: ranked.isEmpty
                   ? const Center(
                       child: Text(
-                        '아직 후원자가 없어요.',
+                        '아직 Supporter가 없어요.',
                         style: TextStyle(color: SoriTokens.textSecondary),
                       ),
                     )

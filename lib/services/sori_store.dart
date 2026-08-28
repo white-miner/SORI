@@ -16,6 +16,7 @@ import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../utils/consent_publish_gate.dart';
 import '../models/customer_merge_preview.dart';
 import '../models/customer_membership.dart';
 import '../services/customer_merge_service.dart';
@@ -3814,6 +3815,7 @@ class SoriStore implements Listenable {
   }) async {
     final shopId = shop.id.trim();
     if (shopId.isEmpty) return null;
+    if (!canPublishBa(chart).allowsPublish) return null;
     // Avoid duplicate publish for same chart.
     for (final p in communityPosts) {
       if (p.sourceChartId == chart.id &&
@@ -4211,16 +4213,16 @@ class SoriStore implements Listenable {
     return true;
   }
 
-  /// 관리 케이스 공개 공유 토글. 동의 서명 없는 차트는 shared=true 거부.
+  /// 관리 케이스 공개 공유 토글. SNS 마케팅 동의 없는 차트는 shared=true 거부.
   /// returns false if blocked by consent defense.
   bool setManagementCaseShared(String chartId, bool shared) {
     final index = charts.indexWhere((c) => c.id == chartId);
     if (index < 0) return false;
     final chart = charts[index];
-    if (shared && !chart.isConsentSigned) {
+    if (shared && !canPublishBa(chart).allowsPublish) {
       return false;
     }
-    final nextShared = chart.isConsentSigned ? shared : false;
+    final nextShared = canPublishBa(chart).allowsPublish ? shared : false;
     charts[index] = chart.copyWith(caseShared: nextShared);
     _notify();
     if (_repository.isRemote) {

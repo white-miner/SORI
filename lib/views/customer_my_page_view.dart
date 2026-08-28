@@ -142,7 +142,7 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
                   ),
                   if (kDebugMode) const DebugModeChip(),
                   IconButton(
-                    tooltip: '내가 후원한 케이스',
+                    tooltip: 'My Supporter 케이스',
                     onPressed: () {
                       MyBoostGiftsPage.open(context, store: store);
                     },

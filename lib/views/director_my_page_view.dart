@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +9,6 @@ import '../models/customer_chart.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
-import '../models/shop_supporter_header.dart';
 import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
@@ -22,22 +20,18 @@ import '../widgets/my_ai_manager_tab_body.dart';
 import '../widgets/my_seminar_tab_body.dart';
 import '../widgets/my_tier_home_card.dart';
 import '../widgets/seminar_review_modal.dart';
+import '../widgets/people_list_sheet.dart';
+import '../widgets/shop_posts_hub_sheet.dart';
 import '../widgets/shop_inline_info_tab.dart';
 import '../widgets/shop_posts_thread_section.dart';
 import '../widgets/shop_review_compose_sheet.dart';
-import '../widgets/shop_supporter_header.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import 'ai_shop_report_page.dart';
-import 'app_settings_page.dart';
-import 'whisper_composer_sheet.dart';
 import 'my_page_fandom_hub.dart';
-import '../widgets/supporter_notifications_sheet.dart';
 import 'chart_customer_picker_sheet.dart';
-import 'message_history_page.dart';
-import 'post_first_creation_page.dart';
 import 'seminar_class_open_page.dart';
 import 'seminar_feedback_inbox_page.dart';
 
@@ -464,18 +458,17 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final cases = _baCases;
     final isOwner = session?.activeMode == UserRole.director;
     final coverUrl = (shop.coverImageUrl ?? '').trim();
-    final regularCount = store.customers.isNotEmpty
-        ? store.customers.length
-        : shop.followerCount;
 
     final topInset = MediaQuery.paddingOf(context).top;
-    final heroExpanded = 320 + topInset;
-    final badgeCount = _notificationBadgeCount(session);
-    final supporterPending =
-        store.supporterNotifications.where((e) => e.canThank).length;
+    final heroExpanded = 300 + topInset;
+    final postCount = store.communityPosts
+            .where((p) => p.shopId == shop.id && !p.isWhisper)
+            .length +
+        store.charts.where((c) => c.caseShared).length;
+    final followingCount = store.followedShopIds.length;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
+      value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
         systemNavigationBarColor: SoriTokens.background,
       ),
@@ -484,8 +477,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
         child: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
-              // expanded: 투명·풀블리드 / collapsed: #0A0A0C 솔리드(상태바 높이)
-              // backgroundColor는 접힘 시 노출되며, 펼침 시에는 이미지가 덮음.
               SliverAppBar(
                 expandedHeight: heroExpanded,
                 pinned: true,
@@ -494,12 +485,12 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 scrolledUnderElevation: 0,
                 surfaceTintColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                backgroundColor: const Color(0xFF0A0A0C),
-                foregroundColor: Colors.white,
+                backgroundColor: SoriTokens.surface,
+                foregroundColor: SoriTokens.textPrimary,
                 automaticallyImplyLeading: false,
                 toolbarHeight: 0,
                 forceElevated: false,
-                systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+                systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
                   statusBarColor: Colors.transparent,
                 ),
                 flexibleSpace: FlexibleSpaceBar(
@@ -507,21 +498,30 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                   background: _ShopHeroCover(
                     shopName: shopName,
                     coverUrl: coverUrl,
-                    supporterHeader: store.shopSupporterHeader,
-                    regularCount: regularCount,
+                    followerCount: store.shopSupporterHeader.followerCount,
+                    supporterCount: store.shopSupporterHeader.supporterCount,
+                    postCount: postCount,
+                    followingCount: followingCount,
                     isOwner: isOwner,
-                    badgeCount: badgeCount,
                     coverUploading: _avatarUploading,
                     onCoverPick: isOwner ? _pickAndUploadCover : null,
-                    onPost: () => PostFirstCreationPage.open(context),
-                    onNotifications: _openNotifications,
-                    onSettings: _openSettings,
-                    onComposeWhisper: () =>
-                        showWhisperComposer(context, store: store),
-                    onOpenSupporterInbox: _openSupporterInbox,
-                    supporterInboxBadge: supporterPending,
-                    onOpenFandom: () =>
-                        MyPageFandomHubPage.open(context, store: store),
+                    onOpenPosts: () =>
+                        showShopPostsHubSheet(context, store: store),
+                    onOpenFollowers: () => showPeopleListSheet(
+                      context,
+                      store: store,
+                      kind: PeopleListKind.follower,
+                    ),
+                    onOpenSupporters: () => showPeopleListSheet(
+                      context,
+                      store: store,
+                      kind: PeopleListKind.supporter,
+                    ),
+                    onOpenFollowing: () => showPeopleListSheet(
+                      context,
+                      store: store,
+                      kind: PeopleListKind.following,
+                    ),
                   ),
                 ),
               ),
@@ -571,84 +571,39 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     );
   }
 
-  int _notificationBadgeCount(SessionUser? session) {
-    if (session == null) return 0;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    if (session.activeMode == UserRole.director) {
-      final careToday = store.customersForDate(today).length;
-      final reviewReq = store.reviewRequestedPendingCount;
-      final unreplied = store.reviewUnrepliedCount;
-      return (careToday + reviewReq + unreplied).clamp(0, 99);
-    }
-    final cid = session.customerId;
-    if (cid != null && store.isReviewRequested(cid)) return 1;
-    return 0;
-  }
-
-  Future<void> _openSupporterInbox() async {
-    await showSupporterNotificationsSheet(context, store: store);
-  }
-
-  Future<void> _openNotifications() async {
-    await pushRootPage<void>(
-      context,
-      Scaffold(
-        backgroundColor: SoriTokens.background,
-        appBar: AppBar(
-          title: const Text('알림'),
-          backgroundColor: SoriTokens.surface,
-          foregroundColor: SoriTokens.textPrimary,
-          elevation: 0,
-        ),
-        body: const MessageHistoryPage(embedded: true),
-      ),
-    );
-  }
-
-  Future<void> _openSettings() async {
-    await pushRootPage<void>(
-      context,
-      AppSettingsPage(store: store),
-    );
-  }
 }
 
-/// 풀블리드 샵 간판 + 하단 다크 그라데이션 (Weverse 시네마틱).
+/// 풀블리드 샵 간판 + 라이트 톤 오버레이 (S-A).
 class _ShopHeroCover extends StatelessWidget {
   const _ShopHeroCover({
     required this.shopName,
     required this.coverUrl,
-    required this.supporterHeader,
-    required this.regularCount,
+    required this.followerCount,
+    required this.supporterCount,
+    required this.postCount,
+    required this.followingCount,
     required this.isOwner,
-    required this.onPost,
-    required this.onNotifications,
-    required this.onSettings,
-    required this.onComposeWhisper,
-    required this.onOpenSupporterInbox,
-    this.supporterInboxBadge = 0,
-    required this.onOpenFandom,
+    required this.onOpenPosts,
+    required this.onOpenFollowers,
+    required this.onOpenSupporters,
+    required this.onOpenFollowing,
     this.onCoverPick,
     this.coverUploading = false,
-    this.badgeCount = 0,
   });
 
   final String shopName;
   final String coverUrl;
-  final ShopSupporterHeader supporterHeader;
-  final int regularCount;
+  final int followerCount;
+  final int supporterCount;
+  final int postCount;
+  final int followingCount;
   final bool isOwner;
-  final VoidCallback onPost;
-  final VoidCallback onNotifications;
-  final VoidCallback onSettings;
-  final VoidCallback onComposeWhisper;
-  final VoidCallback onOpenSupporterInbox;
-  final int supporterInboxBadge;
-  final VoidCallback onOpenFandom;
+  final VoidCallback onOpenPosts;
+  final VoidCallback onOpenFollowers;
+  final VoidCallback onOpenSupporters;
+  final VoidCallback onOpenFollowing;
   final VoidCallback? onCoverPick;
   final bool coverUploading;
-  final int badgeCount;
 
   static const _fallbackCover =
       'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80';
@@ -656,12 +611,6 @@ class _ShopHeroCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final src = coverUrl.trim().isNotEmpty ? coverUrl : _fallbackCover;
-    final metric = supporterHeader.supporterCount > 0 ||
-            supporterHeader.followerCount > 0
-        ? supporterHeader.metricsLine
-        : regularCount > 0
-            ? '고객 $regularCount명 · 팔로워를 모아보세요'
-            : '팔로워와 후원자를 모아보세요';
 
     return Stack(
       fit: StackFit.expand,
@@ -671,7 +620,7 @@ class _ShopHeroCover extends StatelessWidget {
           fit: BoxFit.cover,
           alignment: Alignment.center,
           error: const ColoredBox(
-            color: SoriTokens.primaryDark,
+            color: Color(0xFFE8E4DC),
             child: Center(
               child: Icon(
                 Icons.spa_rounded,
@@ -681,7 +630,7 @@ class _ShopHeroCover extends StatelessWidget {
             ),
           ),
         ),
-        // 상단: 밝은 간판에서도 화이트 아이콘 가독성
+        // 상단: 밝은 간판 가독용 라이트 스크림
         const Align(
           alignment: Alignment.topCenter,
           child: DecoratedBox(
@@ -690,17 +639,17 @@ class _ShopHeroCover extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0x99000000),
-                  Color(0x33000000),
+                  Color(0x66FFFFFF),
+                  Color(0x22FFFFFF),
                   Colors.transparent,
                 ],
-                stops: [0.0, 0.55, 1.0],
+                stops: [0.0, 0.5, 1.0],
               ),
             ),
-            child: SizedBox(height: 120, width: double.infinity),
+            child: SizedBox(height: 96, width: double.infinity),
           ),
         ),
-        // 하단: 투명 → #0A0A0C
+        // 하단: 라이트 톤 → 서페이스로 자연스럽게 이어짐
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -708,98 +657,57 @@ class _ShopHeroCover extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                Colors.transparent,
-                Color(0x990A0A0C),
-                Color(0xFF0A0A0C),
+                Color(0x55FFFFFF),
+                Color(0xCCF8F9FA),
+                SoriTokens.background,
               ],
-              stops: [0.0, 0.42, 0.72, 1.0],
+              stops: [0.0, 0.45, 0.78, 1.0],
             ),
           ),
         ),
-        // 우상단 오버레이 액션 (+ / 알림 / 설정)
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-              child: Row(
-                children: [
-                  if (kDebugMode) const DebugModeChip(),
-                  const Spacer(),
-                  _HeroOverlayIcon(
-                    tooltip: '새 게시물',
-                    icon: Icons.add_rounded,
-                    onPressed: onPost,
-                  ),
-                  _HeroOverlayIcon(
-                    tooltip: '속삭임 작성',
-                    icon: Icons.lock_outline_rounded,
-                    onPressed: onComposeWhisper,
-                  ),
-                  _HeroOverlayIcon(
-                    tooltip: '후원 알림',
-                    icon: Icons.volunteer_activism_outlined,
-                    onPressed: onOpenSupporterInbox,
-                    badgeCount: supporterInboxBadge,
-                  ),
-                  _HeroOverlayIcon(
-                    tooltip: '팔로워 · 구독',
-                    icon: Icons.explore_outlined,
-                    onPressed: onOpenFandom,
-                  ),
-                  _HeroOverlayIcon(
-                    tooltip: '알림',
-                    icon: Icons.notifications_none_rounded,
-                    onPressed: onNotifications,
-                    badgeCount: badgeCount,
-                  ),
-                  _HeroOverlayIcon(
-                    tooltip: '설정',
-                    icon: Icons.settings_outlined,
-                    onPressed: onSettings,
-                  ),
-                ],
+        if (kDebugMode)
+          const Positioned(
+            top: 0,
+            left: 8,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: DebugModeChip(),
               ),
             ),
           ),
-        ),
         SafeArea(
           bottom: false,
           child: Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (supporterHeader.facepile.isNotEmpty)
-                    ShopSupporterHeaderBanner(header: supporterHeader)
-                  else
-                    Text(
-                      metric,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.78),
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
+                  _MetricsRow(
+                    followerCount: followerCount,
+                    supporterCount: supporterCount,
+                    postCount: postCount,
+                    followingCount: followingCount,
+                    onOpenPosts: onOpenPosts,
+                    onOpenFollowers: onOpenFollowers,
+                    onOpenSupporters: onOpenSupporters,
+                    onOpenFollowing: onOpenFollowing,
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     shopName,
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 34,
+                      fontSize: 30,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: SoriTokens.textPrimary,
                       height: 1.12,
-                      letterSpacing: -0.6,
+                      letterSpacing: -0.5,
                     ),
                   ),
                 ],
@@ -813,37 +721,34 @@ class _ShopHeroCover extends StatelessWidget {
             bottom: 28,
             child: SafeArea(
               top: false,
-              child: ClipOval(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Material(
-                    color: Colors.white.withValues(alpha: 0.16),
-                    shape: const CircleBorder(
-                      side: BorderSide(color: Color(0x66FFFFFF)),
-                    ),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: coverUploading ? null : onCoverPick,
-                      child: SizedBox(
-                        width: 46,
-                        height: 46,
-                        child: Center(
-                          child: coverUploading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.photo_camera_rounded,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                        ),
-                      ),
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.92),
+                elevation: 1,
+                shadowColor: Colors.black26,
+                shape: const CircleBorder(
+                  side: BorderSide(color: SoriTokens.border),
+                ),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: coverUploading ? null : onCoverPick,
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: coverUploading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: SoriTokens.primary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.photo_camera_rounded,
+                              size: 20,
+                              color: SoriTokens.textPrimary,
+                            ),
                     ),
                   ),
                 ),
@@ -855,52 +760,103 @@ class _ShopHeroCover extends StatelessWidget {
   }
 }
 
-class _HeroOverlayIcon extends StatelessWidget {
-  const _HeroOverlayIcon({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    this.badgeCount = 0,
+class _MetricsRow extends StatelessWidget {
+  const _MetricsRow({
+    required this.followerCount,
+    required this.supporterCount,
+    required this.postCount,
+    required this.followingCount,
+    required this.onOpenPosts,
+    required this.onOpenFollowers,
+    required this.onOpenSupporters,
+    required this.onOpenFollowing,
   });
 
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final int badgeCount;
+  final int followerCount;
+  final int supporterCount;
+  final int postCount;
+  final int followingCount;
+  final VoidCallback onOpenPosts;
+  final VoidCallback onOpenFollowers;
+  final VoidCallback onOpenSupporters;
+  final VoidCallback onOpenFollowing;
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      padding: const EdgeInsets.all(8),
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-      icon: Badge(
-        isLabelVisible: badgeCount > 0,
-        label: Text(
-          '$badgeCount',
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
+    return Row(
+      children: [
+        Expanded(
+          child: _MetricTap(
+            value: '$followerCount',
+            label: 'Follower',
+            onTap: onOpenFollowers,
           ),
         ),
-        backgroundColor: SoriTokens.systemRed,
-        textColor: Colors.white,
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: 24,
-          shadows: const [
-            Shadow(
-              color: Color(0xCC000000),
-              blurRadius: 10,
-              offset: Offset(0, 1),
+        Expanded(
+          child: _MetricTap(
+            value: '$supporterCount',
+            label: 'Supporter',
+            onTap: onOpenSupporters,
+          ),
+        ),
+        Expanded(
+          child: _MetricTap(
+            value: '$postCount',
+            label: 'Posts',
+            onTap: onOpenPosts,
+          ),
+        ),
+        Expanded(
+          child: _MetricTap(
+            value: '$followingCount',
+            label: 'Following',
+            onTap: onOpenFollowing,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricTap extends StatelessWidget {
+  const _MetricTap({
+    required this.value,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String value;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: SoriTokens.textPrimary,
+                height: 1.1,
+              ),
             ),
-            Shadow(
-              color: Color(0x66000000),
-              blurRadius: 2,
-              offset: Offset(0, 0),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textSecondary,
+                letterSpacing: 0.1,
+              ),
             ),
           ],
         ),

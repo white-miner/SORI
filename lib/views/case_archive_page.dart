@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/community_case_item.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/consent_publish_gate.dart';
 import '../widgets/ai_tool_sheet.dart';
 import '../widgets/case_archive_tile.dart';
 import '../widgets/case_marketing_wizard_sheet.dart';
@@ -116,7 +119,7 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
+            content: Text('공유 해제에 실패했습니다.'),
             behavior: SnackBarBehavior.floating,
             backgroundColor: SoriTokens.systemRed,
           ),
@@ -125,14 +128,32 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
       return;
     }
 
-    if (!chart.isConsentSigned) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('고객의 정보 활용 동의서 서명이 완료된 차트만 공유할 수 있습니다.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: SoriTokens.systemRed,
+    final gate = canPublishBa(chart);
+    if (!gate.allowsPublish) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: SoriTokens.surface,
+          title: const Text('SNS 공유 동의 필요'),
+          content: Text(gate.alertMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('고객 동의 확인'),
+            ),
+          ],
         ),
       );
+      if (go == true && mounted) {
+        final cid = chart.customerId.trim();
+        if (cid.isNotEmpty) {
+          context.go('${AppPaths.appCustomers}/$cid');
+        }
+      }
       return;
     }
 
