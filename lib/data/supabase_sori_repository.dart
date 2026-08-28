@@ -24,6 +24,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/premium_overlay.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -4172,6 +4173,70 @@ class SupabaseSoriRepository implements SoriRepository {
         );
       }
       rethrow;
+    }
+  }
+
+  @override
+  Future<BoostPurchaseResult> purchaseSpecialSupporterGift({
+    required String customerId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String targetShopId = '',
+    String fanDisplayName = '',
+    String regionCode = '',
+  }) async {
+    final cid = customerId.trim();
+    final tid = targetId.trim();
+    if (cid.isEmpty || tid.isEmpty) {
+      return const BoostPurchaseResult(ok: false, message: 'invalid args');
+    }
+    try {
+      final raw = await _db.rpc(
+        'purchase_special_gift',
+        params: {
+          'p_customer_id': cid,
+          'p_sku': sku.trim(),
+          'p_target_type': targetType,
+          'p_target_id': tid,
+          'p_fan_display_name': fanDisplayName,
+          'p_region_code': regionCode,
+        },
+      );
+      if (raw is! Map) {
+        return const BoostPurchaseResult(ok: false, message: 'empty response');
+      }
+      return BoostPurchaseResult.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('purchaseSpecialSupporterGift failed: $e\n$st');
+      final msg = e.toString();
+      if (msg.contains('insufficient points')) {
+        final haveMatch = RegExp(r'have (\d+)').firstMatch(msg);
+        final needMatch = RegExp(r'need (\d+)').firstMatch(msg);
+        return BoostPurchaseResult.insufficientPoints(
+          have: int.tryParse(haveMatch?.group(1) ?? '') ?? 0,
+          need: int.tryParse(needMatch?.group(1) ?? '') ?? 0,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<PremiumOverlay>> loadActivePremiumOverlays({int limit = 80}) async {
+    try {
+      final raw = await _db.rpc(
+        'list_active_premium_overlays',
+        params: {'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => PremiumOverlay.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadActivePremiumOverlays failed: $e\n$st');
+      return const [];
     }
   }
 

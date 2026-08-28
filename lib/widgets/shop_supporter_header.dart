@@ -18,7 +18,14 @@ class ShopSupporterHeaderBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ranked = FanSupporterEntry.ranked(header.facepile);
+    final hero = header.specialHero;
+    var ranked = FanSupporterEntry.ranked(header.facepile);
+    if (hero != null && hero.name.trim().isNotEmpty) {
+      ranked = [
+        hero,
+        ...ranked.where((e) => e.customerId != hero.customerId),
+      ];
+    }
     final top = header.topSupporter;
 
     return GestureDetector(
@@ -50,7 +57,9 @@ class ShopSupporterHeaderBanner extends StatelessWidget {
           if (top != null && top.name.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              '탑 후원자 ${top.name.trim()}',
+              hero != null
+                  ? '플래티넘 스페셜 ${hero.name.trim()}'
+                  : '탑 후원자 ${top.name.trim()}',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.5,

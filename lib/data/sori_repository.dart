@@ -19,6 +19,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/premium_overlay.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
@@ -634,6 +635,20 @@ abstract class SoriRepository {
     String fanDisplayName = '',
     String regionCode = '',
   });
+
+  /// VIP 스페셜 후원 — overlay 스택 (기존 부스트 유지).
+  Future<BoostPurchaseResult> purchaseSpecialSupporterGift({
+    required String customerId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String targetShopId = '',
+    String fanDisplayName = '',
+    String regionCode = '',
+  });
+
+  /// 활성 premium overlay (피드 어노테이션).
+  Future<List<PremiumOverlay>> loadActivePremiumOverlays({int limit = 80});
 
   /// 게시물별 Fan-Boost 서포터 랭킹 (누적 Echo DESC).
   Future<List<FanSupporterEntry>> loadFanBoostSupporters({

@@ -11,6 +11,7 @@ class FanBoostAuroraAvatar extends StatefulWidget {
     required this.imageUrl,
     required this.isBoostActive,
     this.isFanBoost = false,
+    this.premiumTier = '',
     this.radius = 18,
     this.onTap,
     this.fallbackChild,
@@ -19,6 +20,9 @@ class FanBoostAuroraAvatar extends StatefulWidget {
   final String imageUrl;
   final bool isBoostActive;
   final bool isFanBoost;
+
+  /// gold | platinum | ''
+  final String premiumTier;
   final double radius;
   final VoidCallback? onTap;
   final Widget? fallbackChild;
@@ -35,7 +39,8 @@ class _FanBoostAuroraAvatarState extends State<FanBoostAuroraAvatar>
 
   AnimationController? _spin;
 
-  bool get _shouldSpin => widget.isBoostActive && widget.isFanBoost;
+  bool get _shouldSpin =>
+      widget.isBoostActive && (widget.isFanBoost || widget.premiumTier.isNotEmpty);
 
   @override
   void initState() {
@@ -47,7 +52,8 @@ class _FanBoostAuroraAvatarState extends State<FanBoostAuroraAvatar>
   void didUpdateWidget(covariant FanBoostAuroraAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isBoostActive != widget.isBoostActive ||
-        oldWidget.isFanBoost != widget.isFanBoost) {
+        oldWidget.isFanBoost != widget.isFanBoost ||
+        oldWidget.premiumTier != widget.premiumTier) {
       _ensureSpin();
     }
   }
@@ -93,7 +99,10 @@ class _FanBoostAuroraAvatarState extends State<FanBoostAuroraAvatar>
     if (_shouldSpin) {
       Widget ring = CustomPaint(
         size: Size.square(outer * 2),
-        painter: _AuroraRingPainter(isFanBoost: widget.isFanBoost),
+        painter: _AuroraRingPainter(
+          isFanBoost: widget.isFanBoost,
+          premiumTier: widget.premiumTier,
+        ),
       );
       if (_spin != null) {
         ring = RotationTransition(turns: _spin!, child: ring);
@@ -118,9 +127,13 @@ class _FanBoostAuroraAvatarState extends State<FanBoostAuroraAvatar>
 }
 
 class _AuroraRingPainter extends CustomPainter {
-  _AuroraRingPainter({required this.isFanBoost});
+  _AuroraRingPainter({
+    required this.isFanBoost,
+    this.premiumTier = '',
+  });
 
   final bool isFanBoost;
+  final String premiumTier;
 
   static const List<Color> _fanColors = [
     Color(0xFF7C3AED),
@@ -130,6 +143,22 @@ class _AuroraRingPainter extends CustomPainter {
     Color(0xFF7C3AED),
   ];
 
+  static const List<Color> _goldColors = [
+    Color(0xFFFBBF24),
+    Color(0xFFF59E0B),
+    Color(0xFFFDE68A),
+    Color(0xFFD97706),
+    Color(0xFFFBBF24),
+  ];
+
+  static const List<Color> _platinumColors = [
+    Color(0xFFE2E8F0),
+    Color(0xFFCBD5E1),
+    Color(0xFFF8FAFC),
+    Color(0xFF94A3B8),
+    Color(0xFFE2E8F0),
+  ];
+
   static const List<Color> _adColors = [
     Color(0xFFFBBF24),
     Color(0xFFF59E0B),
@@ -137,16 +166,21 @@ class _AuroraRingPainter extends CustomPainter {
     Color(0xFFFBBF24),
   ];
 
+  List<Color> get _colors {
+    if (premiumTier == 'platinum') return _platinumColors;
+    if (premiumTier == 'gold') return _goldColors;
+    return isFanBoost ? _fanColors : _adColors;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     const ringWidth = 2.8;
     final radius = size.width / 2 - ringWidth / 2;
-    final colors = isFanBoost ? _fanColors : _adColors;
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth
-      ..shader = SweepGradient(colors: colors).createShader(
+      ..shader = SweepGradient(colors: _colors).createShader(
         Rect.fromCircle(center: center, radius: radius),
       );
     canvas.drawCircle(center, radius, paint);
@@ -154,5 +188,6 @@ class _AuroraRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AuroraRingPainter oldDelegate) =>
-      oldDelegate.isFanBoost != isFanBoost;
+      oldDelegate.isFanBoost != isFanBoost ||
+      oldDelegate.premiumTier != premiumTier;
 }

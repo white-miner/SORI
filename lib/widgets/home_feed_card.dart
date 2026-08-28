@@ -221,6 +221,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     imageUrl: avatar,
                     isBoostActive: item.isBoosted,
                     isFanBoost: item.isFanBoosted,
+                    premiumTier: item.premiumTier,
                     radius: 18,
                   ),
                 ),
@@ -259,22 +260,34 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: item.isFanBoosted
-                                    ? const Color(0x22F472B6)
-                                    : const Color(0x22FBBF24),
+                                color: item.hasPremiumOverlay
+                                    ? (item.isSpecialPlatinum
+                                        ? const Color(0x22E2E8F0)
+                                        : const Color(0x22FBBF24))
+                                    : item.isFanBoosted
+                                        ? const Color(0x22F472B6)
+                                        : const Color(0x22FBBF24),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: item.isFanBoosted
-                                      ? const Color(0x66F472B6)
-                                      : const Color(0x66FBBF24),
+                                  color: item.hasPremiumOverlay
+                                      ? (item.isSpecialPlatinum
+                                          ? const Color(0x66E2E8F0)
+                                          : const Color(0x66FBBF24))
+                                      : item.isFanBoosted
+                                          ? const Color(0x66F472B6)
+                                          : const Color(0x66FBBF24),
                                 ),
                               ),
                               child: Text(
-                                item.isFanBoosted
-                                    ? (item.fanDisplayName.trim().isEmpty
-                                        ? '후원'
-                                        : item.fanDisplayName.trim())
-                                    : 'AD',
+                                item.hasPremiumOverlay
+                                    ? (item.isSpecialPlatinum
+                                        ? '플래티넘'
+                                        : '골드')
+                                    : item.isFanBoosted
+                                        ? (item.fanDisplayName.trim().isEmpty
+                                            ? '후원'
+                                            : item.fanDisplayName.trim())
+                                        : 'AD',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
@@ -355,11 +368,15 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                         ),
                       ),
                       child: Text(
-                        item.isFanBoosted
-                            ? (item.fanDisplayName.trim().isEmpty
-                                ? '후원'
-                                : '${item.fanDisplayName.trim()}님 후원')
-                            : 'Sponsored',
+                        item.hasPremiumOverlay
+                            ? (item.specialSupporterName.trim().isEmpty
+                                ? '스페셜 후원'
+                                : '${item.specialSupporterName.trim()}님 스페셜 후원')
+                            : item.isFanBoosted
+                                ? (item.fanDisplayName.trim().isEmpty
+                                    ? '후원'
+                                    : '${item.fanDisplayName.trim()}님 후원')
+                                : 'Sponsored',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -372,9 +389,11 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     )
                   : null,
             ),
-          if (item.isFanBoosted)
+          if (item.isFanBoosted || item.hasPremiumOverlay)
             FanBoostCreditStrip(
               supporters: item.effectiveFanSupporters,
+              premiumTier: item.premiumTier,
+              specialName: item.specialSupporterName,
               onTap: () => showFanSupportersSheet(
                 context,
                 supporters: item.effectiveFanSupporters,

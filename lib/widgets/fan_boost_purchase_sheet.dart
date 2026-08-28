@@ -20,6 +20,9 @@ Future<bool> showFanBoostPurchaseSheet(
   final items = store.pointShopBoosters.isNotEmpty
       ? store.pointShopBoosters
       : PointShopItem.catalogBoosters;
+  final specialItems = store.supporterGiftItems.isNotEmpty
+      ? store.supporterGiftItems
+      : PointShopItem.catalogSpecialGifts;
 
   final purchased = await showModalBottomSheet<bool>(
     context: context,
@@ -33,20 +36,20 @@ Future<bool> showFanBoostPurchaseSheet(
       var busySku = '';
       return StatefulBuilder(
         builder: (ctx, setModal) {
-          Future<void> buy(PointShopItem item) async {
+          Future<void> purchaseItem(PointShopItem item, {required bool special}) async {
             if (busySku.isNotEmpty) return;
             setModal(() => busySku = item.sku);
+            final label = special ? '스페셜 후원' : '부스터 후원';
             try {
               await store.refreshCustomerEchoWallet();
               final bal = store.customerEchoWallet.pointTotal;
               if (bal < item.pricePoints) {
-                // Gap UX: 25E 이하·부족 시 55E 팩 유도
                 final charged = await showInsufficientPointsSheet(
                   ctx,
                   store: store,
                   need: item.pricePoints,
                   have: bal,
-                  productLabel: '부스터 후원',
+                  productLabel: label,
                   useCustomerWallet: true,
                 );
                 if (charged != true || !ctx.mounted) {
@@ -55,11 +58,17 @@ Future<bool> showFanBoostPurchaseSheet(
                 }
               }
 
-              var result = await store.purchaseFanBoostForChart(
-                chartId: chartId,
-                sku: item.sku,
-                targetShopId: targetShopId,
-              );
+              var result = special
+                  ? await store.purchaseSpecialSupporterForChart(
+                      chartId: chartId,
+                      sku: item.sku,
+                      targetShopId: targetShopId,
+                    )
+                  : await store.purchaseFanBoostForChart(
+                      chartId: chartId,
+                      sku: item.sku,
+                      targetShopId: targetShopId,
+                    );
               if (!ctx.mounted) return;
 
               if (result.insufficient) {
@@ -68,15 +77,21 @@ Future<bool> showFanBoostPurchaseSheet(
                   store: store,
                   need: result.need > 0 ? result.need : item.pricePoints,
                   have: result.have,
-                  productLabel: '부스터 후원',
+                  productLabel: label,
                   useCustomerWallet: true,
                 );
                 if (charged == true && ctx.mounted) {
-                  result = await store.purchaseFanBoostForChart(
-                    chartId: chartId,
-                    sku: item.sku,
-                    targetShopId: targetShopId,
-                  );
+                  result = special
+                      ? await store.purchaseSpecialSupporterForChart(
+                          chartId: chartId,
+                          sku: item.sku,
+                          targetShopId: targetShopId,
+                        )
+                      : await store.purchaseFanBoostForChart(
+                          chartId: chartId,
+                          sku: item.sku,
+                          targetShopId: targetShopId,
+                        );
                 } else {
                   setModal(() => busySku = '');
                   return;
@@ -92,7 +107,7 @@ Future<bool> showFanBoostPurchaseSheet(
                 SnackBar(
                   content: Text(
                     result.message.isEmpty
-                        ? '부스터 후원에 실패했습니다.'
+                        ? '$label에 실패했습니다.'
                         : result.message,
                   ),
                   behavior: SnackBarBehavior.floating,
@@ -101,14 +116,91 @@ Future<bool> showFanBoostPurchaseSheet(
             } catch (_) {
               if (!ctx.mounted) return;
               ScaffoldMessenger.of(ctx).showSnackBar(
-                const SnackBar(
-                  content: Text('부스터 후원 실패. 마이그레이션을 확인해 주세요.'),
+                SnackBar(
+                  content: Text('$label 실패. 마이그레이션을 확인해 주세요.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             } finally {
               if (ctx.mounted) setModal(() => busySku = '');
             }
+          }
+
+          Widget skuTile(PointShopItem item, {required bool special}) {
+            final busy = busySku == item.sku;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: special
+                    ? const Color(0xFF2A2410)
+                    : SoriTokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: busySku.isNotEmpty
+                      ? null
+                      : () => purchaseItem(item, special: special),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: special
+                            ? const Color(0x66FBBF24)
+                            : SoriTokens.textSecondary.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                special
+                                    ? '${item.pricePoints}E · 기존 부스트 위에 겹쳐집니다'
+                                    : '${item.pricePoints}E · 닉네임 공개 응원',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: SoriTokens.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (busy)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Text(
+                            special ? '스페셜 후원' : 'Echo로 띄워주기',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12.5,
+                              color: SoriTokens.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
           }
 
           final bal = store.customerEchoWallet.pointTotal;
@@ -191,81 +283,39 @@ Future<bool> showFanBoostPurchaseSheet(
                     ),
                   ),
                   const SizedBox(height: 14),
-                  ...items.map((item) {
-                    final busy = busySku == item.sku;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: SoriTokens.surfaceElevated,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          onTap: busySku.isNotEmpty ? null : () => buy(item),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: SoriTokens.textSecondary
-                                    .withValues(alpha: 0.45),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.title.replaceFirst(
-                                          '우리 지역 노출 부스터 · ',
-                                          '',
-                                        ),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${item.pricePoints}E · 닉네임 공개 응원',
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          color: SoriTokens.textSecondary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (busy)
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                else
-                                  const Text(
-                                    'Echo로 띄워주기',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 12.5,
-                                      color: SoriTokens.textSecondary,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
+                  if (specialItems.isNotEmpty) ...[
+                    const Text(
+                      '✨ 스페셜 후원',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: SoriTokens.textSecondary,
                       ),
-                    );
-                  }),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '이미 부스트 중이어도 스페셜 후원은 위에 겹쳐집니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: SoriTokens.textTertiary,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...specialItems.map((item) => skuTile(item, special: true)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '🔥 부스터 후원',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  ...items.map((item) => skuTile(item, special: false)),
                   TextButton(
                     onPressed:
                         busySku.isNotEmpty ? null : () => Navigator.pop(ctx, false),

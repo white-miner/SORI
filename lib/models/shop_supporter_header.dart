@@ -8,12 +8,16 @@ class ShopSupporterHeader {
     this.supporterCount = 0,
     this.facepile = const [],
     this.topSupporter,
+    this.specialHero,
   });
 
   final int followerCount;
   final int supporterCount;
   final List<FanSupporterEntry> facepile;
   final FanSupporterEntry? topSupporter;
+
+  /// 활성 플래티넘 오버레이 후원자 — 마이페이지 히어로 슬롯.
+  final FanSupporterEntry? specialHero;
 
   factory ShopSupporterHeader.fromMap(Map<String, dynamic> map) {
     final pileRaw = map['facepile'];
@@ -32,6 +36,11 @@ class ShopSupporterHeader {
     } else if (pile.isNotEmpty) {
       top = pile.first;
     }
+    final heroRaw = map['special_hero'];
+    FanSupporterEntry? hero;
+    if (heroRaw is Map && heroRaw.isNotEmpty) {
+      hero = FanSupporterEntry.fromMap(Map<String, dynamic>.from(heroRaw));
+    }
     return ShopSupporterHeader(
       followerCount: DbMap.asInt(
         map['follower_count'] ?? map['followerCount'],
@@ -41,6 +50,7 @@ class ShopSupporterHeader {
       ),
       facepile: FanSupporterEntry.ranked(pile),
       topSupporter: top,
+      specialHero: hero,
     );
   }
 

@@ -18,6 +18,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/premium_overlay.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -2005,6 +2006,7 @@ class MemorySoriRepository implements SoriRepository {
   static final List<PointTransaction> _pointTx = [];
   static final List<SettlementTransaction> _settlementTx = [];
   static final List<BoostPlacement> _boosts = [];
+  static final List<PremiumOverlay> _premiumOverlays = [];
   static final List<Map<String, dynamic>> _shopNotifications = [];
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
@@ -2012,6 +2014,7 @@ class MemorySoriRepository implements SoriRepository {
   /// 테스트 격리 — Fan-Boost / 알림 정적 상태 초기화.
   static void resetFanBoostStateForTest() {
     _boosts.clear();
+    _premiumOverlays.clear();
     _shopNotifications.clear();
   }
 
@@ -2870,6 +2873,155 @@ class MemorySoriRepository implements SoriRepository {
       settlementBalance: settlementBefore,
       placement: placement,
     );
+  }
+
+  @override
+  Future<BoostPurchaseResult> purchaseSpecialSupporterGift({
+    required String customerId,
+    required String sku,
+    required String targetType,
+    required String targetId,
+    String targetShopId = '',
+    String fanDisplayName = '',
+    String regionCode = '',
+  }) async {
+    PointShopItem? item;
+    for (final e in PointShopItem.catalogSpecialGifts) {
+      if (e.sku == sku) {
+        item = e;
+        break;
+      }
+    }
+    if (item == null) {
+      return const BoostPurchaseResult(ok: false, message: 'item not found');
+    }
+
+    var resolvedShop = targetShopId.trim();
+    if (resolvedShop.isEmpty) {
+      for (final o in _premiumOverlays) {
+        if (o.targetId == targetId) resolvedShop = o.beneficiaryShopId;
+      }
+      for (final b in _boosts) {
+        if (b.targetId == targetId) resolvedShop = b.shopId;
+      }
+    }
+    if (resolvedShop.isEmpty) {
+      try {
+        final hot = await loadCommunityHotCases(limit: 80);
+        for (final c in hot) {
+          if (c.chart.id == targetId) {
+            resolvedShop = c.shop.id;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+    if (resolvedShop.isEmpty) {
+      return const BoostPurchaseResult(ok: false, message: 'target shop missing');
+    }
+
+    final shopW = _walletOf(resolvedShop);
+    final settlementBefore = shopW.settlementBalance;
+
+    final cw = _customerWalletOf(customerId);
+    if (cw.pointTotal < item.pricePoints) {
+      return BoostPurchaseResult.insufficientPoints(
+        have: cw.pointTotal,
+        need: item.pricePoints,
+      );
+    }
+
+    var free = cw.freeBalance;
+    var paid = cw.paidBalance;
+    var need = item.pricePoints;
+    final fromFree = need <= free ? need : free;
+    free -= fromFree;
+    need -= fromFree;
+    paid -= need;
+    final nextCw = cw.copyWith(freeBalance: free, paidBalance: paid);
+    _customerWallets[customerId] = nextCw;
+
+    final type = targetType.trim().isEmpty ? 'chart' : targetType.trim();
+    final tier = item.sku.contains('platinum') ? 'platinum' : 'gold';
+    final name = fanDisplayName.trim().isEmpty ? '후원자' : fanDisplayName.trim();
+    final starts = DateTime.now();
+    final ends = starts.add(Duration(hours: item.durationHours));
+
+    for (var i = 0; i < _premiumOverlays.length; i++) {
+      final o = _premiumOverlays[i];
+      if (o.targetType == type &&
+          o.targetId == targetId &&
+          o.tier == tier &&
+          o.isActive) {
+        _premiumOverlays[i] = PremiumOverlay(
+          id: o.id,
+          targetType: o.targetType,
+          targetId: o.targetId,
+          chartId: o.chartId,
+          beneficiaryShopId: o.beneficiaryShopId,
+          tier: o.tier,
+          sku: o.sku,
+          fanCustomerId: o.fanCustomerId,
+          fanDisplayName: o.fanDisplayName,
+          echoSpent: o.echoSpent,
+          startsAt: o.startsAt,
+          endsAt: DateTime.now(),
+        );
+      }
+    }
+
+    final overlay = PremiumOverlay(
+      id: 'ov-${DateTime.now().millisecondsSinceEpoch}',
+      targetType: type,
+      targetId: targetId,
+      chartId: type == 'chart' ? targetId : null,
+      beneficiaryShopId: resolvedShop,
+      tier: tier,
+      sku: item.sku,
+      fanCustomerId: customerId,
+      fanDisplayName: name,
+      echoSpent: item.pricePoints,
+      startsAt: starts,
+      endsAt: ends,
+    );
+    _premiumOverlays.insert(0, overlay);
+
+    final shopAfter = _walletOf(resolvedShop);
+    assert(shopAfter.settlementBalance == settlementBefore);
+
+    _shopNotifications.insert(0, {
+      'id': 'n-${DateTime.now().millisecondsSinceEpoch}',
+      'shop_id': resolvedShop,
+      'kind': 'special_supporter',
+      'title': '스페셜 후원 알림',
+      'body': '$name님이 ${tier == 'platinum' ? '플래티넘' : '골드'} 스페셜 후원을 보냈습니다',
+      'payload': {
+        'overlay_id': overlay.id,
+        'customer_id': customerId,
+        'tier': tier,
+        'fan_name': name,
+      },
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    return BoostPurchaseResult(
+      ok: true,
+      sku: item.sku,
+      pointsSpent: item.pricePoints,
+      pointFreeBalance: nextCw.freeBalance,
+      pointPaidBalance: nextCw.paidBalance,
+      settlementBalance: settlementBefore,
+      raw: {'tier': tier, 'overlay': overlay},
+    );
+  }
+
+  @override
+  Future<List<PremiumOverlay>> loadActivePremiumOverlays({int limit = 80}) async {
+    final now = DateTime.now();
+    return _premiumOverlays
+        .where((o) => o.isActive && (o.endsAt == null || o.endsAt!.isAfter(now)))
+        .take(limit)
+        .toList();
   }
 
   @override

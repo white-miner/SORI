@@ -38,6 +38,7 @@ import '../models/community_comment.dart';
 import '../models/affiliate_earnings.dart';
 import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
+import '../models/premium_overlay.dart';
 import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
@@ -2524,9 +2525,31 @@ class SoriStore implements Listenable {
     try {
       final items = await _repository.loadCommunityHotCases();
       final boosts = await _repository.loadActiveBoostPlacements();
+      final overlays = await _repository.loadActivePremiumOverlays();
       activeBoostPlacements
         ..clear()
         ..addAll(boosts);
+      activePremiumOverlays
+        ..clear()
+        ..addAll(overlays);
+      final overlayByChart = <String, PremiumOverlay>{};
+      for (final o in overlays) {
+        final key = o.pinKey?.trim() ?? '';
+        if (key.isEmpty) continue;
+        final prev = overlayByChart[key];
+        if (prev == null) {
+          overlayByChart[key] = o;
+        } else {
+          final prevRank = prev.isPlatinum ? 2 : (prev.isGold ? 1 : 0);
+          final nextRank = o.isPlatinum ? 2 : (o.isGold ? 1 : 0);
+          if (nextRank > prevRank ||
+              (nextRank == prevRank &&
+                  o.endsAt != null &&
+                  (prev.endsAt == null || o.endsAt!.isAfter(prev.endsAt!)))) {
+            overlayByChart[key] = o;
+          }
+        }
+      }
       final boostByChart = <String, BoostPlacement>{};
       for (final b in boosts) {
         final key = b.chartId?.trim().isNotEmpty == true
@@ -2560,9 +2583,12 @@ class SoriStore implements Listenable {
       final annotated = items
           .map((item) {
             final b = boostByChart[item.chart.id];
-            if (b == null) return item;
+            final ov = overlayByChart[item.chart.id];
+            if (b == null && ov == null) return item;
             final supporters = supportersByChart[item.chart.id] ??
-                (b.isFanBoost && b.fanDisplayName.trim().isNotEmpty
+                (b != null &&
+                        b.isFanBoost &&
+                        b.fanDisplayName.trim().isNotEmpty
                     ? [
                         FanSupporterEntry(
                           name: b.fanDisplayName.trim(),
@@ -2574,13 +2600,15 @@ class SoriStore implements Listenable {
                     : const <FanSupporterEntry>[]);
             final lead = supporters.isNotEmpty
                 ? supporters.first.name
-                : b.fanDisplayName;
+                : (b?.fanDisplayName ?? ov?.fanDisplayName ?? '');
             return item.copyWith(
-              isBoosted: true,
-              boostEndsAt: b.endsAt,
-              boostSource: b.source,
+              isBoosted: b != null || ov != null,
+              boostEndsAt: b?.endsAt ?? ov?.endsAt,
+              boostSource: b?.source ?? (ov != null ? 'fan_boost' : 'shop_ad'),
               fanDisplayName: lead,
               fanSupporters: supporters,
+              premiumTier: ov?.tier ?? '',
+              specialSupporterName: ov?.fanDisplayName ?? '',
             );
           })
           .toList();
@@ -2749,7 +2777,11 @@ class SoriStore implements Listenable {
   List<PointShopItem> pointShopBoosters = List.from(
     PointShopItem.catalogBoosters,
   );
+  List<PointShopItem> supporterGiftItems = List.from(
+    PointShopItem.catalogSpecialGifts,
+  );
   List<BoostPlacement> activeBoostPlacements = [];
+  List<PremiumOverlay> activePremiumOverlays = [];
 
   Future<void> refreshPointShopItems() async {
     try {
@@ -2758,6 +2790,12 @@ class SoriStore implements Listenable {
       );
       if (pointShopBoosters.isEmpty) {
         pointShopBoosters = List.from(PointShopItem.catalogBoosters);
+      }
+      supporterGiftItems = await _repository.loadPointShopItems(
+        category: 'supporter_gift',
+      );
+      if (supporterGiftItems.isEmpty) {
+        supporterGiftItems = List.from(PointShopItem.catalogSpecialGifts);
       }
       _notify();
     } catch (e, st) {
@@ -2909,6 +2947,54 @@ class SoriStore implements Listenable {
       }
       _setError(e, userFacing: true);
       rethrow;
+    }
+  }
+
+  /// VIP 스페셜 후원 — overlay 스택 (기존 부스트 유지).
+  Future<BoostPurchaseResult> purchaseSpecialSupporterForChart({
+    required String chartId,
+    required String sku,
+    required String targetShopId,
+  }) async {
+    final cid = session?.customerId?.trim() ?? '';
+    if (cid.isEmpty || chartId.trim().isEmpty) {
+      return const BoostPurchaseResult(
+        ok: false,
+        message: 'customer/chart required',
+      );
+    }
+    final fanName = (session?.name ?? '').trim();
+    if (fanName.isEmpty) {
+      return const BoostPurchaseResult(
+        ok: false,
+        message: '후원자 닉네임이 필요합니다. 프로필에서 이름을 설정해 주세요.',
+      );
+    }
+    try {
+      final result = await _repository.purchaseSpecialSupporterGift(
+        customerId: cid,
+        sku: sku,
+        targetType: 'chart',
+        targetId: chartId.trim(),
+        targetShopId: targetShopId,
+        fanDisplayName: fanName,
+      );
+      if (result.ok) {
+        await refreshCustomerEchoWallet();
+        await refreshCommunityHotCases();
+        await refreshShopNotifications();
+        await refreshShopSupporterHeader();
+      } else if (result.insufficient) {
+        await refreshCustomerEchoWallet();
+      }
+      return result;
+    } catch (e, st) {
+      debugPrint('purchaseSpecialSupporterForChart failed: $e\n$st');
+      final msg = e.toString();
+      if (msg.contains('insufficient points')) {
+        return BoostPurchaseResult.insufficientPoints(have: 0, need: 0);
+      }
+      return BoostPurchaseResult(ok: false, message: msg);
     }
   }
 

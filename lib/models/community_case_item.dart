@@ -18,6 +18,8 @@ class CommunityCaseItem {
     this.boostSource = 'shop_ad',
     this.fanDisplayName = '',
     this.fanSupporters = const [],
+    this.premiumTier = '',
+    this.specialSupporterName = '',
     this.authorNickname = '',
     this.authorAvatarUrl = '',
   });
@@ -46,6 +48,10 @@ class CommunityCaseItem {
   /// Fan-Boost 기여자 랭킹 (Echo DESC). Facepile / 시트용.
   final List<FanSupporterEntry> fanSupporters;
 
+  /// 스페셜 후원 오버레이: gold | platinum | ''
+  final String premiumTier;
+  final String specialSupporterName;
+
   /// Weverse Line1 — personal nickname (061).
   final String authorNickname;
 
@@ -53,6 +59,12 @@ class CommunityCaseItem {
   final String authorAvatarUrl;
 
   bool get isFanBoosted => isBoosted && boostSource == 'fan_boost';
+
+  bool get hasPremiumOverlay =>
+      premiumTier == 'gold' || premiumTier == 'platinum';
+
+  bool get isSpecialGold => premiumTier == 'gold';
+  bool get isSpecialPlatinum => premiumTier == 'platinum';
 
   /// Line1 display — nickname → owner → shop.
   String get displayAuthorNickname {
@@ -122,6 +134,8 @@ class CommunityCaseItem {
     String? boostSource,
     String? fanDisplayName,
     List<FanSupporterEntry>? fanSupporters,
+    String? premiumTier,
+    String? specialSupporterName,
     CustomerReview? review,
     String? authorNickname,
     String? authorAvatarUrl,
@@ -138,6 +152,8 @@ class CommunityCaseItem {
       boostSource: boostSource ?? this.boostSource,
       fanDisplayName: fanDisplayName ?? this.fanDisplayName,
       fanSupporters: fanSupporters ?? this.fanSupporters,
+      premiumTier: premiumTier ?? this.premiumTier,
+      specialSupporterName: specialSupporterName ?? this.specialSupporterName,
       authorNickname: authorNickname ?? this.authorNickname,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
     );

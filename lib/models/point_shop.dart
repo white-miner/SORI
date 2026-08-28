@@ -88,6 +88,33 @@ class PointShopItem {
       durationHours: 168,
     ),
   ];
+
+  static const catalogSpecialGold = PointShopItem(
+    id: 'item-special-gold',
+    sku: 'boost_special_gold_24h',
+    title: '스페셜 후원 · 골드 24시간',
+    description: '기존 부스트 위 골드 오로라 · 피드 가중치',
+    category: 'supporter_gift',
+    pricePoints: 39,
+    durationHours: 24,
+    badge: '골드',
+  );
+
+  static const catalogSpecialPlatinum = PointShopItem(
+    id: 'item-special-platinum',
+    sku: 'boost_special_platinum_7d',
+    title: '스페셜 후원 · 플래티넘 7일',
+    description: '마이페이지 히어로 + 플래티넘 오로라',
+    category: 'supporter_gift',
+    pricePoints: 149,
+    durationHours: 168,
+    badge: '플래티넘',
+  );
+
+  static const catalogSpecialGifts = <PointShopItem>[
+    catalogSpecialGold,
+    catalogSpecialPlatinum,
+  ];
 }
 
 class BoostPlacement {

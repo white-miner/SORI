@@ -12,21 +12,44 @@ class FanBoostCreditStrip extends StatelessWidget {
     super.key,
     required this.supporters,
     this.onTap,
+    this.premiumTier = '',
+    this.specialName = '',
   });
 
   final List<FanSupporterEntry> supporters;
   final VoidCallback? onTap;
+  final String premiumTier;
+  final String specialName;
 
   @override
   Widget build(BuildContext context) {
     final ranked = FanSupporterEntry.ranked(supporters);
-    if (ranked.isEmpty) return const SizedBox.shrink();
+    final isSpecial = premiumTier == 'gold' || premiumTier == 'platinum';
+    if (ranked.isEmpty && !isSpecial) return const SizedBox.shrink();
 
-    final lead = ranked.first.name.trim().isEmpty ? '후원자' : ranked.first.name.trim();
+    final lead = ranked.isNotEmpty
+        ? (ranked.first.name.trim().isEmpty ? '후원자' : ranked.first.name.trim())
+        : (specialName.trim().isEmpty ? '후원자' : specialName.trim());
     final others = ranked.length - 1;
-    final copy = others <= 0
-        ? '$lead님의 후원'
-        : '$lead님 외 ${others}명이 후원';
+    final special = specialName.trim().isEmpty ? lead : specialName.trim();
+    final copy = isSpecial
+        ? (premiumTier == 'platinum'
+            ? '$special님의 플래티넘 스페셜 후원'
+            : '$special님의 골드 스페셜 후원')
+        : (others <= 0
+            ? '$lead님의 후원'
+            : '$lead님 외 ${others}명이 후원');
+
+    final borderColor = premiumTier == 'platinum'
+        ? const Color(0x55E2E8F0)
+        : premiumTier == 'gold'
+            ? const Color(0x55FBBF24)
+            : const Color(0x55F472B6);
+    final bgColor = premiumTier == 'platinum'
+        ? const Color(0x991A1A24)
+        : premiumTier == 'gold'
+            ? const Color(0x992A2410)
+            : const Color(0x991A1218);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -43,14 +66,16 @@ class FanBoostCreditStrip extends StatelessWidget {
                 constraints: const BoxConstraints(maxHeight: 44),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0x991A1218),
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0x55F472B6)),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.local_fire_department_rounded,
+                      isSpecial
+                          ? Icons.workspace_premium_rounded
+                          : Icons.local_fire_department_rounded,
                       size: 16,
                       color: SoriTokens.textSecondary,
                     ),
