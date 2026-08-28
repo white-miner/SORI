@@ -36,7 +36,6 @@ class UnifiedHomeFeedPage extends StatefulWidget {
 class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     with SingleTickerProviderStateMixin {
   final _liked = <String>{};
-  final _bookmarked = <String>{};
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_FeedComment>>{};
   late final TabController _tabs;
@@ -51,6 +50,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityHotCases();
       store.refreshShopFandomMeta();
+      store.refreshCaseBookmarks();
       _consumePendingInnerTab();
     });
   }
@@ -147,10 +147,18 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     });
   }
 
-  void _toggleBookmark(String chartId) {
-    setState(() {
-      if (!_bookmarked.remove(chartId)) _bookmarked.add(chartId);
-    });
+  Future<void> _toggleBookmark(String chartId) async {
+    try {
+      await store.toggleCaseBookmark(chartId);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('보관함 저장에 실패했습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _openComments(CustomerChart chart) {
@@ -208,7 +216,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
         liked: _liked.contains(id),
         likeCount: likes,
         commentCount: comments.length,
-        bookmarked: _bookmarked.contains(id),
+        bookmarked: store.isChartBookmarked(id),
         onLike: () => _toggleLike(id),
         onComment: () => _openComments(item.chart),
         onBookmark: () => _toggleBookmark(id),
@@ -361,7 +369,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       liked: _liked.contains(id),
       likeCount: likes,
       commentCount: comments.length,
-      bookmarked: _bookmarked.contains(id),
+      bookmarked: store.isChartBookmarked(id),
       onLike: () => _toggleLike(id),
       onComment: () => _openComments(item.chart),
       onBookmark: () => _toggleBookmark(id),

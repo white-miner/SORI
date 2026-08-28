@@ -20,6 +20,7 @@ import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
+import '../models/case_bookmark.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -2010,6 +2011,7 @@ class MemorySoriRepository implements SoriRepository {
   static final List<PremiumOverlay> _premiumOverlays = [];
   static final List<Map<String, dynamic>> _fanGifts = [];
   static final Map<String, String> _thankYouPostByGiftId = {};
+  static final Map<String, Set<String>> _caseBookmarksByUser = {};
   static final List<Map<String, dynamic>> _shopNotifications = [];
   static final Set<String> _unlocks = {};
   static int _affiliateClicks = 0;
@@ -2020,6 +2022,7 @@ class MemorySoriRepository implements SoriRepository {
     _premiumOverlays.clear();
     _fanGifts.clear();
     _thankYouPostByGiftId.clear();
+    _caseBookmarksByUser.clear();
     _shopNotifications.clear();
   }
 
@@ -3409,6 +3412,81 @@ class MemorySoriRepository implements SoriRepository {
       ),
     );
     return WhisperSendResult(postId: postId, recipientCount: 1);
+  }
+
+  static String _bookmarkUserKey() => 'memory-user';
+
+  Set<String> _bookmarksForCurrentUser() {
+    return _caseBookmarksByUser.putIfAbsent(_bookmarkUserKey(), () => {});
+  }
+
+  @override
+  Future<CaseBookmarkToggleResult> toggleCaseBookmark(
+    String chartId, {
+    String folder = 'default',
+  }) async {
+    final id = chartId.trim();
+    if (id.isEmpty) {
+      return const CaseBookmarkToggleResult(
+        ok: false,
+        chartId: '',
+        bookmarked: false,
+      );
+    }
+    final set = _bookmarksForCurrentUser();
+    final nowBookmarked = !set.contains(id);
+    if (nowBookmarked) {
+      set.add(id);
+      try {
+        final hot = await loadCommunityHotCases(limit: 80);
+        for (final c in hot) {
+          if (c.chart.id == id) {
+            _shopNotifications.insert(0, {
+              'id': 'n-bm-${DateTime.now().millisecondsSinceEpoch}',
+              'shop_id': c.shop.id,
+              'kind': 'case_bookmark',
+              'title': '케이스 저장 알림',
+              'body': '팔로워님이 케이스를 보관함에 저장했습니다',
+              'payload': {'chart_id': id},
+              'created_at': DateTime.now().toIso8601String(),
+            });
+            break;
+          }
+        }
+      } catch (_) {}
+    } else {
+      set.remove(id);
+    }
+    return CaseBookmarkToggleResult(
+      ok: true,
+      chartId: id,
+      bookmarked: nowBookmarked,
+      folder: folder,
+    );
+  }
+
+  @override
+  Future<List<CaseBookmarkEntry>> loadMyCaseBookmarks({int limit = 200}) async {
+    final set = _bookmarksForCurrentUser().toList();
+    return [
+      for (var i = 0; i < set.length && i < limit; i++)
+        CaseBookmarkEntry(chartId: set[i]),
+    ];
+  }
+
+  @override
+  Future<Map<String, int>> loadChartBookmarkCounts(
+    List<String> chartIds,
+  ) async {
+    final out = <String, int>{};
+    for (final id in chartIds) {
+      var count = 0;
+      for (final set in _caseBookmarksByUser.values) {
+        if (set.contains(id)) count++;
+      }
+      if (count > 0) out[id] = count;
+    }
+    return out;
   }
 
   @override

@@ -26,6 +26,7 @@ import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
+import '../models/case_bookmark.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -4517,6 +4518,84 @@ class SupabaseSoriRepository implements SoriRepository {
       throw StateError('send_thank_you_whisper failed');
     }
     return WhisperSendResult.fromMap(map);
+  }
+
+  @override
+  Future<CaseBookmarkToggleResult> toggleCaseBookmark(
+    String chartId, {
+    String folder = 'default',
+  }) async {
+    final id = chartId.trim();
+    if (id.isEmpty) {
+      return const CaseBookmarkToggleResult(
+        ok: false,
+        chartId: '',
+        bookmarked: false,
+      );
+    }
+    try {
+      final raw = await _db.rpc(
+        'toggle_case_bookmark',
+        params: {'p_chart_id': id, 'p_folder': folder},
+      );
+      if (raw is! Map) {
+        return CaseBookmarkToggleResult(
+          ok: false,
+          chartId: id,
+          bookmarked: false,
+        );
+      }
+      return CaseBookmarkToggleResult.fromMap(
+        Map<String, dynamic>.from(raw),
+      );
+    } catch (e, st) {
+      debugPrint('toggleCaseBookmark failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<CaseBookmarkEntry>> loadMyCaseBookmarks({int limit = 200}) async {
+    try {
+      final raw = await _db.rpc(
+        'list_my_case_bookmark_ids',
+        params: {'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => CaseBookmarkEntry.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadMyCaseBookmarks failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<Map<String, int>> loadChartBookmarkCounts(
+    List<String> chartIds,
+  ) async {
+    final ids = chartIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final raw = await _db.rpc(
+        'get_chart_bookmark_counts',
+        params: {'p_chart_ids': ids},
+      );
+      if (raw is! List) return const {};
+      final out = <String, int>{};
+      for (final row in raw.whereType<Map>()) {
+        final m = Map<String, dynamic>.from(row);
+        final cid = DbMap.asText(m['chart_id'] ?? m['chartId']);
+        if (cid.isEmpty) continue;
+        out[cid] = DbMap.asInt(m['bookmark_count'] ?? m['bookmarkCount']);
+      }
+      return out;
+    } catch (e, st) {
+      debugPrint('loadChartBookmarkCounts failed: $e\n$st');
+      return const {};
+    }
   }
 
   @override

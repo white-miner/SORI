@@ -30,7 +30,6 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
   final _searchController = TextEditingController();
   final _liked = <String>{};
   final _likeCounts = <String, int>{};
-  final _bookmarked = <String>{};
   String _query = '';
   String? _activeTag;
 
@@ -43,6 +42,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.store.refreshCommunityHotCases();
       widget.store.refreshCommunityPosts();
+      widget.store.refreshCaseBookmarks();
     });
   }
 
@@ -194,10 +194,18 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
     });
   }
 
-  void _toggleBookmark(String id) {
-    setState(() {
-      if (!_bookmarked.remove(id)) _bookmarked.add(id);
-    });
+  Future<void> _toggleBookmark(String id) async {
+    try {
+      await widget.store.toggleCaseBookmark(id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('보관함 저장에 실패했습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _openCaseDetail(CommunityCaseItem item) {
@@ -211,7 +219,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
         liked: _liked.contains(id),
         likeCount: _likeCounts[id] ?? (3 + id.hashCode.abs() % 40),
         commentCount: 0,
-        bookmarked: _bookmarked.contains(id),
+        bookmarked: widget.store.isChartBookmarked(id),
         onLike: () => _toggleLike(id),
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),
@@ -470,7 +478,7 @@ class _SuccessCasesPageState extends State<SuccessCasesPage> {
                                 liked: _liked.contains(id),
                                 likeCount: _likeCounts[id] ??
                                     (3 + id.hashCode.abs() % 40),
-                                bookmarked: _bookmarked.contains(id),
+                                bookmarked: widget.store.isChartBookmarked(id),
                                 onLike: () => _toggleLike(id),
                                 onBookmark: () => _toggleBookmark(id),
                                 onTap: () => _openCaseDetail(item),

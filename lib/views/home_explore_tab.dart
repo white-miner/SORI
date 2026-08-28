@@ -35,7 +35,6 @@ class _HomeExploreTabState extends State<HomeExploreTab>
   final _searchCtrl = TextEditingController();
   final _liked = <String>{};
   final _likeCounts = <String, int>{};
-  final _bookmarked = <String>{};
   Timer? _debounce;
   String _query = '';
   _SearchSegment _segment = _SearchSegment.posts;
@@ -54,6 +53,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       store.refreshCommunityHotCases();
       store.refreshCommunityPosts();
       store.refreshDiscoverDirectors(soft: true);
+      store.refreshCaseBookmarks();
     });
   }
 
@@ -176,10 +176,18 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     });
   }
 
-  void _toggleBookmark(String id) {
-    setState(() {
-      if (!_bookmarked.remove(id)) _bookmarked.add(id);
-    });
+  Future<void> _toggleBookmark(String id) async {
+    try {
+      await store.toggleCaseBookmark(id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('보관함 저장에 실패했습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _openCaseDetail(CommunityCaseItem item) {
@@ -193,7 +201,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
         liked: _liked.contains(id),
         likeCount: _likeCounts[id] ?? (3 + id.hashCode.abs() % 40),
         commentCount: 0,
-        bookmarked: _bookmarked.contains(id),
+        bookmarked: store.isChartBookmarked(id),
         onLike: () => _toggleLike(id),
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),

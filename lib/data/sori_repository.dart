@@ -21,6 +21,7 @@ import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
+import '../models/case_bookmark.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
@@ -712,6 +713,18 @@ abstract class SoriRepository {
     required String fanGiftId,
     String body = '',
   });
+
+  /// 보관함 북마크 토글 (SSOT).
+  Future<CaseBookmarkToggleResult> toggleCaseBookmark(
+    String chartId, {
+    String folder = 'default',
+  });
+
+  /// 내 보관함 chart id 목록.
+  Future<List<CaseBookmarkEntry>> loadMyCaseBookmarks({int limit = 200});
+
+  /// 차트별 누적 북마크 수 (배치).
+  Future<Map<String, int>> loadChartBookmarkCounts(List<String> chartIds);
 
   /// 원장 샵 세미나 클래스 목록 (최신순).
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);

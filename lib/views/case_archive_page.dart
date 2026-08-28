@@ -24,13 +24,15 @@ class CaseArchivePage extends StatefulWidget {
 class _CaseArchivePageState extends State<CaseArchivePage> {
   final _liked = <String>{};
   final _likeCounts = <String, int>{};
-  final _bookmarked = <String>{};
   _ArchiveView _view = _ArchiveView.myCases;
 
   @override
   void initState() {
     super.initState();
     widget.store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.store.refreshCaseBookmarks();
+    });
   }
 
   @override
@@ -49,7 +51,7 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
     final out = <({CustomerChart chart, Customer? customer})>[];
 
     if (_view == _ArchiveView.favorites) {
-      final ids = {..._liked, ..._bookmarked};
+      final ids = {..._liked, ...widget.store.bookmarkedChartIds};
       for (final id in ids) {
         final mine = store.charts.where((c) => c.id == id);
         if (mine.isNotEmpty) {
@@ -165,10 +167,18 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
     });
   }
 
-  void _toggleBookmark(String id) {
-    setState(() {
-      if (!_bookmarked.remove(id)) _bookmarked.add(id);
-    });
+  Future<void> _toggleBookmark(String id) async {
+    try {
+      await widget.store.toggleCaseBookmark(id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('보관함 저장에 실패했습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -195,7 +205,8 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
                     selected: _view == _ArchiveView.favorites,
                     icon: Icons.star_rounded,
                     title: '즐겨찾기',
-                    subtitle: '${_liked.length + _bookmarked.length}건',
+                    subtitle:
+                        '${_liked.length + widget.store.bookmarkedChartIds.length}건',
                     onTap: () =>
                         setState(() => _view = _ArchiveView.favorites),
                   ),
@@ -241,7 +252,7 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
                         liked: _liked.contains(id),
                         likeCount:
                             _likeCounts[id] ?? (3 + id.hashCode.abs() % 40),
-                        bookmarked: _bookmarked.contains(id),
+                        bookmarked: widget.store.isChartBookmarked(id),
                         showShareSwitch: _view == _ArchiveView.myCases,
                         onLike: () => _toggleLike(id),
                         onBookmark: () => _toggleBookmark(id),

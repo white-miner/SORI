@@ -40,6 +40,7 @@ import '../models/sori_point_wallet.dart';
 import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
+import '../models/case_bookmark.dart';
 import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
@@ -2848,6 +2849,7 @@ class SoriStore implements Listenable {
   List<Map<String, dynamic>> shopNotifications = [];
   List<SupporterNotificationItem> supporterNotifications = [];
   List<MyBoostGiftItem> myBoostGifts = [];
+  Set<String> bookmarkedChartIds = {};
 
   Future<SoriPointWallet> refreshCustomerEchoWallet() async {
     final cid = session?.customerId?.trim() ?? '';
@@ -3066,6 +3068,46 @@ class SoriStore implements Listenable {
       _notify();
     } catch (e, st) {
       debugPrint('refreshSupporterNotificationsOnly failed: $e\n$st');
+    }
+  }
+
+  bool isChartBookmarked(String chartId) =>
+      bookmarkedChartIds.contains(chartId.trim());
+
+  Future<void> refreshCaseBookmarks() async {
+    final uid = session?.id.trim() ?? '';
+    if (uid.isEmpty) {
+      bookmarkedChartIds = {};
+      _notify();
+      return;
+    }
+    try {
+      final rows = await _repository.loadMyCaseBookmarks(limit: 300);
+      bookmarkedChartIds = rows.map((e) => e.chartId.trim()).toSet();
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshCaseBookmarks failed: $e\n$st');
+    }
+  }
+
+  Future<bool> toggleCaseBookmark(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return isChartBookmarked(id);
+    final uid = session?.id.trim() ?? '';
+    if (uid.isEmpty) return false;
+    try {
+      final result = await _repository.toggleCaseBookmark(id);
+      if (!result.ok) return isChartBookmarked(id);
+      if (result.bookmarked) {
+        bookmarkedChartIds.add(id);
+      } else {
+        bookmarkedChartIds.remove(id);
+      }
+      _notify();
+      return result.bookmarked;
+    } catch (e, st) {
+      debugPrint('toggleCaseBookmark failed: $e\n$st');
+      rethrow;
     }
   }
 

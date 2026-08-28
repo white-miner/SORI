@@ -115,7 +115,6 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   final _shot = ScreenshotController();
   bool _sharing = false;
   late bool _liked;
-  late bool _bookmarked;
   late int _likeCount;
 
   CommunityCaseItem get item => widget.item;
@@ -136,7 +135,6 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   void initState() {
     super.initState();
     _liked = widget.liked;
-    _bookmarked = widget.bookmarked;
     _likeCount = widget.likeCount;
   }
 
@@ -244,7 +242,6 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
   }
 
   void _toggleBookmark() {
-    setState(() => _bookmarked = !_bookmarked);
     widget.onBookmark?.call();
   }
 
@@ -459,11 +456,11 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                       IconButton(
                         onPressed: _toggleBookmark,
                         icon: Icon(
-                          _bookmarked
+                          widget.bookmarked
                               ? Icons.bookmark_rounded
                               : Icons.bookmark_border_rounded,
                           size: 26,
-                          color: _bookmarked
+                          color: widget.bookmarked
                               ? SoriTokens.primary
                               : SoriTokens.textPrimary,
                         ),
