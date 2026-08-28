@@ -9,6 +9,9 @@ abstract final class CustomerMergeService {
   static String normalizePhone(String phone) =>
       phone.replaceAll(RegExp(r'[^0-9]'), '');
 
+  static bool confirmNameMatches(String input, String expected) =>
+      input.trim() == expected.trim();
+
   /// 최근 방문일 기준 Primary 추천.
   static String suggestPrimaryId(List<Customer> customers) {
     if (customers.isEmpty) return '';

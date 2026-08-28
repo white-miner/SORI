@@ -215,22 +215,25 @@ begin
     get diagnostics v_row_count = row_count;
     v_reviews_moved := v_reviews_moved + v_row_count;
 
-    -- Care diary (concat on date conflict)
-    update public.care_diary_notes n
-    set body = n.body || E'\n---\n' || s.body,
-        updated_at = now()
-    from public.care_diary_notes s
-    where s.customer_id = v_source_id
-      and n.customer_id = p_primary_id
-      and n.note_date = s.note_date;
-    delete from public.care_diary_notes
-    where customer_id = v_source_id
-      and note_date in (
-        select note_date from public.care_diary_notes where customer_id = p_primary_id
-      );
-    update public.care_diary_notes
-    set customer_id = p_primary_id, updated_at = now()
-    where customer_id = v_source_id;
+    -- Care diary (concat on date conflict) — optional table
+    begin
+      update public.care_diary_notes n
+      set body = n.body || E'\n---\n' || s.body,
+          updated_at = now()
+      from public.care_diary_notes s
+      where s.customer_id = v_source_id
+        and n.customer_id = p_primary_id
+        and n.note_date = s.note_date;
+      delete from public.care_diary_notes
+      where customer_id = v_source_id
+        and note_date in (
+          select note_date from public.care_diary_notes where customer_id = p_primary_id
+        );
+      update public.care_diary_notes
+      set customer_id = p_primary_id, updated_at = now()
+      where customer_id = v_source_id;
+    exception when undefined_table then null;
+    end;
 
     -- Followers (ignore unique conflicts)
     begin

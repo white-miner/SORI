@@ -7,6 +7,7 @@ import '../routing/sori_router.dart';
 import '../services/customer_merge_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/remote_error_message.dart';
 
 /// 상세 페이지 등 1명만 있는 경우 — 추가 고객 선택 후 병합.
 Future<List<Customer>?> pickCustomersForMerge({
@@ -16,8 +17,9 @@ Future<List<Customer>?> pickCustomersForMerge({
 }) async {
   final others = store.customers.where((c) => c.id != seed.id).toList();
   if (others.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('병합할 다른 고객이 없습니다.')),
+    _showMergeSnackBar(
+      context,
+      '병합할 다른 고객이 없습니다.',
     );
     return null;
   }
@@ -91,14 +93,37 @@ Future<List<Customer>?> pickCustomersForMerge({
   );
 }
 
+void _showMergeSnackBar(
+  BuildContext context,
+  String message, {
+  bool isError = false,
+  Duration duration = const Duration(seconds: 8),
+}) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(message),
+      duration: duration,
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: isError ? SoriTokens.systemRed : null,
+    ),
+  );
+}
+
 /// 중복 고객 병합 3단계 마법사.
 Future<bool> showCustomerMergeWizard({
   required BuildContext context,
   required SoriStore store,
   required List<Customer> selected,
 }) {
+  // BottomSheet context가 아닌 부모 ScaffoldMessenger — SnackBar가 가려지지 않음.
+  final hostContext = context;
+  final navigator = Navigator.of(hostContext);
+
   return showModalBottomSheet<bool>(
-    context: context,
+    context: hostContext,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: SoriTokens.surface,
@@ -108,6 +133,8 @@ Future<bool> showCustomerMergeWizard({
     builder: (ctx) => _CustomerMergeWizard(
       store: store,
       selected: selected,
+      hostContext: hostContext,
+      sheetNavigator: navigator,
     ),
   ).then((v) => v ?? false);
 }
@@ -116,10 +143,14 @@ class _CustomerMergeWizard extends StatefulWidget {
   const _CustomerMergeWizard({
     required this.store,
     required this.selected,
+    required this.hostContext,
+    required this.sheetNavigator,
   });
 
   final SoriStore store;
   final List<Customer> selected;
+  final BuildContext hostContext;
+  final NavigatorState sheetNavigator;
 
   @override
   State<_CustomerMergeWizard> createState() => _CustomerMergeWizardState();
@@ -130,6 +161,7 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
   late String _primaryId;
   late CustomerMergePreview _preview;
   bool _merging = false;
+  String? _inlineError;
   final _confirmController = TextEditingController();
 
   @override
@@ -155,35 +187,77 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
     );
   }
 
-  Future<void> _executeMerge() async {
+  bool get _confirmNameOk => CustomerMergeService.confirmNameMatches(
+        _confirmController.text,
+        _preview.primaryName,
+      );
+
+  void _toast(
+    String message, {
+    bool isError = false,
+    Duration duration = const Duration(seconds: 8),
+  }) {
+    if (!widget.hostContext.mounted) return;
+    _showMergeSnackBar(
+      widget.hostContext,
+      message,
+      isError: isError,
+      duration: duration,
+    );
+  }
+
+  Future<void> _onMergePressed() async {
     if (_merging) return;
-    setState(() => _merging = true);
+
+    if (!_confirmNameOk) {
+      setState(() {
+        _inlineError =
+            '이름이 일치하지 않습니다. "${_preview.primaryName.trim()}" 을(를) 입력해 주세요.';
+      });
+      _toast(_inlineError!, isError: true);
+      return;
+    }
+
+    setState(() {
+      _merging = true;
+      _inlineError = null;
+    });
+
+    final sources = widget.selected
+        .map((c) => c.id)
+        .where((id) => id != _primaryId)
+        .toList();
+
     try {
-      final sources = widget.selected
-          .map((c) => c.id)
-          .where((id) => id != _primaryId)
-          .toList();
       await widget.store.mergeShopCustomers(
         primaryId: _primaryId,
         sourceIds: sources,
       );
+
       if (!mounted) return;
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${_preview.primaryName} 계정으로 ${sources.length}명 병합 완료',
-          ),
-        ),
-      );
-      context.push(AppPaths.customerDetail(_primaryId));
-    } catch (e) {
+
+      widget.sheetNavigator.pop(true);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!widget.hostContext.mounted) return;
+        _toast(
+          '${_preview.primaryName.trim()} 계정으로 ${sources.length}명 병합 완료',
+        );
+        GoRouter.of(widget.hostContext)
+            .push(AppPaths.customerDetail(_primaryId));
+      });
+    } catch (e, st) {
+      debugPrint('mergeShopCustomers failed: $e\n$st');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('병합 실패: $e')),
-      );
+      final msg = formatRemoteError(e);
+      setState(() {
+        _inlineError = msg;
+      });
+      _toast('병합 실패\n$msg', isError: true, duration: const Duration(seconds: 12));
     } finally {
-      if (mounted) setState(() => _merging = false);
+      if (mounted) {
+        setState(() => _merging = false);
+      }
     }
   }
 
@@ -229,6 +303,18 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
               },
             ),
           ),
+          if (_inlineError != null && _step == 2) ...[
+            const SizedBox(height: 8),
+            Text(
+              _inlineError!,
+              style: const TextStyle(
+                color: SoriTokens.systemRed,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -240,18 +326,17 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
               const Spacer(),
               if (_step < 2)
                 FilledButton(
-                  onPressed: () => setState(() => _step++),
+                  onPressed: _merging ? null : () => setState(() => _step++),
                   child: const Text('다음'),
                 )
               else
                 FilledButton(
-                  onPressed: _merging ||
-                          _confirmController.text.trim() !=
-                              _preview.primaryName.trim()
-                      ? null
-                      : _executeMerge,
+                  onPressed: _merging ? null : _onMergePressed,
                   style: FilledButton.styleFrom(
                     backgroundColor: SoriTokens.primaryDark,
+                    disabledBackgroundColor: SoriTokens.primaryDark.withValues(
+                      alpha: _merging ? 0.45 : 1,
+                    ),
                   ),
                   child: Text(_merging ? '병합 중…' : '병합 실행'),
                 ),
@@ -349,11 +434,11 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
           label: '병합 후 후기',
           value: '${_preview.totalReviewsAfter}건',
         ),
-        _PreviewRow(
+        const _PreviewRow(
           label: 'B/A 사진',
           value: '전량 보존 (차트 URL 유지)',
         ),
-        _PreviewRow(
+        const _PreviewRow(
           label: '회원권 전략',
           value: 'combine_by_name (동일 서비스 합산)',
         ),
@@ -405,16 +490,23 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
         ),
         const SizedBox(height: 16),
         Text(
-          '확인을 위해 "${_preview.primaryName}" 을(를) 입력해 주세요.',
+          '확인을 위해 "${_preview.primaryName.trim()}" 을(를) 입력해 주세요.',
           style: const TextStyle(fontSize: 13, color: SoriTokens.textSecondary),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _confirmController,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
+          onChanged: (_) => setState(() {
+            if (_inlineError != null && _confirmNameOk) {
+              _inlineError = null;
+            }
+          }),
+          decoration: InputDecoration(
             hintText: 'Primary 고객 이름',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            errorText: _confirmNameOk || _confirmController.text.isEmpty
+                ? null
+                : '입력값이 Primary 이름과 다릅니다 (앞뒤 공백은 무시)',
           ),
         ),
       ],
