@@ -27,6 +27,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/boost_contribution_report.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -4499,6 +4500,50 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('loadMyBoostGifts failed: $e\n$st');
       return const [];
+    }
+  }
+
+  @override
+  Future<List<BoostGiftImpactReport>> loadBoostGiftImpactReports(
+    String customerId, {
+    int limit = 50,
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return const [];
+    try {
+      final raw = await _db.rpc(
+        'list_boost_gift_impact_reports_for_customer',
+        params: {'p_customer_id': cid, 'p_limit': limit},
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) =>
+              BoostGiftImpactReport.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadBoostGiftImpactReports failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ShopSponsorshipImpact> loadShopSponsorshipImpact(
+    String shopId, {
+    int periodDays = 30,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return ShopSponsorshipImpact.empty;
+    try {
+      final raw = await _db.rpc(
+        'get_shop_sponsorship_impact',
+        params: {'p_shop_id': sid, 'p_period_days': periodDays},
+      );
+      if (raw is! Map) return ShopSponsorshipImpact.empty;
+      return ShopSponsorshipImpact.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e, st) {
+      debugPrint('loadShopSponsorshipImpact failed: $e\n$st');
+      return ShopSponsorshipImpact.empty;
     }
   }
 

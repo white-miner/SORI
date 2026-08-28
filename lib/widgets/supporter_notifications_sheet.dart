@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/my_boost_gift.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'sponsorship_impact_summary_card.dart';
 import 'thank_you_whisper_sheet.dart';
 
 /// 원장 — 후원 알림 인박스 + 감사 위스퍼 숏컷.
@@ -11,6 +12,7 @@ Future<void> showSupporterNotificationsSheet(
   required SoriStore store,
 }) async {
   await store.refreshShopNotifications();
+  await store.refreshShopSponsorshipImpact();
   if (!context.mounted) return;
 
   await showModalBottomSheet<void>(
@@ -108,6 +110,7 @@ class _SupporterNotificationsSheetState
                 ),
               ),
             ),
+            SponsorshipImpactSummaryCard(impact: store.shopSponsorshipImpact),
             const Divider(height: 1),
             Expanded(
               child: items.isEmpty

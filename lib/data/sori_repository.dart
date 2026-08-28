@@ -22,6 +22,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/boost_contribution_report.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_application.dart';
@@ -706,6 +707,18 @@ abstract class SoriRepository {
   Future<List<MyBoostGiftItem>> loadMyBoostGifts(
     String customerId, {
     int limit = 50,
+  });
+
+  /// 고객 — 후원 건별 기여 리포트 (E5-lite).
+  Future<List<BoostGiftImpactReport>> loadBoostGiftImpactReports(
+    String customerId, {
+    int limit = 50,
+  });
+
+  /// 원장 — 샵 후원 기여 요약 (E5-lite).
+  Future<ShopSponsorshipImpact> loadShopSponsorshipImpact(
+    String shopId, {
+    int periodDays = 30,
   });
 
   /// 원장 → 후원자 감사 위스퍼 (1:1).

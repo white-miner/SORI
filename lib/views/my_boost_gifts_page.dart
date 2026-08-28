@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/boost_contribution_report.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 
-/// 고객 — 내가 후원한 케이스 목록.
+/// 고객 — 내가 후원한 케이스 + 기여 리포트 (E5-lite).
 class MyBoostGiftsPage extends StatefulWidget {
   const MyBoostGiftsPage({super.key, required this.store});
 
@@ -39,7 +40,7 @@ class _MyBoostGiftsPageState extends State<MyBoostGiftsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final items = store.myBoostGifts;
+    final items = store.boostGiftImpactReports;
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
@@ -72,75 +73,113 @@ class _MyBoostGiftsPageState extends State<MyBoostGiftsPage> {
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                      itemCount: items.length,
+                      itemCount: items.length + 1,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, i) {
-                        final g = items[i];
-                        return Material(
-                          color: SoriTokens.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            title: Text(
-                              g.caseTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
+                        if (i == 0) {
+                          return const Padding(
+                            padding: EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '후원한 케이스가 비슷한 고민을 가진 분들에게 더 잘 보이도록 도와줍니다.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: SoriTokens.textSecondary,
+                                height: 1.35,
                               ),
                             ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${g.shopName} · ${g.tierLabel} · ${g.echoSpent}E',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: SoriTokens.textSecondary,
-                                  ),
-                                ),
-                                if (g.hasThankYou) ...[
-                                  const SizedBox(height: 6),
-                                  const Row(
-                                    children: [
-                                      Icon(
-                                        Icons.favorite_rounded,
-                                        size: 14,
-                                        color: Color(0xFFF472B6),
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        '원장님 감사 위스퍼 도착',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: SoriTokens.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                            trailing: g.hasThankYou
-                                ? const Icon(
-                                    Icons.mark_email_read_outlined,
-                                    color: SoriTokens.textSecondary,
-                                  )
-                                : const Icon(
-                                    Icons.local_fire_department_rounded,
-                                    color: Color(0xFFF472B6),
-                                  ),
-                          ),
-                        );
+                          );
+                        }
+                        final g = items[i - 1];
+                        return _BoostGiftImpactTile(report: g);
                       },
                     ),
             ),
+    );
+  }
+}
+
+class _BoostGiftImpactTile extends StatelessWidget {
+  const _BoostGiftImpactTile({required this.report});
+
+  final BoostGiftImpactReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 8,
+        ),
+        title: Text(
+          report.caseTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              '${report.shopName} · ${report.tierLabel} · ${report.echoSpent}E',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              report.impactLine,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: report.boostStillActive
+                    ? SoriTokens.primary
+                    : SoriTokens.textSecondary,
+              ),
+            ),
+            if (report.hasThankYou) ...[
+              const SizedBox(height: 6),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.favorite_rounded,
+                    size: 14,
+                    color: Color(0xFFF472B6),
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    '원장님 감사 위스퍼 도착',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+        trailing: report.hasThankYou
+            ? const Icon(
+                Icons.mark_email_read_outlined,
+                color: SoriTokens.textSecondary,
+              )
+            : Icon(
+                report.boostStillActive
+                    ? Icons.trending_up_rounded
+                    : Icons.local_fire_department_rounded,
+                color: report.boostStillActive
+                    ? SoriTokens.primary
+                    : const Color(0xFFF472B6),
+              ),
+      ),
     );
   }
 }

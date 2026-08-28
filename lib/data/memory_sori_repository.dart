@@ -21,6 +21,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/boost_contribution_report.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/seminar_class.dart';
@@ -3375,6 +3376,96 @@ class MemorySoriRepository implements SoriRepository {
       if (items.length >= limit) break;
     }
     return items;
+  }
+
+  @override
+  Future<List<BoostGiftImpactReport>> loadBoostGiftImpactReports(
+    String customerId, {
+    int limit = 50,
+  }) async {
+    final gifts = await loadMyBoostGifts(customerId, limit: limit);
+    final out = <BoostGiftImpactReport>[];
+    for (final g in gifts) {
+      final chartId = g.chartId?.trim() ?? '';
+      var bookmarks = 0;
+      if (chartId.isNotEmpty) {
+        for (final set in _caseBookmarksByUser.values) {
+          if (set.contains(chartId)) bookmarks++;
+        }
+      }
+      final reach = (g.echoSpent * 3).clamp(15, 9999);
+      out.add(BoostGiftImpactReport(
+        fanGiftId: g.fanGiftId,
+        targetType: g.targetType,
+        chartId: g.chartId,
+        shopId: g.shopId,
+        shopName: g.shopName,
+        sku: g.sku,
+        echoSpent: g.echoSpent,
+        giftKind: g.giftKind,
+        createdAt: g.createdAt,
+        caseTitle: g.caseTitle,
+        hasThankYou: g.hasThankYou,
+        thankYouPostId: g.thankYouPostId,
+        bookmarksSinceGift: bookmarks,
+        estimatedReach: reach,
+        boostStillActive: g.isSpecialGift,
+      ));
+    }
+    return out;
+  }
+
+  @override
+  Future<ShopSponsorshipImpact> loadShopSponsorshipImpact(
+    String shopId, {
+    int periodDays = 30,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return ShopSponsorshipImpact.empty;
+    final since = DateTime.now().subtract(Duration(days: periodDays));
+    var giftCount = 0;
+    var echoTotal = 0;
+    var thankYous = 0;
+    var pending = 0;
+    var reach = 0;
+    final chartIds = <String>{};
+
+    for (final g in _fanGifts) {
+      if (g['beneficiary_shop_id'] != sid) continue;
+      if (g['status'] != 'completed') continue;
+      final kind = g['gift_kind']?.toString() ?? '';
+      if (!kind.startsWith('boost')) continue;
+      final created = DateTime.tryParse(g['created_at']?.toString() ?? '');
+      if (created != null && created.isBefore(since)) continue;
+      giftCount++;
+      echoTotal += g['echo_spent'] as int? ?? 0;
+      final giftId = g['id']?.toString() ?? '';
+      if (_thankYouPostByGiftId.containsKey(giftId)) {
+        thankYous++;
+      } else {
+        pending++;
+      }
+      reach += ((g['echo_spent'] as int? ?? 0) * 3).clamp(15, 9999);
+      final tid = g['target_id']?.toString();
+      if (tid != null && tid.isNotEmpty) chartIds.add(tid);
+    }
+
+    var bookmarks = 0;
+    for (final cid in chartIds) {
+      for (final set in _caseBookmarksByUser.values) {
+        if (set.contains(cid)) bookmarks++;
+      }
+    }
+
+    return ShopSponsorshipImpact(
+      periodDays: periodDays,
+      giftCount: giftCount,
+      echoTotal: echoTotal,
+      bookmarksReceived: bookmarks,
+      thankYousSent: thankYous,
+      pendingThanks: pending,
+      estimatedTotalReach: reach,
+    );
   }
 
   @override

@@ -41,6 +41,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/boost_contribution_report.dart';
 import '../models/fan_supporter.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
@@ -2849,6 +2850,8 @@ class SoriStore implements Listenable {
   List<Map<String, dynamic>> shopNotifications = [];
   List<SupporterNotificationItem> supporterNotifications = [];
   List<MyBoostGiftItem> myBoostGifts = [];
+  List<BoostGiftImpactReport> boostGiftImpactReports = [];
+  ShopSponsorshipImpact shopSponsorshipImpact = ShopSponsorshipImpact.empty;
   Set<String> bookmarkedChartIds = {};
 
   Future<SoriPointWallet> refreshCustomerEchoWallet() async {
@@ -3032,10 +3035,26 @@ class SoriStore implements Listenable {
     final cid = session?.customerId?.trim() ?? '';
     if (cid.isEmpty) return;
     try {
-      myBoostGifts = await _repository.loadMyBoostGifts(cid, limit: 50);
+      boostGiftImpactReports =
+          await _repository.loadBoostGiftImpactReports(cid, limit: 50);
+      myBoostGifts = boostGiftImpactReports;
       _notify();
     } catch (e, st) {
       debugPrint('refreshMyBoostGifts failed: $e\n$st');
+    }
+  }
+
+  Future<void> refreshShopSponsorshipImpact({int periodDays = 30}) async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) return;
+    try {
+      shopSponsorshipImpact = await _repository.loadShopSponsorshipImpact(
+        sid,
+        periodDays: periodDays,
+      );
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshShopSponsorshipImpact failed: $e\n$st');
     }
   }
 
