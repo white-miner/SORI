@@ -41,6 +41,7 @@ class _AppShellPageState extends State<AppShellPage> {
   int _lastBadge = -1;
   String? _lastCommentPostId;
   bool _lastOnboarding = false;
+  bool _lastHomeRefreshing = false;
 
   @override
   void initState() {
@@ -73,6 +74,7 @@ class _AppShellPageState extends State<AppShellPage> {
     _lastOnboarding = s?.onboardingComplete ?? false;
     _lastCommentPostId = _store.activeCommentPostId;
     _lastBadge = s == null ? -1 : _notificationBadgeCount(s);
+    _lastHomeRefreshing = _store.appHomeRefreshing;
   }
 
   bool _shellSnapshotChanged() {
@@ -83,12 +85,14 @@ class _AppShellPageState extends State<AppShellPage> {
     final onboarding = s?.onboardingComplete ?? false;
     final comment = _store.activeCommentPostId;
     final badge = s == null ? -1 : _notificationBadgeCount(s);
+    final homeRefresh = _store.appHomeRefreshing;
     return hydrating != _lastHydrating ||
         key != _lastSessionKey ||
         mode != _lastMode ||
         onboarding != _lastOnboarding ||
         comment != _lastCommentPostId ||
-        badge != _lastBadge;
+        badge != _lastBadge ||
+        homeRefresh != _lastHomeRefreshing;
   }
 
   void _onChanged() {
@@ -122,6 +126,21 @@ class _AppShellPageState extends State<AppShellPage> {
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
     );
+  }
+
+  void _popRootOverlays() {
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null || !nav.canPop()) return;
+    nav.popUntil((route) => route.isFirst);
+  }
+
+  Future<void> _goHomeAndRefresh() async {
+    if (_store.appHomeRefreshing) return;
+    _popRootOverlays();
+    _store.closeCommentPanel();
+    widget.navigationShell.goBranch(0, initialLocation: true);
+    if (mounted) context.go(AppPaths.appHome);
+    await _store.refreshAppHomeFromLogo();
   }
 
   Future<void> _openNotifications() async {
@@ -197,6 +216,8 @@ class _AppShellPageState extends State<AppShellPage> {
             ? null
             : _ShellAppBar(
                 showLogo: true,
+                logoRefreshing: _store.appHomeRefreshing,
+                onLogoTap: _goHomeAndRefresh,
                 showMenuButton: wide,
                 onMenuTap: wide
                     ? () => setState(
@@ -490,6 +511,8 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onPostFirst,
     this.onArchive,
     this.onSettings,
+    this.onLogoTap,
+    this.logoRefreshing = false,
   });
 
   final bool showLogo;
@@ -500,6 +523,8 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onPostFirst;
   final VoidCallback? onArchive;
   final VoidCallback? onSettings;
+  final VoidCallback? onLogoTap;
+  final bool logoRefreshing;
 
   static const double toolbarHeight = 60;
 
@@ -538,9 +563,12 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                       left: showMenuButton ? 4 : 2,
                       right: 8,
                     ),
-                    child: const Align(
+                    child: Align(
                       alignment: Alignment.centerLeft,
-                      child: SoriLogo(height: SoriLogo.gnbHeight),
+                      child: _ShellLogoButton(
+                        refreshing: logoRefreshing,
+                        onTap: onLogoTap,
+                      ),
                     ),
                   ),
                 ],
@@ -568,6 +596,54 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                     tooltip: '설정',
                     icon: Icons.settings_outlined,
                     onPressed: onSettings!,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// GNB 로고 — 홈 이동 + 새로고침.
+class _ShellLogoButton extends StatelessWidget {
+  const _ShellLogoButton({
+    required this.refreshing,
+    this.onTap,
+  });
+
+  final bool refreshing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: refreshing ? null : onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Tooltip(
+          message: '홈으로 · 새로고침',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Opacity(
+                  opacity: refreshing ? 0.45 : 1,
+                  child: const SoriLogo(height: SoriLogo.gnbHeight),
+                ),
+                if (refreshing)
+                  const Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
               ],
             ),

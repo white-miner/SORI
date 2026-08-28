@@ -121,6 +121,46 @@ class SoriStore implements Listenable {
     _notify();
   }
 
+  /// GNB 로고 — 홈 탭(추천) 초기화 + 피드 새로고침.
+  bool appHomeRefreshing = false;
+
+  Future<void> refreshAppHomeFromLogo() async {
+    closeCommentPanel();
+    pendingAppTab = 0;
+    pendingHomeInnerTab = 0;
+    pendingCommunityHubTab = null;
+    pendingCommunitySegment = null;
+    pendingCommunityComposeDevice = false;
+    pendingCustomerHubSegment = null;
+    if (appHomeRefreshing) return;
+    appHomeRefreshing = true;
+    _notify();
+    try {
+      final tasks = <Future<void>>[
+        refreshCommunityHotCases(),
+        refreshShopFandomMeta(),
+        refreshCaseBookmarks(),
+        ensureCommunityHubWarm(force: true),
+      ];
+      final session = this.session;
+      if (session?.activeMode == UserRole.director) {
+        tasks.addAll([
+          refreshShopNotifications(),
+          refreshShopSupporterHeader(),
+        ]);
+      } else if ((session?.customerId ?? '').trim().isNotEmpty) {
+        tasks.addAll([
+          refreshCustomerEchoWallet(),
+          refreshMyBoostGifts(),
+        ]);
+      }
+      await Future.wait(tasks);
+    } finally {
+      appHomeRefreshing = false;
+      _notify();
+    }
+  }
+
   /// 원장 GNB 「고객」→ 리뷰 세그먼트.
   void requestCustomerReviews() {
     pendingAppTab = 1;
