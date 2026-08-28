@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -49,6 +51,10 @@ class _AppShellPageState extends State<AppShellPage> {
       if (_store.authHydrating) return;
       if (_store.session == null || !_store.session!.onboardingComplete) {
         context.go(AppPaths.login);
+        return;
+      }
+      if (_store.session?.activeMode == UserRole.director) {
+        unawaited(_store.refreshShopNotifications());
       }
     });
   }
@@ -119,6 +125,8 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   Future<void> _openNotifications() async {
+    await _store.refreshShopNotifications();
+    if (!mounted) return;
     await pushRootPage<void>(
       context,
       Scaffold(
@@ -129,7 +137,7 @@ class _AppShellPageState extends State<AppShellPage> {
           foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
         ),
-        body: const MessageHistoryPage(embedded: true),
+        body: MessageHistoryPage(embedded: true, store: _store),
       ),
     );
   }
@@ -149,17 +157,7 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   int _notificationBadgeCount(SessionUser session) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    if (session.activeMode == UserRole.director) {
-      final careToday = _store.customersForDate(today).length;
-      final reviewReq = _store.reviewRequestedPendingCount;
-      final unreplied = _store.reviewUnrepliedCount;
-      return (careToday + reviewReq + unreplied).clamp(0, 99);
-    }
-    final cid = session.customerId;
-    if (cid != null && _store.isReviewRequested(cid)) return 1;
-    return 0;
+    return _store.shellNotificationBadgeCount();
   }
 
   bool _isCustomerDetailRoute(BuildContext context) {

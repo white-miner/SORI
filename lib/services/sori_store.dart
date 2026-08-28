@@ -3027,13 +3027,34 @@ class SoriStore implements Listenable {
     if (sid.isEmpty) return;
     try {
       shopNotifications =
-          await _repository.loadShopNotifications(sid, limit: 20);
+          await _repository.loadShopNotifications(sid, limit: 40);
       supporterNotifications =
           await _repository.loadSupporterNotifications(sid, limit: 30);
       _notify();
     } catch (e, st) {
       debugPrint('refreshShopNotifications failed: $e\n$st');
     }
+  }
+
+  int get supporterPendingThankCount =>
+      supporterNotifications.where((e) => e.canThank).length;
+
+  /// 셸 종 아이콘 배지 — Supporter 감사 대기 포함 (S-C).
+  int shellNotificationBadgeCount({DateTime? today}) {
+    final session = this.session;
+    if (session == null) return 0;
+    final day = today ?? DateTime.now();
+    final dayStart = DateTime(day.year, day.month, day.day);
+    if (session.activeMode == UserRole.director) {
+      final careToday = customersForDate(dayStart).length;
+      final reviewReq = reviewRequestedPendingCount;
+      final unreplied = reviewUnrepliedCount;
+      final supporter = supporterPendingThankCount;
+      return (careToday + reviewReq + unreplied + supporter).clamp(0, 99);
+    }
+    final cid = session.customerId;
+    if (cid != null && isReviewRequested(cid)) return 1;
+    return 0;
   }
 
   Future<void> refreshMyBoostGifts() async {
@@ -3981,18 +4002,30 @@ class SoriStore implements Listenable {
   List<PointTransaction> pointTransactions = [];
   List<SettlementTransaction> settlementTransactions = [];
 
-  Future<SoriPointWallet> refreshPointWallet() async {
+  Future<SoriPointWallet> refreshPointWallet({bool includeTransactions = false}) async {
     try {
       pointWallet = await _repository.loadPointWallet(shop.id);
-      pointTransactions =
-          await _repository.loadPointTransactions(shop.id, limit: 20);
-      settlementTransactions =
-          await _repository.loadSettlementTransactions(shop.id, limit: 20);
+      if (includeTransactions) {
+        await refreshPointTransactions();
+      }
       _notify();
       return pointWallet;
     } catch (e, st) {
       debugPrint('refreshPointWallet failed: $e\n$st');
       return pointWallet;
+    }
+  }
+
+  /// Echo·정산 원장 — 필요 시에만 로드 (S-D).
+  Future<void> refreshPointTransactions() async {
+    try {
+      pointTransactions =
+          await _repository.loadPointTransactions(shop.id, limit: 20);
+      settlementTransactions =
+          await _repository.loadSettlementTransactions(shop.id, limit: 20);
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshPointTransactions failed: $e\n$st');
     }
   }
 

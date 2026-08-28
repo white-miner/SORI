@@ -20,6 +20,8 @@ class PointChargingStationCard extends StatefulWidget {
 class _PointChargingStationCardState extends State<PointChargingStationCard> {
   bool _loading = true;
   bool _busy = false;
+  bool _txExpanded = false;
+  bool _txLoading = false;
 
   static const _accent = SoriTokens.premium;
   static const _accentSoft = SoriTokens.premiumSoft;
@@ -27,7 +29,18 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
   @override
   void initState() {
     super.initState();
+    widget.store.addListener(_onStore);
     _reload();
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _reload() async {
@@ -35,6 +48,17 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
     await widget.store.refreshPointWallet();
     if (!mounted) return;
     setState(() => _loading = false);
+  }
+
+  Future<void> _loadTransactions() async {
+    if (_txLoading) return;
+    setState(() => _txLoading = true);
+    await widget.store.refreshPointTransactions();
+    if (!mounted) return;
+    setState(() {
+      _txLoading = false;
+      _txExpanded = true;
+    });
   }
 
   Future<void> _buy(PointPack pack) async {
@@ -75,6 +99,9 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
         ),
       );
       await _reload();
+      if (_txExpanded) {
+        await widget.store.refreshPointTransactions();
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -255,7 +282,7 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
                 ),
               ),
             ),
-            if (widget.store.pointTransactions.isNotEmpty) ...[
+            if (widget.store.pointTransactions.isNotEmpty && _txExpanded) ...[
               const SizedBox(height: 8),
               const Text(
                 '최근 Echo 원장',
@@ -289,6 +316,22 @@ class _PointChargingStationCardState extends State<PointChargingStationCard> {
                       ),
                     ),
                   ),
+            ] else if (!_txExpanded) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _txLoading ? null : _loadTransactions,
+                  icon: _txLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.receipt_long_outlined, size: 18),
+                  label: Text(_txLoading ? '불러오는 중…' : 'Echo 원장 보기'),
+                ),
+              ),
             ],
           ],
         ],
@@ -322,7 +365,7 @@ class _Bal extends StatelessWidget {
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w900,
-            color: Colors.white,
+            color: SoriTokens.textPrimary,
           ),
         ),
       ],
@@ -344,6 +387,8 @@ class SettlementWalletCard extends StatefulWidget {
 class _SettlementWalletCardState extends State<SettlementWalletCard> {
   bool _loading = true;
   bool _busy = false;
+  bool _txExpanded = false;
+  bool _txLoading = false;
 
   static const _accent = SoriTokens.primary;
   static const _accentDeep = SoriTokens.primaryLight;
@@ -352,7 +397,18 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
   @override
   void initState() {
     super.initState();
+    widget.store.addListener(_onStore);
     _reload();
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _reload() async {
@@ -360,6 +416,17 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
     await widget.store.refreshPointWallet();
     if (!mounted) return;
     setState(() => _loading = false);
+  }
+
+  Future<void> _loadTransactions() async {
+    if (_txLoading) return;
+    setState(() => _txLoading = true);
+    await widget.store.refreshPointTransactions();
+    if (!mounted) return;
+    setState(() {
+      _txLoading = false;
+      _txExpanded = true;
+    });
   }
 
   Future<void> _withdraw() async {
@@ -433,6 +500,9 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
         ),
       );
       await _reload();
+      if (_txExpanded) {
+        await widget.store.refreshPointTransactions();
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -565,7 +635,7 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-            if (widget.store.settlementTransactions.isNotEmpty) ...[
+            if (widget.store.settlementTransactions.isNotEmpty && _txExpanded) ...[
               const SizedBox(height: 14),
               const Text(
                 '최근 정산 원장',
@@ -599,6 +669,22 @@ class _SettlementWalletCardState extends State<SettlementWalletCard> {
                       ),
                     ),
                   ),
+            ] else if (!_txExpanded) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _txLoading ? null : _loadTransactions,
+                  icon: _txLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.receipt_long_outlined, size: 18),
+                  label: Text(_txLoading ? '불러오는 중…' : '정산 원장 보기'),
+                ),
+              ),
             ],
           ],
         ],

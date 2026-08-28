@@ -78,7 +78,7 @@ class _MainShellPageState extends State<MainShellPage> {
         children: [
           MyHomePage(customers: _store.customers),
           CustomerListPage(store: _store),
-          const MessageHistoryPage(),
+          MessageHistoryPage(store: _store),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
