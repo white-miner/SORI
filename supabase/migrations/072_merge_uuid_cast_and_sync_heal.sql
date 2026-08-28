@@ -437,31 +437,5 @@ begin
 end;
 $$;
 
--- PostgREST may pass text[] from JSON — explicit bridge overload.
-create or replace function public.merge_shop_customers(
-  p_primary_id text,
-  p_source_ids text[],
-  p_options jsonb default '{}'::jsonb
-)
-returns jsonb
-language sql
-security definer
-set search_path = public
-as $$
-  select public.merge_shop_customers(
-    p_primary_id::uuid,
-    coalesce(
-      array(
-        select s::uuid from unnest(coalesce(p_source_ids, array[]::text[])) as s
-        where nullif(trim(s), '') is not null
-      ),
-      array[]::uuid[]
-    ),
-    coalesce(p_options, '{}'::jsonb)
-  );
-$$;
-
 grant execute on function public.merge_shop_customers(uuid, uuid[], jsonb)
-  to authenticated, anon;
-grant execute on function public.merge_shop_customers(text, text[], jsonb)
-  to authenticated, anon;
+  to authenticated, anon, service_role;
