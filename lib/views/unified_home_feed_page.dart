@@ -449,42 +449,31 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     final feed = _feed;
     final localFeed = _localFeed;
     final loading = store.communityHotCasesLoading && feed.isEmpty;
-    final wide = MediaQuery.sizeOf(context).width >= 800;
-    final activeScroll = _activeFeedScrollController(context);
     final tabIndex = _tabs.index;
 
-    Widget feedPane = FeedScrollColumn(
-      child: TabBarView(
-        controller: _tabs,
-        children: [
-          _RecommendFeedTab(
-            feed: feed,
-            loading: loading,
-            buildCard: _feedCard,
-            scrollController: tabIndex == 0 ? activeScroll : null,
-          ),
-          HomeExploreTab(
-            store: store,
-            scrollController: tabIndex == 1 ? activeScroll : null,
-          ),
-          _SimpleFeedTab(
-            title: '우리 지역',
-            subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
-            feed: localFeed,
-            loading: loading,
-            buildCard: _feedCard,
-            scrollController: tabIndex == 2 ? activeScroll : null,
-          ),
-        ],
-      ),
+    final feedPane = TabBarView(
+      controller: _tabs,
+      children: [
+        _RecommendFeedTab(
+          feed: feed,
+          loading: loading,
+          buildCard: _feedCard,
+          scrollController: tabIndex == 0 ? _activeFeedScrollController(context) : null,
+        ),
+        HomeExploreTab(
+          store: store,
+          scrollController: tabIndex == 1 ? _activeFeedScrollController(context) : null,
+        ),
+        _SimpleFeedTab(
+          title: '우리 지역',
+          subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
+          feed: localFeed,
+          loading: loading,
+          buildCard: _feedCard,
+          scrollController: tabIndex == 2 ? _activeFeedScrollController(context) : null,
+        ),
+      ],
     );
-
-    if (!wide) {
-      feedPane = PrimaryScrollController(
-        controller: activeScroll,
-        child: feedPane,
-      );
-    }
 
     return ColoredBox(
       color: SoriTokens.background,
@@ -538,11 +527,10 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
-    final scrollPhysics = scrollActive
-        ? const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          )
-        : const NeverScrollableScrollPhysics();
+    const scrollPhysics = AlwaysScrollableScrollPhysics(
+      parent: ClampingScrollPhysics(),
+    );
+    final tabPhysics = scrollActive ? scrollPhysics : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -559,7 +547,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
       },
       child: CustomScrollView(
         controller: widget.scrollController,
-        physics: scrollPhysics,
+        physics: tabPhysics,
         slivers: [
           const SliverToBoxAdapter(child: _HomeHeroCarousel()),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -657,11 +645,10 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
-    final scrollPhysics = scrollActive
-        ? const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          )
-        : const NeverScrollableScrollPhysics();
+    const scrollPhysics = AlwaysScrollableScrollPhysics(
+      parent: ClampingScrollPhysics(),
+    );
+    final tabPhysics = scrollActive ? scrollPhysics : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -678,7 +665,7 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
       },
       child: CustomScrollView(
         controller: widget.scrollController,
-        physics: scrollPhysics,
+        physics: tabPhysics,
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

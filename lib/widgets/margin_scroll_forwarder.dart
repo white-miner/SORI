@@ -1,7 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// Forwards wheel / trackpad scroll from empty margins to the feed scroll position.
+/// Forwards wheel / trackpad scroll from PC side margins to the feed scroll position.
+///
+/// Only used on empty margin areas outside the centered feed column — never wrap
+/// the scroll view itself (that breaks native mouse-wheel handling).
 class MarginScrollForwarder extends StatelessWidget {
   const MarginScrollForwarder({super.key, this.child});
 
@@ -39,7 +42,8 @@ class MarginScrollForwarder extends StatelessWidget {
   }
 }
 
-/// Central feed column — full width/height hit target so gaps & side margins scroll.
+/// Ensures the feed column fills the viewport width/height for hit-testing gaps.
+/// Does NOT intercept pointer/wheel events — scroll views handle those natively.
 class FeedScrollColumn extends StatelessWidget {
   const FeedScrollColumn({super.key, required this.child});
 
@@ -49,43 +53,12 @@ class FeedScrollColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerSignal: (event) {
-            if (event is! PointerScrollEvent) return;
-            MarginScrollForwarder.forwardWheel(context, event);
-          },
-          child: ScrollConfiguration(
-            behavior: const _FeedScrollBehavior(),
-            child: SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: child,
-            ),
-          ),
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: child,
         );
       },
-    );
-  }
-}
-
-/// Feed-only scroll behavior — mouse drag + wheel on web/desktop.
-class _FeedScrollBehavior extends MaterialScrollBehavior {
-  const _FeedScrollBehavior();
-
-  @override
-  Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.unknown,
-      };
-
-  @override
-  ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const ClampingScrollPhysics(
-      parent: AlwaysScrollableScrollPhysics(),
     );
   }
 }

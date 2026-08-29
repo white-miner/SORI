@@ -48,7 +48,7 @@ class _MyAppState extends State<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      scrollBehavior: const AppScrollBehavior(),
+      scrollBehavior: const SoriScrollBehavior(),
       theme: AppTheme.theme,
       darkTheme: null,
       themeMode: ThemeMode.light,

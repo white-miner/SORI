@@ -1,10 +1,9 @@
-import 'dart:ui';
-
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// 전역 스크롤 동작 — PC 웹 마우스 휠·트랙패드 스크롤을 허용한다.
-class AppScrollBehavior extends MaterialScrollBehavior {
-  const AppScrollBehavior();
+/// Global scroll behavior — mouse drag, touch, trackpad/wheel on web & desktop.
+class SoriScrollBehavior extends MaterialScrollBehavior {
+  const SoriScrollBehavior();
 
   @override
   Set<PointerDeviceKind> get dragDevices => {
@@ -17,8 +16,11 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const ClampingScrollPhysics(
-      parent: AlwaysScrollableScrollPhysics(),
+    return const AlwaysScrollableScrollPhysics(
+      parent: ClampingScrollPhysics(),
     );
   }
 }
+
+/// @deprecated Use [SoriScrollBehavior].
+typedef AppScrollBehavior = SoriScrollBehavior;
