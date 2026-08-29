@@ -17,8 +17,10 @@ comment on column public.seminar_classes.provided_materials is
 comment on column public.seminar_classes.additional_images is
   'Extra seminar promo images beyond linked B/A chart';
 
--- Refresh compat view
-create or replace view public.seminars as
+-- Refresh compat view (must DROP — CREATE OR REPLACE cannot insert columns mid-list)
+drop view if exists public.seminars;
+
+create view public.seminars as
 select
   id,
   director_shop_id,
