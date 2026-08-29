@@ -15,14 +15,11 @@ Future<void> showWhisperComposer(
   BuildContext context, {
   required SoriStore store,
 }) {
-  return showModalBottomSheet<void>(
+  // enableDrag + isScrollControlled: swipe-down dismiss; keyboard insets via frame.
+  return showSoriSolidBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
+    enableDrag: true,
     isScrollControlled: true,
-    backgroundColor: SoriTokens.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-    ),
     builder: (ctx) => WhisperComposerSheet(store: store),
   );
 }
@@ -38,6 +35,7 @@ class WhisperComposerSheet extends StatefulWidget {
 
 class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   final _bodyCtrl = TextEditingController();
+  final _bodyFocus = FocusNode();
   final Set<String> _atoms = {WhisperAtoms.everyone};
   final List<WhisperPreviewPerson> _explicitPeople = [];
   Timer? _debounce;
@@ -62,6 +60,12 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   bool get _canSaveDraft =>
       _bodyCtrl.text.trim().isNotEmpty && !_savingDraft && !_sharing;
 
+  /// 전체 공개 only (no other atoms / no explicit picks).
+  bool get _isEveryoneOnly =>
+      _atoms.length == 1 &&
+      _atoms.contains(WhisperAtoms.everyone) &&
+      _explicitPeople.isEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -75,13 +79,14 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
     _debounce?.cancel();
     _countTimer?.cancel();
     _bodyCtrl.dispose();
+    _bodyFocus.dispose();
     super.dispose();
   }
 
   WhisperAudienceSpec get _spec => WhisperAudienceSpec(
         op: 'union',
         atoms: [
-          ..._atoms,
+          ..._atoms.where((a) => a != WhisperAtoms.explicit),
           if (_explicitPeople.isNotEmpty) WhisperAtoms.explicit,
         ],
         explicitUserIds: _explicitPeople.map((p) => p.userId).toList(),
@@ -99,7 +104,12 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       final atoms = (map['atoms'] is List)
           ? (map['atoms'] as List)
               .map((e) => e.toString())
-              .where((e) => e.isNotEmpty && e != WhisperAtoms.peerDirectors)
+              .where(
+                (e) =>
+                    e.isNotEmpty &&
+                    e != WhisperAtoms.seminarHosts &&
+                    WhisperAtoms.all.contains(e),
+              )
               .toSet()
           : <String>{};
       if (!mounted) return;
@@ -108,7 +118,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
         if (atoms.isNotEmpty) {
           _atoms
             ..clear()
-            ..addAll(atoms);
+            ..addAll(atoms.where((a) => a != WhisperAtoms.explicit));
         }
       });
       _schedulePreview();
@@ -202,6 +212,10 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   }
 
   void _toggleAtom(String atom) {
+    if (atom == WhisperAtoms.explicit) {
+      unawaited(_openAccountSearch());
+      return;
+    }
     _countTimer?.cancel();
     setState(() {
       if (_atoms.contains(atom)) {
@@ -220,7 +234,10 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       _atoms
         ..clear()
         ..addAll(
-          preset.spec.atoms.where((a) => a != WhisperAtoms.peerDirectors),
+          preset.spec.atoms.where(
+            (a) =>
+                a != WhisperAtoms.seminarHosts && a != WhisperAtoms.explicit,
+          ),
         );
       _focusedAtom = _atoms.isEmpty ? null : _atoms.first;
     });
@@ -228,6 +245,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   }
 
   Future<void> _ensureChipPreview(String atom) async {
+    if (atom == WhisperAtoms.explicit) return;
     if (_chipPreviewCache.containsKey(atom) ||
         _loadingChipPreviews.contains(atom)) {
       return;
@@ -251,18 +269,21 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   }
 
   Future<void> _savePreset() async {
-    if (_atoms.isEmpty) return;
+    if (_atoms.isEmpty && _explicitPeople.isEmpty) return;
     final nameCtrl = TextEditingController(text: '나의 그룹');
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SoriTokens.surfaceElevated,
-        title: const Text('그룹으로 저장', style: TextStyle(color: Colors.white)),
+        backgroundColor: SoriTokens.surface,
+        title: const Text(
+          '그룹으로 저장',
+          style: TextStyle(color: SoriTokens.textPrimary),
+        ),
         content: TextField(
           controller: nameCtrl,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: SoriTokens.textPrimary),
           decoration: const InputDecoration(
-            hintText: '예: 전체 공지, Supporter 소식',
+            hintText: '예: 전체 공지, 서포터 소식',
             hintStyle: TextStyle(color: SoriTokens.textQuaternary),
           ),
         ),
@@ -297,20 +318,35 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
     setState(() {});
   }
 
+  String _shareConfirmMessage() {
+    // PO: 전체 공개 → fixed copy; else → "{N}명에게만…"
+    if (_isEveryoneOnly) {
+      return '전체 공개 게시물로 공유됩니다.';
+    }
+    final n = _preview?.count ?? _displayCount;
+    return '$n명에게만 보이는 게시물로 공유됩니다.';
+  }
+
   Future<void> _share() async {
     final body = _bodyCtrl.text.trim();
     if (!_canShare) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SoriTokens.surfaceElevated,
+        backgroundColor: SoriTokens.surface,
         title: const Text(
           'Whisper를 공유할까요?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: SoriTokens.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         content: Text(
-          '${_atomSummary()} · 약 ${_preview?.count ?? _displayCount}명에게만 보이는 게시물로 공유됩니다.',
-          style: const TextStyle(color: SoriTokens.textSecondary, height: 1.4),
+          _shareConfirmMessage(),
+          style: const TextStyle(
+            color: SoriTokens.textSecondary,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
@@ -361,290 +397,283 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   }
 
   Future<void> _openAccountSearch() async {
-    final result = await showModalBottomSheet<WhisperPreviewPerson>(
+    final result = await showSoriSolidBottomSheet<WhisperPreviewPerson>(
       context: context,
-      useRootNavigator: true,
+      enableDrag: true,
       isScrollControlled: true,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
       builder: (ctx) => _AccountSearchSheet(store: store),
     );
     if (result == null || !mounted) return;
     if (_explicitPeople.any((p) => p.userId == result.userId)) return;
-    setState(() => _explicitPeople.add(result));
+    setState(() {
+      _explicitPeople.add(result);
+      _focusedAtom = WhisperAtoms.explicit;
+    });
     _schedulePreview();
   }
 
-  String _atomSummary() {
-    final chips = _atoms.map(WhisperAtoms.label).toList();
-    if (_explicitPeople.isNotEmpty) {
-      chips.add('지정 ${_explicitPeople.length}명');
-    }
-    return chips.join(' · ');
-  }
-
   WhisperAudiencePreview? get _focusedPreview =>
-      _focusedAtom == null ? null : _chipPreviewCache[_focusedAtom!];
+      _focusedAtom == null || _focusedAtom == WhisperAtoms.explicit
+          ? null
+          : _chipPreviewCache[_focusedAtom!];
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final presets = store.whisperPresets;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            12,
-            16,
-            16 + kSoriFloatingNavClearance,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SoriSheetFrame(
+      maxHeightFactor: 0.92,
+      padding: EdgeInsets.fromLTRB(
+        16,
+        4,
+        16,
+        16 + kSoriFloatingNavClearance,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: SoriTokens.border,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Whisper',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: SoriTokens.textPrimary,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _atoms.isEmpty ? null : _savePreset,
-                    child: const Text(
-                      '그룹 저장',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                '누구에게만 보일지 먼저 고르세요. 선택하지 않은 사람에게는 공유되지 않습니다.',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  height: 1.4,
-                  color: SoriTokens.textTertiary,
-                ),
-              ),
-              if (presets.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: presets.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, i) {
-                      final p = presets[i];
-                      return ActionChip(
-                        label: Text(p.name),
-                        onPressed: () => _loadPreset(p),
-                        backgroundColor: SoriTokens.surfaceOverlay,
-                        labelStyle: const TextStyle(
-                          color: SoriTokens.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final atom in WhisperAtoms.composerChips)
-                    _AtomChip(
-                      label: WhisperAtoms.label(atom),
-                      active: _atoms.contains(atom),
-                      onTap: () => _toggleAtom(atom),
-                      onPreviewStart: () {
-                        if (_focusedAtom != atom) {
-                          setState(() => _focusedAtom = atom);
-                          unawaited(_ensureChipPreview(atom));
-                        }
-                      },
-                      onPreviewEnd: () {},
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _ExplicitAccountRow(
-                people: _explicitPeople,
-                onAdd: _openAccountSearch,
-                onRemove: (person) {
-                  setState(() => _explicitPeople.remove(person));
-                  _schedulePreview();
-                },
-              ),
-              const SizedBox(height: 12),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                alignment: Alignment.topCenter,
-                child: _focusedAtom == null
-                    ? const SizedBox(width: double.infinity)
-                    : _ChipAudiencePreview(
-                        key: ValueKey(_focusedAtom),
-                        label: WhisperAtoms.label(_focusedAtom!),
-                        preview: _focusedPreview,
-                        loading: _loadingChipPreviews.contains(_focusedAtom),
-                      ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _bodyCtrl,
-                maxLines: 5,
-                maxLength: 500,
-                style: const TextStyle(color: SoriTokens.textPrimary),
-                cursorColor: SoriTokens.primary,
-                decoration: InputDecoration(
-                  hintText: '타겟에게만 보일 게시물을 작성하세요…',
-                  hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
-                  filled: true,
-                  fillColor: SoriTokens.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _atoms.isEmpty && _explicitPeople.isEmpty
-                    ? '대상을 하나 이상 선택해 주세요'
-                    : '현재 약 $_displayCount명에게 공유됩니다',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: _atoms.isEmpty && _explicitPeople.isEmpty
-                      ? SoriTokens.warningText
-                      : SoriTokens.primary,
-                ),
-              ),
-              if ((_preview?.preview.isNotEmpty ?? false)) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _preview!.preview.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: -8),
-                    itemBuilder: (context, i) {
-                      final p = _preview!.preview[i];
-                      return Align(
-                        widthFactor: 0.72,
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: SoriTokens.surfaceOverlay,
-                          backgroundImage: p.avatarUrl.isNotEmpty
-                              ? NetworkImage(p.avatarUrl)
-                              : null,
-                          child: p.avatarUrl.isEmpty
-                              ? Text(
-                                  p.nickname.characters.first,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '미리보기 · 이 밖에는 공유되지 않습니다',
+              const Expanded(
+                child: Text(
+                  'Whisper',
                   style: TextStyle(
-                    fontSize: 11.5,
-                    color: SoriTokens.textQuaternary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: SoriTokens.textPrimary,
                   ),
                 ),
-              ],
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _canSaveDraft ? _saveDraft : null,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: SoriTokens.textPrimary,
-                        disabledForegroundColor: SoriTokens.textQuaternary,
-                        side: BorderSide(
-                          color: _canSaveDraft
-                              ? SoriTokens.border
-                              : SoriTokens.surfaceOverlay,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        _savingDraft ? '저장 중…' : '임시저장',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton(
-                      onPressed: _canShare ? _share : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: SoriTokens.primary,
-                        foregroundColor: SoriTokens.onPrimary,
-                        disabledBackgroundColor: SoriTokens.surfaceOverlay,
-                        disabledForegroundColor: SoriTokens.textQuaternary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        _sharing ? '공유 중…' : '공유하기',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              ),
+              TextButton(
+                onPressed: (_atoms.isEmpty && _explicitPeople.isEmpty)
+                    ? null
+                    : _savePreset,
+                child: const Text(
+                  '그룹 저장',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 6),
+          const Text(
+            '누구에게만 보일지 먼저 고르세요. 선택하지 않은 사람에게는 공유되지 않습니다.',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.4,
+              color: SoriTokens.textTertiary,
+            ),
+          ),
+          if (presets.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: presets.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final p = presets[i];
+                  return ActionChip(
+                    label: Text(p.name),
+                    onPressed: () => _loadPreset(p),
+                    backgroundColor: SoriTokens.surfaceOverlay,
+                    labelStyle: const TextStyle(
+                      color: SoriTokens.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final atom in WhisperAtoms.composerChips)
+                _AtomChip(
+                  label: WhisperAtoms.label(atom),
+                  active: atom == WhisperAtoms.explicit
+                      ? _explicitPeople.isNotEmpty
+                      : _atoms.contains(atom),
+                  onTap: () => _toggleAtom(atom),
+                  onPreviewStart: () {
+                    if (atom == WhisperAtoms.explicit) return;
+                    if (_focusedAtom != atom) {
+                      setState(() => _focusedAtom = atom);
+                      unawaited(_ensureChipPreview(atom));
+                    }
+                  },
+                  onPreviewEnd: () {},
+                ),
+            ],
+          ),
+          if (_explicitPeople.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _ExplicitPeopleChips(
+              people: _explicitPeople,
+              onRemove: (person) {
+                setState(() => _explicitPeople.remove(person));
+                _schedulePreview();
+              },
+            ),
+          ],
+          const SizedBox(height: 12),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: _focusedAtom == null ||
+                    _focusedAtom == WhisperAtoms.explicit
+                ? const SizedBox(width: double.infinity)
+                : _ChipAudiencePreview(
+                    key: ValueKey(_focusedAtom),
+                    label: WhisperAtoms.label(_focusedAtom!),
+                    preview: _focusedPreview,
+                    loading: _loadingChipPreviews.contains(_focusedAtom),
+                  ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _bodyCtrl,
+            focusNode: _bodyFocus,
+            maxLines: 5,
+            maxLength: 500,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            style: const TextStyle(color: SoriTokens.textPrimary),
+            cursorColor: SoriTokens.primary,
+            decoration: InputDecoration(
+              hintText: '타겟에게만 보일 게시물을 작성하세요…',
+              hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
+              filled: true,
+              fillColor: SoriTokens.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onTap: () {
+              if (!_bodyFocus.hasFocus) {
+                _bodyFocus.requestFocus();
+              }
+            },
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _atoms.isEmpty && _explicitPeople.isEmpty
+                ? '대상을 하나 이상 선택해 주세요'
+                : _isEveryoneOnly
+                    ? '전체 공개로 공유됩니다'
+                    : '현재 약 $_displayCount명에게 공유됩니다',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: _atoms.isEmpty && _explicitPeople.isEmpty
+                  ? SoriTokens.warningText
+                  : SoriTokens.primary,
+            ),
+          ),
+          if ((_preview?.preview.isNotEmpty ?? false) && !_isEveryoneOnly) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _preview!.preview.length,
+                separatorBuilder: (_, _) => const SizedBox(width: -8),
+                itemBuilder: (context, i) {
+                  final p = _preview!.preview[i];
+                  return Align(
+                    widthFactor: 0.72,
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: SoriTokens.surfaceOverlay,
+                      backgroundImage: p.avatarUrl.isNotEmpty
+                          ? NetworkImage(p.avatarUrl)
+                          : null,
+                      child: p.avatarUrl.isEmpty
+                          ? Text(
+                              p.nickname.characters.first,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : null,
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '미리보기 · 이 밖에는 공유되지 않습니다',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: SoriTokens.textQuaternary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _canSaveDraft ? _saveDraft : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SoriTokens.textPrimary,
+                    disabledForegroundColor: SoriTokens.textQuaternary,
+                    side: BorderSide(
+                      color: _canSaveDraft
+                          ? SoriTokens.border
+                          : SoriTokens.surfaceOverlay,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    _savingDraft ? '저장 중…' : '임시저장',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: _canShare ? _share : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
+                    foregroundColor: SoriTokens.onPrimary,
+                    disabledBackgroundColor: SoriTokens.surfaceOverlay,
+                    disabledForegroundColor: SoriTokens.textQuaternary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    _sharing ? '공유 중…' : '공유하기',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -827,103 +856,52 @@ class _PreviewAvatarCard extends StatelessWidget {
   }
 }
 
-class _ExplicitAccountRow extends StatelessWidget {
-  const _ExplicitAccountRow({
+class _ExplicitPeopleChips extends StatelessWidget {
+  const _ExplicitPeopleChips({
     required this.people,
-    required this.onAdd,
     required this.onRemove,
   });
 
   final List<WhisperPreviewPerson> people;
-  final VoidCallback onAdd;
   final void Function(WhisperPreviewPerson) onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: onAdd,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: SoriTokens.surfaceOverlay,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: people.isNotEmpty
-                    ? SoriTokens.primary
-                    : Colors.transparent,
+    return SizedBox(
+      height: 32,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: people.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 4),
+        itemBuilder: (context, i) {
+          final p = people[i];
+          return Chip(
+            avatar: CircleAvatar(
+              radius: 12,
+              backgroundColor: SoriTokens.primarySoft,
+              child: Text(
+                p.nickname.characters.first,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.person_add_outlined,
-                  size: 15,
-                  color: people.isNotEmpty
-                      ? SoriTokens.primary
-                      : SoriTokens.textSecondary,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  people.isEmpty
-                      ? '계정 지정'
-                      : '지정 ${people.length}명',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: people.isNotEmpty
-                        ? SoriTokens.primary
-                        : SoriTokens.textSecondary,
-                  ),
-                ),
-              ],
+            label: Text(
+              p.nickname,
+              style: const TextStyle(fontSize: 11),
             ),
-          ),
-        ),
-        if (people.isNotEmpty) ...[
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              height: 32,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: people.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 4),
-                itemBuilder: (context, i) {
-                  final p = people[i];
-                  return Chip(
-                    avatar: CircleAvatar(
-                      radius: 12,
-                      backgroundColor: SoriTokens.primarySoft,
-                      child: Text(
-                        p.nickname.characters.first,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    label: Text(
-                      p.nickname,
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    deleteIcon: const Icon(Icons.close, size: 14),
-                    onDeleted: () => onRemove(p),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: SoriTokens.surfaceOverlay,
-                    side: BorderSide.none,
-                    labelPadding: const EdgeInsets.only(left: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ],
+            deleteIcon: const Icon(Icons.close, size: 14),
+            onDeleted: () => onRemove(p),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            backgroundColor: SoriTokens.surfaceOverlay,
+            side: BorderSide.none,
+            labelPadding: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+          );
+        },
+      ),
     );
   }
 }
@@ -940,6 +918,36 @@ class _AccountSearchSheet extends StatefulWidget {
 class _AccountSearchSheetState extends State<_AccountSearchSheet> {
   final _ctrl = TextEditingController();
   List<WhisperPreviewPerson> _results = [];
+  late final List<WhisperPreviewPerson> _recent;
+
+  @override
+  void initState() {
+    super.initState();
+    // 최근 상호작용 ≈ 내가 팔로우 중인 디렉터 프로필
+    _recent = widget.store.discoverDirectors
+        .where((d) => widget.store.isFollowingShop(d.shopId))
+        .take(12)
+        .map(
+          (d) => WhisperPreviewPerson(
+            userId: d.ownerUserId ?? d.shopId,
+            nickname: d.nickname,
+            avatarUrl: d.avatarUrl,
+          ),
+        )
+        .toList();
+    if (_recent.isEmpty) {
+      _recent.addAll(
+        widget.store.discoverDirectors.take(8).map(
+              (d) => WhisperPreviewPerson(
+                userId: d.ownerUserId ?? d.shopId,
+                nickname: d.nickname,
+                avatarUrl: d.avatarUrl,
+              ),
+            ),
+      );
+    }
+    _results = List.of(_recent);
+  }
 
   @override
   void dispose() {
@@ -950,116 +958,123 @@ class _AccountSearchSheetState extends State<_AccountSearchSheet> {
   void _search(String q) {
     final query = q.trim().toLowerCase();
     if (query.isEmpty) {
-      setState(() => _results = []);
+      setState(() => _results = List.of(_recent));
       return;
     }
     final directors = widget.store.discoverDirectors
-        .where((d) =>
-            d.nickname.toLowerCase().contains(query) ||
-            d.shopName.toLowerCase().contains(query))
+        .where(
+          (d) =>
+              d.nickname.toLowerCase().contains(query) ||
+              d.shopName.toLowerCase().contains(query),
+        )
         .take(12)
-        .map((d) => WhisperPreviewPerson(
-              userId: d.ownerUserId ?? d.shopId,
-              nickname: d.nickname,
-              avatarUrl: d.avatarUrl,
-            ))
+        .map(
+          (d) => WhisperPreviewPerson(
+            userId: d.ownerUserId ?? d.shopId,
+            nickname: d.nickname,
+            avatarUrl: d.avatarUrl,
+          ),
+        )
         .toList();
     setState(() => _results = directors);
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: SoriTokens.border,
-                  borderRadius: BorderRadius.circular(99),
-                ),
+    return SoriSheetFrame(
+      maxHeightFactor: 0.7,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '계정 지정',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            style: const TextStyle(color: SoriTokens.textPrimary),
+            decoration: InputDecoration(
+              hintText: '이름 또는 샵 이름으로 검색',
+              hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
+              prefixIcon: const Icon(Icons.search, size: 20),
+              filled: true,
+              fillColor: SoriTokens.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: TextField(
-                controller: _ctrl,
-                autofocus: true,
-                style: const TextStyle(color: SoriTokens.textPrimary),
-                decoration: InputDecoration(
-                  hintText: '이름 또는 샵 이름으로 검색',
-                  hintStyle:
-                      const TextStyle(color: SoriTokens.textQuaternary),
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true,
-                  fillColor: SoriTokens.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+            onChanged: _search,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _ctrl.text.trim().isEmpty ? '최근 상호작용' : '검색 결과',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _results.length,
+              itemBuilder: (context, i) {
+                final p = _results[i];
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: SoriTokens.primarySoft,
+                    backgroundImage: p.avatarUrl.isNotEmpty
+                        ? NetworkImage(p.avatarUrl)
+                        : null,
+                    child: p.avatarUrl.isEmpty
+                        ? Text(
+                            p.nickname.characters.first,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          )
+                        : null,
                   ),
-                ),
-                onChanged: _search,
-              ),
-            ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _results.length,
-                itemBuilder: (context, i) {
-                  final p = _results[i];
-                  return ListTile(
-                    dense: true,
-                    leading: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: SoriTokens.primarySoft,
-                      backgroundImage: p.avatarUrl.isNotEmpty
-                          ? NetworkImage(p.avatarUrl)
-                          : null,
-                      child: p.avatarUrl.isEmpty
-                          ? Text(
-                              p.nickname.characters.first,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                              ),
-                            )
-                          : null,
+                  title: Text(
+                    p.nickname,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
                     ),
-                    title: Text(
-                      p.nickname,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                    onTap: () => Navigator.pop(context, p),
-                  );
-                },
-              ),
-            ),
-            if (_results.isEmpty && _ctrl.text.trim().isNotEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  '검색 결과가 없어요',
-                  style: TextStyle(
-                    color: SoriTokens.textTertiary,
-                    fontSize: 13,
                   ),
+                  onTap: () => Navigator.pop(context, p),
+                );
+              },
+            ),
+          ),
+          if (_results.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                '검색 결과가 없어요',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SoriTokens.textTertiary,
+                  fontSize: 13,
                 ),
               ),
-            const SizedBox(height: 16),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

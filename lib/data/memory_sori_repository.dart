@@ -80,6 +80,11 @@ class MemorySoriRepository implements SoriRepository {
     '00000000-0000-4000-8000-000000000301',
     'normal-follower',
   };
+  /// Users the memory sender follows (내 팔로우).
+  static final Set<String> _seedFollowingBySender = {
+    'peer-director-a',
+    '00000000-0000-4000-8000-000000000201',
+  };
   static final Map<String, Set<String>> _seminarRequestsByCase = {};
   static final List<SeminarClass> _seminarClasses = [];
   static int _seminarClassSeq = 0;
@@ -1322,9 +1327,15 @@ class MemorySoriRepository implements SoriRepository {
         add(u, 2);
       }
     }
+    if (atoms.contains(WhisperAtoms.following)) {
+      for (final u in _seedFollowingBySender) {
+        add(u, 256);
+      }
+    }
     if (atoms.contains(WhisperAtoms.peerDirectors)) {
-      for (final u in _seedFollowersOfSender) {
-        if (_seedRoles[u] == 'director') add(u, 4);
+      // 원장 유저 — all director-role profiles
+      for (final e in _seedRoles.entries) {
+        if (e.value == 'director') add(e.key, 4);
       }
     }
     if (atoms.contains(WhisperAtoms.superFans)) {
@@ -1342,9 +1353,7 @@ class MemorySoriRepository implements SoriRepository {
     if (atoms.contains(WhisperAtoms.customerMode)) {
       for (final e in _seedRoles.entries) {
         if (e.value == 'customer' && e.key != sender) {
-          if (!_seedVisited.contains(e.key)) {
-            add(e.key, 128);
-          }
+          add(e.key, 128);
         }
       }
     }
@@ -1359,6 +1368,9 @@ class MemorySoriRepository implements SoriRepository {
         if (atoms.contains(WhisperAtoms.everyone) && (b & 32) == 0) return true;
         if (atoms.contains(WhisperAtoms.visited) && (b & 1) == 0) return true;
         if (atoms.contains(WhisperAtoms.followers) && (b & 2) == 0) return true;
+        if (atoms.contains(WhisperAtoms.following) && (b & 256) == 0) {
+          return true;
+        }
         if (atoms.contains(WhisperAtoms.peerDirectors) && (b & 4) == 0) {
           return true;
         }

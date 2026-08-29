@@ -95,6 +95,35 @@ void main() {
     expect(preview.count, greaterThanOrEqualTo(5));
     expect(preview.preview.first.userId, isNotEmpty);
   });
+
+  test('following atom resolves users the sender follows', () async {
+    final repo = MemorySoriRepository();
+    final preview = await repo.previewWhisperAudience(
+      const WhisperAudienceSpec(
+        op: 'union',
+        atoms: [WhisperAtoms.following],
+      ),
+    );
+    expect(preview.count, greaterThanOrEqualTo(1));
+    expect(
+      preview.preview.map((e) => e.userId),
+      contains('peer-director-a'),
+    );
+  });
+
+  test('peer_directors atom includes all director roles', () async {
+    final repo = MemorySoriRepository();
+    final preview = await repo.previewWhisperAudience(
+      const WhisperAudienceSpec(
+        op: 'union',
+        atoms: [WhisperAtoms.peerDirectors],
+      ),
+    );
+    expect(
+      preview.preview.map((e) => e.userId),
+      containsAll(['peer-director-a', 'peer-director-b']),
+    );
+  });
 }
 
 extension on WhisperAudiencePreset {

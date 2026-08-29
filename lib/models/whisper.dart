@@ -1,31 +1,51 @@
 import '../utils/db_map.dart';
 
-/// Composable audience atom ids (064).
+/// Composable audience atom ids (064 / 068 / 089).
 abstract final class WhisperAtoms {
-  /// 관계 필터 없음 — 속삭임 탭을 보는 로그인 이용자.
+  /// 전체 공개 — 모든 소리앱 유저.
   static const everyone = 'everyone';
+
+  /// 차트 고객 — 내가 작성한 차트 고객.
   static const visited = 'visited';
+
+  /// 내 팔로워 — 날 팔로우 하는 유저.
   static const followers = 'followers';
+
+  /// 내 팔로우 — 내가 팔로우 하는 유저.
+  static const following = 'following';
+
+  /// 원장 유저 — 소리앱을 사용하는 원장 유저.
   static const peerDirectors = 'peer_directors';
+
+  /// 내 서포터 — 에코/부스터 등 서포트한 유저.
   static const superFans = 'super_fans';
+
+  /// Legacy atom (presets / RPC); omitted from composer chips.
   static const seminarHosts = 'seminar_hosts';
+
+  /// 일반 유저 — 소리앱을 사용하는 일반 유저.
   static const customerMode = 'customer_mode';
+
+  /// 계정 지정 — 프로필 검색 / 최근 상호작용.
   static const explicit = 'explicit';
 
-  /// Composer audience chips — peer_directors omitted (no peer-director roster in product).
+  /// Composer chips — PO 8 options (exact chip labels via [label]).
   static const composerChips = <String>[
     everyone,
-    visited,
     followers,
+    following,
     superFans,
-    seminarHosts,
+    visited,
+    peerDirectors,
     customerMode,
+    explicit,
   ];
 
   static const all = <String>[
     everyone,
     visited,
     followers,
+    following,
     peerDirectors,
     superFans,
     seminarHosts,
@@ -34,14 +54,15 @@ abstract final class WhisperAtoms {
   ];
 
   static String label(String atom) => switch (atom) {
-        everyone => '전체',
-        visited => '방문 고객',
+        everyone => '전체 공개',
         followers => '내 팔로워',
-        peerDirectors => '동료 원장',
-        superFans => 'Supporter',
-        seminarHosts => '세미나 강사',
-        customerMode => '고객 모드',
+        following => '내 팔로우',
+        superFans => '내 서포터',
+        visited => '차트 고객',
+        peerDirectors => '원장 유저',
+        customerMode => '일반 유저',
         explicit => '계정 지정',
+        seminarHosts => '세미나 강사',
         _ => atom,
       };
 }
