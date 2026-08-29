@@ -103,21 +103,42 @@ class SeminarClass {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
+  Map<String, dynamic> toUpdateMap() => {
+        'title': title.trim(),
+        if (eventDate != null) 'event_date': eventDate!.toUtc().toIso8601String(),
+        'location': location.trim(),
+        'price': price,
+        'max_capacity': maxCapacity,
+        'status': status.dbValue,
+        'description': description.trim(),
+        'class_format':
+            classFormat.trim().isEmpty ? 'oneday' : classFormat.trim(),
+        if (targetCaseId != null && targetCaseId!.trim().isNotEmpty)
+          'target_case_id': targetCaseId!.trim(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
   SeminarClass copyWith({
     int? currentEnrollment,
     SeminarClassStatus? status,
     String? classFormat,
     String? description,
+    String? title,
+    DateTime? eventDate,
+    String? location,
+    int? price,
+    int? maxCapacity,
+    String? targetCaseId,
   }) {
     return SeminarClass(
       id: id,
       directorShopId: directorShopId,
-      targetCaseId: targetCaseId,
-      title: title,
-      eventDate: eventDate,
-      location: location,
-      price: price,
-      maxCapacity: maxCapacity,
+      targetCaseId: targetCaseId ?? this.targetCaseId,
+      title: title ?? this.title,
+      eventDate: eventDate ?? this.eventDate,
+      location: location ?? this.location,
+      price: price ?? this.price,
+      maxCapacity: maxCapacity ?? this.maxCapacity,
       currentEnrollment: currentEnrollment ?? this.currentEnrollment,
       status: status ?? this.status,
       description: description ?? this.description,

@@ -422,6 +422,12 @@ abstract class SoriRepository {
   /// 세미나 클래스 등록.
   Future<SeminarClass> createSeminarClass(SeminarClass draft);
 
+  /// 세미나 클래스 수정 (개설자).
+  Future<SeminarClass> updateSeminarClass(SeminarClass updated);
+
+  /// 세미나 클래스 삭제 (개설자).
+  Future<void> deleteSeminarClass(String classId);
+
   /// 세미나 수강 신청서 제출.
   Future<SeminarApplication> submitSeminarApplication(SeminarApplication draft);
 

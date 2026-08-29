@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/customer_chart.dart';
+import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/shop.dart';
 import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
+import '../widgets/author_content_actions_sheet.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import 'seminar_apply_page.dart';
+import 'seminar_create_page.dart';
 
 /// B2B 세미나 클래스 모집 랜딩 — SliverAppBar + 에스크로 CTA.
 class SeminarClassDetailPage extends StatefulWidget {
@@ -120,6 +123,89 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
     );
   }
 
+  bool get _isAuthor {
+    final detail = _detail;
+    if (detail == null) return false;
+    final sid = widget.store.shop.id.trim();
+    return sid.isNotEmpty &&
+        detail.seminarClass.directorShopId.trim() == sid;
+  }
+
+  Future<void> _openAuthorMenu() async {
+    final detail = _detail;
+    if (detail == null || !_isAuthor) return;
+    final cls = detail.seminarClass;
+    final action = await showAuthorContentActionsSheet(
+      context,
+      showDraft: cls.status != SeminarClassStatus.draft,
+      draftLabel: '임시저장',
+      showEdit: true,
+      showDelete: true,
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case AuthorContentAction.draft:
+        final ok = await widget.store.updateSeminarClass(
+          cls.copyWith(status: SeminarClassStatus.draft),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok != null ? '임시저장되었습니다.' : '임시저장에 실패했습니다.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        if (ok != null) await _load();
+      case AuthorContentAction.edit:
+        await SeminarCreatePage.open(
+          context,
+          store: widget.store,
+          existing: cls,
+        );
+        if (mounted) await _load();
+      case AuthorContentAction.delete:
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('세미나 삭제'),
+            content: Text('「${cls.title}」을(를) 삭제할까요? 되돌릴 수 없습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  '삭제',
+                  style: TextStyle(color: SoriTokens.systemRed),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+        final deleted = await widget.store.deleteSeminarClass(cls.id);
+        if (!mounted) return;
+        if (deleted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('세미나가 삭제되었습니다.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('삭제에 실패했습니다.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -182,9 +268,16 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
           SliverAppBar(
             expandedHeight: hasHeroSlider ? 320 : 280,
             pinned: true,
-            stretch: true,
-            backgroundColor: SoriTokens.primary,
-            foregroundColor: SoriTokens.onPrimary,
+            floating: false,
+            stretch: false,
+            backgroundColor: SoriTokens.surface,
+            foregroundColor: SoriTokens.textPrimary,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0.5,
+            scrolledUnderElevation: 0.5,
+            iconTheme: const IconThemeData(color: SoriTokens.textPrimary),
+            actionsIconTheme:
+                const IconThemeData(color: SoriTokens.textPrimary),
             title: Text(
               cls.title,
               maxLines: 1,
@@ -192,74 +285,101 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
+                color: SoriTokens.textPrimary,
               ),
             ),
+            actions: [
+              if (_isAuthor)
+                IconButton(
+                  tooltip: '관리',
+                  onPressed: _openAuthorMenu,
+                  icon: const Icon(Icons.more_vert_rounded),
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
-              stretchModes: const [
-                StretchMode.zoomBackground,
-                StretchMode.blurBackground,
-              ],
-              background: _HeroHeader(
-                heroUrls: heroUrls,
-                chart: chart,
-                pageController: _heroController,
-                pageIndex: _heroIndex,
-                onPageChanged: (i) => setState(() => _heroIndex = i),
+              collapseMode: CollapseMode.parallax,
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _HeroHeader(
+                    heroUrls: heroUrls,
+                    chart: chart,
+                    pageController: _heroController,
+                    pageIndex: _heroIndex,
+                    onPageChanged: (i) => setState(() => _heroIndex = i),
+                  ),
+                  // Light top scrim so back/title stay readable over photos.
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.center,
+                        colors: [
+                          Color(0xE6FFFFFF),
+                          Color(0x00FFFFFF),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _DirectorProfileSection(
-                    shop: shop,
-                    ownerLabel: shop.ownerName?.trim().isNotEmpty == true
-                        ? shop.ownerName!.trim()
-                        : '원장',
-                  ),
-                  const SizedBox(height: 14),
-                  _EventInfoBox(
-                    eventDate: cls.eventDate,
-                    currentEnrollment: cls.currentEnrollment,
-                    maxCapacity: cls.maxCapacity,
-                    location: cls.location,
-                    dateFmt: _dateFmt,
-                  ),
-                  const SizedBox(height: 20),
-                  _AutoSyllabusSection(tags: detail.syllabusTags),
-                  const SizedBox(height: 20),
-                  _FomoProgressSection(
-                    current: cls.currentEnrollment,
-                    max: cls.maxCapacity,
-                    remaining: detail.remainingSeats,
-                    isAlmostFull: detail.isAlmostFull,
-                    ratio: detail.enrollmentRatio,
-                  ),
-                  const SizedBox(height: 20),
-                  _DescriptionSection(text: detail.displayDescription),
-                  if (cls.targetCaseId?.trim().isNotEmpty == true) ...[
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () => _openSourceCase(cls.targetCaseId!),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF4338CA),
-                        side: const BorderSide(color: Color(0x664338CA)),
-                        minimumSize: const Size(double.infinity, 44),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+            child: ColoredBox(
+              color: SoriTokens.background,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _DirectorProfileSection(
+                      shop: shop,
+                      ownerLabel: shop.ownerName?.trim().isNotEmpty == true
+                          ? shop.ownerName!.trim()
+                          : '원장',
+                    ),
+                    const SizedBox(height: 14),
+                    _EventInfoBox(
+                      eventDate: cls.eventDate,
+                      currentEnrollment: cls.currentEnrollment,
+                      maxCapacity: cls.maxCapacity,
+                      location: cls.location,
+                      dateFmt: _dateFmt,
+                    ),
+                    const SizedBox(height: 20),
+                    _AutoSyllabusSection(tags: detail.syllabusTags),
+                    const SizedBox(height: 20),
+                    _FomoProgressSection(
+                      current: cls.currentEnrollment,
+                      max: cls.maxCapacity,
+                      remaining: detail.remainingSeats,
+                      isAlmostFull: detail.isAlmostFull,
+                      ratio: detail.enrollmentRatio,
+                    ),
+                    const SizedBox(height: 20),
+                    _DescriptionSection(text: detail.displayDescription),
+                    if (cls.targetCaseId?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () => _openSourceCase(cls.targetCaseId!),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4338CA),
+                          side: const BorderSide(color: Color(0x664338CA)),
+                          minimumSize: const Size(double.infinity, 44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+                        label: const Text(
+                          '이 세미나를 탄생시킨 B/A 케이스 보러가기',
+                          style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
-                      icon: const Icon(Icons.compare_arrows_rounded, size: 18),
-                      label: const Text(
-                        '이 세미나를 탄생시킨 B/A 케이스 보러가기',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

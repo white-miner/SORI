@@ -1595,6 +1595,22 @@ class MemorySoriRepository implements SoriRepository {
     return created;
   }
 
+  @override
+  Future<SeminarClass> updateSeminarClass(SeminarClass updated) async {
+    final idx = _seminarClasses.indexWhere((c) => c.id == updated.id);
+    if (idx < 0) throw StateError('seminar not found');
+    final next = updated.copyWith(
+      currentEnrollment: _seminarClasses[idx].currentEnrollment,
+    );
+    _seminarClasses[idx] = next;
+    return next;
+  }
+
+  @override
+  Future<void> deleteSeminarClass(String classId) async {
+    _seminarClasses.removeWhere((c) => c.id == classId.trim());
+  }
+
   static final List<SeminarApplication> _seminarApplications = [];
 
   @override

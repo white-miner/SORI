@@ -8,24 +8,29 @@ import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import 'seminar_class_detail_page.dart';
 
-/// 에듀케이터 세미나 개설 폼 — `seminar_classes`(seminars 뷰) INSERT.
+/// 에듀케이터 세미나 개설/수정 폼 — `seminar_classes` INSERT/UPDATE.
 class SeminarCreatePage extends StatefulWidget {
   const SeminarCreatePage({
     super.key,
     required this.store,
     this.targetCaseId,
     this.initialTitle = '',
+    this.existing,
   });
 
   final SoriStore store;
   final String? targetCaseId;
   final String initialTitle;
 
+  /// When set, form updates this class instead of creating a new one.
+  final SeminarClass? existing;
+
   static Future<void> open(
     BuildContext context, {
     required SoriStore store,
     String? targetCaseId,
     String initialTitle = '',
+    SeminarClass? existing,
   }) {
     return pushRootPage<void>(
       context,
@@ -33,6 +38,7 @@ class SeminarCreatePage extends StatefulWidget {
         store: store,
         targetCaseId: targetCaseId,
         initialTitle: initialTitle,
+        existing: existing,
       ),
     );
   }
@@ -75,10 +81,27 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
   @override
   void initState() {
     super.initState();
-    final seed = widget.initialTitle.trim();
-    _titleCtrl.text = seed.isEmpty ? '' : '$seed 세미나';
-    final base = DateTime.now().add(const Duration(days: 14));
-    _eventDate = DateTime(base.year, base.month, base.day);
+    final existing = widget.existing;
+    if (existing != null) {
+      _titleCtrl.text = existing.title;
+      _locationCtrl.text = existing.location;
+      _priceCtrl.text = '${existing.price}';
+      _capacityCtrl.text = '${existing.maxCapacity}';
+      _curriculumCtrl.text = existing.description;
+      _format = existing.classFormat.trim().isEmpty
+          ? 'oneday'
+          : existing.classFormat;
+      final when = existing.eventDate;
+      if (when != null) {
+        _eventDate = DateTime(when.year, when.month, when.day);
+        _eventTime = TimeOfDay(hour: when.hour, minute: when.minute);
+      }
+    } else {
+      final seed = widget.initialTitle.trim();
+      _titleCtrl.text = seed.isEmpty ? '' : '$seed 세미나';
+      final base = DateTime.now().add(const Duration(days: 14));
+      _eventDate = DateTime(base.year, base.month, base.day);
+    }
   }
 
   @override
@@ -128,31 +151,38 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
     }
 
     setState(() => _saving = true);
+    final existing = widget.existing;
     final draft = SeminarClass(
-      id: '',
-      directorShopId: widget.store.shop.id,
-      targetCaseId: widget.targetCaseId,
+      id: existing?.id ?? '',
+      directorShopId: existing?.directorShopId ?? widget.store.shop.id,
+      targetCaseId: existing?.targetCaseId ?? widget.targetCaseId,
       title: _titleCtrl.text.trim(),
       eventDate: _combinedDateTime,
       location: _locationCtrl.text.trim(),
       price: int.tryParse(_priceCtrl.text.replaceAll(',', '')) ?? 0,
       maxCapacity: int.tryParse(_capacityCtrl.text) ?? 12,
-      status: SeminarClassStatus.open,
+      currentEnrollment: existing?.currentEnrollment ?? 0,
+      status: existing?.status ?? SeminarClassStatus.open,
       description: _curriculumCtrl.text.trim(),
       classFormat: _format,
+      createdAt: existing?.createdAt,
     );
 
-    final created = await widget.store.createSeminarClass(draft);
+    final saved = existing == null
+        ? await widget.store.createSeminarClass(draft)
+        : await widget.store.updateSeminarClass(draft);
     if (!mounted) return;
     setState(() => _saving = false);
 
-    if (created == null) {
+    if (saved == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             widget.store.lastError?.trim().isNotEmpty == true
                 ? widget.store.lastError!
-                : '세미나 개설에 실패했습니다.',
+                : (existing == null
+                    ? '세미나 개설에 실패했습니다.'
+                    : '세미나 수정에 실패했습니다.'),
           ),
           backgroundColor: SoriTokens.systemRed,
         ),
@@ -162,16 +192,20 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('「${created.title}」 세미나가 개설되었습니다.'),
+        content: Text(
+          existing == null
+              ? '「${saved.title}」 세미나가 개설되었습니다.'
+              : '「${saved.title}」 세미나가 수정되었습니다.',
+        ),
         backgroundColor: SoriTokens.primary,
       ),
     );
     Navigator.pop(context);
-    if (!context.mounted) return;
+    if (existing != null || !context.mounted) return;
     await SeminarClassDetailPage.open(
       context,
       store: widget.store,
-      classId: created.id,
+      classId: saved.id,
     );
   }
 
@@ -186,9 +220,9 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
     return Scaffold(
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
-        title: const Text(
-          '세미나 개설',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          widget.existing == null ? '세미나 개설' : '세미나 수정',
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         backgroundColor: SoriTokens.surface,
         foregroundColor: SoriTokens.textPrimary,
@@ -351,7 +385,9 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
                   ),
                 ),
                 child: Text(
-                  _saving ? '개설 중…' : '개설하기',
+                  _saving
+                      ? (widget.existing == null ? '개설 중…' : '저장 중…')
+                      : (widget.existing == null ? '개설하기' : '수정 저장'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 16,

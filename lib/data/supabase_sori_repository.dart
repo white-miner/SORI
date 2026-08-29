@@ -3010,6 +3010,26 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<SeminarClass> updateSeminarClass(SeminarClass updated) async {
+    final id = updated.id.trim();
+    if (id.isEmpty) throw ArgumentError('class id required');
+    final row = await _db
+        .from('seminar_classes')
+        .update(updated.toUpdateMap())
+        .eq('id', id)
+        .select()
+        .single();
+    return SeminarClass.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<void> deleteSeminarClass(String classId) async {
+    final id = classId.trim();
+    if (id.isEmpty) return;
+    await _db.from('seminar_classes').delete().eq('id', id);
+  }
+
+  @override
   Future<SeminarApplication> submitSeminarApplication(
     SeminarApplication draft,
   ) async {

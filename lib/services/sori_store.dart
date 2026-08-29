@@ -3550,6 +3550,58 @@ class SoriStore implements Listenable {
     }
   }
 
+  Future<SeminarClass?> updateSeminarClass(SeminarClass updated) async {
+    try {
+      final saved = await _repository.updateSeminarClass(updated);
+      final idx = seminarClasses.indexWhere((c) => c.id == saved.id);
+      if (idx >= 0) {
+        seminarClasses[idx] = saved;
+      } else {
+        seminarClasses.insert(0, saved);
+      }
+      // Keep open-seminar feed cache in sync
+      final openIdx =
+          openSeminarClassesForFeed.indexWhere((c) => c.id == saved.id);
+      if (saved.status == SeminarClassStatus.open) {
+        if (openIdx >= 0) {
+          openSeminarClassesForFeed[openIdx] = saved;
+        } else {
+          openSeminarClassesForFeed.insert(0, saved);
+        }
+      } else if (openIdx >= 0) {
+        openSeminarClassesForFeed.removeAt(openIdx);
+      }
+      _rebuildHomeFeedEntries();
+      lastError = null;
+      _notify();
+      return saved;
+    } catch (e, st) {
+      debugPrint('updateSeminarClass failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return null;
+    }
+  }
+
+  Future<bool> deleteSeminarClass(String classId) async {
+    final id = classId.trim();
+    if (id.isEmpty) return false;
+    try {
+      await _repository.deleteSeminarClass(id);
+      seminarClasses.removeWhere((c) => c.id == id);
+      openSeminarClassesForFeed.removeWhere((c) => c.id == id);
+      _rebuildHomeFeedEntries();
+      lastError = null;
+      _notify();
+      return true;
+    } catch (e, st) {
+      debugPrint('deleteSeminarClass failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return false;
+    }
+  }
+
   Future<void> refreshSeminarClasses() async {
     final sid = shop.id.trim();
     try {

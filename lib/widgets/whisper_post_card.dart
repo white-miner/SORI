@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/community_post.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import 'author_content_actions_sheet.dart';
 import 'community_comments_section.dart';
 
 /// 피드 내 속삭임(Whisper) 포스트 — 수신자에게만 본문 노출, 시각적 차별화.
@@ -22,6 +23,53 @@ class WhisperPostCard extends StatelessWidget {
   final bool compact;
 
   final VoidCallback? onTap;
+
+  bool get _isAuthor {
+    final sid = store.shop.id.trim();
+    if (sid.isNotEmpty && post.shopId.trim() == sid) return true;
+    final uid = store.session?.id.trim() ?? '';
+    return uid.isNotEmpty && post.authorUserId?.trim() == uid;
+  }
+
+  Future<void> _openAuthorMenu(BuildContext context) async {
+    final action = await showAuthorContentActionsSheet(
+      context,
+      showDraft: false,
+      showEdit: false,
+      showDelete: true,
+    );
+    if (!context.mounted) return;
+    if (action != AuthorContentAction.delete) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Whisper 삭제'),
+        content: const Text('이 Whisper 게시물을 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              '삭제',
+              style: TextStyle(color: SoriTokens.systemRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final ok = await store.removeCommunityPost(post.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Whisper를 삭제했습니다.' : '삭제에 실패했습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +144,18 @@ class WhisperPostCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: SoriTokens.textTertiary.withValues(alpha: 0.9),
                     ),
+                  ),
+                if (_isAuthor)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    tooltip: '관리',
+                    onPressed: () => _openAuthorMenu(context),
+                    icon: const Icon(Icons.more_vert_rounded, size: 20),
                   ),
               ],
             ),

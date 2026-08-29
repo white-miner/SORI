@@ -8,16 +8,19 @@ import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_review.dart';
 import '../services/instagram_quick_post.dart';
+import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/case_persona.dart';
 import '../utils/sori_nav.dart';
+import '../widgets/author_content_actions_sheet.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/official_badge.dart';
-import '../services/sori_store.dart';
 import '../widgets/premium_mentoring_detail_section.dart';
 import '../widgets/sori_logo.dart';
+import '../routing/sori_router.dart';
+import 'package:go_router/go_router.dart';
 
 /// 인스타그램 스타일 풀스크린 B/A 케이스 상세.
 class CaseDetailPage extends StatefulWidget {
@@ -341,6 +344,63 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     );
   }
 
+  Future<void> _openAuthorMenu() async {
+    final action = await showAuthorContentActionsSheet(
+      context,
+      showDraft: false,
+      showEdit: true,
+      showDelete: true,
+      deleteLabel: '피드에서 내리기',
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case AuthorContentAction.draft:
+        break;
+      case AuthorContentAction.edit:
+        context.push(
+          '${AppPaths.chartCreate}?chartId=${Uri.encodeComponent(item.chart.id)}',
+        );
+      case AuthorContentAction.delete:
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('피드에서 내리기'),
+            content: const Text(
+              '이 B/A 게시물을 커뮤니티 피드에서 비공개로 전환할까요?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  '내리기',
+                  style: TextStyle(color: SoriTokens.systemRed),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+        final ok = _store.setManagementCaseShared(item.chart.id, false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              ok ? '피드에서 내렸습니다.' : '피드 비공개에 실패했습니다.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        if (ok) {
+          await _store.refreshCommunityHotCases();
+          if (mounted) Navigator.pop(context);
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final shop = item.shop;
@@ -362,18 +422,12 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     return Scaffold(
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
-        backgroundColor: SoriTokens.background,
-        foregroundColor: SoriTokens.onPrimary,
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
-          },
-        ),
+        surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: SoriTokens.textPrimary),
         title: GestureDetector(
           onTap: widget.onShopProfile,
           child: Row(
@@ -420,8 +474,8 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
               ),
             ),
           IconButton(
-            onPressed: _openMore,
-            icon: const Icon(Icons.more_horiz),
+            onPressed: _isAuthor ? _openAuthorMenu : _openMore,
+            icon: Icon(_isAuthor ? Icons.more_vert_rounded : Icons.more_horiz),
           ),
         ],
       ),
