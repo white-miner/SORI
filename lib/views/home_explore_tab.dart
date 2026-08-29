@@ -20,9 +20,14 @@ import 'explore_community_post_page.dart';
 
 /// 홈 · 탐색 — B/A 3열 + 원장 스트립 / 검색 시 게시물·프로필.
 class HomeExploreTab extends StatefulWidget {
-  const HomeExploreTab({super.key, required this.store});
+  const HomeExploreTab({
+    super.key,
+    required this.store,
+    this.scrollController,
+  });
 
   final SoriStore store;
+  final ScrollController? scrollController;
 
   @override
   State<HomeExploreTab> createState() => _HomeExploreTabState();
@@ -305,6 +310,12 @@ class _HomeExploreTabState extends State<HomeExploreTab>
   Widget build(BuildContext context) {
     super.build(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final scrollActive = widget.scrollController != null;
+    final scrollPhysics = scrollActive
+        ? const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          )
+        : const NeverScrollableScrollPhysics();
 
     return ColoredBox(
       color: SoriTokens.background,
@@ -377,11 +388,11 @@ class _HomeExploreTabState extends State<HomeExploreTab>
               },
               child: _searching
                   ? (_segment == _SearchSegment.posts
-                      ? _buildPostsResults(bottomInset)
-                      : _buildProfileResults(bottomInset))
+                      ? _buildPostsResults(bottomInset, scrollPhysics)
+                      : _buildProfileResults(bottomInset, scrollPhysics))
                   : (_showAllProfiles
-                      ? _buildAllProfiles(bottomInset)
-                      : _buildBrowse(bottomInset)),
+                      ? _buildAllProfiles(bottomInset, scrollPhysics)
+                      : _buildBrowse(bottomInset, scrollPhysics)),
             ),
           ),
         ],
@@ -389,7 +400,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildBrowse(double bottomInset) {
+  Widget _buildBrowse(double bottomInset, ScrollPhysics scrollPhysics) {
     final cells = _gridCells;
     final strip = _stripDirectors;
     final loading = store.communityHotCasesLoading && cells.isEmpty;
@@ -401,9 +412,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     }
 
     return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: BouncingScrollPhysics(),
-      ),
+      controller: widget.scrollController,
+      physics: scrollPhysics,
       slivers: [
         if (strip.isNotEmpty)
           SliverToBoxAdapter(
@@ -458,10 +468,11 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildAllProfiles(double bottomInset) {
+  Widget _buildAllProfiles(double bottomInset, ScrollPhysics scrollPhysics) {
     final rows = store.discoverDirectors;
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      controller: widget.scrollController,
+      physics: scrollPhysics,
       padding: EdgeInsets.fromLTRB(0, 0, 0, 100 + bottomInset),
       children: [
         Padding(
@@ -508,14 +519,15 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildPostsResults(double bottomInset) {
+  Widget _buildPostsResults(double bottomInset, ScrollPhysics scrollPhysics) {
     final cases = _matchedCases;
     final posts = _matchedPosts;
     final empty = cases.isEmpty && posts.isEmpty;
 
     if (empty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        controller: widget.scrollController,
+        physics: scrollPhysics,
         padding: EdgeInsets.fromLTRB(24, 48, 24, 100 + bottomInset),
         children: const [
           Text(
@@ -537,7 +549,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     }
 
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      controller: widget.scrollController,
+      physics: scrollPhysics,
       padding: EdgeInsets.fromLTRB(16, 4, 16, 100 + bottomInset),
       children: [
         for (final row in cases) ...[
@@ -559,7 +572,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildProfileResults(double bottomInset) {
+  Widget _buildProfileResults(double bottomInset, ScrollPhysics scrollPhysics) {
     final rows = _matchedDirectors;
     if (store.discoverDirectorsLoading && rows.isEmpty) {
       return const Center(
@@ -568,7 +581,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     }
     if (rows.isEmpty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        controller: widget.scrollController,
+        physics: scrollPhysics,
         padding: EdgeInsets.fromLTRB(24, 48, 24, 100 + bottomInset),
         children: const [
           Text(
@@ -589,7 +603,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       );
     }
     return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
+      controller: widget.scrollController,
+      physics: scrollPhysics,
       padding: EdgeInsets.fromLTRB(0, 4, 0, 100 + bottomInset),
       itemCount: rows.length,
       itemBuilder: (context, i) {

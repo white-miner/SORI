@@ -12,6 +12,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
+import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/fan_sponsor_credits.dart';
@@ -40,6 +41,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   final _likeCounts = <String, int>{};
   final _comments = <String, List<_FeedComment>>{};
   late final TabController _tabs;
+  ScrollController? _mobileFeedScrollController;
 
   SoriStore get store => widget.store;
 
@@ -47,6 +49,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    _tabs.addListener(_onTabIndexChanged);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityHotCases();
@@ -59,8 +62,23 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   @override
   void dispose() {
     store.removeListener(_onStore);
+    _tabs.removeListener(_onTabIndexChanged);
     _tabs.dispose();
+    _mobileFeedScrollController?.dispose();
     super.dispose();
+  }
+
+  void _onTabIndexChanged() {
+    if (_tabs.indexIsChanging) return;
+    if (mounted) setState(() {});
+  }
+
+  ScrollController _activeFeedScrollController(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 800;
+    if (wide) {
+      return PrimaryScrollController.of(context);
+    }
+    return _mobileFeedScrollController ??= ScrollController();
   }
 
   void _onStore() {
@@ -399,6 +417,42 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     final feed = _feed;
     final localFeed = _localFeed;
     final loading = store.communityHotCasesLoading && feed.isEmpty;
+    final wide = MediaQuery.sizeOf(context).width >= 800;
+    final activeScroll = _activeFeedScrollController(context);
+    final tabIndex = _tabs.index;
+
+    Widget feedPane = FeedScrollColumn(
+      child: TabBarView(
+        controller: _tabs,
+        children: [
+          _RecommendFeedTab(
+            feed: feed,
+            loading: loading,
+            buildCard: _feedCard,
+            scrollController: tabIndex == 0 ? activeScroll : null,
+          ),
+          HomeExploreTab(
+            store: store,
+            scrollController: tabIndex == 1 ? activeScroll : null,
+          ),
+          _SimpleFeedTab(
+            title: '우리 지역',
+            subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
+            feed: localFeed,
+            loading: loading,
+            buildCard: _feedCard,
+            scrollController: tabIndex == 2 ? activeScroll : null,
+          ),
+        ],
+      ),
+    );
+
+    if (!wide) {
+      feedPane = PrimaryScrollController(
+        controller: activeScroll,
+        child: feedPane,
+      );
+    }
 
     return ColoredBox(
       color: SoriTokens.background,
@@ -414,26 +468,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 labels: const ['추천', '탐색', '우리 지역'],
               ),
             ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _RecommendFeedTab(
-                    feed: feed,
-                    loading: loading,
-                    buildCard: _feedCard,
-                  ),
-                  HomeExploreTab(store: store),
-                  _SimpleFeedTab(
-                    title: '우리 지역',
-                    subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
-                    feed: localFeed,
-                    loading: loading,
-                    buildCard: _feedCard,
-                  ),
-                ],
-              ),
-            ),
+            Expanded(child: feedPane),
           ],
         ),
       ),
@@ -447,11 +482,13 @@ class _RecommendFeedTab extends StatefulWidget {
     required this.feed,
     required this.loading,
     required this.buildCard,
+    this.scrollController,
   });
 
   final List<CommunityCaseItem> feed;
   final bool loading;
   final Widget Function(CommunityCaseItem item, int index) buildCard;
+  final ScrollController? scrollController;
 
   @override
   State<_RecommendFeedTab> createState() => _RecommendFeedTabState();
@@ -468,9 +505,16 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
   Widget build(BuildContext context) {
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
+    final scrollActive = widget.scrollController != null;
+    final scrollPhysics = scrollActive
+        ? const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          )
+        : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
+        if (!scrollActive) return false;
         if (n.metrics.axis != Axis.vertical) return false;
         if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
           if (_visibleCount < widget.feed.length) {
@@ -482,8 +526,8 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
         return false;
       },
       child: CustomScrollView(
-        primary: true,
-        physics: const ClampingScrollPhysics(),
+        controller: widget.scrollController,
+        physics: scrollPhysics,
         slivers: [
           const SliverToBoxAdapter(child: _HomeHeroCarousel()),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -532,7 +576,9 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => widget.buildCard(shown[index], index),
+                  (context, index) => FeedScrollRow(
+                    child: widget.buildCard(shown[index], index),
+                  ),
                   childCount: shown.length,
                   addAutomaticKeepAlives: false,
                   addRepaintBoundaries: true,
@@ -553,6 +599,7 @@ class _SimpleFeedTab extends StatefulWidget {
     required this.feed,
     required this.loading,
     required this.buildCard,
+    this.scrollController,
   });
 
   final String title;
@@ -560,6 +607,7 @@ class _SimpleFeedTab extends StatefulWidget {
   final List<CommunityCaseItem> feed;
   final bool loading;
   final Widget Function(CommunityCaseItem item, int index) buildCard;
+  final ScrollController? scrollController;
 
   @override
   State<_SimpleFeedTab> createState() => _SimpleFeedTabState();
@@ -576,9 +624,16 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
   Widget build(BuildContext context) {
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
+    final scrollActive = widget.scrollController != null;
+    final scrollPhysics = scrollActive
+        ? const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          )
+        : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
+        if (!scrollActive) return false;
         if (n.metrics.axis != Axis.vertical) return false;
         if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
           if (_visibleCount < widget.feed.length) {
@@ -590,7 +645,8 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
         return false;
       },
       child: CustomScrollView(
-        physics: const ClampingScrollPhysics(),
+        controller: widget.scrollController,
+        physics: scrollPhysics,
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -649,7 +705,9 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => widget.buildCard(shown[index], index),
+                  (context, index) => FeedScrollRow(
+                    child: widget.buildCard(shown[index], index),
+                  ),
                   childCount: shown.length,
                   addAutomaticKeepAlives: false,
                   addRepaintBoundaries: true,
