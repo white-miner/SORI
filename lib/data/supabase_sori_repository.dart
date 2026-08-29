@@ -33,6 +33,7 @@ import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/shop_assets.dart';
+import '../models/chart_mentoring_meta.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -2224,7 +2225,12 @@ class SupabaseSoriRepository implements SoriRepository {
             ),
           );
         }
-        if (items.isNotEmpty) return items;
+        if (items.isNotEmpty) {
+          final meta = await _loadMentoringMetaByChartIds(
+            items.map((e) => e.chart.id).toList(),
+          );
+          return _attachMentoringMeta(items, meta);
+        }
       } catch (e) {
         debugPrint('community_shared_cases view skipped: $e');
       }
@@ -2344,7 +2350,7 @@ class SupabaseSoriRepository implements SoriRepository {
         }
       }
 
-      return charts
+      final result = charts
           .map(
             (c) {
               final shop = shopById[c.shopId] ??
@@ -2364,10 +2370,131 @@ class SupabaseSoriRepository implements SoriRepository {
             },
           )
           .toList();
+      final meta = await _loadMentoringMetaByChartIds(
+        result.map((e) => e.chart.id).toList(),
+      );
+      return _attachMentoringMeta(result, meta);
     } catch (e, st) {
       debugPrint('loadCommunityHotCases failed: $e\n$st');
       return const [];
     }
+  }
+
+  List<CommunityCaseItem> _attachMentoringMeta(
+    List<CommunityCaseItem> items,
+    Map<String, ChartMentoringMeta> metaByChart,
+  ) {
+    if (metaByChart.isEmpty) return items;
+    return items
+        .map(
+          (item) => metaByChart.containsKey(item.chart.id)
+              ? item.copyWith(mentoring: metaByChart[item.chart.id])
+              : item,
+        )
+        .toList();
+  }
+
+  Future<Map<String, ChartMentoringMeta>> _loadMentoringMetaByChartIds(
+    List<String> chartIds,
+  ) async {
+    final ids = chartIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+
+    try {
+      final rows = await _db
+          .from('mentoring_posts')
+          .select('id, chart_id, status, price_echo')
+          .inFilter('chart_id', ids)
+          .neq('status', 'archived');
+      final out = <String, ChartMentoringMeta>{};
+      for (final raw in rows as List) {
+        if (raw is! Map) continue;
+        final map = Map<String, dynamic>.from(raw);
+        final chartId = DbMap.asText(map['chart_id']);
+        if (chartId.isEmpty) continue;
+        final meta = ChartMentoringMeta.fromMap(map);
+        final prev = out[chartId];
+        if (prev == null || (!prev.isActive && meta.isActive)) {
+          out[chartId] = meta;
+        }
+      }
+      return out;
+    } catch (e, st) {
+      debugPrint('loadMentoringMetaForCharts failed: $e\n$st');
+      return const {};
+    }
+  }
+
+  @override
+  Future<Map<String, ChartMentoringMeta>> loadMentoringMetaForCharts(
+    List<String> chartIds,
+  ) =>
+      _loadMentoringMetaByChartIds(chartIds);
+
+  @override
+  Future<ChartMentoringDetail> loadMentoringForChart(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return const ChartMentoringDetail(exists: false);
+    try {
+      final raw = await _db.rpc(
+        'get_mentoring_for_chart',
+        params: {'p_chart_id': id},
+      );
+      if (raw is Map) {
+        return ChartMentoringDetail.fromRpc(Map<String, dynamic>.from(raw));
+      }
+    } catch (e, st) {
+      debugPrint('loadMentoringForChart failed: $e\n$st');
+    }
+    return const ChartMentoringDetail(exists: false);
+  }
+
+  @override
+  Future<void> createMentoringRequest({
+    required String chartId,
+    required String questionBody,
+  }) async {
+    await _db.rpc(
+      'create_mentoring_request',
+      params: {
+        'p_chart_id': chartId.trim(),
+        'p_question_body': questionBody.trim(),
+      },
+    );
+  }
+
+  @override
+  Future<ChartMentoringDetail> purchaseMentoringUnlock(
+    String mentoringPostId,
+  ) async {
+    final id = mentoringPostId.trim();
+    if (id.isEmpty) {
+      throw StateError('mentoring_post_id required');
+    }
+    final raw = await _db.rpc(
+      'purchase_mentoring_unlock',
+      params: {'p_mentoring_id': id},
+    );
+    if (raw is! Map) {
+      throw StateError('purchase_mentoring_unlock invalid response');
+    }
+    final map = Map<String, dynamic>.from(raw);
+    if (map['ok'] != true) {
+      throw StateError(map['error']?.toString() ?? 'purchase failed');
+    }
+    if (map['body_locked'] != null) {
+      return ChartMentoringDetail(
+        exists: true,
+        id: id,
+        bodyLocked: map['body_locked']?.toString(),
+        purchased: true,
+        canPurchase: false,
+        status: 'active',
+      );
+    }
+    return loadMentoringForChart(
+      DbMap.asText(map['chart_id']),
+    );
   }
 
   @override

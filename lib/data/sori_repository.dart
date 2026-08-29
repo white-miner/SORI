@@ -28,6 +28,7 @@ import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/shop_assets.dart';
+import '../models/chart_mentoring_meta.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -780,4 +781,21 @@ abstract class SoriRepository {
     required String supporterCustomerId,
     int limit = 50,
   });
+
+  /// Feed batch — live mentoring meta per chart (088).
+  Future<Map<String, ChartMentoringMeta>> loadMentoringMetaForCharts(
+    List<String> chartIds,
+  );
+
+  /// Detail — mentoring unlock payload for one chart.
+  Future<ChartMentoringDetail> loadMentoringForChart(String chartId);
+
+  /// Director → case author mentoring request (088).
+  Future<void> createMentoringRequest({
+    required String chartId,
+    required String questionBody,
+  });
+
+  /// Customer unlock — Premium Mentoring purchase (088).
+  Future<ChartMentoringDetail> purchaseMentoringUnlock(String mentoringPostId);
 }

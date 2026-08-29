@@ -1,5 +1,6 @@
 import 'customer_chart.dart';
 import 'customer_review.dart';
+import 'chart_mentoring_meta.dart';
 import 'fan_supporter.dart';
 import 'shop.dart';
 import '../utils/case_persona.dart';
@@ -22,6 +23,7 @@ class CommunityCaseItem {
     this.specialSupporterName = '',
     this.authorNickname = '',
     this.authorAvatarUrl = '',
+    this.mentoring,
   });
 
   final CustomerChart chart;
@@ -57,6 +59,11 @@ class CommunityCaseItem {
 
   /// Author avatar URL (profiles.avatar_url).
   final String authorAvatarUrl;
+
+  /// Premium Mentoring live post snapshot (feed chip).
+  final ChartMentoringMeta? mentoring;
+
+  bool get hasActiveMentoring => mentoring?.isActive ?? false;
 
   bool get isFanBoosted => isBoosted && boostSource == 'fan_boost';
 
@@ -139,6 +146,7 @@ class CommunityCaseItem {
     CustomerReview? review,
     String? authorNickname,
     String? authorAvatarUrl,
+    ChartMentoringMeta? mentoring,
   }) {
     return CommunityCaseItem(
       chart: chart,
@@ -156,6 +164,7 @@ class CommunityCaseItem {
       specialSupporterName: specialSupporterName ?? this.specialSupporterName,
       authorNickname: authorNickname ?? this.authorNickname,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      mentoring: mentoring ?? this.mentoring,
     );
   }
 }

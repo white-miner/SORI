@@ -15,6 +15,7 @@ import '../widgets/home_feed_card.dart';
 import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
+import '../widgets/mentoring_request_sheet.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
 import '../widgets/shop_trust_score_card.dart';
@@ -222,7 +223,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     );
   }
 
-  void _openCaseDetail(CommunityCaseItem item, int feedIndex) {
+  void _openCaseDetail(
+    CommunityCaseItem item,
+    int feedIndex, {
+    bool focusMentoring = false,
+  }) {
     final id = item.chart.id;
     final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
     final comments = _comments[id] ?? const <_FeedComment>[];
@@ -245,8 +250,26 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           store.pendingCommunitySegment = 5;
           widget.onSelectTab?.call(3);
         },
+        focusMentoringSection: focusMentoring,
       ),
     );
+  }
+
+  Future<void> _openMentoringRequest(CommunityCaseItem item) async {
+    final ok = await showMentoringRequestSheet(
+      context,
+      store: store,
+      item: item,
+    );
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('멘토링 요청이 전달되었습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _openNaverBookingOrProfile(Shop shop) async {
@@ -384,10 +407,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     final id = item.chart.id;
     final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
     final comments = _comments[id] ?? const <_FeedComment>[];
-    final isAuthor = item.isAuthoredBy(store.session?.id);
     final isCustomer =
         store.session?.activeMode == UserRole.customer &&
         (store.session?.customerId?.trim().isNotEmpty ?? false);
+    final isDirector = store.session?.activeMode == UserRole.director;
+    final isAuthor = item.isAuthoredBy(store.session?.id);
     return HomeFeedCard(
       item: item,
       currentUserId: store.session?.id,
@@ -405,6 +429,14 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       onBoostPurchase: isAuthor ? () => _buyBoost(item) : null,
       onFanBoostPurchase:
           isCustomer && !isAuthor ? () => _buyFanBoost(item) : null,
+      onOpenMentoring: item.hasActiveMentoring
+          ? () => _openCaseDetail(item, index, focusMentoring: true)
+          : null,
+      showMentoringRequest:
+          isDirector && !isAuthor && !item.hasActiveMentoring,
+      onMentoringRequest: isDirector && !isAuthor && !item.hasActiveMentoring
+          ? () => _openMentoringRequest(item)
+          : null,
       onOpenCommunitySeminar: () {
         store.pendingCommunitySegment = 5; // 세미나
         widget.onSelectTab?.call(3);

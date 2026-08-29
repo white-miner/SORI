@@ -31,6 +31,7 @@ import '../models/shoot_inbox_item.dart';
 import '../models/shop.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/shop_assets.dart';
+import '../models/chart_mentoring_meta.dart';
 import '../models/shop_business_hours.dart';
 import '../models/shop_equipment_item.dart';
 import '../models/shop_gallery_slide.dart';
@@ -3123,6 +3124,33 @@ class SoriStore implements Listenable {
       debugPrint('loadSupporterInteractionStatement failed: $e\n$st');
       return const [];
     }
+  }
+
+  Future<ChartMentoringDetail> loadMentoringForChart(String chartId) async {
+    try {
+      return await _repository.loadMentoringForChart(chartId);
+    } catch (e, st) {
+      debugPrint('loadMentoringForChart failed: $e\n$st');
+      return const ChartMentoringDetail(exists: false);
+    }
+  }
+
+  Future<void> submitMentoringRequest({
+    required String chartId,
+    required String questionBody,
+  }) async {
+    await _repository.createMentoringRequest(
+      chartId: chartId,
+      questionBody: questionBody,
+    );
+  }
+
+  Future<ChartMentoringDetail> purchaseMentoringUnlock(
+    String mentoringPostId,
+  ) async {
+    final detail = await _repository.purchaseMentoringUnlock(mentoringPostId);
+    await refreshCustomerEchoWallet();
+    return detail;
   }
 
   Future<void> refreshShopNotifications() async {

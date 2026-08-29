@@ -29,6 +29,7 @@ import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
 import '../models/shop_assets.dart';
+import '../models/chart_mentoring_meta.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -978,6 +979,11 @@ class MemorySoriRepository implements SoriRepository {
         customerGenderLabel: '여성',
         authorNickname: '박지성',
         authorAvatarUrl: 'https://picsum.photos/seed/sori-member-avatar/200',
+        mentoring: const ChartMentoringMeta(
+          mentoringPostId: 'mentoring-demo-1',
+          status: 'active',
+          priceEcho: 50,
+        ),
       ),
     );
 
@@ -3820,6 +3826,70 @@ class MemorySoriRepository implements SoriRepository {
       return bd.compareTo(ad);
     });
     return lines.take(limit).toList();
+  }
+
+  @override
+  Future<Map<String, ChartMentoringMeta>> loadMentoringMetaForCharts(
+    List<String> chartIds,
+  ) async {
+    final out = <String, ChartMentoringMeta>{};
+    for (final item in await loadCommunityHotCases(limit: 200)) {
+      final m = item.mentoring;
+      if (m != null && chartIds.contains(item.chart.id)) {
+        out[item.chart.id] = m;
+      }
+    }
+    return out;
+  }
+
+  @override
+  Future<ChartMentoringDetail> loadMentoringForChart(String chartId) async {
+    if (chartId == 'chart-hot-1') {
+      return const ChartMentoringDetail(
+        exists: true,
+        id: 'mentoring-demo-1',
+        chartId: 'chart-hot-1',
+        previewTeaser:
+            '리프팅 EMS 세팅과 홈케어 루틴을 원장 관점에서 정리했습니다.',
+        priceEcho: 50,
+        status: 'active',
+        canPurchase: true,
+        purchaseCount: 3,
+        helpCount: 5,
+      );
+    }
+    return const ChartMentoringDetail(exists: false);
+  }
+
+  @override
+  Future<void> createMentoringRequest({
+    required String chartId,
+    required String questionBody,
+  }) async {
+    if (questionBody.trim().length < 20) {
+      throw StateError('question too short');
+    }
+  }
+
+  @override
+  Future<ChartMentoringDetail> purchaseMentoringUnlock(
+    String mentoringPostId,
+  ) async {
+    if (mentoringPostId == 'mentoring-demo-1') {
+      return const ChartMentoringDetail(
+        exists: true,
+        id: 'mentoring-demo-1',
+        chartId: 'chart-hot-1',
+        bodyLocked:
+            'EMS 주파수 4–6MHz 구간에서 볼륨 조절 후 쿨링 10분 유지. '
+            '홈케어는 판테놀 세럼 + SPF50 재도포.',
+        priceEcho: 50,
+        status: 'active',
+        purchased: true,
+        canPurchase: false,
+      );
+    }
+    throw StateError('mentoring not found');
   }
 }
 

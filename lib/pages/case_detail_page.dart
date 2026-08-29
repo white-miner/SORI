@@ -15,6 +15,8 @@ import '../widgets/before_after_slider.dart';
 import '../widgets/case_review_inline.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/official_badge.dart';
+import '../services/sori_store.dart';
+import '../widgets/premium_mentoring_detail_section.dart';
 import '../widgets/sori_logo.dart';
 
 /// 인스타그램 스타일 풀스크린 B/A 케이스 상세.
@@ -34,6 +36,7 @@ class CaseDetailPage extends StatefulWidget {
     this.onShopProfile,
     this.onBookingCta,
     this.onOpenCommunitySeminar,
+    this.focusMentoringSection = false,
   });
 
   final CommunityCaseItem item;
@@ -51,6 +54,9 @@ class CaseDetailPage extends StatefulWidget {
 
   /// ⋯ 메뉴 — Community 세미나 딥링크.
   final VoidCallback? onOpenCommunitySeminar;
+
+  /// Feed chip tap — scroll to Premium Mentoring unlock block.
+  final bool focusMentoringSection;
 
   static String imageHeroTag(String chartId) => 'case_image_$chartId';
 
@@ -113,9 +119,13 @@ class CaseDetailPage extends StatefulWidget {
 
 class _CaseDetailPageState extends State<CaseDetailPage> {
   final _shot = ScreenshotController();
+  final _scrollController = ScrollController();
+  final _mentoringSectionKey = GlobalKey();
   bool _sharing = false;
   late bool _liked;
   late int _likeCount;
+
+  SoriStore get _store => SoriStore.instance;
 
   CommunityCaseItem get item => widget.item;
   CustomerReview? get review => widget.review;
@@ -136,6 +146,26 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     super.initState();
     _liked = widget.liked;
     _likeCount = widget.likeCount;
+    if (widget.focusMentoringSection) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToMentoring());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToMentoring() {
+    final ctx = _mentoringSectionKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOut,
+      alignment: 0.08,
+    );
   }
 
   Widget _baSlider(CustomerChart chart, {double? maxHeight}) {
@@ -396,6 +426,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
         ],
       ),
       body: SingleChildScrollView(
+            controller: _scrollController,
             padding: EdgeInsets.only(bottom: 24 + bottomInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -524,6 +555,15 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                             ),
                           ),
                         ),
+                ),
+                PremiumMentoringDetailSection(
+                  store: _store,
+                  chartId: chart.id,
+                  sectionKey: _mentoringSectionKey,
+                  initialMeta: item.mentoring,
+                  onReady: widget.focusMentoringSection
+                      ? _scrollToMentoring
+                      : null,
                 ),
                 if (item.isFanBoosted)
                   FanBoostCreditStrip(
