@@ -10,9 +10,9 @@ import '../services/instagram_quick_post.dart';
 import '../theme/sori_tokens.dart';
 import '../pages/case_detail_page.dart';
 import '../utils/case_persona.dart';
+import 'animated_booster_avatar.dart';
 import 'before_after_slider.dart';
 import 'case_review_inline.dart';
-import 'fan_boost_aurora_avatar.dart';
 import 'fan_sponsor_credits.dart';
 import 'feed_expandable_caption.dart';
 import 'feed_media_carousel.dart';
@@ -309,9 +309,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               children: [
                 GestureDetector(
                   onTap: widget.onShopProfile,
-                  child: FanBoostAuroraAvatar(
+                  child: AnimatedBoosterAvatar(
                     imageUrl: avatar,
-                    isBoostActive: item.isBoosted,
+                    isBoosted: item.isBoosted,
                     isFanBoost: item.isFanBoosted,
                     premiumTier: item.premiumTier,
                     radius: 18,
