@@ -12,11 +12,11 @@ abstract final class WhisperAtoms {
   static const customerMode = 'customer_mode';
   static const explicit = 'explicit';
 
+  /// Composer audience chips — peer_directors omitted (no peer-director roster in product).
   static const composerChips = <String>[
     everyone,
     visited,
     followers,
-    peerDirectors,
     superFans,
     seminarHosts,
     customerMode,
@@ -38,7 +38,7 @@ abstract final class WhisperAtoms {
         visited => '방문 고객',
         followers => '내 팔로워',
         peerDirectors => '동료 원장',
-        superFans => 'VIP',
+        superFans => 'Supporter',
         seminarHosts => '세미나 강사',
         customerMode => '고객 모드',
         explicit => '계정 지정',

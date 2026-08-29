@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/whisper.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
+
+const _kWhisperDraftKey = 'sori_whisper_composer_draft_v1';
 
 Future<void> showWhisperComposer(
   BuildContext context, {
@@ -41,15 +45,28 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   final Map<String, WhisperAudiencePreview> _chipPreviewCache = {};
   final Set<String> _loadingChipPreviews = {};
   String? _focusedAtom;
-  bool _sending = false;
+  bool _sharing = false;
+  bool _savingDraft = false;
   int _displayCount = 0;
 
   SoriStore get store => widget.store;
+
+  /// Share when body + audience are set — do not gate on preview count
+  /// (preview may still be loading or return 0 in empty shops).
+  bool get _canShare {
+    final hasBody = _bodyCtrl.text.trim().isNotEmpty;
+    final hasAudience = _atoms.isNotEmpty || _explicitPeople.isNotEmpty;
+    return hasBody && hasAudience && !_sharing;
+  }
+
+  bool get _canSaveDraft =>
+      _bodyCtrl.text.trim().isNotEmpty && !_savingDraft && !_sharing;
 
   @override
   void initState() {
     super.initState();
     unawaited(store.refreshWhisperPresets());
+    unawaited(_restoreDraft());
     _schedulePreview();
   }
 
@@ -71,10 +88,77 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
         shopId: store.shop.id,
       );
 
+  Future<void> _restoreDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kWhisperDraftKey);
+      if (raw == null || raw.isEmpty || !mounted) return;
+      final map = jsonDecode(raw);
+      if (map is! Map) return;
+      final body = (map['body'] ?? '').toString();
+      final atoms = (map['atoms'] is List)
+          ? (map['atoms'] as List)
+              .map((e) => e.toString())
+              .where((e) => e.isNotEmpty && e != WhisperAtoms.peerDirectors)
+              .toSet()
+          : <String>{};
+      if (!mounted) return;
+      setState(() {
+        if (body.isNotEmpty) _bodyCtrl.text = body;
+        if (atoms.isNotEmpty) {
+          _atoms
+            ..clear()
+            ..addAll(atoms);
+        }
+      });
+      _schedulePreview();
+    } catch (_) {}
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kWhisperDraftKey);
+    } catch (_) {}
+  }
+
+  Future<void> _saveDraft() async {
+    if (!_canSaveDraft) return;
+    setState(() => _savingDraft = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _kWhisperDraftKey,
+        jsonEncode({
+          'body': _bodyCtrl.text.trim(),
+          'atoms': _atoms.toList(),
+          'saved_at': DateTime.now().toUtc().toIso8601String(),
+        }),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('임시저장되었습니다'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('임시저장 실패: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _savingDraft = false);
+    }
+  }
+
   void _schedulePreview() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 280), () async {
-      if (_atoms.isEmpty) {
+      if (_atoms.isEmpty && _explicitPeople.isEmpty) {
         setState(() {
           _preview = const WhisperAudiencePreview(count: 0);
           _displayCount = 0;
@@ -135,14 +219,17 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
     setState(() {
       _atoms
         ..clear()
-        ..addAll(preset.spec.atoms);
-      _focusedAtom = preset.spec.atoms.isEmpty ? null : preset.spec.atoms.first;
+        ..addAll(
+          preset.spec.atoms.where((a) => a != WhisperAtoms.peerDirectors),
+        );
+      _focusedAtom = _atoms.isEmpty ? null : _atoms.first;
     });
     _schedulePreview();
   }
 
   Future<void> _ensureChipPreview(String atom) async {
-    if (_chipPreviewCache.containsKey(atom) || _loadingChipPreviews.contains(atom)) {
+    if (_chipPreviewCache.containsKey(atom) ||
+        _loadingChipPreviews.contains(atom)) {
       return;
     }
     _loadingChipPreviews.add(atom);
@@ -175,7 +262,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
           controller: nameCtrl,
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
-            hintText: '예: 전체 공지, VIP 소식',
+            hintText: '예: 전체 공지, Supporter 소식',
             hintStyle: TextStyle(color: SoriTokens.textQuaternary),
           ),
         ),
@@ -210,19 +297,19 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
     setState(() {});
   }
 
-  Future<void> _send() async {
+  Future<void> _share() async {
     final body = _bodyCtrl.text.trim();
-    if (body.isEmpty || _atoms.isEmpty || (_preview?.count ?? 0) < 1) return;
+    if (!_canShare) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: SoriTokens.surfaceElevated,
         title: const Text(
-          'Whisper를 보낼까요?',
+          'Whisper를 공유할까요?',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
         content: Text(
-          '${_atomSummary()} · 약 ${_preview!.count}명에게만 전달됩니다.',
+          '${_atomSummary()} · 약 ${_preview?.count ?? _displayCount}명에게만 보이는 게시물로 공유됩니다.',
           style: const TextStyle(color: SoriTokens.textSecondary, height: 1.4),
         ),
         actions: [
@@ -233,7 +320,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              '보내기',
+              '공유하기',
               style: TextStyle(
                 color: SoriTokens.primary,
                 fontWeight: FontWeight.w800,
@@ -244,15 +331,16 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       ),
     );
     if (confirmed != true) return;
-    setState(() => _sending = true);
+    setState(() => _sharing = true);
     try {
       final result = await store.sendWhisper(body: body, spec: _spec);
+      await _clearDraft();
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${result.recipientCount}명에게 Whisper를 게시했어요'
+            '${result.recipientCount}명에게 Whisper를 공유했어요'
             '${result.truncated ? ' (상한 적용)' : ''}',
           ),
           behavior: SnackBarBehavior.floating,
@@ -263,12 +351,12 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('전송 실패: $e'),
+          content: Text('공유 실패: $e'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) setState(() => _sharing = false);
     }
   }
 
@@ -334,7 +422,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Whisper 작성',
+                      'Whisper',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -353,7 +441,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
               ),
               const SizedBox(height: 6),
               const Text(
-                '누구에게만 들릴지 먼저 고르세요. 선택하지 않은 사람에게는 절대 가지 않습니다.',
+                '누구에게만 보일지 먼저 고르세요. 선택하지 않은 사람에게는 공유되지 않습니다.',
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.4,
@@ -435,7 +523,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                 style: const TextStyle(color: SoriTokens.textPrimary),
                 cursorColor: SoriTokens.primary,
                 decoration: InputDecoration(
-                  hintText: '편하게 속삭여 보세요…',
+                  hintText: '타겟에게만 보일 게시물을 작성하세요…',
                   hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
                   filled: true,
                   fillColor: SoriTokens.background,
@@ -448,13 +536,13 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
               ),
               const SizedBox(height: 8),
               Text(
-                _atoms.isEmpty
+                _atoms.isEmpty && _explicitPeople.isEmpty
                     ? '대상을 하나 이상 선택해 주세요'
-                    : '현재 약 $_displayCount명에게 속삭입니다',
+                    : '현재 약 $_displayCount명에게 공유됩니다',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: _atoms.isEmpty
+                  color: _atoms.isEmpty && _explicitPeople.isEmpty
                       ? SoriTokens.warningText
                       : SoriTokens.primary,
                 ),
@@ -492,38 +580,67 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '미리보기 · 이 밖에는 전달되지 않습니다',
-                  style: const TextStyle(
+                const Text(
+                  '미리보기 · 이 밖에는 공유되지 않습니다',
+                  style: TextStyle(
                     fontSize: 11.5,
                     color: SoriTokens.textQuaternary,
                   ),
                 ),
               ],
               const SizedBox(height: 18),
-              FilledButton(
-                onPressed: _sending ||
-                        _bodyCtrl.text.trim().isEmpty ||
-                        _atoms.isEmpty ||
-                        (_preview?.count ?? 0) < 1
-                    ? null
-                    : _send,
-                style: FilledButton.styleFrom(
-                  backgroundColor: SoriTokens.primary,
-                  foregroundColor: SoriTokens.onPrimary,
-                  disabledBackgroundColor: SoriTokens.surfaceOverlay,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _canSaveDraft ? _saveDraft : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SoriTokens.textPrimary,
+                        disabledForegroundColor: SoriTokens.textQuaternary,
+                        side: BorderSide(
+                          color: _canSaveDraft
+                              ? SoriTokens.border
+                              : SoriTokens.surfaceOverlay,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _savingDraft ? '저장 중…' : '임시저장',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                child: Text(
-                  _sending ? '보내는 중…' : 'Whisper 보내기',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      onPressed: _canShare ? _share : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SoriTokens.primary,
+                        foregroundColor: SoriTokens.onPrimary,
+                        disabledBackgroundColor: SoriTokens.surfaceOverlay,
+                        disabledForegroundColor: SoriTokens.textQuaternary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _sharing ? '공유 중…' : '공유하기',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -773,7 +890,7 @@ class _ExplicitAccountRow extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: people.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 4),
+                separatorBuilder: (_, _) => const SizedBox(width: 4),
                 itemBuilder: (context, i) {
                   final p = people[i];
                   return Chip(

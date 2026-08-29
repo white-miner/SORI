@@ -181,7 +181,7 @@ class _CommunityPageState extends State<CommunityPage>
                   ),
                   if (_isDirector) ...[
                     IconButton(
-                      tooltip: 'Whisper 작성',
+                      tooltip: 'Whisper',
                       onPressed: _composeWhisper,
                       icon: const Icon(Icons.lock_outline_rounded),
                       color: SoriTokens.primary,
