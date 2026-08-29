@@ -1,7 +1,35 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// Provides the active home-feed [ScrollController] to global margin forwarders.
+/// Global handle for the active home-feed scroll position (web-safe).
+class FeedScrollBridge {
+  FeedScrollBridge._();
+
+  static ScrollController? _controller;
+
+  static ScrollController? get controller => _controller;
+
+  static void bind(ScrollController? controller) {
+    _controller = controller;
+  }
+
+  /// Returns true when scroll was applied.
+  static bool scrollBy(double delta) {
+    if (delta == 0) return false;
+
+    final controller = _controller;
+    if (controller != null && controller.hasClients) {
+      for (final pos in controller.positions) {
+        if (!pos.hasContentDimensions) continue;
+        pos.pointerScroll(delta);
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+/// Provides the active feed [ScrollController] to margin wheel forwarders.
 class FeedScrollScope extends InheritedWidget {
   const FeedScrollScope({
     super.key,
@@ -23,7 +51,54 @@ class FeedScrollScope extends InheritedWidget {
   }
 }
 
-/// Forwards wheel / trackpad scroll to the home feed [ScrollController].
+/// Binds [controller] while mounted — used by the shell and feed page.
+class FeedScrollScopeBinder extends StatefulWidget {
+  const FeedScrollScopeBinder({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
+
+  final ScrollController controller;
+  final Widget child;
+
+  @override
+  State<FeedScrollScopeBinder> createState() => _FeedScrollScopeBinderState();
+}
+
+class _FeedScrollScopeBinderState extends State<FeedScrollScopeBinder> {
+  @override
+  void initState() {
+    super.initState();
+    FeedScrollBridge.bind(widget.controller);
+  }
+
+  @override
+  void didUpdateWidget(FeedScrollScopeBinder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      FeedScrollBridge.bind(widget.controller);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (FeedScrollBridge.controller == widget.controller) {
+      FeedScrollBridge.bind(null);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FeedScrollScope(
+      controller: widget.controller,
+      child: widget.child,
+    );
+  }
+}
+
+/// Forwards wheel / trackpad scroll to the feed [ScrollController].
 class FeedWheelForwarder {
   FeedWheelForwarder._();
 
@@ -31,22 +106,24 @@ class FeedWheelForwarder {
     final delta = -event.scrollDelta.dy;
     if (delta == 0) return;
 
+    if (FeedScrollBridge.scrollBy(delta)) return;
+
     final controller =
         FeedScrollScope.maybeOf(context) ??
         PrimaryScrollController.maybeOf(context);
     if (controller == null || !controller.hasClients) return;
 
-    final pos = controller.position;
-    if (!pos.hasContentDimensions) return;
-    pos.pointerScroll(delta);
+    for (final pos in controller.positions) {
+      if (!pos.hasContentDimensions) continue;
+      pos.pointerScroll(delta);
+      return;
+    }
   }
 }
 
-/// **Margin (여백)** = every empty app background area without nav / panel
-/// controls: side gutters, sidebar padding, scaffold backdrop, etc.
+/// **Margin (여백)** = empty app background without nav / panel controls.
 ///
-/// Wrap the full shell body on the home tab. [Listener] receives wheel /
-/// trackpad signals from this subtree and forwards them to [FeedScrollScope].
+/// Receives wheel / trackpad from this subtree and forwards to [FeedScrollBridge].
 class FeedWheelMarginSurface extends StatelessWidget {
   const FeedWheelMarginSurface({super.key, required this.child});
 
@@ -59,6 +136,32 @@ class FeedWheelMarginSurface extends StatelessWidget {
       onPointerSignal: (event) {
         if (event is! PointerScrollEvent) return;
         FeedWheelForwarder.forward(context, event);
+      },
+      child: child,
+    );
+  }
+}
+
+/// Wraps the feed scroll view — explicit web wheel handler on content + gaps.
+class FeedScrollWheelWrapper extends StatelessWidget {
+  const FeedScrollWheelWrapper({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
+
+  final ScrollController controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        final delta = -event.scrollDelta.dy;
+        if (delta == 0) return;
+        FeedScrollBridge.scrollBy(delta);
       },
       child: child,
     );

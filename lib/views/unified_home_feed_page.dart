@@ -13,6 +13,7 @@ import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/margin_scroll_forwarder.dart';
+import '../widgets/app_scroll_behavior.dart';
 import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/mentoring_request_sheet.dart';
@@ -77,7 +78,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   ScrollController _activeFeedScrollController(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 800;
     if (wide) {
-      return PrimaryScrollController.of(context);
+      final scoped = FeedScrollScope.maybeOf(context);
+      if (scoped != null) return scoped;
     }
     return _mobileFeedScrollController ??= ScrollController();
   }
@@ -477,6 +479,18 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       ],
     );
 
+    final wheelWrapped = FeedScrollWheelWrapper(
+      controller: feedScroll,
+      child: feedPane,
+    );
+
+    final expandedFeed = wide
+        ? wheelWrapped
+        : FeedScrollScopeBinder(
+            controller: feedScroll,
+            child: wheelWrapped,
+          );
+
     return ColoredBox(
       color: SoriTokens.background,
       child: SafeArea(
@@ -491,14 +505,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 labels: const ['추천', '탐색', '우리 지역'],
               ),
             ),
-            Expanded(
-              child: FeedScrollScope(
-                controller: feedScroll,
-                child: wide
-                    ? feedPane
-                    : FeedWheelMarginSurface(child: feedPane),
-              ),
-            ),
+            Expanded(child: expandedFeed),
           ],
         ),
       ),
@@ -554,10 +561,12 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
         }
         return false;
       },
-      child: CustomScrollView(
-        controller: widget.scrollController,
-        physics: tabPhysics,
-        slivers: [
+      child: ScrollConfiguration(
+        behavior: const SoriScrollBehavior(),
+        child: CustomScrollView(
+          controller: widget.scrollController,
+          physics: tabPhysics,
+          slivers: [
           const SliverToBoxAdapter(child: _HomeHeroCarousel()),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           const SliverToBoxAdapter(child: _TopEducatorsStrip()),
@@ -615,6 +624,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               ),
             ),
         ],
+        ),
       ),
     );
   }
@@ -672,10 +682,12 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
         }
         return false;
       },
-      child: CustomScrollView(
-        controller: widget.scrollController,
-        physics: tabPhysics,
-        slivers: [
+      child: ScrollConfiguration(
+        behavior: const SoriScrollBehavior(),
+        child: CustomScrollView(
+          controller: widget.scrollController,
+          physics: tabPhysics,
+          slivers: [
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -743,6 +755,7 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
               ),
             ),
         ],
+        ),
       ),
     );
   }

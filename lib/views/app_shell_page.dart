@@ -238,7 +238,9 @@ class _AppShellPageState extends State<AppShellPage> {
               );
 
         if (!wide) {
-          final shellBody = widget.navigationShell;
+          final shellBody = tab == 0
+              ? FeedWheelMarginSurface(child: widget.navigationShell)
+              : widget.navigationShell;
           return Scaffold(
             backgroundColor: SoriTokens.background,
             extendBody: true,
@@ -342,12 +344,9 @@ class _AppShellPageState extends State<AppShellPage> {
         );
 
         if (onHomeFeed) {
-          pcBody = FeedScrollScope(
+          pcBody = FeedScrollScopeBinder(
             controller: _pcFeedScrollController,
-            child: PrimaryScrollController(
-              controller: _pcFeedScrollController,
-              child: FeedWheelMarginSurface(child: pcBody),
-            ),
+            child: FeedWheelMarginSurface(child: pcBody),
           );
         }
 

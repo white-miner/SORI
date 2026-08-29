@@ -11,6 +11,7 @@ import '../models/subscription.dart';
 import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/app_scroll_behavior.dart';
 import '../utils/home_explore_search.dart';
 import '../widgets/official_badge.dart';
 import '../widgets/sori_network_image.dart';
@@ -411,10 +412,12 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       );
     }
 
-    return CustomScrollView(
-      controller: widget.scrollController,
-      physics: scrollPhysics,
-      slivers: [
+    return ScrollConfiguration(
+      behavior: const SoriScrollBehavior(),
+      child: CustomScrollView(
+        controller: widget.scrollController,
+        physics: scrollPhysics,
+        slivers: [
         if (strip.isNotEmpty)
           SliverToBoxAdapter(
             child: _DirectorStrip(
@@ -465,6 +468,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             ),
           ),
       ],
+      ),
     );
   }
 
