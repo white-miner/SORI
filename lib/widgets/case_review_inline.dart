@@ -50,27 +50,41 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
     final compact = widget.compact;
     final maxLines = widget.previewMaxLines.clamp(2, 6);
 
+    final surfaceFill = SoriTokens.textPrimary.withValues(alpha: 0.05);
+
     return Container(
       width: double.infinity,
       margin: EdgeInsets.only(top: compact ? 0 : 10),
-      padding: EdgeInsets.all(compact ? 8 : 12),
+      padding: EdgeInsets.fromLTRB(compact ? 12 : 14, compact ? 10 : 12,
+          compact ? 12 : 14, compact ? 10 : 12),
       decoration: BoxDecoration(
-        color: SoriTokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: SoriTokens.outlinePurple),
+        color: surfaceFill,
+        borderRadius: BorderRadius.circular(compact ? 14 : 16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '💬 고객 후기',
-            style: TextStyle(
-              fontSize: compact ? 11.5 : 12,
-              fontWeight: FontWeight.w800,
-              color: SoriTokens.textSecondary,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.format_quote_rounded,
+                size: compact ? 18 : 20,
+                color: SoriTokens.textTertiary.withValues(alpha: 0.55),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '고객 후기',
+                style: TextStyle(
+                  fontSize: compact ? 11.5 : 12,
+                  fontWeight: FontWeight.w800,
+                  color: SoriTokens.textSecondary,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           AnimatedSize(
             duration: const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
@@ -136,9 +150,8 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 decoration: BoxDecoration(
-                  color: SoriTokens.primarySoft,
+                  color: SoriTokens.primarySoft.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFDDD6FE)),
                 ),
                 child: Text(
                   '↳ 👑 원장님: $directorReply',

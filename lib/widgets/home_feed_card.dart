@@ -19,7 +19,7 @@ import 'feed_media_carousel.dart';
 import 'mentoring_request_sheet.dart';
 import 'official_badge.dart';
 
-/// í íě íźë ěš´ë â ëŞ¨ëí ëĽęˇź ěš´ë.
+/// 홈 탐색 피드 카드 — 모듈형 둥근 카드.
 class HomeFeedCard extends StatefulWidget {
   const HomeFeedCard({
     super.key,
@@ -46,8 +46,6 @@ class HomeFeedCard extends StatefulWidget {
 
   final CommunityCaseItem item;
   final CustomerReview? review;
-
-  /// ëĄęˇ¸ě¸í ě ě  ID (`SessionUser.id` / `auth.users.id`).
   final String? currentUserId;
   final bool liked;
   final int likeCount;
@@ -59,16 +57,9 @@ class HomeFeedCard extends StatefulWidget {
   final VoidCallback onOpenDetail;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
-
-  /// âŻ ëŠë´ â Community ě¸ëŻ¸ë ëĽë§íŹ (1ę¸ CTA ěë).
   final VoidCallback? onOpenCommunitySeminar;
-
-  /// ěěąě ě ěŠ â ě°ëŚŹ ě§ě­ ë¸ěś ëśě¤í° ęľŹë§¤.
   final VoidCallback? onBoostPurchase;
-
-  /// ęł ę°(íŹ) ě ěŠ â Fan-Boost.
   final VoidCallback? onFanBoostPurchase;
-
   final VoidCallback? onOpenMentoring;
   final VoidCallback? onMentoringRequest;
   final bool showMentoringRequest;
@@ -157,7 +148,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('ę˛ěëŹź ë´ěŠě´ ëłľěŹëěěľëë¤. ě¸ě¤íęˇ¸ë¨ě ëśěŹëŁę¸° íě¸ě!'),
+          content: Text('게시물 내용이 복사되었습니다. 인스타그램에 붙여넣기 하세요!'),
         ),
       );
 
@@ -171,11 +162,81 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ęłľě ě ě¤í¨íěľëë¤. ë¤ě ěëí´ ěŁźě¸ě. ($e)')),
+        SnackBar(content: Text('공유에 실패했습니다. 다시 시도해 주세요. ($e)')),
       );
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
+  }
+
+  String _affiliationLine(String shopName, String relative) {
+    final parts = <String>[
+      if (shopName.trim().isNotEmpty) shopName.trim(),
+      if (relative.trim().isNotEmpty) relative.trim(),
+    ];
+    return parts.join(' · ');
+  }
+
+  Widget? _buildCarouselTrailing(bool hasActiveMentoring) {
+    if (!item.isBoosted) return null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: item.isFanBoosted
+              ? const Color(0x99F472B6)
+              : const Color(0x99FBBF24),
+        ),
+      ),
+      child: Text(
+        item.hasPremiumOverlay
+            ? (item.specialSupporterName.trim().isEmpty
+                ? 'Special Supporter'
+                : '${item.specialSupporterName.trim()} · Special')
+            : item.isFanBoosted
+                ? (item.fanDisplayName.trim().isEmpty
+                    ? 'Supporter'
+                    : '${item.fanDisplayName.trim()} · Supporter')
+                : 'Sponsored',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: item.isFanBoosted
+              ? SoriTokens.textSecondary
+              : SoriTokens.warningText,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMentoringAction() {
+    if (item.hasActiveMentoring && widget.onOpenMentoring != null) {
+      final price = item.mentoring?.priceEcho ?? 0;
+      return PremiumMentoringFeedChip(
+        priceEcho: price,
+        onTap: widget.onOpenMentoring,
+      );
+    }
+    if (widget.showMentoringRequest && widget.onMentoringRequest != null) {
+      return TextButton(
+        onPressed: widget.onMentoringRequest,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          foregroundColor: const Color(0xFF4338CA),
+        ),
+        child: const Text(
+          'Mentoring Request',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -210,61 +271,10 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
       beforeUrl: chart.beforeImageUrl,
       afterUrl: chart.afterImageUrl,
     );
-    final mentoring = item.mentoring;
-    final hasActiveMentoring = item.hasActiveMentoring && mentoring != null;
-    final mentoringPrice = mentoring?.priceEcho ?? 0;
-
-    Widget? carouselTrailing;
-    if (hasActiveMentoring || item.isBoosted) {
-      carouselTrailing = Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (hasActiveMentoring)
-            PremiumMentoringFeedChip(
-              priceEcho: mentoringPrice,
-              compact: true,
-              onTap: widget.onOpenMentoring,
-            ),
-          if (hasActiveMentoring && item.isBoosted) const SizedBox(height: 6),
-          if (item.isBoosted)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: item.isFanBoosted
-                      ? const Color(0x99F472B6)
-                      : const Color(0x99FBBF24),
-                ),
-              ),
-              child: Text(
-                item.hasPremiumOverlay
-                    ? (item.specialSupporterName.trim().isEmpty
-                        ? 'Special Supporter'
-                        : '${item.specialSupporterName.trim()} · Special')
-                    : item.isFanBoosted
-                        ? (item.fanDisplayName.trim().isEmpty
-                            ? 'Supporter'
-                            : '${item.fanDisplayName.trim()} · Supporter')
-                        : 'Sponsored',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: item.isFanBoosted
-                      ? SoriTokens.textSecondary
-                      : SoriTokens.warningText,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-        ],
-      );
-    }
+    final hasActiveMentoring = item.hasActiveMentoring;
+    final mentoringAction = _buildMentoringAction();
+    final showMentoringSlot =
+        hasActiveMentoring || widget.showMentoringRequest;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -317,50 +327,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           ],
                           if (item.isBoosted) ...[
                             const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: item.hasPremiumOverlay
-                                    ? (item.isSpecialPlatinum
-                                        ? const Color(0x22E2E8F0)
-                                        : const Color(0x22FBBF24))
-                                    : item.isFanBoosted
-                                        ? const Color(0x22F472B6)
-                                        : const Color(0x22FBBF24),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: item.hasPremiumOverlay
-                                      ? (item.isSpecialPlatinum
-                                          ? const Color(0x66E2E8F0)
-                                          : const Color(0x66FBBF24))
-                                      : item.isFanBoosted
-                                          ? const Color(0x66F472B6)
-                                          : const Color(0x66FBBF24),
-                                ),
-                              ),
-                              child: Text(
-                                item.hasPremiumOverlay
-                                    ? (item.isSpecialPlatinum
-                                        ? 'íëí°ë'
-                                        : 'ęł¨ë')
-                                    : item.isFanBoosted
-                                        ? (item.fanDisplayName.trim().isEmpty
-                                            ? 'íě'
-                                            : item.fanDisplayName.trim())
-                                        : 'AD',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.4,
-                                  color: item.isFanBoosted
-                                      ? SoriTokens.textSecondary
-                                      : SoriTokens.warningText,
-                                ),
-                              ),
-                            ),
+                            _BoostBadgeLabel(item: item),
                           ],
                         ],
                       ),
@@ -368,18 +335,15 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       GestureDetector(
                         onTap: widget.onShopProfile,
                         child: Text(
-                          [
-                            shopName,
-                            if (relative.isNotEmpty) relative,
-                          ].join(' Âˇ '),
+                          _affiliationLine(shopName, relative),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.25,
-                        color: SoriTokens.textTertiary,
-                      ),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.25,
+                            color: SoriTokens.textTertiary,
+                          ),
                         ),
                       ),
                     ],
@@ -415,7 +379,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               heroTag: CaseDetailPage.imageHeroTag(chart.id),
               onTap: widget.onOpenDetail,
               onDoubleTap: widget.onOpenDetail,
-              topTrailing: carouselTrailing,
+              topTrailing: _buildCarouselTrailing(hasActiveMentoring),
             ),
           if (item.isFanBoosted || item.hasPremiumOverlay)
             FanBoostCreditStrip(
@@ -428,11 +392,12 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       onPressed: widget.onLike,
@@ -491,7 +456,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           minHeight: 36,
                         ),
                         visualDensity: VisualDensity.compact,
-                        tooltip: 'ě¸ě¤íęˇ¸ë¨ íľ ę˛ě',
+                        tooltip: '인스타그램 퀵 게시',
                         icon: Icon(
                           _sharing
                               ? Icons.hourglass_top_rounded
@@ -517,69 +482,48 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                           size: 24,
                           color: item.isBoosted
                               ? SoriTokens.textSecondary
-                              : SoriTokens.textSecondary,
-                        ),
-                      ),
-                    if (hasActiveMentoring)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 2),
-                        child: PremiumMentoringFeedChip(
-                          priceEcho: mentoringPrice,
-                          onTap: widget.onOpenMentoring,
-                        ),
-                      ),
-                    if (widget.showMentoringRequest &&
-                        widget.onMentoringRequest != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: TextButton(
-                          onPressed: widget.onMentoringRequest,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                            foregroundColor: const Color(0xFF4338CA),
-                          ),
-                          child: const Text(
-                            'Mentoring Request',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                              : SoriTokens.textTertiary,
                         ),
                       ),
                   ],
                 ),
-                IconButton(
-                  onPressed: widget.onBookmark,
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: widget.bookmarked ? 'ëł´ę´í¨ěě ě ęą°' : 'ëł´ę´í¨ě ě ěĽ',
-                  icon: Icon(
-                    widget.bookmarked
-                        ? Icons.bookmark_rounded
-                        : Icons.bookmark_border_rounded,
-                    size: 24,
-                    color: widget.bookmarked
-                        ? SoriTokens.textPrimary
-                        : SoriTokens.textTertiary,
-                  ),
+                const Spacer(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showMentoringSlot) ...[
+                      mentoringAction,
+                      const SizedBox(width: 2),
+                    ],
+                    IconButton(
+                      onPressed: widget.onBookmark,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: widget.bookmarked
+                          ? '보관함에서 제거'
+                          : '보관함에 저장',
+                      icon: Icon(
+                        widget.bookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        size: 24,
+                        color: widget.bookmarked
+                            ? SoriTokens.textPrimary
+                            : SoriTokens.textTertiary,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           if (tags.isNotEmpty || hasBooking)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -623,7 +567,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
             child: hasReview
                 ? CaseReviewInlineBlock(
                     review: review!,
@@ -633,7 +577,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     expandInline: true,
                   )
                 : const Text(
-                    'íę¸° ëŻ¸ěěą',
+                    '후기 미작성',
                     style: TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
@@ -648,7 +592,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     );
   }
 
-  /// ěěąě â ěľ AD / íŹ â Fan-Boost. ěěźëŠ´ null (ěě´ě˝ ě¨ęš).
   VoidCallback? get _boostTrigger {
     if (widget.onBoostPurchase != null &&
         item.isAuthoredBy(widget.currentUserId)) {
@@ -676,7 +619,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
             children: [
               ListTile(
                 leading: const Icon(Icons.storefront_outlined),
-                title: const Text('ěľ íëĄí ëł´ę¸°'),
+                title: const Text('샵 프로필 보기'),
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onShopProfile();
@@ -688,7 +631,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     Icons.calendar_month_outlined,
                     color: SoriTokens.primary,
                   ),
-                  title: const Text('ë¤ě´ë˛ ěě˝'),
+                  title: const Text('네이버 예약'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onBookingCta();
@@ -701,8 +644,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     Icons.local_fire_department_rounded,
                     color: SoriTokens.textSecondary,
                   ),
-                  title: const Text('ë´ ěě ěźě´ě¤ ëě°ę¸°'),
-                  subtitle: const Text('ě°ëŚŹ ě§ě­ íźë ěŹëĄŻ íźíŠ ë¸ěś'),
+                  title: const Text('내 임상 케이스 띄우기'),
+                  subtitle: const Text('우리 지역 피드 슬롯 혼합 노출'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onBoostPurchase!();
@@ -715,8 +658,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                     Icons.local_fire_department_rounded,
                     color: SoriTokens.textSecondary,
                   ),
-                  title: const Text('ěěĽë ę˛ěëŹź ěěíę¸°'),
-                  subtitle: const Text('ëśě¤í° íě Âˇ ëë¤ě ęłľę°'),
+                  title: const Text('원장님 게시물 응원하기'),
+                  subtitle: const Text('부스터 후원 · 닉네임 공개'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onFanBoostPurchase!();
@@ -725,7 +668,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               if (widget.onOpenCommunitySeminar != null)
                 ListTile(
                   leading: const Icon(Icons.school_outlined),
-                  title: const Text('Communityěě ě¸ëŻ¸ë ëł´ę¸°'),
+                  title: const Text('Community에서 세미나 보기'),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onOpenCommunitySeminar!();
@@ -733,7 +676,7 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ),
               ListTile(
                 leading: const Icon(Icons.close),
-                title: const Text('ëŤę¸°'),
+                title: const Text('닫기'),
                 onTap: () => Navigator.pop(ctx),
               ),
             ],
@@ -744,7 +687,58 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
   }
 }
 
-/// YouTube-style minimal booking chip â wrap-content capsule beside hashtags.
+class _BoostBadgeLabel extends StatelessWidget {
+  const _BoostBadgeLabel({required this.item});
+
+  final CommunityCaseItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = item.hasPremiumOverlay
+        ? (item.isSpecialPlatinum ? '플래티넘' : '골드')
+        : item.isFanBoosted
+            ? (item.fanDisplayName.trim().isEmpty
+                ? '후원'
+                : item.fanDisplayName.trim())
+            : 'AD';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: item.hasPremiumOverlay
+            ? (item.isSpecialPlatinum
+                ? const Color(0x22E2E8F0)
+                : const Color(0x22FBBF24))
+            : item.isFanBoosted
+                ? const Color(0x22F472B6)
+                : const Color(0x22FBBF24),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: item.hasPremiumOverlay
+              ? (item.isSpecialPlatinum
+                  ? const Color(0x66E2E8F0)
+                  : const Color(0x66FBBF24))
+              : item.isFanBoosted
+                  ? const Color(0x66F472B6)
+                  : const Color(0x66FBBF24),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.4,
+          color: item.isFanBoosted
+              ? SoriTokens.textSecondary
+              : SoriTokens.warningText,
+        ),
+      ),
+    );
+  }
+}
+
+/// YouTube-style minimal booking chip beside hashtags.
 class _ReservationChip extends StatelessWidget {
   const _ReservationChip({required this.onTap});
 
@@ -770,7 +764,7 @@ class _ReservationChip extends StatelessWidget {
               Icon(Icons.calendar_month_outlined, size: 12, color: _fg),
               SizedBox(width: 4),
               Text(
-                'ěě˝',
+                '예약',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
