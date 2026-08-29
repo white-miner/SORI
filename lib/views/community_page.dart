@@ -107,7 +107,10 @@ class _CommunityPageState extends State<CommunityPage>
       _showDirectorOnly();
       return;
     }
-    await showWhisperComposer(context, store: store);
+    final published = await showWhisperComposer(context, store: store);
+    if (published) {
+      await store.refreshCommunityPosts(force: true);
+    }
   }
 
   Future<void> _composeInterior() async {

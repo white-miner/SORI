@@ -104,12 +104,11 @@ class WhisperAudienceSpec {
 
   Map<String, dynamic> toRpcParams() => {
         'p_op': op,
+        // Always send arrays (never null) so PostgREST binds uuid[]/text[] defaults.
         'p_atoms': atoms,
-        'p_explicit_user_ids':
-            explicitUserIds.isEmpty ? null : explicitUserIds,
-        'p_explicit_shop_ids':
-            explicitShopIds.isEmpty ? null : explicitShopIds,
-        'p_shop_id': shopId,
+        'p_explicit_user_ids': explicitUserIds,
+        'p_explicit_shop_ids': explicitShopIds,
+        'p_shop_id': (shopId == null || shopId!.trim().isEmpty) ? null : shopId,
         'p_max': maxRecipients,
       };
 }

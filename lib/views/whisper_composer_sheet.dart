@@ -11,17 +11,18 @@ import '../utils/sori_bottom_sheet.dart';
 
 const _kWhisperDraftKey = 'sori_whisper_composer_draft_v1';
 
-Future<void> showWhisperComposer(
+Future<bool> showWhisperComposer(
   BuildContext context, {
   required SoriStore store,
-}) {
+}) async {
   // enableDrag + isScrollControlled: swipe-down dismiss; keyboard insets via frame.
-  return showSoriSolidBottomSheet<void>(
+  final published = await showSoriSolidBottomSheet<bool>(
     context: context,
     enableDrag: true,
     isScrollControlled: true,
     builder: (ctx) => WhisperComposerSheet(store: store),
   );
+  return published == true;
 }
 
 class WhisperComposerSheet extends StatefulWidget {
@@ -34,8 +35,8 @@ class WhisperComposerSheet extends StatefulWidget {
 }
 
 class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
-  final _bodyCtrl = TextEditingController();
-  final _bodyFocus = FocusNode();
+  late final TextEditingController _bodyCtrl;
+  late final FocusNode _bodyFocus;
   final Set<String> _atoms = {WhisperAtoms.everyone};
   final List<WhisperPreviewPerson> _explicitPeople = [];
   Timer? _debounce;
@@ -69,6 +70,8 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   @override
   void initState() {
     super.initState();
+    _bodyCtrl = TextEditingController();
+    _bodyFocus = FocusNode(debugLabel: 'whisper_composer_body');
     unawaited(store.refreshWhisperPresets());
     unawaited(_restoreDraft());
     _schedulePreview();
@@ -78,8 +81,8 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   void dispose() {
     _debounce?.cancel();
     _countTimer?.cancel();
-    _bodyCtrl.dispose();
     _bodyFocus.dispose();
+    _bodyCtrl.dispose();
     super.dispose();
   }
 
@@ -330,6 +333,8 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
   Future<void> _share() async {
     final body = _bodyCtrl.text.trim();
     if (!_canShare) return;
+    // Blur before dialog so keyboard lifecycle resets cleanly on return.
+    _bodyFocus.unfocus();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -366,18 +371,24 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     setState(() => _sharing = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
+      // A) Actual DB insert via send_whisper_post RPC
       final result = await store.sendWhisper(body: body, spec: _spec);
       await _clearDraft();
       if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      // B) Close bottom sheet after dialog already dismissed
+      Navigator.pop(context, true);
+      // C) Feed already refreshed inside store.sendWhisper(force: true)
+      messenger?.showSnackBar(
         SnackBar(
           content: Text(
-            '${result.recipientCount}명에게 Whisper를 공유했어요'
-            '${result.truncated ? ' (상한 적용)' : ''}',
+            result.recipientCount > 0
+                ? '${result.recipientCount}명에게 Whisper를 공유했어요'
+                    '${result.truncated ? ' (상한 적용)' : ''}'
+                : 'Whisper를 공유했어요',
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: SoriTokens.primary,
@@ -385,14 +396,13 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       );
     } catch (e) {
       if (!mounted) return;
+      setState(() => _sharing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('공유 실패: $e'),
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _sharing = false);
     }
   }
 
@@ -544,6 +554,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
             maxLength: 500,
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
+            enableInteractiveSelection: true,
             style: const TextStyle(color: SoriTokens.textPrimary),
             cursorColor: SoriTokens.primary,
             decoration: InputDecoration(
@@ -556,11 +567,6 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                 borderSide: BorderSide.none,
               ),
             ),
-            onTap: () {
-              if (!_bodyFocus.hasFocus) {
-                _bodyFocus.requestFocus();
-              }
-            },
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),

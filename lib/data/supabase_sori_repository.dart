@@ -2779,12 +2779,17 @@ class SupabaseSoriRepository implements SoriRepository {
       'p_body': body,
       ...spec.toRpcParams(),
     };
-    final raw = await _db.rpc('send_whisper_post', params: params);
-    final map = _asJsonMap(raw);
-    if (map == null) {
-      throw StateError('send_whisper_post empty response');
+    try {
+      final raw = await _db.rpc('send_whisper_post', params: params);
+      final map = _asJsonMap(raw);
+      if (map == null) {
+        throw StateError('send_whisper_post empty response');
+      }
+      return WhisperSendResult.fromMap(map);
+    } catch (e, st) {
+      debugPrint('sendWhisper failed: $e\n$st');
+      rethrow;
     }
-    return WhisperSendResult.fromMap(map);
   }
 
   @override

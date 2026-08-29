@@ -2522,7 +2522,8 @@ class SoriStore implements Listenable {
         ? spec.copyWith(shopId: shop.id)
         : spec;
     final result = await _repository.sendWhisper(body: body, spec: withShop);
-    await refreshCommunityPosts();
+    // Force reload so home/community feeds show the new whisper immediately.
+    await refreshCommunityPosts(force: true);
     return result;
   }
 
@@ -3969,8 +3970,11 @@ class SoriStore implements Listenable {
     return true;
   }
 
-  Future<void> refreshCommunityPosts({CommunityPostType? type}) async {
-    if (communityPostsLoading) return;
+  Future<void> refreshCommunityPosts({
+    CommunityPostType? type,
+    bool force = false,
+  }) async {
+    if (!force && communityPostsLoading) return;
     communityPostsLoading = true;
     _notify();
     try {

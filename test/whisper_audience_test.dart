@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/data/memory_sori_repository.dart';
+import 'package:sori/models/community_post.dart';
 import 'package:sori/models/whisper.dart';
 
 void main() {
@@ -94,6 +95,23 @@ void main() {
     );
     expect(preview.count, greaterThanOrEqualTo(5));
     expect(preview.preview.first.userId, isNotEmpty);
+  });
+
+  test('everyone whisper inserts public community post', () async {
+    final repo = MemorySoriRepository();
+    final result = await repo.sendWhisper(
+      body: '전체 공개 테스트',
+      spec: const WhisperAudienceSpec(
+        op: 'union',
+        atoms: [WhisperAtoms.everyone],
+      ),
+    );
+    expect(result.postId, isNotEmpty);
+    final posts = await repo.loadCommunityPosts(limit: 20);
+    final post = posts.firstWhere((p) => p.id == result.postId);
+    expect(post.isWhisper, isTrue);
+    expect(post.visibility, CommunityVisibility.public);
+    expect(post.body, '전체 공개 테스트');
   });
 
   test('following atom resolves users the sender follows', () async {

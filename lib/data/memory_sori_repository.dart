@@ -1411,9 +1411,20 @@ class MemorySoriRepository implements SoriRepository {
   }) async {
     final text = body.trim();
     if (text.isEmpty) throw StateError('body required');
-    if (spec.atoms.isEmpty) throw StateError('atoms required');
-    final bits = _resolveAudience(spec);
-    if (bits.isEmpty) throw StateError('no recipients matched');
+    if (spec.atoms.isEmpty && spec.explicitUserIds.isEmpty) {
+      throw StateError('atoms required');
+    }
+    final atoms = [
+      ...spec.atoms,
+      if (spec.explicitUserIds.isNotEmpty &&
+          !spec.atoms.contains(WhisperAtoms.explicit))
+        WhisperAtoms.explicit,
+    ];
+    final bits = _resolveAudience(spec.copyWith(atoms: atoms));
+    final hasEveryone = atoms.contains(WhisperAtoms.everyone);
+    if (bits.isEmpty && !hasEveryone) {
+      throw StateError('no recipients matched');
+    }
     final id = 'cp-whisper-${_communityPosts.length + 1}';
     _communityPosts.insert(
       0,
@@ -1423,6 +1434,9 @@ class MemorySoriRepository implements SoriRepository {
         authorUserId: 'memory-sender',
         postType: CommunityPostType.caseShare,
         body: text,
+        visibility: hasEveryone
+            ? CommunityVisibility.public
+            : CommunityVisibility.directorsOnly,
         isWhisper: true,
         audienceOp: spec.op,
         whisperRecipientCount: bits.length,
@@ -2085,6 +2099,7 @@ class MemorySoriRepository implements SoriRepository {
     list = list.where((p) {
       if (!p.isWhisper) return true;
       if (p.authorUserId == viewer) return true;
+      if (p.visibility == CommunityVisibility.public) return true;
       return _whisperRecipients.any(
         (r) => r.postId == p.id && r.userId == viewer,
       );

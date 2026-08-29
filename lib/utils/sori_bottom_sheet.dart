@@ -125,6 +125,9 @@ class SoriSheetFrame extends StatelessWidget {
                 child: SingleChildScrollView(
                   controller: scrollController,
                   physics: const ClampingScrollPhysics(),
+                  // Do not auto-dismiss keyboard on scroll — preserves TextField focus.
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.manual,
                   padding: padding,
                   child: child,
                 ),
