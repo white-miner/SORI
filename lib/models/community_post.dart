@@ -7,7 +7,8 @@ enum CommunityPostType {
   deviceReview,
   marketplace,
   caseShare,
-  seminar;
+  seminar,
+  whisper;
 
   String get dbValue => switch (this) {
         CommunityPostType.interior => 'interior',
@@ -15,6 +16,7 @@ enum CommunityPostType {
         CommunityPostType.marketplace => 'marketplace',
         CommunityPostType.caseShare => 'case_share',
         CommunityPostType.seminar => 'seminar',
+        CommunityPostType.whisper => 'whisper',
       };
 
   String get label => switch (this) {
@@ -23,6 +25,7 @@ enum CommunityPostType {
         CommunityPostType.marketplace => '중고',
         CommunityPostType.caseShare => '케이스',
         CommunityPostType.seminar => '세미나',
+        CommunityPostType.whisper => 'Whisper',
       };
 
   static CommunityPostType fromDb(String? raw) {
@@ -32,9 +35,13 @@ enum CommunityPostType {
       'marketplace' || 'market' => CommunityPostType.marketplace,
       'case_share' || 'case' => CommunityPostType.caseShare,
       'seminar' => CommunityPostType.seminar,
+      'whisper' => CommunityPostType.whisper,
       _ => CommunityPostType.interior,
     };
   }
+
+  bool get isWhisperKind =>
+      this == CommunityPostType.whisper || this == CommunityPostType.caseShare;
 }
 
 enum MarketListingStatus {
@@ -688,7 +695,12 @@ class CommunityPost {
           map['isBodyLocked'] == true,
       unlockCost: DbMap.asInt(map['unlock_cost'] ?? map['unlockCost'], 5),
       isWhisper:
-          map['is_whisper'] == true || map['isWhisper'] == true,
+          map['is_whisper'] == true ||
+          map['isWhisper'] == true ||
+          CommunityPostType.fromDb(
+                DbMap.asText(map['post_type'] ?? map['postType']),
+              ) ==
+              CommunityPostType.whisper,
       audienceOp: DbMap.asTextOrNull(
         map['audience_op'] ?? map['audienceOp'],
       ),

@@ -1432,7 +1432,7 @@ class MemorySoriRepository implements SoriRepository {
         id: id,
         shopId: spec.shopId ?? 'shop-demo',
         authorUserId: 'memory-sender',
-        postType: CommunityPostType.caseShare,
+        postType: CommunityPostType.whisper,
         body: text,
         visibility: hasEveryone
             ? CommunityVisibility.public

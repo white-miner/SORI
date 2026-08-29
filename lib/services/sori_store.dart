@@ -61,6 +61,7 @@ import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
 import '../models/subscription.dart';
+import '../models/unified_feed_item.dart';
 import '../models/whisper.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
@@ -290,6 +291,10 @@ class SoriStore implements Listenable {
   bool communityHotCasesLoading = false;
   final List<SeminarClass> openSeminarClassesForFeed = [];
   final List<HomeFeedEntry> homeFeedEntries = [];
+  final List<UnifiedFeedItem> unifiedCommunityFeed = [];
+  final List<UnifiedFeedItem> _rawUnifiedFeedItems = [];
+  bool unifiedFeedLoading = false;
+  CommunityFeedFilter communityFeedFilter = CommunityFeedFilter.all;
 
   /// 촬영 허브 미연결(신규) 큐.
   final List<ShootInboxItem> shootInbox = [];
@@ -2522,8 +2527,7 @@ class SoriStore implements Listenable {
         ? spec.copyWith(shopId: shop.id)
         : spec;
     final result = await _repository.sendWhisper(body: body, spec: withShop);
-    // Force reload so home/community feeds show the new whisper immediately.
-    await refreshCommunityPosts(force: true);
+    await refreshUnifiedCommunityFeed(force: true);
     return result;
   }
 
@@ -2698,7 +2702,8 @@ class SoriStore implements Listenable {
         if (seminar.status == SeminarClassStatus.open)
           HomeFeedEntry.seminar(seminar),
       for (final post in communityPosts)
-        if (post.isWhisper &&
+        if ((post.isWhisper ||
+                post.postType == CommunityPostType.whisper) &&
             post.visibility == CommunityVisibility.public &&
             !post.isBodyLocked &&
             post.body.trim().isNotEmpty)
@@ -2707,6 +2712,182 @@ class SoriStore implements Listenable {
     homeFeedEntries
       ..clear()
       ..addAll(entries);
+    _rebuildUnifiedCommunityFeed();
+  }
+
+  /// Unified community feed — fetch once on entry / PTR; tabs filter locally.
+  Future<void> refreshUnifiedCommunityFeed({bool force = false}) async {
+    if (unifiedFeedLoading) return;
+    if (!force &&
+        unifiedCommunityFeed.isNotEmpty &&
+        _rawUnifiedFeedItems.isNotEmpty) {
+      return;
+    }
+    unifiedFeedLoading = true;
+    _notify();
+    try {
+      await Future.wait([
+        refreshCommunityPosts(force: force),
+        refreshCommunityHotCases(),
+        refreshSeminarClasses(),
+      ]);
+      _rebuildUnifiedCommunityFeed();
+    } finally {
+      unifiedFeedLoading = false;
+      _notify();
+    }
+  }
+
+  void _rebuildUnifiedCommunityFeed() {
+    _rawUnifiedFeedItems.clear();
+
+    for (final item in communityHotCases) {
+      _rawUnifiedFeedItems.add(UnifiedFeedItem.ba(item));
+    }
+
+    for (final seminar in openSeminarClassesForFeed) {
+      if (seminar.status == SeminarClassStatus.open) {
+        _rawUnifiedFeedItems.add(UnifiedFeedItem.seminar(seminar));
+      }
+    }
+
+    for (final post in communityPosts) {
+      final kind = _unifiedKindForPost(post);
+      if (kind == null) continue;
+      _rawUnifiedFeedItems.add(UnifiedFeedItem.post(post, kind));
+    }
+
+    final forAllTab = _rawUnifiedFeedItems
+        .where(_eligibleForAllTab)
+        .toList()
+      ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+
+    unifiedCommunityFeed
+      ..clear()
+      ..addAll(_interleaveUnifiedFeed(forAllTab));
+  }
+
+  UnifiedFeedKind? _unifiedKindForPost(CommunityPost post) {
+    if (post.isWhisper || post.postType == CommunityPostType.whisper) {
+      return UnifiedFeedKind.whisper;
+    }
+    return switch (post.postType) {
+      CommunityPostType.interior => UnifiedFeedKind.interior,
+      CommunityPostType.deviceReview => UnifiedFeedKind.deviceReview,
+      CommunityPostType.marketplace => UnifiedFeedKind.marketplace,
+      CommunityPostType.seminar => UnifiedFeedKind.seminar,
+      _ => null,
+    };
+  }
+
+  bool _eligibleForAllTab(UnifiedFeedItem item) {
+    return switch (item.kind) {
+      UnifiedFeedKind.whisper => _isPublicWhisperPost(item.post!),
+      UnifiedFeedKind.seminar => item.seminar?.status == SeminarClassStatus.open,
+      _ => true,
+    };
+  }
+
+  bool _isPublicWhisperPost(CommunityPost post) {
+    return (post.isWhisper || post.postType == CommunityPostType.whisper) &&
+        post.visibility == CommunityVisibility.public &&
+        !post.isBodyLocked &&
+        post.body.trim().isNotEmpty;
+  }
+
+  List<UnifiedFeedItem> filteredUnifiedCommunityFeed(
+    CommunityFeedFilter filter,
+  ) {
+    switch (filter) {
+      case CommunityFeedFilter.all:
+        return List<UnifiedFeedItem>.from(unifiedCommunityFeed);
+      case CommunityFeedFilter.whisper:
+        final viewerId = session?.id;
+        final ids = <String>{};
+        final out = <UnifiedFeedItem>[];
+        for (final p in communityPosts) {
+          if (!_isWhisperVisibleToViewer(p, viewerId)) continue;
+          if (ids.add(p.id)) {
+            out.add(UnifiedFeedItem.post(p, UnifiedFeedKind.whisper));
+          }
+        }
+        out.sort((a, b) => b.sortAt.compareTo(a.sortAt));
+        return out;
+      default:
+        final items = _rawUnifiedFeedItems
+            .where((e) => e.matchesFilter(filter))
+            .toList()
+          ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+        return items;
+    }
+  }
+
+  bool _isWhisperVisibleToViewer(CommunityPost post, String? viewerId) {
+    if (!post.isWhisper && post.postType != CommunityPostType.whisper) {
+      return false;
+    }
+    if (post.isBodyLocked) return false;
+    if (viewerId != null &&
+        viewerId.isNotEmpty &&
+        post.authorUserId == viewerId) {
+      return true;
+    }
+    if (_isPublicWhisperPost(post)) return true;
+    // targeted whisper visibility handled server-side via isBodyLocked
+    return post.body.trim().isNotEmpty && !post.isBodyLocked;
+  }
+
+  List<UnifiedFeedItem> _interleaveUnifiedFeed(List<UnifiedFeedItem> organic) {
+    if (organic.isEmpty) return const [];
+    final now = DateTime.now();
+    final byTarget = {for (final e in organic) e.boostTargetId: e};
+    final candidates = <BoostScoreInput>[];
+    for (final b in activeBoostPlacements) {
+      if (!b.isActive) continue;
+      UnifiedFeedItem? item;
+      if (b.targetType == 'community_post' && byTarget.containsKey(b.targetId)) {
+        item = byTarget[b.targetId];
+      } else if (b.targetType == 'chart' && byTarget.containsKey(b.targetId)) {
+        item = byTarget[b.targetId];
+      } else if (b.targetType == 'seminar' && byTarget.containsKey(b.targetId)) {
+        item = byTarget[b.targetId];
+      }
+      if (item == null) continue;
+      candidates.add(
+        BoostScoreInput(
+          targetId: item.boostTargetId,
+          placementId: b.id,
+          fandomEcho: b.isFanBoost ? b.pointsSpent : 0,
+          paidRatio: b.isFanBoost ? 0.85 : 0.55,
+          startsAt: b.startsAt,
+          isFanBoost: b.isFanBoost,
+          pointsSpent: b.pointsSpent,
+        ),
+      );
+    }
+
+    final seed = feedViewerSeed(
+      viewerId: session?.id ?? 'anon',
+      segment: FeedSegment.caseFeed,
+      now: now,
+    );
+    final picked = pickBoostSlots(
+      candidates: candidates,
+      slotCount: boostSlotsForPage(math.max(organic.length, 20)),
+      viewerSeed: seed,
+      now: now,
+    );
+    final boosted = [
+      for (final p in picked)
+        if (byTarget[p.targetId] != null)
+          byTarget[p.targetId]!.copyWith(isBoosted: true),
+    ];
+
+    return interleaveFeed<UnifiedFeedItem>(
+      organic: organic,
+      boosted: boosted,
+      idOf: (e) => e.stableKey,
+    );
   }
 
   CommunityCaseItem? communityCaseForChart(String chartId) {

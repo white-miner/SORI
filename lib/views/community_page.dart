@@ -5,32 +5,18 @@ import 'package:flutter/material.dart';
 
 import '../models/community_post.dart';
 import '../models/session_user.dart';
+import '../models/unified_feed_item.dart';
 import '../services/sori_store.dart';
-import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
-import '../utils/whisper_feed.dart';
-import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
+import '../widgets/community_unified_feed_list.dart';
 import '../widgets/sori_insta_picker.dart';
-import '../widgets/whisper_post_card.dart';
-import 'device_review_detail_page.dart';
-import 'seminar_class_detail_page.dart';
+import '../widgets/unified_compose_sheet.dart';
 import 'whisper_composer_sheet.dart';
 
-/// Community 탭 인덱스 — 속삭임 탭 삽입 후 오프셋.
-abstract final class _CommunityTab {
-  static const all = 0;
-  static const whisper = 1;
-  static const interior = 2;
-  static const deviceReview = 3;
-  static const marketplace = 4;
-  static const seminar = 5;
-  static const length = 6;
-}
-
-/// 글로벌 Community 탭 — B2B 광장 (속삭임·인테리어·리뷰·중고·세미나).
+/// 글로벌 Community 탭 — Unified Feed (필터 칩 + 로컬 필터링).
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key, required this.store});
 
@@ -40,39 +26,36 @@ class CommunityPage extends StatefulWidget {
   State<CommunityPage> createState() => _CommunityPageState();
 }
 
-class _CommunityPageState extends State<CommunityPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
+class _CommunityPageState extends State<CommunityPage> {
+  late CommunityFeedFilter _filter;
 
   SoriStore get store => widget.store;
 
   bool get _isDirector =>
       store.session?.activeMode == UserRole.director;
 
+  static const _filters = [
+    CommunityFeedFilter.all,
+    CommunityFeedFilter.whisper,
+    CommunityFeedFilter.interior,
+    CommunityFeedFilter.deviceReview,
+    CommunityFeedFilter.marketplace,
+    CommunityFeedFilter.seminar,
+  ];
+
   @override
   void initState() {
     super.initState();
-    final pending = store.pendingCommunitySegment;
-    final initial = (pending != null &&
-            pending >= 0 &&
-            pending < _CommunityTab.length)
-        ? pending
-        : 0;
+    _filter = CommunityFeedFilter.fromLegacySegment(store.pendingCommunitySegment);
     store.pendingCommunitySegment = null;
-    _tabs = TabController(
-      length: _CommunityTab.length,
-      vsync: this,
-      initialIndex: initial,
-    );
+    store.communityFeedFilter = _filter;
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.refreshCommunityPosts();
-      store.refreshSeminarClasses();
-      store.refreshPointWallet();
+      unawaited(store.refreshUnifiedCommunityFeed());
       final again = store.pendingCommunitySegment;
-      if (again != null && again >= 0 && again < _CommunityTab.length) {
+      if (again != null) {
         store.pendingCommunitySegment = null;
-        _tabs.animateTo(again);
+        _setFilter(CommunityFeedFilter.fromLegacySegment(again));
       }
       if (store.pendingCommunityComposeDevice) {
         store.pendingCommunityComposeDevice = false;
@@ -84,16 +67,21 @@ class _CommunityPageState extends State<CommunityPage>
   @override
   void dispose() {
     store.removeListener(_onStore);
-    _tabs.dispose();
     super.dispose();
+  }
+
+  void _setFilter(CommunityFeedFilter next) {
+    if (_filter == next) return;
+    setState(() => _filter = next);
+    store.communityFeedFilter = next;
   }
 
   void _onStore() {
     if (!mounted) return;
     final pending = store.pendingCommunitySegment;
-    if (pending != null && pending >= 0 && pending < _CommunityTab.length) {
+    if (pending != null) {
       store.pendingCommunitySegment = null;
-      _tabs.animateTo(pending);
+      _setFilter(CommunityFeedFilter.fromLegacySegment(pending));
     }
     if (store.pendingCommunityComposeDevice) {
       store.pendingCommunityComposeDevice = false;
@@ -109,7 +97,7 @@ class _CommunityPageState extends State<CommunityPage>
     }
     final published = await showWhisperComposer(context, store: store);
     if (published) {
-      await store.refreshCommunityPosts(force: true);
+      await store.refreshUnifiedCommunityFeed(force: true);
     }
   }
 
@@ -159,101 +147,98 @@ class _CommunityPageState extends State<CommunityPage>
     );
   }
 
+  Future<void> _openUnifiedCompose() {
+    return showUnifiedComposeSheet(
+      context,
+      store: store,
+      isDirector: _isDirector,
+      onDirectorOnly: _showDirectorOnly,
+      onComposeWhisper: _composeWhisper,
+      onComposeInterior: _composeInterior,
+      onComposeDeviceReview: () => _composeDeviceMarket(preferListing: false),
+      onComposeMarketplace: () => _composeDeviceMarket(preferListing: true),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: SoriTokens.background,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Community',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.4,
+    return Scaffold(
+      backgroundColor: SoriTokens.background,
+      floatingActionButton: _isDirector
+          ? FloatingActionButton(
+              onPressed: _openUnifiedCompose,
+              backgroundColor: SoriTokens.primary,
+              foregroundColor: SoriTokens.onPrimary,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
+      body: ColoredBox(
+        color: SoriTokens.background,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: const Text(
+                  'Community',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+              if (!_isDirector) const _CommunityViewerBanner(),
+              SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  itemCount: _filters.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final f = _filters[index];
+                    final selected = _filter == f;
+                    return FilterChip(
+                      label: Text(f.label),
+                      selected: selected,
+                      showCheckmark: false,
+                      labelStyle: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: selected
+                            ? SoriTokens.onPrimary
+                            : SoriTokens.textSecondary,
                       ),
-                    ),
-                  ),
-                  if (_isDirector) ...[
-                    IconButton(
-                      tooltip: 'Whisper',
-                      onPressed: _composeWhisper,
-                      icon: const Icon(Icons.lock_outline_rounded),
-                      color: SoriTokens.primary,
-                    ),
-                    IconButton(
-                      tooltip: '인테리어 올리기',
-                      onPressed: _composeInterior,
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      color: SoriTokens.primary,
-                    ),
-                    IconButton(
-                      tooltip: '리뷰·매물 올리기',
-                      onPressed: () => _composeDeviceMarket(),
-                      icon: const Icon(Icons.devices_other_outlined),
-                      color: SoriTokens.primary,
-                    ),
-                  ],
-                ],
+                      selectedColor: SoriTokens.primary,
+                      backgroundColor: SoriTokens.surface,
+                      side: BorderSide(
+                        color: selected
+                            ? SoriTokens.primary
+                            : SoriTokens.border,
+                      ),
+                      onSelected: (_) => _setFilter(f),
+                    );
+                  },
+                ),
               ),
-            ),
-            if (!_isDirector) const _CommunityViewerBanner(),
-            Material(
-              color: SoriTokens.background,
-              child: SoriYoutubeTabBar(
-                controller: _tabs,
-                labels: const [
-                  '전체',
-                  'Whisper',
-                  '인테리어',
-                  '기기 리뷰',
-                  '중고·신상',
-                  '세미나',
-                ],
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _RecommendSegment(store: store),
-                  _WhisperSegment(
+              Expanded(
+                child: RefreshIndicator(
+                  color: SoriTokens.primary,
+                  onRefresh: () =>
+                      store.refreshUnifiedCommunityFeed(force: true),
+                  child: CommunityUnifiedFeedList(
                     store: store,
+                    filter: _filter,
                     isDirector: _isDirector,
-                    onCompose: _composeWhisper,
+                    onComposeWhisper: _composeWhisper,
                   ),
-                  _InteriorSegment(
-                    store: store,
-                    isOwner: _isDirector,
-                    onCompose: _composeInterior,
-                  ),
-                  _MarketSegment(
-                    store: store,
-                    isOwner: _isDirector,
-                    mode: _MarketRailMode.reviews,
-                    onCompose: () => _composeDeviceMarket(preferListing: false),
-                    onDirectorOnly: _showDirectorOnly,
-                  ),
-                  _MarketSegment(
-                    store: store,
-                    isOwner: _isDirector,
-                    mode: _MarketRailMode.listings,
-                    onCompose: () => _composeDeviceMarket(preferListing: true),
-                    onDirectorOnly: _showDirectorOnly,
-                  ),
-                  _SeminarSegment(store: store),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -294,1295 +279,6 @@ class _CommunityViewerBanner extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WhisperSegment extends StatelessWidget {
-  const _WhisperSegment({
-    required this.store,
-    required this.isDirector,
-    required this.onCompose,
-  });
-
-  final SoriStore store;
-  final bool isDirector;
-  final VoidCallback onCompose;
-
-  void _openPost(BuildContext context, CommunityPost post) {
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-          child: WhisperPostCard(post: post, store: store),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final viewerId = store.session?.id;
-    final incoming = whisperIncomingPosts(
-      store.communityPosts,
-      viewerId: viewerId,
-    );
-    final authored = whisperAuthoredPosts(
-      store.communityPosts,
-      viewerId: viewerId,
-    );
-
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: SoriTokens.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: SoriTokens.border),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0A000000),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.lock_outline_rounded,
-                              size: 20,
-                              color: SoriTokens.textPrimary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Whisper',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.3,
-                                color: SoriTokens.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '많은 사람에게 말하기 부담스러울 때, 선택한 사람에게만 남겨 보세요.',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            height: 1.45,
-                            color: SoriTokens.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (isDirector) ...[
-                          const SizedBox(height: 14),
-                          FilledButton.icon(
-                            onPressed: onCompose,
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text('Whisper 남기기'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: SoriTokens.primary,
-                              foregroundColor: SoriTokens.onPrimary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 12,
-                              ),
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                const _WhisperZoneHeader(
-                  title: '나에게 들려온 Whisper',
-                  subtitle: '조건에 맞아 나만 볼 수 있는 글이에요.',
-                ),
-                const SizedBox(height: 10),
-              ],
-            ),
-          ),
-        ),
-        if (incoming.isEmpty)
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            sliver: SliverToBoxAdapter(
-              child: _EmptyHint(
-                text: '아직 들려온 Whisper가 없어요. 팔로우·방문하면 여기에 모여요.',
-              ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            sliver: SliverToBoxAdapter(
-              child: _WhisperMasonryGrid(
-                posts: incoming,
-                store: store,
-                onOpen: (p) => _openPost(context, p),
-              ),
-            ),
-          ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const _WhisperZoneHeader(
-                  title: '내가 남긴 Whisper',
-                  subtitle: '내가 선택한 사람에게만 전달된 글이에요.',
-                ),
-                const SizedBox(height: 10),
-              ],
-            ),
-          ),
-        ),
-        if (authored.isEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-            sliver: SliverToBoxAdapter(
-              child: _EmptyHint(
-                text: isDirector
-                    ? '첫 Whisper를 남겨 보세요. 선택한 사람에게만 전달됩니다.'
-                    : '아직 남긴 Whisper가 없어요.',
-              ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-            sliver: SliverToBoxAdapter(
-              child: _WhisperMasonryGrid(
-                posts: authored,
-                store: store,
-                onOpen: (p) => _openPost(context, p),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _WhisperZoneHeader extends StatelessWidget {
-  const _WhisperZoneHeader({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            fontSize: 12.5,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _WhisperMasonryGrid extends StatelessWidget {
-  const _WhisperMasonryGrid({
-    required this.posts,
-    required this.store,
-    required this.onOpen,
-  });
-
-  final List<CommunityPost> posts;
-  final SoriStore store;
-  final void Function(CommunityPost post) onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    const cols = 3;
-    const gap = 8.0;
-    final columns = List.generate(cols, (_) => <CommunityPost>[]);
-    for (var i = 0; i < posts.length; i++) {
-      columns[i % cols].add(posts[i]);
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 520) {
-          return Column(
-            children: [
-              for (final p in posts) ...[
-                WhisperPostCard(
-                  post: p,
-                  store: store,
-                  compact: true,
-                  onTap: () => onOpen(p),
-                ),
-                const SizedBox(height: gap),
-              ],
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var c = 0; c < cols; c++) ...[
-              if (c > 0) const SizedBox(width: gap),
-              Expanded(
-                child: Column(
-                  children: [
-                    for (final p in columns[c]) ...[
-                      WhisperPostCard(
-                        post: p,
-                        store: store,
-                        compact: true,
-                        onTap: () => onOpen(p),
-                      ),
-                      const SizedBox(height: gap),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _RecommendSegment extends StatelessWidget {
-  const _RecommendSegment({required this.store});
-  final SoriStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    final interiors = store.communityPosts
-        .where((p) => p.postType == CommunityPostType.interior && !p.isWhisper)
-        .take(6)
-        .toList();
-    final reviews = store.communityPosts
-        .where((p) =>
-            p.postType == CommunityPostType.deviceReview && !p.isWhisper)
-        .take(4)
-        .toList();
-    final listings = store.communityPosts
-        .where((p) =>
-            p.postType == CommunityPostType.marketplace && !p.isWhisper)
-        .take(4)
-        .toList();
-    final seminars = store.seminarClasses.take(4).toList();
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
-      children: [
-        const Text(
-          '원장 업계 광장 — 인테리어·실사용 리뷰·매물·세미나',
-          style: TextStyle(
-            fontSize: 13,
-            height: 1.4,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          '인테리어 쇼룸',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        if (interiors.isEmpty)
-          const _EmptyHint(text: '아직 올라온 인테리어가 없어요. 첫 쇼룸을 올려보세요.')
-        else
-          SizedBox(
-            height: 168,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: interiors.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, i) =>
-                  _InteriorCard(post: interiors[i], width: 140),
-            ),
-          ),
-        const SizedBox(height: 22),
-        const Text(
-          '기기 실사용 리뷰',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        if (reviews.isEmpty)
-          const _EmptyHint(text: '동료 원장의 실사용 후기가 여기에 모입니다.')
-        else
-          ...reviews.map(
-            (p) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _MarketCard(post: p, store: store),
-            ),
-          ),
-        const SizedBox(height: 22),
-        const Text(
-          '중고·신상 매물',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        if (listings.isEmpty)
-          const _EmptyHint(text: '판매·구매 매물이 여기에 모입니다.')
-        else
-          ...listings.map(
-            (p) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _MarketCard(post: p, store: store),
-            ),
-          ),
-        const SizedBox(height: 22),
-        const Text(
-          '모집 중 세미나',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        if (seminars.isEmpty)
-          const _EmptyHint(text: '개설된 세미나가 없어요. 세미나 탭에서 확인해 보세요.')
-        else
-          ...seminars.map(
-            (c) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(
-                  Icons.school_outlined,
-                  color: SoriTokens.primary,
-                ),
-                title: Text(
-                  c.title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Text('정원 ${c.currentEnrollment}/${c.maxCapacity}'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => SeminarClassDetailPage.open(
-                  context,
-                  store: store,
-                  classId: c.id,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _InteriorSegment extends StatelessWidget {
-  const _InteriorSegment({
-    required this.store,
-    required this.isOwner,
-    required this.onCompose,
-  });
-
-  final SoriStore store;
-  final bool isOwner;
-  final VoidCallback onCompose;
-
-  @override
-  Widget build(BuildContext context) {
-    final posts = store.interleavedCommunityPosts(
-      CommunityPostType.interior,
-      viewerId: store.session?.id,
-    );
-
-    if (posts.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.apartment_outlined,
-                  size: 48, color: SoriTokens.textSecondary),
-              const SizedBox(height: 14),
-              const Text(
-                '인테리어 쇼룸',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '샵 사진을 올리고 소품·시공에 링크를 태그하세요.\n다른 원장이 랜선으로 투어합니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: SoriTokens.textSecondary,
-                ),
-              ),
-              if (isOwner) ...[
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: onCompose,
-                  icon: const Icon(Icons.add_a_photo_outlined),
-                  label: const Text('쇼룸 올리기'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-      itemCount: posts.length + (isOwner ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, i) {
-        if (isOwner && i == 0) {
-          return OutlinedButton.icon(
-            onPressed: onCompose,
-            icon: const Icon(Icons.add),
-            label: const Text('인테리어 추가'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: SoriTokens.primary,
-              side: const BorderSide(color: SoriTokens.outlinePurple),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          );
-        }
-        final post = posts[isOwner ? i - 1 : i];
-        return _InteriorFeedTile(post: post, store: store);
-      },
-    );
-  }
-}
-
-class _InteriorFeedTile extends StatelessWidget {
-  const _InteriorFeedTile({required this.post, required this.store});
-
-  final CommunityPost post;
-  final SoriStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = post.media;
-    final primary = media.isNotEmpty ? media.first : null;
-    final tags = primary == null
-        ? const <CommunityPostTag>[]
-        : post.tagsForMedia(primary.id);
-    final styleTags = post.styleTags;
-    final title = post.title.trim();
-    final body = post.body.trim();
-
-    return CommunityPostShell(
-      store: store,
-      post: post,
-      onComposeReview: () {
-        // Switch hint — parent TabBar isn't accessible; snack + rely on GNB.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('기기·중고 탭에서 리뷰를 작성하면 잠금이 해제됩니다'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
-      trailing: post.shopId == store.shop.id
-          ? IconButton(
-              visualDensity: VisualDensity.compact,
-              onPressed: () => store.removeCommunityPost(post.id),
-              icon: const Icon(Icons.delete_outline, size: 20),
-            )
-          : null,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (title.isNotEmpty)
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 19,
-                      height: 1.35,
-                      letterSpacing: -0.35,
-                    ),
-                  ),
-                if (body.isNotEmpty) ...[
-                  SizedBox(height: title.isEmpty ? 0 : 12),
-                  Text(
-                    body,
-                    style: const TextStyle(
-                      fontSize: 15.5,
-                      height: 1.72,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFFD4D4D8),
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-                if (styleTags.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: styleTags
-                        .take(5)
-                        .map(
-                          (t) => Text(
-                            t.startsWith('#') ? t : '#$t',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: SoriTokens.primary.withValues(alpha: 0.9),
-                              height: 1.3,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (media.length <= 1)
-            CommunityHotspotImage(
-              imageUrl: primary?.imageUrl ?? post.primaryImageUrl,
-              tags: tags,
-              aspectRatio: 4 / 3,
-              store: store,
-              ownerShopId: post.shopId,
-              postId: post.id,
-            )
-          else
-            SizedBox(
-              height: 280,
-              child: PageView.builder(
-                itemCount: media.length,
-                itemBuilder: (context, i) {
-                  final m = media[i];
-                  return CommunityHotspotImage(
-                    imageUrl: m.imageUrl,
-                    tags: post.tagsForMedia(m.id),
-                    aspectRatio: 1,
-                    store: store,
-                    ownerShopId: post.shopId,
-                    postId: post.id,
-                  );
-                },
-              ),
-            ),
-          if (post.tags.isNotEmpty)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(18, 10, 18, 8),
-              child: Text(
-                '사진 속 작은 점을 탭하면 제품·업체 정보를 볼 수 있어요',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  height: 1.4,
-                  color: SoriTokens.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          CommunityCommentsSection(store: store, postId: post.id),
-        ],
-      ),
-    );
-  }
-}
-
-class _InteriorCard extends StatelessWidget {
-  const _InteriorCard({required this.post, required this.width});
-  final CommunityPost post;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    final img = post.primaryImageUrl;
-    final pinCount = post.tags.length;
-    return SizedBox(
-      width: width,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (img != null)
-              Image.network(
-                img,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: Color(0xFF18181B)),
-              )
-            else
-              const ColoredBox(color: Color(0xFF18181B)),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xCC0A0A0C)],
-                ),
-              ),
-            ),
-            if (pinCount > 0)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.55),
-                  ),
-                ),
-              ),
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: Text(
-                post.title.trim().isEmpty
-                    ? (post.body.trim().isEmpty ? '인테리어' : post.body.trim())
-                    : post.title.trim(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum _MarketRailMode { reviews, listings }
-
-class _MarketSegment extends StatefulWidget {
-  const _MarketSegment({
-    required this.store,
-    required this.isOwner,
-    required this.onCompose,
-    required this.mode,
-    this.onDirectorOnly,
-  });
-
-  final SoriStore store;
-  final bool isOwner;
-  final VoidCallback onCompose;
-  final _MarketRailMode mode;
-  final VoidCallback? onDirectorOnly;
-
-  @override
-  State<_MarketSegment> createState() => _MarketSegmentState();
-}
-
-class _MarketSegmentState extends State<_MarketSegment> {
-  MarketListingStatus? _filter;
-
-  bool get _listingsMode => widget.mode == _MarketRailMode.listings;
-
-  @override
-  Widget build(BuildContext context) {
-    var posts = _listingsMode
-        ? widget.store.communityPosts.where((p) {
-            if (p.isWhisper) return false;
-            return p.postType == CommunityPostType.marketplace ||
-                (p.postType == CommunityPostType.deviceReview &&
-                    p.listing != null);
-          }).toList()
-        : widget.store.interleavedCommunityPosts(
-            CommunityPostType.deviceReview,
-            viewerId: widget.store.session?.id,
-          );
-
-    if (_listingsMode && _filter != null) {
-      posts = posts.where((p) => p.listing?.status == _filter).toList();
-    }
-
-    final emptyTitle = _listingsMode ? '중고·신상 장터' : '기기·제품 리뷰';
-    final emptyBody = _listingsMode
-        ? '신상·중고 기기/제품을 올리고 동료 원장과 거래하세요.'
-        : '실사용 후기를 남기면 동료 원장의 구매 판단에 도움이 됩니다.';
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: Row(
-            children: [
-              if (_listingsMode)
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _FilterChip(
-                          label: '전체 매물',
-                          selected: _filter == null,
-                          onTap: () => setState(() => _filter = null),
-                        ),
-                        const SizedBox(width: 6),
-                        _FilterChip(
-                          label: '판매 중',
-                          selected: _filter == MarketListingStatus.active,
-                          onTap: () => setState(
-                            () => _filter = MarketListingStatus.active,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _FilterChip(
-                          label: '예약',
-                          selected: _filter == MarketListingStatus.reserved,
-                          onTap: () => setState(
-                            () => _filter = MarketListingStatus.reserved,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _FilterChip(
-                          label: '거래 완료',
-                          selected: _filter == MarketListingStatus.sold,
-                          onTap: () => setState(
-                            () => _filter = MarketListingStatus.sold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                const Expanded(
-                  child: Text(
-                    '실사용 후기',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      color: SoriTokens.textSecondary,
-                    ),
-                  ),
-                ),
-              if (widget.isOwner)
-                IconButton(
-                  onPressed: widget.onCompose,
-                  icon: const Icon(Icons.add_circle_outline),
-                  color: SoriTokens.primary,
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: posts.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _listingsMode
-                              ? Icons.storefront_outlined
-                              : Icons.rate_review_outlined,
-                          size: 48,
-                          color: SoriTokens.textSecondary,
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          emptyTitle,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          emptyBody,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.45,
-                            color: SoriTokens.textSecondary,
-                          ),
-                        ),
-                        if (widget.isOwner) ...[
-                          const SizedBox(height: 18),
-                          FilledButton.icon(
-                            onPressed: widget.onCompose,
-                            icon: const Icon(Icons.add),
-                            label: Text(_listingsMode ? '매물 등록' : '리뷰 작성'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: SoriTokens.primary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                  itemCount: posts.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) {
-                    return _MarketCard(
-                      post: posts[i],
-                      store: widget.store,
-                      readOnly: !widget.isOwner,
-                      onDirectorOnly: widget.onDirectorOnly,
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? SoriTokens.primary : SoriTokens.chipIdleBg,
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: selected
-                ? SoriTokens.onPrimary
-                : SoriTokens.tabUnselected,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MarketCard extends StatelessWidget {
-  const _MarketCard({
-    required this.post,
-    required this.store,
-    this.readOnly = false,
-    this.onDirectorOnly,
-  });
-  final CommunityPost post;
-  final SoriStore store;
-  final bool readOnly;
-  final VoidCallback? onDirectorOnly;
-
-  bool get _isOwner =>
-      !readOnly && post.shopId.isNotEmpty && post.shopId == store.shop.id;
-
-  String get _deviceName {
-    final r = post.deviceReview?.deviceName.trim() ?? '';
-    if (r.isNotEmpty) return r;
-    final l = post.listing?.deviceName.trim() ?? '';
-    if (l.isNotEmpty) return l;
-    final t = post.title.trim();
-    return t.isEmpty ? '기기 후기' : t;
-  }
-
-  Future<void> _showStatusSheet(BuildContext context) async {
-    final listing = post.listing;
-    if (listing == null) return;
-    final choice = await showModalBottomSheet<MarketListingStatus>(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text(
-                  '판매 상태 변경',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-                ),
-              ),
-              for (final s in [
-                MarketListingStatus.active,
-                MarketListingStatus.reserved,
-                MarketListingStatus.sold,
-              ])
-                ListTile(
-                  title: Text(s.label),
-                  trailing: listing.status == s
-                      ? const Icon(Icons.check, color: SoriTokens.primary)
-                      : null,
-                  onTap: () => Navigator.pop(ctx, s),
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-    if (choice == null) return;
-    await store.updateMarketListingStatus(
-      listingId: listing.id,
-      status: choice,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final listing = post.listing;
-    final review = post.deviceReview;
-    final status = listing?.status ?? MarketListingStatus.active;
-    final sold = listing != null && status == MarketListingStatus.sold;
-    final img = post.primaryImageUrl;
-    final months = review?.usageMonths ?? 0;
-
-    return Opacity(
-      opacity: sold ? 0.55 : 1,
-      child: CommunityPostShell(
-        store: store,
-        post: post,
-        onComposeReview: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('기기·중고 탭 상단 + 로 리뷰를 작성해 주세요'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-        trailing: _isOwner && listing != null
-            ? IconButton(
-                tooltip: '판매 상태',
-                onPressed: () => _showStatusSheet(context),
-                icon: const Icon(Icons.more_vert_rounded),
-              )
-            : null,
-        body: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => DeviceReviewDetailPage.open(
-              context,
-              store: store,
-              post: post,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          if (months > 0)
-                            Flexible(
-                              child: Text(
-                                '$months개월 실사용 후기',
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: SoriTokens.primary,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                            )
-                          else
-                            const Flexible(
-                              child: Text(
-                                '실사용 후기',
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: SoriTokens.primary,
-                                ),
-                              ),
-                            ),
-                          if (review?.rating != null) ...[
-                            const SizedBox(width: 8),
-                            _StarRow(rating: review!.rating!),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _deviceName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16.5,
-                          letterSpacing: -0.3,
-                          height: 1.3,
-                        ),
-                      ),
-                      if (post.body.trim().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          post.body.trim(),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            height: 1.55,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFFD4D4D8),
-                          ),
-                        ),
-                      ],
-                      if (review != null &&
-                          (review.pros.isNotEmpty ||
-                              review.cons.isNotEmpty)) ...[
-                        const SizedBox(height: 12),
-                        if (review.pros.isNotEmpty)
-                          _ProsConsLine(
-                            label: '장점',
-                            text: review.pros.take(2).join(' · '),
-                            color: SoriTokens.primary,
-                          ),
-                        if (review.cons.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          _ProsConsLine(
-                            label: '단점',
-                            text: review.cons.take(2).join(' · '),
-                            color: const Color(0xFFF87171),
-                          ),
-                        ],
-                      ],
-                      if (listing != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          sold
-                              ? '거래 완료된 매물이 연결된 후기예요'
-                              : '중고 매물 연결됨 · 자세히에서 알아보기',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: SoriTokens.textSecondary.withValues(
-                              alpha: 0.9,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (img != null)
-                  AspectRatio(
-                    aspectRatio: 16 / 10,
-                    child: Image.network(
-                      img,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          const ColoredBox(color: SoriTokens.primaryDark),
-                    ),
-                  ),
-                CommunityCommentsSection(store: store, postId: post.id),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProsConsLine extends StatelessWidget {
-  const _ProsConsLine({
-    required this.label,
-    required this.text,
-    required this.color,
-  });
-
-  final String label;
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$label  ',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12.5,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFFE4E4E7),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StarRow extends StatelessWidget {
-  const _StarRow({required this.rating});
-  final double rating;
-
-  @override
-  Widget build(BuildContext context) {
-    final full = rating.round().clamp(1, 5);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 1; i <= 5; i++)
-          Icon(
-            i <= full ? Icons.star_rounded : Icons.star_outline_rounded,
-            size: 16,
-            color: SoriTokens.warningText,
-          ),
-      ],
-    );
-  }
-}
-
-class _SeminarSegment extends StatelessWidget {
-  const _SeminarSegment({required this.store});
-  final SoriStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    final classes = store.seminarClasses;
-    if (classes.isEmpty) {
-      return const Center(
-        child: Text(
-          '모집 중 세미나가 없어요',
-          style: TextStyle(color: SoriTokens.textSecondary),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-      itemCount: classes.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, i) {
-        final c = classes[i];
-        final when = c.eventDate;
-        return ListTile(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: SoriTokens.outlinePurple),
-          ),
-          tileColor: SoriTokens.surface,
-          leading: const Icon(Icons.school_outlined, color: SoriTokens.primary),
-          title: Text(
-            c.title,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: Text(
-            when == null
-                ? '정원 ${c.currentEnrollment}/${c.maxCapacity}'
-                : '${when.month}/${when.day} · 정원 ${c.currentEnrollment}/${c.maxCapacity}',
-          ),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => SeminarClassDetailPage.open(
-            context,
-            store: store,
-            classId: c.id,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SoriTokens.outlinePurple),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          height: 1.4,
-          color: SoriTokens.textSecondary,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
