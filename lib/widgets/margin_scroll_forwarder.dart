@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// Provides the active feed [ScrollController] to margin wheel forwarders.
+/// Provides the active home-feed [ScrollController] to global margin forwarders.
 class FeedScrollScope extends InheritedWidget {
   const FeedScrollScope({
     super.key,
@@ -23,7 +23,7 @@ class FeedScrollScope extends InheritedWidget {
   }
 }
 
-/// Forwards wheel / trackpad scroll to the feed [ScrollController].
+/// Forwards wheel / trackpad scroll to the home feed [ScrollController].
 class FeedWheelForwarder {
   FeedWheelForwarder._();
 
@@ -42,13 +42,11 @@ class FeedWheelForwarder {
   }
 }
 
-/// **Margin (여백)** = the entire wheel-scroll capture zone for the home feed:
-/// (1) empty background inside the central feed column (beside / between cards),
-/// (2) empty space to the left of that column (sidebar ↔ feed),
-/// (3) empty space to the right (feed ↔ right sidebar).
+/// **Margin (여백)** = every empty app background area without nav / panel
+/// controls: side gutters, sidebar padding, scaffold backdrop, etc.
 ///
-/// Wrap once around the combined region. [Listener] receives wheel events from
-/// this widget and all descendants (Instagram / YouTube PC style).
+/// Wrap the full shell body on the home tab. [Listener] receives wheel /
+/// trackpad signals from this subtree and forwards them to [FeedScrollScope].
 class FeedWheelMarginSurface extends StatelessWidget {
   const FeedWheelMarginSurface({super.key, required this.child});
 
@@ -73,7 +71,7 @@ typedef FeedMarginWheelZone = FeedWheelMarginSurface;
 /// @deprecated Use [FeedWheelMarginSurface].
 typedef FeedScrollColumn = FeedWheelMarginSurface;
 
-/// Full-width wrapper for feed list rows (card side gaps scroll too).
+/// Full-width wrapper for feed list rows.
 class FeedScrollRow extends StatelessWidget {
   const FeedScrollRow({super.key, required this.child});
 

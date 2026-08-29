@@ -2405,7 +2405,7 @@ class SupabaseSoriRepository implements SoriRepository {
           .from('mentoring_posts')
           .select('id, chart_id, status, price_echo')
           .inFilter('chart_id', ids)
-          .neq('status', 'archived');
+          .eq('status', 'active');
       final out = <String, ChartMentoringMeta>{};
       for (final raw in rows as List) {
         if (raw is! Map) continue;

@@ -12,6 +12,7 @@ import 'services/sori_auth_coordinator.dart';
 import 'services/sori_store.dart';
 import 'services/supabase_client.dart';
 import 'views/my_app.dart';
+import 'widgets/app_scroll_behavior.dart';
 
 Future<void> main() async {
   await runZonedGuarded(() async {
@@ -83,7 +84,12 @@ Future<void> main() async {
     // Seed 스냅샷으로 UI를 먼저 띄우고, 네트워크·Auth는 백그라운드.
     final store = SoriStore.instance;
     store.setAuthHydrating(true); // 세션 복구 전 로그인 깜빡임 방지
-    runApp(const MyApp());
+    runApp(
+      const ScrollConfiguration(
+        behavior: SoriScrollBehavior(),
+        child: MyApp(),
+      ),
+    );
     unawaited(_warmStart(store));
   }, (error, stack) {
     debugPrint('runZonedGuarded: $error\n$stack');

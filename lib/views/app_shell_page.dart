@@ -238,11 +238,12 @@ class _AppShellPageState extends State<AppShellPage> {
               );
 
         if (!wide) {
+          final shellBody = widget.navigationShell;
           return Scaffold(
             backgroundColor: SoriTokens.background,
             extendBody: true,
             appBar: appBar,
-            body: widget.navigationShell,
+            body: shellBody,
             bottomNavigationBar: FloatingPillNav(
               currentIndex: tab,
               isDirector: isDirector,
@@ -254,103 +255,106 @@ class _AppShellPageState extends State<AppShellPage> {
 
         // PC: Row push-sidebar (no Scaffold.drawer overlay).
         final hasComment = _store.activeCommentPostId != null;
+        final onHomeFeed = tab == 0;
+
+        Widget pcBody = Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _PcSidePanel(
+              expanded: _isSidebarExpanded,
+              currentIndex: tab,
+              isDirector: isDirector,
+              onTap: _selectTab,
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, bodyConstraints) {
+                  const feedMaxWidth = 720.0;
+                  const feedHalf = feedMaxWidth / 2;
+                  const drawerTarget = 380.0;
+                  final remainingRight =
+                      (bodyConstraints.maxWidth / 2) - feedHalf;
+                  final commentWidth =
+                      remainingRight.clamp(0.0, drawerTarget);
+
+                  return Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Expanded(child: SizedBox()),
+                          SizedBox(
+                            width: feedMaxWidth,
+                            height: bodyConstraints.maxHeight,
+                            child: widget.navigationShell,
+                          ),
+                          Expanded(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                const SizedBox.expand(),
+                                if (extraWide && !hasComment)
+                                  const Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    child: RightSidebar(
+                                      dashboardOnly: true,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasComment)
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _store.closeCommentPanel(),
+                          ),
+                        ),
+                      Positioned(
+                        left: (bodyConstraints.maxWidth / 2) + feedHalf,
+                        top: 0,
+                        bottom: 0,
+                        child: ClipRect(
+                          child: AnimatedSize(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: hasComment ? commentWidth : 0,
+                              child: hasComment
+                                  ? const RightSidebar()
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+
+        if (onHomeFeed) {
+          pcBody = FeedScrollScope(
+            controller: _pcFeedScrollController,
+            child: PrimaryScrollController(
+              controller: _pcFeedScrollController,
+              child: FeedWheelMarginSurface(child: pcBody),
+            ),
+          );
+        }
 
         return Scaffold(
           backgroundColor: SoriTokens.background,
           appBar: appBar,
-          body: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _PcSidePanel(
-                expanded: _isSidebarExpanded,
-                currentIndex: tab,
-                isDirector: isDirector,
-                onTap: _selectTab,
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, bodyConstraints) {
-                    const feedMaxWidth = 720.0;
-                    const feedHalf = feedMaxWidth / 2;
-                    const drawerTarget = 380.0;
-                    final remainingRight =
-                        (bodyConstraints.maxWidth / 2) - feedHalf;
-                    final commentWidth =
-                        remainingRight.clamp(0.0, drawerTarget);
-
-                    return FeedScrollScope(
-                      controller: _pcFeedScrollController,
-                      child: PrimaryScrollController(
-                        controller: _pcFeedScrollController,
-                        child: FeedWheelMarginSurface(
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Left margin (여백): sidebar ↔ central feed.
-                                  const Expanded(child: SizedBox()),
-                                  SizedBox(
-                                    width: feedMaxWidth,
-                                    height: bodyConstraints.maxHeight,
-                                    child: widget.navigationShell,
-                                  ),
-                                  // Right margin (여백): central feed ↔ sidebar.
-                                  Expanded(
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        const SizedBox.expand(),
-                                        if (extraWide && !hasComment)
-                                          const Positioned(
-                                            right: 0,
-                                            top: 0,
-                                            bottom: 0,
-                                            child: RightSidebar(
-                                              dashboardOnly: true,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            if (hasComment)
-                              Positioned.fill(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _store.closeCommentPanel(),
-                                ),
-                              ),
-                            Positioned(
-                              left: (bodyConstraints.maxWidth / 2) + feedHalf,
-                              top: 0,
-                              bottom: 0,
-                              child: ClipRect(
-                                child: AnimatedSize(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                  alignment: Alignment.centerLeft,
-                                  child: SizedBox(
-                                    width: hasComment ? commentWidth : 0,
-                                    child: hasComment
-                                        ? const RightSidebar()
-                                        : const SizedBox.shrink(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+          body: pcBody,
         );
       },
     );

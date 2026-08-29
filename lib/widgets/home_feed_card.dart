@@ -530,19 +530,27 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                       ),
                     if (widget.showMentoringRequest &&
                         widget.onMentoringRequest != null)
-                      IconButton(
-                        onPressed: widget.onMentoringRequest,
-                        padding: const EdgeInsets.all(6),
-                        constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        tooltip: 'Mentoring Request',
-                        icon: const Icon(
-                          Icons.record_voice_over_outlined,
-                          size: 22,
-                          color: Color(0xFF4338CA),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: TextButton(
+                          onPressed: widget.onMentoringRequest,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: const Color(0xFF4338CA),
+                          ),
+                          child: const Text(
+                            'Mentoring Request',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ),
                   ],
