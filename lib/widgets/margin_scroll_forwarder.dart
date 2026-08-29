@@ -1,49 +1,68 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// Forwards wheel / trackpad scroll from PC side margins to the feed scroll position.
-///
-/// Only used on empty margin areas outside the centered feed column — never wrap
-/// the scroll view itself (that breaks native mouse-wheel handling).
-class MarginScrollForwarder extends StatelessWidget {
-  const MarginScrollForwarder({super.key, this.child});
+/// Provides the active feed [ScrollController] to margin / gap wheel forwarders.
+class FeedScrollScope extends InheritedWidget {
+  const FeedScrollScope({
+    super.key,
+    required this.controller,
+    required super.child,
+  });
 
-  final Widget? child;
+  final ScrollController controller;
 
-  static void forwardWheel(BuildContext context, PointerScrollEvent event) {
+  static ScrollController? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<FeedScrollScope>()
+        ?.controller;
+  }
+
+  @override
+  bool updateShouldNotify(FeedScrollScope oldWidget) {
+    return oldWidget.controller != controller;
+  }
+}
+
+/// Forwards wheel / trackpad scroll to the feed [ScrollController].
+class FeedWheelForwarder {
+  FeedWheelForwarder._();
+
+  static void forward(BuildContext context, PointerScrollEvent event) {
     final delta = -event.scrollDelta.dy;
     if (delta == 0) return;
 
-    final primary = PrimaryScrollController.maybeOf(context);
-    if (primary != null && primary.hasClients) {
-      final pos = primary.position;
-      if (pos.hasContentDimensions) {
-        pos.pointerScroll(delta);
-        return;
-      }
-    }
+    final controller =
+        FeedScrollScope.maybeOf(context) ??
+        PrimaryScrollController.maybeOf(context);
+    if (controller == null || !controller.hasClients) return;
 
-    final scrollable = Scrollable.maybeOf(context);
-    if (scrollable != null && scrollable.position.hasContentDimensions) {
-      scrollable.position.pointerScroll(delta);
-    }
+    final pos = controller.position;
+    if (!pos.hasContentDimensions) return;
+    pos.pointerScroll(delta);
   }
+}
+
+/// PC side-margin zone — Instagram / YouTube style wheel on empty gutters.
+class FeedMarginWheelZone extends StatelessWidget {
+  const FeedMarginWheelZone({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Listener(
-      behavior: HitTestBehavior.translucent,
+      behavior: HitTestBehavior.opaque,
       onPointerSignal: (event) {
         if (event is! PointerScrollEvent) return;
-        forwardWheel(context, event);
+        FeedWheelForwarder.forward(context, event);
       },
-      child: child ?? const SizedBox.expand(),
+      child: const ColoredBox(
+        color: Colors.transparent,
+        child: SizedBox.expand(),
+      ),
     );
   }
 }
 
-/// Ensures the feed column fills the viewport width/height for hit-testing gaps.
-/// Does NOT intercept pointer/wheel events — scroll views handle those natively.
+/// Central feed column — fills the 720px viewport (native wheel on scroll view).
 class FeedScrollColumn extends StatelessWidget {
   const FeedScrollColumn({super.key, required this.child});
 
@@ -77,6 +96,29 @@ class FeedScrollRow extends StatelessWidget {
         width: double.infinity,
         child: child,
       ),
+    );
+  }
+}
+
+/// @deprecated Use [FeedMarginWheelZone] + [FeedWheelForwarder].
+class MarginScrollForwarder extends StatelessWidget {
+  const MarginScrollForwarder({super.key, this.child});
+
+  final Widget? child;
+
+  static void forwardWheel(BuildContext context, PointerScrollEvent event) {
+    FeedWheelForwarder.forward(context, event);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        FeedWheelForwarder.forward(context, event);
+      },
+      child: child ?? const SizedBox.expand(),
     );
   }
 }

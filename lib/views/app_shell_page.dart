@@ -278,61 +278,70 @@ class _AppShellPageState extends State<AppShellPage> {
                     final commentWidth =
                         remainingRight.clamp(0.0, drawerTarget);
 
-                    return PrimaryScrollController(
+                    return FeedScrollScope(
                       controller: _pcFeedScrollController,
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
-                        children: [
-                          const Positioned.fill(
-                            child: MarginScrollForwarder(),
-                          ),
-                          if (hasComment)
-                            Positioned.fill(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => _store.closeCommentPanel(),
-                              ),
+                      child: PrimaryScrollController(
+                        controller: _pcFeedScrollController,
+                        child: Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Expanded(
+                                  child: FeedMarginWheelZone(),
+                                ),
+                                SizedBox(
+                                  width: feedMaxWidth,
+                                  height: bodyConstraints.maxHeight,
+                                  child: FeedScrollColumn(
+                                    child: widget.navigationShell,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      const FeedMarginWheelZone(),
+                                      if (extraWide && !hasComment)
+                                        const Align(
+                                          alignment: Alignment.centerRight,
+                                          child: RightSidebar(
+                                            dashboardOnly: true,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          if (extraWide && !hasComment)
-                            const Positioned(
+                            if (hasComment)
+                              Positioned.fill(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _store.closeCommentPanel(),
+                                ),
+                              ),
+                            Positioned(
+                              left: (bodyConstraints.maxWidth / 2) + feedHalf,
                               top: 0,
-                              right: 0,
                               bottom: 0,
-                              child: RightSidebar(dashboardOnly: true),
-                            ),
-                          Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: feedMaxWidth,
-                              ),
-                              child: SizedBox(
-                                width: feedMaxWidth,
-                                height: bodyConstraints.maxHeight,
-                                child: FeedScrollColumn(
-                                  child: widget.navigationShell,
+                              child: ClipRect(
+                                child: AnimatedSize(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                    width: hasComment ? commentWidth : 0,
+                                    child: hasComment
+                                        ? const RightSidebar()
+                                        : const SizedBox.shrink(),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          Positioned(
-                            left: (bodyConstraints.maxWidth / 2) + feedHalf,
-                            top: 0,
-                            bottom: 0,
-                            child: ClipRect(
-                              child: AnimatedSize(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  width: hasComment ? commentWidth : 0,
-                                  child: hasComment
-                                      ? const RightSidebar()
-                                      : const SizedBox.shrink(),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   },
