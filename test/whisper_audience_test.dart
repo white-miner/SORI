@@ -114,6 +114,15 @@ void main() {
     expect(post.body, '전체 공개 테스트');
   });
 
+  test('WhisperAudienceSpec marks everyone as public audience for RPC', () {
+    const spec = WhisperAudienceSpec(
+      op: 'union',
+      atoms: [WhisperAtoms.everyone],
+    );
+    expect(spec.isPublicAudience, isTrue);
+    expect(spec.toRpcParams()['p_atoms'], [WhisperAtoms.everyone]);
+  });
+
   test('following atom resolves users the sender follows', () async {
     final repo = MemorySoriRepository();
     final preview = await repo.previewWhisperAudience(

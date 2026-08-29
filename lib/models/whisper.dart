@@ -104,13 +104,38 @@ class WhisperAudienceSpec {
 
   Map<String, dynamic> toRpcParams() => {
         'p_op': op,
-        // Always send arrays (never null) so PostgREST binds uuid[]/text[] defaults.
-        'p_atoms': atoms,
-        'p_explicit_user_ids': explicitUserIds,
+        'p_atoms': _normalizedAtoms,
+        'p_explicit_user_ids': _normalizedExplicitUserIds,
         'p_explicit_shop_ids': explicitShopIds,
         'p_shop_id': (shopId == null || shopId!.trim().isEmpty) ? null : shopId,
         'p_max': maxRecipients,
       };
+
+  /// Trim + dedupe atom ids sent to send_whisper_post.
+  List<String> get _normalizedAtoms {
+    final out = <String>[];
+    for (final a in atoms) {
+      final t = a.trim();
+      if (t.isEmpty || out.contains(t)) continue;
+      out.add(t);
+    }
+    return out;
+  }
+
+  /// UUID-only explicit targets (invalid ids dropped for PostgREST uuid[]).
+  List<String> get _normalizedExplicitUserIds {
+    final uuidRe = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    );
+    return explicitUserIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && uuidRe.hasMatch(e))
+        .toList();
+  }
+
+  /// 전체 공개 — maps to visibility=public on server when atom is `everyone`.
+  bool get isPublicAudience => _normalizedAtoms.contains(WhisperAtoms.everyone);
 }
 
 class WhisperPreviewPerson {

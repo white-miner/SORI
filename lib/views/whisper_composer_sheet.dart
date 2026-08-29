@@ -86,15 +86,23 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
     super.dispose();
   }
 
-  WhisperAudienceSpec get _spec => WhisperAudienceSpec(
-        op: 'union',
-        atoms: [
-          ..._atoms.where((a) => a != WhisperAtoms.explicit),
-          if (_explicitPeople.isNotEmpty) WhisperAtoms.explicit,
-        ],
-        explicitUserIds: _explicitPeople.map((p) => p.userId).toList(),
-        shopId: store.shop.id,
-      );
+  WhisperAudienceSpec get _spec {
+    final atomList = <String>[
+      ..._atoms.where((a) => a != WhisperAtoms.explicit),
+      if (_explicitPeople.isNotEmpty) WhisperAtoms.explicit,
+    ];
+    // 전체 공개 chip active → always send `everyone` atom for RPC public path.
+    if (_atoms.contains(WhisperAtoms.everyone) &&
+        !atomList.contains(WhisperAtoms.everyone)) {
+      atomList.insert(0, WhisperAtoms.everyone);
+    }
+    return WhisperAudienceSpec(
+      op: 'union',
+      atoms: atomList,
+      explicitUserIds: _explicitPeople.map((p) => p.userId).toList(),
+      shopId: store.shop.id,
+    );
+  }
 
   Future<void> _restoreDraft() async {
     try {

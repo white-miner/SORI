@@ -352,18 +352,16 @@ class _WhisperSegment extends StatelessWidget {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF064E3B).withValues(alpha: 0.55),
-                        SoriTokens.surface,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: SoriTokens.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: SoriTokens.primary.withValues(alpha: 0.35),
-                    ),
+                    border: Border.all(color: SoriTokens.border),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0A000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -375,7 +373,7 @@ class _WhisperSegment extends StatelessWidget {
                             Icon(
                               Icons.lock_outline_rounded,
                               size: 20,
-                              color: SoriTokens.primary,
+                              color: SoriTokens.textPrimary,
                             ),
                             SizedBox(width: 8),
                             Text(
@@ -384,6 +382,7 @@ class _WhisperSegment extends StatelessWidget {
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: -0.3,
+                                color: SoriTokens.textPrimary,
                               ),
                             ),
                           ],
@@ -405,8 +404,8 @@ class _WhisperSegment extends StatelessWidget {
                             icon: const Icon(Icons.edit_outlined, size: 18),
                             label: const Text('Whisper 남기기'),
                             style: FilledButton.styleFrom(
-                              backgroundColor: SoriTokens.primaryLight,
-                              foregroundColor: Colors.white,
+                              backgroundColor: SoriTokens.primary,
+                              foregroundColor: SoriTokens.onPrimary,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
                                 vertical: 12,
