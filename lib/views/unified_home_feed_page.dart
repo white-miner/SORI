@@ -450,6 +450,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     final localFeed = _localFeed;
     final loading = store.communityHotCasesLoading && feed.isEmpty;
     final tabIndex = _tabs.index;
+    final wide = MediaQuery.sizeOf(context).width >= 800;
+    final feedScroll = _activeFeedScrollController(context);
 
     final feedPane = TabBarView(
       controller: _tabs,
@@ -458,11 +460,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           feed: feed,
           loading: loading,
           buildCard: _feedCard,
-          scrollController: tabIndex == 0 ? _activeFeedScrollController(context) : null,
+          scrollController: tabIndex == 0 ? feedScroll : null,
         ),
         HomeExploreTab(
           store: store,
-          scrollController: tabIndex == 1 ? _activeFeedScrollController(context) : null,
+          scrollController: tabIndex == 1 ? feedScroll : null,
         ),
         _SimpleFeedTab(
           title: '우리 지역',
@@ -470,7 +472,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           feed: localFeed,
           loading: loading,
           buildCard: _feedCard,
-          scrollController: tabIndex == 2 ? _activeFeedScrollController(context) : null,
+          scrollController: tabIndex == 2 ? feedScroll : null,
         ),
       ],
     );
@@ -489,7 +491,14 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 labels: const ['추천', '탐색', '우리 지역'],
               ),
             ),
-            Expanded(child: feedPane),
+            Expanded(
+              child: FeedScrollScope(
+                controller: feedScroll,
+                child: wide
+                    ? feedPane
+                    : FeedWheelMarginSurface(child: feedPane),
+              ),
+            ),
           ],
         ),
       ),

@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// Provides the active feed [ScrollController] to margin / gap wheel forwarders.
+/// Provides the active feed [ScrollController] to margin wheel forwarders.
 class FeedScrollScope extends InheritedWidget {
   const FeedScrollScope({
     super.key,
@@ -42,45 +42,36 @@ class FeedWheelForwarder {
   }
 }
 
-/// PC side-margin zone — Instagram / YouTube style wheel on empty gutters.
-class FeedMarginWheelZone extends StatelessWidget {
-  const FeedMarginWheelZone({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerSignal: (event) {
-        if (event is! PointerScrollEvent) return;
-        FeedWheelForwarder.forward(context, event);
-      },
-      child: const ColoredBox(
-        color: Colors.transparent,
-        child: SizedBox.expand(),
-      ),
-    );
-  }
-}
-
-/// Central feed column — fills the 720px viewport (native wheel on scroll view).
-class FeedScrollColumn extends StatelessWidget {
-  const FeedScrollColumn({super.key, required this.child});
+/// **Margin (여백)** = the entire wheel-scroll capture zone for the home feed:
+/// (1) empty background inside the central feed column (beside / between cards),
+/// (2) empty space to the left of that column (sidebar ↔ feed),
+/// (3) empty space to the right (feed ↔ right sidebar).
+///
+/// Wrap once around the combined region. [Listener] receives wheel events from
+/// this widget and all descendants (Instagram / YouTube PC style).
+class FeedWheelMarginSurface extends StatelessWidget {
+  const FeedWheelMarginSurface({super.key, required this.child});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SizedBox(
-          width: constraints.maxWidth,
-          height: constraints.maxHeight,
-          child: child,
-        );
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        FeedWheelForwarder.forward(context, event);
       },
+      child: child,
     );
   }
 }
+
+/// @deprecated Use [FeedWheelMarginSurface].
+typedef FeedMarginWheelZone = FeedWheelMarginSurface;
+
+/// @deprecated Use [FeedWheelMarginSurface].
+typedef FeedScrollColumn = FeedWheelMarginSurface;
 
 /// Full-width wrapper for feed list rows (card side gaps scroll too).
 class FeedScrollRow extends StatelessWidget {
@@ -100,7 +91,7 @@ class FeedScrollRow extends StatelessWidget {
   }
 }
 
-/// @deprecated Use [FeedMarginWheelZone] + [FeedWheelForwarder].
+/// @deprecated Use [FeedWheelMarginSurface].
 class MarginScrollForwarder extends StatelessWidget {
   const MarginScrollForwarder({super.key, this.child});
 
@@ -112,12 +103,7 @@ class MarginScrollForwarder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerSignal: (event) {
-        if (event is! PointerScrollEvent) return;
-        FeedWheelForwarder.forward(context, event);
-      },
+    return FeedWheelMarginSurface(
       child: child ?? const SizedBox.expand(),
     );
   }

@@ -282,39 +282,40 @@ class _AppShellPageState extends State<AppShellPage> {
                       controller: _pcFeedScrollController,
                       child: PrimaryScrollController(
                         controller: _pcFeedScrollController,
-                        child: Stack(
-                          clipBehavior: Clip.hardEdge,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const Expanded(
-                                  child: FeedMarginWheelZone(),
-                                ),
-                                SizedBox(
-                                  width: feedMaxWidth,
-                                  height: bodyConstraints.maxHeight,
-                                  child: FeedScrollColumn(
+                        child: FeedWheelMarginSurface(
+                          child: Stack(
+                            clipBehavior: Clip.hardEdge,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Left margin (여백): sidebar ↔ central feed.
+                                  const Expanded(child: SizedBox()),
+                                  SizedBox(
+                                    width: feedMaxWidth,
+                                    height: bodyConstraints.maxHeight,
                                     child: widget.navigationShell,
                                   ),
-                                ),
-                                Expanded(
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      const FeedMarginWheelZone(),
-                                      if (extraWide && !hasComment)
-                                        const Align(
-                                          alignment: Alignment.centerRight,
-                                          child: RightSidebar(
-                                            dashboardOnly: true,
+                                  // Right margin (여백): central feed ↔ sidebar.
+                                  Expanded(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        const SizedBox.expand(),
+                                        if (extraWide && !hasComment)
+                                          const Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: RightSidebar(
+                                              dashboardOnly: true,
+                                            ),
                                           ),
-                                        ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
                             if (hasComment)
                               Positioned.fill(
                                 child: GestureDetector(
@@ -340,7 +341,8 @@ class _AppShellPageState extends State<AppShellPage> {
                                 ),
                               ),
                             ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
