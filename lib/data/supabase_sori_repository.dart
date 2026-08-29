@@ -3006,6 +3006,19 @@ class SupabaseSoriRepository implements SoriRepository {
 
   @override
   Future<SeminarClass> createSeminarClass(SeminarClass draft) async {
+    try {
+      final result = await _db.rpc(
+        'upsert_seminar_class',
+        params: {'p_payload': draft.toRpcPayload()},
+      );
+      final map = _unwrapRpcMap(result);
+      final seminar = map['seminar'];
+      if (seminar is Map) {
+        return SeminarClass.fromMap(Map<String, dynamic>.from(seminar));
+      }
+    } catch (e, st) {
+      debugPrint('upsert_seminar_class create fallback: $e\n$st');
+    }
     final row = await _db
         .from('seminar_classes')
         .insert(draft.toInsertMap())
@@ -3018,6 +3031,19 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<SeminarClass> updateSeminarClass(SeminarClass updated) async {
     final id = updated.id.trim();
     if (id.isEmpty) throw ArgumentError('class id required');
+    try {
+      final result = await _db.rpc(
+        'upsert_seminar_class',
+        params: {'p_payload': updated.toRpcPayload(includeId: true)},
+      );
+      final map = _unwrapRpcMap(result);
+      final seminar = map['seminar'];
+      if (seminar is Map) {
+        return SeminarClass.fromMap(Map<String, dynamic>.from(seminar));
+      }
+    } catch (e, st) {
+      debugPrint('upsert_seminar_class update fallback: $e\n$st');
+    }
     final row = await _db
         .from('seminar_classes')
         .update(updated.toUpdateMap())
@@ -3050,6 +3076,33 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<SeminarClassDetail?> loadSeminarClassDetail(String classId) async {
     final id = classId.trim();
     if (id.isEmpty) return null;
+
+    try {
+      final result = await _db.rpc(
+        'get_seminar_detail',
+        params: {'p_class_id': id},
+      );
+      final map = _unwrapRpcMap(result);
+      if (map.isEmpty) return null;
+      final seminarRaw = map['seminar'];
+      if (seminarRaw is! Map) return null;
+      final cls = SeminarClass.fromMap(Map<String, dynamic>.from(seminarRaw));
+      final shopRaw = map['shop'];
+      if (shopRaw is! Map) return null;
+      final shop = Shop.fromMap(Map<String, dynamic>.from(shopRaw));
+      CustomerChart? chart;
+      final chartRaw = map['target_chart'];
+      if (chartRaw is Map) {
+        chart = CustomerChart.fromMap(Map<String, dynamic>.from(chartRaw));
+      }
+      return SeminarClassDetail(
+        seminarClass: cls,
+        directorShop: shop,
+        targetChart: chart,
+      );
+    } catch (e, st) {
+      debugPrint('get_seminar_detail fallback: $e\n$st');
+    }
 
     try {
       final row = await _db
@@ -5012,4 +5065,10 @@ class SupabaseSoriRepository implements SoriRepository {
       return const [];
     }
   }
+}
+
+Map<String, dynamic> _unwrapRpcMap(dynamic raw) {
+  if (raw is Map<String, dynamic>) return raw;
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  return const {};
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -8,9 +9,11 @@ import '../models/shop.dart';
 import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/seminar_time_format.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/author_content_actions_sheet.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/home_feed_card.dart';
 import '../widgets/shop_funding_proof_chip.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import 'seminar_apply_page.dart';
@@ -50,7 +53,6 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
   int _heroIndex = 0;
 
   static final _priceFmt = NumberFormat('#,###', 'ko_KR');
-  static final _dateFmt = DateFormat('M월 d일 (E) HH:mm', 'ko_KR');
 
   @override
   void initState() {
@@ -99,28 +101,6 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
       detail: detail,
     );
     if (mounted) await _load();
-  }
-
-  void _openSourceCase(String chartId) {
-    final item = widget.store.communityCaseForChart(chartId);
-    if (item == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('원본 B/A 케이스를 불러올 수 없습니다.'),
-        ),
-      );
-      return;
-    }
-    CaseDetailPage.push(
-      context,
-      page: CaseDetailPage(
-        item: item,
-        review: item.review ?? widget.store.reviewForChart(item.chart.id),
-        currentUserId: widget.store.session?.id,
-        onShopProfile: () {},
-        onBookingCta: () {},
-      ),
-    );
   }
 
   bool get _isAuthor {
@@ -252,9 +232,12 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
     final detail = _detail!;
     final cls = detail.seminarClass;
     final shop = detail.directorShop;
-    final heroUrls = detail.heroImageUrls;
+    final heroUrls = detail.promoImageUrls;
     final hasHeroSlider = heroUrls.length >= 2;
     final chart = detail.targetChart;
+    final linkedCase = cls.targetCaseId?.trim().isNotEmpty == true
+        ? widget.store.communityCaseForChart(cls.targetCaseId!.trim())
+        : null;
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
@@ -342,11 +325,18 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
                     const SizedBox(height: 14),
                     _EventInfoBox(
                       eventDate: cls.eventDate,
+                      durationMinutes: cls.durationMinutes,
                       currentEnrollment: cls.currentEnrollment,
                       maxCapacity: cls.maxCapacity,
                       location: cls.location,
-                      dateFmt: _dateFmt,
                     ),
+                    if (linkedCase != null) ...[
+                      const SizedBox(height: 20),
+                      _LinkedCaseFeedSection(
+                        item: linkedCase,
+                        store: widget.store,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     _AutoSyllabusSection(tags: detail.syllabusTags),
                     const SizedBox(height: 20),
@@ -357,27 +347,14 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
                       isAlmostFull: detail.isAlmostFull,
                       ratio: detail.enrollmentRatio,
                     ),
-                    const SizedBox(height: 20),
-                    _DescriptionSection(text: detail.displayDescription),
-                    if (cls.targetCaseId?.trim().isNotEmpty == true) ...[
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: () => _openSourceCase(cls.targetCaseId!),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4338CA),
-                          side: const BorderSide(color: Color(0x664338CA)),
-                          minimumSize: const Size(double.infinity, 44),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.compare_arrows_rounded, size: 18),
-                        label: const Text(
-                          '이 세미나를 탄생시킨 B/A 케이스 보러가기',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                    if (cls.providedMaterials.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      _ProvidedMaterialsSection(
+                        materials: cls.providedMaterials,
                       ),
                     ],
+                    const SizedBox(height: 20),
+                    _DescriptionSection(text: detail.displayDescription),
                   ],
                 ),
               ),
@@ -628,23 +605,24 @@ class _DirectorProfileSection extends StatelessWidget {
 class _EventInfoBox extends StatelessWidget {
   const _EventInfoBox({
     required this.eventDate,
+    required this.durationMinutes,
     required this.currentEnrollment,
     required this.maxCapacity,
     required this.location,
-    required this.dateFmt,
   });
 
   final DateTime? eventDate;
+  final int durationMinutes;
   final int currentEnrollment;
   final int maxCapacity;
   final String location;
-  final DateFormat dateFmt;
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = eventDate == null
-        ? '일정 미정'
-        : dateFmt.format(eventDate!.toLocal());
+    final dateLabel = formatSeminarTimeRange(
+      start: eventDate,
+      durationMinutes: durationMinutes,
+    );
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1026,6 +1004,112 @@ class _StickyEscrowBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LinkedCaseFeedSection extends StatelessWidget {
+  const _LinkedCaseFeedSection({
+    required this.item,
+    required this.store,
+  });
+
+  final CommunityCaseItem item;
+  final SoriStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = item.chart.id;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '기폭제가 된 원본 B/A',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 10),
+        HomeFeedCard(
+          item: item,
+          liked: false,
+          likeCount: 5 + id.hashCode.abs() % 48,
+          commentCount: 0,
+          bookmarked: false,
+          onLike: () {},
+          onComment: () {},
+          onBookmark: () {},
+          onOpenDetail: () => CaseDetailPage.push(
+            context,
+            page: CaseDetailPage(
+              item: item,
+              review: item.review ?? store.reviewForChart(id),
+              currentUserId: store.session?.id,
+            ),
+          ),
+          onBookingCta: () {},
+          onShopProfile: () {},
+        ),
+      ],
+    );
+  }
+}
+
+class _ProvidedMaterialsSection extends StatelessWidget {
+  const _ProvidedMaterialsSection({required this.materials});
+
+  final List<String> materials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: SoriTokens.card(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('🎁', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 8),
+              Text(
+                '제공 자재 및 혜택',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final m in materials)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: SoriTokens.primary.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      m,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

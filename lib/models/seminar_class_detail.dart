@@ -36,6 +36,16 @@ class SeminarClassDetail {
     return urls;
   }
 
+  /// Extra promo images for seminar landing hero/gallery.
+  List<String> get promoImageUrls {
+    final extra = <String>[
+      for (final raw in seminarClass.additionalImages)
+        if (raw.trim().startsWith('http')) raw.trim(),
+    ];
+    if (extra.isNotEmpty) return extra;
+    return heroImageUrls;
+  }
+
   /// Auto-Syllabus — care_tags + care_name.
   List<String> get syllabusTags {
     final tags = <String>[];

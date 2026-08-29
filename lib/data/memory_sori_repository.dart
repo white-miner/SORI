@@ -1615,6 +1615,9 @@ class MemorySoriRepository implements SoriRepository {
       status: draft.status,
       description: draft.description,
       classFormat: draft.classFormat,
+      durationMinutes: draft.durationMinutes,
+      providedMaterials: List<String>.from(draft.providedMaterials),
+      additionalImages: List<String>.from(draft.additionalImages),
       createdAt: DateTime.now(),
     );
     _seminarClasses.add(created);
