@@ -2,24 +2,28 @@ import 'community_case_item.dart';
 import 'community_post.dart';
 import 'seminar_class.dart';
 
-/// Unified community feed filter — tab = local filter, no refetch.
+/// Unified community feed filter — local filter chips (Weverse explore).
 enum CommunityFeedFilter {
   all,
+  ba,
   whisper,
-  interior,
-  deviceReview,
-  marketplace,
   seminar,
-  ba;
+  mentoring,
+  deviceReview,
+  productReview,
+  marketplace,
+  interior;
 
   String get label => switch (this) {
         CommunityFeedFilter.all => '전체',
-        CommunityFeedFilter.whisper => 'Whisper',
-        CommunityFeedFilter.interior => '인테리어',
-        CommunityFeedFilter.deviceReview => '기기 리뷰',
-        CommunityFeedFilter.marketplace => '중고·신상',
-        CommunityFeedFilter.seminar => '세미나',
         CommunityFeedFilter.ba => 'B/A',
+        CommunityFeedFilter.whisper => 'Whisper',
+        CommunityFeedFilter.seminar => '세미나',
+        CommunityFeedFilter.mentoring => '멘토링',
+        CommunityFeedFilter.deviceReview => '기기리뷰',
+        CommunityFeedFilter.productReview => '제품리뷰',
+        CommunityFeedFilter.marketplace => '중고거래',
+        CommunityFeedFilter.interior => '샵 인테리어',
       };
 
   String get dbFilter => switch (this) {
@@ -27,9 +31,11 @@ enum CommunityFeedFilter {
         CommunityFeedFilter.whisper => 'whisper',
         CommunityFeedFilter.interior => 'interior',
         CommunityFeedFilter.deviceReview => 'device_review',
+        CommunityFeedFilter.productReview => 'marketplace',
         CommunityFeedFilter.marketplace => 'marketplace',
         CommunityFeedFilter.seminar => 'seminar',
         CommunityFeedFilter.ba => 'ba',
+        CommunityFeedFilter.mentoring => 'ba',
       };
 
   static CommunityFeedFilter fromLegacySegment(int? index) {
@@ -42,6 +48,19 @@ enum CommunityFeedFilter {
       _ => CommunityFeedFilter.all,
     };
   }
+
+  /// Weverse explore tab chip order.
+  static const exploreFilters = [
+    CommunityFeedFilter.all,
+    CommunityFeedFilter.ba,
+    CommunityFeedFilter.whisper,
+    CommunityFeedFilter.seminar,
+    CommunityFeedFilter.mentoring,
+    CommunityFeedFilter.deviceReview,
+    CommunityFeedFilter.productReview,
+    CommunityFeedFilter.marketplace,
+    CommunityFeedFilter.interior,
+  ];
 }
 
 enum UnifiedFeedKind {
@@ -120,15 +139,32 @@ class UnifiedFeedItem {
         _ => post!.id,
       };
 
+  bool get isMarketplaceUsed {
+    if (kind != UnifiedFeedKind.marketplace || post?.listing == null) {
+      return false;
+    }
+    final cond = post!.listing!.condition.trim().toLowerCase();
+    return cond.contains('used') ||
+        cond.contains('중고') ||
+        cond == 'fair' ||
+        cond == 'good';
+  }
+
   bool matchesFilter(CommunityFeedFilter filter) {
     if (filter == CommunityFeedFilter.all) return true;
     return switch (filter) {
       CommunityFeedFilter.whisper => kind == UnifiedFeedKind.whisper,
       CommunityFeedFilter.interior => kind == UnifiedFeedKind.interior,
       CommunityFeedFilter.deviceReview => kind == UnifiedFeedKind.deviceReview,
-      CommunityFeedFilter.marketplace => kind == UnifiedFeedKind.marketplace,
+      CommunityFeedFilter.productReview =>
+        kind == UnifiedFeedKind.marketplace && !isMarketplaceUsed,
+      CommunityFeedFilter.marketplace =>
+        kind == UnifiedFeedKind.marketplace && isMarketplaceUsed,
       CommunityFeedFilter.seminar => kind == UnifiedFeedKind.seminar,
       CommunityFeedFilter.ba => kind == UnifiedFeedKind.ba,
+      CommunityFeedFilter.mentoring =>
+        kind == UnifiedFeedKind.ba &&
+        (caseItem?.hasActiveMentoring ?? false),
       CommunityFeedFilter.all => true,
     };
   }

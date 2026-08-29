@@ -11,7 +11,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
-import '../widgets/community_unified_feed_list.dart';
+import '../widgets/sori_mini_post_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/unified_compose_sheet.dart';
 import 'whisper_composer_sheet.dart';
@@ -28,20 +28,15 @@ class CommunityPage extends StatefulWidget {
 
 class _CommunityPageState extends State<CommunityPage> {
   late CommunityFeedFilter _filter;
+  final _searchCtrl = TextEditingController();
+  bool _recentRefreshing = false;
 
   SoriStore get store => widget.store;
 
   bool get _isDirector =>
       store.session?.activeMode == UserRole.director;
 
-  static const _filters = [
-    CommunityFeedFilter.all,
-    CommunityFeedFilter.whisper,
-    CommunityFeedFilter.interior,
-    CommunityFeedFilter.deviceReview,
-    CommunityFeedFilter.marketplace,
-    CommunityFeedFilter.seminar,
-  ];
+  bool get _isSearching => _searchCtrl.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -67,6 +62,7 @@ class _CommunityPageState extends State<CommunityPage> {
   @override
   void dispose() {
     store.removeListener(_onStore);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -160,8 +156,30 @@ class _CommunityPageState extends State<CommunityPage> {
     );
   }
 
+  Future<void> _refreshRecent() async {
+    if (_recentRefreshing) return;
+    setState(() => _recentRefreshing = true);
+    await store.refreshUnifiedCommunityFeed(force: true);
+    if (mounted) setState(() => _recentRefreshing = false);
+  }
+
+  Future<void> _onPullRefresh() async {
+    await store.refreshUnifiedCommunityFeed(force: true);
+  }
+
+  List<UnifiedFeedItem> get _mainFeedItems {
+    if (_isSearching) {
+      return store.searchUnifiedCommunityFeed(_searchCtrl.text);
+    }
+    return store.filteredUnifiedCommunityFeed(_filter);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final mainItems = _mainFeedItems;
+    final recentItems = store.recentUnifiedFeedItems();
+    final loading = store.unifiedFeedLoading && mainItems.isEmpty;
+
     return Scaffold(
       backgroundColor: SoriTokens.background,
       floatingActionButton: _isDirector
@@ -176,68 +194,174 @@ class _CommunityPageState extends State<CommunityPage> {
         color: SoriTokens.background,
         child: SafeArea(
           bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                child: const Text(
-                  'Community',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.4,
+          child: RefreshIndicator(
+            color: SoriTokens.primary,
+            onRefresh: _onPullRefresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      style: const TextStyle(color: SoriTokens.textPrimary),
+                      cursorColor: SoriTokens.primary,
+                      decoration: InputDecoration(
+                        hintText: '게시물·샵·기기를 검색하세요',
+                        hintStyle:
+                            const TextStyle(color: SoriTokens.textQuaternary),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: SoriTokens.textTertiary,
+                        ),
+                        suffixIcon: _isSearching
+                            ? IconButton(
+                                icon: const Icon(Icons.close_rounded),
+                                color: SoriTokens.textTertiary,
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: SoriTokens.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      textInputAction: TextInputAction.search,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => setState(() {}),
+                    ),
                   ),
                 ),
-              ),
-              if (!_isDirector) const _CommunityViewerBanner(),
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  itemCount: _filters.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final f = _filters[index];
-                    final selected = _filter == f;
-                    return FilterChip(
-                      label: Text(f.label),
-                      selected: selected,
-                      showCheckmark: false,
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: selected
-                            ? SoriTokens.onPrimary
-                            : SoriTokens.textSecondary,
+                if (!_isSearching) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: _refreshRecent,
+                            child: const Text(
+                              '최근 게시물',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed:
+                                _recentRefreshing ? null : _refreshRecent,
+                            icon: _recentRefreshing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: SoriTokens.primary,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.refresh_rounded,
+                                    size: 20,
+                                    color: SoriTokens.textSecondary,
+                                  ),
+                          ),
+                        ],
                       ),
-                      selectedColor: SoriTokens.primary,
-                      backgroundColor: SoriTokens.surface,
-                      side: BorderSide(
-                        color: selected
-                            ? SoriTokens.primary
-                            : SoriTokens.border,
-                      ),
-                      onSelected: (_) => _setFilter(f),
-                    );
-                  },
-                ),
-              ),
-              Expanded(
-                child: RefreshIndicator(
-                  color: SoriTokens.primary,
-                  onRefresh: () =>
-                      store.refreshUnifiedCommunityFeed(force: true),
-                  child: CommunityUnifiedFeedList(
-                    store: store,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 148,
+                      child: recentItems.isEmpty
+                          ? const Center(
+                              child: Text(
+                                '최근 게시물이 없어요',
+                                style: TextStyle(
+                                  color: SoriTokens.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              itemCount: recentItems.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 10),
+                              itemBuilder: (context, index) {
+                                final item = recentItems[index];
+                                return SoriMiniPostCard(
+                                  key: ValueKey('recent_${item.stableKey}'),
+                                  item: item,
+                                  store: store,
+                                  horizontal: true,
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                ],
+                if (!_isDirector) const SliverToBoxAdapter(child: _CommunityViewerBanner()),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _CommunityFilterChipsDelegate(
                     filter: _filter,
-                    isDirector: _isDirector,
-                    onComposeWhisper: _composeWhisper,
+                    onSelected: _setFilter,
                   ),
                 ),
-              ),
-            ],
+                if (loading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (mainItems.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _CommunityEmptyState(
+                      filter: _filter,
+                      isSearching: _isSearching,
+                      isDirector: _isDirector,
+                      onComposeWhisper: _composeWhisper,
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final item = mainItems[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: SoriMiniPostCard(
+                              key: ValueKey('feed_${item.stableKey}'),
+                              item: item,
+                              store: store,
+                            ),
+                          );
+                        },
+                        childCount: mainItems.length,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -279,6 +403,163 @@ class _CommunityViewerBanner extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityFilterChipsDelegate extends SliverPersistentHeaderDelegate {
+  _CommunityFilterChipsDelegate({
+    required this.filter,
+    required this.onSelected,
+  });
+
+  final CommunityFeedFilter filter;
+  final ValueChanged<CommunityFeedFilter> onSelected;
+
+  @override
+  double get minExtent => 48;
+
+  @override
+  double get maxExtent => 48;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(
+      color: SoriTokens.background,
+      child: SizedBox(
+        height: 48,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          itemCount: CommunityFeedFilter.exploreFilters.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final f = CommunityFeedFilter.exploreFilters[index];
+            final selected = filter == f;
+            return FilterChip(
+              label: Text(f.label),
+              selected: selected,
+              showCheckmark: false,
+              labelStyle: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+                color: selected
+                    ? SoriTokens.onPrimary
+                    : SoriTokens.textSecondary,
+              ),
+              selectedColor: SoriTokens.primary,
+              backgroundColor: SoriTokens.surface,
+              side: BorderSide(
+                color: selected ? SoriTokens.primary : SoriTokens.border,
+              ),
+              onSelected: (_) => onSelected(f),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _CommunityFilterChipsDelegate oldDelegate) {
+    return oldDelegate.filter != filter;
+  }
+}
+
+class _CommunityEmptyState extends StatelessWidget {
+  const _CommunityEmptyState({
+    required this.filter,
+    required this.isSearching,
+    required this.isDirector,
+    required this.onComposeWhisper,
+  });
+
+  final CommunityFeedFilter filter;
+  final bool isSearching;
+  final bool isDirector;
+  final VoidCallback onComposeWhisper;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isSearching) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(28),
+          child: Text(
+            '검색 결과가 없어요.',
+            style: TextStyle(
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final icon = switch (filter) {
+      CommunityFeedFilter.whisper => Icons.lock_outline_rounded,
+      CommunityFeedFilter.interior => Icons.apartment_outlined,
+      CommunityFeedFilter.deviceReview => Icons.devices_other_outlined,
+      CommunityFeedFilter.productReview => Icons.shopping_bag_outlined,
+      CommunityFeedFilter.marketplace => Icons.storefront_outlined,
+      CommunityFeedFilter.seminar => Icons.school_outlined,
+      CommunityFeedFilter.ba => Icons.photo_library_outlined,
+      CommunityFeedFilter.mentoring => Icons.school_outlined,
+      _ => Icons.forum_outlined,
+    };
+
+    final title = switch (filter) {
+      CommunityFeedFilter.whisper => 'Whisper',
+      CommunityFeedFilter.interior => '샵 인테리어',
+      CommunityFeedFilter.deviceReview => '기기리뷰',
+      CommunityFeedFilter.productReview => '제품리뷰',
+      CommunityFeedFilter.marketplace => '중고거래',
+      CommunityFeedFilter.seminar => '세미나',
+      CommunityFeedFilter.ba => 'B/A',
+      CommunityFeedFilter.mentoring => '멘토링',
+      _ => 'Community',
+    };
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: SoriTokens.textSecondary),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '아직 올라온 글이 없어요.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+            if (isDirector && filter == CommunityFeedFilter.whisper) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: onComposeWhisper,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Whisper 남기기'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SoriTokens.primary,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

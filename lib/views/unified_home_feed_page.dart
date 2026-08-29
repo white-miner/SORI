@@ -15,6 +15,7 @@ import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
 import '../widgets/home_seminar_feed_card.dart';
 import '../widgets/home_whisper_feed_card.dart';
+import '../widgets/sori_mini_post_card.dart';
 import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/app_scroll_behavior.dart';
 import '../widgets/boost_purchase_sheet.dart';
@@ -61,6 +62,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityHotCases();
       store.refreshCommunityPosts();
+      store.refreshUnifiedCommunityFeed();
       store.refreshShopFandomMeta();
       store.refreshCaseBookmarks();
       _consumePendingInnerTab();
@@ -516,6 +518,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       controller: _tabs,
       children: [
         _RecommendFeedTab(
+          store: store,
           feed: feed,
           loading: loading,
           buildEntry: _buildHomeFeedEntry,
@@ -573,12 +576,14 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
 /// 추천 탭 — 히어로 + 탑 에듀케이터 + B/A 세로 피드.
 class _RecommendFeedTab extends StatefulWidget {
   const _RecommendFeedTab({
+    required this.store,
     required this.feed,
     required this.loading,
     required this.buildEntry,
     this.scrollController,
   });
 
+  final SoriStore store;
   final List<HomeFeedEntry> feed;
   final bool loading;
   final Widget Function(HomeFeedEntry entry, int index) buildEntry;
@@ -624,7 +629,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
-          const SliverToBoxAdapter(child: _HomeHeroCarousel()),
+          SliverToBoxAdapter(child: _SoriSpotMiniStrip(store: widget.store)),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           const SliverToBoxAdapter(child: _TopEducatorsStrip()),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -818,103 +823,58 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
   }
 }
 
-/// 몰입형 히어로 캐러셀 — viewportFraction 0.92.
-class _HomeHeroCarousel extends StatefulWidget {
-  const _HomeHeroCarousel();
+/// Home SORI Spot — boosted / popular mini cards (horizontal).
+class _SoriSpotMiniStrip extends StatelessWidget {
+  const _SoriSpotMiniStrip({required this.store});
 
-  @override
-  State<_HomeHeroCarousel> createState() => _HomeHeroCarouselState();
-}
-
-class _HomeHeroCarouselState extends State<_HomeHeroCarousel> {
-  late final PageController _pageController;
-
-  static const _banners = <({
-    String eyebrow,
-    String title,
-    String subtitle,
-  })>[
-    (
-      eyebrow: 'SORI SPOT',
-      title: '이번 주 하이라이트 임상',
-      subtitle: '장벽·민감 케어 B/A를 한눈에',
-    ),
-    (
-      eyebrow: 'BOOKING',
-      title: '마음에 드는 샵 예약하기',
-      subtitle: 'B/A를 보고 네이버 예약으로 바로 연결',
-    ),
-    (
-      eyebrow: 'LOCAL',
-      title: '우리 지역 인기 샵',
-      subtitle: '가까운 원장님의 관리 사례를 탐색',
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: 0.92);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  final SoriStore store;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 280,
-      child: PageView.builder(
-        controller: _pageController,
-        itemCount: _banners.length,
-        itemBuilder: (context, index) {
-          final b = _banners[index];
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
-            child: Container(
-              decoration: SoriTokens.card(radius: 20),
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    b.eyebrow,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                      color: SoriTokens.tabUnselected,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    b.title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: SoriTokens.textCharcoal,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    b.subtitle,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
-                      color: SoriTokens.tabUnselected,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
+    final items = store.spotlightMiniFeedItems();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            'SORI Spot',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: SoriTokens.textPrimary,
             ),
-          );
-        },
-      ),
+          ),
+        ),
+        SizedBox(
+          height: 148,
+          child: items.isEmpty
+              ? const Center(
+                  child: Text(
+                    '인기글을 불러오는 중…',
+                    style: TextStyle(
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return SoriMiniPostCard(
+                      key: ValueKey('spot_${item.stableKey}'),
+                      item: item,
+                      store: store,
+                      horizontal: true,
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

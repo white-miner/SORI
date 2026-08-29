@@ -2822,6 +2822,79 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// Latest posts for Community horizontal strip.
+  List<UnifiedFeedItem> recentUnifiedFeedItems({int limit = 12}) {
+    final sorted = List<UnifiedFeedItem>.from(unifiedCommunityFeed)
+      ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+    return sorted.take(limit).toList(growable: false);
+  }
+
+  /// Home SORI Spot — boosted first, then popular by engagement proxy.
+  List<UnifiedFeedItem> spotlightMiniFeedItems({int limit = 10}) {
+    if (unifiedCommunityFeed.isEmpty) return const [];
+
+    int score(UnifiedFeedItem item) {
+      if (item.isBoosted) return 10000;
+      return switch (item.kind) {
+        UnifiedFeedKind.ba =>
+          5 + item.caseItem!.chart.id.hashCode.abs() % 48,
+        _ => item.post?.likeCount ?? 0,
+      };
+    }
+
+    final ranked = List<UnifiedFeedItem>.from(unifiedCommunityFeed)
+      ..sort((a, b) {
+        final byScore = score(b).compareTo(score(a));
+        if (byScore != 0) return byScore;
+        return b.sortAt.compareTo(a.sortAt);
+      });
+
+    return ranked.take(limit).toList(growable: false);
+  }
+
+  /// Local search over cached unified feed rows.
+  List<UnifiedFeedItem> searchUnifiedCommunityFeed(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+
+    bool matches(UnifiedFeedItem item) {
+      final parts = <String>[];
+      switch (item.kind) {
+        case UnifiedFeedKind.ba:
+          final c = item.caseItem!;
+          parts.addAll([
+            c.shop.name,
+            c.displayAuthorNickname,
+            c.chart.concerns,
+            c.chart.skinType,
+            ...c.careTags,
+          ]);
+        case UnifiedFeedKind.seminar:
+          final s = item.seminar!;
+          parts.addAll([s.title, s.description, s.location]);
+        case UnifiedFeedKind.whisper:
+        case UnifiedFeedKind.interior:
+        case UnifiedFeedKind.deviceReview:
+        case UnifiedFeedKind.marketplace:
+          final p = item.post!;
+          parts.addAll([
+            p.shopName,
+            p.authorDisplayName,
+            p.title,
+            p.body,
+            p.deviceReview?.deviceName ?? '',
+            p.deviceReview?.brand ?? '',
+            p.listing?.deviceName ?? '',
+            ...p.styleTags,
+          ]);
+      }
+      return parts.any((s) => s.trim().toLowerCase().contains(q));
+    }
+
+    return _rawUnifiedFeedItems.where(matches).toList()
+      ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+  }
+
   bool _isWhisperVisibleToViewer(CommunityPost post, String? viewerId) {
     if (!post.isWhisper && post.postType != CommunityPostType.whisper) {
       return false;

@@ -53,6 +53,76 @@ void main() {
     expect(item.matchesFilter(CommunityFeedFilter.interior), isFalse);
   });
 
+  test('marketplace splits productReview vs used marketplace', () {
+    const usedPost = CommunityPost(
+      id: 'm1',
+      shopId: 's1',
+      shopName: 'Shop',
+      title: '울쎄라',
+      body: '중고 판매',
+      postType: CommunityPostType.marketplace,
+      visibility: CommunityVisibility.public,
+      listing: MarketListing(
+        id: 'l1',
+        postId: 'm1',
+        shopId: 's1',
+        deviceName: '울쎄라',
+        brand: 'Merz',
+        price: 1000000,
+        condition: 'good',
+      ),
+    );
+    const newPost = CommunityPost(
+      id: 'm2',
+      shopId: 's1',
+      shopName: 'Shop',
+      title: '신제품',
+      body: '신상',
+      postType: CommunityPostType.marketplace,
+      visibility: CommunityVisibility.public,
+      listing: MarketListing(
+        id: 'l2',
+        postId: 'm2',
+        shopId: 's1',
+        deviceName: '신제품',
+        brand: 'Merz',
+        price: 2000000,
+        condition: 'new',
+      ),
+    );
+    final usedItem = UnifiedFeedItem.post(usedPost, UnifiedFeedKind.marketplace);
+    final newItem = UnifiedFeedItem.post(newPost, UnifiedFeedKind.marketplace);
+    expect(usedItem.matchesFilter(CommunityFeedFilter.marketplace), isTrue);
+    expect(usedItem.matchesFilter(CommunityFeedFilter.productReview), isFalse);
+    expect(newItem.matchesFilter(CommunityFeedFilter.productReview), isTrue);
+    expect(newItem.matchesFilter(CommunityFeedFilter.marketplace), isFalse);
+  });
+
+  test('searchUnifiedCommunityFeed matches shop and body locally', () async {
+    final store = SoriStore();
+    await store.refreshUnifiedCommunityFeed(force: true);
+    final hits = store.searchUnifiedCommunityFeed('SORI');
+    expect(hits, isA<List<UnifiedFeedItem>>());
+  });
+
+  test('spotlight and recent helpers return bounded lists', () async {
+    final store = SoriStore();
+    await store.refreshUnifiedCommunityFeed(force: true);
+    expect(store.recentUnifiedFeedItems(limit: 5).length, lessThanOrEqualTo(5));
+    expect(
+      store.spotlightMiniFeedItems(limit: 3).length,
+      lessThanOrEqualTo(3),
+    );
+  });
+
+  test('CommunityFeedFilter explore chip order includes mentoring', () {
+    expect(
+      CommunityFeedFilter.exploreFilters,
+      contains(CommunityFeedFilter.mentoring),
+    );
+    expect(CommunityFeedFilter.exploreFilters.first, CommunityFeedFilter.all);
+  });
+
   test('interleaveFeed applies 4:1 boost pattern', () {
     final organic = List.generate(
       8,
