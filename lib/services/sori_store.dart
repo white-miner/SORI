@@ -30,6 +30,7 @@ import '../models/session_user.dart';
 import '../models/shoot_inbox_item.dart';
 import '../models/shop.dart';
 import '../models/shop_supporter_header.dart';
+import '../models/shop_assets.dart';
 import '../models/shop_business_hours.dart';
 import '../models/shop_equipment_item.dart';
 import '../models/shop_gallery_slide.dart';
@@ -279,6 +280,7 @@ class SoriStore implements Listenable {
   final List<ShopHighlight> shopHighlights = [];
   int shopFollowerCount = 0;
   ShopSupporterHeader shopSupporterHeader = const ShopSupporterHeader();
+  ShopAssetsSnapshot shopAssets = const ShopAssetsSnapshot();
   bool shopFandomMetaLoading = false;
   final List<CommunityCaseItem> communityHotCases = [];
   bool communityHotCasesLoading = false;
@@ -3059,6 +3061,67 @@ class SoriStore implements Listenable {
       _notify();
     } catch (e, st) {
       debugPrint('refreshShopSupporterHeader failed: $e\n$st');
+    }
+  }
+
+  Future<void> refreshShopAssets() async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) return;
+    try {
+      final loaded = await _repository.loadShopAssets(sid);
+      shopAssets = loaded.refreshedAt != null
+          ? loaded
+          : _localShopAssetsFallback();
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshShopAssets rpc failed: $e\n$st');
+      shopAssets = _localShopAssetsFallback();
+      _notify();
+    }
+  }
+
+  ShopAssetsSnapshot _localShopAssetsFallback() {
+    final sid = shop.id.trim();
+    final chartList =
+        charts.where((c) => c.shopId == sid || sid.isEmpty).toList();
+    final baPublished = chartList.where((c) => c.caseShared).length;
+    final hosted = seminarClasses
+        .where((c) => c.directorShopId == sid)
+        .where((c) =>
+            c.status == SeminarClassStatus.open ||
+            c.status == SeminarClassStatus.held ||
+            c.status == SeminarClassStatus.completed)
+        .length;
+    final supporters = FanSupporterEntry.ranked(
+      shopSupporterHeader.facepile,
+    );
+    return ShopAssetsSnapshot.localFallback(
+      chartCountTotal: chartList.length,
+      baPublishedCount: baPublished,
+      bookmarkTotal: shopTrustScore.bookmarkCount,
+      followerCount: shopSupporterHeader.followerCount,
+      supporterCount: shopSupporterHeader.supporterCount,
+      supporters: supporters,
+      seminarHostedCount: hosted,
+    );
+  }
+
+  Future<List<SupporterInteractionLine>> loadSupporterInteractionStatement(
+    String supporterCustomerId, {
+    int limit = 50,
+  }) async {
+    final sid = shop.id.trim();
+    final cid = supporterCustomerId.trim();
+    if (sid.isEmpty || cid.isEmpty) return const [];
+    try {
+      return await _repository.loadSupporterInteractionStatement(
+        shopId: sid,
+        supporterCustomerId: cid,
+        limit: limit,
+      );
+    } catch (e, st) {
+      debugPrint('loadSupporterInteractionStatement failed: $e\n$st');
+      return const [];
     }
   }
 

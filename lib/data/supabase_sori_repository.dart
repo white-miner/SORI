@@ -32,6 +32,7 @@ import '../models/shop_trust_score.dart';
 import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
+import '../models/shop_assets.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -4757,6 +4758,54 @@ class SupabaseSoriRepository implements SoriRepository {
           .toList();
     } catch (e, st) {
       debugPrint('loadSeminarClassesForShop failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ShopAssetsSnapshot> loadShopAssets(String shopId) async {
+    final id = shopId.trim();
+    if (id.isEmpty) return const ShopAssetsSnapshot();
+    try {
+      final raw = await _db.rpc('get_shop_assets', params: {'p_shop_id': id});
+      if (raw is Map) {
+        return ShopAssetsSnapshot.fromMap(Map<String, dynamic>.from(raw));
+      }
+    } catch (e, st) {
+      debugPrint('loadShopAssets failed: $e\n$st');
+    }
+    return const ShopAssetsSnapshot();
+  }
+
+  @override
+  Future<List<SupporterInteractionLine>> loadSupporterInteractionStatement({
+    required String shopId,
+    required String supporterCustomerId,
+    int limit = 50,
+  }) async {
+    final sid = shopId.trim();
+    final cid = supporterCustomerId.trim();
+    if (sid.isEmpty || cid.isEmpty) return const [];
+    try {
+      final raw = await _db.rpc(
+        'get_supporter_interaction_statement',
+        params: {
+          'p_shop_id': sid,
+          'p_supporter_customer_id': cid,
+          'p_limit': limit,
+        },
+      );
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map(
+            (e) => SupporterInteractionLine.fromMap(
+              Map<String, dynamic>.from(e),
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadSupporterInteractionStatement failed: $e\n$st');
       return const [];
     }
   }

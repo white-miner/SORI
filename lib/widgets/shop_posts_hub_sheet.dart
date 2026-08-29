@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/community_post.dart';
 import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
@@ -9,7 +8,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/consent_publish_gate.dart';
 import 'ai_tool_sheet.dart';
 
-/// 마이페이지 게시물 지표 — B/A · Whisper · Review 허브.
+/// 마이페이지 게시물 지표 — B/A · Whisper 허브.
 Future<void> showShopPostsHubSheet(
   BuildContext context, {
   required SoriStore store,
@@ -42,7 +41,7 @@ class _ShopPostsHubSheetState extends State<_ShopPostsHubSheet>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -88,7 +87,6 @@ class _ShopPostsHubSheetState extends State<_ShopPostsHubSheet>
               tabs: const [
                 Tab(text: 'B/A'),
                 Tab(text: 'Whisper'),
-                Tab(text: 'Review'),
               ],
             ),
             Expanded(
@@ -97,7 +95,6 @@ class _ShopPostsHubSheetState extends State<_ShopPostsHubSheet>
                 children: [
                   _BaPostsPane(store: widget.store),
                   _WhisperPostsPane(store: widget.store),
-                  _ReviewPostsPane(store: widget.store),
                 ],
               ),
             ),
@@ -285,63 +282,6 @@ class _WhisperPostsPane extends StatelessWidget {
             p.body,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ReviewPostsPane extends StatelessWidget {
-  const _ReviewPostsPane({required this.store});
-
-  final SoriStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    final posts = store.communityPosts.where((p) {
-      if (p.shopId != store.shop.id) return false;
-      if (p.isWhisper) return false;
-      return p.postType == CommunityPostType.deviceReview ||
-          p.postType == CommunityPostType.interior ||
-          p.postType == CommunityPostType.marketplace;
-    }).toList();
-
-    if (posts.isEmpty) {
-      return const Center(
-        child: Text(
-          '원장 Review 게시물이 없어요.',
-          style: TextStyle(
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: posts.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, i) {
-        final p = posts[i];
-        return ListTile(
-          tileColor: SoriTokens.background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: SoriTokens.border),
-          ),
-          title: Text(
-            p.title.trim().isEmpty ? p.postType.name : p.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: Text(
-            p.postType.label,
             style: const TextStyle(
               fontSize: 12,
               color: SoriTokens.textSecondary,

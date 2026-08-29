@@ -27,6 +27,7 @@ import '../models/shop_trust_score.dart';
 import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
+import '../models/shop_assets.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
@@ -769,4 +770,14 @@ abstract class SoriRepository {
 
   /// 원장 샵 세미나 클래스 목록 (최신순).
   Future<List<SeminarClass>> loadSeminarClassesForShop(String shopId);
+
+  /// Asset 탭 — 샵 비즈니스 자산 스냅샷 (088).
+  Future<ShopAssetsSnapshot> loadShopAssets(String shopId);
+
+  /// Supporter ↔ 샵 상호작용 명세서 (088).
+  Future<List<SupporterInteractionLine>> loadSupporterInteractionStatement({
+    required String shopId,
+    required String supporterCustomerId,
+    int limit = 50,
+  });
 }

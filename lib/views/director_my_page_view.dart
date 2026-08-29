@@ -9,7 +9,6 @@ import '../models/customer_chart.dart';
 import '../models/seminar_enrollment.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
-import '../services/director_stats.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
@@ -24,7 +23,7 @@ import '../widgets/people_list_sheet.dart';
 import '../widgets/shop_posts_hub_sheet.dart';
 import '../widgets/shop_inline_info_tab.dart';
 import '../widgets/shop_posts_thread_section.dart';
-import '../widgets/shop_review_compose_sheet.dart';
+import '../widgets/shop_asset_tab_body.dart';
 import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
@@ -533,7 +532,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                       'Home',
                       'Feed',
                       'Shop',
-                      'Review',
+                      'Asset',
                       'Seminar',
                       'AI',
                     ],
@@ -558,7 +557,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 onOpenCasesTab: () => onSelectTab?.call(0),
               ),
               ShopInlineInfoTab(store: store, isOwner: isOwner),
-              _ReviewTabBody(store: store),
+              ShopAssetTabBody(store: store, isOwner: isOwner),
               MySeminarTabBody(store: store, isOwner: isOwner),
               MyAiManagerTabBody(store: store, isOwner: isOwner),
             ],
@@ -1157,217 +1156,6 @@ class _DirectorAvatarButtonState extends State<_DirectorAvatarButton> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ReviewTabBody extends StatelessWidget {
-  const _ReviewTabBody({required this.store});
-
-  final SoriStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: store,
-      builder: (context, _) {
-        final reviews = store.reviews
-            .where(DirectorPeriodStats.isCompletedReview)
-            .toList()
-          ..sort((a, b) {
-            final ad = a.createdAt ?? DateTime(1970);
-            final bd = b.createdAt ?? DateTime(1970);
-            return bd.compareTo(ad);
-          });
-
-        final rated = reviews.where((r) => r.effectiveRating > 0).toList();
-        final avg = rated.isEmpty
-            ? 0.0
-            : rated.map((r) => r.effectiveRating).reduce((a, b) => a + b) /
-                rated.length;
-
-        if (reviews.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
-            children: [
-              const SizedBox(height: 48),
-              const Icon(Icons.rate_review_outlined,
-                  size: 48, color: SoriTokens.textSecondary),
-              const SizedBox(height: 14),
-              const Text(
-                '작성된 리뷰가 없습니다',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: SoriTokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '고객 후기가 등록되면 여기에 평점과 함께 표시됩니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: SoriTokens.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: FilledButton.icon(
-                  onPressed: () => showShopReviewComposeSheet(context, store),
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('리뷰 작성'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-          itemCount: reviews.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
-          itemBuilder: (context, i) {
-            if (i == 0) {
-              return _SquircleCard(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '평균 평점',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: SoriTokens.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Text(
-                                avg.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
-                                  color: SoriTokens.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ...List.generate(
-                                5,
-                                (s) => Icon(
-                                  s < avg.round()
-                                      ? Icons.star_rounded
-                                      : Icons.star_outline_rounded,
-                                  size: 18,
-                                  color: SoriTokens.warningText,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '리뷰 ${reviews.length}건',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: SoriTokens.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    FilledButton(
-                      onPressed: () =>
-                          showShopReviewComposeSheet(context, store),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: SoriTokens.primary,
-                      ),
-                      child: const Text('작성'),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final r = reviews[i - 1];
-            final customer = store.findCustomer(r.customerId);
-            return _SquircleCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      ...List.generate(
-                        r.effectiveRating.clamp(0, 5),
-                        (_) => const Icon(
-                          Icons.star_rounded,
-                          size: 16,
-                          color: SoriTokens.warningText,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        r.createdAt == null
-                            ? ''
-                            : '${r.createdAt!.month}/${r.createdAt!.day}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: SoriTokens.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if ((customer?.name ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      customer!.name.trim(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    r.displayText.trim().isEmpty
-                        ? '(내용 없음)'
-                        : r.displayText.trim(),
-                    softWrap: true,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.45,
-                      fontWeight: FontWeight.w600,
-                      color: SoriTokens.textPrimary,
-                    ),
-                  ),
-                  if ((r.directorReply ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      '원장 답글 · ${r.directorReply!.trim()}',
-                      softWrap: true,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

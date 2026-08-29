@@ -28,6 +28,7 @@ import '../models/shop_trust_score.dart';
 import '../models/market_listing_trust.dart';
 import '../models/fan_supporter.dart';
 import '../models/shop_supporter_header.dart';
+import '../models/shop_assets.dart';
 import '../models/seminar_class.dart';
 import '../models/seminar_application.dart';
 import '../models/seminar_class_detail.dart';
@@ -3758,6 +3759,67 @@ class MemorySoriRepository implements SoriRepository {
     return _seminarClasses
         .where((c) => c.directorShopId == shopId)
         .toList(growable: false);
+  }
+
+  @override
+  Future<ShopAssetsSnapshot> loadShopAssets(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const ShopAssetsSnapshot();
+
+    final supporters = await loadShopSupporters(sid, limit: 20);
+    final trust = await loadShopTrustScore(sid);
+    final chartCount = 0; // memory repo has no global chart index
+    final baPublished = 0;
+    final hosted = _seminarClasses
+        .where((c) => c.directorShopId == sid)
+        .where((c) =>
+            c.status == SeminarClassStatus.open ||
+            c.status == SeminarClassStatus.held ||
+            c.status == SeminarClassStatus.completed)
+        .length;
+
+    return ShopAssetsSnapshot.localFallback(
+      chartCountTotal: chartCount,
+      baPublishedCount: baPublished,
+      bookmarkTotal: trust.bookmarkCount,
+      followerCount: await countShopFollowers(sid),
+      supporterCount: supporters.length,
+      supporters: supporters,
+      seminarHostedCount: hosted,
+    );
+  }
+
+  @override
+  Future<List<SupporterInteractionLine>> loadSupporterInteractionStatement({
+    required String shopId,
+    required String supporterCustomerId,
+    int limit = 50,
+  }) async {
+    final sid = shopId.trim();
+    final cid = supporterCustomerId.trim();
+    if (sid.isEmpty || cid.isEmpty) return const [];
+
+    final lines = <SupporterInteractionLine>[];
+    for (final g in _fanGifts) {
+      if (g['beneficiary_shop_id'] != sid) continue;
+      if (g['fan_customer_id'] != cid) continue;
+      if (g['status'] != 'completed') continue;
+      lines.add(
+        SupporterInteractionLine(
+          occurredAt: DateTime.tryParse(g['created_at']?.toString() ?? ''),
+          kind: 'supporter_gift',
+          echoAmount: g['echo_spent'] as int? ?? 0,
+          targetLabel: 'Case boost',
+          targetId: g['target_id']?.toString(),
+        ),
+      );
+    }
+    lines.sort((a, b) {
+      final ad = a.occurredAt ?? DateTime(1970);
+      final bd = b.occurredAt ?? DateTime(1970);
+      return bd.compareTo(ad);
+    });
+    return lines.take(limit).toList();
   }
 }
 
