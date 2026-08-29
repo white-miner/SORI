@@ -50,7 +50,7 @@ Future<List<Customer>?> pickCustomersForMerge({
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Primary: ${seed.name} (${seed.phone})',
+                    '유지할 고객: ${seed.name} (${seed.phone})',
                     style: const TextStyle(
                       fontSize: 13,
                       color: SoriTokens.textSecondary,
@@ -140,14 +140,11 @@ Future<bool> showCustomerMergeWizard({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (ctx) => Padding(
-      padding: soriSheetSafePadding(ctx),
-      child: _CustomerMergeWizard(
-        store: store,
-        selected: selected,
-        hostContext: hostContext,
-        sheetNavigator: navigator,
-      ),
+    builder: (ctx) => _CustomerMergeWizard(
+      store: store,
+      selected: selected,
+      hostContext: hostContext,
+      sheetNavigator: navigator,
     ),
   ).then((v) => v ?? false);
 }
@@ -276,86 +273,105 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final mq = MediaQuery.of(context);
+    final bottomInset = mq.viewInsets.bottom;
+    // Cap height so Flexible cannot expand into a full white overlay when the
+    // keyboard opens (isScrollControlled sheets otherwise get unbounded height).
+    final maxHeight = (mq.size.height - bottomInset) * 0.92;
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: SoriTokens.outlinePurple,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            switch (_step) {
-              0 => '1/3 · 유지할 계정 선택',
-              1 => '2/3 · 병합 미리보기',
-              _ => '3/3 · 최종 확인',
-            },
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: SoriTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Flexible(
-            child: SingleChildScrollView(
-              child: switch (_step) {
-                0 => _buildStepPrimary(),
-                1 => _buildStepPreview(),
-                _ => _buildStepConfirm(),
-              },
-            ),
-          ),
-          if (_inlineError != null && _step == 2) ...[
-            const SizedBox(height: 8),
-            Text(
-              _inlineError!,
-              style: const TextStyle(
-                color: SoriTokens.systemRed,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              if (_step > 0)
-                TextButton(
-                  onPressed: _merging ? null : () => setState(() => _step--),
-                  child: const Text('이전'),
-                ),
-              const Spacer(),
-              if (_step < 2)
-                FilledButton(
-                  onPressed: _merging ? null : () => setState(() => _step++),
-                  child: const Text('다음'),
-                )
-              else
-                FilledButton(
-                  onPressed: _merging ? null : _onMergePressed,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primaryDark,
-                    disabledBackgroundColor: SoriTokens.primaryDark.withValues(
-                      alpha: _merging ? 0.45 : 1,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: SoriTokens.outlinePurple,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  child: Text(_merging ? '병합 중…' : '병합 실행'),
                 ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  switch (_step) {
+                    0 => '1/3 · 유지할 계정 선택',
+                    1 => '2/3 · 병합 미리보기',
+                    _ => '3/3 · 최종 확인',
+                  },
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: switch (_step) {
+                      0 => _buildStepPrimary(),
+                      1 => _buildStepPreview(),
+                      _ => _buildStepConfirm(),
+                    },
+                  ),
+                ),
+                if (_inlineError != null && _step == 2) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _inlineError!,
+                    style: const TextStyle(
+                      color: SoriTokens.systemRed,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    if (_step > 0)
+                      TextButton(
+                        onPressed:
+                            _merging ? null : () => setState(() => _step--),
+                        child: const Text('이전'),
+                      ),
+                    const Spacer(),
+                    if (_step < 2)
+                      FilledButton(
+                        onPressed:
+                            _merging ? null : () => setState(() => _step++),
+                        child: const Text('다음'),
+                      )
+                    else
+                      FilledButton(
+                        onPressed: _merging ? null : _onMergePressed,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SoriTokens.primaryDark,
+                          disabledBackgroundColor:
+                              SoriTokens.primaryDark.withValues(
+                            alpha: _merging ? 0.45 : 1,
+                          ),
+                        ),
+                        child: Text(_merging ? '병합 중…' : '병합 실행'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -365,7 +381,7 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Primary 계정만 유지됩니다. 나머지는 삭제되며 데이터는 이전됩니다.',
+          '선택한 유지 계정만 남습니다. 나머지는 삭제되며 데이터는 이전됩니다.',
           style: TextStyle(
             fontSize: 13,
             height: 1.45,
@@ -474,7 +490,7 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
         ],
         const SizedBox(height: 8),
         const Text(
-          'B2C Wallet(포인트) 잔액은 Primary 계정으로 합산됩니다.',
+          'B2C Wallet(포인트) 잔액은 유지할 계정으로 합산됩니다.',
           style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
         ),
       ],
@@ -493,7 +509,7 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
             border: Border.all(color: SoriTokens.systemRed.withValues(alpha: 0.35)),
           ),
           child: Text(
-            'Secondary ${_preview.sourceCount}명 계정이 영구 삭제됩니다. 되돌릴 수 없습니다.',
+            '병합되는 ${_preview.sourceCount}명의 고객 정보는 영구 삭제됩니다. 되돌릴 수 없습니다.',
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: SoriTokens.systemRed,
@@ -515,11 +531,11 @@ class _CustomerMergeWizardState extends State<_CustomerMergeWizard> {
             }
           }),
           decoration: InputDecoration(
-            hintText: 'Primary 고객 이름',
+            hintText: '유지할 고객의 이름',
             border: const OutlineInputBorder(),
             errorText: _confirmNameOk || _confirmController.text.isEmpty
                 ? null
-                : '입력값이 Primary 이름과 다릅니다 (앞뒤 공백은 무시)',
+                : '입력값이 유지할 고객의 이름과 다릅니다.',
           ),
         ),
       ],
