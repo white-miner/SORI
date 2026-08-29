@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_case_item.dart';
 import '../models/customer_chart.dart';
+import '../models/home_feed_entry.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../pages/case_detail_page.dart';
@@ -12,15 +13,19 @@ import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/home_feed_card.dart';
+import '../widgets/home_seminar_feed_card.dart';
+import '../widgets/home_whisper_feed_card.dart';
 import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/app_scroll_behavior.dart';
 import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/mentoring_request_sheet.dart';
+import '../widgets/proactive_mentoring_manage_sheet.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
 import '../widgets/shop_trust_score_card.dart';
 import 'home_explore_tab.dart';
+import 'seminar_class_detail_page.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
 class UnifiedHomeFeedPage extends StatefulWidget {
@@ -55,6 +60,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.refreshCommunityHotCases();
+      store.refreshCommunityPosts();
       store.refreshShopFandomMeta();
       store.refreshCaseBookmarks();
       _consumePendingInnerTab();
@@ -100,9 +106,13 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     }
   }
 
-  List<CommunityCaseItem> get _feed {
+  List<HomeFeedEntry> get _feed {
+    if (store.homeFeedEntries.isNotEmpty) {
+      return store.homeFeedEntries;
+    }
     final hot = store.communityHotCases;
-    return hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
+    final cases = hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
+    return cases.map(HomeFeedEntry.caseItem).toList();
   }
 
   List<CommunityCaseItem> get _localFeed => store.interleavedCaseFeed(
@@ -248,13 +258,43 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
         onBookmark: () => _toggleBookmark(id),
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBookingOrProfile(item.shop),
-        onOpenCommunitySeminar: () {
-          store.pendingCommunitySegment = 5;
-          widget.onSelectTab?.call(3);
-        },
         focusMentoringSection: focusMentoring,
       ),
     );
+  }
+
+  Future<void> _openManageMentoring(CommunityCaseItem item) async {
+    final ok = await showProactiveMentoringManageSheet(
+      context,
+      store: store,
+      item: item,
+    );
+    if (!mounted || !ok) return;
+    setState(() {});
+  }
+
+  void _openSeminarDetail(String classId) {
+    SeminarClassDetailPage.open(
+      context,
+      store: store,
+      classId: classId,
+    );
+  }
+
+  void _openSourceCaseFromSeminar(String? chartId) {
+    final id = chartId?.trim() ?? '';
+    if (id.isEmpty) return;
+    final item = store.communityCaseForChart(id);
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('원본 B/A 케이스를 불러올 수 없습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    _openCaseDetail(item, 0);
   }
 
   Future<void> _openMentoringRequest(CommunityCaseItem item) async {
@@ -439,11 +479,28 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       onMentoringRequest: isDirector && !isAuthor && !item.hasActiveMentoring
           ? () => _openMentoringRequest(item)
           : null,
-      onOpenCommunitySeminar: () {
-        store.pendingCommunitySegment = 5; // 세미나
-        widget.onSelectTab?.call(3);
-      },
+      showManageMentoring: isDirector && isAuthor,
+      onManageMentoring:
+          isDirector && isAuthor ? () => _openManageMentoring(item) : null,
     );
+  }
+
+  Widget _buildHomeFeedEntry(HomeFeedEntry entry, int index) {
+    return switch (entry.kind) {
+      HomeFeedEntryKind.caseItem => _feedCard(entry.caseItem!, index),
+      HomeFeedEntryKind.seminar => HomeSeminarFeedCard(
+          seminar: entry.seminar!,
+          onOpenDetail: () => _openSeminarDetail(entry.seminar!.id),
+          onOpenSourceCase: entry.seminar!.targetCaseId?.trim().isNotEmpty ==
+                  true
+              ? () => _openSourceCaseFromSeminar(entry.seminar!.targetCaseId)
+              : null,
+        ),
+      HomeFeedEntryKind.publicWhisper => HomeWhisperFeedCard(
+          post: entry.whisperPost!,
+          store: store,
+        ),
+    };
   }
 
   @override
@@ -461,7 +518,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
         _RecommendFeedTab(
           feed: feed,
           loading: loading,
-          buildCard: _feedCard,
+          buildEntry: _buildHomeFeedEntry,
           scrollController: tabIndex == 0 ? feedScroll : null,
         ),
         HomeExploreTab(
@@ -518,13 +575,13 @@ class _RecommendFeedTab extends StatefulWidget {
   const _RecommendFeedTab({
     required this.feed,
     required this.loading,
-    required this.buildCard,
+    required this.buildEntry,
     this.scrollController,
   });
 
-  final List<CommunityCaseItem> feed;
+  final List<HomeFeedEntry> feed;
   final bool loading;
-  final Widget Function(CommunityCaseItem item, int index) buildCard;
+  final Widget Function(HomeFeedEntry entry, int index) buildEntry;
   final ScrollController? scrollController;
 
   @override
@@ -575,7 +632,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Text(
-                '오늘의 B/A',
+                '오늘의 피드',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
@@ -598,7 +655,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
                 child: Padding(
                   padding: EdgeInsets.all(28),
                   child: Text(
-                    '아직 공유된 B/A 피드가 없어요.\n곧 다양한 후기와 케이스가 올라올 예정이에요.',
+                    '아직 피드 콘텐츠가 없어요.\nB/A · 세미나 · Whisper가 곧 올라올 예정이에요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: SoriTokens.textSecondary,
@@ -615,7 +672,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => FeedScrollRow(
-                    child: widget.buildCard(shown[index], index),
+                    child: widget.buildEntry(shown[index], index),
                   ),
                   childCount: shown.length,
                   addAutomaticKeepAlives: false,

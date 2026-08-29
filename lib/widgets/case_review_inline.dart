@@ -13,6 +13,7 @@ class CaseReviewInlineBlock extends StatefulWidget {
     this.previewMaxLines = 3,
     this.anonymizeNames = true,
     this.expandInline = false,
+    this.collapsedByDefault = false,
   });
 
   final CustomerReview review;
@@ -27,12 +28,21 @@ class CaseReviewInlineBlock extends StatefulWidget {
   /// true면 시트 대신 카드 내 AnimatedSize 확장.
   final bool expandInline;
 
+  /// true면 본문을 숨기고 [고객 후기 보기] 토글만 노출.
+  final bool collapsedByDefault;
+
   @override
   State<CaseReviewInlineBlock> createState() => _CaseReviewInlineBlockState();
 }
 
 class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = !widget.collapsedByDefault;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +59,30 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
         (reply != null && reply.isNotEmpty) ? reply : null;
     final compact = widget.compact;
     final maxLines = widget.previewMaxLines.clamp(2, 6);
+
+    if (widget.collapsedByDefault && !_expanded) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => setState(() => _expanded = true),
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: SoriTokens.primary,
+          ),
+          icon: Icon(
+            Icons.format_quote_rounded,
+            size: compact ? 16 : 18,
+            color: SoriTokens.textTertiary.withValues(alpha: 0.7),
+          ),
+          label: const Text(
+            '고객 후기 보기',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+          ),
+        ),
+      );
+    }
 
     final surfaceFill = SoriTokens.textPrimary.withValues(alpha: 0.05);
 
@@ -86,23 +120,52 @@ class _CaseReviewInlineBlockState extends State<CaseReviewInlineBlock> {
           ),
           const SizedBox(height: 8),
           AnimatedSize(
-            duration: const Duration(milliseconds: 280),
+            duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
-            alignment: Alignment.topLeft,
-            child: Text(
-              body,
-              maxLines: _expanded ? null : maxLines,
-              overflow:
-                  _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 12.5 : 13.5,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: SoriTokens.textPrimary,
-              ),
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.hardEdge,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  body,
+                  maxLines: _expanded ? null : maxLines,
+                  overflow: _expanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compact ? 12.5 : 13.5,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+                if (widget.collapsedByDefault && _expanded)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: () => setState(() => _expanded = false),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: SoriTokens.primary,
+                      ),
+                      child: const Text(
+                        '접기',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (!_expanded && (body.length > 70 || widget.expandInline))
+          if (!_expanded &&
+              !widget.collapsedByDefault &&
+              (body.length > 70 || widget.expandInline))
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(

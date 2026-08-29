@@ -2498,6 +2498,57 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<ProactiveMentoringUpsertResult> upsertProactiveMentoring({
+    required String chartId,
+    required String teaser,
+    required String body,
+    required int priceEcho,
+  }) async {
+    final raw = await _db.rpc(
+      'upsert_proactive_mentoring',
+      params: {
+        'p_chart_id': chartId.trim(),
+        'p_teaser': teaser.trim(),
+        'p_body': body.trim(),
+        'p_price_echo': priceEcho,
+      },
+    );
+    if (raw is! Map) {
+      throw StateError('upsert_proactive_mentoring invalid response');
+    }
+    return ProactiveMentoringUpsertResult.fromMap(
+      Map<String, dynamic>.from(raw),
+    );
+  }
+
+  @override
+  Future<void> publishMentoringPost(String mentoringPostId) async {
+    final id = mentoringPostId.trim();
+    if (id.isEmpty) throw StateError('mentoring_post_id required');
+    await _db.rpc('publish_mentoring_post', params: {'p_mentoring_id': id});
+  }
+
+  @override
+  Future<List<SeminarClass>> loadOpenSeminarClassesForFeed({
+    int limit = 24,
+  }) async {
+    try {
+      final rows = await _db
+          .from('seminar_classes')
+          .select()
+          .eq('status', 'open')
+          .order('created_at', ascending: false)
+          .limit(limit.clamp(1, 80));
+      return (rows as List)
+          .map((e) => SeminarClass.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadOpenSeminarClassesForFeed failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
   Future<List<ShopHighlight>> loadShopHighlights(String shopId) async {
     final id = shopId.trim();
     if (id.isEmpty) return const [];

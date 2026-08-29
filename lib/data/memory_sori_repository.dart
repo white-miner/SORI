@@ -3891,6 +3891,32 @@ class MemorySoriRepository implements SoriRepository {
     }
     throw StateError('mentoring not found');
   }
+
+  @override
+  Future<ProactiveMentoringUpsertResult> upsertProactiveMentoring({
+    required String chartId,
+    required String teaser,
+    required String body,
+    required int priceEcho,
+  }) async {
+    return ProactiveMentoringUpsertResult(
+      mentoringPostId: 'mentoring-mem-${chartId.hashCode.abs()}',
+      status: 'draft',
+    );
+  }
+
+  @override
+  Future<void> publishMentoringPost(String mentoringPostId) async {}
+
+  @override
+  Future<List<SeminarClass>> loadOpenSeminarClassesForFeed({
+    int limit = 24,
+  }) async {
+    return _seminarClasses
+        .where((c) => c.status == SeminarClassStatus.open)
+        .take(limit)
+        .toList();
+  }
 }
 
 class _MemWhisperRecipient {

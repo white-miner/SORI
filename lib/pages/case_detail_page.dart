@@ -559,6 +559,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
                 PremiumMentoringDetailSection(
                   store: _store,
                   chartId: chart.id,
+                  caseOwnerShopId: item.shop.id,
                   sectionKey: _mentoringSectionKey,
                   initialMeta: item.mentoring,
                   onReady: widget.focusMentoringSection

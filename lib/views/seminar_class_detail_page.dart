@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/customer_chart.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/shop.dart';
+import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
@@ -95,6 +96,28 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
       detail: detail,
     );
     if (mounted) await _load();
+  }
+
+  void _openSourceCase(String chartId) {
+    final item = widget.store.communityCaseForChart(chartId);
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('원본 B/A 케이스를 불러올 수 없습니다.'),
+        ),
+      );
+      return;
+    }
+    CaseDetailPage.push(
+      context,
+      page: CaseDetailPage(
+        item: item,
+        review: item.review ?? widget.store.reviewForChart(item.chart.id),
+        currentUserId: widget.store.session?.id,
+        onShopProfile: () {},
+        onBookingCta: () {},
+      ),
+    );
   }
 
   @override
@@ -217,6 +240,25 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
                   ),
                   const SizedBox(height: 20),
                   _DescriptionSection(text: detail.displayDescription),
+                  if (cls.targetCaseId?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => _openSourceCase(cls.targetCaseId!),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4338CA),
+                        side: const BorderSide(color: Color(0x664338CA)),
+                        minimumSize: const Size(double.infinity, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+                      label: const Text(
+                        '이 세미나를 탄생시킨 B/A 케이스 보러가기',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

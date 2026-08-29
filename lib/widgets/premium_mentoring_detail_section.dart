@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/chart_mentoring_meta.dart';
+import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import 'insufficient_points_sheet.dart';
@@ -12,6 +13,7 @@ class PremiumMentoringDetailSection extends StatefulWidget {
     super.key,
     required this.store,
     required this.chartId,
+    this.caseOwnerShopId,
     this.sectionKey,
     this.initialMeta,
     this.onReady,
@@ -19,6 +21,7 @@ class PremiumMentoringDetailSection extends StatefulWidget {
 
   final SoriStore store;
   final String chartId;
+  final String? caseOwnerShopId;
   final GlobalKey? sectionKey;
   final ChartMentoringMeta? initialMeta;
   final VoidCallback? onReady;
@@ -33,6 +36,7 @@ class _PremiumMentoringDetailSectionState
   ChartMentoringDetail? _detail;
   bool _loading = true;
   bool _purchasing = false;
+  bool _seminarRequesting = false;
 
   @override
   void initState() {
@@ -98,6 +102,35 @@ class _PremiumMentoringDetailSectionState
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  Future<void> _requestSeminar() async {
+    if (_seminarRequesting) return;
+    setState(() => _seminarRequesting = true);
+    try {
+      final session = widget.store.session;
+      final ok = await widget.store.requestSeminar(
+        caseId: widget.chartId,
+        requestorShopId: session?.activeMode == UserRole.director
+            ? widget.store.shop.id
+            : null,
+        requestorUserId: session?.id,
+        caseOwnerShopId: widget.caseOwnerShopId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? '세미나 요청이 원장에게 전달되었습니다.'
+                : '세미나 요청에 실패했습니다.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _seminarRequesting = false);
     }
   }
 
@@ -184,6 +217,29 @@ class _PremiumMentoringDetailSectionState
                 height: 1.45,
                 fontWeight: FontWeight.w600,
                 color: SoriTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: _seminarRequesting ? null : _requestSeminar,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF4338CA),
+                side: const BorderSide(color: Color(0x664338CA)),
+                minimumSize: const Size(double.infinity, 42),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: _seminarRequesting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.school_outlined, size: 18),
+              label: const Text(
+                '이 노하우로 세미나 요청',
+                style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ] else if (!unlocked) ...[

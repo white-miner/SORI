@@ -34,12 +34,13 @@ class HomeFeedCard extends StatefulWidget {
     required this.onOpenDetail,
     required this.onBookingCta,
     required this.onShopProfile,
-    this.onOpenCommunitySeminar,
     this.onBoostPurchase,
     this.onFanBoostPurchase,
     this.onOpenMentoring,
     this.onMentoringRequest,
     this.showMentoringRequest = false,
+    this.showManageMentoring = false,
+    this.onManageMentoring,
     this.currentUserId,
     this.review,
   });
@@ -57,12 +58,13 @@ class HomeFeedCard extends StatefulWidget {
   final VoidCallback onOpenDetail;
   final VoidCallback onBookingCta;
   final VoidCallback onShopProfile;
-  final VoidCallback? onOpenCommunitySeminar;
   final VoidCallback? onBoostPurchase;
   final VoidCallback? onFanBoostPurchase;
   final VoidCallback? onOpenMentoring;
   final VoidCallback? onMentoringRequest;
   final bool showMentoringRequest;
+  final bool showManageMentoring;
+  final VoidCallback? onManageMentoring;
 
   @override
   State<HomeFeedCard> createState() => _HomeFeedCardState();
@@ -213,6 +215,22 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
   }
 
   Widget _buildMentoringAction() {
+    if (widget.showManageMentoring && widget.onManageMentoring != null) {
+      return TextButton(
+        onPressed: widget.onManageMentoring,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          foregroundColor: const Color(0xFF4338CA),
+        ),
+        child: const Text(
+          '멘토링 작성/관리',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        ),
+      );
+    }
     if (item.hasActiveMentoring && widget.onOpenMentoring != null) {
       final price = item.mentoring?.priceEcho ?? 0;
       return PremiumMentoringFeedChip(
@@ -273,8 +291,9 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     );
     final hasActiveMentoring = item.hasActiveMentoring;
     final mentoringAction = _buildMentoringAction();
-    final showMentoringSlot =
-        hasActiveMentoring || widget.showMentoringRequest;
+    final showMentoringSlot = hasActiveMentoring ||
+        widget.showMentoringRequest ||
+        widget.showManageMentoring;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -572,9 +591,8 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                 ? CaseReviewInlineBlock(
                     review: review!,
                     compact: true,
-                    previewMaxLines: 2,
+                    collapsedByDefault: true,
                     anonymizeNames: true,
-                    expandInline: true,
                   )
                 : const Text(
                     '후기 미작성',
@@ -663,15 +681,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onFanBoostPurchase!();
-                  },
-                ),
-              if (widget.onOpenCommunitySeminar != null)
-                ListTile(
-                  leading: const Icon(Icons.school_outlined),
-                  title: const Text('Community에서 세미나 보기'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    widget.onOpenCommunitySeminar!();
                   },
                 ),
               ListTile(

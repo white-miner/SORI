@@ -798,4 +798,18 @@ abstract class SoriRepository {
 
   /// Customer unlock — Premium Mentoring purchase (088).
   Future<ChartMentoringDetail> purchaseMentoringUnlock(String mentoringPostId);
+
+  /// Author — proactive mentoring draft upsert (088).
+  Future<ProactiveMentoringUpsertResult> upsertProactiveMentoring({
+    required String chartId,
+    required String teaser,
+    required String body,
+    required int priceEcho,
+  });
+
+  /// Author — publish mentoring post to active/Live (088).
+  Future<void> publishMentoringPost(String mentoringPostId);
+
+  /// Home feed — open seminar recruitment posts (all shops).
+  Future<List<SeminarClass>> loadOpenSeminarClassesForFeed({int limit = 24});
 }

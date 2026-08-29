@@ -86,3 +86,22 @@ class ChartMentoringDetail {
     );
   }
 }
+
+/// Result of [upsert_proactive_mentoring] RPC.
+class ProactiveMentoringUpsertResult {
+  const ProactiveMentoringUpsertResult({
+    required this.mentoringPostId,
+    required this.status,
+  });
+
+  final String mentoringPostId;
+  final String status;
+
+  factory ProactiveMentoringUpsertResult.fromMap(Map<String, dynamic> map) {
+    return ProactiveMentoringUpsertResult(
+      mentoringPostId:
+          (map['mentoring_post_id'] ?? map['id'] ?? '').toString(),
+      status: (map['status'] ?? 'draft').toString(),
+    );
+  }
+}

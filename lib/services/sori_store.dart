@@ -13,7 +13,10 @@ import '../data/sori_repository.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
 import '../models/case_timeline_entry.dart';
+import '../models/chart_mentoring_meta.dart';
 import '../models/community_case_item.dart';
+import '../models/community_post.dart';
+import '../models/home_feed_entry.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../utils/consent_publish_gate.dart';
@@ -285,6 +288,8 @@ class SoriStore implements Listenable {
   bool shopFandomMetaLoading = false;
   final List<CommunityCaseItem> communityHotCases = [];
   bool communityHotCasesLoading = false;
+  final List<SeminarClass> openSeminarClassesForFeed = [];
+  final List<HomeFeedEntry> homeFeedEntries = [];
 
   /// 촬영 허브 미연결(신규) 큐.
   final List<ShootInboxItem> shootInbox = [];
@@ -2572,7 +2577,13 @@ class SoriStore implements Listenable {
     communityHotCasesLoading = true;
     _notify();
     try {
-      final items = await _repository.loadCommunityHotCases();
+      final itemsFuture = _repository.loadCommunityHotCases();
+      final seminarsFuture =
+          _repository.loadOpenSeminarClassesForFeed(limit: 24);
+      final items = await itemsFuture;
+      openSeminarClassesForFeed
+        ..clear()
+        ..addAll(await seminarsFuture);
       final boosts = await _repository.loadActiveBoostPlacements();
       final overlays = await _repository.loadActivePremiumOverlays();
       activeBoostPlacements
@@ -2669,6 +2680,7 @@ class SoriStore implements Listenable {
         final r = item.review;
         if (r != null) _mergeReview(r);
       }
+      _rebuildHomeFeedEntries();
       lastError = null;
     } catch (e, st) {
       debugPrint('refreshCommunityHotCases failed: $e\n$st');
@@ -2676,6 +2688,33 @@ class SoriStore implements Listenable {
       communityHotCasesLoading = false;
       _notify();
     }
+  }
+
+  void _rebuildHomeFeedEntries() {
+    final entries = <HomeFeedEntry>[
+      for (final item in communityHotCases) HomeFeedEntry.caseItem(item),
+      for (final seminar in openSeminarClassesForFeed)
+        if (seminar.status == SeminarClassStatus.open)
+          HomeFeedEntry.seminar(seminar),
+      for (final post in communityPosts)
+        if (post.isWhisper &&
+            post.visibility == CommunityVisibility.public &&
+            !post.isBodyLocked &&
+            post.body.trim().isNotEmpty)
+          HomeFeedEntry.publicWhisper(post),
+    ]..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+    homeFeedEntries
+      ..clear()
+      ..addAll(entries);
+  }
+
+  CommunityCaseItem? communityCaseForChart(String chartId) {
+    final id = chartId.trim();
+    if (id.isEmpty) return null;
+    for (final item in communityHotCases) {
+      if (item.chart.id == id) return item;
+    }
+    return null;
   }
 
   /// 우리 지역 탭 — 4:1 Interleave (pin-all 폐기).
@@ -3151,6 +3190,24 @@ class SoriStore implements Listenable {
     final detail = await _repository.purchaseMentoringUnlock(mentoringPostId);
     await refreshCustomerEchoWallet();
     return detail;
+  }
+
+  Future<ProactiveMentoringUpsertResult> upsertProactiveMentoring({
+    required String chartId,
+    required String teaser,
+    required String body,
+    required int priceEcho,
+  }) {
+    return _repository.upsertProactiveMentoring(
+      chartId: chartId,
+      teaser: teaser,
+      body: body,
+      priceEcho: priceEcho,
+    );
+  }
+
+  Future<void> publishMentoringPost(String mentoringPostId) {
+    return _repository.publishMentoringPost(mentoringPostId);
   }
 
   Future<void> refreshShopNotifications() async {
@@ -3869,6 +3926,7 @@ class SoriStore implements Listenable {
       communityPosts
         ..clear()
         ..addAll(list);
+      _rebuildHomeFeedEntries();
       lastError = null;
     } catch (e) {
       debugPrint('refreshCommunityPosts failed: $e');
