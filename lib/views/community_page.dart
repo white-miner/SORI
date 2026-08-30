@@ -243,24 +243,10 @@ class _CommunityPageState extends State<CommunityPage> {
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
-                    child: Text(
-                      '커뮤니티',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: SoriTokens.textPrimary,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
                 if (!_isSearching) ...[
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Row(
                         children: [
                           GestureDetector(
@@ -332,6 +318,20 @@ class _CommunityPageState extends State<CommunityPage> {
                     ),
                   ),
                 ],
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      '커뮤니티',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: SoriTokens.textPrimary,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
                 if (!_isDirector) const SliverToBoxAdapter(child: _CommunityViewerBanner()),
                 SliverPersistentHeader(
                   pinned: true,

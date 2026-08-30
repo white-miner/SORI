@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/sori_date_picker.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../community_comments_section.dart';
 import 'post_header.dart';
 import 'post_view_data.dart';
 
-/// Desktop sticky sidebar — author, mentoring CTA, DB-backed comments.
+/// Desktop sticky sidebar — glass panel with author, mentoring, DB comments.
 class PostInteractionSidebar extends StatelessWidget {
   const PostInteractionSidebar({
     super.key,
@@ -23,44 +24,43 @@ class PostInteractionSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        border: Border(
-          left: BorderSide(
-            color: SoriTokens.outlinePurple.withValues(alpha: 0.55),
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          PostHeader(data: data, dense: true),
-          if (data.hasActiveMentoring && onMentoring != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: FilledButton.icon(
-                onPressed: onMentoring,
-                style: FilledButton.styleFrom(
-                  backgroundColor: SoriTokens.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.people_alt_outlined, size: 18),
-                label: const Text(
-                  '멘토링 요청',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+      child: SoriGlassPanel(
+        borderRadius: 20,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PostHeader(data: data, dense: true),
+            if (data.hasActiveMentoring && onMentoring != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: FilledButton.icon(
+                  onPressed: onMentoring,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: const Icon(Icons.people_alt_outlined, size: 18),
+                  label: const Text(
+                    '멘토링 요청',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
               ),
+            Divider(
+              height: 1,
+              color: SoriTokens.outlinePurple.withValues(alpha: 0.35),
             ),
-          const Divider(height: 1),
-          Expanded(
-            child: CommunityCommentsSection(
-              store: store,
-              postId: postId,
-              embeddedInSidebar: true,
+            Expanded(
+              child: CommunityCommentsSection(
+                store: store,
+                postId: postId,
+                embeddedInSidebar: true,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
