@@ -15,6 +15,7 @@ class FeedMediaCarousel extends StatefulWidget {
     this.onDoubleTap,
     this.heroTag,
     this.topTrailing,
+    this.imageFit = BoxFit.cover,
   });
 
   final List<FeedMediaSlide> slides;
@@ -24,6 +25,7 @@ class FeedMediaCarousel extends StatefulWidget {
   final VoidCallback? onDoubleTap;
   final String? heroTag;
   final Widget? topTrailing;
+  final BoxFit imageFit;
 
   @override
   State<FeedMediaCarousel> createState() => _FeedMediaCarouselState();
@@ -181,11 +183,13 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
           url: slide.beforeUrl,
           fallbackLabel: 'Before',
           tone: SoriTokens.primary,
+          fit: widget.imageFit,
         ),
         after: ChartImagePane(
           url: slide.afterUrl,
           fallbackLabel: 'After',
           tone: SoriTokens.textSecondary,
+          fit: widget.imageFit,
         ),
       );
     }
@@ -205,7 +209,7 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox.expand(
-        child: SoriNetworkImage(url: url, fit: BoxFit.cover),
+        child: SoriNetworkImage(url: url, fit: widget.imageFit),
       ),
     );
   }

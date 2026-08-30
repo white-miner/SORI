@@ -177,11 +177,13 @@ class ChartImagePane extends StatelessWidget {
     required this.url,
     required this.fallbackLabel,
     required this.tone,
+    this.fit = BoxFit.cover,
   });
 
   final String? url;
   final String fallbackLabel;
   final Color tone;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +199,7 @@ class ChartImagePane extends StatelessWidget {
 
     return Image.network(
       resolved,
-      fit: BoxFit.cover,
+      fit: fit,
       width: double.infinity,
       height: double.infinity,
       alignment: Alignment.center,

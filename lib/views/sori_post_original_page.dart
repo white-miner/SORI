@@ -6,10 +6,12 @@ import '../widgets/community_comments_section.dart';
 import '../widgets/post/post_action_row.dart';
 import '../widgets/post/post_ai_content.dart';
 import '../widgets/post/post_header.dart';
+import '../widgets/post/post_interaction_sidebar.dart';
+import '../widgets/post/post_layout_breakpoints.dart';
 import '../widgets/post/post_media_section.dart';
 import '../widgets/post/post_view_data.dart';
 
-/// Tier C — full post detail with comments expanded on mount.
+/// Tier C — full post detail; desktop ≥1024px uses split-pane + sticky comments.
 class SoriPostOriginalPage extends StatefulWidget {
   const SoriPostOriginalPage({
     super.key,
@@ -64,6 +66,19 @@ class SoriPostOriginalPage extends StatefulWidget {
 }
 
 class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
+  final _mobileCommentsKey = GlobalKey();
+
+  void _scrollToComments() {
+    final ctx = _mobileCommentsKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -99,77 +114,257 @@ class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PostHeader(data: data),
-            PostMediaSection(
-              slides: data.mediaSlides,
-              heroTag: data.heroTag,
-              maxHeight: 420,
-            ),
-            if (data.bodyText.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Text(
-                  data.bodyText.trim(),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.45,
-                    fontWeight: FontWeight.w600,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-              ),
-            PostAiContent(
-              data: data,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            ),
-            PostActionRow(
-              liked: widget.liked,
-              bookmarked: widget.bookmarked,
-              likeCount: data.likeCount,
-              commentCount: data.commentCount,
-              showMentoring: data.hasActiveMentoring,
-              onLike: widget.onLike ?? () {},
-              onComment: widget.onComment ?? () {},
-              onBookmark: widget.onBookmark ?? () {},
-              onMentoring: widget.onMentoring,
-            ),
-            const Divider(height: 24),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                '댓글 및 추가 정보',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: SoriTokens.textPrimary,
-                ),
-              ),
-            ),
-            if (postId != null)
-              CommunityCommentsSection(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop =
+              PostLayoutBreakpoints.isDesktopLayout(constraints.maxWidth);
+
+          if (isDesktop) {
+            if (postId != null) {
+              return _DesktopSplitBody(
+                height: constraints.maxHeight,
+                data: data,
                 store: widget.store,
                 postId: postId,
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                child: Text(
-                  data.kind == PostViewKind.ba
-                      ? 'B/A 케이스 댓글은 홈 피드에서 확인할 수 있어요.'
-                      : '댓글을 불러올 수 없어요.',
-                  style: const TextStyle(
-                    color: SoriTokens.textSecondary,
-                    fontWeight: FontWeight.w600,
+                liked: widget.liked,
+                bookmarked: widget.bookmarked,
+                onLike: widget.onLike ?? () {},
+                onComment: widget.onComment ?? _scrollToComments,
+                onBookmark: widget.onBookmark ?? () {},
+                onMentoring: widget.onMentoring,
+              );
+            }
+            return SingleChildScrollView(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: PostLayoutBreakpoints.contentMaxWidth,
+                  ),
+                  child: _PostMainColumn(
+                    data: data,
+                    includeHeader: true,
+                    imageFit: BoxFit.contain,
+                    liked: widget.liked,
+                    bookmarked: widget.bookmarked,
+                    onLike: widget.onLike ?? () {},
+                    onComment: widget.onComment ?? _scrollToComments,
+                    onBookmark: widget.onBookmark ?? () {},
+                    onMentoring: widget.onMentoring,
                   ),
                 ),
               ),
-          ],
-        ),
+            );
+          }
+
+          return _MobileStackBody(
+            data: data,
+            store: widget.store,
+            postId: postId,
+            commentsKey: _mobileCommentsKey,
+            liked: widget.liked,
+            bookmarked: widget.bookmarked,
+            onLike: widget.onLike ?? () {},
+            onComment: widget.onComment ?? _scrollToComments,
+            onBookmark: widget.onBookmark ?? () {},
+            onMentoring: widget.onMentoring,
+          );
+        },
       ),
+    );
+  }
+}
+
+class _DesktopSplitBody extends StatelessWidget {
+  const _DesktopSplitBody({
+    required this.height,
+    required this.data,
+    required this.store,
+    required this.postId,
+    required this.liked,
+    required this.bookmarked,
+    required this.onLike,
+    required this.onComment,
+    required this.onBookmark,
+    this.onMentoring,
+  });
+
+  final double height;
+  final PostViewData data;
+  final SoriStore store;
+  final String postId;
+  final bool liked;
+  final bool bookmarked;
+  final VoidCallback onLike;
+  final VoidCallback onComment;
+  final VoidCallback onBookmark;
+  final VoidCallback? onMentoring;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: PostLayoutBreakpoints.contentMaxWidth,
+                ),
+                child: _PostMainColumn(
+                  data: data,
+                  includeHeader: false,
+                  imageFit: BoxFit.contain,
+                  liked: liked,
+                  bookmarked: bookmarked,
+                  onLike: onLike,
+                  onComment: onComment,
+                  onBookmark: onBookmark,
+                  onMentoring: onMentoring,
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(
+          width: PostLayoutBreakpoints.sidebarWidth,
+          height: height,
+          child: PostInteractionSidebar(
+            data: data,
+            store: store,
+            postId: postId,
+            onMentoring: onMentoring,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileStackBody extends StatelessWidget {
+  const _MobileStackBody({
+    required this.data,
+    required this.store,
+    required this.postId,
+    required this.commentsKey,
+    required this.liked,
+    required this.bookmarked,
+    required this.onLike,
+    required this.onComment,
+    required this.onBookmark,
+    this.onMentoring,
+  });
+
+  final PostViewData data;
+  final SoriStore store;
+  final String? postId;
+  final GlobalKey commentsKey;
+  final bool liked;
+  final bool bookmarked;
+  final VoidCallback onLike;
+  final VoidCallback onComment;
+  final VoidCallback onBookmark;
+  final VoidCallback? onMentoring;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PostMainColumn(
+            data: data,
+            includeHeader: true,
+            liked: liked,
+            bookmarked: bookmarked,
+            onLike: onLike,
+            onComment: onComment,
+            onBookmark: onBookmark,
+            onMentoring: onMentoring,
+          ),
+          if (postId != null) ...[
+            const Divider(height: 24),
+            KeyedSubtree(
+              key: commentsKey,
+              child: CommunityCommentsSection(
+                store: store,
+                postId: postId!,
+              ),
+            ),
+          ],
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+class _PostMainColumn extends StatelessWidget {
+  const _PostMainColumn({
+    required this.data,
+    required this.includeHeader,
+    required this.liked,
+    required this.bookmarked,
+    required this.onLike,
+    required this.onComment,
+    required this.onBookmark,
+    this.onMentoring,
+    this.imageFit = BoxFit.cover,
+  });
+
+  final PostViewData data;
+  final bool includeHeader;
+  final bool liked;
+  final bool bookmarked;
+  final VoidCallback onLike;
+  final VoidCallback onComment;
+  final VoidCallback onBookmark;
+  final VoidCallback? onMentoring;
+  final BoxFit imageFit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (includeHeader) PostHeader(data: data),
+        PostMediaSection(
+          slides: data.mediaSlides,
+          heroTag: data.heroTag,
+          maxHeight: 420,
+          imageFit: imageFit,
+        ),
+        if (data.bodyText.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Text(
+              data.bodyText.trim(),
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.textPrimary,
+              ),
+            ),
+          ),
+        PostAiContent(
+          data: data,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        ),
+        PostActionRow(
+          liked: liked,
+          bookmarked: bookmarked,
+          likeCount: data.likeCount,
+          commentCount: data.commentCount,
+          showMentoring: data.hasActiveMentoring && includeHeader,
+          onLike: onLike,
+          onComment: onComment,
+          onBookmark: onBookmark,
+          onMentoring: onMentoring,
+        ),
+      ],
     );
   }
 }

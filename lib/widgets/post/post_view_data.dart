@@ -96,6 +96,9 @@ class PostViewData {
 
   String? get commentPostId {
     if (post != null) return post!.id;
+    if (kind == PostViewKind.ba && caseItem != null) return caseItem!.chart.id;
+    final linked = linkedChartId?.trim();
+    if (linked != null && linked.isNotEmpty) return linked;
     return null;
   }
 

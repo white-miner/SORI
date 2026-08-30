@@ -16,6 +16,7 @@ class PostMediaSection extends StatelessWidget {
     this.heroTag,
     this.onOpenDetail,
     this.compact = false,
+    this.imageFit = BoxFit.cover,
   });
 
   final List<FeedMediaSlide> slides;
@@ -24,6 +25,7 @@ class PostMediaSection extends StatelessWidget {
   final String? heroTag;
   final VoidCallback? onOpenDetail;
   final bool compact;
+  final BoxFit imageFit;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class PostMediaSection extends StatelessWidget {
         aspectRatio: aspectRatio,
         maxHeight: compact ? 120 : maxHeight,
         heroTag: heroTag,
+        imageFit: imageFit,
         onTap: () => FullScreenImageOverlay.show(context, slides: slides),
         onDoubleTap: onOpenDetail,
       ),

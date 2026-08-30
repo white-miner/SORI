@@ -14,10 +14,12 @@ class CommunityCommentsSection extends StatefulWidget {
     super.key,
     required this.store,
     required this.postId,
+    this.embeddedInSidebar = false,
   });
 
   final SoriStore store;
   final String postId;
+  final bool embeddedInSidebar;
 
   @override
   State<CommunityCommentsSection> createState() =>
@@ -111,6 +113,101 @@ class _CommunityCommentsSectionState extends State<CommunityCommentsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final titlePad = widget.embeddedInSidebar
+        ? const EdgeInsets.fromLTRB(14, 12, 14, 6)
+        : const EdgeInsets.fromLTRB(14, 8, 14, 6);
+
+    final listSection = _loading
+        ? const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        : _roots.isEmpty
+            ? Padding(
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  4,
+                  14,
+                  widget.embeddedInSidebar ? 12 : 12,
+                ),
+                child: const Text(
+                  '첫 댓글로 소통을 시작해 보세요',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: SoriTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            : widget.embeddedInSidebar
+                ? ListView(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    children: _roots.map(_buildThread).toList(),
+                  )
+                : Column(
+                    children: _roots.map(_buildThread).toList(),
+                  );
+
+    final inputRow = Padding(
+      padding: EdgeInsets.fromLTRB(12, 0, 12, widget.embeddedInSidebar ? 8 : 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _ctrl,
+              minLines: 1,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: '의견을 남겨 주세요',
+                isDense: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: _sending ? null : _send,
+            style: IconButton.styleFrom(
+              backgroundColor: SoriTokens.primary,
+            ),
+            icon: _sending
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.send_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embeddedInSidebar) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: titlePad,
+            child: const Text(
+              '댓글',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+            ),
+          ),
+          if (_replyToId != null) _replyBanner(),
+          Expanded(child: listSection),
+          inputRow,
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -121,92 +218,37 @@ class _CommunityCommentsSectionState extends State<CommunityCommentsSection> {
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
           ),
         ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          )
-        else if (_roots.isEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(14, 4, 14, 12),
-            child: Text(
-              '첫 댓글로 소통을 시작해 보세요',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: SoriTokens.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          )
-        else
-          ..._roots.map(_buildThread),
-        if (_replyToId != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_replyToName ?? '댓글'}에 답글',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: SoriTokens.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _replyToId = null;
-                    _replyToName = null;
-                  }),
-                  child: const Text('취소', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-          ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _ctrl,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: '의견을 남겨 주세요',
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: _sending ? null : _send,
-                style: IconButton.styleFrom(
-                  backgroundColor: SoriTokens.primary,
-                ),
-                icon: _sending
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded, size: 18),
-              ),
-            ],
-          ),
-        ),
+        listSection,
+        if (_replyToId != null) _replyBanner(),
+        inputRow,
       ],
+    );
+  }
+
+  Widget _replyBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${_replyToName ?? '댓글'}에 답글',
+              style: const TextStyle(
+                fontSize: 12,
+                color: SoriTokens.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => setState(() {
+              _replyToId = null;
+              _replyToName = null;
+            }),
+            child: const Text('취소', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
     );
   }
 
