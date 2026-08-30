@@ -14,6 +14,9 @@ import '../utils/post_author.dart';
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
+import '../crm_kernel/crm_store.dart';
+import '../crm_kernel/models/care_schedule_entry.dart';
+import '../crm_kernel/messaging/sori_platform_alimtalk.dart';
 import 'unified_feed_engine.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
@@ -116,7 +119,7 @@ class SoriStore implements Listenable {
   /// Community 허브 탭: 0 전체 · 1 팔로잉 · 2 탐색.
   int? pendingCommunityHubTab;
 
-  /// 원장 「고객」허브 세그먼트: 0 고객 · 1 리뷰.
+  /// 원장 「고객」허브 세그먼트: 0 Today · 1 고객 · 2 리뷰.
   int? pendingCustomerHubSegment;
 
   /// GNB 탭 (0=홈 … 4=마이) — 루트 오버레이에서 셸로 전환할 때.
@@ -176,8 +179,132 @@ class SoriStore implements Listenable {
   /// 원장 GNB 「고객」→ 리뷰 세그먼트.
   void requestCustomerReviews() {
     pendingAppTab = 1;
-    pendingCustomerHubSegment = 1;
+    pendingCustomerHubSegment = 2;
     _notify();
+  }
+
+  /// CRM Kernel facade (Phase CRM-1).
+  CrmStore get crm => _crmStore ??= CrmStore(this);
+
+  DateTime? _careScheduleLoadedAt;
+
+  Future<void> refreshCareScheduleEntries({bool force = false}) async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) {
+      careScheduleEntries = [];
+      _notify();
+      return;
+    }
+    if (!force &&
+        _careScheduleLoadedAt != null &&
+        DateTime.now().difference(_careScheduleLoadedAt!) <
+            const Duration(minutes: 2) &&
+        careScheduleEntries.isNotEmpty) {
+      return;
+    }
+    try {
+      final now = DateTime.now();
+      final from = DateTime(now.year, now.month, now.day - 7);
+      final to = DateTime(now.year, now.month, now.day + 30, 23, 59, 59);
+      careScheduleEntries = await _repository.loadCareScheduleEntries(
+        sid,
+        from: from,
+        to: to,
+      );
+      _careScheduleLoadedAt = DateTime.now();
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshCareScheduleEntries failed: $e\n$st');
+    }
+  }
+
+  Future<CareScheduleEntry> addManualCareSchedule({
+    required DateTime scheduledAt,
+    required String customerName,
+    String? customerId,
+    String? customerPhone,
+    String careLabel = '',
+    String note = '',
+  }) async {
+    final sid = shop.id.trim();
+    final entry = CareScheduleEntry(
+      id: 'sched-${DateTime.now().microsecondsSinceEpoch}',
+      shopId: sid,
+      scheduledAt: scheduledAt,
+      customerName: customerName.trim(),
+      customerId: customerId?.trim(),
+      customerPhone: customerPhone?.trim(),
+      careLabel: careLabel.trim(),
+      note: note.trim(),
+      source: CareScheduleSource.manual,
+      status: CareScheduleStatus.scheduled,
+      createdAt: DateTime.now(),
+    );
+    final saved = await _repository.upsertCareScheduleEntry(entry);
+    careScheduleEntries = [...careScheduleEntries, saved]
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    _notify();
+    return saved;
+  }
+
+  Future<CareScheduleEntry> submitCareScheduleLead({
+    required String shopId,
+    required String customerName,
+    required String customerPhone,
+    required DateTime preferredAt,
+    String careLabel = '',
+    String note = '',
+  }) async {
+    final entry = CareScheduleEntry(
+      id: 'lead-${DateTime.now().microsecondsSinceEpoch}',
+      shopId: shopId.trim(),
+      scheduledAt: preferredAt,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      careLabel: careLabel.trim(),
+      note: note.trim(),
+      source: CareScheduleSource.customerLead,
+      status: CareScheduleStatus.scheduled,
+      createdAt: DateTime.now(),
+    );
+    final saved = await _repository.upsertCareScheduleEntry(entry);
+    if (shopId.trim() == shop.id.trim()) {
+      careScheduleEntries = [...careScheduleEntries, saved]
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      _notify();
+    }
+    return saved;
+  }
+
+  Future<void> updateCareScheduleStatus(
+    String entryId,
+    CareScheduleStatus status,
+  ) async {
+    await _repository.updateCareScheduleStatus(entryId, status);
+    final idx = careScheduleEntries.indexWhere((e) => e.id == entryId);
+    if (idx >= 0) {
+      careScheduleEntries[idx] =
+          careScheduleEntries[idx].copyWith(status: status);
+      _notify();
+    }
+  }
+
+  /// SORI 중앙 채널 알림톡 — mock bridge (Real API Phase CRM-1 structure).
+  Future<bool> sendPlatformAlimtalk(SoriPlatformAlimtalkMessage message) async {
+    try {
+      final content = message.variables.entries
+          .map((e) => '${e.key}=${e.value}')
+          .join(' ');
+      await sendKakaoAlimtalk(
+        customerPhone: message.recipientPhone,
+        templateCode: message.templateCode,
+        content: '[${SoriPlatformAlimtalk.channelName}] $content',
+      );
+      return true;
+    } catch (e, st) {
+      debugPrint('sendPlatformAlimtalk failed: $e\n$st');
+      return false;
+    }
   }
 
   void openCommentPanel(String postId) {
@@ -261,6 +388,8 @@ class SoriStore implements Listenable {
   SessionUser? session;
   bool shopRegisteredByUser = false;
   final List<Customer> customers = [];
+  List<CareScheduleEntry> careScheduleEntries = [];
+  CrmStore? _crmStore;
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];

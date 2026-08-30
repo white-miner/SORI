@@ -8,7 +8,6 @@ import '../routing/sori_router.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_card.dart';
 import '../widgets/sori_crm_status_avatar.dart';
-import '../widgets/today_care_schedule_panel.dart';
 import 'add_customer_sheet.dart';
 import 'customer_merge_wizard.dart';
 import 'request_customer_review.dart';
@@ -371,12 +370,6 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
               parent: AlwaysScrollableScrollPhysics(),
             ),
             slivers: [
-              SliverToBoxAdapter(
-                child: TodayCareSchedulePanel(
-                  store: widget.store,
-                  slim: true,
-                ),
-              ),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _CrmStickyToolbarDelegate(

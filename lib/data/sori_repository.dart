@@ -39,6 +39,7 @@ import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/subscription.dart';
 import '../models/whisper.dart';
+import '../crm_kernel/models/care_schedule_entry.dart';
 import 'auth_role_resolution.dart';
 
 export 'auth_role_resolution.dart';
@@ -835,4 +836,18 @@ abstract class SoriRepository {
   Future<Set<String>> loadMyChartLikeIds({required String likerKey});
 
   Future<Map<String, int>> loadChartLikeCounts(List<String> chartIds);
+
+  /// Today Care Board — manual + customer lead schedules (096).
+  Future<List<CareScheduleEntry>> loadCareScheduleEntries(
+    String shopId, {
+    DateTime? from,
+    DateTime? to,
+  });
+
+  Future<CareScheduleEntry> upsertCareScheduleEntry(CareScheduleEntry entry);
+
+  Future<void> updateCareScheduleStatus(
+    String entryId,
+    CareScheduleStatus status,
+  );
 }

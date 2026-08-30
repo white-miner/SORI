@@ -46,6 +46,7 @@ import '../models/shop_tier_badge.dart';
 import '../models/subscription.dart';
 import '../models/whisper.dart';
 import '../services/supabase_client.dart';
+import '../crm_kernel/models/care_schedule_entry.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
 import 'sori_repository.dart';
@@ -5170,6 +5171,74 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('loadChartLikeCounts failed: $e\n$st');
       return const {};
+    }
+  }
+
+  @override
+  Future<List<CareScheduleEntry>> loadCareScheduleEntries(
+    String shopId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      var query = _db
+          .from('care_schedule_entries')
+          .select()
+          .eq('shop_id', sid);
+      if (from != null) {
+        query = query.gte('scheduled_at', from.toUtc().toIso8601String());
+      }
+      if (to != null) {
+        query = query.lte('scheduled_at', to.toUtc().toIso8601String());
+      }
+      final rows = await query.order('scheduled_at');
+      return (rows as List)
+          .map(
+            (e) => CareScheduleEntry.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadCareScheduleEntries failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<CareScheduleEntry> upsertCareScheduleEntry(
+    CareScheduleEntry entry,
+  ) async {
+    final payload = entry.toMap()..remove('created_at');
+    try {
+      final row = await _db
+          .from('care_schedule_entries')
+          .upsert(payload)
+          .select()
+          .single();
+      return CareScheduleEntry.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('upsertCareScheduleEntry failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateCareScheduleStatus(
+    String entryId,
+    CareScheduleStatus status,
+  ) async {
+    final id = entryId.trim();
+    if (id.isEmpty) return;
+    try {
+      await _db
+          .from('care_schedule_entries')
+          .update({'status': status.dbValue}).eq('id', id);
+    } catch (e, st) {
+      debugPrint('updateCareScheduleStatus failed: $e\n$st');
+      rethrow;
     }
   }
 }

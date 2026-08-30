@@ -20,6 +20,7 @@ import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/chart_signature_storage.dart';
 import '../services/sori_store.dart';
+import '../features/crm_charts/chart_publish_opt_in_sheet.dart';
 import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/db_map.dart';
@@ -143,7 +144,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
   final Set<String> _concerns = {};
   final Set<String> _homeCarePrescriptions = {};
   bool _saving = false;
-  bool _publishToCommunity = false;
   /// 서명 패드 포인터 활성 중 PageView 스와이프 잠금.
   bool _signaturePointerActive = false;
 
@@ -1501,7 +1501,16 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
           return d.isEmpty ? null : d;
         }(),
         infoViewConsent: _infoViewConsent,
-        publishToCommunity: _publishToCommunity && _consentPhoto,
+        publishToCommunity: false,
+      );
+
+      if (!mounted) return;
+
+      // PO 확정: Opt-in 커뮤니티 게시 — 저장 후 확인 시트.
+      await showChartPublishOptInSheet(
+        context,
+        store: widget.store,
+        chart: chart,
       );
 
       if (!mounted) return;
@@ -1745,31 +1754,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    value: _publishToCommunity,
-                    activeColor: SoriTokens.primary,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: const Text(
-                      '홈 탐색에 임상 공개',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _consentPhoto
-                          ? '고객 정보는 마스킹되고 Before/After·시술 요약이 홈 탐색에 노출됩니다'
-                          : '사진 공개 동의가 있을 때만 공개할 수 있어요',
-                      style: const TextStyle(fontSize: 11.5, height: 1.35),
-                    ),
-                    onChanged: _consentPhoto
-                        ? (v) => setState(
-                              () => _publishToCommunity = v ?? false,
-                            )
-                        : null,
-                  ),
                   const SizedBox(height: 6),
                   SizedBox(
                     width: double.infinity,

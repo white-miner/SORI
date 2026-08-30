@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
+import '../features/crm_today/today_care_board_page.dart';
 import 'director_customers_tab.dart';
 import 'director_review_manage_page.dart';
 
-/// 원장 GNB 「고객」— 고객 목록 + 케어 후기(리뷰) 세그먼트.
+/// 원장 GNB 「고객」— Today · 고객 · 리뷰 (Phase CRM-1).
 class DirectorCustomerHubPage extends StatefulWidget {
   const DirectorCustomerHubPage({super.key, required this.store});
 
@@ -29,10 +30,13 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
   @override
   void initState() {
     super.initState();
-    final initial = (store.pendingCustomerHubSegment ?? 0).clamp(0, 1);
+    final initial = (store.pendingCustomerHubSegment ?? 0).clamp(0, 2);
     store.pendingCustomerHubSegment = null;
-    _tabs = TabController(length: 2, vsync: this, initialIndex: initial);
+    _tabs = TabController(length: 3, vsync: this, initialIndex: initial);
     store.addListener(_onStore);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      store.crm.ensureScheduleLoaded();
+    });
   }
 
   @override
@@ -47,7 +51,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
     final pending = store.pendingCustomerHubSegment;
     if (pending != null) {
       store.pendingCustomerHubSegment = null;
-      final i = pending.clamp(0, 1);
+      final i = pending.clamp(0, 2);
       if (_tabs.index != i) {
         _tabs.animateTo(i);
       }
@@ -66,14 +70,15 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
             color: SoriTokens.background,
             child: SoriYoutubeTabBar(
               controller: _tabs,
-              labels: const ['고객', '리뷰'],
-              badges: [0, _reviewBadge],
+              labels: const ['Today', '고객', '리뷰'],
+              badges: [0, 0, _reviewBadge],
             ),
           ),
           Expanded(
             child: TabBarView(
               controller: _tabs,
               children: [
+                TodayCareBoardPage(store: store),
                 DirectorCustomersTab(store: store),
                 DirectorReviewManagePage(store: store),
               ],

@@ -37,6 +37,7 @@ import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
+import '../crm_kernel/models/care_schedule_entry.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
 import '../models/shop_highlight.dart';
@@ -4052,6 +4053,49 @@ class MemorySoriRepository implements SoriRepository {
       out[id] = _chartLikeCounts[id] ?? 0;
     }
     return out;
+  }
+
+  static final List<CareScheduleEntry> _careSchedules = [];
+
+  @override
+  Future<List<CareScheduleEntry>> loadCareScheduleEntries(
+    String shopId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final sid = shopId.trim();
+    return _careSchedules
+        .where((e) {
+          if (e.shopId != sid) return false;
+          if (from != null && e.scheduledAt.isBefore(from)) return false;
+          if (to != null && e.scheduledAt.isAfter(to)) return false;
+          return true;
+        })
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  }
+
+  @override
+  Future<CareScheduleEntry> upsertCareScheduleEntry(
+    CareScheduleEntry entry,
+  ) async {
+    final idx = _careSchedules.indexWhere((e) => e.id == entry.id);
+    if (idx >= 0) {
+      _careSchedules[idx] = entry;
+    } else {
+      _careSchedules.add(entry);
+    }
+    return entry;
+  }
+
+  @override
+  Future<void> updateCareScheduleStatus(
+    String entryId,
+    CareScheduleStatus status,
+  ) async {
+    final idx = _careSchedules.indexWhere((e) => e.id == entryId);
+    if (idx < 0) return;
+    _careSchedules[idx] = _careSchedules[idx].copyWith(status: status);
   }
 }
 

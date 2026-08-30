@@ -8,6 +8,7 @@ import '../theme/sori_tokens.dart';
 import '../views/admin_chart_page.dart';
 import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
+import '../features/crm_today/care_schedule_lead_page.dart';
 import '../views/care_report_page.dart';
 import '../views/community_page.dart';
 import '../views/customer_care_page.dart';
@@ -42,6 +43,10 @@ abstract final class AppPaths {
   static const appMy = '/app/my';
   static const review = '/review';
   static const careReport = '/care-report';
+  static const careRequest = '/care-request';
+
+  static String careScheduleLead(String shopId) =>
+      '$careRequest/${Uri.encodeComponent(shopId.trim())}';
   static const chartCreate = '/chart/create';
 
   static String customerDetail(String customerId) =>
@@ -74,6 +79,7 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
       // 딥링크(리뷰/케어/차트/고객프로필)는 셸 밖 — 가드 제외
       if (loc.startsWith(AppPaths.review) ||
           loc.startsWith(AppPaths.careReport) ||
+          loc.startsWith(AppPaths.careRequest) ||
           loc.startsWith('/chart') ||
           loc.startsWith('/customer/') ||
           loc.startsWith('/seminar/')) {
@@ -153,6 +159,14 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
               state.uri.queryParameters['id'] ??
               '';
           return CareReportPage(store: store, chartId: id);
+        },
+      ),
+      GoRoute(
+        path: '${AppPaths.careRequest}/:shopId',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final shopId = state.pathParameters['shopId'] ?? '';
+          return CareScheduleLeadPage(store: store, shopId: shopId);
         },
       ),
       GoRoute(
