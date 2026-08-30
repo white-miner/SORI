@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../visit_kernel/messaging/sori_platform_alimtalk.dart';
-import '../visit_kernel/theme/visit_glass_tokens.dart';
+import '../../visit_kernel/messaging/sori_platform_alimtalk.dart';
+import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../visit_kernel/widgets/visit_glass_widgets.dart';
