@@ -8,8 +8,7 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
-import '../widgets/glass/sori_glass_icon_button.dart';
-import '../widgets/glass/sori_glass_tokens.dart';
+import '../widgets/glass/sori_glass_app_bar_cluster.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
 import '../widgets/margin_scroll_forwarder.dart';
@@ -215,7 +214,6 @@ class _AppShellPageState extends State<AppShellPage> {
         // My 탭은 셸 AppBar(+ / 알림 / 보관함 / 설정)를 유지한다 (S-A).
         final hideShellAppBar = !wide && _isCustomerDetailRoute(context);
 
-        final onMy = tab == 4;
         final appBar = hideShellAppBar
             ? null
             : _ShellAppBar(
@@ -230,13 +228,9 @@ class _AppShellPageState extends State<AppShellPage> {
                     : null,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
-                onPostFirst: (tab == 0 || onMy)
-                    ? () => PostFirstCreationPage.open(context)
-                    : null,
-                onArchive: wide || tab == 0 || tab == 3 || onMy
-                    ? _openArchive
-                    : null,
-                onSettings: wide || onMy ? _openSettings : null,
+                onPostFirst: () => PostFirstCreationPage.open(context),
+                onArchive: _openArchive,
+                onSettings: _openSettings,
               );
 
         if (!wide) {
@@ -574,10 +568,10 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Row(
               children: [
                 if (showMenuButton)
-                  _FlatAppBarIcon(
+                  IconButton(
                     tooltip: '메뉴',
-                    icon: Icons.menu,
                     onPressed: onMenuTap ?? () {},
+                    icon: const Icon(Icons.menu_rounded, color: Colors.black87, size: 24),
                   ),
                 if (showLogo) ...[
                   Padding(
@@ -595,30 +589,34 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ],
                 const Spacer(),
-                if (onPostFirst != null)
-                  _FlatAppBarIcon(
-                    tooltip: '새 게시물',
-                    icon: Icons.add_outlined,
-                    onPressed: onPostFirst!,
-                  ),
-                _FlatAppBarIcon(
-                  tooltip: '알림',
-                  icon: Icons.notifications_none_outlined,
-                  onPressed: onNotifications,
-                  badgeCount: badgeCount,
+                SoriGlassAppBarCluster(
+                  items: [
+                    if (onPostFirst != null)
+                      SoriGlassAppBarItem(
+                        icon: Icons.add_rounded,
+                        tooltip: '새 게시물',
+                        onPressed: onPostFirst!,
+                      ),
+                    SoriGlassAppBarItem(
+                      icon: Icons.notifications_rounded,
+                      tooltip: '알림',
+                      onPressed: onNotifications,
+                      badgeCount: badgeCount,
+                    ),
+                    if (onArchive != null)
+                      SoriGlassAppBarItem(
+                        icon: Icons.inventory_2_rounded,
+                        tooltip: '보관함',
+                        onPressed: onArchive!,
+                      ),
+                    if (onSettings != null)
+                      SoriGlassAppBarItem(
+                        icon: Icons.settings_rounded,
+                        tooltip: '설정',
+                        onPressed: onSettings!,
+                      ),
+                  ],
                 ),
-                if (onArchive != null)
-                  _FlatAppBarIcon(
-                    tooltip: '보관함',
-                    icon: Icons.inventory_2_outlined,
-                    onPressed: onArchive!,
-                  ),
-                if (onSettings != null)
-                  _FlatAppBarIcon(
-                    tooltip: '설정',
-                    icon: Icons.settings_outlined,
-                    onPressed: onSettings!,
-                  ),
               ],
             ),
           ),
@@ -672,33 +670,6 @@ class _ShellLogoButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// AppBar glass icon cluster.
-class _FlatAppBarIcon extends StatelessWidget {
-  const _FlatAppBarIcon({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-    this.badgeCount = 0,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-  final int badgeCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return SoriGlassIconButton(
-      icon: icon,
-      onPressed: onPressed,
-      tooltip: tooltip,
-      badgeCount: badgeCount,
-      size: SoriGlassTokens.chipMd,
-      iconSize: 20,
     );
   }
 }
