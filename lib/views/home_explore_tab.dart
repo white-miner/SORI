@@ -12,6 +12,9 @@ import '../pages/case_detail_page.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/app_scroll_behavior.dart';
+import '../widgets/explore/explore_rich_info_card.dart';
+import '../widgets/glass/sori_glass_overlay.dart';
+import '../widgets/glass/sori_glass_tokens.dart';
 import '../utils/home_explore_search.dart';
 import '../widgets/official_badge.dart';
 import '../widgets/sori_network_image.dart';
@@ -19,7 +22,7 @@ import 'community_discover_pane.dart';
 import 'device_review_detail_page.dart';
 import 'explore_community_post_page.dart';
 
-/// 홈 · 탐색 — B/A 3열 + 원장 스트립 / 검색 시 게시물·프로필.
+/// 홈 · 탐색 — 2열 리치 카드 그리드 + 원장 스트립 / 검색 시 게시물·프로필.
 class HomeExploreTab extends StatefulWidget {
   const HomeExploreTab({
     super.key,
@@ -325,33 +328,48 @@ class _HomeExploreTabState extends State<HomeExploreTab>
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: _onQueryChanged,
-              style: const TextStyle(color: SoriTokens.textPrimary),
-              decoration: InputDecoration(
-                hintText: '케어·기기·샵·원장 검색',
-                hintStyle: const TextStyle(color: SoriTokens.textSecondary),
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                  color: SoriTokens.textSecondary,
+            child: SoriGlassOverlay(
+              borderRadius: BorderRadius.circular(16),
+              tier: SoriGlassTier.l1Surface,
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: _onQueryChanged,
+                style: const TextStyle(color: SoriTokens.textPrimary),
+                decoration: InputDecoration(
+                  hintText: '케어·기기·샵·원장 검색',
+                  hintStyle: const TextStyle(color: SoriTokens.textSecondary),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: SoriTokens.textSecondary,
+                  ),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _onQueryChanged('');
+                          },
+                        ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.55),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: SoriTokens.outlinePurple.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          _onQueryChanged('');
-                        },
-                      ),
-                filled: true,
-                fillColor: SoriTokens.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                isDense: true,
               ),
             ),
           ),
@@ -440,20 +458,23 @@ class _HomeExploreTabState extends State<HomeExploreTab>
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(2, 4, 2, 100 + bottomInset),
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 100 + bottomInset),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 2,
-                crossAxisSpacing: 2,
-                childAspectRatio: 0.78,
+                crossAxisCount: 2,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                childAspectRatio: 4 / 5,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, i) {
                   final cell = cells[i];
-                  return _BaThumbTile(
+                  return ExploreRichInfoCard(
                     imageUrl: cell.imageUrl,
-                    label: cell.label,
+                    title: cell.title,
+                    subtitle: cell.subtitle,
+                    authorName: cell.authorName,
+                    authorAvatarUrl: cell.authorAvatarUrl,
                     onTap: () {
                       if (cell.caseItem != null) {
                         _openCaseDetail(cell.caseItem!);
@@ -642,13 +663,33 @@ class _GridCell {
     return post?.primaryImageUrl ?? '';
   }
 
-  String get label {
+  String get title {
     if (caseItem != null) {
       final n = caseItem!.chart.careName.trim();
       return n.isEmpty ? 'B/A' : n;
     }
     final t = post?.title.trim() ?? '';
-    return t.isEmpty ? '케이스' : t;
+    if (t.isNotEmpty) return t;
+    return post?.postType.label ?? '케이스';
+  }
+
+  String get subtitle {
+    if (caseItem != null) {
+      final line = caseItem!.personaLine.trim();
+      if (line.isNotEmpty) return line;
+      return caseItem!.chart.concerns.trim();
+    }
+    return post?.body.trim() ?? '';
+  }
+
+  String get authorName {
+    if (caseItem != null) return caseItem!.displayAuthorNickname;
+    return post?.authorDisplayName ?? '';
+  }
+
+  String get authorAvatarUrl {
+    if (caseItem != null) return caseItem!.displayAuthorAvatarUrl;
+    return post?.shopAvatarUrl?.trim() ?? '';
   }
 }
 
@@ -669,12 +710,9 @@ class _SegmentChip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? SoriTokens.primarySoft : SoriTokens.surfaceOverlay,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active ? SoriTokens.primary : Colors.transparent,
-          ),
+        decoration: SoriGlassTokens.pseudoChipDecoration(
+          radius: 20,
+          active: active,
         ),
         child: Text(
           label,
@@ -774,68 +812,6 @@ class _DirectorStrip extends StatelessWidget {
         ),
         const SizedBox(height: 8),
       ],
-    );
-  }
-}
-
-class _BaThumbTile extends StatelessWidget {
-  const _BaThumbTile({
-    required this.imageUrl,
-    required this.label,
-    required this.onTap,
-  });
-
-  final String imageUrl;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: SoriTokens.surfaceOverlay,
-      child: InkWell(
-        onTap: onTap,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageUrl.isNotEmpty)
-              SoriNetworkImage(url: imageUrl, fit: BoxFit.cover)
-            else
-              const ColoredBox(color: SoriTokens.surfaceOverlay),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.65),
-                    ],
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 18, 6, 6),
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
