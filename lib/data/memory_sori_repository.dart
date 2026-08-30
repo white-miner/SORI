@@ -2350,6 +2350,50 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   @override
+  Future<CommunityPost> updateCommunityPost({
+    required String postId,
+    String? body,
+    String? title,
+  }) async {
+    final idx = _communityPosts.indexWhere((e) => e.id == postId);
+    if (idx < 0) throw StateError('post not found');
+    final old = _communityPosts[idx];
+    final next = CommunityPost(
+      id: old.id,
+      shopId: old.shopId,
+      authorUserId: old.authorUserId,
+      postType: old.postType,
+      title: title ?? old.title,
+      body: body ?? old.body,
+      styleTags: old.styleTags,
+      regionCode: old.regionCode,
+      likeCount: old.likeCount,
+      commentCount: old.commentCount,
+      saveCount: old.saveCount,
+      media: old.media,
+      tags: old.tags,
+      listing: old.listing,
+      deviceReview: old.deviceReview,
+      createdAt: old.createdAt,
+      shopName: old.shopName,
+      shopOwnerName: old.shopOwnerName,
+      shopAvatarUrl: old.shopAvatarUrl,
+      tierBadge: old.tierBadge,
+      businessVerified: old.businessVerified,
+      visibility: old.visibility,
+      sourceChartId: old.sourceChartId,
+      isBodyLocked: old.isBodyLocked,
+      unlockCost: old.unlockCost,
+      isWhisper: old.isWhisper,
+      audienceOp: old.audienceOp,
+      whisperRecipientCount: old.whisperRecipientCount,
+      aiContent: old.aiContent,
+    );
+    _communityPosts[idx] = next;
+    return next;
+  }
+
+  @override
   Future<List<CommunityComment>> loadCommunityComments(String postId) async {
     final flat =
         _communityCommentsFlat.where((c) => c.postId == postId).toList();

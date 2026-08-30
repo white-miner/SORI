@@ -5,7 +5,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show User;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../widgets/post/post_view_data.dart';
+import '../utils/post_author.dart';
 
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
@@ -265,6 +269,10 @@ class SoriStore implements Listenable {
   final List<ShopPost> shopPosts = [];
   final List<CommunityPost> communityPosts = [];
   bool communityPostsLoading = false;
+  final Set<String> hiddenFeedKeys = {};
+  final Set<String> blockedAuthorKeys = {};
+  static const _kHiddenFeedPrefs = 'sori_hidden_feed_v1';
+  static const _kBlockedAuthorsPrefs = 'sori_blocked_authors_v1';
   final Set<String> reviewRequestedCustomerIds = {};
   final List<ReviewRequestEvent> reviewRequestEvents = [];
   bool reviewRequestEventsLoading = false;
@@ -402,6 +410,7 @@ class SoriStore implements Listenable {
       _notify();
       unawaited(refreshMembershipWallet());
       unawaited(refreshSeminarClasses());
+      unawaited(_loadFeedModerationPrefs());
     }
   }
 
@@ -2800,7 +2809,7 @@ class SoriStore implements Listenable {
   ) {
     switch (filter) {
       case CommunityFeedFilter.all:
-        return List<UnifiedFeedItem>.from(unifiedCommunityFeed);
+        return _visibleUnifiedFeedItems(unifiedCommunityFeed);
       case CommunityFeedFilter.whisper:
         final viewerId = session?.id;
         final ids = <String>{};
@@ -2812,26 +2821,27 @@ class SoriStore implements Listenable {
           }
         }
         out.sort((a, b) => b.sortAt.compareTo(a.sortAt));
-        return out;
+        return _visibleUnifiedFeedItems(out);
       default:
         final items = _rawUnifiedFeedItems
             .where((e) => e.matchesFilter(filter))
             .toList()
           ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
-        return items;
+        return _visibleUnifiedFeedItems(items);
     }
   }
 
   /// Latest posts for Community horizontal strip.
   List<UnifiedFeedItem> recentUnifiedFeedItems({int limit = 12}) {
-    final sorted = List<UnifiedFeedItem>.from(unifiedCommunityFeed)
+    final sorted = _visibleUnifiedFeedItems(unifiedCommunityFeed)
       ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
     return sorted.take(limit).toList(growable: false);
   }
 
   /// Home SORI Spot — boosted first, then popular by engagement proxy.
   List<UnifiedFeedItem> spotlightMiniFeedItems({int limit = 10}) {
-    if (unifiedCommunityFeed.isEmpty) return const [];
+    final visible = _visibleUnifiedFeedItems(unifiedCommunityFeed);
+    if (visible.isEmpty) return const [];
 
     int score(UnifiedFeedItem item) {
       if (item.isBoosted) return 10000;
@@ -2842,7 +2852,7 @@ class SoriStore implements Listenable {
       };
     }
 
-    final ranked = List<UnifiedFeedItem>.from(unifiedCommunityFeed)
+    final ranked = List<UnifiedFeedItem>.from(visible)
       ..sort((a, b) {
         final byScore = score(b).compareTo(score(a));
         if (byScore != 0) return byScore;
@@ -2891,8 +2901,10 @@ class SoriStore implements Listenable {
       return parts.any((s) => s.trim().toLowerCase().contains(q));
     }
 
-    return _rawUnifiedFeedItems.where(matches).toList()
-      ..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+    return _visibleUnifiedFeedItems(
+      _rawUnifiedFeedItems.where(matches).toList()
+        ..sort((a, b) => b.sortAt.compareTo(a.sortAt)),
+    );
   }
 
   bool _isWhisperVisibleToViewer(CommunityPost post, String? viewerId) {
@@ -4741,8 +4753,201 @@ class SoriStore implements Listenable {
     }
     await _repository.deleteCommunityPost(id);
     communityPosts.removeWhere((e) => e.id == id);
+    unifiedCommunityFeed.removeWhere(
+      (e) => e.post?.id == id,
+    );
+    _rebuildHomeFeedEntries();
     _notify();
     return true;
+  }
+
+  Future<void> _loadFeedModerationPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      hiddenFeedKeys
+        ..clear()
+        ..addAll(prefs.getStringList(_kHiddenFeedPrefs) ?? const []);
+      blockedAuthorKeys
+        ..clear()
+        ..addAll(prefs.getStringList(_kBlockedAuthorsPrefs) ?? const []);
+      _notify();
+    } catch (e) {
+      debugPrint('_loadFeedModerationPrefs failed: $e');
+    }
+  }
+
+  Future<void> _persistFeedModerationPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kHiddenFeedPrefs, hiddenFeedKeys.toList());
+      await prefs.setStringList(
+        _kBlockedAuthorsPrefs,
+        blockedAuthorKeys.toList(),
+      );
+    } catch (e) {
+      debugPrint('_persistFeedModerationPrefs failed: $e');
+    }
+  }
+
+  bool isFeedPostVisible(PostViewData data) {
+    if (hiddenFeedKeys.contains(data.stableKey)) return false;
+    final blockKey = PostAuthor.blockKey(data);
+    if (blockKey != null && blockedAuthorKeys.contains(blockKey)) {
+      return false;
+    }
+    return true;
+  }
+
+  bool isUnifiedFeedItemVisible(UnifiedFeedItem item) {
+    return isFeedPostVisible(PostViewData.fromUnifiedFeedItem(item));
+  }
+
+  bool isHomeFeedEntryVisible(HomeFeedEntry entry) {
+    return isFeedPostVisible(PostViewData.fromHomeFeedEntry(entry));
+  }
+
+  List<UnifiedFeedItem> _visibleUnifiedFeedItems(List<UnifiedFeedItem> items) {
+    return items
+        .where(isUnifiedFeedItemVisible)
+        .toList(growable: false);
+  }
+
+  List<HomeFeedEntry> visibleHomeFeedEntries() {
+    return homeFeedEntries
+        .where(isHomeFeedEntryVisible)
+        .toList(growable: false);
+  }
+
+  String buildPostShareUrl(PostViewData data) {
+    final base = buildAppEntryUrl();
+    return '${base}?post=${Uri.encodeComponent(data.stableKey)}';
+  }
+
+  Future<void> hideFeedPost(PostViewData data) async {
+    hiddenFeedKeys.add(data.stableKey);
+    unifiedCommunityFeed.removeWhere((e) {
+      final mapped = PostViewData.fromUnifiedFeedItem(e);
+      return mapped.stableKey == data.stableKey;
+    });
+    communityHotCases.removeWhere(
+      (c) => PostViewData.fromCaseItem(c).stableKey == data.stableKey,
+    );
+    _rebuildHomeFeedEntries();
+    await _persistFeedModerationPrefs();
+    _notify();
+  }
+
+  Future<void> blockFeedAuthor(PostViewData data) async {
+    final key = PostAuthor.blockKey(data);
+    if (key == null) return;
+    blockedAuthorKeys.add(key);
+    unifiedCommunityFeed.removeWhere((e) {
+      final mapped = PostViewData.fromUnifiedFeedItem(e);
+      return PostAuthor.blockKey(mapped) == key;
+    });
+    communityHotCases.removeWhere((c) {
+      final mapped = PostViewData.fromCaseItem(c);
+      return PostAuthor.blockKey(mapped) == key;
+    });
+    _rebuildHomeFeedEntries();
+    await _persistFeedModerationPrefs();
+    _notify();
+  }
+
+  Future<void> reportFeedPost(
+    PostViewData data, {
+    required String reason,
+  }) async {
+    debugPrint(
+      'feed_report stableKey=${data.stableKey} reason=$reason author=${PostAuthor.userId(data)}',
+    );
+    await hideFeedPost(data);
+  }
+
+  Future<bool> updateCommunityPostContent({
+    required String postId,
+    String? body,
+    String? title,
+  }) async {
+    final id = postId.trim();
+    if (id.isEmpty) return false;
+    try {
+      final updated = await _repository.updateCommunityPost(
+        postId: id,
+        body: body,
+        title: title,
+      );
+      final idx = communityPosts.indexWhere((e) => e.id == id);
+      if (idx >= 0) {
+        communityPosts[idx] = updated.copyWith(
+          shopName: communityPosts[idx].shopName,
+          shopOwnerName: communityPosts[idx].shopOwnerName,
+          shopAvatarUrl: communityPosts[idx].shopAvatarUrl,
+        );
+      }
+      for (var i = 0; i < unifiedCommunityFeed.length; i++) {
+        final item = unifiedCommunityFeed[i];
+        if (item.post?.id == id) {
+          unifiedCommunityFeed[i] = UnifiedFeedItem(
+            kind: item.kind,
+            id: item.id,
+            sortAt: item.sortAt,
+            caseItem: item.caseItem,
+            seminar: item.seminar,
+            post: updated.copyWith(
+              shopName: item.post!.shopName,
+              shopOwnerName: item.post!.shopOwnerName,
+              shopAvatarUrl: item.post!.shopAvatarUrl,
+            ),
+            isBoosted: item.isBoosted,
+          );
+        }
+      }
+      _rebuildHomeFeedEntries();
+      lastError = null;
+      _notify();
+      return true;
+    } catch (e, st) {
+      debugPrint('updateCommunityPostContent failed: $e\n$st');
+      _setError(e, userFacing: true);
+      _notify();
+      return false;
+    }
+  }
+
+  Future<bool> deletePostViewData(PostViewData data) async {
+    switch (data.kind) {
+      case PostViewKind.seminar:
+        return deleteSeminarClass(data.id);
+      case PostViewKind.ba:
+        final chartId = data.caseItem?.chart.id ?? data.id;
+        setManagementCaseShared(chartId, false);
+        communityHotCases.removeWhere((c) => c.chart.id == chartId);
+        CommunityPost? linked;
+        for (final p in communityPosts) {
+          if (p.sourceChartId == chartId) {
+            linked = p;
+            break;
+          }
+        }
+        if (linked != null) {
+          await removeCommunityPost(linked.id);
+        }
+        unifiedCommunityFeed.removeWhere((e) {
+          return e.caseItem?.chart.id == chartId;
+        });
+        _rebuildHomeFeedEntries();
+        _notify();
+        return true;
+      case PostViewKind.whisper:
+      case PostViewKind.interior:
+      case PostViewKind.deviceReview:
+      case PostViewKind.marketplace:
+        if (data.post != null) {
+          return removeCommunityPost(data.post!.id);
+        }
+        return false;
+    }
   }
 
   /// 관리 케이스 공개 공유 토글. SNS 마케팅 동의 없는 차트는 shared=true 거부.

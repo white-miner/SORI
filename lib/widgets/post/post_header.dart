@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../animated_booster_avatar.dart';
 import '../glass/sori_glass_icon_button.dart';
 import '../glass/sori_glass_tokens.dart';
 import '../official_badge.dart';
 import '../sori_logo.dart';
+import 'post_kebab_menu.dart';
 import 'post_view_data.dart';
 
 /// Shared post header — avatar, author, community path, time, hot + menu.
@@ -13,12 +15,14 @@ class PostHeader extends StatelessWidget {
   const PostHeader({
     super.key,
     required this.data,
+    this.store,
     this.onAvatarTap,
     this.onMore,
     this.dense = false,
   });
 
   final PostViewData data;
+  final SoriStore? store;
   final VoidCallback? onAvatarTap;
   final VoidCallback? onMore;
   final bool dense;
@@ -120,15 +124,43 @@ class PostHeader extends StatelessWidget {
                 color: SoriTokens.warningText,
               ),
             ),
-          SoriGlassIconButton(
-            icon: Icons.more_vert_rounded,
-            onPressed: onMore,
-            size: dense ? SoriGlassTokens.chipSm : SoriGlassTokens.chipMd,
-            iconSize: dense ? 18 : 20,
-            tooltip: '더보기',
-          ),
+          _buildMoreButton(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildMoreButton(BuildContext context) {
+    if (onMore != null || store == null) {
+      return SoriGlassIconButton(
+        icon: Icons.more_vert_rounded,
+        onPressed: onMore,
+        size: dense ? SoriGlassTokens.chipSm : SoriGlassTokens.chipMd,
+        iconSize: dense ? 18 : 20,
+        tooltip: '더보기',
+      );
+    }
+    return Builder(
+      builder: (btnCtx) {
+        return SoriGlassIconButton(
+          icon: Icons.more_vert_rounded,
+          onPressed: () {
+            final box = btnCtx.findRenderObject() as RenderBox?;
+            final anchor = box != null
+                ? box.localToGlobal(Offset.zero) & box.size
+                : null;
+            showPostKebabMenu(
+              btnCtx,
+              data: data,
+              store: store!,
+              anchor: anchor,
+            );
+          },
+          size: dense ? SoriGlassTokens.chipSm : SoriGlassTokens.chipMd,
+          iconSize: dense ? 18 : 20,
+          tooltip: '더보기',
+        );
+      },
     );
   }
 }

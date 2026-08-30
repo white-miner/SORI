@@ -52,8 +52,8 @@ class SoriPostMedium extends StatelessWidget {
         children: [
           PostHeader(
             data: data,
+            store: store,
             onAvatarTap: onShopProfile,
-            onMore: onShopProfile,
           ),
           if (data.bodyText.trim().isNotEmpty)
             Padding(

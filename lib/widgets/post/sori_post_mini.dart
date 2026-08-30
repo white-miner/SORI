@@ -159,7 +159,7 @@ class SoriPostMini extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        PostHeader(data: data, dense: true),
+        PostHeader(data: data, store: store, dense: true),
         _buildBodySection(context),
         PostAiContent(
           data: data,
@@ -174,7 +174,7 @@ class SoriPostMini extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PostHeader(data: data, dense: true),
+        PostHeader(data: data, store: store, dense: true),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -149,6 +149,7 @@ class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
                   ),
                   child: _PostMainColumn(
                     data: data,
+                    store: widget.store,
                     imageFit: BoxFit.contain,
                     liked: widget.liked,
                     bookmarked: widget.bookmarked,
@@ -233,6 +234,7 @@ class _DesktopSplitBody extends StatelessWidget {
                       child: _PostMainColumn(
                         // PO: Header always above media on left post column.
                         data: data,
+                        store: store,
                         imageFit: BoxFit.contain,
                         liked: liked,
                         bookmarked: bookmarked,
@@ -301,6 +303,7 @@ class _MobileStackBody extends StatelessWidget {
         children: [
           _PostMainColumn(
             data: data,
+            store: store,
             liked: liked,
             bookmarked: bookmarked,
             onLike: onLike,
@@ -330,6 +333,7 @@ class _MobileStackBody extends StatelessWidget {
 class _PostMainColumn extends StatelessWidget {
   const _PostMainColumn({
     required this.data,
+    required this.store,
     required this.liked,
     required this.bookmarked,
     required this.onLike,
@@ -341,6 +345,7 @@ class _PostMainColumn extends StatelessWidget {
   });
 
   final PostViewData data;
+  final SoriStore store;
   final bool liked;
   final bool bookmarked;
   final VoidCallback onLike;
@@ -363,7 +368,7 @@ class _PostMainColumn extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Item 1 — PostHeader
-            PostHeader(data: data),
+            PostHeader(data: data, store: store),
             // Item 2 — PostMedia
             PostMediaSection(
               slides: data.mediaSlides,

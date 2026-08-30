@@ -543,6 +543,12 @@ abstract class SoriRepository {
 
   Future<void> deleteCommunityPost(String postId);
 
+  Future<CommunityPost> updateCommunityPost({
+    required String postId,
+    String? body,
+    String? title,
+  });
+
   Future<List<CommunityComment>> loadCommunityComments(String postId);
 
   Future<CommunityComment> insertCommunityComment({

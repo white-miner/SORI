@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/community_post.dart';
 import '../models/customer_chart.dart';
+import '../models/omni_compose_category.dart';
 import '../models/seminar_class.dart';
 import '../models/session_user.dart';
 import '../models/whisper.dart';
@@ -13,33 +14,36 @@ import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/consent_publish_gate.dart';
 import '../utils/sori_nav.dart';
+import '../widgets/post/post_view_data.dart';
 import '../widgets/seminar_chart_picker_sheet.dart';
 import '../widgets/sori_insta_picker.dart';
 
-enum OmniComposeCategory {
-  whisper,
-  baShare,
-  seminar,
-  reviewMarket;
-
-  String get label => switch (this) {
-        OmniComposeCategory.whisper => 'Whisper',
-        OmniComposeCategory.baShare => 'B/A 공유',
-        OmniComposeCategory.seminar => '세미나 모집',
-        OmniComposeCategory.reviewMarket => '리뷰/중고',
-      };
-}
-
 /// Omni-Composer — category chips + adaptive form + real CRUD submit.
 class PostFirstCreationPage extends StatefulWidget {
-  const PostFirstCreationPage({super.key, this.store});
+  const PostFirstCreationPage({
+    super.key,
+    this.store,
+    this.editTarget,
+  });
 
   final SoriStore? store;
+  final PostViewData? editTarget;
 
   static Future<void> open(BuildContext context, {SoriStore? store}) {
     return pushRootPage<void>(
       context,
       PostFirstCreationPage(store: store),
+    );
+  }
+
+  static Future<void> openForEdit(
+    BuildContext context, {
+    required PostViewData data,
+    SoriStore? store,
+  }) {
+    return pushRootPage<void>(
+      context,
+      PostFirstCreationPage(store: store, editTarget: data),
     );
   }
 
@@ -78,6 +82,56 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
   void initState() {
     super.initState();
     _store = widget.store ?? SoriStore.instance;
+    _prefillFromEditTarget();
+  }
+
+  bool get _isEditing => widget.editTarget != null;
+
+  void _prefillFromEditTarget() {
+    final data = widget.editTarget;
+    if (data == null) return;
+    _category = switch (data.kind) {
+      PostViewKind.whisper => OmniComposeCategory.whisper,
+      PostViewKind.ba => OmniComposeCategory.baShare,
+      PostViewKind.seminar => OmniComposeCategory.seminar,
+      PostViewKind.interior ||
+      PostViewKind.deviceReview ||
+      PostViewKind.marketplace =>
+        OmniComposeCategory.reviewMarket,
+    };
+    switch (_category) {
+      case OmniComposeCategory.whisper:
+        _whisperBody.text = data.bodyText;
+      case OmniComposeCategory.baShare:
+        _baBody.text = data.bodyText;
+        _linkedChartId = data.linkedChartId ?? data.caseItem?.chart.id;
+      case OmniComposeCategory.seminar:
+        final s = data.seminar;
+        if (s != null) {
+          _seminarTitle.text = s.title;
+          _seminarPrice.text = '${s.price}';
+          _seminarCapacity.text = '${s.maxCapacity}';
+          _seminarCurriculum.text = s.description;
+          _seminarMaterials.text = s.providedMaterials.join(', ');
+          _linkedChartId = s.linkedChartId;
+          if (s.eventDate != null) {
+            _seminarDate = DateTime(
+              s.eventDate!.year,
+              s.eventDate!.month,
+              s.eventDate!.day,
+            );
+            _seminarTime = TimeOfDay(
+              hour: s.eventDate!.hour,
+              minute: s.eventDate!.minute,
+            );
+          }
+        }
+      case OmniComposeCategory.reviewMarket:
+        final p = data.post;
+        _reviewTitle.text = p?.title ?? '';
+        _reviewBody.text = data.bodyText;
+        _reviewPrice.text = p?.listing != null ? '${p!.listing!.price}' : '';
+    }
   }
 
   @override
@@ -219,21 +273,110 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
 
     setState(() => _submitting = true);
     try {
-      switch (_category) {
-        case OmniComposeCategory.whisper:
-          await _submitWhisper();
-        case OmniComposeCategory.baShare:
-          await _submitBa();
-        case OmniComposeCategory.seminar:
-          await _submitSeminar();
-        case OmniComposeCategory.reviewMarket:
-          await _submitReviewMarket();
+      if (_isEditing) {
+        await _submitEdit();
+      } else {
+        switch (_category) {
+          case OmniComposeCategory.whisper:
+            await _submitWhisper();
+          case OmniComposeCategory.baShare:
+            await _submitBa();
+          case OmniComposeCategory.seminar:
+            await _submitSeminar();
+          case OmniComposeCategory.reviewMarket:
+            await _submitReviewMarket();
+        }
       }
     } catch (e) {
       if (mounted) _snack('작성 실패: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<void> _submitEdit() async {
+    final data = widget.editTarget!;
+    switch (_category) {
+      case OmniComposeCategory.whisper:
+      case OmniComposeCategory.reviewMarket:
+        if (data.post == null) {
+          _snack('수정할 게시물을 찾을 수 없습니다.');
+          return;
+        }
+        final ok = await _store.updateCommunityPostContent(
+          postId: data.post!.id,
+          body: _category == OmniComposeCategory.whisper
+              ? _whisperBody.text.trim()
+              : _reviewBody.text.trim(),
+          title: _reviewTitle.text.trim(),
+        );
+        if (!mounted) return;
+        if (!ok) {
+          _snack(_store.lastError ?? '수정에 실패했습니다.');
+          return;
+        }
+      case OmniComposeCategory.baShare:
+        final chart = _linkedChart ?? data.caseItem?.chart;
+        if (chart != null) {
+          await _store.updateCustomerChartFields(
+            chartId: chart.id,
+            treatmentSummary: _baBody.text.trim(),
+          );
+          await _store.publishChartCaseToCommunity(
+            chart,
+            body: _baBody.text.trim(),
+          );
+        } else if (data.post != null) {
+          final ok = await _store.updateCommunityPostContent(
+            postId: data.post!.id,
+            body: _baBody.text.trim(),
+          );
+          if (!mounted) return;
+          if (!ok) {
+            _snack(_store.lastError ?? '수정에 실패했습니다.');
+            return;
+          }
+        }
+      case OmniComposeCategory.seminar:
+        final existing = data.seminar;
+        if (existing == null) {
+          _snack('수정할 세미나를 찾을 수 없습니다.');
+          return;
+        }
+        final when = _seminarDate == null
+            ? existing.eventDate
+            : DateTime(
+                _seminarDate!.year,
+                _seminarDate!.month,
+                _seminarDate!.day,
+                _seminarTime.hour,
+                _seminarTime.minute,
+              );
+        final materials = _seminarMaterials.text
+            .split(RegExp(r'[,/\n]'))
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        final saved = await _store.updateSeminarClass(
+          existing.copyWith(
+            title: _seminarTitle.text.trim(),
+            eventDate: when,
+            price: int.tryParse(_seminarPrice.text.replaceAll(',', '')) ?? 0,
+            maxCapacity: int.tryParse(_seminarCapacity.text) ?? 12,
+            description: _seminarCurriculum.text.trim(),
+            providedMaterials: materials,
+            targetCaseId: _linkedChartId,
+          ),
+        );
+        if (!mounted) return;
+        if (saved == null) {
+          _snack(_store.lastError ?? '세미나 수정에 실패했습니다.');
+          return;
+        }
+    }
+    if (!mounted) return;
+    _snack('게시물을 수정했습니다.', error: false);
+    Navigator.of(context).pop();
   }
 
   Future<void> _submitWhisper() async {
@@ -396,9 +539,9 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
         backgroundColor: SoriTokens.background,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
-        title: const Text(
-          '새 게시물',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          _isEditing ? '게시물 수정' : '새 게시물',
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
           Padding(
@@ -420,9 +563,9 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text(
-                      '작성',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                  : Text(
+                      _isEditing ? '저장' : '작성',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
             ),
           ),
@@ -431,38 +574,40 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          const Text(
-            '무엇을 공유할까요?',
-            style: TextStyle(
+          Text(
+            _isEditing ? '게시물 수정' : '무엇을 공유할까요?',
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
               color: SoriTokens.textPrimary,
             ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final cat in OmniComposeCategory.values)
-                ChoiceChip(
-                  key: Key('omni-cat-${cat.name}'),
-                  label: Text(cat.label),
-                  selected: _category == cat,
-                  onSelected: (_) => setState(() => _category = cat),
-                  selectedColor: SoriTokens.primary,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: _category == cat
-                        ? SoriTokens.onPrimary
-                        : SoriTokens.textPrimary,
+          if (!_isEditing) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final cat in OmniComposeCategory.values)
+                  ChoiceChip(
+                    key: Key('omni-cat-${cat.name}'),
+                    label: Text(cat.label),
+                    selected: _category == cat,
+                    onSelected: (_) => setState(() => _category = cat),
+                    selectedColor: SoriTokens.primary,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: _category == cat
+                          ? SoriTokens.onPrimary
+                          : SoriTokens.textPrimary,
+                    ),
+                    backgroundColor: SoriTokens.surface,
+                    side: const BorderSide(color: SoriTokens.border),
+                    showCheckmark: false,
                   ),
-                  backgroundColor: SoriTokens.surface,
-                  side: const BorderSide(color: SoriTokens.border),
-                  showCheckmark: false,
-                ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),

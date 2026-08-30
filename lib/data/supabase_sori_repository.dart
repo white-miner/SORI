@@ -3831,6 +3831,31 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<CommunityPost> updateCommunityPost({
+    required String postId,
+    String? body,
+    String? title,
+  }) async {
+    final id = postId.trim();
+    if (id.isEmpty) throw ArgumentError('postId required');
+    final patch = <String, dynamic>{};
+    if (body != null) patch['body'] = body.trim();
+    if (title != null) patch['title'] = title.trim();
+    if (patch.isEmpty) {
+      final row = await _db.from('community_posts').select().eq('id', id).maybeSingle();
+      if (row == null) throw StateError('post not found');
+      return CommunityPost.fromMap(Map<String, dynamic>.from(row as Map));
+    }
+    final row = await _db
+        .from('community_posts')
+        .update(patch)
+        .eq('id', id)
+        .select()
+        .single();
+    return CommunityPost.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
   Future<List<CommunityComment>> loadCommunityComments(String postId) async {
     final id = postId.trim();
     if (id.isEmpty) return const [];

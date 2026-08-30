@@ -110,7 +110,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
 
   List<HomeFeedEntry> get _feed {
     if (store.homeFeedEntries.isNotEmpty) {
-      return store.homeFeedEntries;
+      return store.visibleHomeFeedEntries();
     }
     final hot = store.communityHotCases;
     final cases = hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
