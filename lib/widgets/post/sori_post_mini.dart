@@ -11,6 +11,9 @@ import 'post_view_data.dart';
 
 /// Tier A — high-density mini card (Community + SORI Spot).
 class SoriPostMini extends StatelessWidget {
+  /// Horizontal strip height — PO: action row must not clip.
+  static const double horizontalStripHeight = 260;
+
   const SoriPostMini({
     super.key,
     required this.data,
@@ -23,6 +26,7 @@ class SoriPostMini extends StatelessWidget {
     this.onComment,
     this.onBookmark,
     this.onMentoring,
+    this.onBoost,
   });
 
   final PostViewData data;
@@ -35,6 +39,7 @@ class SoriPostMini extends StatelessWidget {
   final VoidCallback? onComment;
   final VoidCallback? onBookmark;
   final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
 
   void _openOriginal(BuildContext context) {
     openPostOriginal(context, data: data, store: store);
@@ -114,11 +119,13 @@ class SoriPostMini extends StatelessWidget {
               bookmarked: bookmarked,
               likeCount: data.likeCount,
               commentCount: data.commentCount,
-              showMentoring: data.hasActiveMentoring,
+              mentoringActive: data.hasActiveMentoring,
+              isBoosted: data.isBoosted,
               onLike: onLike ?? () {},
               onComment: onComment ?? () => _openOriginal(context),
               onBookmark: onBookmark ?? () {},
-              onMentoring: onMentoring,
+              onMentoring: onMentoring ?? () => _openOriginal(context),
+              onBoost: onBoost ?? () => _openOriginal(context),
             ),
           ],
         ),

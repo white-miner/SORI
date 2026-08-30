@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
 
-/// Unified bottom action row — no reservation/booking per PO retention rule.
+/// Unified bottom action row — like · comment · mentoring · boost (+ bookmark).
 class PostActionRow extends StatelessWidget {
   const PostActionRow({
     super.key,
@@ -13,8 +13,10 @@ class PostActionRow extends StatelessWidget {
     required this.onLike,
     required this.onComment,
     required this.onBookmark,
-    this.onMentoring,
-    this.showMentoring = false,
+    required this.onMentoring,
+    required this.onBoost,
+    this.mentoringActive = false,
+    this.isBoosted = false,
     this.compact = false,
   });
 
@@ -22,62 +24,83 @@ class PostActionRow extends StatelessWidget {
   final int commentCount;
   final bool liked;
   final bool bookmarked;
+  final bool mentoringActive;
+  final bool isBoosted;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onBookmark;
-  final VoidCallback? onMentoring;
-  final bool showMentoring;
+  final VoidCallback onMentoring;
+  final VoidCallback onBoost;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = compact ? 20.0 : 22.0;
+    final iconSize = compact ? 19.0 : 22.0;
     final countStyle = TextStyle(
       fontWeight: FontWeight.w800,
       fontSize: compact ? 11.5 : 12.5,
       color: SoriTokens.textPrimary,
     );
+    final bottomPad = compact ? 10.0 : 8.0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(compact ? 2 : 4, 0, compact ? 2 : 4, 4),
+      padding: EdgeInsets.fromLTRB(compact ? 2 : 4, 0, compact ? 2 : 4, bottomPad),
       child: Row(
         children: [
-          _ActionIcon(
-            icon: liked ? Icons.favorite : Icons.favorite_border,
-            color: liked ? SoriTokens.systemRed : SoriTokens.textTertiary,
-            size: iconSize,
-            onTap: onLike,
-          ),
-          Text('$likeCount', style: countStyle),
-          _ActionIcon(
-            icon: Icons.chat_bubble_outline_rounded,
-            color: SoriTokens.textTertiary,
-            size: iconSize,
-            onTap: onComment,
-          ),
-          Text(
-            '$commentCount',
-            style: countStyle.copyWith(color: SoriTokens.textSecondary),
-          ),
-          if (showMentoring && onMentoring != null) ...[
-            _ActionIcon(
-              icon: Icons.people_alt_outlined,
-              color: SoriTokens.primary,
-              size: iconSize,
-              onTap: onMentoring!,
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ActionIcon(
+                    icon: liked ? Icons.favorite : Icons.favorite_border,
+                    color: liked ? SoriTokens.systemRed : SoriTokens.textTertiary,
+                    size: iconSize,
+                    onTap: onLike,
+                    compact: compact,
+                  ),
+                  Text('$likeCount', style: countStyle),
+                  _ActionIcon(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    color: SoriTokens.textTertiary,
+                    size: iconSize,
+                    onTap: onComment,
+                    compact: compact,
+                  ),
+                  Text(
+                    '$commentCount',
+                    style: countStyle.copyWith(color: SoriTokens.textSecondary),
+                  ),
+                  _ActionIcon(
+                    icon: mentoringActive ? Icons.star : Icons.star_border,
+                    color: mentoringActive
+                        ? SoriTokens.warningText
+                        : SoriTokens.textTertiary,
+                    size: iconSize,
+                    onTap: onMentoring,
+                    compact: compact,
+                  ),
+                  _ActionIcon(
+                    icon: Icons.local_fire_department,
+                    color: isBoosted
+                        ? SoriTokens.warningText
+                        : SoriTokens.textTertiary,
+                    size: iconSize,
+                    onTap: onBoost,
+                    compact: compact,
+                  ),
+                ],
+              ),
             ),
-            Icon(
-              Icons.sync_rounded,
-              size: compact ? 14 : 16,
-              color: SoriTokens.primary.withValues(alpha: 0.8),
-            ),
-          ],
-          const Spacer(),
+          ),
           _ActionIcon(
             icon: bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
             color: bookmarked ? SoriTokens.textPrimary : SoriTokens.textTertiary,
-            size: iconSize + 2,
+            size: iconSize + 1,
             onTap: onBookmark,
+            compact: compact,
           ),
         ],
       ),
@@ -91,19 +114,24 @@ class _ActionIcon extends StatelessWidget {
     required this.color,
     required this.size,
     required this.onTap,
+    this.compact = false,
   });
 
   final IconData icon;
   final Color color;
   final double size;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
-      padding: const EdgeInsets.all(6),
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      padding: EdgeInsets.all(compact ? 4 : 6),
+      constraints: BoxConstraints(
+        minWidth: compact ? 30 : 34,
+        minHeight: compact ? 30 : 34,
+      ),
       visualDensity: VisualDensity.compact,
       icon: Icon(icon, size: size, color: color),
     );

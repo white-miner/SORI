@@ -19,6 +19,7 @@ void openPostOriginal(
   VoidCallback? onComment,
   VoidCallback? onBookmark,
   VoidCallback? onMentoring,
+  VoidCallback? onBoost,
 }) {
   switch (data.kind) {
     case PostViewKind.seminar:
@@ -56,6 +57,7 @@ void openPostOriginal(
     onComment: onComment,
     onBookmark: onBookmark,
     onMentoring: onMentoring,
+    onBoost: onBoost,
   );
 }
 
@@ -81,6 +83,7 @@ void openHomeEntryOriginal(
   VoidCallback? onComment,
   VoidCallback? onBookmark,
   VoidCallback? onMentoring,
+  VoidCallback? onBoost,
 }) {
   openPostOriginal(
     context,
@@ -92,6 +95,7 @@ void openHomeEntryOriginal(
     onComment: onComment,
     onBookmark: onBookmark,
     onMentoring: onMentoring,
+    onBoost: onBoost,
   );
 }
 

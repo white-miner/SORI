@@ -21,6 +21,7 @@ class SoriPostMedium extends StatelessWidget {
     this.onComment,
     this.onBookmark,
     this.onMentoring,
+    this.onBoost,
     this.onShopProfile,
   });
 
@@ -32,6 +33,7 @@ class SoriPostMedium extends StatelessWidget {
   final VoidCallback? onComment;
   final VoidCallback? onBookmark;
   final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
   final VoidCallback? onShopProfile;
 
   void _openOriginal(BuildContext context) {
@@ -71,11 +73,13 @@ class SoriPostMedium extends StatelessWidget {
             bookmarked: bookmarked,
             likeCount: data.likeCount,
             commentCount: data.commentCount,
-            showMentoring: data.hasActiveMentoring,
+            mentoringActive: data.hasActiveMentoring,
+            isBoosted: data.isBoosted,
             onLike: onLike ?? () {},
             onComment: onComment ?? () => _openOriginal(context),
             onBookmark: onBookmark ?? () {},
-            onMentoring: onMentoring,
+            onMentoring: onMentoring ?? () => _openOriginal(context),
+            onBoost: onBoost ?? () => _openOriginal(context),
           ),
         ],
       ),

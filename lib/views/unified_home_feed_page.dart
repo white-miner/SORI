@@ -481,6 +481,15 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           : isDirector && caseItem != null && !isAuthor
               ? () => _openMentoringRequest(caseItem)
               : null,
+      onBoost: caseItem != null
+          ? () {
+              if (caseItem.isAuthoredBy(store.session?.id)) {
+                _buyBoost(caseItem);
+              } else {
+                _buyFanBoost(caseItem);
+              }
+            }
+          : null,
     );
   }
 
@@ -850,7 +859,7 @@ class _SoriSpotMiniStrip extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 148,
+          height: SoriPostMini.horizontalStripHeight,
           child: items.isEmpty
               ? const Center(
                   child: Text(

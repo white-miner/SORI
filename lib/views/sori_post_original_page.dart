@@ -23,6 +23,7 @@ class SoriPostOriginalPage extends StatefulWidget {
     this.onComment,
     this.onBookmark,
     this.onMentoring,
+    this.onBoost,
   });
 
   final PostViewData data;
@@ -33,6 +34,7 @@ class SoriPostOriginalPage extends StatefulWidget {
   final VoidCallback? onComment;
   final VoidCallback? onBookmark;
   final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
 
   static Future<void> open(
     BuildContext context, {
@@ -44,6 +46,7 @@ class SoriPostOriginalPage extends StatefulWidget {
     VoidCallback? onComment,
     VoidCallback? onBookmark,
     VoidCallback? onMentoring,
+    VoidCallback? onBoost,
   }) {
     return Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
@@ -56,6 +59,7 @@ class SoriPostOriginalPage extends StatefulWidget {
           onComment: onComment,
           onBookmark: onBookmark,
           onMentoring: onMentoring,
+          onBoost: onBoost,
         ),
       ),
     );
@@ -132,6 +136,7 @@ class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
                 onComment: widget.onComment ?? _scrollToComments,
                 onBookmark: widget.onBookmark ?? () {},
                 onMentoring: widget.onMentoring,
+                onBoost: widget.onBoost,
               );
             }
             return SingleChildScrollView(
@@ -151,6 +156,7 @@ class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
                     onComment: widget.onComment ?? _scrollToComments,
                     onBookmark: widget.onBookmark ?? () {},
                     onMentoring: widget.onMentoring,
+                    onBoost: widget.onBoost,
                   ),
                 ),
               ),
@@ -168,6 +174,7 @@ class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
             onComment: widget.onComment ?? _scrollToComments,
             onBookmark: widget.onBookmark ?? () {},
             onMentoring: widget.onMentoring,
+            onBoost: widget.onBoost,
           );
         },
       ),
@@ -187,6 +194,7 @@ class _DesktopSplitBody extends StatelessWidget {
     required this.onComment,
     required this.onBookmark,
     this.onMentoring,
+    this.onBoost,
   });
 
   final double height;
@@ -199,6 +207,7 @@ class _DesktopSplitBody extends StatelessWidget {
   final VoidCallback onComment;
   final VoidCallback onBookmark;
   final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +232,7 @@ class _DesktopSplitBody extends StatelessWidget {
                   onComment: onComment,
                   onBookmark: onBookmark,
                   onMentoring: onMentoring,
+                  onBoost: onBoost,
                 ),
               ),
             ),
@@ -255,6 +265,7 @@ class _MobileStackBody extends StatelessWidget {
     required this.onComment,
     required this.onBookmark,
     this.onMentoring,
+    this.onBoost,
   });
 
   final PostViewData data;
@@ -267,6 +278,7 @@ class _MobileStackBody extends StatelessWidget {
   final VoidCallback onComment;
   final VoidCallback onBookmark;
   final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
 
   @override
   Widget build(BuildContext context) {
@@ -283,6 +295,7 @@ class _MobileStackBody extends StatelessWidget {
             onComment: onComment,
             onBookmark: onBookmark,
             onMentoring: onMentoring,
+            onBoost: onBoost,
           ),
           if (postId != null) ...[
             const Divider(height: 24),
@@ -311,6 +324,7 @@ class _PostMainColumn extends StatelessWidget {
     required this.onComment,
     required this.onBookmark,
     this.onMentoring,
+    this.onBoost,
     this.imageFit = BoxFit.cover,
   });
 
@@ -322,6 +336,7 @@ class _PostMainColumn extends StatelessWidget {
   final VoidCallback onComment;
   final VoidCallback onBookmark;
   final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
   final BoxFit imageFit;
 
   @override
@@ -358,11 +373,13 @@ class _PostMainColumn extends StatelessWidget {
           bookmarked: bookmarked,
           likeCount: data.likeCount,
           commentCount: data.commentCount,
-          showMentoring: data.hasActiveMentoring && includeHeader,
+          mentoringActive: data.hasActiveMentoring,
+          isBoosted: data.isBoosted,
           onLike: onLike,
           onComment: onComment,
           onBookmark: onBookmark,
-          onMentoring: onMentoring,
+          onMentoring: onMentoring ?? () {},
+          onBoost: onBoost ?? () {},
         ),
       ],
     );
