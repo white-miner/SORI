@@ -286,36 +286,28 @@ class _CommunityPageState extends State<CommunityPage> {
                     ),
                   ),
                   SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: SoriPostMini.horizontalStripHeight,
-                      child: recentItems.isEmpty
-                          ? const Center(
-                              child: Text(
-                                '최근 게시물이 없어요',
-                                style: TextStyle(
-                                  color: SoriTokens.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                    child: recentItems.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Text(
+                              '최근 게시물이 없어요',
+                              style: TextStyle(
+                                color: SoriTokens.textSecondary,
+                                fontWeight: FontWeight.w600,
                               ),
-                            )
-                          : ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                              itemCount: recentItems.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(width: 10),
-                              itemBuilder: (context, index) {
-                                final item = recentItems[index];
-                                return SoriPostMini(
+                            ),
+                          )
+                        : SoriPostMini.horizontalStrip(
+                            children: [
+                              for (final item in recentItems)
+                                SoriPostMini(
                                   key: ValueKey('recent_${item.stableKey}'),
                                   data: PostViewData.fromUnifiedFeedItem(item),
                                   store: store,
                                   horizontal: true,
-                                );
-                              },
-                            ),
-                    ),
+                                ),
+                            ],
+                          ),
                   ),
                 ],
                 SliverToBoxAdapter(

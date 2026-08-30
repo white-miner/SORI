@@ -279,35 +279,31 @@ class _AppShellPageState extends State<AppShellPage> {
                   final commentWidth =
                       remainingRight.clamp(0.0, drawerTarget);
 
+                  final showDashboard = extraWide && !hasComment;
+
                   return Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Expanded(child: SizedBox()),
-                          SizedBox(
-                            width: feedMaxWidth,
-                            height: bodyConstraints.maxHeight,
-                            child: widget.navigationShell,
-                          ),
                           Expanded(
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                const SizedBox.expand(),
-                                if (extraWide && !hasComment)
-                                  const Positioned(
-                                    right: 0,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: RightSidebar(
-                                      dashboardOnly: true,
-                                    ),
-                                  ),
-                              ],
+                            child: ClipRect(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: SizedBox(
+                                  width: feedMaxWidth,
+                                  height: bodyConstraints.maxHeight,
+                                  child: widget.navigationShell,
+                                ),
+                              ),
                             ),
                           ),
+                          if (showDashboard)
+                            const SizedBox(
+                              width: RightSidebar.width,
+                              child: RightSidebar(dashboardOnly: true),
+                            ),
                         ],
                       ),
                       if (hasComment)

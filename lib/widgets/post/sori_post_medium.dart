@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/post_navigation.dart';
+import '../../widgets/sori_glass_surface.dart';
 import 'post_action_row.dart';
 import 'post_ai_content.dart';
 import 'post_header.dart';
 import 'post_media_section.dart';
+import 'post_read_more_link.dart';
 import 'post_view_data.dart';
 
 /// Tier B — home central feed (visual-first, 2-line caption).
@@ -42,10 +44,9 @@ class SoriPostMedium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SoriGlassSurface(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: SoriTokens.card(radius: 20),
-      clipBehavior: Clip.antiAlias,
+      borderRadius: BorderRadius.circular(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -109,20 +110,7 @@ class _MediumCaption extends StatelessWidget {
             color: SoriTokens.textPrimary,
           ),
         ),
-        GestureDetector(
-          onTap: onReadMore,
-          child: const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Text(
-              '…더 보기',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: SoriTokens.primary,
-              ),
-            ),
-          ),
-        ),
+        PostReadMoreLink(onTap: onReadMore),
       ],
     );
   }

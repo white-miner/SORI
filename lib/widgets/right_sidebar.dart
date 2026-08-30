@@ -6,6 +6,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../views/seminar_management_page.dart';
 import '../widgets/shop_tier_badge_chip.dart';
+import '../widgets/sori_glass_surface.dart';
 
 /// PC 와이드 뷰포트에서 피드 우측에 고정되는 대시보드/댓글 사이드바.
 /// [dashboardOnly] true이면 항상 대시보드만 표시 (우측 끝단용).
@@ -311,9 +312,9 @@ class _TierCard extends StatelessWidget {
         .round()
         .clamp(0, 100);
 
-    return Container(
+    return SoriGlassSurface(
+      borderRadius: BorderRadius.circular(20),
       padding: const EdgeInsets.all(16),
-      decoration: SoriTokens.card(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -333,14 +334,35 @@ class _TierCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct / 100,
-              minHeight: 6,
-              backgroundColor: SoriTokens.primarySoft,
-              color: SoriTokens.primary,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final trackWidth = constraints.maxWidth;
+              final fillWidth = trackWidth * (pct / 100);
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: SizedBox(
+                  height: 6,
+                  width: trackWidth,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ColoredBox(color: SoriTokens.chipIdleBg),
+                      if (fillWidth > 0)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: fillWidth,
+                            height: 6,
+                            child: const ColoredBox(
+                              color: SoriTokens.accentLink,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 6),
           Text(
@@ -363,9 +385,9 @@ class _AiSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SoriGlassSurface(
+      borderRadius: BorderRadius.circular(20),
       padding: const EdgeInsets.all(16),
-      decoration: SoriTokens.card(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -384,6 +406,8 @@ class _AiSummaryCard extends StatelessWidget {
           const SizedBox(height: 8),
           const Text(
             '이번 달 AI 리포트를 확인하세요',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               color: SoriTokens.textSecondary,
@@ -407,9 +431,9 @@ class _SeminarCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        child: Container(
+        child: SoriGlassSurface(
+          borderRadius: BorderRadius.circular(20),
           padding: const EdgeInsets.all(16),
-          decoration: SoriTokens.card(radius: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -420,6 +444,8 @@ class _SeminarCard extends StatelessWidget {
                   const Expanded(
                     child: Text(
                       '추천 세미나',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -437,6 +463,8 @@ class _SeminarCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 count > 0 ? '관심 $count건' : '세미나 둘러보기',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 12,
                   color: SoriTokens.textSecondary,

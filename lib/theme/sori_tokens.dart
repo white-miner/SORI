@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 
 /// SORI — iOS-style White Minimal + System Accent (Red alerts, Camera Yellow).
 abstract final class SoriTokens {
-  /// App canvas — soft off-white
-  static const Color background = Color(0xFFF8F9FA);
+  /// App canvas — PO off-white (#F5F5F7)
+  static const Color background = Color(0xFFF5F5F7);
+
+  /// Inline link / read-more accent
+  static const Color accentLink = Color(0xFF007AFF);
 
   static const Color surface = Color(0xFFFFFFFF);
 

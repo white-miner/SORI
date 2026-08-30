@@ -33,6 +33,8 @@ class PostActionRow extends StatelessWidget {
   final VoidCallback onBoost;
   final bool compact;
 
+  static const double _groupGap = 12;
+
   @override
   Widget build(BuildContext context) {
     final iconSize = compact ? 19.0 : 22.0;
@@ -41,10 +43,16 @@ class PostActionRow extends StatelessWidget {
       fontSize: compact ? 11.5 : 12.5,
       color: SoriTokens.textPrimary,
     );
-    final bottomPad = compact ? 10.0 : 8.0;
+    final verticalPad = compact ? 8.0 : 10.0;
+    final bottomPad = compact ? 10.0 : 12.0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(compact ? 2 : 4, 0, compact ? 2 : 4, bottomPad),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 8 : 12,
+        verticalPad,
+        compact ? 8 : 12,
+        bottomPad,
+      ),
       child: Row(
         children: [
           Flexible(
@@ -62,6 +70,7 @@ class PostActionRow extends StatelessWidget {
                     compact: compact,
                   ),
                   Text('$likeCount', style: countStyle),
+                  const SizedBox(width: _groupGap),
                   _ActionIcon(
                     icon: Icons.chat_bubble_outline_rounded,
                     color: SoriTokens.textTertiary,
@@ -73,6 +82,7 @@ class PostActionRow extends StatelessWidget {
                     '$commentCount',
                     style: countStyle.copyWith(color: SoriTokens.textSecondary),
                   ),
+                  const SizedBox(width: _groupGap),
                   _ActionIcon(
                     icon: mentoringActive ? Icons.star : Icons.star_border,
                     color: mentoringActive
@@ -82,6 +92,7 @@ class PostActionRow extends StatelessWidget {
                     onTap: onMentoring,
                     compact: compact,
                   ),
+                  const SizedBox(width: _groupGap),
                   _ActionIcon(
                     icon: Icons.local_fire_department,
                     color: isBoosted
@@ -95,6 +106,7 @@ class PostActionRow extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: _groupGap),
           _ActionIcon(
             icon: bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
             color: bookmarked ? SoriTokens.textPrimary : SoriTokens.textTertiary,

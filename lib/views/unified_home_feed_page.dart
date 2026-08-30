@@ -858,33 +858,16 @@ class _SoriSpotMiniStrip extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(
-          height: SoriPostMini.horizontalStripHeight,
-          child: items.isEmpty
-              ? const Center(
-                  child: Text(
-                    '인기글을 불러오는 중…',
-                    style: TextStyle(
-                      color: SoriTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return SoriPostMini(
-                      key: ValueKey('spot_${item.stableKey}'),
-                      data: PostViewData.fromUnifiedFeedItem(item),
-                      store: store,
-                      horizontal: true,
-                    );
-                  },
-                ),
+        SoriPostMini.horizontalStrip(
+          children: [
+            for (final item in items)
+              SoriPostMini(
+                key: ValueKey('spot_${item.stableKey}'),
+                data: PostViewData.fromUnifiedFeedItem(item),
+                store: store,
+                horizontal: true,
+              ),
+          ],
         ),
       ],
     );
