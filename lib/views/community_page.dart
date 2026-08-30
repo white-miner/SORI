@@ -425,11 +425,13 @@ class _CommunityFilterChipsDelegate extends SliverPersistentHeaderDelegate {
   final CommunityFeedFilter filter;
   final ValueChanged<CommunityFeedFilter> onSelected;
 
-  @override
-  double get minExtent => 48;
+  static const double _barHeight = 52;
 
   @override
-  double get maxExtent => 48;
+  double get minExtent => _barHeight;
+
+  @override
+  double get maxExtent => _barHeight;
 
   @override
   Widget build(
@@ -440,32 +442,20 @@ class _CommunityFilterChipsDelegate extends SliverPersistentHeaderDelegate {
     return ColoredBox(
       color: SoriTokens.background,
       child: SizedBox(
-        height: 48,
+        height: _barHeight,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           itemCount: CommunityFeedFilter.exploreFilters.length,
           separatorBuilder: (_, _) => const SizedBox(width: 8),
           itemBuilder: (context, index) {
             final f = CommunityFeedFilter.exploreFilters[index];
             final selected = filter == f;
-            return FilterChip(
-              label: Text(f.label),
+            return _CommunityFilterChip(
+              key: ValueKey('community_filter_${f.name}'),
+              label: f.label,
               selected: selected,
-              showCheckmark: false,
-              labelStyle: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-                color: selected
-                    ? SoriTokens.onPrimary
-                    : SoriTokens.textSecondary,
-              ),
-              selectedColor: SoriTokens.primary,
-              backgroundColor: SoriTokens.surface,
-              side: BorderSide(
-                color: selected ? SoriTokens.primary : SoriTokens.border,
-              ),
-              onSelected: (_) => onSelected(f),
+              onTap: () => onSelected(f),
             );
           },
         ),
@@ -476,6 +466,47 @@ class _CommunityFilterChipsDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _CommunityFilterChipsDelegate oldDelegate) {
     return oldDelegate.filter != filter;
+  }
+}
+
+class _CommunityFilterChip extends StatelessWidget {
+  const _CommunityFilterChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? SoriTokens.primary : SoriTokens.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? SoriTokens.primary : SoriTokens.border,
+          ),
+        ),
+        child: Text(
+          label,
+          softWrap: false,
+          overflow: TextOverflow.visible,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            color: selected ? SoriTokens.onPrimary : SoriTokens.textSecondary,
+          ),
+        ),
+      ),
+    );
   }
 }
 
