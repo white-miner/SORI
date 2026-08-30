@@ -12,10 +12,10 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
-import '../widgets/home_feed_card.dart';
-import '../widgets/home_seminar_feed_card.dart';
-import '../widgets/home_whisper_feed_card.dart';
-import '../widgets/sori_mini_post_card.dart';
+import '../utils/post_navigation.dart';
+import '../widgets/post/post_view_data.dart';
+import '../widgets/post/sori_post_medium.dart';
+import '../widgets/post/sori_post_mini.dart';
 import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/app_scroll_behavior.dart';
 import '../widgets/boost_purchase_sheet.dart';
@@ -447,62 +447,65 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     );
   }
 
-  Widget _feedCard(CommunityCaseItem item, int index) {
-    final id = item.chart.id;
-    final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
-    final comments = _comments[id] ?? const <_FeedComment>[];
-    final isCustomer =
-        store.session?.activeMode == UserRole.customer &&
-        (store.session?.customerId?.trim().isNotEmpty ?? false);
-    final isDirector = store.session?.activeMode == UserRole.director;
-    final isAuthor = item.isAuthoredBy(store.session?.id);
-    return HomeFeedCard(
-      item: item,
-      currentUserId: store.session?.id,
-      review: item.review ?? store.reviewForChart(item.chart.id),
-      liked: _liked.contains(id),
+  Widget _mediumPost(
+    PostViewData data, {
+    required String id,
+    required int index,
+    CommunityCaseItem? caseItem,
+  }) {
+    final likes = _likeCounts[id] ?? data.likeCount;
+    final commentLen = (_comments[id] ?? const <_FeedComment>[]).length;
+    final enriched = data.copyWithEngagement(
       likeCount: likes,
-      commentCount: comments.length,
-      bookmarked: store.isChartBookmarked(id),
+      commentCount: commentLen > 0 ? commentLen : data.commentCount,
+    );
+    final isDirector = store.session?.activeMode == UserRole.director;
+    final isAuthor = caseItem?.isAuthoredBy(store.session?.id) ?? false;
+
+    return SoriPostMedium(
+      data: enriched,
+      store: store,
+      liked: _liked.contains(id),
+      bookmarked:
+          caseItem != null ? store.isChartBookmarked(id) : false,
       onLike: () => _toggleLike(id),
-      onComment: () => _openComments(item.chart),
-      onBookmark: () => _toggleBookmark(id),
-      onOpenDetail: () => _openCaseDetail(item, index),
-      onBookingCta: () => _openNaverBookingOrProfile(item.shop),
-      onShopProfile: () => _openShopProfile(item.shop),
-      onBoostPurchase: isAuthor ? () => _buyBoost(item) : null,
-      onFanBoostPurchase:
-          isCustomer && !isAuthor ? () => _buyFanBoost(item) : null,
-      onOpenMentoring: item.hasActiveMentoring
-          ? () => _openCaseDetail(item, index, focusMentoring: true)
+      onComment: caseItem != null
+          ? () => _openComments(caseItem.chart)
+          : () => openPostOriginal(context, data: enriched, store: store),
+      onBookmark: caseItem != null ? () => _toggleBookmark(id) : () {},
+      onShopProfile: caseItem != null
+          ? () => _openShopProfile(caseItem.shop)
           : null,
-      showMentoringRequest:
-          isDirector && !isAuthor && !item.hasActiveMentoring,
-      onMentoringRequest: isDirector && !isAuthor && !item.hasActiveMentoring
-          ? () => _openMentoringRequest(item)
-          : null,
-      showManageMentoring: isDirector && isAuthor,
-      onManageMentoring:
-          isDirector && isAuthor ? () => _openManageMentoring(item) : null,
+      onMentoring: caseItem != null && caseItem.hasActiveMentoring
+          ? () => _openCaseDetail(caseItem, index, focusMentoring: true)
+          : isDirector && caseItem != null && !isAuthor
+              ? () => _openMentoringRequest(caseItem)
+              : null,
+    );
+  }
+
+  Widget _feedCard(CommunityCaseItem item, int index) {
+    return _mediumPost(
+      PostViewData.fromCaseItem(item),
+      id: item.chart.id,
+      index: index,
+      caseItem: item,
     );
   }
 
   Widget _buildHomeFeedEntry(HomeFeedEntry entry, int index) {
-    return switch (entry.kind) {
-      HomeFeedEntryKind.caseItem => _feedCard(entry.caseItem!, index),
-      HomeFeedEntryKind.seminar => HomeSeminarFeedCard(
-          seminar: entry.seminar!,
-          onOpenDetail: () => _openSeminarDetail(entry.seminar!.id),
-          onOpenSourceCase: entry.seminar!.targetCaseId?.trim().isNotEmpty ==
-                  true
-              ? () => _openSourceCaseFromSeminar(entry.seminar!.targetCaseId)
-              : null,
-        ),
-      HomeFeedEntryKind.publicWhisper => HomeWhisperFeedCard(
-          post: entry.whisperPost!,
-          store: store,
-        ),
+    final data = PostViewData.fromHomeFeedEntry(entry);
+    final id = switch (entry.kind) {
+      HomeFeedEntryKind.caseItem => entry.caseItem!.chart.id,
+      HomeFeedEntryKind.seminar => entry.seminar!.id,
+      HomeFeedEntryKind.publicWhisper => entry.whisperPost!.id,
     };
+    return _mediumPost(
+      data,
+      id: id,
+      index: index,
+      caseItem: entry.caseItem,
+    );
   }
 
   @override
@@ -865,9 +868,9 @@ class _SoriSpotMiniStrip extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
                     final item = items[index];
-                    return SoriMiniPostCard(
+                    return SoriPostMini(
                       key: ValueKey('spot_${item.stableKey}'),
-                      item: item,
+                      data: PostViewData.fromUnifiedFeedItem(item),
                       store: store,
                       horizontal: true,
                     );

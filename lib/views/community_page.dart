@@ -11,7 +11,8 @@ import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
-import '../widgets/sori_mini_post_card.dart';
+import '../widgets/post/post_view_data.dart';
+import '../widgets/post/sori_post_mini.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/unified_compose_sheet.dart';
 import 'whisper_composer_sheet.dart';
@@ -306,9 +307,9 @@ class _CommunityPageState extends State<CommunityPage> {
                                   const SizedBox(width: 10),
                               itemBuilder: (context, index) {
                                 final item = recentItems[index];
-                                return SoriMiniPostCard(
+                                return SoriPostMini(
                                   key: ValueKey('recent_${item.stableKey}'),
-                                  item: item,
+                                  data: PostViewData.fromUnifiedFeedItem(item),
                                   store: store,
                                   horizontal: true,
                                 );
@@ -349,9 +350,9 @@ class _CommunityPageState extends State<CommunityPage> {
                           final item = mainItems[index];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: SoriMiniPostCard(
+                            child: SoriPostMini(
                               key: ValueKey('feed_${item.stableKey}'),
-                              item: item,
+                              data: PostViewData.fromUnifiedFeedItem(item),
                               store: store,
                             ),
                           );

@@ -480,6 +480,7 @@ class CommunityPost {
     this.isWhisper = false,
     this.audienceOp,
     this.whisperRecipientCount = 0,
+    this.aiContent,
   });
 
   final String id;
@@ -518,6 +519,9 @@ class CommunityPost {
   final String? audienceOp;
   final int whisperRecipientCount;
 
+  /// PO ai_content — author-enabled AI body from compose step.
+  final String? aiContent;
+
   String get authorDisplayName {
     final owner = shopOwnerName.trim();
     if (owner.isNotEmpty) return owner;
@@ -553,6 +557,7 @@ class CommunityPost {
     bool? isWhisper,
     String? audienceOp,
     int? whisperRecipientCount,
+    String? aiContent,
   }) {
     return CommunityPost(
       id: id,
@@ -584,6 +589,7 @@ class CommunityPost {
       audienceOp: audienceOp ?? this.audienceOp,
       whisperRecipientCount:
           whisperRecipientCount ?? this.whisperRecipientCount,
+      aiContent: aiContent ?? this.aiContent,
     );
   }
 
@@ -707,6 +713,7 @@ class CommunityPost {
       whisperRecipientCount: DbMap.asInt(
         map['whisper_recipient_count'] ?? map['whisperRecipientCount'],
       ),
+      aiContent: DbMap.asTextOrNull(map['ai_content'] ?? map['aiContent']),
     );
   }
 

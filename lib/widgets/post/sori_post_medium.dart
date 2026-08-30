@@ -1,0 +1,125 @@
+import 'package:flutter/material.dart';
+
+import '../../services/sori_store.dart';
+import '../../theme/sori_tokens.dart';
+import '../../utils/post_navigation.dart';
+import 'post_action_row.dart';
+import 'post_ai_content.dart';
+import 'post_header.dart';
+import 'post_media_section.dart';
+import 'post_view_data.dart';
+
+/// Tier B — home central feed (visual-first, 2-line caption).
+class SoriPostMedium extends StatelessWidget {
+  const SoriPostMedium({
+    super.key,
+    required this.data,
+    required this.store,
+    this.liked = false,
+    this.bookmarked = false,
+    this.onLike,
+    this.onComment,
+    this.onBookmark,
+    this.onMentoring,
+    this.onShopProfile,
+  });
+
+  final PostViewData data;
+  final SoriStore store;
+  final bool liked;
+  final bool bookmarked;
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onBookmark;
+  final VoidCallback? onMentoring;
+  final VoidCallback? onShopProfile;
+
+  void _openOriginal(BuildContext context) {
+    openPostOriginal(context, data: data, store: store);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: SoriTokens.card(radius: 20),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PostHeader(
+            data: data,
+            onAvatarTap: onShopProfile,
+            onMore: onShopProfile,
+          ),
+          if (data.bodyText.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: _MediumCaption(
+                text: data.bodyText,
+                onReadMore: () => _openOriginal(context),
+              ),
+            ),
+          PostAiContent(data: data),
+          PostMediaSection(
+            slides: data.mediaSlides,
+            heroTag: data.heroTag,
+            onOpenDetail: () => _openOriginal(context),
+          ),
+          PostActionRow(
+            liked: liked,
+            bookmarked: bookmarked,
+            likeCount: data.likeCount,
+            commentCount: data.commentCount,
+            showMentoring: data.hasActiveMentoring,
+            onLike: onLike ?? () {},
+            onComment: onComment ?? () => _openOriginal(context),
+            onBookmark: onBookmark ?? () {},
+            onMentoring: onMentoring,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediumCaption extends StatelessWidget {
+  const _MediumCaption({required this.text, required this.onReadMore});
+
+  final String text;
+  final VoidCallback onReadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          text.trim(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+            color: SoriTokens.textPrimary,
+          ),
+        ),
+        GestureDetector(
+          onTap: onReadMore,
+          child: const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Text(
+              '…더 보기',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.primary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -277,7 +277,6 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
     final nickname = item.displayAuthorNickname;
     final shopName = item.displayShopAffiliation;
     final tags = item.displayCareTags;
-    final hasBooking = shop.naverBookingOrPlaceUrl.isNotEmpty;
     final relative = chart.relativeTimeLabel;
     final canShare = _isAuthor;
     final bodyCaption = [
@@ -540,49 +539,36 @@ class _HomeFeedCardState extends State<HomeFeedCard> {
               ],
             ),
           ),
-          if (tags.isNotEmpty || hasBooking)
+          if (tags.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: tags.isEmpty
-                        ? const SizedBox.shrink()
-                        : Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: tags.take(8).map((raw) {
-                              final label = raw.trim().startsWith('#')
-                                  ? raw.trim()
-                                  : '#${raw.trim()}';
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: SoriTokens.surfaceOverlay,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  label,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: SoriTokens.textSecondary,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                  ),
-                  if (hasBooking) ...[
-                    if (tags.isNotEmpty) const SizedBox(width: 8),
-                    _ReservationChip(onTap: widget.onBookingCta),
-                  ],
-                ],
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: tags.take(8).map((raw) {
+                  final label = raw.trim().startsWith('#')
+                      ? raw.trim()
+                      : '#${raw.trim()}';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: SoriTokens.surfaceOverlay,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.textSecondary,
+                        height: 1.2,
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           Padding(
@@ -741,48 +727,6 @@ class _BoostBadgeLabel extends StatelessWidget {
           color: item.isFanBoosted
               ? SoriTokens.textSecondary
               : SoriTokens.warningText,
-        ),
-      ),
-    );
-  }
-}
-
-/// YouTube-style minimal booking chip beside hashtags.
-class _ReservationChip extends StatelessWidget {
-  const _ReservationChip({required this.onTap});
-
-  final VoidCallback onTap;
-
-  static const _bg = Color(0xFFF1F1F1);
-  static const _fg = Color(0xFF111111);
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: _bg,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const StadiumBorder(),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.calendar_month_outlined, size: 12, color: _fg),
-              SizedBox(width: 4),
-              Text(
-                '예약',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _fg,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
