@@ -128,6 +128,44 @@ void main() {
     expect(linkSpan, isNotNull);
     expect(linkSpan!.style?.color, kPostReadMoreBlue);
     expect(linkSpan!.style?.fontWeight, FontWeight.bold);
+    expect(linkSpan!.text, contains(kPostReadMoreLabel));
+  });
+
+  testWidgets('PostTruncatedCaption keeps full read-more label inside narrow width', (tester) async {
+    const cardWidth = 276.0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: cardWidth,
+            child: PostTruncatedCaption(
+              key: const Key('narrow_caption'),
+              text:
+                  '위스퍼 테스트 입니다. 소통하는 리뷰, 소리앱은 보다 손쉽게 컨텐츠를 발행할 수 있습니다.',
+              maxLines: 2,
+              onReadMore: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final richFinder = find.descendant(
+      of: find.byKey(const Key('narrow_caption')),
+      matching: find.byType(RichText),
+    );
+    expect(richFinder, findsOneWidget);
+
+    final box = tester.renderObject<RenderBox>(richFinder);
+    final label = find.textContaining(kPostReadMoreLabel);
+    expect(label, findsOneWidget);
+    final labelBox = tester.renderObject<RenderBox>(label);
+    expect(labelBox.size.width, greaterThan(0));
+    expect(
+      labelBox.localToGlobal(Offset.zero).dx + labelBox.size.width,
+      lessThanOrEqualTo(box.localToGlobal(Offset.zero).dx + box.size.width + 1),
+    );
   });
 
   testWidgets('SoriPostMini glass dock fits 320px without overflow', (tester) async {

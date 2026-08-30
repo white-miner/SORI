@@ -8,6 +8,9 @@ const Color kPostReadMoreBlue = Color(0xFF007AFF);
 
 const String kPostReadMoreLabel = '더 보기';
 
+/// Right inset so inline "더 보기" is never clipped by card/carousel edges.
+const double kPostReadMoreRightPadding = 12.0;
+
 const TextStyle kPostReadMoreSpanStyle = TextStyle(
   color: kPostReadMoreBlue,
   fontWeight: FontWeight.bold,
@@ -73,17 +76,22 @@ class _PostTruncatedCaptionState extends State<PostTruncatedCaption> {
           return Text(raw, style: _bodyStyle, maxLines: widget.maxLines);
         }
 
+        final layoutWidth = (maxWidth - kPostReadMoreRightPadding).clamp(0.0, maxWidth);
+
         final overflowProbe = TextPainter(
           text: TextSpan(text: raw, style: _bodyStyle),
           maxLines: widget.maxLines,
           textDirection: TextDirection.ltr,
-        )..layout(maxWidth: maxWidth);
+        )..layout(maxWidth: layoutWidth);
 
-        if (!overflowProbe.didExceedMaxLines) {
-          return Text(
-            raw,
-            style: _bodyStyle,
-            maxLines: widget.maxLines,
+        if (!_textExceedsLines(overflowProbe, layoutWidth, widget.maxLines)) {
+          return Padding(
+            padding: const EdgeInsets.only(right: kPostReadMoreRightPadding),
+            child: Text(
+              raw,
+              style: _bodyStyle,
+              maxLines: widget.maxLines,
+            ),
           );
         }
 
@@ -99,22 +107,37 @@ class _PostTruncatedCaptionState extends State<PostTruncatedCaption> {
           raw,
           _bodyStyle,
           linkSpan,
-          maxWidth,
+          layoutWidth,
           widget.maxLines,
         );
 
-        return Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: '$visible…', style: _bodyStyle),
-              linkSpan,
-            ],
+        return Padding(
+          padding: const EdgeInsets.only(right: kPostReadMoreRightPadding),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: '$visible…', style: _bodyStyle),
+                linkSpan,
+              ],
+            ),
+            maxLines: widget.maxLines,
+            overflow: TextOverflow.clip,
           ),
-          maxLines: widget.maxLines,
-          overflow: TextOverflow.clip,
         );
       },
     );
+  }
+
+  static bool _textExceedsLines(
+    TextPainter painter,
+    double maxWidth,
+    int maxLines,
+  ) {
+    if (painter.didExceedMaxLines) return true;
+    final metrics = painter.computeLineMetrics();
+    if (metrics.length > maxLines) return true;
+    if (metrics.isEmpty) return false;
+    return metrics.last.width > maxWidth + 0.5;
   }
 
   static String _truncateToFit(
@@ -139,7 +162,7 @@ class _PostTruncatedCaptionState extends State<PostTruncatedCaption> {
         maxLines: maxLines,
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: maxWidth);
-      if (!painter.didExceedMaxLines) {
+      if (!_textExceedsLines(painter, maxWidth, maxLines)) {
         low = mid;
       } else {
         high = mid - 1;
