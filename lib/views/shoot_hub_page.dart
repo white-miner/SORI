@@ -7,6 +7,8 @@ import '../models/customer_chart.dart';
 import '../models/shoot_inbox_item.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../features/visit/visit_session_page.dart';
+import '../visit_kernel/theme/visit_glass_tokens.dart';
 import 'smart_guide_camera_page.dart';
 
 /// 원장 GNB 중앙 「촬영」허브 — C1~C3.
@@ -35,6 +37,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(store.refreshShootInbox());
+      unawaited(store.refreshVisitSessions());
     });
   }
 
@@ -80,8 +83,14 @@ class _ShootHubPageState extends State<ShootHubPage> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final chart = targetChart ??
-          await store.ensureTodayShootChart(customerId: customer.id);
+      final active = store.activeVisitSession;
+      CustomerChart? chart = targetChart;
+      if (chart == null &&
+          active != null &&
+          active.customerId == customer.id) {
+        chart = store.chartForVisitSession(active);
+      }
+      chart ??= await store.ensureTodayShootChart(customerId: customer.id);
       if (!mounted) return;
 
       final ghost = kind == GuideCameraKind.after
@@ -346,6 +355,62 @@ class _ShootHubPageState extends State<ShootHubPage> {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
+                const SizedBox(height: 4),
+                if (store.activeVisitSession case final session?) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => VisitSessionPage(
+                              store: store,
+                              sessionId: session.id,
+                            ),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: VisitGlassTokens.cardDecoration(
+                          socialGlow: true,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.favorite_rounded,
+                              color: VisitGlassTokens.care,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '진행 중 · ${session.customerName}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${session.phase.label} 단계',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: SoriTokens.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right_rounded),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 const Text(
                   '고객 선택 → Before. 케어가 끝나면 After 대기 칩을 탭하세요. 순서는 상관 없습니다.',

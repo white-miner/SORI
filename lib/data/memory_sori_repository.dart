@@ -37,7 +37,8 @@ import '../models/seminar_class_detail.dart';
 import '../models/seminar_education_insight.dart';
 import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
-import '../crm_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/visit_session.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
 import '../models/shop_highlight.dart';
@@ -4056,6 +4057,48 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   static final List<CareScheduleEntry> _careSchedules = [];
+  static final List<VisitSession> _visitSessions = [];
+
+  @override
+  Future<List<VisitSession>> loadVisitSessions(
+    String shopId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final sid = shopId.trim();
+    return _visitSessions
+        .where((s) {
+          if (s.shopId != sid) return false;
+          if (from != null && s.startedAt.isBefore(from)) return false;
+          if (to != null && s.startedAt.isAfter(to)) return false;
+          return true;
+        })
+        .toList()
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+  }
+
+  @override
+  Future<VisitSession> upsertVisitSession(VisitSession session) async {
+    final idx = _visitSessions.indexWhere((s) => s.id == session.id);
+    if (idx >= 0) {
+      _visitSessions[idx] = session;
+    } else {
+      _visitSessions.add(session);
+    }
+    return session;
+  }
+
+  @override
+  Future<void> updateVisitPhase(String sessionId, VisitPhase phase) async {
+    final idx = _visitSessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final completed =
+        phase == VisitPhase.done ? DateTime.now() : _visitSessions[idx].completedAt;
+    _visitSessions[idx] = _visitSessions[idx].copyWith(
+      phase: phase,
+      completedAt: completed,
+    );
+  }
 
   @override
   Future<List<CareScheduleEntry>> loadCareScheduleEntries(

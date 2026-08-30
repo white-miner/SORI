@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../crm_kernel/theme/crm_calm_glass_tokens.dart';
+import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../models/customer_chart.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
@@ -45,7 +45,7 @@ Future<bool> showChartPublishOptInSheet(
           Icon(
             Icons.auto_awesome_rounded,
             size: 40,
-            color: CrmCalmGlassTokens.care,
+            color: VisitGlassTokens.care,
           ),
           const SizedBox(height: 16),
           const Text(
@@ -62,7 +62,7 @@ Future<bool> showChartPublishOptInSheet(
             '고객 정보는 마스킹되고 Before/After가 홈·탐색에 노출됩니다. '
             '언제든 게시물에서 숨길 수 있어요.',
             textAlign: TextAlign.center,
-            style: CrmCalmGlassTokens.captionCalm.copyWith(
+            style: VisitGlassTokens.captionCalm.copyWith(
               color: SoriTokens.textSecondary,
             ),
           ),
@@ -80,7 +80,7 @@ Future<bool> showChartPublishOptInSheet(
                 child: FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: CrmCalmGlassTokens.care,
+                    backgroundColor: VisitGlassTokens.care,
                   ),
                   child: const Text('게시하기'),
                 ),

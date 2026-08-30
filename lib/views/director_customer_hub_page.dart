@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
-import '../features/crm_today/today_care_board_page.dart';
+import '../features/visit/visit_launcher_page.dart';
 import 'director_customers_tab.dart';
 import 'director_review_manage_page.dart';
 
-/// 원장 GNB 「고객」— Today · 고객 · 리뷰 (Phase CRM-1).
+/// 원장 GNB 「고객」— Visit · 고객 · 리뷰 (PRD v3.0 Phase 1).
 class DirectorCustomerHubPage extends StatefulWidget {
   const DirectorCustomerHubPage({super.key, required this.store});
 
@@ -35,7 +35,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
     _tabs = TabController(length: 3, vsync: this, initialIndex: initial);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.crm.ensureScheduleLoaded();
+      store.visit.ensureLoaded();
     });
   }
 
@@ -70,7 +70,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
             color: SoriTokens.background,
             child: SoriYoutubeTabBar(
               controller: _tabs,
-              labels: const ['Today', '고객', '리뷰'],
+              labels: const ['Visit', '고객', '리뷰'],
               badges: [0, 0, _reviewBadge],
             ),
           ),
@@ -78,7 +78,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
             child: TabBarView(
               controller: _tabs,
               children: [
-                TodayCareBoardPage(store: store),
+                VisitLauncherPage(store: store),
                 DirectorCustomersTab(store: store),
                 DirectorReviewManagePage(store: store),
               ],

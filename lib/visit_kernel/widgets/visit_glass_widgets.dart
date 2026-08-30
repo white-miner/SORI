@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
-import '../../crm_kernel/theme/crm_calm_glass_tokens.dart';
+import '../theme/visit_glass_tokens.dart';
 
-/// CDG card shell — Calm Data Glass surface.
-class CrmCalmGlassCard extends StatelessWidget {
-  const CrmCalmGlassCard({
+class VisitGlassCard extends StatelessWidget {
+  const VisitGlassCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.tint,
-    this.radius = CrmCalmGlassTokens.radiusLg,
+    this.radius = VisitGlassTokens.radiusLg,
+    this.socialGlow = false,
     this.onTap,
   });
 
@@ -18,14 +18,19 @@ class CrmCalmGlassCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Color? tint;
   final double radius;
+  final bool socialGlow;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final card = AnimatedContainer(
-      duration: CrmCalmGlassTokens.calmMotion,
-      curve: CrmCalmGlassTokens.calmCurve,
-      decoration: CrmCalmGlassTokens.cardDecoration(tint: tint, radius: radius),
+      duration: VisitGlassTokens.calmMotion,
+      curve: VisitGlassTokens.calmCurve,
+      decoration: VisitGlassTokens.cardDecoration(
+        tint: tint,
+        radius: radius,
+        socialGlow: socialGlow,
+      ),
       padding: padding,
       child: child,
     );
@@ -41,9 +46,8 @@ class CrmCalmGlassCard extends StatelessWidget {
   }
 }
 
-/// Apple Activity-style progress ring.
-class CrmProgressRing extends StatelessWidget {
-  const CrmProgressRing({
+class VisitProgressRing extends StatelessWidget {
+  const VisitProgressRing({
     super.key,
     required this.ratio,
     this.size = 56,
@@ -71,13 +75,13 @@ class CrmProgressRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: ratio.clamp(0, 1),
               strokeWidth: stroke,
-              backgroundColor: CrmCalmGlassTokens.care.withValues(alpha: 0.15),
-              color: CrmCalmGlassTokens.care,
+              backgroundColor: VisitGlassTokens.care.withValues(alpha: 0.15),
+              color: VisitGlassTokens.care,
             ),
           ),
           Text(
             label ?? '$pct%',
-            style: CrmCalmGlassTokens.displayKpi(context).copyWith(
+            style: VisitGlassTokens.displayKpi(context).copyWith(
               fontSize: size * 0.26,
               color: SoriTokens.textPrimary,
             ),

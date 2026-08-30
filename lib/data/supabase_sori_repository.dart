@@ -46,7 +46,8 @@ import '../models/shop_tier_badge.dart';
 import '../models/subscription.dart';
 import '../models/whisper.dart';
 import '../services/supabase_client.dart';
-import '../crm_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/visit_session.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
 import 'sori_repository.dart';
@@ -5238,6 +5239,70 @@ class SupabaseSoriRepository implements SoriRepository {
           .update({'status': status.dbValue}).eq('id', id);
     } catch (e, st) {
       debugPrint('updateCareScheduleStatus failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<VisitSession>> loadVisitSessions(
+    String shopId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      var query = _db
+          .from('visit_sessions')
+          .select()
+          .eq('shop_id', sid);
+      if (from != null) {
+        query = query.gte('started_at', from.toUtc().toIso8601String());
+      }
+      if (to != null) {
+        query = query.lte('started_at', to.toUtc().toIso8601String());
+      }
+      final rows = await query.order('started_at', ascending: false);
+      return (rows as List)
+          .map(
+            (e) => VisitSession.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadVisitSessions failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<VisitSession> upsertVisitSession(VisitSession session) async {
+    try {
+      final row = await _db
+          .from('visit_sessions')
+          .upsert(session.toMap())
+          .select()
+          .single();
+      return VisitSession.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('upsertVisitSession failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateVisitPhase(String sessionId, VisitPhase phase) async {
+    final id = sessionId.trim();
+    if (id.isEmpty) return;
+    try {
+      final patch = <String, dynamic>{'phase': phase.dbValue};
+      if (phase == VisitPhase.done) {
+        patch['completed_at'] = DateTime.now().toUtc().toIso8601String();
+      }
+      await _db.from('visit_sessions').update(patch).eq('id', id);
+    } catch (e, st) {
+      debugPrint('updateVisitPhase failed: $e\n$st');
       rethrow;
     }
   }

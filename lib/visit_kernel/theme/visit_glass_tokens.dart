@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-/// Calm Data Glass (CDG) — CRM 전용 GIS 서브시스템 (PO 확정 파라미터).
-abstract final class CrmCalmGlassTokens {
+/// Calm Data Glass + Social Glass — Visit OS (PO v3.0 확정).
+abstract final class VisitGlassTokens {
   static const double glassOpacity = 0.08;
   static const double glassOpacityPressed = 0.12;
-  static const double disabledOpacity = 0.45;
+  static const double edgeGlowMin = 0.15;
+  static const double edgeGlowMax = 0.20;
 
   static const Color care = Color(0xFFB8A9C9);
   static const Color careSoft = Color(0xFF2A2438);
-  static const Color revenue = Color(0xFF9CAF88);
+  static const Color sage = Color(0xFF9CAF88);
   static const Color alert = Color(0xFFE8A0A0);
-  static const Color lead = Color(0xFF9BB5CE);
 
   static const double radiusLg = 20;
   static const double radiusXl = 24;
@@ -43,15 +43,28 @@ abstract final class CrmCalmGlassTokens {
     Color? tint,
     double radius = radiusLg,
     bool pressed = false,
+    bool socialGlow = false,
   }) {
     final base = tint ?? care;
+    final glowAlpha = (edgeGlowMin + edgeGlowMax) / 2;
     return BoxDecoration(
       borderRadius: BorderRadius.circular(radius),
       color: base.withValues(alpha: pressed ? glassOpacityPressed : glassOpacity),
       border: Border.all(
-        color: base.withValues(alpha: 0.22),
-        width: 0.5,
+        color: socialGlow
+            ? base.withValues(alpha: glowAlpha)
+            : base.withValues(alpha: 0.22),
+        width: socialGlow ? 1.0 : 0.5,
       ),
+      boxShadow: socialGlow
+          ? [
+              BoxShadow(
+                color: base.withValues(alpha: glowAlpha * 0.6),
+                blurRadius: 18,
+                spreadRadius: 0,
+              ),
+            ]
+          : null,
     );
   }
 
@@ -67,9 +80,15 @@ abstract final class CrmCalmGlassTokens {
         ],
       ),
       border: Border.all(
-        color: care.withValues(alpha: 0.18),
+        color: care.withValues(alpha: edgeGlowMin),
         width: 0.5,
       ),
+      boxShadow: [
+        BoxShadow(
+          color: care.withValues(alpha: edgeGlowMin * 0.5),
+          blurRadius: 24,
+        ),
+      ],
     );
   }
 }

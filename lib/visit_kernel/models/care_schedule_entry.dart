@@ -1,4 +1,4 @@
-/// Today Care Board — 수동 일정 + 고객 희망 일정 리드.
+/// Legacy lead intake — customer preferred schedule (not Visit Launcher).
 enum CareScheduleSource {
   manual,
   customerLead;
@@ -113,47 +113,4 @@ class CareScheduleEntry {
       createdAt: DateTime.tryParse(map['created_at']?.toString() ?? ''),
     );
   }
-}
-
-/// Today Board 집계 — Orbit 카드 1행.
-class TodayOrbitItem {
-  const TodayOrbitItem({
-    required this.entry,
-    required this.customerId,
-    required this.displayName,
-    required this.timeLabel,
-    required this.careLabel,
-    required this.membershipRemain,
-    required this.hasChartToday,
-    required this.isLead,
-  });
-
-  final CareScheduleEntry entry;
-  final String? customerId;
-  final String displayName;
-  final String timeLabel;
-  final String careLabel;
-  final int membershipRemain;
-  final bool hasChartToday;
-  final bool isLead;
-}
-
-class TodayBoardSnapshot {
-  const TodayBoardSnapshot({
-    required this.day,
-    required this.scheduledCount,
-    required this.completedCount,
-    required this.unwrittenCount,
-    required this.leadCount,
-    required this.orbitItems,
-    required this.progressRatio,
-  });
-
-  final DateTime day;
-  final int scheduledCount;
-  final int completedCount;
-  final int unwrittenCount;
-  final int leadCount;
-  final List<TodayOrbitItem> orbitItems;
-  final double progressRatio;
 }

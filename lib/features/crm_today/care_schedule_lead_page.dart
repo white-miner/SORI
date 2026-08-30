@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../crm_kernel/messaging/sori_platform_alimtalk.dart';
-import '../../crm_kernel/theme/crm_calm_glass_tokens.dart';
+import '../visit_kernel/messaging/sori_platform_alimtalk.dart';
+import '../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
-import '../../widgets/crm/crm_calm_glass_widgets.dart';
+import '../../visit_kernel/widgets/visit_glass_widgets.dart';
 
 /// 고객 희망 일정 리드 — SORI 링크 공개 페이지 (Phase CRM-1).
 class CareScheduleLeadPage extends StatefulWidget {
@@ -100,7 +100,7 @@ class _CareScheduleLeadPageState extends State<CareScheduleLeadPage> {
                 Icon(
                   Icons.check_circle_outline_rounded,
                   size: 64,
-                  color: CrmCalmGlassTokens.revenue,
+                  color: VisitGlassTokens.sage,
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -112,7 +112,7 @@ class _CareScheduleLeadPageState extends State<CareScheduleLeadPage> {
                 Text(
                   '원장님이 확인 후 연락드릴 예정이에요.',
                   textAlign: TextAlign.center,
-                  style: CrmCalmGlassTokens.bodyCalm.copyWith(
+                  style: VisitGlassTokens.bodyCalm.copyWith(
                     color: SoriTokens.textSecondary,
                   ),
                 ),
@@ -133,7 +133,7 @@ class _CareScheduleLeadPageState extends State<CareScheduleLeadPage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: CrmCalmGlassCard(
+        child: VisitGlassCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -149,7 +149,7 @@ class _CareScheduleLeadPageState extends State<CareScheduleLeadPage> {
               const SizedBox(height: 8),
               Text(
                 '원하시는 방문 일정을 남겨 주세요. 확정 예약이 아닌 상담 리드입니다.',
-                style: CrmCalmGlassTokens.captionCalm.copyWith(
+                style: VisitGlassTokens.captionCalm.copyWith(
                   color: SoriTokens.textSecondary,
                 ),
               ),
@@ -181,7 +181,7 @@ class _CareScheduleLeadPageState extends State<CareScheduleLeadPage> {
               FilledButton(
                 onPressed: _submitting ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: CrmCalmGlassTokens.care,
+                  backgroundColor: VisitGlassTokens.care,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text(_submitting ? '전송 중…' : '희망 일정 보내기'),

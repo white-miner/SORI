@@ -39,7 +39,8 @@ import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/subscription.dart';
 import '../models/whisper.dart';
-import '../crm_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/visit_session.dart';
 import 'auth_role_resolution.dart';
 
 export 'auth_role_resolution.dart';
@@ -850,4 +851,15 @@ abstract class SoriRepository {
     String entryId,
     CareScheduleStatus status,
   );
+
+  /// Visit OS — on-site session SSOT (097).
+  Future<List<VisitSession>> loadVisitSessions(
+    String shopId, {
+    DateTime? from,
+    DateTime? to,
+  });
+
+  Future<VisitSession> upsertVisitSession(VisitSession session);
+
+  Future<void> updateVisitPhase(String sessionId, VisitPhase phase);
 }

@@ -3,7 +3,6 @@ abstract final class SoriPlatformAlimtalk {
   static const channelId = 'sori_official';
   static const channelName = 'SORI 공식';
 
-  /// 중앙 채널 발송 템플릿 코드 (Kakao Business 연동 시 매핑).
   static const templates = SoriAlimtalkTemplates();
 }
 
@@ -15,7 +14,6 @@ class SoriAlimtalkTemplates {
   String get scheduleLeadAck => 'SORI_SCHEDULE_LEAD_ACK_V1';
 }
 
-/// 발송 페이로드 — Repository → 중앙 채널 API (현재 mock bridge).
 class SoriPlatformAlimtalkMessage {
   const SoriPlatformAlimtalkMessage({
     required this.templateCode,

@@ -14,9 +14,10 @@ import '../utils/post_author.dart';
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
-import '../crm_kernel/crm_store.dart';
-import '../crm_kernel/models/care_schedule_entry.dart';
-import '../crm_kernel/messaging/sori_platform_alimtalk.dart';
+import '../visit_kernel/visit_store.dart';
+import '../visit_kernel/models/visit_session.dart';
+import '../visit_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/messaging/sori_platform_alimtalk.dart';
 import 'unified_feed_engine.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
@@ -183,9 +184,144 @@ class SoriStore implements Listenable {
     _notify();
   }
 
-  /// CRM Kernel facade (Phase CRM-1).
-  CrmStore get crm => _crmStore ??= CrmStore(this);
+  /// Visit OS facade (PRD v3.0 Phase 1).
+  VisitStore get visit => _visitStore ??= VisitStore(this);
 
+  /// @deprecated Use [visit] — CRM kernel removed.
+  VisitStore get crm => visit;
+
+  DateTime? _visitSessionsLoadedAt;
+
+  Future<void> refreshVisitSessions({bool force = false}) async {
+    final sid = shop.id.trim();
+    if (sid.isEmpty) {
+      visitSessions = [];
+      activeVisitSessionId = null;
+      _notify();
+      return;
+    }
+    if (!force &&
+        _visitSessionsLoadedAt != null &&
+        DateTime.now().difference(_visitSessionsLoadedAt!) <
+            const Duration(minutes: 2) &&
+        visitSessions.isNotEmpty) {
+      return;
+    }
+    try {
+      final now = DateTime.now();
+      final from = DateTime(now.year, now.month, now.day);
+      final to = DateTime(now.year, now.month, now.day, 23, 59, 59);
+      visitSessions = await _repository.loadVisitSessions(
+        sid,
+        from: from,
+        to: to,
+      );
+      _visitSessionsLoadedAt = DateTime.now();
+      _syncActiveVisitSession();
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshVisitSessions failed: $e\n$st');
+    }
+  }
+
+  void _syncActiveVisitSession() {
+    final activeId = activeVisitSessionId?.trim();
+    if (activeId == null || activeId.isEmpty) {
+      final inProgress = visitSessions.where((s) => s.isActive).toList()
+        ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      if (inProgress.isNotEmpty) {
+        activeVisitSessionId = inProgress.first.id;
+      }
+      return;
+    }
+    final exists = visitSessions.any((s) => s.id == activeId && s.isActive);
+    if (!exists) {
+      activeVisitSessionId = null;
+      _syncActiveVisitSession();
+    }
+  }
+
+  VisitSession? get activeVisitSession {
+    final id = activeVisitSessionId?.trim();
+    if (id == null || id.isEmpty) return null;
+    for (final s in visitSessions) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  VisitSession? findVisitSession(String id) {
+    final tid = id.trim();
+    if (tid.isEmpty) return null;
+    for (final s in visitSessions) {
+      if (s.id == tid) return s;
+    }
+    return null;
+  }
+
+  Future<VisitSession> startVisitSession({required String customerId}) async {
+    final customer = findCustomer(customerId);
+    if (customer == null) throw StateError('Customer not found');
+
+    final chart = await ensureTodayShootChart(customerId: customerId);
+    final sid = shop.id.trim();
+
+    final session = VisitSession(
+      id: 'visit-${DateTime.now().microsecondsSinceEpoch}',
+      shopId: sid,
+      customerId: customer.id,
+      customerName: customer.name.trim(),
+      chartDraftId: chart.id,
+      phase: VisitPhase.shoot,
+      startedAt: DateTime.now(),
+      createdAt: DateTime.now(),
+    );
+
+    final saved = await _repository.upsertVisitSession(session);
+    visitSessions = [saved, ...visitSessions.where((s) => s.id != saved.id)];
+    activeVisitSessionId = saved.id;
+    _notify();
+    return saved;
+  }
+
+  Future<void> updateVisitPhase(String sessionId, VisitPhase phase) async {
+    await _repository.updateVisitPhase(sessionId, phase);
+    final idx = visitSessions.indexWhere((s) => s.id == sessionId);
+    if (idx >= 0) {
+      final completed = phase == VisitPhase.done
+          ? DateTime.now()
+          : visitSessions[idx].completedAt;
+      visitSessions[idx] = visitSessions[idx].copyWith(
+        phase: phase,
+        completedAt: completed,
+      );
+      if (phase == VisitPhase.done &&
+          activeVisitSessionId == sessionId) {
+        activeVisitSessionId = null;
+      }
+      _notify();
+    }
+  }
+
+  CustomerChart? chartForVisitSession(VisitSession session) {
+    final cid = session.chartDraftId?.trim();
+    if (cid == null || cid.isEmpty) return null;
+    return findChartById(cid);
+  }
+
+  Future<void> bindChartToVisitSession({
+    required String sessionId,
+    required String chartId,
+  }) async {
+    final idx = visitSessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final updated = visitSessions[idx].copyWith(chartDraftId: chartId);
+    final saved = await _repository.upsertVisitSession(updated);
+    visitSessions[idx] = saved;
+    _notify();
+  }
+
+  /// Legacy schedule API — lead intake only (not Visit Launcher).
   DateTime? _careScheduleLoadedAt;
 
   Future<void> refreshCareScheduleEntries({bool force = false}) async {
@@ -389,7 +525,9 @@ class SoriStore implements Listenable {
   bool shopRegisteredByUser = false;
   final List<Customer> customers = [];
   List<CareScheduleEntry> careScheduleEntries = [];
-  CrmStore? _crmStore;
+  List<VisitSession> visitSessions = [];
+  String? activeVisitSessionId;
+  VisitStore? _visitStore;
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];
   final List<AiReply> aiReplies = [];
