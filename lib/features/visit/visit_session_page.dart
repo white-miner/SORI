@@ -4,7 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 
-import '../../features/crm_charts/chart_publish_opt_in_sheet.dart';
+import '../../content_atomizer/content_atomizer.dart';
+import '../../features/publish_rail/publish_rail_sheet.dart';
 import '../../models/chart_interview_chips.dart';
 import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
@@ -226,11 +227,22 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
       await _setPhase(VisitPhase.publish);
       if (!mounted) return;
 
-      await showChartPublishOptInSheet(
-        context,
-        store: widget.store,
-        chart: saved,
-      );
+      final session = widget.store.findVisitSession(widget.sessionId);
+      if (session != null) {
+        final atomized = ContentAtomizer.atomize(
+          session: session,
+          chart: saved,
+          shopName: widget.store.shop.name,
+        );
+
+        await showPublishRailSheet(
+          context,
+          store: widget.store,
+          session: session,
+          chart: saved,
+          initialDrafts: atomized.drafts,
+        );
+      }
 
       await _setPhase(VisitPhase.done);
       if (!mounted) return;
@@ -745,7 +757,7 @@ class _PublishPhase extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          '동의서 완료 후 커뮤니티 게시를 선택할 수 있습니다.',
+          '동의서 완료 후 Publish Rail에서\nWhisper · Tip · B/A · Mentoring을 한 번에 발행할 수 있어요.',
           textAlign: TextAlign.center,
           style: VisitGlassTokens.bodyCalm.copyWith(
             color: SoriTokens.textSecondary,
