@@ -6,6 +6,9 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../views/seminar_management_page.dart';
 import '../widgets/shop_tier_badge_chip.dart';
+import '../widgets/glass/sori_glass_fab.dart';
+import '../widgets/glass/sori_glass_icon_button.dart';
+import '../widgets/glass/sori_glass_tokens.dart';
 import '../widgets/sori_glass_surface.dart';
 
 /// PC 와이드 뷰포트에서 피드 우측에 고정되는 대시보드/댓글 사이드바.
@@ -170,10 +173,12 @@ class _CommentPanelState extends State<_CommentPanel> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
-                IconButton(
-                  tooltip: '닫기',
+                SoriGlassIconButton(
+                  icon: Icons.close_rounded,
                   onPressed: () => SoriStore.instance.closeCommentPanel(),
-                  icon: const Icon(Icons.close_rounded, size: 20),
+                  tooltip: '닫기',
+                  size: SoriGlassTokens.chipSm,
+                  iconSize: 18,
                 ),
               ],
             ),
@@ -238,44 +243,16 @@ class _CommentPanelState extends State<_CommentPanel> {
           ),
           // Input
           Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 12),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             decoration: const BoxDecoration(
               border: Border(
                 top: BorderSide(color: SoriTokens.outlinePurple, width: 1),
               ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: '댓글을 입력하세요',
-                      hintStyle: const TextStyle(color: SoriTokens.textSecondary),
-                      filled: true,
-                      fillColor: SoriTokens.background,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: BorderSide.none,
-                      ),
-                      isDense: true,
-                    ),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: SoriTokens.textPrimary,
-                    ),
-                    onSubmitted: (_) => _submit(),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: _submit,
-                  icon: const Icon(Icons.send_rounded,
-                      color: SoriTokens.primary, size: 20),
-                ),
-              ],
+            child: SoriGlassInputBar(
+              controller: _controller,
+              hint: '댓글을 입력하세요',
+              onSend: _submit,
             ),
           ),
           ],

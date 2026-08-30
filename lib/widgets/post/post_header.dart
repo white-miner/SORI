@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
 import '../animated_booster_avatar.dart';
+import '../glass/sori_glass_icon_button.dart';
+import '../glass/sori_glass_tokens.dart';
 import '../official_badge.dart';
 import '../sori_logo.dart';
 import 'post_view_data.dart';
@@ -118,18 +120,12 @@ class PostHeader extends StatelessWidget {
                 color: SoriTokens.warningText,
               ),
             ),
-          IconButton(
+          SoriGlassIconButton(
+            icon: Icons.more_vert_rounded,
             onPressed: onMore,
-            padding: EdgeInsets.zero,
-            constraints: BoxConstraints(
-              minWidth: dense ? 32 : 36,
-              minHeight: dense ? 32 : 36,
-            ),
-            icon: Icon(
-              Icons.more_vert_rounded,
-              size: dense ? 18 : 20,
-              color: SoriTokens.textSecondary,
-            ),
+            size: dense ? SoriGlassTokens.chipSm : SoriGlassTokens.chipMd,
+            iconSize: dense ? 18 : 20,
+            tooltip: '더보기',
           ),
         ],
       ),

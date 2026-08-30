@@ -8,6 +8,8 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
+import '../widgets/glass/sori_glass_icon_button.dart';
+import '../widgets/glass/sori_glass_tokens.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
 import '../widgets/margin_scroll_forwarder.dart';
@@ -674,7 +676,7 @@ class _ShellLogoButton extends StatelessWidget {
   }
 }
 
-/// 배경·그림자 없는 플랫 AppBar 아이콘 (M3 IconButton 톤 배경 회피).
+/// AppBar glass icon cluster.
 class _FlatAppBarIcon extends StatelessWidget {
   const _FlatAppBarIcon({
     required this.icon,
@@ -690,37 +692,13 @@ class _FlatAppBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = Icon(icon, size: 22, color: SoriTokens.textCharcoal);
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        onPressed: onPressed,
-        padding: const EdgeInsets.all(8),
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-        splashRadius: 20,
-        style: IconButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: SoriTokens.textCharcoal,
-          shadowColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: badgeCount > 0
-            ? Badge(
-                backgroundColor: SoriTokens.systemRed,
-                label: Text(
-                  badgeCount > 9 ? '9+' : '$badgeCount',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                child: iconWidget,
-              )
-            : iconWidget,
-      ),
+    return SoriGlassIconButton(
+      icon: icon,
+      onPressed: onPressed,
+      tooltip: tooltip,
+      badgeCount: badgeCount,
+      size: SoriGlassTokens.chipMd,
+      iconSize: 20,
     );
   }
 }

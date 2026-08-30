@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/community_comment.dart';
 import '../services/sori_store.dart';
 import '../services/supabase_client.dart';
+import 'glass/sori_glass_fab.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/relative_time.dart';
 
@@ -112,96 +113,27 @@ class _CommunityCommentsSectionState extends State<CommunityCommentsSection> {
     await _reload();
   }
 
-  InputDecoration _inputDecoration({required String hint}) {
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(
-        color: SoriTokens.outlinePurple.withValues(alpha: 0.55),
-      ),
-    );
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(
-        color: SoriTokens.textSecondary,
-        fontSize: 13,
-      ),
-      filled: true,
-      fillColor: SoriTokens.background.withValues(alpha: 0.72),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: border,
-      enabledBorder: border,
-      focusedBorder: border.copyWith(
-        borderSide: const BorderSide(color: SoriTokens.primary, width: 1.2),
-      ),
-    );
-  }
-
-  Widget _buildSendSuffixIcon({double iconSize = 20}) {
-    return IconButton(
-      onPressed: _sending ? null : _send,
-      tooltip: '전송',
-      visualDensity: VisualDensity.compact,
-      icon: _sending
-          ? SizedBox(
-              width: iconSize,
-              height: iconSize,
-              child: const CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(
-              Icons.send_rounded,
-              size: iconSize,
-              color: SoriTokens.primary,
-            ),
-    );
-  }
-
   Widget _buildInputRow() {
     if (widget.embeddedInSidebar) {
-      return Container(
+      return Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-        decoration: BoxDecoration(
-          color: SoriTokens.surface.withValues(alpha: 0.55),
-          border: Border(
-            top: BorderSide(
-              color: SoriTokens.outlinePurple.withValues(alpha: 0.35),
-            ),
-          ),
-        ),
-        child: TextField(
+        child: SoriGlassInputBar(
           controller: _ctrl,
-          minLines: 1,
-          maxLines: 4,
-          style: const TextStyle(
-            fontSize: 13.5,
-            color: SoriTokens.textPrimary,
-          ),
-          decoration: _inputDecoration(hint: '댓글을 입력하세요').copyWith(
-            suffixIcon: _buildSendSuffixIcon(),
-          ),
-          onSubmitted: (_) => _send(),
+          hint: '댓글을 입력하세요',
+          sending: _sending,
+          onSend: _send,
         ),
       );
     }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _ctrl,
-              minLines: 1,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: '의견을 남겨 주세요',
-                isDense: true,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _buildSendSuffixIcon(iconSize: 18),
-        ],
+      child: SoriGlassInputBar(
+        controller: _ctrl,
+        hint: '의견을 남겨 주세요',
+        sending: _sending,
+        maxLines: 3,
+        onSend: _send,
       ),
     );
   }

@@ -1,9 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../theme/sori_tokens.dart';
+import 'glass/sori_glass_tokens.dart';
 
-/// Semi-transparent white + backdrop blur (sigma 10).
-/// BackdropFilter is clipped so hit-testing matches painted bounds (tablet web).
+/// Semi-transparent L1 surface + backdrop blur.
 class SoriGlassSurface extends StatelessWidget {
   const SoriGlassSurface({
     super.key,
@@ -23,17 +25,22 @@ class SoriGlassSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(SoriTokens.radiusLg);
+    final sigma = SoriGlassTokens.blurSigma(SoriGlassTier.l1Surface);
     return Container(
       margin: margin,
       child: ClipRRect(
         borderRadius: radius,
         child: ClipRect(
           child: BackdropFilter(
-            filter: SoriTokens.glassBlurFilter,
+            filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
             child: DecoratedBox(
-              decoration: SoriTokens.glassSurface(
-                radius: 20,
-                showBorder: border,
+              decoration: BoxDecoration(
+                color: SoriGlassTokens.fillColor(SoriGlassTier.l1Surface),
+                borderRadius: radius,
+                border: border
+                    ? Border.all(color: SoriTokens.border, width: 1)
+                    : null,
+                boxShadow: SoriTokens.cardShadow,
               ),
               child: padding != null
                   ? Padding(padding: padding!, child: child)

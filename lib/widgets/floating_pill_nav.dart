@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 import '../theme/sori_tokens.dart';
+import 'glass/sori_glass_overlay.dart';
+import 'glass/sori_glass_tokens.dart';
 
 /// Weverse-style fluid drag bottom nav — glass white bar with blur.
 class FloatingPillNav extends StatefulWidget {
@@ -197,43 +199,35 @@ class _FloatingPillNavState extends State<FloatingPillNav>
           _syncBarWidth(constraints.maxWidth);
           return SizedBox(
             height: _barH,
-            child: ClipRRect(
+            child: SoriGlassOverlay(
               borderRadius: BorderRadius.circular(_radius),
-              child: ClipRect(
-                child: BackdropFilter(
-                  filter: SoriTokens.glassBlurFilter,
-                  child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: FloatingPillNav.barBg,
-                    borderRadius: BorderRadius.circular(_radius),
-                    border: Border.all(color: SoriTokens.border),
-                  ),
-                  child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    if (_laidOut && _highlightW > 0)
-                      AnimatedBuilder(
-                        animation: _spring,
-                        builder: (context, _) {
-                          final left = _dragging
-                              ? _highlightLeft
-                              : (_spring.isAnimating
-                                  ? _spring.value
-                                  : _highlightLeft);
-                          return Positioned(
-                            left: left,
-                            top: _vInset,
-                            bottom: _vInset,
-                            width: _highlightW,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: SoriTokens.primarySoft,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  if (_laidOut && _highlightW > 0)
+                    AnimatedBuilder(
+                      animation: _spring,
+                      builder: (context, _) {
+                        final left = _dragging
+                            ? _highlightLeft
+                            : (_spring.isAnimating
+                                ? _spring.value
+                                : _highlightLeft);
+                        return Positioned(
+                          left: left,
+                          top: _vInset,
+                          bottom: _vInset,
+                          width: _highlightW,
+                          child: DecoratedBox(
+                            decoration: SoriGlassTokens.pseudoChipDecoration(
+                              radius: 24,
+                              semantic: SoriGlassSemantic.neutral,
+                              active: true,
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
+                    ),
                     Positioned.fill(
                       child: Row(
                         children: List.generate(_count, (i) {
@@ -285,10 +279,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                       ),
                     ),
                   ],
-                  ),
                 ),
-              ),
-              ),
             ),
           );
         },
