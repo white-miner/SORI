@@ -104,23 +104,19 @@ class SoriPostMini extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            data.bodyText,
+                          PostTruncatedCaption(
+                            text: data.bodyText,
                             maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            onReadMore: () => _openOriginal(context),
+                            bodyStyle: TextStyle(
                               fontSize: 13,
                               height: 1.35,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w400,
                               color: data.bodyLocked
                                   ? SoriTokens.textTertiary
                                   : SoriTokens.textPrimary,
                             ),
                           ),
-                          if (data.bodyText.trim().length > 48)
-                            PostReadMoreLink(
-                              onTap: () => _openOriginal(context),
-                            ),
                         ],
                       ),
                     ),

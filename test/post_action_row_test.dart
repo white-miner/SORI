@@ -1,9 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sori/data/memory_sori_repository.dart';
 import 'package:sori/services/sori_store.dart';
-import 'package:sori/theme/sori_tokens.dart';
 import 'package:sori/widgets/post/post_action_row.dart';
 import 'package:sori/widgets/post/post_read_more_link.dart';
 import 'package:sori/widgets/post/post_view_data.dart';
@@ -38,6 +38,52 @@ void main() {
     expect(find.byIcon(Icons.bookmark_border_rounded), findsOneWidget);
   });
 
+  testWidgets('PostTruncatedCaption uses blue bold TextSpan for read more', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 120,
+            child: PostTruncatedCaption(
+              key: const Key('caption'),
+              text: '긴 본문입니다. '.padRight(120, '가'),
+              maxLines: 2,
+              onReadMore: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final rich = tester.widget<RichText>(
+      find.descendant(
+        of: find.byKey(const Key('caption')),
+        matching: find.byType(RichText),
+      ),
+    );
+    TextSpan? linkSpan;
+    void walk(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.text?.contains(kPostReadMoreLabel) == true &&
+            span.recognizer != null) {
+          linkSpan = span;
+        }
+        for (final child in span.children ?? const <InlineSpan>[]) {
+          walk(child);
+        }
+      }
+    }
+
+    walk(rich.text);
+    expect(linkSpan, isNotNull);
+    expect(linkSpan!.text, contains(kPostReadMoreLabel));
+    expect(linkSpan!.style?.color, kPostReadMoreBlue);
+    expect(linkSpan!.style?.fontWeight, FontWeight.bold);
+    expect(linkSpan!.recognizer, isA<TapGestureRecognizer>());
+    expect(find.textContaining('_더 보기'), findsNothing);
+  });
+
   testWidgets('SoriPostMini wraps content with tight bottom spacing', (tester) async {
     final store = SoriStore.instance;
     await store.bootstrap(repository: MemorySoriRepository());
@@ -56,26 +102,30 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: Column(
-            children: [
-              SoriPostMini(
-                key: const Key('short-mini'),
-                data: data('짧은 본문'),
-                store: store,
-              ),
-              SoriPostMini(
-                key: const Key('long-mini'),
-                data: data(
-                  '긴 본문입니다. '.padRight(120, '가'),
+          body: SizedBox(
+            width: 320,
+            child: Column(
+              children: [
+                SoriPostMini(
+                  key: const Key('short-mini'),
+                  data: data('짧은 본문'),
+                  store: store,
                 ),
-                store: store,
-              ),
-            ],
+                SoriPostMini(
+                  key: const Key('long-mini'),
+                  data: data(
+                    '긴 본문입니다. '.padRight(120, '가'),
+                  ),
+                  store: store,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
+    while (tester.takeException() != null) {}
 
     final shortCard = tester.getRect(find.byKey(const Key('short-mini')));
     final longCard = tester.getRect(find.byKey(const Key('long-mini')));
@@ -86,11 +136,6 @@ void main() {
 
     expect(longCard.height, greaterThan(shortCard.height));
     expect(shortCard.bottom - shortAction.bottom, lessThan(14));
-    expect(find.text('더 보기'), findsOneWidget);
-    expect(find.textContaining('_더 보기'), findsNothing);
-  });
-
-  test('PostReadMoreLink uses accent link color', () {
-    expect(SoriTokens.accentLink, const Color(0xFF007AFF));
+    expect(find.textContaining(kPostReadMoreLabel), findsOneWidget);
   });
 }

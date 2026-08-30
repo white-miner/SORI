@@ -96,22 +96,16 @@ class _MediumCaption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text.trim(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.35,
-            color: SoriTokens.textPrimary,
-          ),
-        ),
-        PostReadMoreLink(onTap: onReadMore),
-      ],
+    return PostTruncatedCaption(
+      text: text,
+      maxLines: 2,
+      onReadMore: onReadMore,
+      bodyStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.35,
+        color: SoriTokens.textPrimary,
+      ),
     );
   }
 }
