@@ -8,8 +8,10 @@ import 'package:sori/models/shop.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/views/sori_post_original_page.dart';
 import 'package:sori/widgets/post/post_action_row.dart';
+import 'package:sori/widgets/post/post_header.dart';
 import 'package:sori/widgets/post/post_interaction_sidebar.dart';
 import 'package:sori/widgets/post/post_layout_breakpoints.dart';
+import 'package:sori/widgets/post/post_media_section.dart';
 import 'package:sori/widgets/post/post_view_data.dart';
 
 void main() {
@@ -57,6 +59,50 @@ void main() {
 
     expect(find.byType(PostInteractionSidebar), findsOneWidget);
     expect(find.text('B/A 케이스 댓글은 홈 피드에서 확인할 수 있어요.'), findsNothing);
+  });
+
+  testWidgets('desktop: PostHeader above media on left; sidebar has no header', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SoriPostOriginalPage(data: baData(), store: store),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Exactly one author header — on the left post column, not duplicated in sidebar.
+    expect(find.byType(PostHeader), findsOneWidget);
+    expect(find.byType(PostInteractionSidebar), findsOneWidget);
+
+    final headerRect = tester.getRect(find.byType(PostHeader));
+    final mediaRect = tester.getRect(find.byType(PostMediaSection));
+    final actionRect = tester.getRect(find.byType(PostActionRow));
+    final sidebarRect = tester.getRect(find.byType(PostInteractionSidebar));
+
+    // Hierarchy: Header → Media → … → ActionDock (top-to-bottom).
+    expect(headerRect.bottom, lessThanOrEqualTo(mediaRect.top + 1));
+    expect(mediaRect.bottom, lessThanOrEqualTo(actionRect.top + 1));
+
+    // Header lives in left column, not inside the comment sidebar.
+    expect(headerRect.right, lessThanOrEqualTo(sidebarRect.left + 1));
+
+    // Sidebar title is simple "댓글".
+    expect(
+      find.descendant(
+        of: find.byType(PostInteractionSidebar),
+        matching: find.text('댓글'),
+      ),
+      findsOneWidget,
+    );
+
+    // Wrap-content: post column shorter than viewport (no stretch to fill height).
+    final columnRect = tester.getRect(find.byKey(const Key('post-original-main-column')));
+    expect(columnRect.height, lessThan(850));
   });
 
   testWidgets('desktop split-pane is centered with tight gap between columns', (tester) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/sori_store.dart';
+import '../../theme/sori_date_picker.dart';
 import '../../theme/sori_tokens.dart';
 import '../widgets/community_comments_section.dart';
 import '../widgets/post/post_action_row.dart';
@@ -148,7 +149,6 @@ class _SoriPostOriginalPageState extends State<SoriPostOriginalPage> {
                   ),
                   child: _PostMainColumn(
                     data: data,
-                    includeHeader: true,
                     imageFit: BoxFit.contain,
                     liked: widget.liked,
                     bookmarked: widget.bookmarked,
@@ -223,22 +223,25 @@ class _DesktopSplitBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: PostLayoutBreakpoints.contentMaxWidth,
-                  ),
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: SingleChildScrollView(
-                    child: _PostMainColumn(
-                      data: data,
-                      includeHeader: false,
-                      imageFit: BoxFit.contain,
-                      liked: liked,
-                      bookmarked: bookmarked,
-                      onLike: onLike,
-                      onComment: onComment,
-                      onBookmark: onBookmark,
-                      onMentoring: onMentoring,
-                      onBoost: onBoost,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: PostLayoutBreakpoints.contentMaxWidth,
+                      ),
+                      child: _PostMainColumn(
+                        // PO: Header always above media on left post column.
+                        data: data,
+                        imageFit: BoxFit.contain,
+                        liked: liked,
+                        bookmarked: bookmarked,
+                        onLike: onLike,
+                        onComment: onComment,
+                        onBookmark: onBookmark,
+                        onMentoring: onMentoring,
+                        onBoost: onBoost,
+                      ),
                     ),
                   ),
                 ),
@@ -294,10 +297,10 @@ class _MobileStackBody extends StatelessWidget {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _PostMainColumn(
             data: data,
-            includeHeader: true,
             liked: liked,
             bookmarked: bookmarked,
             onLike: onLike,
@@ -323,10 +326,10 @@ class _MobileStackBody extends StatelessWidget {
   }
 }
 
+/// Forced render order (PO image_35): Header → Media → FullText → ActionDock.
 class _PostMainColumn extends StatelessWidget {
   const _PostMainColumn({
     required this.data,
-    required this.includeHeader,
     required this.liked,
     required this.bookmarked,
     required this.onLike,
@@ -338,7 +341,6 @@ class _PostMainColumn extends StatelessWidget {
   });
 
   final PostViewData data;
-  final bool includeHeader;
   final bool liked;
   final bool bookmarked;
   final VoidCallback onLike;
@@ -350,47 +352,60 @@ class _PostMainColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (includeHeader) PostHeader(data: data),
-        PostMediaSection(
-          slides: data.mediaSlides,
-          heroTag: data.heroTag,
-          maxHeight: 420,
-          imageFit: imageFit,
-        ),
-        if (data.bodyText.trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Text(
-              data.bodyText.trim(),
-              style: const TextStyle(
-                fontSize: 15,
-                height: 1.45,
-                fontWeight: FontWeight.w600,
-                color: SoriTokens.textPrimary,
-              ),
+    // Wrap-content card — height = Header+Media+Text+Dock only; off-white shows below.
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: SoriGlassPanel(
+        borderRadius: 20,
+        child: Column(
+          key: const Key('post-original-main-column'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Item 1 — PostHeader
+            PostHeader(data: data),
+            // Item 2 — PostMedia
+            PostMediaSection(
+              slides: data.mediaSlides,
+              heroTag: data.heroTag,
+              maxHeight: 420,
+              imageFit: imageFit,
             ),
-          ),
-        PostAiContent(
-          data: data,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            // Item 3 — PostFullText (no maxLines truncation)
+            if (data.bodyText.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Text(
+                  data.bodyText.trim(),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+              ),
+            PostAiContent(
+              data: data,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            ),
+            // Item 4 — Action dock
+            PostActionRow(
+              liked: liked,
+              bookmarked: bookmarked,
+              likeCount: data.likeCount,
+              commentCount: data.commentCount,
+              mentoringActive: data.hasActiveMentoring,
+              isBoosted: data.isBoosted,
+              onLike: onLike,
+              onComment: onComment,
+              onBookmark: onBookmark,
+              onMentoring: onMentoring ?? () {},
+              onBoost: onBoost ?? () {},
+            ),
+          ],
         ),
-        PostActionRow(
-          liked: liked,
-          bookmarked: bookmarked,
-          likeCount: data.likeCount,
-          commentCount: data.commentCount,
-          mentoringActive: data.hasActiveMentoring,
-          isBoosted: data.isBoosted,
-          onLike: onLike,
-          onComment: onComment,
-          onBookmark: onBookmark,
-          onMentoring: onMentoring ?? () {},
-          onBoost: onBoost ?? () {},
-        ),
-      ],
+      ),
     );
   }
 }
