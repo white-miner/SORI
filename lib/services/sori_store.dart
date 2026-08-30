@@ -14,6 +14,7 @@ import '../utils/post_author.dart';
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
+import 'unified_feed_engine.dart';
 import '../models/ai_reply.dart';
 import '../models/care_diary_note.dart';
 import '../models/case_timeline_entry.dart';
@@ -150,6 +151,7 @@ class SoriStore implements Listenable {
         refreshCommunityHotCases(),
         refreshShopFandomMeta(),
         refreshCaseBookmarks(),
+        refreshChartLikes(),
         ensureCommunityHubWarm(force: true),
       ];
       final session = this.session;
@@ -2739,6 +2741,7 @@ class SoriStore implements Listenable {
         refreshCommunityPosts(force: force),
         refreshCommunityHotCases(),
         refreshSeminarClasses(),
+        refreshChartLikes(),
       ]);
       _rebuildUnifiedCommunityFeed();
     } finally {
@@ -2749,6 +2752,9 @@ class SoriStore implements Listenable {
 
   void _rebuildUnifiedCommunityFeed() {
     _rawUnifiedFeedItems.clear();
+    final hotChartIds = {
+      for (final c in communityHotCases) c.chart.id.trim(),
+    }..removeWhere((e) => e.isEmpty);
 
     for (final item in communityHotCases) {
       _rawUnifiedFeedItems.add(UnifiedFeedItem.ba(item));
@@ -2761,6 +2767,9 @@ class SoriStore implements Listenable {
     }
 
     for (final post in communityPosts) {
+      if (UnifiedFeedEngine.shouldSkipCaseSharePost(post, hotChartIds)) {
+        continue;
+      }
       final kind = _unifiedKindForPost(post);
       if (kind == null) continue;
       _rawUnifiedFeedItems.add(UnifiedFeedItem.post(post, kind));
@@ -2774,6 +2783,93 @@ class SoriStore implements Listenable {
     unifiedCommunityFeed
       ..clear()
       ..addAll(_interleaveUnifiedFeed(forAllTab));
+
+    _rebuildEngagementIndex();
+  }
+
+  void _rebuildEngagementIndex() {
+    chartToCommunityPostId.clear();
+    for (final p in communityPosts) {
+      final cid = p.sourceChartId?.trim();
+      if (cid != null && cid.isNotEmpty) {
+        chartToCommunityPostId[cid] = p.id;
+      }
+    }
+  }
+
+  /// Resolves community_posts.id for comments — never pass chart.id directly.
+  String? resolveEngagementPostId(PostViewData data) {
+    final direct = data.post?.id.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final chartId = data.caseItem?.chart.id ?? data.linkedChartId;
+    if (chartId != null) {
+      final mapped = chartToCommunityPostId[chartId.trim()];
+      if (mapped != null && mapped.isNotEmpty) return mapped;
+    }
+    return null;
+  }
+
+  String _chartLikerKey() {
+    final uid = session?.id.trim() ?? '';
+    if (uid.isNotEmpty) return uid;
+    final phone = session?.phoneLast4.trim() ?? '';
+    if (phone.isNotEmpty) return 'guest-$phone';
+    return 'guest-anon';
+  }
+
+  bool isChartLiked(String chartId) => likedChartIds.contains(chartId.trim());
+
+  int chartLikeCount(String chartId, {int fallback = 0}) {
+    final id = chartId.trim();
+    return chartLikeCounts[id] ?? fallback;
+  }
+
+  Future<void> refreshChartLikes() async {
+    final chartIds = <String>{
+      for (final item in communityHotCases) item.chart.id.trim(),
+      for (final p in communityPosts)
+        if ((p.sourceChartId?.trim().isNotEmpty ?? false))
+          p.sourceChartId!.trim(),
+    }..removeWhere((e) => e.isEmpty);
+
+    if (chartIds.isEmpty) {
+      likedChartIds = {};
+      chartLikeCounts = {};
+      _notify();
+      return;
+    }
+
+    try {
+      final ids = chartIds.toList();
+      final key = _chartLikerKey();
+      likedChartIds = await _repository.loadMyChartLikeIds(likerKey: key);
+      chartLikeCounts = await _repository.loadChartLikeCounts(ids);
+      _notify();
+    } catch (e, st) {
+      debugPrint('refreshChartLikes failed: $e\n$st');
+    }
+  }
+
+  Future<bool> toggleChartLike(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty || session == null) return false;
+    try {
+      final result = await _repository.toggleChartLike(
+        id,
+        likerKey: _chartLikerKey(),
+      );
+      if (result.liked) {
+        likedChartIds.add(id);
+      } else {
+        likedChartIds.remove(id);
+      }
+      chartLikeCounts[id] = result.likeCount;
+      _notify();
+      return true;
+    } catch (e, st) {
+      debugPrint('toggleChartLike failed: $e\n$st');
+      return false;
+    }
   }
 
   UnifiedFeedKind? _unifiedKindForPost(CommunityPost post) {
@@ -3207,6 +3303,9 @@ class SoriStore implements Listenable {
   ShopTrustScore shopTrustScore = ShopTrustScore.empty;
   final Map<String, ShopTrustScore> trustScoreByShopId = {};
   Set<String> bookmarkedChartIds = {};
+  final Map<String, String> chartToCommunityPostId = {};
+  Set<String> likedChartIds = {};
+  Map<String, int> chartLikeCounts = {};
 
   Future<SoriPointWallet> refreshCustomerEchoWallet() async {
     final cid = session?.customerId?.trim() ?? '';

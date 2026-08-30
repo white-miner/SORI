@@ -23,6 +23,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/chart_like_toggle_result.dart';
 import '../models/boost_contribution_report.dart';
 import '../models/shop_trust_score.dart';
 import '../models/market_listing_trust.dart';
@@ -4006,6 +4007,51 @@ class MemorySoriRepository implements SoriRepository {
         .where((c) => c.status == SeminarClassStatus.open)
         .take(limit)
         .toList();
+  }
+
+  static final Map<String, Set<String>> _chartLikesByLiker = {};
+  static final Map<String, int> _chartLikeCounts = {};
+
+  @override
+  Future<ChartLikeToggleResult> toggleChartLike(
+    String chartId, {
+    required String likerKey,
+  }) async {
+    final id = chartId.trim();
+    final key = likerKey.trim();
+    if (id.isEmpty || key.isEmpty) {
+      return ChartLikeToggleResult(liked: false, likeCount: 0);
+    }
+    final set = _chartLikesByLiker.putIfAbsent(key, () => <String>{});
+    final wasLiked = set.contains(id);
+    if (wasLiked) {
+      set.remove(id);
+      final next = ((_chartLikeCounts[id] ?? 1) - 1).clamp(0, 99999);
+      _chartLikeCounts[id] = next;
+      return ChartLikeToggleResult(liked: false, likeCount: next);
+    }
+    set.add(id);
+    final next = (_chartLikeCounts[id] ?? 0) + 1;
+    _chartLikeCounts[id] = next;
+    return ChartLikeToggleResult(liked: true, likeCount: next);
+  }
+
+  @override
+  Future<Set<String>> loadMyChartLikeIds({required String likerKey}) async {
+    final key = likerKey.trim();
+    if (key.isEmpty) return const {};
+    return Set<String>.from(_chartLikesByLiker[key] ?? const {});
+  }
+
+  @override
+  Future<Map<String, int>> loadChartLikeCounts(List<String> chartIds) async {
+    final out = <String, int>{};
+    for (final raw in chartIds) {
+      final id = raw.trim();
+      if (id.isEmpty) continue;
+      out[id] = _chartLikeCounts[id] ?? 0;
+    }
+    return out;
   }
 }
 

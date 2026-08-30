@@ -22,6 +22,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/chart_like_toggle_result.dart';
 import '../models/boost_contribution_report.dart';
 import '../models/shop_trust_score.dart';
 import '../models/market_listing_trust.dart';
@@ -824,4 +825,14 @@ abstract class SoriRepository {
 
   /// Home feed — open seminar recruitment posts (all shops).
   Future<List<SeminarClass>> loadOpenSeminarClassesForFeed({int limit = 24});
+
+  /// Chart like toggle (037 chart_likes SSOT).
+  Future<ChartLikeToggleResult> toggleChartLike(
+    String chartId, {
+    required String likerKey,
+  });
+
+  Future<Set<String>> loadMyChartLikeIds({required String likerKey});
+
+  Future<Map<String, int>> loadChartLikeCounts(List<String> chartIds);
 }

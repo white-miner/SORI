@@ -22,6 +22,11 @@ class SoriGlassActionDock extends StatelessWidget {
     this.isBoosted = false,
     this.compact = false,
     this.loading = false,
+    this.likeEnabled = true,
+    this.commentEnabled = true,
+    this.bookmarkEnabled = true,
+    this.mentoringEnabled = true,
+    this.boostEnabled = true,
   });
 
   final int likeCount;
@@ -39,6 +44,11 @@ class SoriGlassActionDock extends StatelessWidget {
   final VoidCallback? onBoostLongPress;
   final bool compact;
   final bool loading;
+  final bool likeEnabled;
+  final bool commentEnabled;
+  final bool bookmarkEnabled;
+  final bool mentoringEnabled;
+  final bool boostEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +85,7 @@ class SoriGlassActionDock extends StatelessWidget {
                         semantic: SoriGlassSemantic.like,
                         count: likeCount,
                         active: liked,
+                        enabled: likeEnabled,
                         compact: compact,
                         onTap: loading ? null : onLike,
                       ),
@@ -83,6 +94,7 @@ class SoriGlassActionDock extends StatelessWidget {
                         icon: Icons.chat_bubble_outline_rounded,
                         semantic: SoriGlassSemantic.comment,
                         count: commentCount,
+                        enabled: commentEnabled,
                         compact: compact,
                         onTap: loading ? null : onComment,
                       ),
@@ -91,6 +103,7 @@ class SoriGlassActionDock extends StatelessWidget {
                         icon: mentoringActive ? Icons.star : Icons.star_border,
                         semantic: SoriGlassSemantic.mentoring,
                         active: mentoringActive,
+                        enabled: mentoringEnabled,
                         size: chipSize,
                         loading: loading,
                         tooltip: '멘토링',
@@ -102,6 +115,7 @@ class SoriGlassActionDock extends StatelessWidget {
                         icon: Icons.local_fire_department,
                         semantic: SoriGlassSemantic.boost,
                         active: isBoosted,
+                        enabled: boostEnabled,
                         size: chipSize,
                         loading: loading,
                         tooltip: '부스트',
@@ -119,6 +133,7 @@ class SoriGlassActionDock extends StatelessWidget {
                     : Icons.bookmark_border_rounded,
                 semantic: SoriGlassSemantic.bookmark,
                 active: bookmarked,
+                enabled: bookmarkEnabled,
                 size: chipSize,
                 loading: loading,
                 tooltip: '저장',

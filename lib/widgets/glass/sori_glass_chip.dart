@@ -13,6 +13,7 @@ class SoriGlassChip extends StatefulWidget {
     required this.onTap,
     this.onLongPress,
     this.active = false,
+    this.enabled = true,
     this.loading = false,
     this.size = SoriGlassTokens.chipMd,
     this.iconSize,
@@ -25,6 +26,7 @@ class SoriGlassChip extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool active;
+  final bool enabled;
   final bool loading;
   final double size;
   final double? iconSize;
@@ -54,33 +56,39 @@ class _SoriGlassChipState extends State<SoriGlassChip> {
   Widget build(BuildContext context) {
     final iconSize = widget.iconSize ?? (widget.size >= 40 ? 20 : 18);
     final radius = widget.size / 2;
-    final color = SoriGlassTokens.iconColor(widget.semantic, active: widget.active);
+    final color = SoriGlassTokens.iconColor(
+      widget.semantic,
+      active: widget.active && widget.enabled,
+    );
 
-    Widget chip = AnimatedScale(
-      scale: _pressed ? 0.94 : 1,
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOutCubic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: widget.size,
-        height: widget.size,
-        decoration: SoriGlassTokens.pseudoChipDecoration(
-          radius: radius,
-          semantic: widget.semantic,
-          active: widget.active,
-          pressed: _pressed,
-        ),
-        child: Center(
-          child: widget.loading
-              ? SizedBox(
-                  width: iconSize,
-                  height: iconSize,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
-                )
-              : Icon(widget.icon, size: iconSize, color: color),
+    Widget chip = Opacity(
+      opacity: widget.enabled ? 1 : 0.45,
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: widget.size,
+          height: widget.size,
+          decoration: SoriGlassTokens.pseudoChipDecoration(
+            radius: radius,
+            semantic: widget.semantic,
+            active: widget.active,
+            pressed: _pressed,
+          ),
+          child: Center(
+            child: widget.loading
+                ? SizedBox(
+                    width: iconSize,
+                    height: iconSize,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  )
+                : Icon(widget.icon, size: iconSize, color: color),
+          ),
         ),
       ),
     );
@@ -117,6 +125,7 @@ class SoriGlassMetricChip extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.active = false,
+    this.enabled = true,
     this.compact = false,
   });
 
@@ -126,6 +135,7 @@ class SoriGlassMetricChip extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool active;
+  final bool enabled;
   final bool compact;
 
   @override
@@ -137,21 +147,25 @@ class SoriGlassMetricChip extends StatelessWidget {
       color: SoriTokens.textPrimary,
     );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SoriGlassChip(
-          icon: icon,
-          semantic: semantic,
-          active: active,
-          onTap: onTap,
-          onLongPress: onLongPress,
-          size: chipSize,
-          semanticLabel: '$count',
-        ),
-        const SizedBox(width: 4),
-        Text('$count', style: countStyle),
-      ],
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SoriGlassChip(
+            icon: icon,
+            semantic: semantic,
+            active: active,
+            enabled: enabled,
+            onTap: onTap,
+            onLongPress: onLongPress,
+            size: chipSize,
+            semanticLabel: '$count',
+          ),
+          const SizedBox(width: 4),
+          Text('$count', style: countStyle),
+        ],
+      ),
     );
   }
 }

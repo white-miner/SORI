@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../models/post_engagement_bindings.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/post_navigation.dart';
 import '../../widgets/sori_glass_surface.dart';
+import 'post_engagement_action_row.dart';
 import 'post_action_row.dart';
 import 'post_ai_content.dart';
 import 'post_header.dart';
@@ -29,6 +31,7 @@ class SoriPostMini extends StatelessWidget {
     this.onBookmark,
     this.onMentoring,
     this.onBoost,
+    this.engagement,
   });
 
   final PostViewData data;
@@ -42,6 +45,7 @@ class SoriPostMini extends StatelessWidget {
   final VoidCallback? onBookmark;
   final VoidCallback? onMentoring;
   final VoidCallback? onBoost;
+  final PostEngagementBindings? engagement;
 
   /// Fixed-height horizontal carousel with baseline-locked action rows.
   static Widget horizontalStrip({
@@ -136,6 +140,12 @@ class SoriPostMini extends StatelessWidget {
   }
 
   Widget _buildActionRow(BuildContext context) {
+    if (engagement != null) {
+      return PostEngagementActionRow(
+        bindings: engagement!,
+        compact: true,
+      );
+    }
     return PostActionRow(
       compact: true,
       liked: liked,

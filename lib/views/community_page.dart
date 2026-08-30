@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../models/community_post.dart';
 import '../models/session_user.dart';
 import '../models/unified_feed_item.dart';
+import '../models/post_engagement_bindings.dart';
+import '../services/engagement_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
@@ -42,12 +44,13 @@ class _CommunityPageState extends State<CommunityPage> {
   @override
   void initState() {
     super.initState();
-    _filter = CommunityFeedFilter.fromLegacySegment(store.pendingCommunitySegment);
+    _filter = _filterFromPending();
     store.pendingCommunitySegment = null;
     store.communityFeedFilter = _filter;
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(store.refreshUnifiedCommunityFeed());
+      _consumePendingHubTab();
       final again = store.pendingCommunitySegment;
       if (again != null) {
         store.pendingCommunitySegment = null;
@@ -59,6 +62,41 @@ class _CommunityPageState extends State<CommunityPage> {
       }
     });
   }
+
+  CommunityFeedFilter _filterFromPending() {
+    final hub = store.pendingCommunityHubTab;
+    if (hub != null) {
+      store.pendingCommunityHubTab = null;
+      return switch (hub) {
+        1 => CommunityFeedFilter.ba,
+        2 => CommunityFeedFilter.whisper,
+        _ => CommunityFeedFilter.all,
+      };
+    }
+    return CommunityFeedFilter.fromLegacySegment(store.pendingCommunitySegment);
+  }
+
+  void _consumePendingHubTab() {
+    final hub = store.pendingCommunityHubTab;
+    if (hub == null) return;
+    store.pendingCommunityHubTab = null;
+    _setFilter(switch (hub) {
+      1 => CommunityFeedFilter.ba,
+      2 => CommunityFeedFilter.whisper,
+      _ => CommunityFeedFilter.all,
+    });
+  }
+
+  EngagementService get _engagement => EngagementService(
+        context: context,
+        store: store,
+        onStateChanged: () {
+          if (mounted) setState(() {});
+        },
+      );
+
+  PostEngagementBindings _bindingsFor(UnifiedFeedItem item) =>
+      _engagement.bindingsFor(PostViewData.fromUnifiedFeedItem(item));
 
   @override
   void dispose() {
@@ -75,6 +113,7 @@ class _CommunityPageState extends State<CommunityPage> {
 
   void _onStore() {
     if (!mounted) return;
+    _consumePendingHubTab();
     final pending = store.pendingCommunitySegment;
     if (pending != null) {
       store.pendingCommunitySegment = null;
@@ -305,6 +344,7 @@ class _CommunityPageState extends State<CommunityPage> {
                                   data: PostViewData.fromUnifiedFeedItem(item),
                                   store: store,
                                   horizontal: true,
+                                  engagement: _bindingsFor(item),
                                 ),
                             ],
                           ),
@@ -360,6 +400,7 @@ class _CommunityPageState extends State<CommunityPage> {
                               key: ValueKey('feed_${item.stableKey}'),
                               data: PostViewData.fromUnifiedFeedItem(item),
                               store: store,
+                              engagement: _bindingsFor(item),
                             ),
                           );
                         },

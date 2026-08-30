@@ -21,6 +21,11 @@ class PostActionRow extends StatelessWidget {
     this.isBoosted = false,
     this.compact = false,
     this.loading = false,
+    this.likeEnabled = true,
+    this.commentEnabled = true,
+    this.bookmarkEnabled = true,
+    this.mentoringEnabled = true,
+    this.boostEnabled = true,
   });
 
   final int likeCount;
@@ -38,6 +43,11 @@ class PostActionRow extends StatelessWidget {
   final VoidCallback? onBoostLongPress;
   final bool compact;
   final bool loading;
+  final bool likeEnabled;
+  final bool commentEnabled;
+  final bool bookmarkEnabled;
+  final bool mentoringEnabled;
+  final bool boostEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +67,11 @@ class PostActionRow extends StatelessWidget {
       isBoosted: isBoosted,
       compact: compact,
       loading: loading,
+      likeEnabled: likeEnabled,
+      commentEnabled: commentEnabled,
+      bookmarkEnabled: bookmarkEnabled,
+      mentoringEnabled: mentoringEnabled,
+      boostEnabled: boostEnabled,
     );
   }
 }

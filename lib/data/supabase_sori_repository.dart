@@ -27,6 +27,7 @@ import '../models/point_shop.dart';
 import '../models/premium_overlay.dart';
 import '../models/my_boost_gift.dart';
 import '../models/case_bookmark.dart';
+import '../models/chart_like_toggle_result.dart';
 import '../models/boost_contribution_report.dart';
 import '../models/shop_trust_score.dart';
 import '../models/market_listing_trust.dart';
@@ -5088,6 +5089,87 @@ class SupabaseSoriRepository implements SoriRepository {
     } catch (e, st) {
       debugPrint('loadSupporterInteractionStatement failed: $e\n$st');
       return const [];
+    }
+  }
+
+  @override
+  Future<ChartLikeToggleResult> toggleChartLike(
+    String chartId, {
+    required String likerKey,
+  }) async {
+    final id = chartId.trim();
+    final key = likerKey.trim();
+    if (id.isEmpty || key.isEmpty) {
+      return const ChartLikeToggleResult(liked: false, likeCount: 0);
+    }
+    try {
+      final existing = await _db
+          .from('chart_likes')
+          .select('id')
+          .eq('chart_id', id)
+          .eq('liker_key', key)
+          .maybeSingle();
+      if (existing != null) {
+        await _db
+            .from('chart_likes')
+            .delete()
+            .eq('chart_id', id)
+            .eq('liker_key', key);
+      } else {
+        await _db.from('chart_likes').insert({
+          'chart_id': id,
+          'liker_key': key,
+        });
+      }
+      final counts = await loadChartLikeCounts([id]);
+      return ChartLikeToggleResult(
+        liked: existing == null,
+        likeCount: counts[id] ?? 0,
+      );
+    } catch (e, st) {
+      debugPrint('toggleChartLike failed: $e\n$st');
+      return const ChartLikeToggleResult(liked: false, likeCount: 0);
+    }
+  }
+
+  @override
+  Future<Set<String>> loadMyChartLikeIds({required String likerKey}) async {
+    final key = likerKey.trim();
+    if (key.isEmpty) return const {};
+    try {
+      final rows = await _db
+          .from('chart_likes')
+          .select('chart_id')
+          .eq('liker_key', key);
+      return {
+        for (final row in rows as List)
+          DbMap.asText((row as Map)['chart_id']),
+      }..removeWhere((e) => e.isEmpty);
+    } catch (e, st) {
+      debugPrint('loadMyChartLikeIds failed: $e\n$st');
+      return const {};
+    }
+  }
+
+  @override
+  Future<Map<String, int>> loadChartLikeCounts(List<String> chartIds) async {
+    final ids = chartIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final rows = await _db
+          .from('chart_likes')
+          .select('chart_id')
+          .inFilter('chart_id', ids);
+      final out = {for (final id in ids) id: 0};
+      for (final row in rows as List) {
+        final cid = DbMap.asText((row as Map)['chart_id']);
+        if (cid.isEmpty) continue;
+        out[cid] = (out[cid] ?? 0) + 1;
+      }
+      return out;
+    } catch (e, st) {
+      debugPrint('loadChartLikeCounts failed: $e\n$st');
+      return const {};
     }
   }
 }

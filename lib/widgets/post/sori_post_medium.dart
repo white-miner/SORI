@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../models/post_engagement_bindings.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/post_navigation.dart';
 import '../../widgets/sori_glass_surface.dart';
+import 'post_engagement_action_row.dart';
 import 'post_action_row.dart';
 import 'post_ai_content.dart';
 import 'post_header.dart';
@@ -25,6 +27,7 @@ class SoriPostMedium extends StatelessWidget {
     this.onMentoring,
     this.onBoost,
     this.onShopProfile,
+    this.engagement,
   });
 
   final PostViewData data;
@@ -37,6 +40,7 @@ class SoriPostMedium extends StatelessWidget {
   final VoidCallback? onMentoring;
   final VoidCallback? onBoost;
   final VoidCallback? onShopProfile;
+  final PostEngagementBindings? engagement;
 
   void _openOriginal(BuildContext context) {
     openPostOriginal(context, data: data, store: store);
@@ -69,21 +73,24 @@ class SoriPostMedium extends StatelessWidget {
             heroTag: data.heroTag,
             onOpenDetail: () => _openOriginal(context),
           ),
-          PostActionRow(
-            liked: liked,
-            bookmarked: bookmarked,
-            likeCount: data.likeCount,
-            commentCount: data.commentCount,
-            mentoringActive: data.hasActiveMentoring,
-            isBoosted: data.isBoosted,
-            onLike: onLike ?? () {},
-            onComment: onComment ?? () => _openOriginal(context),
-            onBookmark: onBookmark ?? () {},
-            onMentoring: onMentoring ?? () {},
-            onBoost: onBoost ?? () {},
-            onMentoringLongPress: () => _openOriginal(context),
-            onBoostLongPress: () => _openOriginal(context),
-          ),
+          if (engagement != null)
+            PostEngagementActionRow(bindings: engagement!)
+          else
+            PostActionRow(
+              liked: liked,
+              bookmarked: bookmarked,
+              likeCount: data.likeCount,
+              commentCount: data.commentCount,
+              mentoringActive: data.hasActiveMentoring,
+              isBoosted: data.isBoosted,
+              onLike: onLike ?? () {},
+              onComment: onComment ?? () => _openOriginal(context),
+              onBookmark: onBookmark ?? () {},
+              onMentoring: onMentoring ?? () {},
+              onBoost: onBoost ?? () {},
+              onMentoringLongPress: () => _openOriginal(context),
+              onBoostLongPress: () => _openOriginal(context),
+            ),
         ],
       ),
     );

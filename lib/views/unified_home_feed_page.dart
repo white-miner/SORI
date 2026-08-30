@@ -3,13 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/community_case_item.dart';
-import '../models/customer_chart.dart';
-import '../models/home_feed_entry.dart';
+import '../models/post_engagement_bindings.dart';
 import '../models/session_user.dart';
 import '../models/shop.dart';
+import '../models/unified_feed_item.dart';
 import '../pages/case_detail_page.dart';
 import '../routing/sori_router.dart';
+import '../services/engagement_service.dart';
 import '../services/sori_store.dart';
+import '../services/unified_feed_engine.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/post_navigation.dart';
@@ -45,13 +47,34 @@ class UnifiedHomeFeedPage extends StatefulWidget {
 
 class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     with SingleTickerProviderStateMixin {
-  final _liked = <String>{};
-  final _likeCounts = <String, int>{};
-  final _comments = <String, List<_FeedComment>>{};
   late final TabController _tabs;
-  ScrollController? _mobileFeedScrollController;
+  ScrollController? _recommendScrollController;
+  ScrollController? _exploreScrollController;
+  ScrollController? _localScrollController;
 
   SoriStore get store => widget.store;
+
+  EngagementService get _engagement => EngagementService(
+        context: context,
+        store: store,
+        onStateChanged: () {
+          if (mounted) setState(() {});
+        },
+        onMentoringRequest: (data) {
+          final item = data.caseItem ??
+              (data.linkedChartId != null
+                  ? store.communityCaseForChart(data.linkedChartId!)
+                  : null);
+          if (item != null) _openMentoringRequest(item);
+        },
+        onManageMentoring: (data) {
+          final item = data.caseItem ??
+              (data.linkedChartId != null
+                  ? store.communityCaseForChart(data.linkedChartId!)
+                  : null);
+          if (item != null) _openManageMentoring(item);
+        },
+      );
 
   @override
   void initState() {
@@ -60,11 +83,10 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     _tabs.addListener(_onTabIndexChanged);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.refreshCommunityHotCases();
-      store.refreshCommunityPosts();
       store.refreshUnifiedCommunityFeed();
       store.refreshShopFandomMeta();
       store.refreshCaseBookmarks();
+      store.refreshChartLikes();
       _consumePendingInnerTab();
     });
   }
@@ -74,13 +96,22 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     store.removeListener(_onStore);
     _tabs.removeListener(_onTabIndexChanged);
     _tabs.dispose();
-    _mobileFeedScrollController?.dispose();
+    _recommendScrollController?.dispose();
+    _exploreScrollController?.dispose();
+    _localScrollController?.dispose();
     super.dispose();
   }
 
-  void _onTabIndexChanged() {
-    if (_tabs.indexIsChanging) return;
-    if (mounted) setState(() {});
+  ScrollController _scrollForTab(int index) {
+    switch (index) {
+      case 1:
+        return _exploreScrollController ??= ScrollController();
+      case 2:
+        return _localScrollController ??= ScrollController();
+      case 0:
+      default:
+        return _recommendScrollController ??= ScrollController();
+    }
   }
 
   ScrollController _activeFeedScrollController(BuildContext context) {
@@ -89,7 +120,12 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       final scoped = FeedScrollScope.maybeOf(context);
       if (scoped != null) return scoped;
     }
-    return _mobileFeedScrollController ??= ScrollController();
+    return _scrollForTab(_tabs.index);
+  }
+
+  void _onTabIndexChanged() {
+    if (_tabs.indexIsChanging) return;
+    if (mounted) setState(() {});
   }
 
   void _onStore() {
@@ -108,18 +144,39 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     }
   }
 
-  List<HomeFeedEntry> get _feed {
-    if (store.homeFeedEntries.isNotEmpty) {
-      return store.visibleHomeFeedEntries();
-    }
-    final hot = store.communityHotCases;
-    final cases = hot.isNotEmpty ? hot : store.favoriteShopCaseItems();
-    return cases.map(HomeFeedEntry.caseItem).toList();
-  }
+  List<UnifiedFeedItem> get _recommendFeed =>
+      UnifiedFeedEngine.recommendItems(store);
 
   List<CommunityCaseItem> get _localFeed => store.interleavedCaseFeed(
         viewerId: store.session?.id,
       );
+
+  CommunityCaseItem? _caseItemFor(PostViewData data) {
+    if (data.caseItem != null) return data.caseItem;
+    final linked = data.linkedChartId?.trim();
+    if (linked != null && linked.isNotEmpty) {
+      return store.communityCaseForChart(linked);
+    }
+    return null;
+  }
+
+  PostEngagementBindings _bindingsFor(
+    PostViewData data, {
+    CommunityCaseItem? caseItem,
+  }) {
+    final item = caseItem ?? _caseItemFor(data);
+    return _engagement.bindingsForWithBoost(
+      data,
+      onBoostTap: () {
+        if (item == null) return;
+        if (item.isAuthoredBy(store.session?.id)) {
+          _buyBoost(item);
+        } else {
+          _buyFanBoost(item);
+        }
+      },
+    );
+  }
 
   Future<void> _buyBoost(CommunityCaseItem item) async {
     final ok = await showBoostPurchaseSheet(
@@ -168,96 +225,26 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     }
   }
 
-  void _toggleLike(String chartId) {
-    setState(() {
-      final base = _likeCounts[chartId] ?? (5 + chartId.hashCode.abs() % 48);
-      if (_liked.contains(chartId)) {
-        _liked.remove(chartId);
-        _likeCounts[chartId] = (base - 1).clamp(0, 9999);
-      } else {
-        _liked.add(chartId);
-        _likeCounts[chartId] = base + 1;
-      }
-    });
-  }
-
-  Future<void> _toggleBookmark(String chartId) async {
-    try {
-      await store.toggleCaseBookmark(chartId);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('보관함 저장에 실패했습니다.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _openComments(CustomerChart chart) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1200) {
-      if (store.activeCommentPostId == chart.id) {
-        store.closeCommentPanel();
-      } else {
-        store.openCommentPanel(chart.id);
-      }
-      return;
-    }
-    final list = _comments.putIfAbsent(chart.id, () => []);
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: SoriTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return _FeedCommentSheet(
-          comments: list,
-          onSubmit: (text) {
-            final session = store.session;
-            final author = session?.name.trim().isNotEmpty == true
-                ? session!.name.trim()
-                : '회원';
-            setState(() {
-              list.add(
-                _FeedComment(
-                  author: author,
-                  body: text,
-                  isDirector: session?.activeMode == UserRole.director,
-                ),
-              );
-            });
-          },
-        );
-      },
-    );
-  }
-
   void _openCaseDetail(
     CommunityCaseItem item,
     int feedIndex, {
     bool focusMentoring = false,
   }) {
-    final id = item.chart.id;
-    final likes = _likeCounts[id] ?? (5 + id.hashCode.abs() % 48);
-    final comments = _comments[id] ?? const <_FeedComment>[];
+    final data = PostViewData.fromCaseItem(item);
+    final bindings = _bindingsFor(data, caseItem: item);
     CaseDetailPage.push(
       context,
       page: CaseDetailPage(
         item: item,
         review: item.review ?? store.reviewForChart(item.chart.id),
         currentUserId: store.session?.id,
-        liked: _liked.contains(id),
-        likeCount: likes,
-        commentCount: comments.length,
-        bookmarked: store.isChartBookmarked(id),
-        onLike: () => _toggleLike(id),
-        onComment: () => _openComments(item.chart),
-        onBookmark: () => _toggleBookmark(id),
+        liked: bindings.liked,
+        likeCount: bindings.likeCount,
+        commentCount: bindings.commentCount,
+        bookmarked: bindings.bookmarked,
+        onLike: bindings.onLike,
+        onComment: bindings.onComment,
+        onBookmark: bindings.onBookmark,
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBookingOrProfile(item.shop),
         focusMentoringSection: focusMentoring,
@@ -449,80 +436,47 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
 
   Widget _mediumPost(
     PostViewData data, {
-    required String id,
     required int index,
     CommunityCaseItem? caseItem,
   }) {
-    final likes = _likeCounts[id] ?? data.likeCount;
-    final commentLen = (_comments[id] ?? const <_FeedComment>[]).length;
+    final item = caseItem ?? _caseItemFor(data);
+    final engagement = _bindingsFor(data, caseItem: item);
     final enriched = data.copyWithEngagement(
-      likeCount: likes,
-      commentCount: commentLen > 0 ? commentLen : data.commentCount,
+      likeCount: engagement.likeCount,
+      commentCount: engagement.commentCount,
     );
-    final isDirector = store.session?.activeMode == UserRole.director;
-    final isAuthor = caseItem?.isAuthoredBy(store.session?.id) ?? false;
 
     return SoriPostMedium(
       data: enriched,
       store: store,
-      liked: _liked.contains(id),
-      bookmarked:
-          caseItem != null ? store.isChartBookmarked(id) : false,
-      onLike: () => _toggleLike(id),
-      onComment: caseItem != null
-          ? () => _openComments(caseItem.chart)
-          : () => openPostOriginal(context, data: enriched, store: store),
-      onBookmark: caseItem != null ? () => _toggleBookmark(id) : () {},
-      onShopProfile: caseItem != null
-          ? () => _openShopProfile(caseItem.shop)
-          : null,
-      onMentoring: caseItem != null && caseItem.hasActiveMentoring
-          ? () => _openCaseDetail(caseItem, index, focusMentoring: true)
-          : isDirector && caseItem != null && !isAuthor
-              ? () => _openMentoringRequest(caseItem)
-              : null,
-      onBoost: caseItem != null
-          ? () {
-              if (caseItem.isAuthoredBy(store.session?.id)) {
-                _buyBoost(caseItem);
-              } else {
-                _buyFanBoost(caseItem);
-              }
-            }
-          : null,
+      engagement: engagement,
+      onShopProfile:
+          item != null ? () => _openShopProfile(item.shop) : null,
     );
   }
 
   Widget _feedCard(CommunityCaseItem item, int index) {
     return _mediumPost(
       PostViewData.fromCaseItem(item),
-      id: item.chart.id,
       index: index,
       caseItem: item,
     );
   }
 
-  Widget _buildHomeFeedEntry(HomeFeedEntry entry, int index) {
-    final data = PostViewData.fromHomeFeedEntry(entry);
-    final id = switch (entry.kind) {
-      HomeFeedEntryKind.caseItem => entry.caseItem!.chart.id,
-      HomeFeedEntryKind.seminar => entry.seminar!.id,
-      HomeFeedEntryKind.publicWhisper => entry.whisperPost!.id,
-    };
+  Widget _buildUnifiedItem(UnifiedFeedItem item, int index) {
+    final data = PostViewData.fromUnifiedFeedItem(item);
     return _mediumPost(
       data,
-      id: id,
       index: index,
-      caseItem: entry.caseItem,
+      caseItem: item.caseItem,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final feed = _feed;
+    final feed = _recommendFeed;
     final localFeed = _localFeed;
-    final loading = store.communityHotCasesLoading && feed.isEmpty;
-    final tabIndex = _tabs.index;
+    final loading = store.unifiedFeedLoading && feed.isEmpty;
     final wide = MediaQuery.sizeOf(context).width >= 800;
     final feedScroll = _activeFeedScrollController(context);
 
@@ -533,12 +487,14 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           store: store,
           feed: feed,
           loading: loading,
-          buildEntry: _buildHomeFeedEntry,
-          scrollController: tabIndex == 0 ? feedScroll : null,
+          buildItem: _buildUnifiedItem,
+          engagementBuilder: (item) =>
+              _bindingsFor(PostViewData.fromUnifiedFeedItem(item)),
+          scrollController: _scrollForTab(0),
         ),
         HomeExploreTab(
           store: store,
-          scrollController: tabIndex == 1 ? feedScroll : null,
+          scrollController: _scrollForTab(1),
         ),
         _SimpleFeedTab(
           title: '우리 지역',
@@ -546,7 +502,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           feed: localFeed,
           loading: loading,
           buildCard: _feedCard,
-          scrollController: tabIndex == 2 ? feedScroll : null,
+          scrollController: _scrollForTab(2),
         ),
       ],
     );
@@ -585,20 +541,22 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   }
 }
 
-/// 추천 탭 — 히어로 + 탑 에듀케이터 + B/A 세로 피드.
+/// 추천 탭 — 히어로 + 탑 에듀케이터 + 통합 SSOT 피드.
 class _RecommendFeedTab extends StatefulWidget {
   const _RecommendFeedTab({
     required this.store,
     required this.feed,
     required this.loading,
-    required this.buildEntry,
+    required this.buildItem,
+    required this.engagementBuilder,
     this.scrollController,
   });
 
   final SoriStore store;
-  final List<HomeFeedEntry> feed;
+  final List<UnifiedFeedItem> feed;
   final bool loading;
-  final Widget Function(HomeFeedEntry entry, int index) buildEntry;
+  final Widget Function(UnifiedFeedItem item, int index) buildItem;
+  final PostEngagementBindings Function(UnifiedFeedItem item) engagementBuilder;
   final ScrollController? scrollController;
 
   @override
@@ -641,7 +599,12 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
-          SliverToBoxAdapter(child: _SoriSpotMiniStrip(store: widget.store)),
+          SliverToBoxAdapter(
+            child: _SoriSpotMiniStrip(
+              store: widget.store,
+              engagementBuilder: widget.engagementBuilder,
+            ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           const SliverToBoxAdapter(child: _TopEducatorsStrip()),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
@@ -689,7 +652,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => FeedScrollRow(
-                    child: widget.buildEntry(shown[index], index),
+                    child: widget.buildItem(shown[index], index),
                   ),
                   childCount: shown.length,
                   addAutomaticKeepAlives: false,
@@ -837,9 +800,13 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
 
 /// Home SORI Spot — boosted / popular mini cards (horizontal).
 class _SoriSpotMiniStrip extends StatelessWidget {
-  const _SoriSpotMiniStrip({required this.store});
+  const _SoriSpotMiniStrip({
+    required this.store,
+    required this.engagementBuilder,
+  });
 
   final SoriStore store;
+  final PostEngagementBindings Function(UnifiedFeedItem item) engagementBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -866,6 +833,7 @@ class _SoriSpotMiniStrip extends StatelessWidget {
                 data: PostViewData.fromUnifiedFeedItem(item),
                 store: store,
                 horizontal: true,
+                engagement: engagementBuilder(item),
               ),
           ],
         ),
@@ -915,7 +883,16 @@ class _TopEducatorsStrip extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final e = _educators[index];
-              return SizedBox(
+              return GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('준비 중입니다'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                child: SizedBox(
                 width: 88,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -957,6 +934,7 @@ class _TopEducatorsStrip extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
               );
             },
           ),
@@ -966,154 +944,3 @@ class _TopEducatorsStrip extends StatelessWidget {
   }
 }
 
-class _FeedComment {
-  const _FeedComment({
-    required this.author,
-    required this.body,
-    required this.isDirector,
-  });
-
-  final String author;
-  final String body;
-  final bool isDirector;
-}
-
-class _FeedCommentSheet extends StatefulWidget {
-  const _FeedCommentSheet({
-    required this.comments,
-    required this.onSubmit,
-  });
-
-  final List<_FeedComment> comments;
-  final ValueChanged<String> onSubmit;
-
-  @override
-  State<_FeedCommentSheet> createState() => _FeedCommentSheetState();
-}
-
-class _FeedCommentSheetState extends State<_FeedCommentSheet> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _send() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    widget.onSubmit(text);
-    _controller.clear();
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.5,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: SoriTokens.border,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '댓글',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: SoriTokens.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: widget.comments.isEmpty
-                  ? const Center(
-                      child: Text(
-                        '첫 댓글을 남겨 보세요',
-                        style: TextStyle(color: SoriTokens.textSecondary),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      itemCount: widget.comments.length,
-                      itemBuilder: (context, i) {
-                        final c = widget.comments[i];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Text.rich(
-                            TextSpan(
-                              style: const TextStyle(
-                                color: SoriTokens.textPrimary,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text: c.isDirector
-                                      ? '${c.author} · 원장  '
-                                      : '${c.author}  ',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                TextSpan(text: c.body),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            const Divider(height: 1, color: SoriTokens.border),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: const TextStyle(color: SoriTokens.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: '댓글 입력',
-                        hintStyle:
-                            const TextStyle(color: SoriTokens.textSecondary),
-                        filled: true,
-                        fillColor: SoriTokens.background,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onSubmitted: (_) => _send(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _send,
-                    style: IconButton.styleFrom(
-                      backgroundColor: SoriTokens.primary,
-                    ),
-                    icon: const Icon(Icons.send_rounded),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

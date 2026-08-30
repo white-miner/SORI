@@ -13,6 +13,8 @@ class ExploreRichInfoCard extends StatelessWidget {
     required this.authorName,
     required this.authorAvatarUrl,
     required this.onTap,
+    this.categoryLabel,
+    this.textOnly = false,
   });
 
   final String imageUrl;
@@ -21,6 +23,8 @@ class ExploreRichInfoCard extends StatelessWidget {
   final String authorName;
   final String authorAvatarUrl;
   final VoidCallback onTap;
+  final String? categoryLabel;
+  final bool textOnly;
 
   static const double borderRadius = 16;
 
@@ -37,8 +41,54 @@ class ExploreRichInfoCard extends StatelessWidget {
             children: [
               if (imageUrl.isNotEmpty)
                 SoriNetworkImage(url: imageUrl, fit: BoxFit.cover)
+              else if (textOnly)
+                ColoredBox(
+                  color: SoriTokens.surfaceOverlay,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        title,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: SoriTokens.textSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
               else
                 const ColoredBox(color: SoriTokens.surfaceOverlay),
+              if (categoryLabel != null && categoryLabel!.isNotEmpty)
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      child: Text(
+                        categoryLabel!,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Positioned(
                 left: 0,
                 right: 0,

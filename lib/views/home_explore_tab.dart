@@ -8,11 +8,16 @@ import '../models/community_case_item.dart';
 import '../models/community_post.dart';
 import '../models/shop.dart';
 import '../models/subscription.dart';
+import '../models/unified_feed_item.dart';
 import '../pages/case_detail_page.dart';
+import '../services/engagement_service.dart';
 import '../services/sori_store.dart';
+import '../services/unified_feed_engine.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/post_navigation.dart';
 import '../widgets/app_scroll_behavior.dart';
 import '../widgets/explore/explore_rich_info_card.dart';
+import '../widgets/post/post_view_data.dart';
 import '../widgets/glass/sori_glass_overlay.dart';
 import '../widgets/glass/sori_glass_tokens.dart';
 import '../utils/home_explore_search.dart';
@@ -42,8 +47,6 @@ enum _SearchSegment { posts, profiles }
 class _HomeExploreTabState extends State<HomeExploreTab>
     with AutomaticKeepAliveClientMixin {
   final _searchCtrl = TextEditingController();
-  final _liked = <String>{};
-  final _likeCounts = <String, int>{};
   Timer? _debounce;
   String _query = '';
   _SearchSegment _segment = _SearchSegment.posts;
@@ -59,10 +62,10 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     super.initState();
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.refreshCommunityHotCases();
-      store.refreshCommunityPosts();
+      store.refreshUnifiedCommunityFeed();
       store.refreshDiscoverDirectors(soft: true);
       store.refreshCaseBookmarks();
+      store.refreshChartLikes();
     });
   }
 
@@ -99,35 +102,16 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     });
   }
 
-  Set<String> get _linkedChartIds {
-    return {
-      for (final p in store.communityPosts)
-        if (p.postType == CommunityPostType.caseShare &&
-            (p.sourceChartId?.trim().isNotEmpty ?? false))
-          p.sourceChartId!.trim(),
-    };
-  }
+  EngagementService get _engagement => EngagementService(
+        context: context,
+        store: store,
+        onStateChanged: () {
+          if (mounted) setState(() {});
+        },
+      );
 
-  List<_GridCell> get _gridCells {
-    final linked = _linkedChartIds;
-    final cells = <_GridCell>[];
-
-    for (final p in store.communityPosts) {
-      if (p.postType != CommunityPostType.caseShare || p.isWhisper) continue;
-      final img = p.primaryImageUrl ?? '';
-      if (img.isEmpty) continue;
-      cells.add(_GridCell.post(p));
-    }
-
-    for (final item in store.communityHotCases) {
-      if (linked.contains(item.chart.id)) continue;
-      final img = (item.chart.afterImageUrl ?? item.chart.beforeImageUrl ?? '')
-          .trim();
-      if (img.isEmpty) continue;
-      cells.add(_GridCell.ba(item));
-    }
-    return cells;
-  }
+  List<UnifiedFeedItem> get _gridItems =>
+      UnifiedFeedEngine.exploreGridItems(store);
 
   List<({CommunityCaseItem item, int score})> get _matchedCases {
     final tokens = HomeExploreSearch.tokens(_query);
@@ -174,45 +158,21 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     return store.discoverDirectors.take(12).toList();
   }
 
-  void _toggleLike(String id) {
-    setState(() {
-      if (_liked.remove(id)) {
-        _likeCounts[id] = ((_likeCounts[id] ?? 1) - 1).clamp(0, 9999);
-      } else {
-        _liked.add(id);
-        _likeCounts[id] = (_likeCounts[id] ?? 0) + 1;
-      }
-    });
-  }
-
-  Future<void> _toggleBookmark(String id) async {
-    try {
-      await store.toggleCaseBookmark(id);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('보관함 저장에 실패했습니다.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
   void _openCaseDetail(CommunityCaseItem item) {
-    final id = item.chart.id;
+    final data = PostViewData.fromCaseItem(item);
+    final bindings = _engagement.bindingsFor(data);
     CaseDetailPage.push(
       context,
       page: CaseDetailPage(
         item: item,
         review: item.review ?? store.reviewForChart(item.chart.id),
         currentUserId: store.session?.id,
-        liked: _liked.contains(id),
-        likeCount: _likeCounts[id] ?? (3 + id.hashCode.abs() % 40),
-        commentCount: 0,
-        bookmarked: store.isChartBookmarked(id),
-        onLike: () => _toggleLike(id),
-        onBookmark: () => _toggleBookmark(id),
+        liked: bindings.liked,
+        likeCount: bindings.likeCount,
+        commentCount: bindings.commentCount,
+        bookmarked: bindings.bookmarked,
+        onLike: bindings.onLike,
+        onBookmark: bindings.onBookmark,
         onShopProfile: () => _openShopProfile(item.shop),
         onBookingCta: () => _openNaverBooking(item.shop),
         onOpenCommunitySeminar: () {
@@ -220,6 +180,59 @@ class _HomeExploreTabState extends State<HomeExploreTab>
           final shell = StatefulNavigationShell.maybeOf(context);
           shell?.goBranch(3);
         },
+      ),
+    );
+  }
+
+  void _openDirector(DiscoverDirector director) {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: SoriTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 32,
+              backgroundColor: SoriTokens.surfaceOverlay,
+              backgroundImage: director.avatarUrl.isNotEmpty
+                  ? NetworkImage(director.avatarUrl)
+                  : null,
+              child: director.avatarUrl.isEmpty
+                  ? Text(
+                      director.nickname.characters.first,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              director.nickname,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            if (director.shopName.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                director.shopName,
+                style: const TextStyle(color: SoriTokens.textSecondary),
+              ),
+            ],
+            const SizedBox(height: 16),
+            DiscoverDirectorRow(
+              director: director,
+              following: store.isFollowingShop(director.shopId),
+              onToggle: () => store.toggleDiscoverFollow(director),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -400,8 +413,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
               color: SoriTokens.primary,
               onRefresh: () async {
                 await Future.wait([
-                  store.refreshCommunityHotCases(),
-                  store.refreshCommunityPosts(),
+                  store.refreshUnifiedCommunityFeed(force: true),
                   store.refreshDiscoverDirectors(query: _query.trim()),
                 ]);
               },
@@ -420,9 +432,9 @@ class _HomeExploreTabState extends State<HomeExploreTab>
   }
 
   Widget _buildBrowse(double bottomInset, ScrollPhysics scrollPhysics) {
-    final cells = _gridCells;
+    final items = _gridItems;
     final strip = _stripDirectors;
-    final loading = store.communityHotCasesLoading && cells.isEmpty;
+    final loading = store.unifiedFeedLoading && items.isEmpty;
 
     if (loading) {
       return const Center(
@@ -441,14 +453,15 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             child: _DirectorStrip(
               directors: strip,
               onOpenAll: () => setState(() => _showAllProfiles = true),
+              onDirectorTap: _openDirector,
             ),
           ),
-        if (cells.isEmpty)
+        if (items.isEmpty)
           const SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
               child: Text(
-                '아직 공개된 B/A가 없어요',
+                '아직 탐색할 콘텐츠가 없어요',
                 style: TextStyle(
                   color: SoriTokens.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -468,23 +481,24 @@ class _HomeExploreTabState extends State<HomeExploreTab>
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, i) {
-                  final cell = cells[i];
+                  final item = items[i];
+                  final imageUrl = UnifiedFeedEngine.gridImageUrl(item);
                   return ExploreRichInfoCard(
-                    imageUrl: cell.imageUrl,
-                    title: cell.title,
-                    subtitle: cell.subtitle,
-                    authorName: cell.authorName,
-                    authorAvatarUrl: cell.authorAvatarUrl,
-                    onTap: () {
-                      if (cell.caseItem != null) {
-                        _openCaseDetail(cell.caseItem!);
-                      } else if (cell.post != null) {
-                        _openCommunityPost(cell.post!);
-                      }
-                    },
+                    imageUrl: imageUrl,
+                    title: UnifiedFeedEngine.gridTitle(item),
+                    subtitle: UnifiedFeedEngine.gridSubtitle(item),
+                    authorName: UnifiedFeedEngine.gridAuthorName(item),
+                    authorAvatarUrl: UnifiedFeedEngine.gridAuthorAvatar(item),
+                    categoryLabel: UnifiedFeedEngine.gridCategoryLabel(item),
+                    textOnly: imageUrl.isEmpty,
+                    onTap: () => openUnifiedPostOriginal(
+                      context,
+                      item: item,
+                      store: store,
+                    ),
                   );
                 },
-                childCount: cells.length,
+                childCount: items.length,
               ),
             ),
           ),
@@ -644,55 +658,6 @@ class _HomeExploreTabState extends State<HomeExploreTab>
   }
 }
 
-class _GridCell {
-  const _GridCell._({this.caseItem, this.post});
-
-  factory _GridCell.ba(CommunityCaseItem item) => _GridCell._(caseItem: item);
-  factory _GridCell.post(CommunityPost post) => _GridCell._(post: post);
-
-  final CommunityCaseItem? caseItem;
-  final CommunityPost? post;
-
-  String get imageUrl {
-    if (caseItem != null) {
-      return (caseItem!.chart.afterImageUrl ??
-              caseItem!.chart.beforeImageUrl ??
-              '')
-          .trim();
-    }
-    return post?.primaryImageUrl ?? '';
-  }
-
-  String get title {
-    if (caseItem != null) {
-      final n = caseItem!.chart.careName.trim();
-      return n.isEmpty ? 'B/A' : n;
-    }
-    final t = post?.title.trim() ?? '';
-    if (t.isNotEmpty) return t;
-    return post?.postType.label ?? '케이스';
-  }
-
-  String get subtitle {
-    if (caseItem != null) {
-      final line = caseItem!.personaLine.trim();
-      if (line.isNotEmpty) return line;
-      return caseItem!.chart.concerns.trim();
-    }
-    return post?.body.trim() ?? '';
-  }
-
-  String get authorName {
-    if (caseItem != null) return caseItem!.displayAuthorNickname;
-    return post?.authorDisplayName ?? '';
-  }
-
-  String get authorAvatarUrl {
-    if (caseItem != null) return caseItem!.displayAuthorAvatarUrl;
-    return post?.shopAvatarUrl?.trim() ?? '';
-  }
-}
-
 class _SegmentChip extends StatelessWidget {
   const _SegmentChip({
     required this.label,
@@ -731,10 +696,12 @@ class _DirectorStrip extends StatelessWidget {
   const _DirectorStrip({
     required this.directors,
     required this.onOpenAll,
+    required this.onDirectorTap,
   });
 
   final List<DiscoverDirector> directors;
   final VoidCallback onOpenAll;
+  final ValueChanged<DiscoverDirector> onDirectorTap;
 
   @override
   Widget build(BuildContext context) {
@@ -774,7 +741,9 @@ class _DirectorStrip extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemBuilder: (context, i) {
               final d = directors[i];
-              return SizedBox(
+              return GestureDetector(
+                onTap: () => onDirectorTap(d),
+                child: SizedBox(
                 width: 64,
                 child: Column(
                   children: [
@@ -806,6 +775,7 @@ class _DirectorStrip extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
               );
             },
           ),
