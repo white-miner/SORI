@@ -137,37 +137,22 @@ class _CommunityCommentsSectionState extends State<CommunityCommentsSection> {
     );
   }
 
-  Widget _buildSendButton({double size = 40}) {
-    return Material(
-      color: _sending
-          ? SoriTokens.primary.withValues(alpha: 0.45)
-          : SoriTokens.primary,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _sending ? null : _send,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Center(
-            child: _sending
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(
-                    Icons.send_rounded,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-          ),
-        ),
-      ),
+  Widget _buildSendSuffixIcon({double iconSize = 20}) {
+    return IconButton(
+      onPressed: _sending ? null : _send,
+      tooltip: '전송',
+      visualDensity: VisualDensity.compact,
+      icon: _sending
+          ? SizedBox(
+              width: iconSize,
+              height: iconSize,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              Icons.send_rounded,
+              size: iconSize,
+              color: SoriTokens.primary,
+            ),
     );
   }
 
@@ -183,25 +168,18 @@ class _CommunityCommentsSectionState extends State<CommunityCommentsSection> {
             ),
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _ctrl,
-                minLines: 1,
-                maxLines: 4,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  color: SoriTokens.textPrimary,
-                ),
-                decoration: _inputDecoration(hint: '댓글을 입력하세요'),
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildSendButton(),
-          ],
+        child: TextField(
+          controller: _ctrl,
+          minLines: 1,
+          maxLines: 4,
+          style: const TextStyle(
+            fontSize: 13.5,
+            color: SoriTokens.textPrimary,
+          ),
+          decoration: _inputDecoration(hint: '댓글을 입력하세요').copyWith(
+            suffixIcon: _buildSendSuffixIcon(),
+          ),
+          onSubmitted: (_) => _send(),
         ),
       );
     }
@@ -222,7 +200,7 @@ class _CommunityCommentsSectionState extends State<CommunityCommentsSection> {
             ),
           ),
           const SizedBox(width: 8),
-          _buildSendButton(size: 36),
+          _buildSendSuffixIcon(iconSize: 18),
         ],
       ),
     );

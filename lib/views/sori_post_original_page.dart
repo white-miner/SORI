@@ -211,44 +211,53 @@ class _DesktopSplitBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: PostLayoutBreakpoints.contentMaxWidth,
-                ),
-                child: _PostMainColumn(
-                  data: data,
-                  includeHeader: false,
-                  imageFit: BoxFit.contain,
-                  liked: liked,
-                  bookmarked: bookmarked,
-                  onLike: onLike,
-                  onComment: onComment,
-                  onBookmark: onBookmark,
-                  onMentoring: onMentoring,
-                  onBoost: onBoost,
+    return Center(
+      child: ConstrainedBox(
+        key: const Key('desktop-split-pane-bundle'),
+        constraints: const BoxConstraints(
+          maxWidth: PostLayoutBreakpoints.splitPaneMaxWidth,
+        ),
+        child: SizedBox(
+          height: height,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: PostLayoutBreakpoints.contentMaxWidth,
+                  ),
+                  child: SingleChildScrollView(
+                    child: _PostMainColumn(
+                      data: data,
+                      includeHeader: false,
+                      imageFit: BoxFit.contain,
+                      liked: liked,
+                      bookmarked: bookmarked,
+                      onLike: onLike,
+                      onComment: onComment,
+                      onBookmark: onBookmark,
+                      onMentoring: onMentoring,
+                      onBoost: onBoost,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: PostLayoutBreakpoints.splitPaneGap),
+              SizedBox(
+                width: PostLayoutBreakpoints.sidebarWidth,
+                height: height,
+                child: PostInteractionSidebar(
+                  data: data,
+                  store: store,
+                  postId: postId,
+                  onMentoring: onMentoring,
+                ),
+              ),
+            ],
           ),
         ),
-        SizedBox(
-          width: PostLayoutBreakpoints.sidebarWidth,
-          height: height,
-          child: PostInteractionSidebar(
-            data: data,
-            store: store,
-            postId: postId,
-            onMentoring: onMentoring,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
