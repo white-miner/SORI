@@ -17,6 +17,36 @@ enum _CustomerSort { recentVisit, nameAsc, chartNo, dormantDaysDesc }
 
 enum CrmListMode { browse, selectingDelete, selectingMerge }
 
+/// 고객 카드 차트 번호 라벨 (PO: 중복 이름·전화 구별용).
+String chartLabelForCustomer(Customer c, SoriStore store) {
+  final latest = store.latestChart(c.id);
+  if (latest != null) {
+    return 'Chart #${latest.displayChartNo}';
+  }
+  final charts = store.chartsForCustomer(c.id);
+  if (charts.isEmpty) return 'Chart —';
+  var maxNo = 0;
+  for (final ch in charts) {
+    final parsed = int.tryParse(ch.customChartNo?.trim() ?? '');
+    final n = parsed ?? ch.visitNumber;
+    if (n > maxNo) maxNo = n;
+  }
+  return maxNo > 0 ? 'Chart #$maxNo' : 'Chart —';
+}
+
+/// 고객 카드 잔여 회원권/티켓 뱃지 (데이터 없으면 '잔여 없음').
+String remainBadgeLabelForCustomer(Customer c, SoriStore store) {
+  if (c.isMembershipCustomer) {
+    final remain = c.membershipRemainingVisits;
+    return remain > 0 ? '잔여 $remain회' : '잔여 없음';
+  }
+  final ticketRemain = store.membershipTickets
+      .where((t) => t.customerId == c.id && t.isActive)
+      .fold<int>(0, (sum, t) => sum + t.remainingVisits);
+  if (ticketRemain > 0) return '잔여 $ticketRemain회';
+  return '잔여 없음';
+}
+
 /// 원장 모드 [고객] 탭 — CRM 대시보드 (초성검색·정렬·다중선택).
 class DirectorCustomersTab extends StatefulWidget {
   const DirectorCustomersTab({super.key, required this.store});
@@ -131,29 +161,39 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
     final ids = _selectedIds.toList();
     if (ids.isEmpty || _deleting) return;
 
-    final store = widget.store;
-    var chartCount = 0;
-    var reviewCount = 0;
-    for (final id in ids) {
-      chartCount += store.charts.where((c) => c.customerId == id).length;
-      reviewCount += store.reviews.where((r) => r.customerId == id).length;
-    }
-    String? primaryName;
-    for (final c in store.customers) {
-      if (ids.contains(c.id) && c.name.trim().isNotEmpty) {
-        primaryName = c.name.trim();
-        break;
-      }
-    }
-
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _RedZoneDeleteDialog(
-        customerCount: ids.length,
-        chartCount: chartCount,
-        reviewCount: reviewCount,
-        primaryName: primaryName,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SoriTokens.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          '고객 삭제',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+        ),
+        content: Text(
+          '선택한 ${ids.length}명의 고객 정보를 영구 삭제하시겠습니까? '
+          '(잔여 회원권이 있는 경우 함께 소멸됩니다)',
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.45,
+            color: SoriTokens.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: SoriTokens.systemRed,
+            ),
+            child: const Text('승인'),
+          ),
+        ],
       ),
     );
     if (confirmed != true || !mounted) return;
@@ -331,17 +371,16 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
               parent: AlwaysScrollableScrollPhysics(),
             ),
             slivers: [
-              if (!_isSelecting)
-                SliverToBoxAdapter(
-                  child: TodayCareSchedulePanel(
-                    store: widget.store,
-                    slim: true,
-                  ),
+              SliverToBoxAdapter(
+                child: TodayCareSchedulePanel(
+                  store: widget.store,
+                  slim: true,
                 ),
+              ),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _CrmStickyToolbarDelegate(
-                  height: _isSelecting ? 56 : 118,
+                  height: 118,
                   child: ColoredBox(
                     color: SoriTokens.background,
                     child: Column(
@@ -418,15 +457,16 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                                       ),
                                     ),
                                   const Spacer(),
-                                  IconButton(
-                                    tooltip: '선택 삭제',
+                                  TextButton(
                                     onPressed: isEmptyDb
                                         ? null
                                         : () => _enterSelectingDelete(),
-                                    icon: const Icon(
-                                      Icons.checklist_rtl_rounded,
+                                    child: const Text(
+                                      '선택',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
-                                    color: SoriTokens.primary,
                                   ),
                                   IconButton(
                                     tooltip: '중복 병합',
@@ -460,10 +500,9 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                             ),
                           ),
                         ),
-                        if (!_isSelecting)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: TextField(
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: TextField(
                               controller: _searchController,
                               onChanged: (v) =>
                                   setState(() => _query = v),
@@ -551,131 +590,6 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Red Zone — 체크 필수 후 영구 삭제 활성화.
-class _RedZoneDeleteDialog extends StatefulWidget {
-  const _RedZoneDeleteDialog({
-    required this.customerCount,
-    required this.chartCount,
-    required this.reviewCount,
-    this.primaryName,
-  });
-
-  final int customerCount;
-  final int chartCount;
-  final int reviewCount;
-  final String? primaryName;
-
-  @override
-  State<_RedZoneDeleteDialog> createState() => _RedZoneDeleteDialogState();
-}
-
-class _RedZoneDeleteDialogState extends State<_RedZoneDeleteDialog> {
-  bool _acked = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final who = widget.customerCount == 1 &&
-            (widget.primaryName?.isNotEmpty ?? false)
-        ? '"${widget.primaryName}"'
-        : (widget.primaryName == null || widget.primaryName!.isEmpty
-            ? '${widget.customerCount}명'
-            : '"${widget.primaryName}" 외 ${widget.customerCount - 1}명');
-
-    return AlertDialog(
-      backgroundColor: SoriTokens.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: Text(
-        '⚠ 고객 ${widget.customerCount}명을 영구 삭제할까요?',
-        style: const TextStyle(
-          color: Color(0xFFF87171),
-          fontWeight: FontWeight.w900,
-          fontSize: 17,
-          height: 1.3,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$who 고객 데이터가 영구 삭제됩니다.',
-            style: const TextStyle(
-              fontSize: 13.5,
-              height: 1.4,
-              color: SoriTokens.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            '삭제되면 함께 사라집니다',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '· 시술 차트  ${widget.chartCount}건\n'
-            '· 소통 리뷰  ${widget.reviewCount}건\n'
-            '· 회원권·티켓 데이터',
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: SoriTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          InkWell(
-            onTap: () => setState(() => _acked = !_acked),
-            borderRadius: BorderRadius.circular(10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Checkbox(
-                    value: _acked,
-                    onChanged: (v) => setState(() => _acked = v ?? false),
-                    activeColor: SoriTokens.systemRed,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    '위 내용을 이해했으며 복구할 수 없음을 확인합니다',
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: _acked ? () => Navigator.pop(context, true) : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: SoriTokens.systemRed,
-            disabledBackgroundColor: const Color(0xFF3F3F46),
-          ),
-          child: const Text('영구 삭제'),
-        ),
-      ],
     );
   }
 }
@@ -789,7 +703,13 @@ class _CustomerListSlivers {
             final c = list[showDormantHint ? index - 1 : index];
             final remain = c.membershipRemainingVisits;
             final hasMembership = c.isMembershipCustomer;
-            final ticketingUrgent = hasMembership && remain >= 1 && remain <= 2;
+            final ticketRemain = store.membershipTickets
+                .where((t) => t.customerId == c.id && t.isActive)
+                .fold<int>(0, (sum, t) => sum + t.remainingVisits);
+            final totalRemain =
+                hasMembership ? remain : (ticketRemain > 0 ? ticketRemain : 0);
+            final ticketingUrgent =
+                totalRemain >= 1 && totalRemain <= 2;
             final selected = selectedIds.contains(c.id);
             final listIndex = showDormantHint ? index - 1 : index;
             final ringVisual = CustomerCrmStatusResolver.resolve(
@@ -799,11 +719,12 @@ class _CustomerListSlivers {
             return _DenseCustomerTile(
               name: c.name,
               phone: c.phone,
+              chartLabel: chartLabelForCustomer(c, store),
               ringVisual: ringVisual,
               animateRing: ringAnimateForIndex(listIndex),
               lastVisitLabel: formatDate(lastVisitOf(c)),
               dormantDays: daysSince(c),
-              remainLabel: hasMembership ? '잔여 $remain회' : '회원권 미등록',
+              remainLabel: remainBadgeLabelForCustomer(c, store),
               remainUrgent: ticketingUrgent,
               remainWarn: hasMembership && c.isMembershipLow && !ticketingUrgent,
               selecting: selecting,
@@ -903,6 +824,7 @@ class _DenseCustomerTile extends StatelessWidget {
   const _DenseCustomerTile({
     required this.name,
     required this.phone,
+    required this.chartLabel,
     required this.ringVisual,
     required this.animateRing,
     required this.lastVisitLabel,
@@ -919,6 +841,7 @@ class _DenseCustomerTile extends StatelessWidget {
 
   final String name;
   final String phone;
+  final String chartLabel;
   final CrmRingVisual ringVisual;
   final bool animateRing;
   final String lastVisitLabel;
@@ -972,6 +895,15 @@ class _DenseCustomerTile extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  chartLabel,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.primary,
+                  ),
+                ),
                 const SizedBox(height: 3),
                 Text(
                   phone,
@@ -1012,26 +944,26 @@ class _DenseCustomerTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          if (!selecting)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: badgeBg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    remainLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: badgeFg,
-                    ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  remainLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: badgeFg,
                   ),
                 ),
+              ),
+              if (!selecting) ...[
                 const SizedBox(height: 6),
                 TextButton(
                   onPressed: onRequestReview,
@@ -1050,7 +982,8 @@ class _DenseCustomerTile extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
+            ],
+          ),
         ],
       ),
     );
