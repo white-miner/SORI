@@ -163,10 +163,21 @@ class UnifiedFeedItem {
       CommunityFeedFilter.seminar => kind == UnifiedFeedKind.seminar,
       CommunityFeedFilter.ba => kind == UnifiedFeedKind.ba,
       CommunityFeedFilter.mentoring =>
-        kind == UnifiedFeedKind.ba &&
-        (caseItem?.hasActiveMentoring ?? false),
+        (kind == UnifiedFeedKind.ba &&
+            (caseItem?.hasActiveMentoring ?? false)) ||
+        _postHasMentoringTags(),
       CommunityFeedFilter.all => true,
     };
+  }
+
+  bool _postHasMentoringTags() {
+    final tags = post?.styleTags ?? const [];
+    return tags.any(
+      (t) =>
+          t.contains('멘토링') ||
+          t.contains('조언') ||
+          t.toLowerCase().contains('mentoring'),
+    );
   }
 
   UnifiedFeedItem copyWith({bool? isBoosted}) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../features/habit/explore_habit_rails.dart';
 import '../models/community_case_item.dart';
 import '../models/community_post.dart';
 import '../models/shop.dart';
@@ -456,6 +457,9 @@ class _HomeExploreTabState extends State<HomeExploreTab>
               onDirectorTap: _openDirector,
             ),
           ),
+        SliverToBoxAdapter(
+          child: ExploreHabitRails(store: store),
+        ),
         if (items.isEmpty)
           const SliverFillRemaining(
             hasScrollBody: false,

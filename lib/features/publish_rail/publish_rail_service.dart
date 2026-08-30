@@ -95,6 +95,7 @@ abstract final class PublishRailService {
         return post != null;
 
       case PostDraftKind.mentoringRequest:
+        // Community mentoring ask — own chart cannot use create_mentoring_request RPC.
         final post = await store.createCommunityPost(
           postType: CommunityPostType.caseShare,
           title: draft.title,

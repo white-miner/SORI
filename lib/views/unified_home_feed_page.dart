@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../features/habit/habit_feed_engine.dart';
+import '../features/habit/insights_digest_card.dart';
+import '../features/habit/story_rail_view.dart';
 import '../models/community_case_item.dart';
 import '../models/post_engagement_bindings.dart';
 import '../models/session_user.dart';
@@ -599,6 +602,17 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
+          SliverToBoxAdapter(
+            child: InsightsDigestCard(store: widget.store),
+          ),
+          SliverToBoxAdapter(
+            child: StoryRailView(
+              items: HabitFeedEngine.storyRailItems(widget.store),
+              store: widget.store,
+              engagementBuilder: widget.engagementBuilder,
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 4)),
           SliverToBoxAdapter(
             child: _SoriSpotMiniStrip(
               store: widget.store,
