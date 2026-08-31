@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'semantic_signal_theme.dart';
+import 'volume_glass_theme.dart';
 
-/// PRD v4.6 — Weather-style metric inset + Stocks-style surge tag.
+/// PRD v4.7 — Weather-style metric inset + Stocks-style surge tag.
 class MetricInsetBlock extends StatelessWidget {
   const MetricInsetBlock({
     super.key,
@@ -23,37 +24,23 @@ class MetricInsetBlock extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        vertical: compact ? 6 : 8,
-        horizontal: compact ? 4 : 6,
+        vertical: compact ? 8 : 10,
+        horizontal: compact ? 6 : 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.22),
-          width: 0.5,
+        color: VolumeGlassTheme.cardFillColor(alpha: 0.88),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: VolumeGlassTheme.volumeShadow(
+          tint: accent,
+          alpha: 0.04,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: accent.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
-          ),
-        ],
       ),
       child: Column(
         children: [
           Container(
             width: compact ? 18 : 22,
             height: 3,
-            margin: const EdgeInsets.only(bottom: 4),
+            margin: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(2),
@@ -61,20 +48,14 @@ class MetricInsetBlock extends StatelessWidget {
           ),
           Text(
             label,
-            style: TextStyle(
-              fontSize: compact ? 9 : 10,
-              fontWeight: FontWeight.w600,
-              color: SemanticSignalTheme.secondaryTextColor,
-            ),
+            style: VolumeGlassTheme.labelTextStyle(compact: true),
           ),
-          SizedBox(height: compact ? 2 : 4),
+          SizedBox(height: compact ? 4 : 6),
           Text(
             value,
-            style: TextStyle(
-              fontSize: compact ? 12 : 15,
+            style: VolumeGlassTheme.kpiTextStyle(compact: true).copyWith(
+              fontSize: compact ? 15 : 18,
               fontWeight: FontWeight.w700,
-              color: SemanticSignalTheme.heroTextColor,
-              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -103,32 +84,23 @@ class SemanticTagChip extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 10,
-        vertical: compact ? 4 : 6,
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 6 : 8,
       ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: band == SemanticBand.green
-              ? Colors.black.withValues(alpha: 0.06)
-              : SemanticSignalTheme.bandColor(band).withValues(alpha: 0.25),
-        ),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: band == SemanticBand.green
-            ? null
-            : [
-                BoxShadow(
-                  color: SemanticSignalTheme.bandColor(band)
-                      .withValues(alpha: 0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+            ? VolumeGlassTheme.volumeShadow(alpha: 0.04)
+            : VolumeGlassTheme.volumeShadow(
+                tint: SemanticSignalTheme.bandColor(band),
+                alpha: 0.06,
+              ),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: compact ? 11 : 12,
+          fontSize: compact ? 12 : 13,
           fontWeight: FontWeight.w700,
           color: fg,
           fontFeatures: const [FontFeature.tabularFigures()],

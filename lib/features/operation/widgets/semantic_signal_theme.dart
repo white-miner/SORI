@@ -50,7 +50,7 @@ enum WidgetMaterialTier {
 
 /// PRD v4.6 — SSOT for semantic colors, thresholds, and material tokens.
 abstract final class SemanticSignalTheme {
-  static const widgetRadius = 22.0;
+  static const widgetRadius = 24.0;
   static const heroTextColor = Color(0xFF1C1C1E);
   static const secondaryTextColor = Color(0xFF8E8E93);
 
@@ -165,7 +165,7 @@ abstract final class SemanticSignalTheme {
   static Color surgeChipBg(int surgePct) {
     final band = bandForSurge(surgePct);
     if (band == SemanticBand.green) {
-      return const Color(0xFFF2F2F7);
+      return const Color(0xFFF4F6F9);
     }
     return badgeBg(band);
   }

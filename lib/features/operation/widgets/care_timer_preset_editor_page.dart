@@ -6,6 +6,7 @@ import '../../../theme/sori_tokens.dart';
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../visit_timer_store.dart';
 import 'flip_clock_display.dart';
+import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
 /// PRD v4.5 — preset editor: flip preview (left) + timeline sequence (right).
@@ -123,9 +124,9 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
     final wide = MediaQuery.sizeOf(context).width >= 768;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: SoriTokens.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF2F2F7),
+        backgroundColor: SoriTokens.background,
         elevation: 0,
         title: Text(
           '케어 타이머 프리셋',
@@ -324,19 +325,11 @@ class _TimelineStepBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
-          ),
-        ],
+        color: VolumeGlassTheme.cardFillColor(alpha: 0.88),
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius * 0.67),
+        boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.04),
       ),
       child: Row(
         children: [

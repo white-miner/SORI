@@ -22,7 +22,7 @@ class ConsultationWidgetBoard extends StatelessWidget {
   final VoidCallback onEnvironmentDetail;
   final VoidCallback onTrendDetail;
 
-  static const _boardPadding = EdgeInsets.fromLTRB(16, 0, 16, 12);
+  static const _boardPadding = EdgeInsets.fromLTRB(16, 0, 16, 16);
   static const _splitBreakpoint = 768.0;
 
   @override
@@ -46,7 +46,7 @@ class ConsultationWidgetBoard extends StatelessWidget {
                       compact: true,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: TrendRadarWidgetCard(
                       snapshot: trends,
@@ -67,7 +67,7 @@ class ConsultationWidgetBoard extends StatelessWidget {
                 tempoLevel: tempoLevel,
                 onDetail: onEnvironmentDetail,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TrendRadarWidgetCard(
                 snapshot: trends,
                 onDetail: onTrendDetail,

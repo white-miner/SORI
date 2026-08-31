@@ -22,6 +22,7 @@ import '../operation/widgets/care_timer_widget.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
 import '../operation/widgets/sos_signal_bar.dart';
+import '../operation/widgets/volume_glass_theme.dart';
 import '../../views/smart_guide_camera_page.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_briefing_sheet.dart';
@@ -47,7 +48,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
 
   VisitStore get visit => widget.store.visit;
 
-  static const _groupedBg = Color(0xFFF2F2F7);
+  static const _groupedBg = SoriTokens.background;
 
   @override
   void initState() {
@@ -615,28 +616,23 @@ class _AgendaRow extends StatelessWidget {
     return SosSignalBar(
       signal: item.sosSignal,
       child: Material(
-        color: Colors.white.withValues(alpha: emphasized ? 0.95 : 0.85),
-        borderRadius: const BorderRadius.horizontal(
-          right: Radius.circular(16),
-        ),
+        color: VolumeGlassTheme.cardFillColor(),
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
         child: InkWell(
           onTap: onTap,
-          borderRadius: const BorderRadius.horizontal(
-            right: Radius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+          child: Ink(
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.horizontal(
-                right: Radius.circular(16),
-              ),
-              border: Border.all(
-                color: emphasized
-                    ? VisitGlassTokens.care.withValues(alpha: 0.35)
-                    : SoriTokens.border.withValues(alpha: 0.6),
-                width: emphasized ? 1.2 : 1,
+              borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+              boxShadow: VolumeGlassTheme.volumeShadow(
+                tint: emphasized ? VisitGlassTokens.care : Colors.black,
+                alpha: emphasized ? 0.06 : 0.05,
               ),
             ),
+            child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
                 SizedBox(
@@ -732,6 +728,7 @@ class _AgendaRow extends StatelessWidget {
                 ),
               ],
             ),
+            ),
           ),
         ),
       ),
@@ -807,22 +804,27 @@ class _WalkInCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: emphasized ? VisitGlassTokens.care : Colors.white.withValues(alpha: 0.85),
-      borderRadius: BorderRadius.circular(16),
+      color: emphasized
+          ? VisitGlassTokens.care
+          : VolumeGlassTheme.cardFillColor(),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: emphasized
-                  ? VisitGlassTokens.care
-                  : SoriTokens.border.withValues(alpha: 0.6),
-            ),
+            borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+            boxShadow: emphasized
+                ? VolumeGlassTheme.volumeShadow(
+                    tint: VisitGlassTokens.care,
+                    alpha: 0.08,
+                  )
+                : VolumeGlassTheme.volumeShadow(),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

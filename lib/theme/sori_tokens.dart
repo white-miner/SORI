@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 /// SORI — iOS-style White Minimal + System Accent (Red alerts, Camera Yellow).
 abstract final class SoriTokens {
-  /// App canvas — PO off-white (#F5F5F7)
-  static const Color background = Color(0xFFF5F5F7);
+  /// App canvas — PO Soft UI off-white (#F4F6F9)
+  static const Color background = Color(0xFFF4F6F9);
 
   /// Inline link / read-more accent
   static const Color accentLink = Color(0xFF007AFF);
@@ -110,9 +110,9 @@ abstract final class SoriTokens {
 
   static List<BoxShadow> get cardShadow => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 26,
+          offset: const Offset(0, 8),
         ),
       ];
 

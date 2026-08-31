@@ -3,7 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// PRD v4.5 — CDG flip-clock with digit flip animation.
+import 'semantic_signal_theme.dart';
+import 'volume_glass_theme.dart';
+
+/// PRD v4.7 — Soft UI flip-clock with digit flip animation.
 class FlipClockDisplay extends StatelessWidget {
   const FlipClockDisplay({
     super.key,
@@ -37,9 +40,9 @@ class FlipClockDisplay extends StatelessWidget {
             _timeSegment(s, 2),
           ];
 
-    final digitHeight = compact ? 52.0 : 76.0;
-    final digitWidth = compact ? 34.0 : 48.0;
-    final colonSize = compact ? 36.0 : 52.0;
+    final digitHeight = compact ? 56.0 : 80.0;
+    final digitWidth = compact ? 36.0 : 52.0;
+    final colonSize = compact ? 32.0 : 40.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -47,13 +50,9 @@ class FlipClockDisplay extends StatelessWidget {
         if (stepLabel != null && stepLabel!.isNotEmpty) ...[
           Text(
             stepLabel!,
-            style: GoogleFonts.nunito(
-              fontSize: compact ? 13 : 15,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF8E8E93),
-            ),
+            style: VolumeGlassTheme.labelTextStyle(compact: compact),
           ),
-          SizedBox(height: compact ? 6 : 10),
+          SizedBox(height: compact ? 8 : 12),
         ],
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -68,7 +67,8 @@ class FlipClockDisplay extends StatelessWidget {
                     style: GoogleFonts.nunito(
                       fontSize: colonSize,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1C1C1E).withValues(alpha: 0.35),
+                      color: SemanticSignalTheme.heroTextColor
+                          .withValues(alpha: 0.28),
                       height: 1,
                     ),
                   ),
@@ -83,14 +83,10 @@ class FlipClockDisplay extends StatelessWidget {
           ],
         ),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
-          SizedBox(height: compact ? 8 : 12),
+          SizedBox(height: compact ? 10 : 14),
           Text(
             subtitle!,
-            style: GoogleFonts.nunito(
-              fontSize: compact ? 12 : 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF8E8E93),
-            ),
+            style: VolumeGlassTheme.labelTextStyle(compact: true),
           ),
         ],
       ],
@@ -120,7 +116,7 @@ class _FlipDigitPair extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < value.length; i++) ...[
-          if (i > 0) const SizedBox(width: 4),
+          if (i > 0) const SizedBox(width: 6),
           _FlipDigit(
             digit: value[i],
             height: height,
@@ -148,7 +144,9 @@ class _FlipDigit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fontSize = compact ? 34.0 : 48.0;
+    final fontSize = compact
+        ? VolumeGlassTheme.kpiFontSizeCompact
+        : VolumeGlassTheme.kpiFontSizeHero;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
@@ -186,33 +184,17 @@ class _FlipDigit extends StatelessWidget {
         height: height,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.90),
-          borderRadius: BorderRadius.circular(compact ? 10 : 14),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.95),
-            width: 0.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 1,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          color: VolumeGlassTheme.cardFillColor(),
+          borderRadius: BorderRadius.circular(compact ? 14 : 18),
+          boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.06),
         ),
         child: Text(
           digit,
           style: GoogleFonts.nunito(
             fontSize: fontSize,
             fontWeight: FontWeight.w800,
-            letterSpacing: 0,
             fontFeatures: const [FontFeature.tabularFigures()],
-            color: const Color(0xFF1C1C1E),
+            color: SemanticSignalTheme.heroTextColor,
           ),
         ),
       ),

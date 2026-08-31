@@ -5,6 +5,7 @@ import '../models/clinical_trend_snapshot.dart';
 import 'metric_inset_block.dart';
 import 'semantic_signal_theme.dart';
 import 'trend_sparkline.dart';
+import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
 /// PRD v4.6 — CTI Trend Radar iOS Stocks widget card.
@@ -31,7 +32,7 @@ class TrendRadarWidgetCard extends StatelessWidget {
       semanticBand: signal,
       ambientColors: SemanticSignalTheme.ambientGradient(signal),
       ambientShadowColor: SemanticSignalTheme.shellShadow(signal),
-      padding: compact ? const EdgeInsets.all(12) : const EdgeInsets.all(16),
+      compact: compact,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -90,29 +91,29 @@ class TrendRadarWidgetCard extends StatelessWidget {
             if (lead != null)
               Row(
                 children: [
-                  Text(
-                    'CTI ${lead.cti}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: SemanticSignalTheme.bandTextColor(signal),
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  Flexible(
+                    child: Text(
+                      'CTI ${lead.cti}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: VolumeGlassTheme.kpiTextStyle(compact: compact)
+                          .copyWith(
+                        fontSize: compact ? 24 : 28,
+                        color: SemanticSignalTheme.bandTextColor(signal),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Naver ${lead.naverScore}',
-                    style: VisitGlassTokens.captionCalm.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                    style: VolumeGlassTheme.labelTextStyle(compact: compact),
                   ),
                   const Spacer(),
                   if (snapshot.fetchedAt != null)
                     Text(
                       _freshness(snapshot.fetchedAt!),
-                      style: VisitGlassTokens.captionCalm.copyWith(
-                        fontSize: 10,
-                      ),
+                      style: VolumeGlassTheme.labelTextStyle(compact: true)
+                          .copyWith(fontSize: 10),
                     ),
                 ],
               ),

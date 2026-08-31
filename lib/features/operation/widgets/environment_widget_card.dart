@@ -5,6 +5,7 @@ import '../models/shop_climate_context.dart';
 import 'metric_inset_block.dart';
 import 'semantic_signal_theme.dart';
 import 'skin_stress_gauge.dart';
+import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
 /// PRD v4.6 — SSI Environment iOS Weather widget card.
@@ -41,7 +42,7 @@ class EnvironmentWidgetCard extends StatelessWidget {
       semanticBand: signal,
       ambientColors: SemanticSignalTheme.ambientGradient(signal),
       ambientShadowColor: SemanticSignalTheme.shellShadow(signal),
-      padding: compact ? const EdgeInsets.all(12) : const EdgeInsets.all(16),
+      compact: compact,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -53,9 +54,9 @@ class EnvironmentWidgetCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: VisitGlassTokens.captionCalm.copyWith(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
+                    fontSize: compact ? 11 : 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
                     color: SemanticSignalTheme.secondaryTextColor,
                   ),
                 ),
@@ -85,14 +86,11 @@ class EnvironmentWidgetCard extends StatelessWidget {
                       children: [
                         Text(
                           '${climate.ssi.score}',
-                          style: TextStyle(
-                            fontSize: compact ? 28 : 34,
-                            fontWeight: FontWeight.w700,
-                            height: 1,
-                            color: SemanticSignalTheme.heroTextColor,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures(),
-                            ],
+                          style: VolumeGlassTheme.kpiTextStyle(
+                            compact: compact,
+                            fontSize: compact
+                                ? VolumeGlassTheme.kpiFontSizeCompact
+                                : VolumeGlassTheme.kpiFontSizeHero,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -138,10 +136,7 @@ class EnvironmentWidgetCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               '진정 ${brief.calmTargetC.toStringAsFixed(1)}°C · 장비 L${brief.deviceIntensityCap}',
-              style: VisitGlassTokens.captionCalm.copyWith(
-                fontSize: 11,
-                color: SemanticSignalTheme.secondaryTextColor,
-              ),
+              style: VolumeGlassTheme.labelTextStyle(compact: true),
             ),
           ] else ...[
             const SizedBox(height: 6),

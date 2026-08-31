@@ -9,6 +9,7 @@ import '../../../visit_kernel/models/visit_session.dart';
 import '../visit_timer_store.dart';
 import 'care_timer_preset_editor_page.dart';
 import 'flip_clock_display.dart';
+import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
 /// PRD v4.5 — consultation tab timer widget (flip clock + 3-button flow).
@@ -91,10 +92,9 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: WidgetGlassCard(
-        padding: const EdgeInsets.all(16),
         ambientColors: const [
           Color(0xFFE8F4FD),
-          Color(0xFFF2F2F7),
+          Color(0xFFF4F6F9),
         ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -336,18 +336,12 @@ class _Metric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.nunito(
-            fontSize: 11,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
+          style: VolumeGlassTheme.labelTextStyle(compact: true),
         ),
         Text(
           value,
-          style: GoogleFonts.nunito(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            fontFeatures: const [FontFeature.tabularFigures()],
+          style: VolumeGlassTheme.kpiTextStyle(compact: true).copyWith(
+            fontSize: 18,
           ),
         ),
       ],
@@ -372,13 +366,7 @@ class _PrimaryBtn extends StatelessWidget {
       width: double.infinity,
       child: FilledButton(
         onPressed: enabled ? onPressed : null,
-        style: FilledButton.styleFrom(
-          backgroundColor: SoriTokens.primary,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
+        style: VolumeGlassTheme.carePrimaryButtonStyle(enabled: enabled),
         child: Text(
           label,
           style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
@@ -402,9 +390,13 @@ class _SecondaryBtn extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
+          foregroundColor: SoriTokens.primary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(
+              VolumeGlassTheme.cardRadius * 0.58,
+            ),
           ),
+          side: BorderSide.none,
         ),
         child: Text(
           label,
@@ -426,9 +418,10 @@ class _AfterPhotoBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFF9500).withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius * 0.5),
+        boxShadow: VolumeGlassTheme.volumeShadow(
+          tint: const Color(0xFFFF9500),
+          alpha: 0.05,
         ),
       ),
       child: Column(

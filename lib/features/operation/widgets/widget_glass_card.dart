@@ -3,8 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'semantic_signal_theme.dart';
+import 'volume_glass_theme.dart';
 
-/// PRD v4.6 — iOS 3D Material widget shell (Zone B).
+/// PRD v4.7 — Soft UI volume glass widget shell (Zone B).
 class WidgetGlassCard extends StatelessWidget {
   const WidgetGlassCard({
     super.key,
@@ -12,56 +13,45 @@ class WidgetGlassCard extends StatelessWidget {
     this.ambientColors,
     this.ambientShadowColor,
     this.semanticBand,
-    this.padding = const EdgeInsets.all(16),
+    this.padding,
     this.height,
     this.materialTier = WidgetMaterialTier.thick,
+    this.compact = false,
   });
 
   final Widget child;
   final List<Color>? ambientColors;
   final Color? ambientShadowColor;
   final SemanticBand? semanticBand;
-  final EdgeInsets padding;
+  final EdgeInsets? padding;
   final double? height;
   final WidgetMaterialTier materialTier;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final tier = materialTier;
     final band = semanticBand;
-    final shadowColor = ambientShadowColor ??
-        (band != null
-            ? SemanticSignalTheme.shellShadow(band)
-            : Colors.black.withValues(alpha: 0.10));
+    final resolvedPadding = padding ??
+        (compact ? VolumeGlassTheme.compactPadding : VolumeGlassTheme.cardPadding);
+
+    final shadowTint = ambientShadowColor ??
+        (band != null ? SemanticSignalTheme.shellShadow(band) : null);
 
     final gradientColors = ambientColors ??
-        (band != null
-            ? SemanticSignalTheme.ambientGradient(band)
-            : null);
-
-    final tintColor = band != null
-        ? SemanticSignalTheme.shellTint(band).withValues(alpha: tier.tintAlpha + 0.18)
-        : Colors.white.withValues(alpha: tier.fillAlpha);
+        (band != null ? SemanticSignalTheme.ambientGradient(band) : null);
 
     return Container(
       height: height,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(SemanticSignalTheme.widgetRadius),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor,
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+        boxShadow: VolumeGlassTheme.volumeShadow(
+          tint: shadowTint ?? Colors.black,
+          alpha: band != null ? 0.06 : 0.05,
+        ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(SemanticSignalTheme.widgetRadius),
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
         child: BackdropFilter(
           filter: ImageFilter.blur(
             sigmaX: tier.blurSigma,
@@ -69,13 +59,11 @@ class WidgetGlassCard extends StatelessWidget {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: tintColor,
-              borderRadius:
-                  BorderRadius.circular(SemanticSignalTheme.widgetRadius),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.72),
-                width: 0.5,
+              color: VolumeGlassTheme.cardFillColor(
+                alpha: tier == WidgetMaterialTier.thick ? 0.92 : 0.88,
               ),
+              borderRadius:
+                  BorderRadius.circular(VolumeGlassTheme.cardRadius),
             ),
             child: Stack(
               clipBehavior: Clip.hardEdge,
@@ -88,30 +76,13 @@ class WidgetGlassCard extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: gradientColors
-                              .map((c) => c.withValues(alpha: tier.ambientAlpha))
+                              .map((c) => c.withValues(alpha: tier.ambientAlpha * 0.35))
                               .toList(),
                         ),
                       ),
                     ),
                   ),
-                // Inner top highlight (iOS material edge)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 1,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.55),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(padding: padding, child: child),
+                Padding(padding: resolvedPadding, child: child),
               ],
             ),
           ),
@@ -130,8 +101,10 @@ class WidgetDetailChevron extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.62),
+      color: VolumeGlassTheme.cardFillColor(alpha: 0.78),
       borderRadius: BorderRadius.circular(20),
+      elevation: 0,
+      shadowColor: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -142,8 +115,7 @@ class WidgetDetailChevron extends StatelessWidget {
             children: [
               Text(
                 '详情',
-                style: TextStyle(
-                  fontSize: 12,
+                style: VolumeGlassTheme.labelTextStyle(compact: true).copyWith(
                   fontWeight: FontWeight.w600,
                   color: Colors.black.withValues(alpha: 0.55),
                 ),
