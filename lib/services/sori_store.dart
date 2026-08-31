@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../widgets/post/post_view_data.dart';
 import '../utils/post_author.dart';
+import '../utils/sori_uuid.dart';
 
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
@@ -268,7 +269,7 @@ class SoriStore implements Listenable {
     final sid = shop.id.trim();
 
     final session = VisitSession(
-      id: 'visit-${DateTime.now().microsecondsSinceEpoch}',
+      id: newUuidV4(),
       shopId: sid,
       customerId: customer.id,
       customerName: customer.name.trim(),
@@ -365,7 +366,7 @@ class SoriStore implements Listenable {
   }) async {
     final sid = shop.id.trim();
     final entry = CareScheduleEntry(
-      id: 'sched-${DateTime.now().microsecondsSinceEpoch}',
+      id: newUuidV4(),
       shopId: sid,
       scheduledAt: scheduledAt,
       customerName: customerName.trim(),
@@ -393,7 +394,7 @@ class SoriStore implements Listenable {
     String note = '',
   }) async {
     final entry = CareScheduleEntry(
-      id: 'lead-${DateTime.now().microsecondsSinceEpoch}',
+      id: newUuidV4(),
       shopId: shopId.trim(),
       scheduledAt: preferredAt,
       customerName: customerName.trim(),

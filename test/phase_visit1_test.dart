@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sori/utils/sori_uuid.dart';
 import 'package:sori/visit_kernel/models/visit_session.dart';
 import 'package:sori/services/sori_store.dart';
 
@@ -14,6 +15,8 @@ void main() {
     expect(session.customerId, customer.id);
     expect(session.phase, VisitPhase.shoot);
     expect(session.chartDraftId, isNotNull);
+    expect(isUuidV4(session.id), isTrue);
+    expect(session.id.startsWith('visit-'), isFalse);
     expect(store.activeVisitSession?.id, session.id);
     expect(store.chartForVisitSession(session), isNotNull);
   });
