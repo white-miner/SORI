@@ -22,6 +22,7 @@ import '../../visit_kernel/widgets/visit_glass_widgets.dart';
 import 'ba_recall_cache.dart';
 import 'ba_recall_overlay.dart';
 import 'consultation_surface_page.dart';
+import 'consultation_track.dart';
 
 /// Visit Session — Shoot → Consult → Plan → Consent → Publish (PRD v3.1).
 class VisitSessionPage extends StatefulWidget {
@@ -29,10 +30,26 @@ class VisitSessionPage extends StatefulWidget {
     super.key,
     required this.store,
     required this.sessionId,
+    required this.track,
   });
 
   final SoriStore store;
   final String sessionId;
+  final ConsultationTrack track;
+
+  /// 대기열·외부 진입 시 차트 이력으로 트랙 자동 판별.
+  static ConsultationTrack resolveTrack(
+    SoriStore store,
+    VisitSession session,
+  ) {
+    final chart = store.chartForVisitSession(session);
+    final hasPrior = store
+        .chartsForCustomer(session.customerId)
+        .any((c) => c.id != chart?.id);
+    return hasPrior
+        ? ConsultationTrack.returning
+        : ConsultationTrack.newCustomer;
+  }
 
   @override
   State<VisitSessionPage> createState() => _VisitSessionPageState();
@@ -68,15 +85,10 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     return widget.store.chartForVisitSession(s);
   }
 
-  /// Prior visits exist (excluding today's session draft).
-  bool get _isReturningCustomer {
-    final customer = _customer;
-    if (customer == null) return false;
-    final currentId = _chart?.id;
-    return widget.store
-        .chartsForCustomer(customer.id)
-        .any((c) => c.id != currentId);
-  }
+  /// Explicit Two-Track from launcher overrides chart heuristics.
+  bool get _isReturningFlow => widget.track == ConsultationTrack.returning;
+
+  bool get _isNewFlow => widget.track == ConsultationTrack.newCustomer;
 
   CustomerChart? get _lastPriorChart {
     final customer = _customer;
@@ -105,7 +117,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     widget.store.addListener(_onStore);
     _hydrateFromChart();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isReturningCustomer) unawaited(_prefetchBaRecall());
+      if (_isReturningFlow) unawaited(_prefetchBaRecall());
     });
   }
 
@@ -415,7 +427,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
         ? VisitPhase.workflow.length - 1
         : phase.workflowIndex.clamp(0, VisitPhase.workflow.length - 1);
     final showBaPill =
-        _isReturningCustomer &&
+        _isReturningFlow &&
         (phase == VisitPhase.consult || phase == VisitPhase.plan);
     final prior = _lastPriorChart;
 
@@ -423,7 +435,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
       backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
         title: Text(
-          _isReturningCustomer
+          _isReturningFlow
               ? '${customer.name}님 · 재방문 상담'
               : '${customer.name}님 · 첫 상담',
         ),
@@ -444,14 +456,14 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
           : null,
       body: Column(
         children: [
-          if (_isReturningCustomer && prior != null)
+          if (_isReturningFlow && prior != null)
             _ReturningContextBanner(
               prior: prior,
               baWarm: _baWarm,
               onOpenBaRecall: _openBaRecall,
             ),
-          if (!_isReturningCustomer)
-            const _NewCustomerHintBanner(),
+          if (_isNewFlow)
+            const _NewCustomerOnboardingBanner(),
           _PhaseRail(current: phase, onJump: _setPhase),
           Expanded(
             child: IndexedStack(
@@ -460,6 +472,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
                 _ShootPhase(
                   chart: chart,
                   busy: _busy,
+                  firstVisit: _isNewFlow,
                   onBefore: () => _shoot(GuideCameraKind.before),
                   onAfter: () => _shoot(GuideCameraKind.after),
                   onNext: () => _setPhase(VisitPhase.consult),
@@ -467,6 +480,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
                 _ConsultPhase(
                   concerns: _concerns,
                   chart: chart,
+                  firstVisit: _isNewFlow,
                   onToggleConcern: (c) {
                     setState(() {
                       if (_concerns.contains(c)) {
@@ -543,67 +557,118 @@ class _ReturningContextBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = prior.treatmentSummary.trim();
     final insight = prior.directorInsight.trim();
-    final preview = summary.isNotEmpty
+    final planText = summary.isNotEmpty
         ? summary
         : (insight.isNotEmpty ? insight : '직전 회차 기록 없음');
+    final rx = HomecareDictionary.sanitizeTagIds(prior.homeCarePrescriptions);
 
     return Material(
-      color: SoriTokens.surface,
+      color: const Color(0xFF1C1C1E),
       child: InkWell(
         onTap: onOpenBaRecall,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
           decoration: const BoxDecoration(
             border: Border(
               bottom: BorderSide(color: SoriTokens.border),
             ),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '직전 ${prior.visitNumber}회차 요약',
-                      style: const TextStyle(
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '직전 관리 계획 · BaRecall',
+                      style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white70,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      preview,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.35,
+                  ),
+                  if (baWarm)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
                       ),
-                    ),
-                    if (baWarm) ...[
-                      const SizedBox(height: 4),
-                      const Text(
-                        '과거 B/A 준비됨',
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'B/A 준비됨',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: SoriTokens.textSecondary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                         ),
                       ),
-                    ],
-                  ],
+                    ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.photo_library_outlined,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${prior.visitNumber}회차 — $planText',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                  color: Colors.white,
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.photo_library_outlined,
-                color: SoriTokens.textSecondary,
-                size: 22,
+              if (rx.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: rx
+                      .map(
+                        (id) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.18),
+                            ),
+                          ),
+                          child: Text(
+                            HomecareDictionary.chipLabelOf(id) ?? id,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Text(
+                '지난번에 말씀드린 대로 오늘 관리를 이어갑니다. 탭하여 과거 B/A 확인',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.55),
+                  height: 1.3,
+                ),
               ),
             ],
           ),
@@ -613,29 +678,86 @@ class _ReturningContextBanner extends StatelessWidget {
   }
 }
 
-class _NewCustomerHintBanner extends StatelessWidget {
-  const _NewCustomerHintBanner();
+class _NewCustomerOnboardingBanner extends StatelessWidget {
+  const _NewCustomerOnboardingBanner();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
-        color: SoriTokens.surface,
-        border: Border(
-          bottom: BorderSide(color: SoriTokens.border),
-        ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      color: SoriTokens.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '첫 방문 상담 가이드',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const _OnboardStep(
+            index: '1',
+            label: '고민 부위 · 피부 상태 칩 기록',
+          ),
+          const SizedBox(height: 4),
+          const _OnboardStep(
+            index: '2',
+            label: '1회차 Before 촬영',
+          ),
+          const SizedBox(height: 4),
+          const _OnboardStep(
+            index: '3',
+            label: '상담 · 관리 계획 · 동의서',
+          ),
+        ],
       ),
-      child: const Text(
-        '첫 상담입니다. 고객 상태 칩부터 차근차근 기록해 주세요.',
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: SoriTokens.textSecondary,
-          height: 1.35,
+    );
+  }
+}
+
+class _OnboardStep extends StatelessWidget {
+  const _OnboardStep({required this.index, required this.label});
+
+  final String index;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: SoriTokens.primary,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            index,
+            style: const TextStyle(
+              color: SoriTokens.onPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -944,6 +1066,7 @@ class _ShootPhase extends StatelessWidget {
   const _ShootPhase({
     required this.chart,
     required this.busy,
+    required this.firstVisit,
     required this.onBefore,
     required this.onAfter,
     required this.onNext,
@@ -951,6 +1074,7 @@ class _ShootPhase extends StatelessWidget {
 
   final CustomerChart? chart;
   final bool busy;
+  final bool firstVisit;
   final VoidCallback onBefore;
   final VoidCallback onAfter;
   final VoidCallback onNext;
@@ -964,44 +1088,63 @@ class _ShootPhase extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          'SORI 카메라로 기록',
+          firstVisit ? '1회차 Before 촬영' : 'SORI 카메라로 기록',
           style: VisitGlassTokens.displayKpi(context).copyWith(fontSize: 22),
         ),
         const SizedBox(height: 8),
         Text(
-          '촬영한 사진은 차트에 자동으로 연결됩니다.',
+          firstVisit
+              ? '첫 방문 기준 사진을 먼저 남기고 상담으로 이어갑니다.'
+              : '촬영한 사진은 차트에 자동으로 연결됩니다.',
           style: VisitGlassTokens.bodyCalm.copyWith(
             color: SoriTokens.textSecondary,
           ),
         ),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: _PhotoSlot(
-                label: 'Before',
-                url: before,
-                onShoot: busy ? null : onBefore,
-              ),
+        if (firstVisit) ...[
+          _PhotoSlot(
+            label: 'Before · 첫 방문',
+            url: before,
+            onShoot: busy ? null : onBefore,
+          ),
+          const SizedBox(height: 12),
+          Opacity(
+            opacity: 0.55,
+            child: _PhotoSlot(
+              label: 'After · 관리 후',
+              url: after,
+              onShoot: null,
+              subtitle: '오늘 관리 후 촬영',
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _PhotoSlot(
-                label: 'After',
-                url: after,
-                onShoot: busy ? null : onAfter,
+          ),
+        ] else
+          Row(
+            children: [
+              Expanded(
+                child: _PhotoSlot(
+                  label: 'Before',
+                  url: before,
+                  onShoot: busy ? null : onBefore,
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _PhotoSlot(
+                  label: 'After',
+                  url: after,
+                  onShoot: busy ? null : onAfter,
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 24),
         FilledButton(
           onPressed: onNext,
           style: FilledButton.styleFrom(
-            backgroundColor: VisitGlassTokens.care,
+            backgroundColor: SoriTokens.primary,
             minimumSize: const Size.fromHeight(48),
           ),
-          child: const Text('상담으로 이동'),
+          child: Text(firstVisit ? '상담 · 고민 부위 기록' : '상담으로 이동'),
         ),
       ],
     );
@@ -1013,11 +1156,13 @@ class _PhotoSlot extends StatelessWidget {
     required this.label,
     required this.url,
     this.onShoot,
+    this.subtitle,
   });
 
   final String label;
   final String? url;
   final VoidCallback? onShoot;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1044,11 +1189,22 @@ class _PhotoSlot extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: const TextStyle(
+                fontSize: 11,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: onShoot,
-            child: Text(hasUrl ? '다시 촬영' : '촬영'),
-          ),
+          if (onShoot != null)
+            OutlinedButton(
+              onPressed: onShoot,
+              child: Text(hasUrl ? '다시 촬영' : '촬영'),
+            ),
         ],
       ),
     );
@@ -1059,6 +1215,7 @@ class _ConsultPhase extends StatelessWidget {
   const _ConsultPhase({
     required this.concerns,
     required this.chart,
+    required this.firstVisit,
     required this.onToggleConcern,
     required this.onOpenSurface,
     required this.onNext,
@@ -1066,6 +1223,7 @@ class _ConsultPhase extends StatelessWidget {
 
   final Set<String> concerns;
   final CustomerChart? chart;
+  final bool firstVisit;
   final ValueChanged<String> onToggleConcern;
   final VoidCallback onOpenSurface;
   final VoidCallback onNext;
@@ -1076,12 +1234,14 @@ class _ConsultPhase extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          '함께 상태 확인',
+          firstVisit ? '고민 부위 · 피부 상태' : '함께 상태 확인',
           style: VisitGlassTokens.displayKpi(context).copyWith(fontSize: 22),
         ),
         const SizedBox(height: 8),
         Text(
-          '고객님과 나란히 볼 수 있는 화면을 띄워 소통해 보세요.',
+          firstVisit
+              ? '첫 방문 고객님의 고민과 피부 상태를 칩으로 기록하세요.'
+              : '고객님과 나란히 볼 수 있는 화면을 띄워 소통해 보세요.',
           style: VisitGlassTokens.bodyCalm.copyWith(
             color: SoriTokens.textSecondary,
           ),

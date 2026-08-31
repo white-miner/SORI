@@ -2,17 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/customer.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../visit_kernel/models/visit_session.dart';
-import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
 import 'ba_recall_cache.dart';
-import 'visit_customer_picker_sheet.dart';
+import 'consultation_track.dart';
+import 'visit_existing_customer_picker_page.dart';
+import 'visit_new_customer_form_page.dart';
 import 'visit_session_page.dart';
 
-/// 상담 Home — CDG list queue (PRD v3.1).
+/// 상담 Home — Two-Track 진입 (신규 / 기존) + 오늘 대기열.
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -52,14 +54,37 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _startConsultation() async {
-    final customer = await showVisitCustomerPickerSheet(
-      context,
-      store: widget.store,
+  bool _hasPriorCharts(String customerId, {String? excludeChartId}) {
+    return widget.store
+        .chartsForCustomer(customerId)
+        .any((c) => c.id != excludeChartId);
+  }
+
+  ConsultationTrack _trackForCustomer(String customerId, {String? chartId}) {
+    return _hasPriorCharts(customerId, excludeChartId: chartId)
+        ? ConsultationTrack.returning
+        : ConsultationTrack.newCustomer;
+  }
+
+  Future<void> _startNewCustomerFlow() async {
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(
+        builder: (_) => VisitNewCustomerFormPage(store: widget.store),
+      ),
+    );
+    if (customer == null || !mounted) return;
+    await _startSessionFor(customer, ConsultationTrack.newCustomer);
+  }
+
+  Future<void> _startReturningCustomerFlow() async {
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(
+        builder: (_) =>
+            VisitExistingCustomerPickerPage(store: widget.store),
+      ),
     );
     if (customer == null || !mounted) return;
 
-    // BaRecall warm prefetch before session opens (PRD v3.1-C SLA).
     unawaited(
       BaRecallCache.instance.prefetch(
         widget.store,
@@ -67,11 +92,17 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
         imageContext: context,
       ),
     );
+    await _startSessionFor(customer, ConsultationTrack.returning);
+  }
 
+  Future<void> _startSessionFor(
+    Customer customer,
+    ConsultationTrack track,
+  ) async {
     try {
       final session = await visit.startVisit(customer);
       if (!mounted) return;
-      await _openSession(session);
+      await _openSession(session, track);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,9 +112,11 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   }
 
   Future<void> _openQuickChart() async {
-    final customer = await showVisitCustomerPickerSheet(
-      context,
-      store: widget.store,
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(
+        builder: (_) =>
+            VisitExistingCustomerPickerPage(store: widget.store),
+      ),
     );
     if (customer == null || !mounted) return;
     await openChartWriterForCustomer(
@@ -95,12 +128,26 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     if (mounted) await _load(force: true);
   }
 
-  Future<void> _openSession(VisitSession session) async {
+  Future<void> _openSession(
+    VisitSession session,
+    ConsultationTrack track,
+  ) async {
+    if (track == ConsultationTrack.returning) {
+      unawaited(
+        BaRecallCache.instance.prefetch(
+          widget.store,
+          session.customerId,
+          imageContext: context,
+        ),
+      );
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => VisitSessionPage(
           store: widget.store,
           sessionId: session.id,
+          track: track,
         ),
       ),
     );
@@ -116,143 +163,209 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
 
     return ColoredBox(
       color: _groupedBg,
-      child: Stack(
-        children: [
-          RefreshIndicator(
-            color: VisitGlassTokens.care,
-            onRefresh: () => _load(force: true),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
+      child: RefreshIndicator(
+        color: SoriTokens.primary,
+        onRefresh: () => _load(force: true),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+                child: Text(
+                  '상담',
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w300,
+                    height: 1.1,
+                    color: SoriTokens.textPrimary.withValues(alpha: 0.95),
+                  ),
+                ),
               ),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-                    child: Text(
-                      '상담',
-                      style: TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w300,
-                        height: 1.1,
-                        color: SoriTokens.textPrimary.withValues(alpha: 0.95),
-                      ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Text(
+                  '신규·기존 고객에 맞는 상담 시트를 선택하세요',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: SoriTokens.textSecondary.withValues(alpha: 0.95),
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    final wide = c.maxWidth >= 560;
+                    final newCard = _TrackEntryCard(
+                      title: '신규 고객 상담',
+                      subtitle: '첫 방문 · Before 촬영 · 동의서',
+                      icon: Icons.person_add_alt_1_rounded,
+                      onTap: _startNewCustomerFlow,
+                    );
+                    final returningCard = _TrackEntryCard(
+                      title: '기존 고객 상담',
+                      subtitle: 'B/A 회상 · 직전 계획 · 재방문',
+                      icon: Icons.history_rounded,
+                      emphasized: true,
+                      onTap: _startReturningCustomerFlow,
+                    );
+                    if (wide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: newCard),
+                          const SizedBox(width: 12),
+                          Expanded(child: returningCard),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        newCard,
+                        const SizedBox(height: 12),
+                        returningCard,
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _openQuickChart,
+                    icon: const Icon(Icons.bolt_rounded, size: 16),
+                    label: const Text('간편 기록만'),
+                  ),
+                ),
+              ),
+            ),
+            if (_loading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (sessions.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+                  child: Text(
+                    '오늘 진행 중 · ${sessions.length}명',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: Text(
-                      sessions.isEmpty
-                          ? '오늘 함께할 상담을 시작해 보세요'
-                          : '오늘 ${sessions.length}명과 함께할 시간',
-                      style: VisitGlassTokens.bodyCalm.copyWith(
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                  ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList.separated(
+                  itemCount: sessions.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
+                    final session = sessions[i];
+                    final chart =
+                        widget.store.chartForVisitSession(session);
+                    final track = _trackForCustomer(
+                      session.customerId,
+                      chartId: chart?.id,
+                    );
+                    return _ConsultQueueRow(
+                      session: session,
+                      store: widget.store,
+                      isReturning: track == ConsultationTrack.returning,
+                      onTap: () => _openSession(session, track),
+                    );
+                  },
                 ),
-                if (_loading)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (sessions.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: Text(
-                        '손님을 맞이하면 「상담 시작」을 눌러 주세요.',
-                        style: VisitGlassTokens.captionCalm.copyWith(
-                          color: SoriTokens.textSecondary,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverList.separated(
-                      itemCount: sessions.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final session = sessions[i];
-                        return _ConsultQueueRow(
-                          session: session,
-                          store: widget.store,
-                          onTap: () => _openSession(session),
-                        );
-                      },
-                    ),
-                  ),
-                const SliverToBoxAdapter(child: SizedBox(height: 110)),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _ConsultationActionBar(
-              onStart: _startConsultation,
-              onQuickChart: _openQuickChart,
-            ),
-          ),
-        ],
+              ),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ConsultationActionBar extends StatelessWidget {
-  const _ConsultationActionBar({
-    required this.onStart,
-    required this.onQuickChart,
+class _TrackEntryCard extends StatelessWidget {
+  const _TrackEntryCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.emphasized = false,
   });
 
-  final VoidCallback onStart;
-  final VoidCallback onQuickChart;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          10,
-          16,
-          10 + MediaQuery.paddingOf(context).bottom,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F7).withValues(alpha: 0.95),
-          border: Border(
-            top: BorderSide(color: SoriTokens.border.withValues(alpha: 0.35)),
-          ),
-        ),
-        child: Row(
-          children: [
-            OutlinedButton(
-              onPressed: onQuickChart,
-              child: const Text('+ 간편 기록'),
+      color: emphasized ? SoriTokens.primary : SoriTokens.surface,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: emphasized ? SoriTokens.primary : SoriTokens.border,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton(
-                onPressed: onStart,
-                style: FilledButton.styleFrom(
-                  backgroundColor: VisitGlassTokens.care,
-                  minimumSize: const Size.fromHeight(46),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  icon,
+                  size: 28,
+                  color: emphasized ? SoriTokens.onPrimary : SoriTokens.textPrimary,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: emphasized
+                        ? SoriTokens.onPrimary
+                        : SoriTokens.textPrimary,
                   ),
                 ),
-                child: const Text('상담 시작'),
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                    color: emphasized
+                        ? SoriTokens.onPrimary.withValues(alpha: 0.85)
+                        : SoriTokens.textSecondary,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -264,11 +377,13 @@ class _ConsultQueueRow extends StatelessWidget {
     required this.session,
     required this.store,
     required this.onTap,
+    required this.isReturning,
   });
 
   final VisitSession session;
   final SoriStore store;
   final VoidCallback onTap;
+  final bool isReturning;
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +392,7 @@ class _ConsultQueueRow extends StatelessWidget {
     final phaseLabel = session.phase.label;
 
     return Material(
-      color: Colors.white.withValues(alpha: 0.72),
+      color: Colors.white.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -287,14 +402,14 @@ class _ConsultQueueRow extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: SoriTokens.border.withValues(alpha: 0.45),
+              color: SoriTokens.border.withValues(alpha: 0.6),
             ),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: VisitGlassTokens.care.withValues(alpha: 0.12),
+                backgroundColor: SoriTokens.surface,
                 child: Text(
                   session.customerName.characters.first,
                   style: const TextStyle(fontWeight: FontWeight.w800),
@@ -315,11 +430,14 @@ class _ConsultQueueRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       [
+                        isReturning ? '재방문' : '신규',
                         if (visitNo != null) '${visitNo}회차',
                         phaseLabel,
                       ].join(' · '),
-                      style: VisitGlassTokens.captionCalm.copyWith(
+                      style: const TextStyle(
+                        fontSize: 12,
                         color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -328,21 +446,23 @@ class _ConsultQueueRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: VisitGlassTokens.care.withValues(alpha: 0.1),
+                  color: SoriTokens.surface,
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: SoriTokens.border),
                 ),
                 child: Text(
                   phaseLabel,
-                  style: VisitGlassTokens.captionCalm.copyWith(
-                    color: VisitGlassTokens.care,
+                  style: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
+                    color: SoriTokens.textSecondary,
                   ),
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(
+              const Icon(
                 Icons.chevron_right_rounded,
-                color: SoriTokens.textSecondary.withValues(alpha: 0.5),
+                color: SoriTokens.textSecondary,
               ),
             ],
           ),

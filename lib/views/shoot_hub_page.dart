@@ -367,6 +367,10 @@ class _ShootHubPageState extends State<ShootHubPage> {
                             builder: (_) => VisitSessionPage(
                               store: store,
                               sessionId: session.id,
+                              track: VisitSessionPage.resolveTrack(
+                                store,
+                                session,
+                              ),
                             ),
                           ),
                         );
