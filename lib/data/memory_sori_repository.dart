@@ -509,6 +509,7 @@ class MemorySoriRepository implements SoriRepository {
     List<String>? concernChips,
     List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
+    Map<String, dynamic>? visitBiometrics,
   }) async {
     throw UnsupportedError('Use SoriStore.updateCustomerChartFields for memory');
   }

@@ -3,25 +3,30 @@ import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
+import '../operation/models/visit_biometrics.dart';
+import '../operation/widgets/biometric_quick_pad.dart';
+import '../operation/widgets/sos_signal_bar.dart';
+import '../operation/widgets/sori_narrative_block.dart';
 import 'ba_recall_cache.dart';
+import 'consultation_track.dart';
 import 'today_agenda.dart';
 
-/// PO Sprint 3.3 — 3초 브리핑 시트 (읽기 전용, CDG).
-Future<void> showConsultationBriefingSheet({
+/// PO Sprint 3.3 + 4.0 — 3초 브리핑 시트 (읽기 전용 + 생체 패드).
+Future<VisitBiometrics?> showConsultationBriefingSheet({
   required BuildContext context,
   required ConsultationBriefing briefing,
-  required VoidCallback onStartConsultation,
+  required Future<void> Function(VisitBiometrics biometrics) onStartConsultation,
   VoidCallback? onOpenCustomerDetail,
 }) {
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<VisitBiometrics?>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) => _ConsultationBriefingSheet(
       briefing: briefing,
-      onStartConsultation: () {
-        Navigator.of(ctx).pop();
-        onStartConsultation();
+      onStartConsultation: (bio) async {
+        Navigator.of(ctx).pop(bio);
+        await onStartConsultation(bio);
       },
       onOpenCustomerDetail: onOpenCustomerDetail == null
           ? null
@@ -33,7 +38,7 @@ Future<void> showConsultationBriefingSheet({
   );
 }
 
-class _ConsultationBriefingSheet extends StatelessWidget {
+class _ConsultationBriefingSheet extends StatefulWidget {
   const _ConsultationBriefingSheet({
     required this.briefing,
     required this.onStartConsultation,
@@ -41,8 +46,24 @@ class _ConsultationBriefingSheet extends StatelessWidget {
   });
 
   final ConsultationBriefing briefing;
-  final VoidCallback onStartConsultation;
+  final Future<void> Function(VisitBiometrics biometrics) onStartConsultation;
   final VoidCallback? onOpenCustomerDetail;
+
+  @override
+  State<_ConsultationBriefingSheet> createState() =>
+      _ConsultationBriefingSheetState();
+}
+
+class _ConsultationBriefingSheetState extends State<_ConsultationBriefingSheet> {
+  late VisitBiometrics _biometrics;
+
+  @override
+  void initState() {
+    super.initState();
+    _biometrics = widget.briefing.biometrics;
+  }
+
+  ConsultationBriefing get briefing => widget.briefing;
 
   static const _groupedBg = Color(0xFFF2F2F7);
 
@@ -81,6 +102,38 @@ class _ConsultationBriefingSheet extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   children: [
                     _Header(briefing: briefing),
+                    if (briefing.sosSignal.grade.index > 0) ...[
+                      const SizedBox(height: 12),
+                      SosSignalCard(signal: briefing.sosSignal),
+                    ],
+                    const SizedBox(height: 12),
+                    BiometricQuickPad(
+                      value: _biometrics,
+                      onChanged: (v) => setState(() => _biometrics = v),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: VisitGlassTokens.care.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.06),
+                        ),
+                      ),
+                      child: SoriNarrativeBlock(
+                        headline: briefing.deepMode.label,
+                        narrative: briefing.track == ConsultationTrack.returning
+                            ? '직전 차트·B/A 회상을 기준으로 유지 보수 트래킹 모드로 진입합니다.'
+                            : '퀵 체크 결과에 따라 딥 차트 진입 깊이가 자동 분기됩니다.',
+                        icon: Icons.hub_rounded,
+                        compact: true,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     _InfoCard(
                       title: '최근 방문',
@@ -161,13 +214,13 @@ class _ConsultationBriefingSheet extends StatelessWidget {
                     const SizedBox(height: 20),
                     _PrimaryCta(
                       label: item.hasActiveSession ? '이어하기' : '상담 시작',
-                      onTap: onStartConsultation,
+                      onTap: () => widget.onStartConsultation(_biometrics),
                     ),
-                    if (onOpenCustomerDetail != null &&
+                    if (widget.onOpenCustomerDetail != null &&
                         item.customerId.trim().isNotEmpty) ...[
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: onOpenCustomerDetail,
+                        onPressed: widget.onOpenCustomerDetail,
                         child: const Text('고객 상세 보기'),
                       ),
                     ],

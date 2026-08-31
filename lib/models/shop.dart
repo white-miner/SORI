@@ -15,6 +15,8 @@ class Shop {
     this.ownerName,
     this.phone,
     this.address,
+    this.latitude,
+    this.longitude,
     this.operatingHours = '',
     this.businessHours = const ShopBusinessHours(openDays: {}),
     this.snsBlogUrl = '',
@@ -54,6 +56,8 @@ class Shop {
   final String? ownerName;
   final String? phone;
   final String? address;
+  final double? latitude;
+  final double? longitude;
 
   /// 휴무일 및 운영시간 안내 (표시용 문자열, [businessHours]와 동기화).
   final String operatingHours;
@@ -201,6 +205,8 @@ class Shop {
     String? ownerName,
     String? phone,
     String? address,
+    double? latitude,
+    double? longitude,
     String? operatingHours,
     ShopBusinessHours? businessHours,
     String? snsBlogUrl,
@@ -238,6 +244,8 @@ class Shop {
       ownerName: ownerName ?? this.ownerName,
       phone: phone ?? this.phone,
       address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       operatingHours: operatingHours ?? this.operatingHours,
       businessHours: businessHours ?? this.businessHours,
       snsBlogUrl: snsBlogUrl ?? this.snsBlogUrl,
@@ -281,6 +289,8 @@ class Shop {
         'naver_booking_url': naverBookingUrl,
         'naver_review_write_url': naverReviewWriteUrl,
         'address': address,
+        'latitude': latitude,
+        'longitude': longitude,
         'operating_hours': operatingHours,
         'business_hours': businessHours.isEmpty ? <String, dynamic>{} : businessHours.toJson(),
         'sns_blog_url': snsBlogUrl,
@@ -381,6 +391,8 @@ class Shop {
         naverBookingUrl: naverBookingUrl,
         naverReviewWriteUrl: naverReviewWriteUrl,
         address: DbMap.asTextOrNull(map['address']),
+        latitude: (map['latitude'] as num?)?.toDouble(),
+        longitude: (map['longitude'] as num?)?.toDouble(),
         operatingHours: operatingHours,
         businessHours: businessHours,
         snsBlogUrl: snsBlogUrl,
@@ -459,6 +471,8 @@ class Shop {
           map['naver_review_write_url'] ?? map['naverReviewWriteUrl'],
         ),
         address: DbMap.asTextOrNull(map['address']),
+        latitude: (map['latitude'] as num?)?.toDouble(),
+        longitude: (map['longitude'] as num?)?.toDouble(),
         bio: DbMap.asText(map['bio'] ?? map['description']),
         profileImageUrl: DbMap.asTextOrNull(map['profile_image_url']),
         coverImageUrl: DbMap.asTextOrNull(

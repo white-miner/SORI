@@ -1,3 +1,4 @@
+import '../features/operation/models/visit_biometrics.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
 import 'chart_db_columns.dart';
@@ -42,6 +43,7 @@ class CustomerChart {
     this.feedAge,
     this.feedGenderLabel,
     this.authorId,
+    this.visitBiometrics = const VisitBiometrics(),
   });
 
   final String id;
@@ -110,6 +112,9 @@ class CustomerChart {
 
   /// 차트 작성자(샵 원장) auth user id (`shops.owner_user_id`).
   final String? authorId;
+
+  /// PRD v4.0 — 생체 리듬 퀵 터치 (sleep/cycle/alcohol).
+  final VisitBiometrics visitBiometrics;
 
   static const _skinTypes = ['수부지', '건성', '지성', '복합성', '민감', '중성'];
 
@@ -298,6 +303,7 @@ class CustomerChart {
     int? feedAge,
     String? feedGenderLabel,
     String? authorId,
+    VisitBiometrics? visitBiometrics,
     bool clearCustomChartNo = false,
     bool clearBeforeImageUrl = false,
     bool clearAfterImageUrl = false,
@@ -356,6 +362,7 @@ class CustomerChart {
       feedAge: feedAge ?? this.feedAge,
       feedGenderLabel: feedGenderLabel ?? this.feedGenderLabel,
       authorId: authorId ?? this.authorId,
+      visitBiometrics: visitBiometrics ?? this.visitBiometrics,
     );
   }
 
@@ -455,6 +462,7 @@ class CustomerChart {
       'info_view_consent': infoViewConsent,
       'home_care_mission_checks':
           normalizeMissionChecks(homeCareMissionChecks),
+      'visit_biometrics': visitBiometrics.toMap(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (includeId && id.isNotEmpty) {
@@ -555,6 +563,11 @@ class CustomerChart {
             map['author_user_id'] ??
             map['shop_owner_user_id'] ??
             map['owner_user_id'],
+      ),
+      visitBiometrics: VisitBiometrics.fromMap(
+        map['visit_biometrics'] is Map<String, dynamic>
+            ? map['visit_biometrics'] as Map<String, dynamic>
+            : null,
       ),
     );
   }

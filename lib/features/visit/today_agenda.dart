@@ -3,6 +3,10 @@ import '../../models/home_care_prescriptions.dart';
 import '../../services/sori_store.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
+import '../operation/models/consultation_deep_mode.dart';
+import '../operation/models/sos_signal.dart';
+import '../operation/models/visit_biometrics.dart';
+import '../operation/sos_signal_parser.dart';
 import 'consultation_track.dart';
 
 /// PO Sprint 3.3 — 오늘의 일정 SSOT (care_schedule + 미완료 visit_sessions 병합).
@@ -17,6 +21,7 @@ class TodayAgendaItem {
     this.session,
     required this.track,
     this.isNext = false,
+    this.sosSignal = SosSignal.none,
   });
 
   final String dedupKey;
@@ -28,6 +33,7 @@ class TodayAgendaItem {
   final VisitSession? session;
   final ConsultationTrack track;
   final bool isNext;
+  final SosSignal sosSignal;
 
   bool get hasActiveSession => session != null && session!.isActive;
 
@@ -85,7 +91,9 @@ TodayAgendaSnapshot buildTodayAgenda({
   required DateTime now,
   required List<CareScheduleEntry> schedules,
   required List<VisitSession> sessions,
+  SosSignalParser? sosParser,
 }) {
+  final parser = sosParser ?? SosSignalParser(mergeSosRules());
   final day = DateTime(now.year, now.month, now.day);
   final merged = <String, _AgendaMerge>{};
 
@@ -133,6 +141,24 @@ TodayAgendaSnapshot buildTodayAgenda({
             chartDraftId: m.session?.chartDraftId,
           );
 
+    final customer = customerId.isEmpty ? null : store.findCustomer(customerId);
+    CustomerChart? prior;
+    if (customerId.isNotEmpty) {
+      final charts = store.chartsForCustomer(customerId)
+        ..sort((a, b) => b.visitNumber.compareTo(a.visitNumber));
+      final draftId = m.session?.chartDraftId;
+      for (final c in charts) {
+        if (c.id == draftId) continue;
+        prior = c;
+        break;
+      }
+    }
+    final sos = parser.scan(
+      schedule: m.schedule,
+      customer: customer,
+      priorChart: prior,
+    );
+
     items.add(
       TodayAgendaItem(
         dedupKey: m.key,
@@ -143,6 +169,7 @@ TodayAgendaSnapshot buildTodayAgenda({
         schedule: m.schedule,
         session: m.session,
         track: track,
+        sosSignal: sos,
       ),
     );
   }
@@ -166,6 +193,7 @@ TodayAgendaSnapshot buildTodayAgenda({
       session: next.session,
       track: next.track,
       isNext: true,
+      sosSignal: next.sosSignal,
     );
   }
 
@@ -213,6 +241,9 @@ class ConsultationBriefing {
     this.lastVisitDate,
     this.todayPlanLabel = '',
     this.homeCareLabels = const [],
+    this.sosSignal = SosSignal.none,
+    this.biometrics = const VisitBiometrics(),
+    this.deepMode = ConsultationDeepMode.fullDesign,
   });
 
   final TodayAgendaItem item;
@@ -222,6 +253,9 @@ class ConsultationBriefing {
   final DateTime? lastVisitDate;
   final String todayPlanLabel;
   final List<String> homeCareLabels;
+  final SosSignal sosSignal;
+  final VisitBiometrics biometrics;
+  final ConsultationDeepMode deepMode;
 
   List<String> get concernChips => priorChart?.careTags ?? const [];
 
@@ -236,8 +270,9 @@ class ConsultationBriefing {
 
 ConsultationBriefing buildConsultationBriefing(
   SoriStore store,
-  TodayAgendaItem item,
-) {
+  TodayAgendaItem item, {
+  VisitBiometrics? biometricsOverride,
+}) {
   final cid = item.customerId.trim();
   CustomerChart? prior;
   if (cid.isNotEmpty) {
@@ -255,6 +290,14 @@ ConsultationBriefing buildConsultationBriefing(
       ? store.chartForVisitSession(item.session!)
       : null;
   final visitNo = todayDraft?.visitNumber ?? prior?.visitNumber;
+  final biometrics = biometricsOverride ??
+      todayDraft?.visitBiometrics ??
+      const VisitBiometrics();
+  final deepMode = resolveDeepMode(
+    track: item.track,
+    sos: item.sosSignal,
+    biometrics: biometrics,
+  );
 
   final scheduleLabel = item.schedule?.careLabel.trim() ?? '';
   final homeTags = prior?.homeCarePrescriptions ?? const <String>[];
@@ -286,6 +329,9 @@ ConsultationBriefing buildConsultationBriefing(
     lastVisitDate: lastVisit,
     todayPlanLabel: planLabel,
     homeCareLabels: homeLabels,
+    sosSignal: item.sosSignal,
+    biometrics: biometrics,
+    deepMode: deepMode,
   );
 }
 

@@ -242,6 +242,7 @@ abstract class SoriRepository {
     List<String>? concernChips,
     List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
+    Map<String, dynamic>? visitBiometrics,
   });
 
   /// 전자 동의서 PDF URL 갱신.

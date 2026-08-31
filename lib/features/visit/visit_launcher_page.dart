@@ -10,6 +10,13 @@ import '../../views/admin_chart_writer_page.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
+import '../operation/models/consultation_deep_mode.dart';
+import '../operation/models/shop_weather_context.dart';
+import '../operation/models/sos_signal.dart';
+import '../operation/models/visit_biometrics.dart';
+import '../operation/shop_weather_service.dart';
+import '../operation/widgets/operation_environment_board.dart';
+import '../operation/widgets/sos_signal_bar.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_briefing_sheet.dart';
 import 'consultation_track.dart';
@@ -18,7 +25,7 @@ import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
 import 'visit_session_page.dart';
 
-/// 상담 Home — Pre-Consultation Dashboard (Sprint 3.3).
+/// 상담 Home — Pre-Consultation Dashboard (Sprint 3.3 + 4.0).
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -30,6 +37,8 @@ class VisitLauncherPage extends StatefulWidget {
 
 class _VisitLauncherPageState extends State<VisitLauncherPage> {
   bool _loading = true;
+  bool _envCollapsed = false;
+  ShopWeatherContext? _weather;
 
   VisitStore get visit => widget.store.visit;
 
@@ -55,10 +64,20 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     await Future.wait([
       visit.ensureLoaded(force: force),
       widget.store.refreshCareScheduleEntries(force: force),
+      _loadWeather(),
     ]);
     if (!mounted) return;
     _autoWarmNextCustomer();
     setState(() => _loading = false);
+  }
+
+  Future<void> _loadWeather() async {
+    try {
+      final ctx = await ShopWeatherService.instance.fetchForShop(widget.store.shop);
+      if (mounted) _weather = ctx;
+    } catch (_) {
+      if (mounted) _weather = ShopWeatherContext.fallback();
+    }
   }
 
   void _onVisit() {
@@ -72,6 +91,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       now: now,
       schedules: widget.store.careScheduleEntries,
       sessions: visit.sessions,
+      sosParser: widget.store.sosParser,
     );
   }
 
@@ -95,7 +115,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     await showConsultationBriefingSheet(
       context: context,
       briefing: briefing,
-      onStartConsultation: () => _startFromBriefing(item),
+      onStartConsultation: (biometrics) =>
+          _startFromBriefing(item, biometrics: biometrics),
       onOpenCustomerDetail: item.customerId.trim().isEmpty
           ? null
           : () => _openCustomerDetail(item.customerId),
@@ -113,9 +134,30 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     );
   }
 
-  Future<void> _startFromBriefing(TodayAgendaItem item) async {
+  Future<void> _startFromBriefing(
+    TodayAgendaItem item, {
+    required VisitBiometrics biometrics,
+  }) async {
+    final briefing = buildConsultationBriefing(
+      widget.store,
+      item,
+      biometricsOverride: biometrics,
+    );
+
     if (item.hasActiveSession && item.session != null) {
-      await _openSession(item.session!, item.track);
+      final chart = widget.store.chartForVisitSession(item.session!);
+      if (chart != null) {
+        await widget.store.persistVisitBiometrics(
+          chartId: chart.id,
+          biometrics: biometrics,
+        );
+      }
+      await _openSession(
+        item.session!,
+        item.track,
+        deepMode: briefing.deepMode,
+        biometrics: biometrics,
+      );
       return;
     }
 
@@ -126,9 +168,16 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
 
     if (customer == null) {
       if (item.track == ConsultationTrack.returning) {
-        await _startReturningCustomerFlow();
+        await _startReturningCustomerFlow(
+          deepMode: briefing.deepMode,
+          biometrics: biometrics,
+        );
       } else {
-        await _startNewCustomerFlow(prefillName: item.customerName);
+        await _startNewCustomerFlow(
+          prefillName: item.customerName,
+          deepMode: briefing.deepMode,
+          biometrics: biometrics,
+        );
       }
       return;
     }
@@ -142,10 +191,19 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
         ),
       );
     }
-    await _startSessionFor(customer, item.track);
+    await _startSessionFor(
+      customer,
+      item.track,
+      deepMode: briefing.deepMode,
+      biometrics: biometrics,
+    );
   }
 
-  Future<void> _startNewCustomerFlow({String? prefillName}) async {
+  Future<void> _startNewCustomerFlow({
+    String? prefillName,
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+  }) async {
     final customer = await Navigator.of(context).push<Customer>(
       MaterialPageRoute(
         builder: (_) => VisitNewCustomerFormPage(
@@ -155,10 +213,18 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       ),
     );
     if (customer == null || !mounted) return;
-    await _startSessionFor(customer, ConsultationTrack.newCustomer);
+    await _startSessionFor(
+      customer,
+      ConsultationTrack.newCustomer,
+      deepMode: deepMode,
+      biometrics: biometrics,
+    );
   }
 
-  Future<void> _startReturningCustomerFlow() async {
+  Future<void> _startReturningCustomerFlow({
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+  }) async {
     final customer = await Navigator.of(context).push<Customer>(
       MaterialPageRoute(
         builder: (_) => VisitExistingCustomerPickerPage(store: widget.store),
@@ -173,17 +239,41 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
         imageContext: context,
       ),
     );
-    await _startSessionFor(customer, ConsultationTrack.returning);
+    await _startSessionFor(
+      customer,
+      ConsultationTrack.returning,
+      deepMode: deepMode,
+      biometrics: biometrics,
+    );
   }
 
   Future<void> _startSessionFor(
     Customer customer,
-    ConsultationTrack track,
-  ) async {
+    ConsultationTrack track, {
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+  }) async {
     try {
       final session = await visit.startVisit(customer);
       if (!mounted) return;
-      await _openSession(session, track);
+      final chart = widget.store.chartForVisitSession(session);
+      if (chart != null && biometrics != null) {
+        await widget.store.persistVisitBiometrics(
+          chartId: chart.id,
+          biometrics: biometrics,
+        );
+      }
+      await _openSession(
+        session,
+        track,
+        deepMode: deepMode ??
+            resolveDeepMode(
+              track: track,
+              sos: SosSignal.none,
+              biometrics: biometrics,
+            ),
+        biometrics: biometrics,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -211,8 +301,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
 
   Future<void> _openSession(
     VisitSession session,
-    ConsultationTrack track,
-  ) async {
+    ConsultationTrack track, {
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+  }) async {
     if (track == ConsultationTrack.returning) {
       unawaited(
         BaRecallCache.instance.prefetch(
@@ -229,6 +321,11 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
           store: widget.store,
           sessionId: session.id,
           track: track,
+          deepMode: deepMode ??
+              (track == ConsultationTrack.returning
+                  ? ConsultationDeepMode.maintenance
+                  : ConsultationDeepMode.fullDesign),
+          biometrics: biometrics,
         ),
       ),
     );
@@ -283,6 +380,21 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
+              if (_weather != null)
+                SliverToBoxAdapter(
+                  child: OperationEnvironmentBoard(
+                    weather: _weather!,
+                    tempoLevel: computeTempoLevel(
+                      scheduledCount: snap.scheduledCount,
+                      inProgressCount: snap.inProgressCount,
+                    ),
+                    scheduledCount: snap.scheduledCount,
+                    inProgressCount: snap.inProgressCount,
+                    collapsed: _envCollapsed,
+                    onToggleCollapse: () =>
+                        setState(() => _envCollapsed = !_envCollapsed),
+                  ),
+                ),
               if (snap.activeSessions.isNotEmpty) ...[
                 const SliverToBoxAdapter(
                   child: _SectionHeader(title: '지금 진행 중'),
@@ -424,114 +536,126 @@ class _AgendaRow extends StatelessWidget {
     final phaseLabel = session?.phase.label;
     final scheduleLabel = item.schedule?.careLabel.trim() ?? '';
 
-    return Material(
-      color: Colors.white.withValues(alpha: emphasized ? 0.95 : 0.85),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: emphasized
-                  ? VisitGlassTokens.care.withValues(alpha: 0.35)
-                  : SoriTokens.border.withValues(alpha: 0.6),
-              width: emphasized ? 1.2 : 1,
-            ),
+    return SosSignalBar(
+      signal: item.sosSignal,
+      child: Material(
+        color: Colors.white.withValues(alpha: emphasized ? 0.95 : 0.85),
+        borderRadius: const BorderRadius.horizontal(
+          right: Radius.circular(16),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: const BorderRadius.horizontal(
+            right: Radius.circular(16),
           ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 44,
-                child: Text(
-                  item.timeLabel,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: emphasized
-                        ? VisitGlassTokens.care
-                        : SoriTokens.textSecondary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(16),
+              ),
+              border: Border.all(
+                color: emphasized
+                    ? VisitGlassTokens.care.withValues(alpha: 0.35)
+                    : SoriTokens.border.withValues(alpha: 0.6),
+                width: emphasized ? 1.2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    item.timeLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: emphasized
+                          ? VisitGlassTokens.care
+                          : SoriTokens.textSecondary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: SoriTokens.surface,
-                child: Text(
-                  item.customerName.characters.first,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: SoriTokens.surface,
+                  child: Text(
+                    item.customerName.characters.first,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            item.customerName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              item.customerName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        if (item.isNext) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: VisitGlassTokens.care.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              '다음',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: VisitGlassTokens.care,
+                          if (item.isNext) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: VisitGlassTokens.care
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                '다음',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: VisitGlassTokens.care,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
+                          const SizedBox(width: 4),
+                          SosSignalBadge(signal: item.sosSignal),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        item.isReturning ? '재방문' : '신규',
-                        if (visitNo != null) '${visitNo}회차',
-                        if (scheduleLabel.isNotEmpty) scheduleLabel,
-                        if (phaseLabel != null) phaseLabel,
-                      ].join(' · '),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w500,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          item.isReturning ? '재방문' : '신규',
+                          if (visitNo != null) '${visitNo}회차',
+                          if (scheduleLabel.isNotEmpty) scheduleLabel,
+                          if (phaseLabel != null) phaseLabel,
+                        ].join(' · '),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: SoriTokens.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: SoriTokens.textSecondary,
-              ),
-            ],
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: SoriTokens.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ),

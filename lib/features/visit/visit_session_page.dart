@@ -19,6 +19,9 @@ import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
 import '../../visit_kernel/widgets/visit_glass_widgets.dart';
+import '../operation/models/consultation_deep_mode.dart';
+import '../operation/models/visit_biometrics.dart';
+import '../operation/widgets/sori_narrative_block.dart';
 import 'ba_recall_cache.dart';
 import 'ba_recall_overlay.dart';
 import 'consultation_surface_page.dart';
@@ -31,11 +34,15 @@ class VisitSessionPage extends StatefulWidget {
     required this.store,
     required this.sessionId,
     required this.track,
+    this.deepMode = ConsultationDeepMode.fullDesign,
+    this.biometrics,
   });
 
   final SoriStore store;
   final String sessionId;
   final ConsultationTrack track;
+  final ConsultationDeepMode deepMode;
+  final VisitBiometrics? biometrics;
 
   /// 대기열·외부 진입 시 차트 이력으로 트랙 자동 판별.
   static ConsultationTrack resolveTrack(
@@ -423,7 +430,9 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     }
 
     final phase = session.phase;
-    final phaseIndex = phase == VisitPhase.done
+    final biometrics =
+        widget.biometrics ?? chart?.visitBiometrics ?? const VisitBiometrics();
+    final phaseIndex = phase == VisitPhase.done || phase == VisitPhase.hold
         ? VisitPhase.workflow.length - 1
         : phase.workflowIndex.clamp(0, VisitPhase.workflow.length - 1);
     final showBaPill =
@@ -454,8 +463,30 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
               label: Text(_baWarm ? '과거 B/A · 즉시' : '과거 B/A'),
             )
           : null,
-      body: Column(
+      body: session.isOnHold
+          ? _HoldPhasePanel(
+              chart: chart,
+              onResume: () => _setPhase(VisitPhase.consult),
+              onCompleteHomeCare: () => _setPhase(VisitPhase.consent),
+            )
+          : Column(
         children: [
+          _DeepModeBanner(mode: widget.deepMode),
+          for (final hint in biometrics.hints)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: VisitGlassTokens.cardDecoration(),
+                child: SoriNarrativeBlock(
+                  headline: hint.headline,
+                  narrative: hint.narrative,
+                  icon: Icons.monitor_heart_outlined,
+                  compact: true,
+                ),
+              ),
+            ),
           if (_isReturningFlow && prior != null)
             _ReturningContextBanner(
               prior: prior,
@@ -539,6 +570,89 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
         concernChips: _concerns.toList(),
       );
     } catch (_) {}
+  }
+}
+
+class _DeepModeBanner extends StatelessWidget {
+  const _DeepModeBanner({required this.mode});
+
+  final ConsultationDeepMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: VisitGlassTokens.cardDecoration(),
+        child: SoriNarrativeBlock(
+          headline: mode.label,
+          narrative: switch (mode) {
+            ConsultationDeepMode.fullDesign =>
+              '신규 고객 기초 공사 설계 모드 — 딥 차트 전 모듈을 순차 진행합니다.',
+            ConsultationDeepMode.shortenedSafety =>
+              '안전 우선 모드 — Face Map을 생략하고 장벽·마찰 점검을 우선합니다.',
+            ConsultationDeepMode.maintenance =>
+              '유지 보수 트래킹 — 직전 계획·B/A 회상을 기준으로 상담합니다.',
+            ConsultationDeepMode.quickChartOnly =>
+              '간편 기록 모드',
+          },
+          icon: Icons.alt_route_rounded,
+          compact: true,
+        ),
+      ),
+    );
+  }
+}
+
+class _HoldPhasePanel extends StatelessWidget {
+  const _HoldPhasePanel({
+    required this.chart,
+    required this.onResume,
+    required this.onCompleteHomeCare,
+  });
+
+  final CustomerChart? chart;
+  final VoidCallback onResume;
+  final VoidCallback onCompleteHomeCare;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasHomeCare = chart?.homeCarePrescriptions.isNotEmpty ?? false;
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SoriNarrativeBlock(
+            headline: '시술 보류',
+            narrative:
+                '장벽 상태로 오늘 시술을 보류합니다. 홈케어 처방은 필수로 남겨 당일 방문의 효능감을 제공하세요.',
+            icon: Icons.pause_circle_outline_rounded,
+          ),
+          const SizedBox(height: 20),
+          if (!hasHomeCare)
+            const SoriNarrativeBlock(
+              headline: '홈케어 처방 필요',
+              narrative: 'Plan 단계에서 홈케어 태그를 최소 1개 이상 지정해 주세요.',
+              icon: Icons.spa_outlined,
+              compact: true,
+            ),
+          const Spacer(),
+          FilledButton(
+            onPressed: hasHomeCare ? onCompleteHomeCare : onResume,
+            style: FilledButton.styleFrom(
+              backgroundColor: VisitGlassTokens.care,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            child: Text(hasHomeCare ? '홈케어 처방 완료 · 동의로' : 'Plan으로 이동'),
+          ),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onResume, child: const Text('상담 재개')),
+        ],
+      ),
+    );
   }
 }
 

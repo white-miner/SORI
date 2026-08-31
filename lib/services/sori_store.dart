@@ -16,6 +16,10 @@ import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
 import '../features/visit/ba_recall_cache.dart';
+import '../features/operation/models/sos_signal.dart';
+import '../features/operation/models/visit_biometrics.dart';
+import '../features/operation/sos_signal_parser.dart';
+import '../features/operation/shop_geocoding_service.dart';
 import '../visit_kernel/visit_store.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
@@ -188,6 +192,9 @@ class SoriStore implements Listenable {
 
   /// Visit OS facade (PRD v3.0 Phase 1).
   VisitStore get visit => _visitStore ??= VisitStore(this);
+
+  SosSignalParser get sosParser =>
+      SosSignalParser(mergeSosRules(shopRules: customSosKeywordRules));
 
   /// @deprecated Use [visit] — CRM kernel removed.
   VisitStore get crm => visit;
@@ -535,6 +542,7 @@ class SoriStore implements Listenable {
   final List<AiReply> aiReplies = [];
   final List<CareDiaryNote> diaryNotes = [];
   final List<MembershipTicket> membershipTickets = [];
+  List<SosKeywordRule> customSosKeywordRules = [];
   final List<String> skinJournalEntries = [];
   final List<ShopGallerySlide> gallerySlides = [];
   final List<ShopPost> shopPosts = [];
@@ -1490,6 +1498,24 @@ class SoriStore implements Listenable {
       monthlyCapa: monthlyCapa,
     );
     _notify();
+    final addr = address?.trim() ?? '';
+    if (addr.isNotEmpty) {
+      unawaited(() async {
+        final geocoded =
+            await ShopGeocodingService.instance.ensureShopCoordinates(shop);
+        if (geocoded.latitude != shop.latitude ||
+            geocoded.longitude != shop.longitude) {
+          shop = geocoded;
+          _notify();
+          if (_repository.isRemote) {
+            await _persistShopFields({
+              'latitude': geocoded.latitude,
+              'longitude': geocoded.longitude,
+            });
+          }
+        }
+      }());
+    }
     if (_repository.isRemote) {
       () async {
         try {
@@ -5364,6 +5390,7 @@ class SoriStore implements Listenable {
     List<String>? concernChips,
     List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
+    Map<String, dynamic>? visitBiometrics,
   }) async {
     final id = chartId.trim();
     final existing = findChartById(id);
@@ -5384,6 +5411,9 @@ class SoriStore implements Listenable {
         homeCarePrescriptions: homeCarePrescriptions == null
             ? existing.homeCarePrescriptions
             : HomecareDictionary.sanitizeTagIds(homeCarePrescriptions),
+        visitBiometrics: visitBiometrics == null
+            ? existing.visitBiometrics
+            : VisitBiometrics.fromMap(visitBiometrics),
         clearAfterImageUrl: clearAfterImageUrl,
       );
       _mergeChart(next);
@@ -5403,6 +5433,7 @@ class SoriStore implements Listenable {
         concernChips: concernChips,
         homeCarePrescriptions: homeCarePrescriptions,
         clearAfterImageUrl: clearAfterImageUrl,
+        visitBiometrics: visitBiometrics,
       );
       _mergeChart(remote);
       BaRecallCache.instance.invalidate(existing.customerId);
@@ -5415,6 +5446,17 @@ class SoriStore implements Listenable {
       _notify();
       rethrow;
     }
+  }
+
+  /// PRD v4.0 — 생체 리듬 퀵 터치 저장.
+  Future<CustomerChart> persistVisitBiometrics({
+    required String chartId,
+    required VisitBiometrics biometrics,
+  }) {
+    return updateCustomerChartFields(
+      chartId: chartId,
+      visitBiometrics: biometrics.toMap(),
+    );
   }
 
   /// After 사진만 즉시 덧붙이기 (Before-only 차트 Finalize).

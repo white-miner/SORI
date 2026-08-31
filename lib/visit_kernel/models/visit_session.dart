@@ -5,6 +5,7 @@ enum VisitPhase {
   plan,
   consent,
   publish,
+  hold,
   done;
 
   String get dbValue => name;
@@ -15,10 +16,11 @@ enum VisitPhase {
         VisitPhase.plan => '계획',
         VisitPhase.consent => '동의',
         VisitPhase.publish => '발행',
+        VisitPhase.hold => '보류',
         VisitPhase.done => '완료',
       };
 
-  /// Active workflow phases (excludes done).
+  /// Active workflow phases (excludes done, hold).
   static const workflow = [
     VisitPhase.shoot,
     VisitPhase.consult,
@@ -27,7 +29,10 @@ enum VisitPhase {
     VisitPhase.publish,
   ];
 
-  int get workflowIndex => workflow.indexOf(this);
+  int get workflowIndex {
+    final idx = workflow.indexOf(this);
+    return idx < 0 ? 0 : idx;
+  }
 
   static VisitPhase fromDb(String? raw) {
     return VisitPhase.values.firstWhere(
@@ -43,6 +48,7 @@ enum VisitPhase {
       VisitPhase.plan => VisitPhase.consent,
       VisitPhase.consent => VisitPhase.publish,
       VisitPhase.publish => VisitPhase.done,
+      VisitPhase.hold => null,
       VisitPhase.done => null,
     };
   }
@@ -72,6 +78,8 @@ class VisitSession {
   final DateTime? createdAt;
 
   bool get isActive => phase != VisitPhase.done;
+
+  bool get isOnHold => phase == VisitPhase.hold;
 
   bool isSameDay(DateTime day) {
     return startedAt.year == day.year &&
