@@ -10,16 +10,26 @@ class ClimateHeroPresentation {
     required this.feelsLikeC,
     required this.weatherLabel,
     required this.windSpeedMs,
+    required this.dayMinC,
+    required this.dayMaxC,
   });
 
   final IconData icon;
   final double feelsLikeC;
   final String weatherLabel;
   final double windSpeedMs;
+  final int dayMinC;
+  final int dayMaxC;
 
   String get detailLine =>
       '체감 ${feelsLikeC.round()}° · $weatherLabel · '
       '바람 ${windSpeedMs.toStringAsFixed(1)}m/s';
+
+  double get dayRangePosition {
+    final span = (dayMaxC - dayMinC).toDouble();
+    if (span <= 0) return 0.5;
+    return ((feelsLikeC - dayMinC) / span).clamp(0.06, 0.94);
+  }
 
   factory ClimateHeroPresentation.fromClimate(ShopClimateContext climate) {
     final hour = DateTime.now().hour;
@@ -33,13 +43,47 @@ class ClimateHeroPresentation {
     );
     final wind = _estimateWind(climate.tempC, climate.humidityPct, hour);
     final icon = _iconFor(weather, hour, climate.uvIndex);
+    final range = _dayTempRange(climate.tempC, hour);
 
     return ClimateHeroPresentation(
       icon: icon,
       feelsLikeC: feels,
       weatherLabel: weather,
       windSpeedMs: wind,
+      dayMinC: range.$1,
+      dayMaxC: range.$2,
     );
+  }
+
+  static String clinicalAdvisory(ShopClimateContext climate) {
+    final brief = climate.brief;
+    if (brief.alerts.isNotEmpty) {
+      final lead = brief.alerts.first;
+      final body = lead.narrative.trim();
+      if (body.isEmpty) return lead.headline;
+      return '${lead.headline} — $body';
+    }
+    if (climate.uvIndex >= 8) {
+      return '자외선 지수 매우 높음 — 장벽/진정 케어 집중 권장';
+    }
+    if (climate.uvIndex >= 6) {
+      return '자외선 주의 — 진정·보습 케어 강화 권장';
+    }
+    if (climate.pm25UgM3 >= 76) {
+      return '미세먼지 나쁨 — 클렌징·장벽 케어 주의';
+    }
+    if (climate.humidityPct < 35) {
+      return '건조한 환경 — 보습·수분 케어 집중 권장';
+    }
+    return brief.headline;
+  }
+
+  static (int, int) _dayTempRange(double tempC, int hour) {
+    final swing = hour >= 10 && hour <= 16 ? 9 : 12;
+    final min = (tempC - swing * 0.55).round().clamp(-5, 40);
+    var max = (tempC + swing * 0.45).round().clamp(0, 45);
+    if (max <= min) max = min + 8;
+    return (min, max);
   }
 
   static double _feelsLike(double tempC, int humidityPct) {

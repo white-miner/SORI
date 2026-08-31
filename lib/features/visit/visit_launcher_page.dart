@@ -20,7 +20,6 @@ import '../operation/visit_timer_store.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
 import '../operation/widgets/environment_widget_card.dart';
-import '../operation/widgets/trend_radar_widget_card.dart';
 import '../operation/widgets/volume_glass_theme.dart';
 import '../../views/smart_guide_camera_page.dart';
 import 'ba_recall_cache.dart';
@@ -399,23 +398,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: EnvironmentWidgetCard(
                       climate: _climate!,
-                      tempoLevel: computeTempoLevel(
-                        scheduledCount: snap.scheduledCount,
-                        inProgressCount: snap.inProgressCount,
-                      ),
                       onDetail: () => _openClinicalSheet(),
-                    ),
-                  ),
-                ),
-              if (_trends != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: TrendRadarWidgetCard(
-                      snapshot: _trends!,
-                      onDetail: () => _openClinicalSheet(
-                        trend: _trends!.briefingLead,
-                      ),
                     ),
                   ),
                 ),

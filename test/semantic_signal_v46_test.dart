@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:sori/features/operation/models/clinical_trend_snapshot.dart';
 import 'package:sori/features/operation/models/shop_climate_context.dart';
 import 'package:sori/features/operation/models/skin_stress_index.dart';
 import 'package:sori/features/operation/widgets/consultation_widget_board.dart';
 import 'package:sori/features/operation/widgets/environment_widget_card.dart';
 import 'package:sori/features/operation/widgets/semantic_band_theme.dart';
 import 'package:sori/features/operation/widgets/semantic_signal_theme.dart';
-import 'package:sori/features/operation/widgets/trend_radar_widget_card.dart';
-import 'package:sori/features/operation/widgets/widget_glass_card.dart';
 
 void main() {
   group('PRD v4.6 semantic signal', () {
@@ -69,11 +66,10 @@ void main() {
       );
     });
 
-    testWidgets('ConsultationWidgetBoard renders env + trend cards', (
+    testWidgets('ConsultationWidgetBoard renders ENV weather card only', (
       tester,
     ) async {
       final climate = ShopClimateContext.fallback();
-      final trends = ClinicalTrendSnapshot.fallback();
 
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -84,61 +80,54 @@ void main() {
             body: SingleChildScrollView(
               child: ConsultationWidgetBoard(
                 climate: climate,
-                trends: trends,
-                tempoLevel: 2,
                 onEnvironmentDetail: () {},
-                onTrendDetail: () {},
               ),
             ),
           ),
         ),
       );
 
-      expect(find.textContaining('ENV · CLINICAL ASSISTANT'), findsOneWidget);
-      expect(find.textContaining('TREND · CLINICAL RADAR'), findsOneWidget);
-      expect(find.text('详情'), findsNWidgets(2));
-      expect(find.textContaining('홍조'), findsWidgets);
+      expect(find.textContaining('ENV · CLINICAL ASSISTANT'), findsNothing);
+      expect(find.textContaining('TREND · CLINICAL RADAR'), findsNothing);
+      expect(find.text('详情'), findsNothing);
+      expect(find.text('습도'), findsOneWidget);
+      expect(find.text('미세먼지'), findsOneWidget);
     });
 
-    testWidgets('WidgetDetailChevron is tappable without card InkWell', (
-      tester,
-    ) async {
+    testWidgets('EnvironmentWidgetCard tap opens detail', (tester) async {
       var tapped = false;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: EnvironmentWidgetCard(
               climate: ShopClimateContext.fallback(),
-              tempoLevel: 3,
               onDetail: () => tapped = true,
             ),
           ),
         ),
       );
 
-      await tester.tap(find.text('详情'));
+      await tester.tap(find.byType(EnvironmentWidgetCard));
       await tester.pump();
       expect(tapped, isTrue);
     });
 
-    testWidgets('Environment hero score uses achromatic text', (
-      tester,
-    ) async {
+    testWidgets('Environment hero temp uses achromatic text', (tester) async {
+      final climate = ShopClimateContext.fallback();
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: EnvironmentWidgetCard(
-              climate: ShopClimateContext.fallback(),
-              tempoLevel: 2,
+              climate: climate,
               onDetail: () {},
             ),
           ),
         ),
       );
 
-      final scoreFinder = find.text('37');
-      expect(scoreFinder, findsOneWidget);
-      final text = tester.widget<Text>(scoreFinder);
+      final tempFinder = find.text('${climate.tempC.round()}°');
+      expect(tempFinder, findsWidgets);
+      final text = tester.widget<Text>(tempFinder.first);
       expect(text.style?.color, SemanticSignalTheme.heroTextColor);
     });
   });
