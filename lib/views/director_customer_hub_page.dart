@@ -36,6 +36,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.visit.ensureLoaded();
+      store.refreshDiscoverDirectors(soft: true);
     });
   }
 
@@ -70,7 +71,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
             color: SoriTokens.background,
             child: SoriYoutubeTabBar(
               controller: _tabs,
-              labels: const ['Visit', '고객', '리뷰'],
+              labels: const ['상담', '고객', '리뷰'],
               badges: [0, 0, _reviewBadge],
             ),
           ),

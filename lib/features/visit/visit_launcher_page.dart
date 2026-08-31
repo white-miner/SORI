@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../models/customer.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../views/admin_chart_writer_page.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
-import '../../visit_kernel/widgets/visit_glass_widgets.dart';
 import 'visit_customer_picker_sheet.dart';
 import 'visit_session_page.dart';
 
-/// Visit Launcher — 오늘 방문 세션 시작 (Today Board 완전 대체, PRD v3.0).
+/// 상담 Home — CDG list queue (PRD v3.1).
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -24,6 +23,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   bool _loading = true;
 
   VisitStore get visit => widget.store.visit;
+
+  static const _groupedBg = Color(0xFFF2F2F7);
 
   @override
   void initState() {
@@ -48,15 +49,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     if (mounted) setState(() {});
   }
 
-  String get _greetingName {
-    final owner = widget.store.shop.ownerName?.trim();
-    if (owner != null && owner.isNotEmpty) return owner;
-    final session = widget.store.session?.name.trim();
-    if (session != null && session.isNotEmpty) return session;
-    return '원장';
-  }
-
-  Future<void> _startVisit() async {
+  Future<void> _startConsultation() async {
     final customer = await showVisitCustomerPickerSheet(
       context,
       store: widget.store,
@@ -66,32 +59,40 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     try {
       final session = await visit.startVisit(customer);
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => VisitSessionPage(
-            store: widget.store,
-            sessionId: session.id,
-          ),
-        ),
-      );
-      await _load(force: true);
+      await _openSession(session);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('방문 시작 실패: $e')),
+        SnackBar(content: Text('상담 시작 실패: $e')),
       );
     }
   }
 
-  void _openSession(VisitSession session) {
-    Navigator.of(context).push(
+  Future<void> _openQuickChart() async {
+    final customer = await showVisitCustomerPickerSheet(
+      context,
+      store: widget.store,
+    );
+    if (customer == null || !mounted) return;
+    await openChartWriterForCustomer(
+      context,
+      store: widget.store,
+      customer: customer,
+      forceQuickChart: true,
+    );
+    if (mounted) await _load(force: true);
+  }
+
+  Future<void> _openSession(VisitSession session) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => VisitSessionPage(
           store: widget.store,
           sessionId: session.id,
         ),
       ),
-    ).then((_) => _load(force: true));
+    );
+    await _load(force: true);
   }
 
   @override
@@ -99,140 +100,146 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     final now = DateTime.now();
     final day = DateTime(now.year, now.month, now.day);
     final snap = visit.snapshotForDay(day);
+    final sessions = snap.sessions;
 
     return ColoredBox(
-      color: SoriTokens.background,
-      child: RefreshIndicator(
-        color: VisitGlassTokens.care,
-        onRefresh: () => _load(force: true),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Text(
-                  '안녕하세요, $_greetingName 원장님',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
-                ),
+      color: _groupedBg,
+      child: Stack(
+        children: [
+          RefreshIndicator(
+            color: VisitGlassTokens.care,
+            onRefresh: () => _load(force: true),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  decoration: VisitGlassTokens.heroDecoration(),
-                  padding: const EdgeInsets.all(22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '오늘의 방문',
-                        style: VisitGlassTokens.captionCalm.copyWith(
-                          color: VisitGlassTokens.care,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${snap.sessions.length}',
-                            style: VisitGlassTokens.displayKpi(context),
-                          ),
-                          const SizedBox(width: 6),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              '세션',
-                              style: VisitGlassTokens.bodyCalm.copyWith(
-                                color: SoriTokens.textSecondary,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          VisitProgressRing(
-                            ratio: snap.progressRatio,
-                            size: 52,
-                            label: snap.sessions.isEmpty
-                                ? '—'
-                                : '${snap.completedCount}/${snap.sessions.length}',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _startVisit,
-                          icon: const Icon(Icons.favorite_rounded),
-                          label: const Text('방문 시작'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: VisitGlassTokens.care,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '고객님과 마주 앉을 때 가장 먼저 켜는 앱',
-                        style: VisitGlassTokens.captionCalm.copyWith(
-                          color: SoriTokens.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (_loading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (snap.sessions.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
+              slivers: [
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(32),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
                     child: Text(
-                      '오늘 시작한 방문이 없어요.\n손님을 맞이할 준비가 되면\n「방문 시작」을 눌러 주세요.',
-                      textAlign: TextAlign.center,
-                      style: VisitGlassTokens.bodyCalm.copyWith(
-                        color: SoriTokens.textSecondary,
-                        height: 1.6,
+                      '상담',
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w300,
+                        height: 1.1,
+                        color: SoriTokens.textPrimary.withValues(alpha: 0.95),
                       ),
                     ),
                   ),
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                sliver: SliverList.separated(
-                  itemCount: snap.sessions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final session = snap.sessions[i];
-                    return _VisitSessionTile(
-                      session: session,
-                      store: widget.store,
-                      onTap: () => _openSession(session),
-                    );
-                  },
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: Text(
+                      sessions.isEmpty
+                          ? '오늘 함께할 상담을 시작해 보세요'
+                          : '오늘 ${sessions.length}명과 함께할 시간',
+                      style: VisitGlassTokens.bodyCalm.copyWith(
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ),
                 ),
+                if (_loading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (sessions.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Text(
+                        '손님을 맞이하면 「상담 시작」을 눌러 주세요.',
+                        style: VisitGlassTokens.captionCalm.copyWith(
+                          color: SoriTokens.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList.separated(
+                      itemCount: sessions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final session = sessions[i];
+                        return _ConsultQueueRow(
+                          session: session,
+                          store: widget.store,
+                          onTap: () => _openSession(session),
+                        );
+                      },
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 110)),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _ConsultationActionBar(
+              onStart: _startConsultation,
+              onQuickChart: _openQuickChart,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConsultationActionBar extends StatelessWidget {
+  const _ConsultationActionBar({
+    required this.onStart,
+    required this.onQuickChart,
+  });
+
+  final VoidCallback onStart;
+  final VoidCallback onQuickChart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          10,
+          16,
+          10 + MediaQuery.paddingOf(context).bottom,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F2F7).withValues(alpha: 0.95),
+          border: Border(
+            top: BorderSide(color: SoriTokens.border.withValues(alpha: 0.35)),
+          ),
+        ),
+        child: Row(
+          children: [
+            OutlinedButton(
+              onPressed: onQuickChart,
+              child: const Text('+ 간편 기록'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton(
+                onPressed: onStart,
+                style: FilledButton.styleFrom(
+                  backgroundColor: VisitGlassTokens.care,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('상담 시작'),
               ),
+            ),
           ],
         ),
       ),
@@ -240,8 +247,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   }
 }
 
-class _VisitSessionTile extends StatelessWidget {
-  const _VisitSessionTile({
+class _ConsultQueueRow extends StatelessWidget {
+  const _ConsultQueueRow({
     required this.session,
     required this.store,
     required this.onTap,
@@ -254,94 +261,79 @@ class _VisitSessionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chart = store.chartForVisitSession(session);
-    final hasBefore = chart?.beforeImageUrl?.trim().isNotEmpty == true;
-    final hasAfter = chart?.afterImageUrl?.trim().isNotEmpty == true;
-    final isActive = session.isActive;
-    final time =
-        '${session.startedAt.hour.toString().padLeft(2, '0')}:${session.startedAt.minute.toString().padLeft(2, '0')}';
+    final visitNo = chart?.visitNumber;
+    final phaseLabel = session.phase.label;
 
-    return VisitGlassCard(
-      socialGlow: isActive,
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: VisitGlassTokens.care.withValues(alpha: 0.18),
-            ),
-            child: Icon(
-              isActive ? Icons.auto_awesome : Icons.check_rounded,
-              color: VisitGlassTokens.care,
+    return Material(
+      color: Colors.white.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: SoriTokens.border.withValues(alpha: 0.45),
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  session.customerName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$time · ${session.phase.label}',
-                  style: VisitGlassTokens.captionCalm.copyWith(
-                    color: SoriTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              _PhotoDot(active: hasBefore, label: 'B'),
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: VisitGlassTokens.care.withValues(alpha: 0.12),
+                child: Text(
+                  session.customerName.characters.first,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      session.customerName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      [
+                        if (visitNo != null) '${visitNo}회차',
+                        phaseLabel,
+                      ].join(' · '),
+                      style: VisitGlassTokens.captionCalm.copyWith(
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: VisitGlassTokens.care.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  phaseLabel,
+                  style: VisitGlassTokens.captionCalm.copyWith(
+                    color: VisitGlassTokens.care,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               const SizedBox(width: 4),
-              _PhotoDot(active: hasAfter, label: 'A'),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: SoriTokens.textSecondary.withValues(alpha: 0.5),
+              ),
             ],
           ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: SoriTokens.textSecondary.withValues(alpha: 0.6),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoDot extends StatelessWidget {
-  const _PhotoDot({required this.active, required this.label});
-
-  final bool active;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 22,
-      height: 22,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: active
-            ? VisitGlassTokens.sage.withValues(alpha: 0.35)
-            : SoriTokens.border.withValues(alpha: 0.4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: active ? VisitGlassTokens.sage : SoriTokens.textSecondary,
         ),
       ),
     );

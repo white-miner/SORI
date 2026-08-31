@@ -273,18 +273,21 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
 
     if (session == null || customer == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('방문')),
+        appBar: AppBar(title: const Text('상담')),
         body: const Center(child: Text('세션을 찾을 수 없습니다.')),
       );
     }
 
     final phase = session.phase;
+    final phaseIndex = phase == VisitPhase.done
+        ? VisitPhase.workflow.length - 1
+        : phase.workflowIndex.clamp(0, VisitPhase.workflow.length - 1);
 
     return Scaffold(
-      backgroundColor: SoriTokens.background,
+      backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
-        title: Text('${customer.name}님 방문'),
-        backgroundColor: SoriTokens.background,
+        title: Text('${customer.name}님 상담'),
+        backgroundColor: const Color(0xFFF2F2F7),
         elevation: 0,
       ),
       body: Column(
@@ -292,7 +295,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
           _PhaseRail(current: phase, onJump: _setPhase),
           Expanded(
             child: IndexedStack(
-              index: phase.index.clamp(0, 3),
+              index: phaseIndex,
               children: [
                 _ShootPhase(
                   chart: chart,
@@ -315,6 +318,10 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
                     unawaited(_persistConcerns());
                   },
                   onOpenSurface: _openConsultSurface,
+                  onNext: () => _setPhase(VisitPhase.plan),
+                ),
+                _PlanPhase(
+                  chart: chart,
                   onNext: () => _setPhase(VisitPhase.consent),
                 ),
                 _ConsentPhase(
@@ -368,15 +375,13 @@ class _PhaseRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const phases = [
-      VisitPhase.shoot,
-      VisitPhase.consult,
-      VisitPhase.consent,
-      VisitPhase.publish,
-    ];
+    final phases = VisitPhase.workflow;
+    final currentIdx = current == VisitPhase.done
+        ? phases.length
+        : current.workflowIndex;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Row(
         children: [
           for (var i = 0; i < phases.length; i++) ...[
@@ -384,7 +389,7 @@ class _PhaseRail extends StatelessWidget {
               Expanded(
                 child: Container(
                   height: 2,
-                  color: phases[i].index <= current.index
+                  color: i <= currentIdx
                       ? VisitGlassTokens.care.withValues(alpha: 0.4)
                       : SoriTokens.border,
                 ),
@@ -392,14 +397,110 @@ class _PhaseRail extends StatelessWidget {
             _PhaseDot(
               label: phases[i].label,
               active: phases[i] == current,
-              done: phases[i].index < current.index,
-              onTap: phases[i].index <= current.index
-                  ? () => onJump(phases[i])
-                  : null,
+              done: i < currentIdx,
+              onTap: i <= currentIdx ? () => onJump(phases[i]) : null,
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _PlanPhase extends StatefulWidget {
+  const _PlanPhase({
+    required this.chart,
+    required this.onNext,
+  });
+
+  final CustomerChart? chart;
+  final VoidCallback onNext;
+
+  @override
+  State<_PlanPhase> createState() => _PlanPhaseState();
+}
+
+class _PlanPhaseState extends State<_PlanPhase> {
+  late final TextEditingController _summaryCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _summaryCtrl = TextEditingController(
+      text: widget.chart?.treatmentSummary.trim() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _summaryCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chart = widget.chart;
+    final tags = chart?.homeCarePrescriptions ?? const [];
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          '관리 계획',
+          style: VisitGlassTokens.displayKpi(context).copyWith(fontSize: 22),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '상담을 바탕으로 앞으로의 케어 플랜을 정리해요.',
+          style: VisitGlassTokens.bodyCalm.copyWith(
+            color: SoriTokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (tags.isNotEmpty) ...[
+          Text(
+            '홈케어 처방',
+            style: VisitGlassTokens.captionCalm.copyWith(
+              color: VisitGlassTokens.care,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in tags)
+                Chip(
+                  label: Text(t),
+                  backgroundColor: VisitGlassTokens.sage.withValues(alpha: 0.15),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        TextField(
+          controller: _summaryCtrl,
+          maxLines: 5,
+          decoration: InputDecoration(
+            hintText: '다음 관리 방향, 회차별 목표를 적어 주세요',
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.72),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: widget.onNext,
+          style: FilledButton.styleFrom(
+            backgroundColor: VisitGlassTokens.care,
+            minimumSize: const Size.fromHeight(48),
+          ),
+          child: const Text('동의서로 이동'),
+        ),
+      ],
     );
   }
 }
@@ -611,11 +712,11 @@ class _ConsultPhase extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Consultation Surface',
+                      '고객 대면 상담 화면',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      '고객 대면 프레젠테이션 뷰 열기',
+                      '함께 보는 co-view 열기',
                       style: VisitGlassTokens.captionCalm.copyWith(
                         color: SoriTokens.textSecondary,
                       ),
@@ -655,7 +756,7 @@ class _ConsultPhase extends StatelessWidget {
             backgroundColor: VisitGlassTokens.care,
             minimumSize: const Size.fromHeight(48),
           ),
-          child: const Text('동의서로 이동'),
+          child: const Text('관리 계획 작성 →'),
         ),
       ],
     );

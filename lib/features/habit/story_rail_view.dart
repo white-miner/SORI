@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/habit/habit_feed_engine.dart';
 import '../../models/post_engagement_bindings.dart';
 import '../../models/unified_feed_item.dart';
 import '../../services/sori_store.dart';
@@ -10,26 +11,35 @@ import '../../widgets/post/post_engagement_action_row.dart';
 import '../../widgets/post/post_view_data.dart';
 import '../../widgets/sori_network_image.dart';
 
-/// Full-viewport Story Rail card — Social Glass (Phase 3).
+/// Full-viewport discovery card — Social Glass (PRD v3.1).
 class StoryRailCard extends StatelessWidget {
   const StoryRailCard({
     super.key,
     required this.item,
     required this.store,
     required this.bindings,
+    this.textOnly = false,
     this.onOpenDetail,
   });
 
   final UnifiedFeedItem item;
   final SoriStore store;
   final PostEngagementBindings bindings;
+  final bool textOnly;
   final VoidCallback? onOpenDetail;
+
+  static const _textGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF8F6FA), Color(0xFFEDE8F2)],
+  );
 
   @override
   Widget build(BuildContext context) {
     final data = PostViewData.fromUnifiedFeedItem(item);
     final imageUrl = data.thumbnailUrl?.trim() ?? '';
-    final hasImage = imageUrl.isNotEmpty;
+    final hasImage = !textOnly && imageUrl.isNotEmpty;
+    final onDark = hasImage;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -46,34 +56,43 @@ class StoryRailCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (hasImage)
-                  SoriNetworkImage(
-                    url: imageUrl,
-                    fit: BoxFit.cover,
-                  )
+                  SoriNetworkImage(url: imageUrl, fit: BoxFit.cover)
                 else
-                  Container(
-                    color: VisitGlassTokens.careSoft,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.auto_awesome_outlined,
-                      size: 48,
-                      color: VisitGlassTokens.care.withValues(alpha: 0.6),
+                  const DecoratedBox(decoration: BoxDecoration(gradient: _textGradient)),
+                if (hasImage)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.08),
+                          Colors.black.withValues(alpha: 0.02),
+                          Colors.black.withValues(alpha: 0.55),
+                        ],
+                        stops: const [0.0, 0.45, 1.0],
+                      ),
                     ),
                   ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.08),
-                        Colors.black.withValues(alpha: 0.02),
-                        Colors.black.withValues(alpha: 0.55),
-                      ],
-                      stops: const [0.0, 0.45, 1.0],
+                if (textOnly)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 72, 20, 88),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        data.bodyText.trim(),
+                        maxLines: 8,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          height: 1.45,
+                          color: SoriTokens.textPrimary,
+                        ),
+                      ),
                     ),
                   ),
-                ),
                 Positioned(
                   left: 14,
                   right: 14,
@@ -82,17 +101,19 @@ class StoryRailCard extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: Colors.white24,
-                        backgroundImage: (data.avatarUrl?.trim().isNotEmpty ??
-                                false)
-                            ? NetworkImage(data.avatarUrl!.trim())
-                            : null,
+                        backgroundColor: onDark
+                            ? Colors.white24
+                            : VisitGlassTokens.care.withValues(alpha: 0.15),
+                        backgroundImage:
+                            (data.avatarUrl?.trim().isNotEmpty ?? false)
+                                ? NetworkImage(data.avatarUrl!.trim())
+                                : null,
                         child: (data.avatarUrl?.trim().isEmpty ?? true)
                             ? Text(
                                 data.authorName.characters.first,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  color: Colors.white,
+                                  color: onDark ? Colors.white : SoriTokens.textPrimary,
                                 ),
                               )
                             : null,
@@ -106,8 +127,8 @@ class StoryRailCard extends StatelessWidget {
                               data.authorName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: onDark ? Colors.white : SoriTokens.textPrimary,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
                               ),
@@ -115,7 +136,9 @@ class StoryRailCard extends StatelessWidget {
                             Text(
                               data.categoryLabel,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.82),
+                                color: onDark
+                                    ? Colors.white.withValues(alpha: 0.82)
+                                    : SoriTokens.textSecondary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -133,10 +156,10 @@ class StoryRailCard extends StatelessWidget {
                             color: VisitGlassTokens.care.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(99),
                           ),
-                          child: const Text(
-                            'Boost',
+                          child: Text(
+                            '부스트',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: onDark ? Colors.white : SoriTokens.textPrimary,
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                             ),
@@ -153,7 +176,7 @@ class StoryRailCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (data.bodyText.trim().isNotEmpty)
+                      if (!textOnly && data.bodyText.trim().isNotEmpty)
                         GestureDetector(
                           onTap: onOpenDetail ??
                               () => openUnifiedPostOriginal(
@@ -165,15 +188,16 @@ class StoryRailCard extends StatelessWidget {
                             data.bodyText.trim(),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: onDark ? Colors.white : SoriTokens.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                             ),
                           ),
                         ),
-                      const SizedBox(height: 8),
+                      if (!textOnly && data.bodyText.trim().isNotEmpty)
+                        const SizedBox(height: 8),
                       PostEngagementActionRow(bindings: bindings),
                     ],
                   ),
@@ -187,7 +211,7 @@ class StoryRailCard extends StatelessWidget {
   }
 }
 
-/// Vertical snap Story Rail — Recommend tab hero (Phase 3).
+/// Vertical snap discovery rail — Recommend tab hero (PRD v3.1).
 class StoryRailView extends StatefulWidget {
   const StoryRailView({
     super.key,
@@ -226,8 +250,8 @@ class _StoryRailViewState extends State<StoryRailView> {
       return const SizedBox.shrink();
     }
 
-    final height = MediaQuery.sizeOf(context).height * 0.52;
-    final clampedHeight = height.clamp(360.0, 520.0);
+    final height = MediaQuery.sizeOf(context).height * 0.48;
+    final clampedHeight = height.clamp(340.0, 480.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -237,10 +261,10 @@ class _StoryRailViewState extends State<StoryRailView> {
           child: Row(
             children: [
               const Text(
-                'Story Rail',
+                '오늘의 발견',
                 style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   color: SoriTokens.textPrimary,
                 ),
               ),
@@ -270,6 +294,7 @@ class _StoryRailViewState extends State<StoryRailView> {
                 item: item,
                 store: widget.store,
                 bindings: widget.engagementBuilder(item),
+                textOnly: HabitFeedEngine.isTextOnlyStoryItem(item),
               );
             },
           ),

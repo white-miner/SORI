@@ -59,6 +59,7 @@ class _AppShellPageState extends State<AppShellPage> {
       if (_store.session?.activeMode == UserRole.director) {
         unawaited(_store.refreshShopNotifications());
       }
+      unawaited(_store.recordPresenceHeartbeat());
     });
   }
 
@@ -209,7 +210,6 @@ class _AppShellPageState extends State<AppShellPage> {
       builder: (context, constraints) {
         // PC breakpoint — 800px+ (mobile layout preserved below).
         final wide = constraints.maxWidth >= 800;
-        final extraWide = constraints.maxWidth >= 1200;
         // Mobile: hide shell AppBar only on customer detail for immersion.
         // My 탭은 셸 AppBar(+ / 알림 / 보관함 / 설정)를 유지한다 (S-A).
         final hideShellAppBar = !wide && _isCustomerDetailRoute(context);
@@ -275,8 +275,6 @@ class _AppShellPageState extends State<AppShellPage> {
                   final commentWidth =
                       remainingRight.clamp(0.0, drawerTarget);
 
-                  final showDashboard = extraWide && !hasComment;
-
                   return Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
@@ -295,11 +293,6 @@ class _AppShellPageState extends State<AppShellPage> {
                               ),
                             ),
                           ),
-                          if (showDashboard)
-                            const SizedBox(
-                              width: RightSidebar.width,
-                              child: RightSidebar(dashboardOnly: true),
-                            ),
                         ],
                       ),
                       if (hasComment)

@@ -1236,8 +1236,9 @@ class MemorySoriRepository implements SoriRepository {
     String query = '',
   }) async {
     final q = query.trim().toLowerCase();
+    final now = DateTime.now();
     final masters = <DiscoverDirector>[
-      const DiscoverDirector(
+      DiscoverDirector(
         shopId: '00000000-0000-4000-8000-000000000101',
         shopName: '글로우핏 청담',
         nickname: '서연',
@@ -1248,8 +1249,9 @@ class MemorySoriRepository implements SoriRepository {
         followerCount: 1280,
         sharedCaseCount: 48,
         isSeed: true,
+        lastSeenAt: now,
       ),
-      const DiscoverDirector(
+      DiscoverDirector(
         shopId: '00000000-0000-4000-8000-000000000102',
         shopName: '바디아틀리에 성수',
         nickname: '준호',
@@ -1260,6 +1262,7 @@ class MemorySoriRepository implements SoriRepository {
         followerCount: 940,
         sharedCaseCount: 36,
         isSeed: true,
+        lastSeenAt: now.subtract(const Duration(minutes: 2)),
       ),
       const DiscoverDirector(
         shopId: '00000000-0000-4000-8000-000000000103',
@@ -1305,6 +1308,9 @@ class MemorySoriRepository implements SoriRepository {
             .toList();
     return filtered.take(limit).toList();
   }
+
+  @override
+  Future<void> recordPresenceHeartbeat() async {}
 
   Map<String, int> _resolveAudience(WhisperAudienceSpec spec) {
     const sender = 'memory-sender';

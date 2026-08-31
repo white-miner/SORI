@@ -12,7 +12,7 @@ import '../../widgets/post/post_view_data.dart';
 import '../../services/unified_feed_engine.dart';
 import 'habit_feed_engine.dart';
 
-/// Explore tab — For You / Boost / Same Struggle / Mentoring Live rails.
+/// Explore tab — 맞춤 추천 / 부스트 / 같은 고민 / 멘토링 Live rails.
 class ExploreHabitRails extends StatelessWidget {
   const ExploreHabitRails({
     super.key,

@@ -2,6 +2,7 @@
 enum VisitPhase {
   shoot,
   consult,
+  plan,
   consent,
   publish,
   done;
@@ -11,10 +12,22 @@ enum VisitPhase {
   String get label => switch (this) {
         VisitPhase.shoot => '촬영',
         VisitPhase.consult => '상담',
+        VisitPhase.plan => '계획',
         VisitPhase.consent => '동의',
         VisitPhase.publish => '발행',
         VisitPhase.done => '완료',
       };
+
+  /// Active workflow phases (excludes done).
+  static const workflow = [
+    VisitPhase.shoot,
+    VisitPhase.consult,
+    VisitPhase.plan,
+    VisitPhase.consent,
+    VisitPhase.publish,
+  ];
+
+  int get workflowIndex => workflow.indexOf(this);
 
   static VisitPhase fromDb(String? raw) {
     return VisitPhase.values.firstWhere(
@@ -26,7 +39,8 @@ enum VisitPhase {
   VisitPhase? get next {
     return switch (this) {
       VisitPhase.shoot => VisitPhase.consult,
-      VisitPhase.consult => VisitPhase.consent,
+      VisitPhase.consult => VisitPhase.plan,
+      VisitPhase.plan => VisitPhase.consent,
       VisitPhase.consent => VisitPhase.publish,
       VisitPhase.publish => VisitPhase.done,
       VisitPhase.done => null,

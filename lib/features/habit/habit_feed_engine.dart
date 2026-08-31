@@ -1,6 +1,7 @@
 import '../../models/community_post.dart';
 import '../../models/unified_feed_item.dart';
 import '../../services/sori_store.dart';
+import '../../services/unified_feed_engine.dart';
 
 /// Phase 3 — Story Rail & Explore habit rails (PRD v3.0 The Habit).
 enum HabitRailKind {
@@ -10,10 +11,10 @@ enum HabitRailKind {
   mentoringLive;
 
   String get label => switch (this) {
-        HabitRailKind.forYou => 'For You',
-        HabitRailKind.boostSpotlight => 'Boost',
-        HabitRailKind.sameStruggle => 'Same Struggle',
-        HabitRailKind.mentoringLive => 'Mentoring Live',
+        HabitRailKind.forYou => '맞춤 추천',
+        HabitRailKind.boostSpotlight => '부스트',
+        HabitRailKind.sameStruggle => '같은 고민',
+        HabitRailKind.mentoringLive => '멘토링 Live',
       };
 
   String get subtitle => switch (this) {
@@ -34,15 +35,47 @@ abstract final class HabitFeedEngine {
         .toList(growable: false);
   }
 
-  /// TikTok-style vertical snap — B/A & visual-first ranking.
+  /// TikTok-style vertical snap — visual or rich-text only (PRD v3.1).
   static List<UnifiedFeedItem> storyRailItems(
     SoriStore store, {
     int limit = 12,
   }) {
-    final items = _visible(store);
-    final ranked = List<UnifiedFeedItem>.from(items)
+    final eligible = _visible(store).where(isStoryRailEligible).toList();
+    final ranked = List<UnifiedFeedItem>.from(eligible)
       ..sort((a, b) => _storyScore(store, b).compareTo(_storyScore(store, a)));
     return ranked.take(limit).toList(growable: false);
+  }
+
+  /// Exclude empty media + thin text; allow rich text for gradient cards.
+  static bool isStoryRailEligible(UnifiedFeedItem item) {
+    if (_hasVisualMedia(item)) return true;
+    final body = _bodyText(item).trim();
+    return body.length >= 40;
+  }
+
+  static bool isTextOnlyStoryItem(UnifiedFeedItem item) {
+    return ! _hasVisualMedia(item) && _bodyText(item).trim().length >= 40;
+  }
+
+  static bool _hasVisualMedia(UnifiedFeedItem item) {
+    if (UnifiedFeedEngine.gridImageUrl(item).trim().isNotEmpty) return true;
+    final chart = item.caseItem?.chart;
+    if (chart != null) {
+      final before = chart.beforeImageUrl?.trim() ?? '';
+      final after = chart.afterImageUrl?.trim() ?? '';
+      if (before.startsWith('http') ||
+          before.startsWith('data:') ||
+          after.startsWith('http') ||
+          after.startsWith('data:')) {
+        return true;
+      }
+    }
+    final media = item.post?.media ?? const [];
+    return media.any((m) => m.imageUrl.trim().isNotEmpty);
+  }
+
+  static String _bodyText(UnifiedFeedItem item) {
+    return UnifiedFeedEngine.gridSubtitle(item);
   }
 
   static int _storyScore(SoriStore store, UnifiedFeedItem item) {

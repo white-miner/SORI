@@ -3,11 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../features/habit/habit_feed_engine.dart';
-import '../features/habit/insights_digest_card.dart';
+import '../features/habit/insights_pulse_strip.dart';
 import '../features/habit/story_rail_view.dart';
+import '../features/habit/top_mentor_strip.dart';
 import '../models/community_case_item.dart';
 import '../models/post_engagement_bindings.dart';
-import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../models/unified_feed_item.dart';
 import '../pages/case_detail_page.dart';
@@ -17,7 +17,6 @@ import '../services/sori_store.dart';
 import '../services/unified_feed_engine.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
-import '../utils/post_navigation.dart';
 import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
 import '../widgets/post/sori_post_mini.dart';
@@ -90,6 +89,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       store.refreshShopFandomMeta();
       store.refreshCaseBookmarks();
       store.refreshChartLikes();
+      store.refreshDiscoverDirectors(soft: true);
       _consumePendingInnerTab();
     });
   }
@@ -603,33 +603,33 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           physics: tabPhysics,
           slivers: [
           SliverToBoxAdapter(
-            child: InsightsDigestCard(store: widget.store),
-          ),
-          SliverToBoxAdapter(
             child: StoryRailView(
               items: HabitFeedEngine.storyRailItems(widget.store),
               store: widget.store,
               engagementBuilder: widget.engagementBuilder,
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 4)),
           SliverToBoxAdapter(
-            child: _SoriSpotMiniStrip(
+            child: InsightsPulseStrip(store: widget.store),
+          ),
+          SliverToBoxAdapter(
+            child: TopMentorStrip(store: widget.store),
+          ),
+          SliverToBoxAdapter(
+            child: _LatestPostsStrip(
               store: widget.store,
               engagementBuilder: widget.engagementBuilder,
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          const SliverToBoxAdapter(child: _TopEducatorsStrip()),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          const SliverToBoxAdapter(child: SizedBox(height: 4)),
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: Text(
                 '오늘의 피드',
                 style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                   color: SoriTokens.textPrimary,
                 ),
               ),
@@ -812,9 +812,9 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
   }
 }
 
-/// Home SORI Spot — boosted / popular mini cards (horizontal).
-class _SoriSpotMiniStrip extends StatelessWidget {
-  const _SoriSpotMiniStrip({
+/// 최신 게시물 — spotlight mini cards (PRD v3.1).
+class _LatestPostsStrip extends StatelessWidget {
+  const _LatestPostsStrip({
     required this.store,
     required this.engagementBuilder,
   });
@@ -825,17 +825,30 @@ class _SoriSpotMiniStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = store.spotlightMiniFeedItems();
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: EdgeInsets.fromLTRB(16, 10, 16, 2),
           child: Text(
-            'SORI Spot',
+            '최신 게시물',
             style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
               color: SoriTokens.textPrimary,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: Text(
+            '실시간 · 부스트 · 인기',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: SoriTokens.textSecondary.withValues(alpha: 0.85),
             ),
           ),
         ),
@@ -843,115 +856,13 @@ class _SoriSpotMiniStrip extends StatelessWidget {
           children: [
             for (final item in items)
               SoriPostMini(
-                key: ValueKey('spot_${item.stableKey}'),
+                key: ValueKey('latest_${item.stableKey}'),
                 data: PostViewData.fromUnifiedFeedItem(item),
                 store: store,
                 horizontal: true,
                 engagement: engagementBuilder(item),
               ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-/// 탑 에듀케이터 — 고정 높이 가로 스크롤 (제스처 독립).
-class _TopEducatorsStrip extends StatelessWidget {
-  const _TopEducatorsStrip();
-
-  static const _educators = <({String name, String initial, String meta})>[
-    (name: '김서연 원장', initial: '김', meta: '장벽·민감'),
-    (name: '박지훈 원장', initial: '박', meta: '리프팅'),
-    (name: '이하늘 원장', initial: '이', meta: '여드름'),
-    (name: '최민정 원장', initial: '최', meta: '웨딩케어'),
-    (name: '정우성 원장', initial: '정', meta: '체형'),
-    (name: '한소희 원장', initial: '한', meta: '홍조'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Text(
-            '탑 에듀케이터',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: SoriTokens.textPrimary,
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 120,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _educators.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final e = _educators[index];
-              return GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('준비 중입니다'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                child: SizedBox(
-                width: 88,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: SoriTokens.primarySoft,
-                      child: Text(
-                        e.initial,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                          color: SoriTokens.textTertiary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      e.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: SoriTokens.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      e.meta,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w500,
-                        color: SoriTokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              );
-            },
-          ),
         ),
       ],
     );

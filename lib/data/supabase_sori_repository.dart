@@ -2747,6 +2747,17 @@ class SupabaseSoriRepository implements SoriRepository {
     }
   }
 
+  @override
+  Future<void> recordPresenceHeartbeat() async {
+    try {
+      await _db.from('profiles').update({
+        'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', _db.auth.currentUser?.id ?? '');
+    } catch (e, st) {
+      debugPrint('recordPresenceHeartbeat failed: $e\n$st');
+    }
+  }
+
   Map<String, dynamic>? _asJsonMap(dynamic raw) {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);

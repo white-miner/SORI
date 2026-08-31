@@ -1,4 +1,5 @@
 import '../utils/db_map.dart';
+import '../services/presence_helper.dart';
 
 /// Discover / Following subscription target.
 enum SubscriptionTargetType { shop, director }
@@ -67,6 +68,7 @@ class DiscoverDirector {
     this.isOfficial = false,
     this.slug = '',
     this.isSeed = false,
+    this.lastSeenAt,
   });
 
   final String shopId;
@@ -82,6 +84,9 @@ class DiscoverDirector {
   final bool isOfficial;
   final String slug;
   final bool isSeed;
+  final DateTime? lastSeenAt;
+
+  bool get isOnline => PresenceHelper.isOnline(lastSeenAt);
 
   String get line2 {
     final parts = <String>[
@@ -117,6 +122,7 @@ class DiscoverDirector {
       isOfficial: DbMap.asBool(map['is_official'] ?? map['isOfficial']),
       slug: DbMap.asText(map['slug']),
       isSeed: DbMap.asBool(map['is_seed'] ?? map['isSeed']),
+      lastSeenAt: DbMap.asDateTime(map['last_seen_at'] ?? map['lastSeenAt']),
     );
   }
 }

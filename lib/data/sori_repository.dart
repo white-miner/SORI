@@ -390,6 +390,9 @@ abstract class SoriRepository {
     String query = '',
   });
 
+  /// PRD v3.1 — foreground presence heartbeat (5min online ring).
+  Future<void> recordPresenceHeartbeat();
+
   /// Phase 12 — Whisper as community_posts (composable audience).
   Future<WhisperAudiencePreview> previewWhisperAudience(
     WhisperAudienceSpec spec,

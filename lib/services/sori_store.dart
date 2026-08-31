@@ -3857,6 +3857,14 @@ class SoriStore implements Listenable {
     }
   }
 
+  Future<void> recordPresenceHeartbeat() async {
+    try {
+      await _repository.recordPresenceHeartbeat();
+    } catch (e, st) {
+      debugPrint('recordPresenceHeartbeat failed: $e\n$st');
+    }
+  }
+
   int get supporterPendingThankCount =>
       supporterNotifications.where((e) => e.canThank).length;
 
