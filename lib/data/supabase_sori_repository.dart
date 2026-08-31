@@ -1469,10 +1469,15 @@ class SupabaseSoriRepository implements SoriRepository {
     String? beforeImageUrl,
     String? afterImageUrl,
     List<String>? concernChips,
+    List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
   }) async {
     final id = chartId.trim();
     if (id.isEmpty) throw ArgumentError('chartId required');
+
+    final prescriptions = homeCarePrescriptions == null
+        ? null
+        : HomecareDictionary.sanitizeTagIds(homeCarePrescriptions);
 
     final payload = <String, dynamic>{
       'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -1488,6 +1493,10 @@ class SupabaseSoriRepository implements SoriRepository {
         'after_image_url': _imageUrlOrNull(afterImageUrl),
       if (concernChips != null)
         'concern_chips': DbMap.sanitizeStringList(concernChips),
+      if (prescriptions != null) ...{
+        'home_care_prescriptions': prescriptions,
+        'prescription_tags': prescriptions,
+      },
     };
 
     final row = await _updateChartRow(chartId: id, payload: payload);

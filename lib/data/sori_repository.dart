@@ -231,7 +231,7 @@ abstract class SoriRepository {
     required bool shared,
   });
 
-  /// 차트 본문/사진 부분 업데이트 (수정 모드·After 패치).
+  /// 차트 본문/사진 부분 업데이트 (수정 모드·After 패치·관리 계획).
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,
     String? careName,
@@ -240,6 +240,7 @@ abstract class SoriRepository {
     String? beforeImageUrl,
     String? afterImageUrl,
     List<String>? concernChips,
+    List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
   });
 

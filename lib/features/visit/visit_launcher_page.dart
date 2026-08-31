@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../services/sori_store.dart';
@@ -6,6 +8,7 @@ import '../../views/admin_chart_writer_page.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
+import 'ba_recall_cache.dart';
 import 'visit_customer_picker_sheet.dart';
 import 'visit_session_page.dart';
 
@@ -55,6 +58,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       store: widget.store,
     );
     if (customer == null || !mounted) return;
+
+    // BaRecall warm prefetch before session opens (PRD v3.1-C SLA).
+    unawaited(
+      BaRecallCache.instance.prefetch(
+        widget.store,
+        customer.id,
+        imageContext: context,
+      ),
+    );
 
     try {
       final session = await visit.startVisit(customer);

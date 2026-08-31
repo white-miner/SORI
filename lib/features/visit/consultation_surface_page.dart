@@ -7,19 +7,25 @@ import '../../theme/sori_tokens.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/widgets/visit_glass_widgets.dart';
 
-/// Consultation Surface — 고객 대면 co-view (B안, PRD v3.0).
-/// 내부 메모·연락처 등 민감 정보 미노출. B/A + 상태 칩 + 관리 계획만.
+/// Consultation Surface — 고객 대면 co-view (B안, PRD v3.0 / v3.1-C).
+///
+/// [customerCoView] true면 회차 + B/A 사진만 노출.
+/// 이름·연락처·내부 메모·결제·처방전 요약은 마스킹.
 class ConsultationSurfacePage extends StatefulWidget {
   const ConsultationSurfacePage({
     super.key,
     required this.customerName,
     required this.chart,
     this.careLabel,
+    this.customerCoView = false,
   });
 
   final String customerName;
   final CustomerChart chart;
   final String? careLabel;
+
+  /// Customer Co-view — PII / internal fields masked (PRD v3.1-C).
+  final bool customerCoView;
 
   @override
   State<ConsultationSurfacePage> createState() =>
@@ -52,6 +58,7 @@ class _ConsultationSurfacePageState extends State<ConsultationSurfacePage> {
     final hasBefore = before != null && before.isNotEmpty;
     final hasAfter = after != null && after.isNotEmpty;
     final canSlide = hasBefore && hasAfter;
+    final coView = widget.customerCoView;
 
     return Scaffold(
       backgroundColor: const Color(0xFF141018),
@@ -69,7 +76,10 @@ class _ConsultationSurfacePageState extends State<ConsultationSurfacePage> {
                   ),
                   Expanded(
                     child: Text(
-                      '${widget.customerName}님 · 함께 보는 케어',
+                      // Co-view: visit# only — never customer name / phone.
+                      coView
+                          ? '${widget.chart.visitNumber}회차 · 경과'
+                          : '${widget.customerName}님 · 함께 보는 케어',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -122,61 +132,77 @@ class _ConsultationSurfacePageState extends State<ConsultationSurfacePage> {
                         ],
                       ),
                     ],
-                    const SizedBox(height: 24),
-                    Text(
-                      '오늘의 상태',
-                      style: VisitGlassTokens.captionCalm.copyWith(
-                        color: VisitGlassTokens.care,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _statusChips.isEmpty
-                          ? [
-                              _StatusChip(
-                                label: widget.careLabel?.trim().isNotEmpty == true
-                                    ? widget.careLabel!.trim()
-                                    : '상담 중',
-                              ),
-                            ]
-                          : _statusChips
-                              .map((c) => _StatusChip(label: c))
-                              .toList(),
-                    ),
-                    if (_planTags.isNotEmpty) ...[
+                    // Co-view: visit + B/A only — no chips / plan / summary.
+                    if (!coView) ...[
                       const SizedBox(height: 24),
                       Text(
-                        '관리 계획',
+                        '오늘의 상태',
                         style: VisitGlassTokens.captionCalm.copyWith(
-                          color: VisitGlassTokens.sage,
+                          color: VisitGlassTokens.care,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _planTags
-                            .map(
-                              (id) => _StatusChip(
-                                label: HomecareDictionary.chipLabelOf(id) ?? id,
-                                sage: true,
-                              ),
-                            )
-                            .toList(),
+                        children: _statusChips.isEmpty
+                            ? [
+                                _StatusChip(
+                                  label:
+                                      widget.careLabel?.trim().isNotEmpty == true
+                                          ? widget.careLabel!.trim()
+                                          : '상담 중',
+                                ),
+                              ]
+                            : _statusChips
+                                .map((c) => _StatusChip(label: c))
+                                .toList(),
                       ),
-                    ],
-                    if (widget.chart.treatmentSummary.trim().isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      VisitGlassCard(
-                        tint: VisitGlassTokens.sage,
-                        child: Text(
-                          widget.chart.treatmentSummary.trim(),
-                          style: VisitGlassTokens.bodyCalm.copyWith(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            height: 1.55,
+                      if (_planTags.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          '관리 계획',
+                          style: VisitGlassTokens.captionCalm.copyWith(
+                            color: VisitGlassTokens.sage,
                           ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _planTags
+                              .map(
+                                (id) => _StatusChip(
+                                  label:
+                                      HomecareDictionary.chipLabelOf(id) ?? id,
+                                  sage: true,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                      if (widget.chart.treatmentSummary.trim().isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        VisitGlassCard(
+                          tint: VisitGlassTokens.sage,
+                          child: Text(
+                            widget.chart.treatmentSummary.trim(),
+                            style: VisitGlassTokens.bodyCalm.copyWith(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              height: 1.55,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ] else ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '${widget.chart.visitNumber}회차',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
                         ),
                       ),
                     ],

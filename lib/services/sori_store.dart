@@ -14,6 +14,7 @@ import '../utils/post_author.dart';
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
 import '../data/sori_repository.dart';
+import '../features/visit/ba_recall_cache.dart';
 import '../visit_kernel/visit_store.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
@@ -5351,7 +5352,7 @@ class SoriStore implements Listenable {
     return true;
   }
 
-  /// 차트 관리 화면 — 텍스트/사진 부분 업데이트.
+  /// 차트 관리 화면 — 텍스트/사진/관리 계획 부분 업데이트.
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,
     String? careName,
@@ -5360,6 +5361,7 @@ class SoriStore implements Listenable {
     String? beforeImageUrl,
     String? afterImageUrl,
     List<String>? concernChips,
+    List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
   }) async {
     final id = chartId.trim();
@@ -5378,9 +5380,13 @@ class SoriStore implements Listenable {
             ? null
             : (afterImageUrl ?? existing.afterImageUrl),
         concernChips: concernChips ?? existing.concernChips,
+        homeCarePrescriptions: homeCarePrescriptions == null
+            ? existing.homeCarePrescriptions
+            : HomecareDictionary.sanitizeTagIds(homeCarePrescriptions),
         clearAfterImageUrl: clearAfterImageUrl,
       );
       _mergeChart(next);
+      BaRecallCache.instance.invalidate(existing.customerId);
       _notify();
       return next;
     }
@@ -5394,9 +5400,11 @@ class SoriStore implements Listenable {
         beforeImageUrl: beforeImageUrl,
         afterImageUrl: afterImageUrl,
         concernChips: concernChips,
+        homeCarePrescriptions: homeCarePrescriptions,
         clearAfterImageUrl: clearAfterImageUrl,
       );
       _mergeChart(remote);
+      BaRecallCache.instance.invalidate(existing.customerId);
       lastError = null;
       _notify();
       return findChartById(id) ?? remote;
