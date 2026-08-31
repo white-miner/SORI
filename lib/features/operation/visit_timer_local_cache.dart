@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../visit_kernel/models/care_program_template.dart';
+import '../../visit_kernel/models/preset_slot_tint.dart';
 import '../../visit_kernel/models/visit_operation_timer.dart';
 
 /// PRD v4.5 — SharedPreferences cache for timer state (background survival).
 abstract final class VisitTimerLocalCache {
   static String _presetKey(String shopId) => 'v45_timer_presets_$shopId';
   static String _activeKey(String shopId) => 'v45_active_timer_$shopId';
+  static String _slotTintKey(String shopId) => 'v45_slot_tints_$shopId';
 
   static Future<List<CareProgramTemplate>> loadPresets(String shopId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -64,6 +66,29 @@ abstract final class VisitTimerLocalCache {
     await prefs.setString(
       _activeKey(shopId),
       jsonEncode(timer.toLocalJson()),
+    );
+  }
+
+  static Future<List<PresetSlotTint>> loadSlotTints(String shopId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_slotTintKey(shopId));
+    if (raw == null || raw.length != 5) {
+      return List.generate(5, PresetSlotTint.defaultForSlot);
+    }
+    return List.generate(
+      5,
+      (i) => PresetSlotTint.fromKey(raw[i], fallbackIndex: i),
+    );
+  }
+
+  static Future<void> saveSlotTints(
+    String shopId,
+    List<PresetSlotTint> tints,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _slotTintKey(shopId),
+      tints.map((t) => t.storageKey).toList(),
     );
   }
 }

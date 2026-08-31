@@ -1,3 +1,4 @@
+import 'preset_slot_tint.dart';
 import '../../utils/db_map.dart';
 
 /// PRD v4.5 — one step in a care program preset (1–5 per template).
@@ -27,6 +28,7 @@ class CareProgramTemplate {
     required this.slotIndex,
     required this.name,
     required this.steps,
+    this.slotTint = PresetSlotTint.green,
     this.updatedAt,
   });
 
@@ -35,6 +37,7 @@ class CareProgramTemplate {
   final int slotIndex;
   final String name;
   final List<CareProgramStep> steps;
+  final PresetSlotTint slotTint;
   final DateTime? updatedAt;
 
   bool get isEmpty => name.trim().isEmpty && steps.isEmpty;
@@ -45,6 +48,7 @@ class CareProgramTemplate {
     int? slotIndex,
     String? name,
     List<CareProgramStep>? steps,
+    PresetSlotTint? slotTint,
     DateTime? updatedAt,
   }) {
     return CareProgramTemplate(
@@ -53,6 +57,7 @@ class CareProgramTemplate {
       slotIndex: slotIndex ?? this.slotIndex,
       name: name ?? this.name,
       steps: steps ?? this.steps,
+      slotTint: slotTint ?? this.slotTint,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -67,6 +72,7 @@ class CareProgramTemplate {
       slotIndex: slotIndex,
       name: '',
       steps: const [],
+      slotTint: PresetSlotTint.defaultForSlot(slotIndex),
     );
   }
 
@@ -76,6 +82,7 @@ class CareProgramTemplate {
         'slot_index': slotIndex,
         'name': name,
         'steps': steps.map((s) => s.toJson()).toList(),
+        'slot_tint': slotTint.storageKey,
         'updated_at': (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
       };
 
@@ -91,12 +98,17 @@ class CareProgramTemplate {
         }
       }
     }
+    final slotIndex = DbMap.asInt(map['slot_index'], 0).clamp(0, 4);
     return CareProgramTemplate(
       id: DbMap.asText(map['id']),
       shopId: DbMap.asText(map['shop_id']),
-      slotIndex: DbMap.asInt(map['slot_index'], 0).clamp(0, 4),
+      slotIndex: slotIndex,
       name: DbMap.asText(map['name']),
       steps: steps,
+      slotTint: PresetSlotTint.fromKey(
+        DbMap.asText(map['slot_tint']),
+        fallbackIndex: slotIndex,
+      ),
       updatedAt: DbMap.asDateTime(map['updated_at']),
     );
   }

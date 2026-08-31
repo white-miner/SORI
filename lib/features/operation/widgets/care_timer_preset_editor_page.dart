@@ -4,8 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../services/sori_store.dart';
 import '../../../theme/sori_tokens.dart';
 import '../../../visit_kernel/models/care_program_template.dart';
+import '../../../visit_kernel/models/preset_slot_tint.dart';
 import '../visit_timer_store.dart';
 import 'flip_clock_display.dart';
+import 'preset_slot_row.dart';
 import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
@@ -29,6 +31,7 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
   late int _slot;
   late TextEditingController _nameCtrl;
   late List<_StepDraft> _steps;
+  late PresetSlotTint _slotTint;
   bool _saving = false;
 
   VisitTimerStore get timerStore => VisitTimerStore.instance;
@@ -43,6 +46,7 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
   void _loadSlot(int slot) {
     final preset = timerStore.presetAt(slot);
     _nameCtrl = TextEditingController(text: preset.name);
+    _slotTint = timerStore.tintAt(slot);
     _steps = preset.steps.isEmpty
         ? [_StepDraft(label: '구간 1', minutes: 10)]
         : preset.steps
@@ -111,6 +115,7 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
               ? '프리셋 ${_slot + 1}'
               : _nameCtrl.text.trim(),
           steps: steps,
+          slotTint: _slotTint,
         ),
       );
       if (mounted) Navigator.pop(context, true);
@@ -144,9 +149,10 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: _PresetQuickPick(
+            child: PresetSlotRow(
               selected: _slot,
               presets: timerStore.presets,
+              tintAt: timerStore.tintAt,
               onSelect: _selectSlot,
             ),
           ),
@@ -194,12 +200,31 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
               border: InputBorder.none,
             ),
           ),
+          const SizedBox(height: 16),
+          Text(
+            '슬롯 색상',
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          PresetSlotColorPicker(
+            selected: _slotTint,
+            onSelected: (tint) async {
+              setState(() => _slotTint = tint);
+              await timerStore.setSlotTint(_slot, tint);
+            },
+          ),
           const SizedBox(height: 24),
           Center(
             child: FlipClockDisplay(
               totalSeconds: _previewSeconds,
               subtitle: '총 ${_previewSeconds ~/ 60}분 · ${_steps.length}구간',
               stepLabel: '프리뷰',
+              showSeconds: false,
+              style: FlipClockStyle.darkGlass,
             ),
           ),
         ],
@@ -245,57 +270,6 @@ class _CareTimerPresetEditorPageState extends State<CareTimerPresetEditorPage> {
             );
           }),
         ],
-      ),
-    );
-  }
-}
-
-class _PresetQuickPick extends StatelessWidget {
-  const _PresetQuickPick({
-    required this.selected,
-    required this.presets,
-    required this.onSelect,
-  });
-
-  final int selected;
-  final List<CareProgramTemplate> presets;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(5, (i) {
-          final p = i < presets.length ? presets[i] : null;
-          final label = p != null && p.name.trim().isNotEmpty
-              ? p.name.trim()
-              : '슬롯 ${i + 1}';
-          final isSelected = i == selected;
-          return Padding(
-            padding: EdgeInsets.only(right: i < 4 ? 8 : 0),
-            child: FilterChip(
-              selected: isSelected,
-              showCheckmark: false,
-              label: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-              ),
-              labelStyle: GoogleFonts.nunito(
-                fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : const Color(0xFF3A3A3C),
-              ),
-              selectedColor: SoriTokens.primary,
-              backgroundColor: Colors.white.withValues(alpha: 0.85),
-              side: BorderSide(
-                color: isSelected
-                    ? SoriTokens.primary
-                    : Colors.black.withValues(alpha: 0.08),
-              ),
-              onSelected: (_) => onSelect(i),
-            ),
-          );
-        }),
       ),
     );
   }

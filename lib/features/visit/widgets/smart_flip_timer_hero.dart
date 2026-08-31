@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/sori_store.dart';
-import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/visit_operation_timer.dart';
 import '../../../visit_kernel/models/visit_session.dart';
 import '../../operation/visit_timer_store.dart';
 import '../../operation/widgets/care_timer_preset_editor_page.dart';
 import '../../operation/widgets/flip_clock_display.dart';
+import '../../operation/widgets/preset_slot_row.dart';
+import '../../operation/widgets/semantic_signal_theme.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
 
 /// PO — main tab hero: slot row → flip clock → date/footer.
@@ -76,6 +76,14 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
     };
   }
 
+  bool _isTimerActive(VisitOperationTimer? active) {
+    if (active == null) return false;
+    return switch (active.status) {
+      VisitTimerStatus.idle || VisitTimerStatus.done => false,
+      _ => true,
+    };
+  }
+
   int _wallClockSeconds() {
     final now = DateTime.now();
     return now.hour * 3600 + now.minute * 60 + now.second;
@@ -113,21 +121,6 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
     };
   }
 
-  String _footerLabel(
-    VisitOperationTimer? active,
-    VisitTimerLiveSnapshot? snap,
-  ) {
-    if (!_isCareMode(active)) {
-      return _koreanDate(DateTime.now());
-    }
-    if (snap == null) return _koreanDate(DateTime.now());
-    if (active?.status == VisitTimerStatus.careOvertime) {
-      return '프리셋 완료 · 정성 시간 기록 중';
-    }
-    return '케어 ${snap.formatDuration(snap.careSeconds)} · '
-        '전체 ${snap.formatDuration(snap.totalSeconds)}';
-  }
-
   String _koreanDate(DateTime date) =>
       '${date.year}년 ${date.month}월 ${date.day}일';
 
@@ -140,6 +133,7 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
         : null;
     final snap = active == null ? null : VisitTimerLiveSnapshot.compute(active);
     final careMode = _isCareMode(active);
+    final timerActive = _isTimerActive(active);
     final stepLabel = _stepLabel(active, snap);
 
     return Padding(
@@ -161,9 +155,10 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PresetSlotRow(
+                  PresetSlotRow(
                     selected: timer.selectedPresetSlot,
                     presets: timer.presets,
+                    tintAt: timer.tintAt,
                     onSelect: (i) {
                       timer.selectPresetSlot(i);
                       setState(() {});
@@ -172,6 +167,28 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
                   const SizedBox(height: 14),
                   const _HeroDivider(),
                   SizedBox(height: careMode ? 14 : 22),
+                  if (timerActive) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.access_time_filled_rounded,
+                          size: 18,
+                          color: SemanticSignalTheme.red,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          careMode ? '케어 타이머 진행 중' : '세션 타이머 진행 중',
+                          style: VolumeGlassTheme.labelTextStyle(compact: true)
+                              .copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: SemanticSignalTheme.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   if (careMode && stepLabel != null) ...[
                     Text(
                       stepLabel,
@@ -185,14 +202,15 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
                     child: FlipClockDisplay(
                       totalSeconds: _displaySeconds(active, snap),
                       hero: true,
-                      showSeconds: careMode,
+                      showSeconds: false,
+                      style: FlipClockStyle.darkGlass,
                     ),
                   ),
                   SizedBox(height: careMode ? 14 : 22),
                   const _HeroDivider(),
                   const SizedBox(height: 12),
                   _HeroFooter(
-                    label: _footerLabel(active, snap),
+                    dateLabel: _koreanDate(DateTime.now()),
                     onSettings: _openPresetEditor,
                   ),
                 ],
@@ -219,11 +237,11 @@ class _HeroDivider extends StatelessWidget {
 
 class _HeroFooter extends StatelessWidget {
   const _HeroFooter({
-    required this.label,
+    required this.dateLabel,
     required this.onSettings,
   });
 
-  final String label;
+  final String dateLabel;
   final VoidCallback onSettings;
 
   @override
@@ -232,7 +250,7 @@ class _HeroFooter extends StatelessWidget {
       alignment: Alignment.center,
       children: [
         Text(
-          label,
+          dateLabel,
           textAlign: TextAlign.center,
           style: VolumeGlassTheme.labelTextStyle(compact: true).copyWith(
             fontWeight: FontWeight.w600,
@@ -240,90 +258,15 @@ class _HeroFooter extends StatelessWidget {
         ),
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton.icon(
+          child: IconButton(
+            tooltip: '프리셋 설정',
             onPressed: onSettings,
-            icon: const Icon(Icons.settings_outlined, size: 18),
-            label: Text(
-              '세팅',
-              style: GoogleFonts.nunito(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF3A3A3C),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+            icon: const Icon(Icons.settings_outlined, size: 22),
+            visualDensity: VisualDensity.compact,
+            color: const Color(0xFF3A3A3C),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PresetSlotRow extends StatelessWidget {
-  const _PresetSlotRow({
-    required this.selected,
-    required this.presets,
-    required this.onSelect,
-  });
-
-  final int selected;
-  final List<CareProgramTemplate> presets;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(5, (i) {
-        final p = i < presets.length ? presets[i] : null;
-        final hasPreset = p != null && !p.isEmpty;
-        final label = hasPreset ? p.name.trim() : '슬롯 ${i + 1}';
-        final isSelected = i == selected;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: i < 4 ? 5 : 0),
-            child: Material(
-              color: isSelected
-                  ? VolumeGlassTheme.vibrantCareGreen
-                  : VolumeGlassTheme.cardFillColor(),
-              borderRadius: BorderRadius.circular(12),
-              elevation: 0,
-              child: InkWell(
-                onTap: hasPreset ? () => onSelect(i) : null,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? VolumeGlassTheme.vibrantCareGreen
-                          : const Color(0xFF3A3A3C).withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.nunito(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF3A3A3C),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }),
     );
   }
 }

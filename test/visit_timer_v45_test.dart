@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sori/features/operation/visit_timer_store.dart';
 import 'package:sori/visit_kernel/models/care_program_template.dart';
+import 'package:sori/visit_kernel/models/preset_slot_tint.dart';
 import 'package:sori/visit_kernel/models/visit_operation_timer.dart';
 
 void main() {
@@ -79,12 +80,13 @@ void main() {
   });
 
   group('CareProgramTemplate', () {
-    test('round-trips json steps', () {
+    test('round-trips json steps and slot tint', () {
       const template = CareProgramTemplate(
         id: 'p1',
         shopId: 'shop1',
         slotIndex: 0,
         name: '기본',
+        slotTint: PresetSlotTint.orange,
         steps: [
           CareProgramStep(label: 'A', minutes: 5),
           CareProgramStep(label: 'B', minutes: 10),
@@ -93,6 +95,7 @@ void main() {
 
       final restored = CareProgramTemplate.fromMap(template.toMap());
       expect(restored.name, '기본');
+      expect(restored.slotTint, PresetSlotTint.orange);
       expect(restored.steps.length, 2);
       expect(restored.steps.first.seconds, 300);
     });

@@ -1,10 +1,17 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'semantic_signal_theme.dart';
 import 'volume_glass_theme.dart';
+
+/// Visual surface for flip digit panels.
+enum FlipClockStyle {
+  lightSoft,
+  darkGlass,
+}
 
 /// PRD v4.7 — Soft UI flip-clock with digit flip animation.
 class FlipClockDisplay extends StatelessWidget {
@@ -16,6 +23,7 @@ class FlipClockDisplay extends StatelessWidget {
     this.compact = false,
     this.hero = false,
     this.showSeconds = true,
+    this.style = FlipClockStyle.lightSoft,
   });
 
   final int totalSeconds;
@@ -24,6 +32,9 @@ class FlipClockDisplay extends StatelessWidget {
   final bool compact;
   final bool hero;
   final bool showSeconds;
+  final FlipClockStyle style;
+
+  bool get _darkGlass => style == FlipClockStyle.darkGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -53,9 +64,16 @@ class FlipClockDisplay extends StatelessWidget {
       ];
     }
 
-    final digitHeight = hero ? 108.0 : (compact ? 56.0 : 80.0);
-    final digitWidth = hero ? 68.0 : (compact ? 36.0 : 52.0);
-    final colonSize = hero ? 52.0 : (compact ? 32.0 : 40.0);
+    final digitHeight = _darkGlass && hero
+        ? 124.0
+        : (hero ? 108.0 : (compact ? 56.0 : 80.0));
+    final digitWidth = _darkGlass && hero
+        ? 78.0
+        : (hero ? 68.0 : (compact ? 36.0 : 52.0));
+    final colonSize = _darkGlass && hero
+        ? 56.0
+        : (hero ? 52.0 : (compact ? 32.0 : 40.0));
+    final pairGap = _darkGlass && hero ? 10.0 : 6.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -74,14 +92,16 @@ class FlipClockDisplay extends StatelessWidget {
             for (final segment in segments)
               if (segment == ':')
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: EdgeInsets.symmetric(horizontal: hero ? 8 : 4),
                   child: Text(
                     ':',
                     style: GoogleFonts.nunito(
                       fontSize: colonSize,
-                      fontWeight: FontWeight.w800,
-                      color: SemanticSignalTheme.heroTextColor
-                          .withValues(alpha: 0.28),
+                      fontWeight: FontWeight.w300,
+                      color: _darkGlass
+                          ? Colors.white.withValues(alpha: 0.42)
+                          : SemanticSignalTheme.heroTextColor
+                              .withValues(alpha: 0.28),
                       height: 1,
                     ),
                   ),
@@ -93,6 +113,8 @@ class FlipClockDisplay extends StatelessWidget {
                   width: digitWidth,
                   compact: compact,
                   hero: hero,
+                  style: style,
+                  digitGap: pairGap,
                 ),
           ],
         ),
@@ -118,6 +140,8 @@ class _FlipDigitPair extends StatelessWidget {
     required this.width,
     required this.compact,
     required this.hero,
+    required this.style,
+    required this.digitGap,
   });
 
   final String value;
@@ -125,6 +149,8 @@ class _FlipDigitPair extends StatelessWidget {
   final double width;
   final bool compact;
   final bool hero;
+  final FlipClockStyle style;
+  final double digitGap;
 
   @override
   Widget build(BuildContext context) {
@@ -132,13 +158,14 @@ class _FlipDigitPair extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < value.length; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
+          if (i > 0) SizedBox(width: digitGap),
           _FlipDigit(
             digit: value[i],
             height: height,
             width: width,
             compact: compact,
             hero: hero,
+            style: style,
           ),
         ],
       ],
@@ -153,6 +180,7 @@ class _FlipDigit extends StatelessWidget {
     required this.width,
     required this.compact,
     required this.hero,
+    required this.style,
   });
 
   final String digit;
@@ -160,14 +188,20 @@ class _FlipDigit extends StatelessWidget {
   final double width;
   final bool compact;
   final bool hero;
+  final FlipClockStyle style;
+
+  bool get _darkGlass => style == FlipClockStyle.darkGlass;
 
   @override
   Widget build(BuildContext context) {
-    final fontSize = hero
-        ? 52.0
-        : (compact
-            ? VolumeGlassTheme.kpiFontSizeCompact
-            : VolumeGlassTheme.kpiFontSizeHero);
+    final fontSize = _darkGlass && hero
+        ? 58.0
+        : (hero
+            ? 52.0
+            : (compact
+                ? VolumeGlassTheme.kpiFontSizeCompact
+                : VolumeGlassTheme.kpiFontSizeHero));
+    final radius = _darkGlass && hero ? 22.0 : (hero ? 20.0 : (compact ? 14.0 : 18.0));
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
@@ -199,25 +233,118 @@ class _FlipDigit extends StatelessWidget {
         alignment: Alignment.center,
         children: [...previous, if (current != null) current],
       ),
-      child: Container(
-        key: ValueKey<String>(digit),
-        width: width,
-        height: height,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: VolumeGlassTheme.cardFillColor(),
-          borderRadius: BorderRadius.circular(hero ? 20 : (compact ? 14 : 18)),
-          boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.06),
+      child: _darkGlass
+          ? ClipRRect(
+              key: ValueKey<String>(digit),
+              borderRadius: BorderRadius.circular(radius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: _darkGlassPanel(
+                  digit: digit,
+                  height: height,
+                  width: width,
+                  fontSize: fontSize,
+                  radius: radius,
+                ),
+              ),
+            )
+          : Container(
+              key: ValueKey<String>(digit),
+              width: width,
+              height: height,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: VolumeGlassTheme.cardFillColor(),
+                borderRadius: BorderRadius.circular(radius),
+                boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.06),
+              ),
+              child: Text(
+                digit,
+                style: GoogleFonts.nunito(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: SemanticSignalTheme.heroTextColor,
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _darkGlassPanel({
+    required String digit,
+    required double height,
+    required double width,
+    required double fontSize,
+    required double radius,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF2C2C2E),
+            Color(0xFF1C1C1E),
+          ],
         ),
-        child: Text(
-          digit,
-          style: GoogleFonts.nunito(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w800,
-            fontFeatures: const [FontFeature.tabularFigures()],
-            color: SemanticSignalTheme.heroTextColor,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.06),
+            blurRadius: 1,
+            offset: const Offset(0, -1),
+          ),
+        ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.10),
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.22),
+          ],
+          stops: const [0.0, 0.48, 1.0],
         ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 6,
+            right: 6,
+            top: height * 0.5 - 0.5,
+            child: Container(
+              height: 1,
+              color: Colors.black.withValues(alpha: 0.45),
+            ),
+          ),
+          Text(
+            digit,
+            style: GoogleFonts.nunito(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w300,
+              height: 1.0,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../../data/sori_repository.dart';
 import '../../services/sori_store.dart';
 import '../../utils/sori_uuid.dart';
 import '../../visit_kernel/models/care_program_template.dart';
+import '../../visit_kernel/models/preset_slot_tint.dart';
 import '../../visit_kernel/models/visit_operation_timer.dart';
 import 'visit_timer_local_cache.dart';
 
@@ -19,6 +20,8 @@ class VisitTimerStore extends ChangeNotifier {
   Timer? _tickTimer;
 
   List<CareProgramTemplate> presets = const [];
+  List<PresetSlotTint> slotTints =
+      List.generate(5, (i) => PresetSlotTint.defaultForSlot(i));
   VisitOperationTimer? active;
   int selectedPresetSlot = 0;
 
@@ -40,12 +43,42 @@ class VisitTimerStore extends ChangeNotifier {
     return CareProgramTemplate.empty(shopId: sid, slotIndex: slot);
   }
 
+  PresetSlotTint tintAt(int slot) {
+    final idx = slot.clamp(0, 4);
+    if (idx < presets.length && !presets[idx].isEmpty) {
+      return presets[idx].slotTint;
+    }
+    if (idx < slotTints.length) return slotTints[idx];
+    return PresetSlotTint.defaultForSlot(idx);
+  }
+
+  Future<void> setSlotTint(int slot, PresetSlotTint tint) async {
+    final idx = slot.clamp(0, 4);
+    while (slotTints.length < 5) {
+      slotTints = [...slotTints, PresetSlotTint.defaultForSlot(slotTints.length)];
+    }
+    slotTints = List<PresetSlotTint>.from(slotTints);
+    slotTints[idx] = tint;
+
+    final sid = _shopId;
+    if (sid != null && sid.isNotEmpty) {
+      await VisitTimerLocalCache.saveSlotTints(sid, slotTints);
+    }
+
+    if (idx < presets.length && !presets[idx].isEmpty) {
+      await savePreset(presets[idx].copyWith(slotTint: tint));
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> hydrate() async {
     final sid = _shopId;
     if (sid == null || sid.isEmpty) return;
 
     final cachedPresets = await VisitTimerLocalCache.loadPresets(sid);
     final cachedActive = await VisitTimerLocalCache.loadActiveTimer(sid);
+    slotTints = await VisitTimerLocalCache.loadSlotTints(sid);
 
     try {
       final remote =
@@ -104,6 +137,7 @@ class VisitTimerStore extends ChangeNotifier {
         id: template.id.isEmpty ? newUuidV4() : template.id,
         shopId: sid,
         steps: steps,
+        slotTint: template.slotTint,
         updatedAt: DateTime.now(),
       ),
     );
@@ -114,7 +148,15 @@ class VisitTimerStore extends ChangeNotifier {
     }
     next[saved.slotIndex] = saved;
     presets = next;
+
+    while (slotTints.length < 5) {
+      slotTints = [...slotTints, PresetSlotTint.defaultForSlot(slotTints.length)];
+    }
+    slotTints = List<PresetSlotTint>.from(slotTints);
+    slotTints[saved.slotIndex] = saved.slotTint;
+
     await VisitTimerLocalCache.savePresets(sid, presets);
+    await VisitTimerLocalCache.saveSlotTints(sid, slotTints);
     notifyListeners();
   }
 
