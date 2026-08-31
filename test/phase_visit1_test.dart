@@ -5,6 +5,12 @@ import 'package:sori/visit_kernel/models/visit_session.dart';
 import 'package:sori/services/sori_store.dart';
 
 void main() {
+  test('legacy visit- ids are rejected for uuid columns', () {
+    expect(isLegacyVisitSessionId('visit-1788147246593000'), isTrue);
+    expect(isUuidV4('visit-1788147246593000'), isFalse);
+    expect(isLegacyVisitSessionId(newUuidV4()), isFalse);
+  });
+
   test('startVisitSession creates chart draft and active session', () async {
     final store = SoriStore();
     if (store.customers.isEmpty) return;

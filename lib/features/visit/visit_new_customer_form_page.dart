@@ -6,9 +6,14 @@ import '../../theme/sori_tokens.dart';
 
 /// Flow A — 신규 고객 기본 정보 입력 (풀스크린, 모달 아님).
 class VisitNewCustomerFormPage extends StatefulWidget {
-  const VisitNewCustomerFormPage({super.key, required this.store});
+  const VisitNewCustomerFormPage({
+    super.key,
+    required this.store,
+    this.initialName,
+  });
 
   final SoriStore store;
+  final String? initialName;
 
   @override
   State<VisitNewCustomerFormPage> createState() =>
@@ -20,6 +25,15 @@ class _VisitNewCustomerFormPageState extends State<VisitNewCustomerFormPage> {
   final _phoneCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final prefill = widget.initialName?.trim() ?? '';
+    if (prefill.isNotEmpty) {
+      _nameCtrl.text = prefill;
+    }
+  }
 
   @override
   void dispose() {

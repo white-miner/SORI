@@ -47,6 +47,7 @@ import '../models/subscription.dart';
 import '../models/whisper.dart';
 import '../services/supabase_client.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
+import '../utils/sori_uuid.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
@@ -477,6 +478,9 @@ class SupabaseSoriRepository implements SoriRepository {
   bool _isTempId(String id) =>
       id.startsWith('chart-') ||
       id.startsWith('c-') ||
+      id.startsWith('visit-') ||
+      id.startsWith('sched-') ||
+      id.startsWith('lead-') ||
       id == 'shop-demo' ||
       RegExp(r'^\d+$').hasMatch(id);
 
@@ -5233,6 +5237,10 @@ class SupabaseSoriRepository implements SoriRepository {
     CareScheduleEntry entry,
   ) async {
     final payload = entry.toMap()..remove('created_at');
+    final rawId = payload['id']?.toString().trim() ?? '';
+    if (rawId.isEmpty || !isUuidV4(rawId)) {
+      payload.remove('id');
+    }
     try {
       final row = await _db
           .from('care_schedule_entries')
@@ -5299,9 +5307,19 @@ class SupabaseSoriRepository implements SoriRepository {
   @override
   Future<VisitSession> upsertVisitSession(VisitSession session) async {
     try {
+      final payload = Map<String, dynamic>.from(session.toMap());
+      final rawId = payload['id']?.toString().trim() ?? '';
+      if (rawId.isEmpty || !isUuidV4(rawId) || isLegacyVisitSessionId(rawId)) {
+        payload.remove('id');
+        if (rawId.isNotEmpty) {
+          debugPrint(
+            'upsertVisitSession: dropped non-uuid id="$rawId" — DB gen_random_uuid()',
+          );
+        }
+      }
       final row = await _db
           .from('visit_sessions')
-          .upsert(session.toMap())
+          .upsert(payload)
           .select()
           .single();
       return VisitSession.fromMap(Map<String, dynamic>.from(row));
