@@ -1,9 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'semantic_signal_theme.dart';
 import 'volume_glass_theme.dart';
 
-/// PRD v4.7 — Weather-style metric inset + Stocks-style surge tag.
+/// PRD v4.7 — iOS Weather inset metric block + Stocks vibrant tag.
 class MetricInsetBlock extends StatelessWidget {
   const MetricInsetBlock({
     super.key,
@@ -22,43 +24,62 @@ class MetricInsetBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = SemanticSignalTheme.bandColor(band);
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: compact ? 8 : 10,
-        horizontal: compact ? 6 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: VolumeGlassTheme.cardFillColor(alpha: 0.88),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: VolumeGlassTheme.volumeShadow(
-          tint: accent,
-          alpha: 0.04,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            vertical: compact ? 8 : 10,
+            horizontal: compact ? 6 : 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.42),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: compact ? 18 : 22,
+                height: 3,
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                label,
+                style: VolumeGlassTheme.labelTextStyle(compact: true),
+              ),
+              SizedBox(height: compact ? 4 : 6),
+              Text(
+                value,
+                style: VolumeGlassTheme.kpiTextStyle(compact: true).copyWith(
+                  fontSize: compact ? 15 : 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: compact ? 18 : 22,
-            height: 3,
-            margin: const EdgeInsets.only(bottom: 6),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Text(
-            label,
-            style: VolumeGlassTheme.labelTextStyle(compact: true),
-          ),
-          SizedBox(height: compact ? 4 : 6),
-          Text(
-            value,
-            style: VolumeGlassTheme.kpiTextStyle(compact: true).copyWith(
-              fontSize: compact ? 15 : 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -78,32 +99,49 @@ class SemanticTagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = SemanticSignalTheme.surgeChipBg(surgePct);
-    final fg = SemanticSignalTheme.surgeChipText(surgePct);
     final band = SemanticSignalTheme.bandForSurge(surgePct);
+    final vibrant = SemanticSignalTheme.bandColor(band);
+    final tint = vibrant.withValues(alpha: 0.14);
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: compact ? 6 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: band == SemanticBand.green
-            ? VolumeGlassTheme.volumeShadow(alpha: 0.04)
-            : VolumeGlassTheme.volumeShadow(
-                tint: SemanticSignalTheme.bandColor(band),
-                alpha: 0.06,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 6 : 8,
+          ),
+          decoration: BoxDecoration(
+            color: tint,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.38),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: vibrant.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: compact ? 12 : 13,
-          fontWeight: FontWeight.w700,
-          color: fg,
-          fontFeatures: const [FontFeature.tabularFigures()],
+            ],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: compact ? 12 : 13,
+              fontWeight: FontWeight.w800,
+              color: vibrant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              shadows: [
+                Shadow(
+                  color: vibrant.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

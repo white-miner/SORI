@@ -19,6 +19,8 @@ import '../operation/shop_clinical_trend_service.dart';
 import '../operation/visit_timer_store.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
+import '../operation/widgets/environment_widget_card.dart';
+import '../operation/widgets/trend_radar_widget_card.dart';
 import '../operation/widgets/volume_glass_theme.dart';
 import '../../views/smart_guide_camera_page.dart';
 import 'ba_recall_cache.dart';
@@ -27,7 +29,7 @@ import 'today_agenda.dart';
 import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
-import 'widgets/active_session_strip.dart';
+import 'widgets/smart_flip_timer_hero.dart';
 
 /// 상담 Home — Pre-Consultation Dashboard (Sprint 3.3 + 4.5 timer).
 class VisitLauncherPage extends StatefulWidget {
@@ -351,7 +353,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   @override
   Widget build(BuildContext context) {
     final snap = _agendaSnapshot();
-    final meta = '예약 ${snap.scheduledCount} · 진행 ${snap.inProgressCount}';
 
     return ColoredBox(
       color: _groupedBg,
@@ -363,33 +364,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
             parent: ClampingScrollPhysics(),
           ),
           slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-                child: Text(
-                  '상담',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w300,
-                    height: 1.1,
-                    color: SoriTokens.textPrimary.withValues(alpha: 0.95),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Text(
-                  meta,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: SoriTokens.textSecondary.withValues(alpha: 0.95),
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ),
             if (_loading)
               const SliverFillRemaining(
                 hasScrollBody: false,
@@ -397,35 +371,51 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
               )
             else ...[
               SliverToBoxAdapter(
+                child: SmartFlipTimerHero(
+                  store: widget.store,
+                  activeSession: snap.activeSessions.firstOrNull ??
+                      widget.store.activeVisitSession,
+                  onOpenSession: snap.activeSessions.isNotEmpty
+                      ? () => _openSessionView(snap.activeSessions.first)
+                      : widget.store.activeVisitSession != null
+                          ? () => _openSessionView(
+                                widget.store.activeVisitSession!,
+                              )
+                          : null,
+                ),
+              ),
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: _WalkInSection(
                     onNewCustomer: _startNewCustomerFlow,
                     onReturningCustomer: _startReturningCustomerFlow,
                   ),
                 ),
               ),
-              ...snap.activeSessions.map(
-                (session) => SliverToBoxAdapter(
-                  child: ActiveSessionStrip(
-                    store: widget.store,
-                    session: session,
-                    onTap: () => _openSessionView(session),
+              if (_climate != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: EnvironmentWidgetCard(
+                      climate: _climate!,
+                      tempoLevel: computeTempoLevel(
+                        scheduledCount: snap.scheduledCount,
+                        inProgressCount: snap.inProgressCount,
+                      ),
+                      onDetail: () => _openClinicalSheet(),
+                    ),
                   ),
                 ),
-              ),
-              if (_climate != null && _trends != null)
+              if (_trends != null)
                 SliverToBoxAdapter(
-                  child: ConsultationWidgetBoard(
-                    climate: _climate!,
-                    trends: _trends!,
-                    tempoLevel: computeTempoLevel(
-                      scheduledCount: snap.scheduledCount,
-                      inProgressCount: snap.inProgressCount,
-                    ),
-                    onEnvironmentDetail: () => _openClinicalSheet(),
-                    onTrendDetail: () => _openClinicalSheet(
-                      trend: _trends!.briefingLead,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: TrendRadarWidgetCard(
+                      snapshot: _trends!,
+                      onDetail: () => _openClinicalSheet(
+                        trend: _trends!.briefingLead,
+                      ),
                     ),
                   ),
                 ),

@@ -4,6 +4,7 @@ import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
+import '../features/operation/widgets/volume_glass_theme.dart';
 import '../widgets/sori_card.dart';
 import '../views/admin_chart_writer_page.dart';
 
@@ -96,16 +97,9 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SoriTokens.outlinePurple, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: VolumeGlassTheme.cardFillColor(),
+        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+        boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.05),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

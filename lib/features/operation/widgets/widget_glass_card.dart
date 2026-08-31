@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'semantic_signal_theme.dart';
 import 'volume_glass_theme.dart';
 
-/// PRD v4.7 — Soft UI volume glass widget shell (Zone B).
+/// PRD v4.7 — iOS Thick Material glass widget shell (real blur + ambient).
 class WidgetGlassCard extends StatelessWidget {
   const WidgetGlassCard({
     super.key,
@@ -47,7 +47,7 @@ class WidgetGlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
         boxShadow: VolumeGlassTheme.volumeShadow(
           tint: shadowTint ?? Colors.black,
-          alpha: band != null ? 0.06 : 0.05,
+          alpha: 0.04,
         ),
       ),
       child: ClipRRect(
@@ -59,11 +59,13 @@ class WidgetGlassCard extends StatelessWidget {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: VolumeGlassTheme.cardFillColor(
-                alpha: tier == WidgetMaterialTier.thick ? 0.92 : 0.88,
-              ),
+              color: Colors.white.withValues(alpha: tier.fillAlpha),
               borderRadius:
                   BorderRadius.circular(VolumeGlassTheme.cardRadius),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.55),
+                width: 1,
+              ),
             ),
             child: Stack(
               clipBehavior: Clip.hardEdge,
@@ -76,12 +78,27 @@ class WidgetGlassCard extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: gradientColors
-                              .map((c) => c.withValues(alpha: tier.ambientAlpha * 0.35))
+                              .map((c) => c.withValues(alpha: tier.ambientAlpha))
                               .toList(),
                         ),
                       ),
                     ),
                   ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.22),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 0.35],
+                      ),
+                    ),
+                  ),
+                ),
                 Padding(padding: resolvedPadding, child: child),
               ],
             ),
@@ -100,32 +117,45 @@ class WidgetDetailChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: VolumeGlassTheme.cardFillColor(alpha: 0.78),
+    return ClipRRect(
       borderRadius: BorderRadius.circular(20),
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '详情',
-                style: VolumeGlassTheme.labelTextStyle(compact: true).copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black.withValues(alpha: 0.55),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(20),
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  width: 1,
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: Colors.black.withValues(alpha: 0.45),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '详情',
+                    style: VolumeGlassTheme.labelTextStyle(compact: true).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -154,7 +184,7 @@ class WidgetTempoMicroBar extends StatelessWidget {
               color: i < level
                   ? const Color(0xFF18181B)
                       .withValues(alpha: 0.18 + (i + 1) * 0.12)
-                  : const Color(0xFFE5E5EA),
+                  : Colors.white.withValues(alpha: 0.35),
             ),
           ),
       ],

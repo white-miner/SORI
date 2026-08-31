@@ -24,21 +24,21 @@ enum WidgetMaterialTier {
   thick;
 
   double get blurSigma => switch (this) {
-        WidgetMaterialTier.thin => 12,
-        WidgetMaterialTier.regular => 20,
-        WidgetMaterialTier.thick => 40,
+        WidgetMaterialTier.thin => 16,
+        WidgetMaterialTier.regular => 24,
+        WidgetMaterialTier.thick => 30,
       };
 
   double get fillAlpha => switch (this) {
-        WidgetMaterialTier.thin => 0.55,
-        WidgetMaterialTier.regular => 0.65,
-        WidgetMaterialTier.thick => 0.48,
+        WidgetMaterialTier.thin => 0.42,
+        WidgetMaterialTier.regular => 0.38,
+        WidgetMaterialTier.thick => 0.32,
       };
 
   double get ambientAlpha => switch (this) {
-        WidgetMaterialTier.thin => 0.18,
-        WidgetMaterialTier.regular => 0.28,
-        WidgetMaterialTier.thick => 0.50,
+        WidgetMaterialTier.thin => 0.28,
+        WidgetMaterialTier.regular => 0.42,
+        WidgetMaterialTier.thick => 0.58,
       };
 
   double get tintAlpha => switch (this) {
@@ -78,20 +78,24 @@ abstract final class SemanticSignalTheme {
 
   static List<Color> ambientGradient(SemanticBand band) => switch (band) {
         SemanticBand.green => [
-            const Color(0xFFD4EDDA),
-            const Color(0xFFE8F4FD),
+            const Color(0xFF7FD99A),
+            const Color(0xFFB8E8F5),
+            const Color(0xFFE8F8EE),
           ],
         SemanticBand.yellow => [
-            const Color(0xFFFFF9E6),
-            const Color(0xFFFFF4CC),
+            const Color(0xFFFFE066),
+            const Color(0xFFFFF0A8),
+            const Color(0xFFFFFBE6),
           ],
         SemanticBand.orange => [
-            const Color(0xFFFFE8CC),
-            const Color(0xFFFFF0EB),
+            const Color(0xFFFFB347),
+            const Color(0xFFFFD4A8),
+            const Color(0xFFFFF0E0),
           ],
         SemanticBand.red => [
-            const Color(0xFFFFE5E5),
-            const Color(0xFFFFEBEA),
+            const Color(0xFFFF6B6B),
+            const Color(0xFFFFB4B0),
+            const Color(0xFFFFECEC),
           ],
       };
 
@@ -172,8 +176,7 @@ abstract final class SemanticSignalTheme {
 
   static Color surgeChipText(int surgePct) {
     final band = bandForSurge(surgePct);
-    if (band == SemanticBand.green) return const Color(0xFF3A3A3C);
-    return bandTextColor(band);
+    return bandColor(band);
   }
 
   static Color sparklineColor({SemanticBand? band, int surgePct = 0}) {

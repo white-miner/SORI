@@ -38,13 +38,13 @@ abstract final class VolumeGlassTheme {
   static Color cardFillColor({double alpha = cardFillAlpha}) =>
       cardFill.withValues(alpha: alpha);
 
-  /// Shadow-only depth — blur 20–30, alpha 0.04–0.08, offset (0, 8).
-  static List<BoxShadow> volumeShadow({Color? tint, double alpha = 0.05}) {
+  /// Shadow-only depth — blur 30, alpha 0.04, offset (0, 8).
+  static List<BoxShadow> volumeShadow({Color? tint, double alpha = 0.04}) {
     final base = tint ?? Colors.black;
     return [
       BoxShadow(
-        color: base.withValues(alpha: alpha.clamp(0.04, 0.08)),
-        blurRadius: 26,
+        color: base.withValues(alpha: alpha.clamp(0.03, 0.06)),
+        blurRadius: 30,
         offset: const Offset(0, 8),
         spreadRadius: 0,
       ),
