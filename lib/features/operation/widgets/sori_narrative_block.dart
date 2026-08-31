@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../visit_kernel/theme/visit_glass_tokens.dart';
+import '../../../visit_kernel/theme/visit_glass_tokens.dart';
 
 /// PRD v4.0 — **키워드** + 서술형 개조식 1~2줄.
 class SoriNarrativeBlock extends StatelessWidget {
