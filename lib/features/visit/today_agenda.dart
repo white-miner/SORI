@@ -3,6 +3,8 @@ import '../../models/home_care_prescriptions.dart';
 import '../../services/sori_store.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
+import '../operation/clinical_assistant_store.dart';
+import '../operation/models/clinical_environment_brief.dart';
 import '../operation/models/consultation_deep_mode.dart';
 import '../operation/models/sos_signal.dart';
 import '../operation/models/visit_biometrics.dart';
@@ -244,6 +246,7 @@ class ConsultationBriefing {
     this.sosSignal = SosSignal.none,
     this.biometrics = const VisitBiometrics(),
     this.deepMode = ConsultationDeepMode.fullDesign,
+    this.environmentBrief = ClinicalEnvironmentBrief.standard,
   });
 
   final TodayAgendaItem item;
@@ -256,6 +259,7 @@ class ConsultationBriefing {
   final SosSignal sosSignal;
   final VisitBiometrics biometrics;
   final ConsultationDeepMode deepMode;
+  final ClinicalEnvironmentBrief environmentBrief;
 
   List<String> get concernChips => priorChart?.careTags ?? const [];
 
@@ -293,10 +297,12 @@ ConsultationBriefing buildConsultationBriefing(
   final biometrics = biometricsOverride ??
       todayDraft?.visitBiometrics ??
       const VisitBiometrics();
+  final climate = ClinicalAssistantStore.instance.current;
   final deepMode = resolveDeepMode(
     track: item.track,
     sos: item.sosSignal,
     biometrics: biometrics,
+    ssiBand: climate?.ssi.band,
   );
 
   final scheduleLabel = item.schedule?.careLabel.trim() ?? '';
@@ -332,6 +338,7 @@ ConsultationBriefing buildConsultationBriefing(
     sosSignal: item.sosSignal,
     biometrics: biometrics,
     deepMode: deepMode,
+    environmentBrief: climate?.brief ?? ClinicalEnvironmentBrief.standard,
   );
 }
 

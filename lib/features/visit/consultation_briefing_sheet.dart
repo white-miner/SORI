@@ -112,6 +112,29 @@ class _ConsultationBriefingSheetState extends State<_ConsultationBriefingSheet> 
                       onChanged: (v) => setState(() => _biometrics = v),
                     ),
                     const SizedBox(height: 12),
+                    if (briefing.environmentBrief.shouldSurface)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.88),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.06),
+                          ),
+                        ),
+                        child: SoriNarrativeBlock(
+                          headline: briefing.environmentBrief.headline,
+                          narrative: briefing.environmentBrief.narrative,
+                          icon: Icons.eco_outlined,
+                          compact: true,
+                        ),
+                      ),
+                    if (briefing.environmentBrief.shouldSurface)
+                      const SizedBox(height: 12),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(

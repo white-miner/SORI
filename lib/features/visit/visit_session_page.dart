@@ -20,6 +20,7 @@ import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
 import '../../visit_kernel/widgets/visit_glass_widgets.dart';
 import '../operation/models/consultation_deep_mode.dart';
+import '../operation/models/clinical_environment_brief.dart';
 import '../operation/models/visit_biometrics.dart';
 import '../operation/widgets/sori_narrative_block.dart';
 import 'ba_recall_cache.dart';
@@ -36,6 +37,7 @@ class VisitSessionPage extends StatefulWidget {
     required this.track,
     this.deepMode = ConsultationDeepMode.fullDesign,
     this.biometrics,
+    this.environmentBrief = ClinicalEnvironmentBrief.standard,
   });
 
   final SoriStore store;
@@ -43,6 +45,7 @@ class VisitSessionPage extends StatefulWidget {
   final ConsultationTrack track;
   final ConsultationDeepMode deepMode;
   final VisitBiometrics? biometrics;
+  final ClinicalEnvironmentBrief environmentBrief;
 
   /// 대기열·외부 진입 시 차트 이력으로 트랙 자동 판별.
   static ConsultationTrack resolveTrack(
@@ -472,6 +475,22 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
           : Column(
         children: [
           _DeepModeBanner(mode: widget.deepMode),
+          if (widget.environmentBrief.shouldSurface)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: VisitGlassTokens.cardDecoration(),
+                child: SoriNarrativeBlock(
+                  headline: widget.environmentBrief.headline,
+                  narrative:
+                      '${widget.environmentBrief.narrative} · 진정 ${widget.environmentBrief.calmTargetC.toStringAsFixed(1)}°C · 장비 상한 L${widget.environmentBrief.deviceIntensityCap}',
+                  icon: Icons.eco_outlined,
+                  compact: true,
+                ),
+              ),
+            ),
           for (final hint in biometrics.hints)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -528,6 +547,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
                 _PlanPhase(
                   chart: chart,
                   busy: _busy,
+                  deviceIntensityCap: widget.environmentBrief.deviceIntensityCap,
                   onSaveAndNext: _savePlanAndAdvance,
                 ),
                 _ConsentPhase(
@@ -921,10 +941,12 @@ class _PlanPhase extends StatefulWidget {
     required this.chart,
     required this.busy,
     required this.onSaveAndNext,
+    this.deviceIntensityCap = 4,
   });
 
   final CustomerChart? chart;
   final bool busy;
+  final int deviceIntensityCap;
   final Future<void> Function({
     required String treatmentSummary,
     required List<String> homeCarePrescriptions,
@@ -1010,6 +1032,22 @@ class _PlanPhaseState extends State<_PlanPhase> {
           ),
         ),
         const SizedBox(height: 20),
+        if (widget.deviceIntensityCap < 4)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: VisitGlassTokens.cardDecoration(),
+              child: SoriNarrativeBlock(
+                headline: '환경 기반 강도 상한',
+                narrative:
+                    '오늘 피부 스트레스로 장비·HIFU 출력은 Level ${widget.deviceIntensityCap} 이하로 제한합니다.',
+                icon: Icons.tune_rounded,
+                compact: true,
+              ),
+            ),
+          ),
         Text(
           '홈케어 처방',
           style: VisitGlassTokens.captionCalm.copyWith(

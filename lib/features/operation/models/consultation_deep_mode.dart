@@ -1,5 +1,6 @@
 import '../../visit/consultation_track.dart';
 import 'sos_signal.dart';
+import 'skin_stress_index.dart';
 import 'visit_biometrics.dart';
 
 /// PRD v4.0 — 퀵 체크 후 딥 차트 진입 깊이 (IA 뎁스 분리).
@@ -28,11 +29,15 @@ ConsultationDeepMode resolveDeepMode({
   required ConsultationTrack track,
   required SosSignal sos,
   VisitBiometrics? biometrics,
+  SsiBand? ssiBand,
 }) {
   if (track == ConsultationTrack.returning) {
     return ConsultationDeepMode.maintenance;
   }
   if (sos.grade.index >= SosGrade.s2.index) {
+    return ConsultationDeepMode.shortenedSafety;
+  }
+  if (ssiBand != null && ssiBand.isElevated) {
     return ConsultationDeepMode.shortenedSafety;
   }
   if (biometrics != null &&

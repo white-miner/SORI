@@ -10,12 +10,15 @@ import '../../views/admin_chart_writer_page.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
+import '../operation/clinical_assistant_store.dart';
+import '../operation/models/clinical_environment_brief.dart';
 import '../operation/models/consultation_deep_mode.dart';
-import '../operation/models/shop_weather_context.dart';
+import '../operation/models/shop_climate_context.dart';
 import '../operation/models/sos_signal.dart';
 import '../operation/models/visit_biometrics.dart';
-import '../operation/shop_weather_service.dart';
-import '../operation/widgets/operation_environment_board.dart';
+import '../operation/shop_climate_service.dart';
+import '../operation/widgets/clinical_assistant_sheet.dart';
+import '../operation/widgets/clinical_assistant_strip.dart';
 import '../operation/widgets/sos_signal_bar.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_briefing_sheet.dart';
@@ -37,8 +40,7 @@ class VisitLauncherPage extends StatefulWidget {
 
 class _VisitLauncherPageState extends State<VisitLauncherPage> {
   bool _loading = true;
-  bool _envCollapsed = false;
-  ShopWeatherContext? _weather;
+  ShopClimateContext? _climate;
 
   VisitStore get visit => widget.store.visit;
 
@@ -64,20 +66,39 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     await Future.wait([
       visit.ensureLoaded(force: force),
       widget.store.refreshCareScheduleEntries(force: force),
-      _loadWeather(),
+      _loadClimate(),
     ]);
     if (!mounted) return;
     _autoWarmNextCustomer();
     setState(() => _loading = false);
   }
 
-  Future<void> _loadWeather() async {
+  Future<void> _loadClimate() async {
     try {
-      final ctx = await ShopWeatherService.instance.fetchForShop(widget.store.shop);
-      if (mounted) _weather = ctx;
+      final ctx =
+          await ShopClimateService.instance.fetchForShop(widget.store.shop);
+      if (mounted) _climate = ctx;
     } catch (_) {
-      if (mounted) _weather = ShopWeatherContext.fallback();
+      if (mounted) {
+        _climate = ShopClimateContext.fallback();
+      }
     }
+  }
+
+  void _openClinicalSheet() {
+    final climate = _climate;
+    if (climate == null) return;
+    final snap = _agendaSnapshot();
+    unawaited(
+      showClinicalAssistantSheet(
+        context: context,
+        climate: climate,
+        tempoLevel: computeTempoLevel(
+          scheduledCount: snap.scheduledCount,
+          inProgressCount: snap.inProgressCount,
+        ),
+      ),
+    );
   }
 
   void _onVisit() {
@@ -157,6 +178,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
         item.track,
         deepMode: briefing.deepMode,
         biometrics: biometrics,
+        environmentBrief: briefing.environmentBrief,
       );
       return;
     }
@@ -171,12 +193,14 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
         await _startReturningCustomerFlow(
           deepMode: briefing.deepMode,
           biometrics: biometrics,
+          environmentBrief: briefing.environmentBrief,
         );
       } else {
         await _startNewCustomerFlow(
           prefillName: item.customerName,
           deepMode: briefing.deepMode,
           biometrics: biometrics,
+          environmentBrief: briefing.environmentBrief,
         );
       }
       return;
@@ -196,6 +220,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       item.track,
       deepMode: briefing.deepMode,
       biometrics: biometrics,
+      environmentBrief: briefing.environmentBrief,
     );
   }
 
@@ -203,6 +228,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     String? prefillName,
     ConsultationDeepMode? deepMode,
     VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
   }) async {
     final customer = await Navigator.of(context).push<Customer>(
       MaterialPageRoute(
@@ -218,12 +244,14 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       ConsultationTrack.newCustomer,
       deepMode: deepMode,
       biometrics: biometrics,
+      environmentBrief: environmentBrief,
     );
   }
 
   Future<void> _startReturningCustomerFlow({
     ConsultationDeepMode? deepMode,
     VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
   }) async {
     final customer = await Navigator.of(context).push<Customer>(
       MaterialPageRoute(
@@ -244,6 +272,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       ConsultationTrack.returning,
       deepMode: deepMode,
       biometrics: biometrics,
+      environmentBrief: environmentBrief,
     );
   }
 
@@ -252,6 +281,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     ConsultationTrack track, {
     ConsultationDeepMode? deepMode,
     VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
   }) async {
     try {
       final session = await visit.startVisit(customer);
@@ -271,8 +301,12 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
               track: track,
               sos: SosSignal.none,
               biometrics: biometrics,
+              ssiBand: ClinicalAssistantStore.instance.current?.ssi.band,
             ),
         biometrics: biometrics,
+        environmentBrief: environmentBrief ??
+            ClinicalAssistantStore.instance.current?.brief ??
+            ClinicalEnvironmentBrief.standard,
       );
     } catch (e) {
       if (!mounted) return;
@@ -304,6 +338,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     ConsultationTrack track, {
     ConsultationDeepMode? deepMode,
     VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
   }) async {
     if (track == ConsultationTrack.returning) {
       unawaited(
@@ -326,6 +361,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                   ? ConsultationDeepMode.maintenance
                   : ConsultationDeepMode.fullDesign),
           biometrics: biometrics,
+          environmentBrief: environmentBrief ??
+              ClinicalAssistantStore.instance.current?.brief ??
+              ClinicalEnvironmentBrief.standard,
         ),
       ),
     );
@@ -380,19 +418,16 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
-              if (_weather != null)
-                SliverToBoxAdapter(
-                  child: OperationEnvironmentBoard(
-                    weather: _weather!,
+              if (_climate != null)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ClinicalAssistantStripDelegate(
+                    climate: _climate!,
                     tempoLevel: computeTempoLevel(
                       scheduledCount: snap.scheduledCount,
                       inProgressCount: snap.inProgressCount,
                     ),
-                    scheduledCount: snap.scheduledCount,
-                    inProgressCount: snap.inProgressCount,
-                    collapsed: _envCollapsed,
-                    onToggleCollapse: () =>
-                        setState(() => _envCollapsed = !_envCollapsed),
+                    onTap: _openClinicalSheet,
                   ),
                 ),
               if (snap.activeSessions.isNotEmpty) ...[
