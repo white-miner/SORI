@@ -14,35 +14,48 @@ class FlipClockDisplay extends StatelessWidget {
     this.subtitle,
     this.stepLabel,
     this.compact = false,
+    this.hero = false,
+    this.showSeconds = true,
   });
 
   final int totalSeconds;
   final String? subtitle;
   final String? stepLabel;
   final bool compact;
+  final bool hero;
+  final bool showSeconds;
 
   @override
   Widget build(BuildContext context) {
     final h = totalSeconds ~/ 3600;
     final m = (totalSeconds % 3600) ~/ 60;
     final s = totalSeconds % 60;
-    final segments = h > 0
-        ? [
-            _timeSegment(h, 2),
-            ':',
-            _timeSegment(m, 2),
-            ':',
-            _timeSegment(s, 2),
-          ]
-        : [
-            _timeSegment(m, 2),
-            ':',
-            _timeSegment(s, 2),
-          ];
+    final List<String> segments;
+    if (!showSeconds) {
+      segments = [
+        _timeSegment(h, 2),
+        ':',
+        _timeSegment(m, 2),
+      ];
+    } else if (h > 0) {
+      segments = [
+        _timeSegment(h, 2),
+        ':',
+        _timeSegment(m, 2),
+        ':',
+        _timeSegment(s, 2),
+      ];
+    } else {
+      segments = [
+        _timeSegment(m, 2),
+        ':',
+        _timeSegment(s, 2),
+      ];
+    }
 
-    final digitHeight = compact ? 56.0 : 80.0;
-    final digitWidth = compact ? 36.0 : 52.0;
-    final colonSize = compact ? 32.0 : 40.0;
+    final digitHeight = hero ? 108.0 : (compact ? 56.0 : 80.0);
+    final digitWidth = hero ? 68.0 : (compact ? 36.0 : 52.0);
+    final colonSize = hero ? 52.0 : (compact ? 32.0 : 40.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -79,6 +92,7 @@ class FlipClockDisplay extends StatelessWidget {
                   height: digitHeight,
                   width: digitWidth,
                   compact: compact,
+                  hero: hero,
                 ),
           ],
         ),
@@ -103,12 +117,14 @@ class _FlipDigitPair extends StatelessWidget {
     required this.height,
     required this.width,
     required this.compact,
+    required this.hero,
   });
 
   final String value;
   final double height;
   final double width;
   final bool compact;
+  final bool hero;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +138,7 @@ class _FlipDigitPair extends StatelessWidget {
             height: height,
             width: width,
             compact: compact,
+            hero: hero,
           ),
         ],
       ],
@@ -135,18 +152,22 @@ class _FlipDigit extends StatelessWidget {
     required this.height,
     required this.width,
     required this.compact,
+    required this.hero,
   });
 
   final String digit;
   final double height;
   final double width;
   final bool compact;
+  final bool hero;
 
   @override
   Widget build(BuildContext context) {
-    final fontSize = compact
-        ? VolumeGlassTheme.kpiFontSizeCompact
-        : VolumeGlassTheme.kpiFontSizeHero;
+    final fontSize = hero
+        ? 52.0
+        : (compact
+            ? VolumeGlassTheme.kpiFontSizeCompact
+            : VolumeGlassTheme.kpiFontSizeHero);
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
@@ -185,7 +206,7 @@ class _FlipDigit extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: VolumeGlassTheme.cardFillColor(),
-          borderRadius: BorderRadius.circular(compact ? 14 : 18),
+          borderRadius: BorderRadius.circular(hero ? 20 : (compact ? 14 : 18)),
           boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.06),
         ),
         child: Text(

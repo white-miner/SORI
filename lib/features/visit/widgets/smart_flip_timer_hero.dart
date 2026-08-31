@@ -12,7 +12,7 @@ import '../../operation/widgets/care_timer_preset_editor_page.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
 
-/// PO — main tab hero: wall-clock flip display ↔ care countdown.
+/// PO — main tab hero: slot row → flip clock → date/footer.
 class SmartFlipTimerHero extends StatefulWidget {
   const SmartFlipTimerHero({
     super.key,
@@ -103,11 +103,7 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
     VisitOperationTimer? active,
     VisitTimerLiveSnapshot? snap,
   ) {
-    if (!_isCareMode(active)) {
-      final now = DateTime.now();
-      return '${now.year}.${now.month.toString().padLeft(2, '0')}.'
-          '${now.day.toString().padLeft(2, '0')}';
-    }
+    if (!_isCareMode(active)) return null;
     if (active == null || snap == null) return '케어';
     return switch (active.status) {
       VisitTimerStatus.prep => '베드 준비',
@@ -117,16 +113,14 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
     };
   }
 
-  String? _subtitle(
+  String _footerLabel(
     VisitOperationTimer? active,
     VisitTimerLiveSnapshot? snap,
   ) {
     if (!_isCareMode(active)) {
-      return widget.activeSession == null
-          ? '현재 시각'
-          : _sessionPhaseLabel(active);
+      return _koreanDate(DateTime.now());
     }
-    if (snap == null) return null;
+    if (snap == null) return _koreanDate(DateTime.now());
     if (active?.status == VisitTimerStatus.careOvertime) {
       return '프리셋 완료 · 정성 시간 기록 중';
     }
@@ -134,15 +128,8 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
         '전체 ${snap.formatDuration(snap.totalSeconds)}';
   }
 
-  String _sessionPhaseLabel(VisitOperationTimer? active) {
-    if (active == null) return '세션 대기';
-    return switch (active.status) {
-      VisitTimerStatus.consulting => '차트 작성 중 · 탭하여 세션 열기',
-      VisitTimerStatus.postCare => '케어 완료 · 탭하여 종료',
-      VisitTimerStatus.done => '방문 종료',
-      _ => '진행 중 · 탭하여 세션 열기',
-    };
-  }
+  String _koreanDate(DateTime date) =>
+      '${date.year}년 ${date.month}월 ${date.day}일';
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +140,7 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
         : null;
     final snap = active == null ? null : VisitTimerLiveSnapshot.compute(active);
     final careMode = _isCareMode(active);
+    final stepLabel = _stepLabel(active, snap);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -169,28 +157,11 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
               boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.05),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          careMode ? 'CARE TIMER' : 'SMART FLIP CLOCK',
-                          style: VolumeGlassTheme.labelTextStyle(compact: true),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: '프리셋 설정',
-                        onPressed: _openPresetEditor,
-                        icon: const Icon(Icons.tune_rounded, size: 20),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _PresetChipRow(
+                  _PresetSlotRow(
                     selected: timer.selectedPresetSlot,
                     presets: timer.presets,
                     onSelect: (i) {
@@ -198,13 +169,31 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
                       setState(() {});
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+                  const _HeroDivider(),
+                  SizedBox(height: careMode ? 14 : 22),
+                  if (careMode && stepLabel != null) ...[
+                    Text(
+                      stepLabel,
+                      textAlign: TextAlign.center,
+                      style: VolumeGlassTheme.labelTextStyle(compact: true)
+                          .copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   Center(
                     child: FlipClockDisplay(
                       totalSeconds: _displaySeconds(active, snap),
-                      stepLabel: _stepLabel(active, snap),
-                      subtitle: _subtitle(active, snap),
+                      hero: true,
+                      showSeconds: careMode,
                     ),
+                  ),
+                  SizedBox(height: careMode ? 14 : 22),
+                  const _HeroDivider(),
+                  const SizedBox(height: 12),
+                  _HeroFooter(
+                    label: _footerLabel(active, snap),
+                    onSettings: _openPresetEditor,
                   ),
                 ],
               ),
@@ -216,8 +205,66 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
   }
 }
 
-class _PresetChipRow extends StatelessWidget {
-  const _PresetChipRow({
+class _HeroDivider extends StatelessWidget {
+  const _HeroDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      color: const Color(0xFF3A3A3C).withValues(alpha: 0.08),
+    );
+  }
+}
+
+class _HeroFooter extends StatelessWidget {
+  const _HeroFooter({
+    required this.label,
+    required this.onSettings,
+  });
+
+  final String label;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: VolumeGlassTheme.labelTextStyle(compact: true).copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: onSettings,
+            icon: const Icon(Icons.settings_outlined, size: 18),
+            label: Text(
+              '세팅',
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF3A3A3C),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PresetSlotRow extends StatelessWidget {
+  const _PresetSlotRow({
     required this.selected,
     required this.presets,
     required this.onSelect,
@@ -229,32 +276,54 @@ class _PresetChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(5, (i) {
-          final p = i < presets.length ? presets[i] : null;
-          final hasPreset = p != null && !p.isEmpty;
-          final label = hasPreset ? p.name.trim() : '슬롯 ${i + 1}';
-          final isSelected = i == selected;
-          return Padding(
-            padding: EdgeInsets.only(right: i < 4 ? 6 : 0),
-            child: FilterChip(
-              label: Text(label, overflow: TextOverflow.ellipsis),
-              selected: isSelected,
-              onSelected: hasPreset ? (_) => onSelect(i) : null,
-              labelStyle: GoogleFonts.nunito(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : const Color(0xFF3A3A3C),
+    return Row(
+      children: List.generate(5, (i) {
+        final p = i < presets.length ? presets[i] : null;
+        final hasPreset = p != null && !p.isEmpty;
+        final label = hasPreset ? p.name.trim() : '슬롯 ${i + 1}';
+        final isSelected = i == selected;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: i < 4 ? 5 : 0),
+            child: Material(
+              color: isSelected
+                  ? VolumeGlassTheme.vibrantCareGreen
+                  : VolumeGlassTheme.cardFillColor(),
+              borderRadius: BorderRadius.circular(12),
+              elevation: 0,
+              child: InkWell(
+                onTap: hasPreset ? () => onSelect(i) : null,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? VolumeGlassTheme.vibrantCareGreen
+                          : const Color(0xFF3A3A3C).withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF3A3A3C),
+                    ),
+                  ),
+                ),
               ),
-              selectedColor: VolumeGlassTheme.vibrantCareGreen,
-              backgroundColor: VolumeGlassTheme.cardFillColor(),
-              showCheckmark: false,
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      }),
     );
   }
 }
