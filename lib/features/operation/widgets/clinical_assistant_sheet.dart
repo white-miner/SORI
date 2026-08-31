@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../models/clinical_trend_snapshot.dart';
 import '../models/shop_climate_context.dart';
-import 'clinical_trend_radar_strip.dart';
+import 'trend_sparkline.dart';
 import 'skin_stress_gauge.dart';
 import 'sori_narrative_block.dart';
 

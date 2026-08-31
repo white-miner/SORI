@@ -20,8 +20,7 @@ import '../operation/models/visit_biometrics.dart';
 import '../operation/shop_climate_service.dart';
 import '../operation/shop_clinical_trend_service.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
-import '../operation/widgets/clinical_assistant_strip.dart';
-import '../operation/widgets/clinical_trend_radar_strip.dart';
+import '../operation/widgets/consultation_widget_board.dart';
 import '../operation/widgets/sos_signal_bar.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_briefing_sheet.dart';
@@ -435,25 +434,19 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
-              if (_climate != null)
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: ClinicalAssistantStripDelegate(
+              if (_climate != null && _trends != null)
+                SliverToBoxAdapter(
+                  child: ConsultationWidgetBoard(
                     climate: _climate!,
+                    trends: _trends!,
                     tempoLevel: computeTempoLevel(
                       scheduledCount: snap.scheduledCount,
                       inProgressCount: snap.inProgressCount,
                     ),
-                    onTap: () => _openClinicalSheet(),
-                  ),
-                ),
-              if (_trends != null)
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: ClinicalTrendRadarStripDelegate(
-                    snapshot: _trends!,
-                    onTap: () => _openClinicalSheet(),
-                    onChipTap: (item) => _openClinicalSheet(trend: item),
+                    onEnvironmentDetail: () => _openClinicalSheet(),
+                    onTrendDetail: () => _openClinicalSheet(
+                      trend: _trends!.briefingLead,
+                    ),
                   ),
                 ),
               if (snap.activeSessions.isNotEmpty) ...[

@@ -3,9 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../visit_kernel/theme/visit_glass_tokens.dart';
+import 'semantic_band_theme.dart';
 import '../models/skin_stress_index.dart';
 
-/// PRD v4.2-B — SSI 반원 게이지 (CDG achromatic, CRIT만 System Red).
+/// PRD v4.4 — SSI 반원 게이지 (Zone C semantic tint).
 class SkinStressGauge extends StatelessWidget {
   const SkinStressGauge({
     super.key,
@@ -20,12 +21,7 @@ class SkinStressGauge extends StatelessWidget {
   final double strokeWidth;
   final bool showLabel;
 
-  static Color bandColor(SsiBand band) => switch (band) {
-        SsiBand.low => const Color(0xFFE5E5EA),
-        SsiBand.moderate => const Color(0xFFAEAEB2),
-        SsiBand.high => const Color(0xFF636366),
-        SsiBand.critical => VisitGlassTokens.alert,
-      };
+  static Color bandColor(SsiBand band) => SemanticBandTheme.ssiArcColor(band);
 
   @override
   Widget build(BuildContext context) {
@@ -53,9 +49,7 @@ class SkinStressGauge extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 height: 1,
                 fontFeatures: const [FontFeature.tabularFigures()],
-                color: ssi.band == SsiBand.critical
-                    ? VisitGlassTokens.alert
-                    : VisitGlassTokens.care,
+                color: SemanticBandTheme.ssiArcColor(ssi.band),
               ),
             ),
           ),
