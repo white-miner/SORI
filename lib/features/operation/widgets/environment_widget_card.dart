@@ -5,6 +5,7 @@ import '../../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../models/shop_climate_context.dart';
 import 'circular_metric_ring.dart';
 import 'climate_hero_presentation.dart';
+import 'env_metric_category_theme.dart';
 import 'semantic_signal_theme.dart';
 import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
@@ -85,7 +86,13 @@ class EnvironmentWidgetCard extends StatelessWidget {
                   value: '${climate.tempC.round()}°',
                   title: '온도',
                   status: ClimateHeroPresentation.bandStatus(tempBand),
-                  band: tempBand,
+                  arcColor: EnvMetricCategoryTheme.arcColor(
+                    EnvMetricCategory.temperature,
+                  ),
+                  arcGradient: EnvMetricCategoryTheme.arcGradient(
+                    EnvMetricCategory.temperature,
+                  ),
+                  statusBand: tempBand,
                   compact: compact,
                 ),
               ),
@@ -95,7 +102,8 @@ class EnvironmentWidgetCard extends StatelessWidget {
                   value: '${climate.uvIndex}',
                   title: '자외선',
                   status: ClimateHeroPresentation.bandStatus(uvBand),
-                  band: uvBand,
+                  arcColor: EnvMetricCategoryTheme.arcColor(EnvMetricCategory.uv),
+                  statusBand: uvBand,
                   compact: compact,
                 ),
               ),
@@ -107,7 +115,10 @@ class EnvironmentWidgetCard extends StatelessWidget {
                   value: '${climate.humidityPct}%',
                   title: '습도',
                   status: ClimateHeroPresentation.bandStatus(humidityBand),
-                  band: humidityBand,
+                  arcColor: EnvMetricCategoryTheme.arcColor(
+                    EnvMetricCategory.humidity,
+                  ),
+                  statusBand: humidityBand,
                   compact: compact,
                 ),
               ),
@@ -119,7 +130,10 @@ class EnvironmentWidgetCard extends StatelessWidget {
                   value: '${climate.pm25UgM3}',
                   title: '미세먼지',
                   status: ClimateHeroPresentation.bandStatus(pmBand),
-                  band: pmBand,
+                  arcColor: EnvMetricCategoryTheme.arcColor(
+                    EnvMetricCategory.pm25,
+                  ),
+                  statusBand: pmBand,
                   compact: compact,
                 ),
               ),

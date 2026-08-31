@@ -14,7 +14,9 @@ class CircularMetricRing extends StatelessWidget {
     required this.value,
     required this.title,
     required this.status,
-    required this.band,
+    required this.arcColor,
+    required this.statusBand,
+    this.arcGradient,
     this.size = 72,
     this.strokeWidth = 5,
     this.compact = false,
@@ -24,14 +26,15 @@ class CircularMetricRing extends StatelessWidget {
   final String value;
   final String title;
   final String status;
-  final SemanticBand band;
+  final Color arcColor;
+  final List<Color>? arcGradient;
+  final SemanticBand statusBand;
   final double size;
   final double strokeWidth;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final accent = SemanticSignalTheme.bandColor(band);
     final ringSize = compact ? size * 0.88 : size;
 
     return Column(
@@ -43,7 +46,8 @@ class CircularMetricRing extends StatelessWidget {
           child: CustomPaint(
             painter: _RingPainter(
               progress: progress.clamp(0.0, 1.0),
-              accent: accent,
+              arcColor: arcColor,
+              arcGradient: arcGradient,
               strokeWidth: strokeWidth,
             ),
             child: Center(
@@ -75,7 +79,7 @@ class CircularMetricRing extends StatelessWidget {
           style: TextStyle(
             fontSize: compact ? 10 : 11,
             fontWeight: FontWeight.w800,
-            color: SemanticSignalTheme.bandTextColor(band),
+            color: SemanticSignalTheme.bandTextColor(statusBand),
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -88,12 +92,14 @@ class CircularMetricRing extends StatelessWidget {
 class _RingPainter extends CustomPainter {
   _RingPainter({
     required this.progress,
-    required this.accent,
+    required this.arcColor,
     required this.strokeWidth,
+    this.arcGradient,
   });
 
   final double progress;
-  final Color accent;
+  final Color arcColor;
+  final List<Color>? arcGradient;
   final double strokeWidth;
 
   @override
@@ -109,30 +115,50 @@ class _RingPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawArc(rect, startAngle, sweepMax, false, trackPaint);
+
+    final sweep = sweepMax * progress;
+    if (sweep <= 0.02) return;
+
+    final gradient = arcGradient;
+    final glowColor = gradient != null && gradient.isNotEmpty
+        ? gradient.last
+        : arcColor;
+
     final glowPaint = Paint()
-      ..color = accent.withValues(alpha: 0.22)
+      ..color = glowColor.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth + 3
       ..strokeCap = StrokeCap.round
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
 
     final valuePaint = Paint()
-      ..color = accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    canvas.drawArc(rect, startAngle, sweepMax, false, trackPaint);
-
-    final sweep = sweepMax * progress;
-    if (sweep > 0.02) {
-      canvas.drawArc(rect, startAngle, sweep, false, glowPaint);
-      canvas.drawArc(rect, startAngle, sweep, false, valuePaint);
+    if (gradient != null && gradient.length >= 2) {
+      valuePaint.shader = SweepGradient(
+        startAngle: startAngle,
+        endAngle: startAngle + sweepMax,
+        colors: gradient,
+        stops: List.generate(
+          gradient.length,
+          (i) => i / (gradient.length - 1),
+        ),
+      ).createShader(rect);
+    } else {
+      valuePaint.color = arcColor;
     }
+
+    canvas.drawArc(rect, startAngle, sweep, false, glowPaint);
+    canvas.drawArc(rect, startAngle, sweep, false, valuePaint);
   }
 
   @override
   bool shouldRepaint(covariant _RingPainter old) =>
-      old.progress != progress || old.accent != accent;
+      old.progress != progress ||
+      old.arcColor != arcColor ||
+      old.arcGradient != arcGradient;
 }
