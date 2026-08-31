@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../visit_kernel/theme/visit_glass_tokens.dart';
-import 'semantic_band_theme.dart';
 import '../models/skin_stress_index.dart';
+import 'semantic_signal_theme.dart';
 
-/// PRD v4.4 — SSI 반원 게이지 (Zone C semantic tint).
+/// PRD v4.6 — SSI semicircle gauge (hero achromatic, arc semantic).
 class SkinStressGauge extends StatelessWidget {
   const SkinStressGauge({
     super.key,
@@ -21,11 +21,15 @@ class SkinStressGauge extends StatelessWidget {
   final double strokeWidth;
   final bool showLabel;
 
-  static Color bandColor(SsiBand band) => SemanticBandTheme.ssiArcColor(band);
+  static Color bandColor(SsiBand band) =>
+      SemanticSignalTheme.bandColor(
+        SemanticSignalTheme.bandForSsiBand(band),
+      );
 
   @override
   Widget build(BuildContext context) {
     final arcH = size * 0.55;
+    final signal = SemanticSignalTheme.bandForSsiBand(ssi.band);
     return SizedBox(
       width: size,
       height: arcH + (showLabel ? 22 : 0),
@@ -40,19 +44,6 @@ class SkinStressGauge extends StatelessWidget {
               strokeWidth: strokeWidth,
             ),
           ),
-          Positioned(
-            bottom: showLabel ? 18 : 4,
-            child: Text(
-              '${ssi.score}',
-              style: TextStyle(
-                fontSize: size * 0.22,
-                fontWeight: FontWeight.w600,
-                height: 1,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: SemanticBandTheme.ssiArcColor(ssi.band),
-              ),
-            ),
-          ),
           if (showLabel)
             Positioned(
               bottom: 0,
@@ -61,6 +52,7 @@ class SkinStressGauge extends StatelessWidget {
                 style: VisitGlassTokens.captionCalm.copyWith(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
+                  color: SemanticSignalTheme.badgeText(signal),
                 ),
               ),
             ),
@@ -87,15 +79,23 @@ class _SemicircleGaugePainter extends CustomPainter {
     final radius = size.width / 2 - strokeWidth / 2;
     const startAngle = math.pi;
     const sweepMax = math.pi;
+    final accent = SkinStressGauge.bandColor(band);
 
     final trackPaint = Paint()
-      ..color = const Color(0xFFF2F2F7)
+      ..color = const Color(0xFFE5E5EA)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
+    final glowPaint = Paint()
+      ..color = accent.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth + 4
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
     final valuePaint = Paint()
-      ..color = SkinStressGauge.bandColor(band)
+      ..color = accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -105,6 +105,7 @@ class _SemicircleGaugePainter extends CustomPainter {
 
     final sweep = sweepMax * (score.clamp(0, 100) / 100);
     if (sweep > 0) {
+      canvas.drawArc(rect, startAngle, sweep, false, glowPaint);
       canvas.drawArc(rect, startAngle, sweep, false, valuePaint);
     }
   }

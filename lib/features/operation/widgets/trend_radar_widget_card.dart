@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../models/clinical_trend_snapshot.dart';
-import 'semantic_band_theme.dart';
+import 'metric_inset_block.dart';
+import 'semantic_signal_theme.dart';
 import 'trend_sparkline.dart';
 import 'widget_glass_card.dart';
 
-/// PRD v4.4 — CTI Trend Radar iOS widget card (~160px phone).
+/// PRD v4.6 — CTI Trend Radar iOS Stocks widget card.
 class TrendRadarWidgetCard extends StatelessWidget {
   const TrendRadarWidgetCard({
     super.key,
@@ -24,25 +25,13 @@ class TrendRadarWidgetCard extends StatelessWidget {
     final top3 = snapshot.top3;
     final lead = snapshot.briefingLead;
     final leadSurge = lead?.surgePct ?? 0;
-    final ambient = leadSurge >= 30
-        ? [
-            const Color(0xFFFFF4E5),
-            Colors.white.withValues(alpha: 0.0),
-          ]
-        : [
-            const Color(0xFFF5F5FA),
-            Colors.white.withValues(alpha: 0.0),
-          ];
+    final signal = SemanticSignalTheme.bandForSurge(leadSurge);
 
     return WidgetGlassCard(
-      ambientColors: ambient,
-      ambientShadowColor: SemanticBandTheme.sparklineColor(
-        null,
-        surgePct: leadSurge,
-      ).withValues(alpha: 0.12),
-      padding: compact
-          ? const EdgeInsets.all(12)
-          : const EdgeInsets.all(16),
+      semanticBand: signal,
+      ambientColors: SemanticSignalTheme.ambientGradient(signal),
+      ambientShadowColor: SemanticSignalTheme.shellShadow(signal),
+      padding: compact ? const EdgeInsets.all(12) : const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -57,7 +46,7 @@ class TrendRadarWidgetCard extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
-                    color: VisitGlassTokens.sage,
+                    color: SemanticSignalTheme.secondaryTextColor,
                   ),
                 ),
               ),
@@ -76,7 +65,13 @@ class TrendRadarWidgetCard extends StatelessWidget {
               runSpacing: compact ? 6 : 8,
               children: [
                 for (final item in top3)
-                  _SurgePill(item: item, compact: compact),
+                  SemanticTagChip(
+                    label: item.surgePct > 0
+                        ? '${item.keyword} +${item.surgePct}%'
+                        : item.keyword,
+                    surgePct: item.surgePct,
+                    compact: compact,
+                  ),
               ],
             ),
             SizedBox(height: compact ? 8 : 12),
@@ -86,7 +81,7 @@ class TrendRadarWidgetCard extends StatelessWidget {
                   return TrendSparkline(
                     values: lead.sparkline7d,
                     width: constraints.maxWidth,
-                    height: compact ? 32 : 44,
+                    height: compact ? 40 : 52,
                     surgePct: lead.surgePct,
                   );
                 },
@@ -97,10 +92,11 @@ class TrendRadarWidgetCard extends StatelessWidget {
                 children: [
                   Text(
                     'CTI ${lead.cti}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                      color: SemanticSignalTheme.bandTextColor(signal),
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -129,7 +125,7 @@ class TrendRadarWidgetCard extends StatelessWidget {
                 style: VisitGlassTokens.captionCalm.copyWith(
                   fontSize: 12,
                   height: 1.45,
-                  color: VisitGlassTokens.careSoft,
+                  color: SemanticSignalTheme.secondaryTextColor,
                 ),
               ),
             ],
@@ -144,42 +140,5 @@ class TrendRadarWidgetCard extends StatelessWidget {
     if (diff.inHours >= 1) return '${diff.inHours}h ago';
     if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
     return 'now';
-  }
-}
-
-class _SurgePill extends StatelessWidget {
-  const _SurgePill({required this.item, this.compact = false});
-
-  final ClinicalTrendItem item;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = SemanticBandTheme.surgeChipBg(item.surgePct);
-    final fg = SemanticBandTheme.surgeChipText(item.surgePct);
-    final label = item.surgePct > 0
-        ? '${item.keyword} +${item.surgePct}%'
-        : item.keyword;
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 10,
-        vertical: compact ? 4 : 6,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: fg.withValues(alpha: 0.12)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: compact ? 11 : 12,
-          fontWeight: FontWeight.w700,
-          color: fg,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
   }
 }

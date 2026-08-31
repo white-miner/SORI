@@ -2,78 +2,115 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import 'semantic_band_theme.dart';
+import 'semantic_signal_theme.dart';
 
-/// PRD v4.4 — iOS-style widget glass surface (Zone B).
+/// PRD v4.6 — iOS 3D Material widget shell (Zone B).
 class WidgetGlassCard extends StatelessWidget {
   const WidgetGlassCard({
     super.key,
     required this.child,
     this.ambientColors,
     this.ambientShadowColor,
+    this.semanticBand,
     this.padding = const EdgeInsets.all(16),
     this.height,
+    this.materialTier = WidgetMaterialTier.thick,
   });
 
   final Widget child;
   final List<Color>? ambientColors;
   final Color? ambientShadowColor;
+  final SemanticBand? semanticBand;
   final EdgeInsets padding;
   final double? height;
+  final WidgetMaterialTier materialTier;
 
   @override
   Widget build(BuildContext context) {
-    final shadowColor =
-        ambientShadowColor ?? Colors.black.withValues(alpha: 0.08);
+    final tier = materialTier;
+    final band = semanticBand;
+    final shadowColor = ambientShadowColor ??
+        (band != null
+            ? SemanticSignalTheme.shellShadow(band)
+            : Colors.black.withValues(alpha: 0.10));
+
+    final gradientColors = ambientColors ??
+        (band != null
+            ? SemanticSignalTheme.ambientGradient(band)
+            : null);
+
+    final tintColor = band != null
+        ? SemanticSignalTheme.shellTint(band).withValues(alpha: tier.tintAlpha + 0.18)
+        : Colors.white.withValues(alpha: tier.fillAlpha);
 
     return Container(
       height: height,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(SemanticBandTheme.widgetRadius),
+        borderRadius: BorderRadius.circular(SemanticSignalTheme.widgetRadius),
         boxShadow: [
           BoxShadow(
             color: shadowColor,
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(SemanticBandTheme.widgetRadius),
+        borderRadius: BorderRadius.circular(SemanticSignalTheme.widgetRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          filter: ImageFilter.blur(
+            sigmaX: tier.blurSigma,
+            sigmaY: tier.blurSigma,
+          ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: tintColor,
               borderRadius:
-                  BorderRadius.circular(SemanticBandTheme.widgetRadius),
+                  BorderRadius.circular(SemanticSignalTheme.widgetRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.65),
+                color: Colors.white.withValues(alpha: 0.72),
                 width: 0.5,
               ),
             ),
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                if (ambientColors != null && ambientColors!.length >= 2)
+                if (gradientColors != null && gradientColors.length >= 2)
                   Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: ambientColors!
-                              .map((c) => c.withValues(alpha: 0.25))
+                          colors: gradientColors
+                              .map((c) => c.withValues(alpha: tier.ambientAlpha))
                               .toList(),
                         ),
                       ),
                     ),
                   ),
+                // Inner top highlight (iOS material edge)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.55),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 Padding(padding: padding, child: child),
               ],
             ),
@@ -93,7 +130,7 @@ class WidgetDetailChevron extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.55),
+      color: Colors.white.withValues(alpha: 0.62),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
