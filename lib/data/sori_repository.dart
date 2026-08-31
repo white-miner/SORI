@@ -41,6 +41,8 @@ import '../models/subscription.dart';
 import '../models/whisper.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
 import '../visit_kernel/models/visit_session.dart';
+import '../visit_kernel/models/care_program_template.dart';
+import '../visit_kernel/models/visit_operation_timer.dart';
 import 'auth_role_resolution.dart';
 
 export 'auth_role_resolution.dart';
@@ -867,4 +869,24 @@ abstract class SoriRepository {
   Future<VisitSession> upsertVisitSession(VisitSession session);
 
   Future<void> updateVisitPhase(String sessionId, VisitPhase phase);
+
+  /// PRD v4.5 — care timer presets + visit operation timers.
+  Future<List<CareProgramTemplate>> loadCareProgramTemplates(String shopId);
+
+  Future<CareProgramTemplate> upsertCareProgramTemplate(
+    CareProgramTemplate template,
+  );
+
+  Future<VisitOperationTimer?> loadVisitOperationTimer(String sessionId);
+
+  Future<VisitOperationTimer> upsertVisitOperationTimer(
+    VisitOperationTimer timer,
+  );
+
+  Future<void> appendVisitOperationEvent({
+    required String visitSessionId,
+    required String shopId,
+    required String eventType,
+    Map<String, dynamic> payload = const {},
+  });
 }

@@ -20,6 +20,7 @@ import '../features/operation/models/sos_signal.dart';
 import '../features/operation/models/visit_biometrics.dart';
 import '../features/operation/sos_signal_parser.dart';
 import '../features/operation/shop_geocoding_service.dart';
+import '../features/operation/visit_timer_store.dart';
 import '../visit_kernel/visit_store.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
@@ -231,6 +232,12 @@ class SoriStore implements Listenable {
     } catch (e, st) {
       debugPrint('refreshVisitSessions failed: $e\n$st');
     }
+  }
+
+  /// PRD v4.5 — hydrate timer presets + active run from local + Supabase.
+  Future<void> hydrateVisitTimer() async {
+    VisitTimerStore.instance.bind(this, _repository);
+    await VisitTimerStore.instance.hydrate();
   }
 
   void _syncActiveVisitSession() {

@@ -39,6 +39,8 @@ import '../models/seminar_feedback_report.dart';
 import '../models/seminar_enrollment.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
 import '../visit_kernel/models/visit_session.dart';
+import '../visit_kernel/models/care_program_template.dart';
+import '../visit_kernel/models/visit_operation_timer.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
 import '../models/shop_highlight.dart';
@@ -4066,6 +4068,8 @@ class MemorySoriRepository implements SoriRepository {
 
   static final List<CareScheduleEntry> _careSchedules = [];
   static final List<VisitSession> _visitSessions = [];
+  static final List<CareProgramTemplate> _careProgramTemplates = [];
+  static final List<VisitOperationTimer> _visitOperationTimers = [];
 
   @override
   Future<List<VisitSession>> loadVisitSessions(
@@ -4106,6 +4110,68 @@ class MemorySoriRepository implements SoriRepository {
       phase: phase,
       completedAt: completed,
     );
+  }
+
+  @override
+  Future<List<CareProgramTemplate>> loadCareProgramTemplates(
+    String shopId,
+  ) async {
+    final sid = shopId.trim();
+    return _careProgramTemplates
+        .where((t) => t.shopId == sid)
+        .toList()
+      ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
+  }
+
+  @override
+  Future<CareProgramTemplate> upsertCareProgramTemplate(
+    CareProgramTemplate template,
+  ) async {
+    final idx = _careProgramTemplates.indexWhere(
+      (t) => t.shopId == template.shopId && t.slotIndex == template.slotIndex,
+    );
+    if (idx >= 0) {
+      _careProgramTemplates[idx] = template;
+    } else {
+      _careProgramTemplates.add(template);
+    }
+    return template;
+  }
+
+  @override
+  Future<VisitOperationTimer?> loadVisitOperationTimer(
+    String sessionId,
+  ) async {
+    final id = sessionId.trim();
+    for (final t in _visitOperationTimers) {
+      if (t.visitSessionId == id) return t;
+    }
+    return null;
+  }
+
+  @override
+  Future<VisitOperationTimer> upsertVisitOperationTimer(
+    VisitOperationTimer timer,
+  ) async {
+    final idx = _visitOperationTimers.indexWhere(
+      (t) => t.visitSessionId == timer.visitSessionId,
+    );
+    if (idx >= 0) {
+      _visitOperationTimers[idx] = timer;
+    } else {
+      _visitOperationTimers.add(timer);
+    }
+    return timer;
+  }
+
+  @override
+  Future<void> appendVisitOperationEvent({
+    required String visitSessionId,
+    required String shopId,
+    required String eventType,
+    Map<String, dynamic> payload = const {},
+  }) async {
+    // Memory repo — audit log is a no-op.
   }
 
   @override

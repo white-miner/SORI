@@ -10,27 +10,27 @@ import '../../views/admin_chart_writer_page.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
-import '../operation/clinical_assistant_store.dart';
 import '../operation/models/clinical_environment_brief.dart';
 import '../operation/models/consultation_deep_mode.dart';
 import '../operation/models/clinical_trend_snapshot.dart';
 import '../operation/models/shop_climate_context.dart';
-import '../operation/models/sos_signal.dart';
 import '../operation/models/visit_biometrics.dart';
 import '../operation/shop_climate_service.dart';
 import '../operation/shop_clinical_trend_service.dart';
+import '../operation/visit_timer_store.dart';
+import '../operation/widgets/care_timer_widget.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
 import '../operation/widgets/sos_signal_bar.dart';
+import '../../views/smart_guide_camera_page.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_briefing_sheet.dart';
 import 'consultation_track.dart';
 import 'today_agenda.dart';
 import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
-import 'visit_session_page.dart';
 
-/// 상담 Home — Pre-Consultation Dashboard (Sprint 3.3 + 4.0).
+/// 상담 Home — Pre-Consultation Dashboard (Sprint 3.3 + 4.5 timer).
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -54,6 +54,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     super.initState();
     visit.addListener(_onVisit);
     widget.store.addListener(_onVisit);
+    VisitTimerStore.instance.addListener(_onVisit);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -61,6 +62,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   void dispose() {
     visit.removeListener(_onVisit);
     widget.store.removeListener(_onVisit);
+    VisitTimerStore.instance.removeListener(_onVisit);
     super.dispose();
   }
 
@@ -69,6 +71,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     await Future.wait([
       visit.ensureLoaded(force: force),
       widget.store.refreshCareScheduleEntries(force: force),
+      widget.store.hydrateVisitTimer(),
       _loadClimate(),
       _loadTrends(),
     ]);
@@ -189,13 +192,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
           biometrics: biometrics,
         );
       }
-      await _openSession(
-        item.session!,
-        item.track,
-        deepMode: briefing.deepMode,
-        biometrics: biometrics,
-        environmentBrief: briefing.environmentBrief,
-      );
+      await _beginConsultation(item.session!);
       return;
     }
 
@@ -238,6 +235,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       biometrics: biometrics,
       environmentBrief: briefing.environmentBrief,
     );
+    final session = widget.store.activeVisitSession;
+    if (session != null) await _beginConsultation(session);
   }
 
   Future<void> _startNewCustomerFlow({
@@ -309,21 +308,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
           biometrics: biometrics,
         );
       }
-      await _openSession(
-        session,
-        track,
-        deepMode: deepMode ??
-            resolveDeepMode(
-              track: track,
-              sos: SosSignal.none,
-              biometrics: biometrics,
-              ssiBand: ClinicalAssistantStore.instance.current?.ssi.band,
-            ),
-        biometrics: biometrics,
-        environmentBrief: environmentBrief ??
-            ClinicalAssistantStore.instance.current?.brief ??
-            ClinicalEnvironmentBrief.standard,
-      );
+      widget.store.activeVisitSessionId = session.id;
+      if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -349,38 +335,100 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     if (mounted) await _load(force: true);
   }
 
-  Future<void> _openSession(
-    VisitSession session,
-    ConsultationTrack track, {
-    ConsultationDeepMode? deepMode,
-    VisitBiometrics? biometrics,
-    ClinicalEnvironmentBrief? environmentBrief,
-  }) async {
-    if (track == ConsultationTrack.returning) {
-      unawaited(
-        BaRecallCache.instance.prefetch(
-          widget.store,
-          session.customerId,
-          imageContext: context,
-        ),
+  /// PO v4.5 — [상담 시작] → timer T0 + chart writer.
+  Future<void> _beginConsultation(VisitSession session) async {
+    final timer = VisitTimerStore.instance;
+    if (timer.active == null ||
+        timer.active!.visitSessionId != session.id ||
+        timer.active!.consultationStartedAt == null) {
+      await timer.startConsultation(
+        visitSessionId: session.id,
+        shopId: session.shopId,
       );
     }
+    widget.store.activeVisitSessionId = session.id;
+    await _openChartForSession(session);
+  }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => VisitSessionPage(
-          store: widget.store,
-          sessionId: session.id,
-          track: track,
-          deepMode: deepMode ??
-              (track == ConsultationTrack.returning
-                  ? ConsultationDeepMode.maintenance
-                  : ConsultationDeepMode.fullDesign),
-          biometrics: biometrics,
-          environmentBrief: environmentBrief ??
-              ClinicalAssistantStore.instance.current?.brief ??
-              ClinicalEnvironmentBrief.standard,
+  Future<void> _openChartForSession(VisitSession session) async {
+    final customer = widget.store.findCustomer(session.customerId);
+    if (customer == null || !mounted) return;
+    final chart = widget.store.chartForVisitSession(session);
+    await VisitTimerStore.instance.onChartOpened(session.id);
+    if (!mounted) return;
+    await openChartWriterForCustomer(
+      context,
+      store: widget.store,
+      customer: customer,
+      existingChart: chart,
+    );
+    await VisitTimerStore.instance.onChartClosed(session.id);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _handleCareStart(VisitSession session) async {
+    await VisitTimerStore.instance.startCare();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _handleCareEnd(VisitSession session) async {
+    await VisitTimerStore.instance.endCare();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _captureAfterPhoto(VisitSession session) async {
+    final customer = widget.store.findCustomer(session.customerId);
+    final chart = widget.store.chartForVisitSession(session);
+    if (customer == null || chart == null || !mounted) return;
+
+    final result = await SmartGuideCameraPage.open(
+      context,
+      shopId: widget.store.shop.id,
+      customerId: customer.id,
+      kind: GuideCameraKind.after,
+      ghostBeforeUrl: chart.beforeImageUrl,
+    );
+    if (result == null || !mounted) return;
+
+    await widget.store.patchChartAfterImage(
+      chartId: chart.id,
+      afterImageUrl: result.url,
+    );
+    await VisitTimerStore.instance.markAfterPhotoCaptured();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('After 저장 완료'),
+          behavior: SnackBarBehavior.floating,
         ),
+      );
+      setState(() {});
+    }
+  }
+
+  Future<void> _endVisit(VisitSession session) async {
+    final timer = VisitTimerStore.instance;
+    final report = await timer.buildReportBlock();
+    final chart = widget.store.chartForVisitSession(session);
+    if (chart != null && report.isNotEmpty) {
+      final summary = chart.treatmentSummary.trim();
+      final next = summary.isEmpty ? report : '$summary\n\n$report';
+      await widget.store.updateCustomerChartFields(
+        chartId: chart.id,
+        treatmentSummary: next,
+      );
+    }
+    await timer.endVisit();
+    await visit.completeVisit(session.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          chart?.afterImageUrl?.trim().isEmpty ?? true
+              ? '방문 종료 · 애프터 미촬영'
+              : '방문 종료 · 관리 리포트 저장',
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
     );
     await _load(force: true);
@@ -453,22 +501,18 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                 const SliverToBoxAdapter(
                   child: _SectionHeader(title: '지금 진행 중'),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverList.separated(
-                    itemCount: snap.activeSessions.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final session = snap.activeSessions[i];
-                      final item = _agendaItemForSession(snap, session);
-                      return _AgendaRow(
-                        item: item,
-                        session: session,
-                        store: widget.store,
-                        emphasized: true,
-                        onTap: () => _openBriefing(item),
-                      );
-                    },
+                ...snap.activeSessions.map(
+                  (session) => SliverToBoxAdapter(
+                    child: CareTimerWidget(
+                      store: widget.store,
+                      session: session,
+                      onConsultationStart: () => _beginConsultation(session),
+                      onOpenChart: () => _openChartForSession(session),
+                      onCareStart: () => _handleCareStart(session),
+                      onCareEnd: () => _handleCareEnd(session),
+                      onAfterPhoto: () => _captureAfterPhoto(session),
+                      onVisitEnd: () => _endVisit(session),
+                    ),
                   ),
                 ),
               ],
@@ -520,28 +564,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
-      ),
-    );
-  }
-
-  TodayAgendaItem _agendaItemForSession(
-    TodayAgendaSnapshot snap,
-    VisitSession session,
-  ) {
-    for (final item in snap.items) {
-      if (item.session?.id == session.id) return item;
-      if (item.customerId == session.customerId) return item;
-    }
-    return TodayAgendaItem(
-      dedupKey: session.customerId,
-      sortAt: session.startedAt,
-      customerId: session.customerId,
-      customerName: session.customerName,
-      session: session,
-      track: resolveAgendaTrack(
-        widget.store,
-        customerId: session.customerId,
-        chartDraftId: session.chartDraftId,
       ),
     );
   }

@@ -47,6 +47,8 @@ import '../models/subscription.dart';
 import '../models/whisper.dart';
 import '../services/supabase_client.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
+import '../visit_kernel/models/care_program_template.dart';
+import '../visit_kernel/models/visit_operation_timer.dart';
 import '../utils/sori_uuid.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../utils/db_map.dart';
@@ -5343,6 +5345,115 @@ class SupabaseSoriRepository implements SoriRepository {
       await _db.from('visit_sessions').update(patch).eq('id', id);
     } catch (e, st) {
       debugPrint('updateVisitPhase failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<CareProgramTemplate>> loadCareProgramTemplates(
+    String shopId,
+  ) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('care_program_templates')
+          .select()
+          .eq('shop_id', sid)
+          .order('slot_index');
+      return (rows as List)
+          .map(
+            (e) => CareProgramTemplate.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadCareProgramTemplates failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<CareProgramTemplate> upsertCareProgramTemplate(
+    CareProgramTemplate template,
+  ) async {
+    final payload = template.toMap();
+    final rawId = payload['id']?.toString().trim() ?? '';
+    if (rawId.isEmpty || !isUuidV4(rawId)) {
+      payload.remove('id');
+    }
+    try {
+      final row = await _db
+          .from('care_program_templates')
+          .upsert(payload, onConflict: 'shop_id,slot_index')
+          .select()
+          .single();
+      return CareProgramTemplate.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('upsertCareProgramTemplate failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<VisitOperationTimer?> loadVisitOperationTimer(
+    String sessionId,
+  ) async {
+    final id = sessionId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final row = await _db
+          .from('visit_operation_timers')
+          .select()
+          .eq('visit_session_id', id)
+          .maybeSingle();
+      if (row == null) return null;
+      return VisitOperationTimer.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('loadVisitOperationTimer failed: $e\n$st');
+      return null;
+    }
+  }
+
+  @override
+  Future<VisitOperationTimer> upsertVisitOperationTimer(
+    VisitOperationTimer timer,
+  ) async {
+    final payload = timer.toMap();
+    final rawId = payload['id']?.toString().trim() ?? '';
+    if (rawId.isEmpty || !isUuidV4(rawId)) {
+      payload.remove('id');
+    }
+    try {
+      final row = await _db
+          .from('visit_operation_timers')
+          .upsert(payload, onConflict: 'visit_session_id')
+          .select()
+          .single();
+      return VisitOperationTimer.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('upsertVisitOperationTimer failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> appendVisitOperationEvent({
+    required String visitSessionId,
+    required String shopId,
+    required String eventType,
+    Map<String, dynamic> payload = const {},
+  }) async {
+    try {
+      await _db.from('visit_operation_events').insert({
+        'visit_session_id': visitSessionId.trim(),
+        'shop_id': shopId.trim(),
+        'event_type': eventType,
+        'payload': payload,
+      });
+    } catch (e, st) {
+      debugPrint('appendVisitOperationEvent failed: $e\n$st');
       rethrow;
     }
   }
