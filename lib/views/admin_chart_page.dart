@@ -10,7 +10,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/sori_crm_status_avatar.dart';
 import 'admin_chart_writer_page.dart';
-import 'before_after_compare_sheet.dart';
+import 'before_after_compare_page.dart';
 import 'chart_management_page.dart';
 import 'customer_merge_wizard.dart';
 import 'membership_editor_sheet.dart';
@@ -110,8 +110,11 @@ class _AdminChartPageState extends State<AdminChartPage> {
   }
 
   Future<void> _openBeforeAfterCompare() async {
-    await showBeforeAfterCompareSheet(
+    final customer = _customer;
+    if (customer == null) return;
+    await openBeforeAfterComparePage(
       context: context,
+      customerName: customer.name,
       charts: _timeline,
     );
   }

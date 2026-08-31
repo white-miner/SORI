@@ -13,6 +13,7 @@ class BeforeAfterSlider extends StatefulWidget {
     this.height = 240,
     this.aspectRatio,
     this.maxHeight = 520,
+    this.dragHandleOnly = false,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
 
@@ -23,6 +24,9 @@ class BeforeAfterSlider extends StatefulWidget {
   /// 설정 시 [height] 대신 가로 대비 비율로 높이를 계산한다. (예: 1.0, 4/5)
   final double? aspectRatio;
   final double maxHeight;
+
+  /// true면 중앙 핸들만 드래그 (핀치 줌과 제스처 공존).
+  final bool dragHandleOnly;
 
   /// 홈 피드 몰입형은 [BorderRadius.zero]로 각진 Edge-to-Edge.
   final BorderRadius borderRadius;
@@ -40,6 +44,50 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
     setState(() => _ratio = (dx / width).clamp(0.02, 0.98));
   }
 
+  Widget _buildHandle(double split, double width) {
+    return Positioned(
+      left: split - 22,
+      top: 0,
+      bottom: 0,
+      width: 44,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragUpdate: (d) {
+          _updateFromLocalDx(d.localPosition.dx + split - 22, width);
+        },
+        onTapDown: (d) {
+          _updateFromLocalDx(d.localPosition.dx + split - 22, width);
+        },
+        child: Center(
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: SoriTokens.primary,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.compare_arrows_rounded,
+              size: 18,
+              color: SoriTokens.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -52,6 +100,85 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
             ? (w / ratio).clamp(180.0, widget.maxHeight)
             : widget.height;
         final split = w * _ratio;
+
+        final stack = Stack(
+          fit: StackFit.expand,
+          children: [
+            widget.after,
+            ClipRect(
+              clipper: _LeftClipper(split),
+              child: widget.before,
+            ),
+            if (widget.dragHandleOnly)
+              _buildHandle(split, w)
+            else
+              Positioned(
+                left: split - 18,
+                top: 0,
+                bottom: 0,
+                width: 36,
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: SoriTokens.primary,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.code,
+                      size: 18,
+                      color: SoriTokens.primary,
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: split - 1,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 2,
+                color: Colors.white.withValues(alpha: 0.95),
+              ),
+            ),
+            const Positioned(
+              left: 10,
+              top: 10,
+              child: _CornerTag(label: 'Before'),
+            ),
+            const Positioned(
+              right: 10,
+              top: 10,
+              child: _CornerTag(label: 'After'),
+            ),
+          ],
+        );
+
+        final clipped = ClipRRect(
+          borderRadius: widget.borderRadius,
+          child: stack,
+        );
+
+        if (widget.dragHandleOnly) {
+          return SizedBox(
+            height: h.isFinite ? h : null,
+            width: double.infinity,
+            child: clipped,
+          );
+        }
+
         return SizedBox(
           height: h,
           width: double.infinity,
@@ -61,70 +188,7 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
               _updateFromLocalDx(d.localPosition.dx, w);
             },
             onTapDown: (d) => _updateFromLocalDx(d.localPosition.dx, w),
-            child: ClipRRect(
-              borderRadius: widget.borderRadius,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  widget.after,
-                  ClipRect(
-                    clipper: _LeftClipper(split),
-                    child: widget.before,
-                  ),
-                  Positioned(
-                    left: split - 18,
-                    top: 0,
-                    bottom: 0,
-                    width: 36,
-                    child: Center(
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: SoriTokens.primary,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.18),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.code,
-                          size: 18,
-                          color: SoriTokens.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: split - 1,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 2,
-                      color: Colors.white.withValues(alpha: 0.95),
-                    ),
-                  ),
-                  const Positioned(
-                    left: 10,
-                    top: 10,
-                    child: _CornerTag(label: 'Before'),
-                  ),
-                  const Positioned(
-                    right: 10,
-                    top: 10,
-                    child: _CornerTag(label: 'After'),
-                  ),
-                ],
-              ),
-            ),
+            child: clipped,
           ),
         );
       },
