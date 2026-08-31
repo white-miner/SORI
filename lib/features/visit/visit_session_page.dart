@@ -68,6 +68,32 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     return widget.store.chartForVisitSession(s);
   }
 
+  /// Prior visits exist (excluding today's session draft).
+  bool get _isReturningCustomer {
+    final customer = _customer;
+    if (customer == null) return false;
+    final currentId = _chart?.id;
+    return widget.store
+        .chartsForCustomer(customer.id)
+        .any((c) => c.id != currentId);
+  }
+
+  CustomerChart? get _lastPriorChart {
+    final customer = _customer;
+    final currentId = _chart?.id;
+    if (customer == null) return null;
+    final prior = widget.store
+        .chartsForCustomer(customer.id)
+        .where((c) => c.id != currentId)
+        .toList()
+      ..sort((a, b) {
+        final ad = a.visitCheckedAt ?? a.createdAt ?? DateTime(1970);
+        final bd = b.visitCheckedAt ?? b.createdAt ?? DateTime(1970);
+        return bd.compareTo(ad);
+      });
+    return prior.isEmpty ? null : prior.first;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -79,7 +105,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     widget.store.addListener(_onStore);
     _hydrateFromChart();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_prefetchBaRecall());
+      if (_isReturningCustomer) unawaited(_prefetchBaRecall());
     });
   }
 
@@ -389,29 +415,43 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
         ? VisitPhase.workflow.length - 1
         : phase.workflowIndex.clamp(0, VisitPhase.workflow.length - 1);
     final showBaPill =
-        phase == VisitPhase.consult || phase == VisitPhase.plan;
+        _isReturningCustomer &&
+        (phase == VisitPhase.consult || phase == VisitPhase.plan);
+    final prior = _lastPriorChart;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
-        title: Text('${customer.name}님 상담'),
+        title: Text(
+          _isReturningCustomer
+              ? '${customer.name}님 · 재방문 상담'
+              : '${customer.name}님 · 첫 상담',
+        ),
         backgroundColor: const Color(0xFFF2F2F7),
         elevation: 0,
       ),
       floatingActionButton: showBaPill
           ? FloatingActionButton.extended(
               onPressed: _openBaRecall,
-              backgroundColor: const Color(0xFF1C1820),
-              foregroundColor: Colors.white,
+              backgroundColor: SoriTokens.primary,
+              foregroundColor: SoriTokens.onPrimary,
               icon: Icon(
                 Icons.photo_library_outlined,
-                color: _baWarm ? VisitGlassTokens.sage : Colors.white70,
+                color: _baWarm ? SoriTokens.textSecondary : SoriTokens.onPrimary,
               ),
               label: Text(_baWarm ? '과거 B/A · 즉시' : '과거 B/A'),
             )
           : null,
       body: Column(
         children: [
+          if (_isReturningCustomer && prior != null)
+            _ReturningContextBanner(
+              prior: prior,
+              baWarm: _baWarm,
+              onOpenBaRecall: _openBaRecall,
+            ),
+          if (!_isReturningCustomer)
+            const _NewCustomerHintBanner(),
           _PhaseRail(current: phase, onJump: _setPhase),
           Expanded(
             child: IndexedStack(
@@ -488,6 +528,118 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
   }
 }
 
+class _ReturningContextBanner extends StatelessWidget {
+  const _ReturningContextBanner({
+    required this.prior,
+    required this.baWarm,
+    required this.onOpenBaRecall,
+  });
+
+  final CustomerChart prior;
+  final bool baWarm;
+  final VoidCallback onOpenBaRecall;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = prior.treatmentSummary.trim();
+    final insight = prior.directorInsight.trim();
+    final preview = summary.isNotEmpty
+        ? summary
+        : (insight.isNotEmpty ? insight : '직전 회차 기록 없음');
+
+    return Material(
+      color: SoriTokens.surface,
+      child: InkWell(
+        onTap: onOpenBaRecall,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: SoriTokens.border),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '직전 ${prior.visitNumber}회차 요약',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      preview,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                    if (baWarm) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        '과거 B/A 준비됨',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: SoriTokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.photo_library_outlined,
+                color: SoriTokens.textSecondary,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewCustomerHintBanner extends StatelessWidget {
+  const _NewCustomerHintBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      decoration: const BoxDecoration(
+        color: SoriTokens.surface,
+        border: Border(
+          bottom: BorderSide(color: SoriTokens.border),
+        ),
+      ),
+      child: const Text(
+        '첫 상담입니다. 고객 상태 칩부터 차근차근 기록해 주세요.',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: SoriTokens.textSecondary,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+}
+
 class _PhaseRail extends StatelessWidget {
   const _PhaseRail({required this.current, required this.onJump});
 
@@ -511,7 +663,7 @@ class _PhaseRail extends StatelessWidget {
                 child: Container(
                   height: 2,
                   color: i <= currentIdx
-                      ? VisitGlassTokens.care.withValues(alpha: 0.4)
+                      ? SoriTokens.primary.withValues(alpha: 0.35)
                       : SoriTokens.border,
                 ),
               ),

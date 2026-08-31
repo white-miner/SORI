@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../features/habit/habit_feed_engine.dart';
 import '../features/habit/insights_pulse_strip.dart';
-import '../features/habit/story_rail_view.dart';
 import '../features/habit/top_mentor_strip.dart';
 import '../models/community_case_item.dart';
 import '../models/post_engagement_bindings.dart';
@@ -602,13 +600,6 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
-          SliverToBoxAdapter(
-            child: StoryRailView(
-              items: HabitFeedEngine.storyRailItems(widget.store),
-              store: widget.store,
-              engagementBuilder: widget.engagementBuilder,
-            ),
-          ),
           SliverToBoxAdapter(
             child: InsightsPulseStrip(store: widget.store),
           ),

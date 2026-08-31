@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../models/session_user.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
-import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import 'habit_feed_engine.dart';
 
 /// PRD v3.1 — one-line insights pulse (no tier, no streak).
@@ -30,17 +29,15 @@ class InsightsPulseStrip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          color: VisitGlassTokens.care.withValues(alpha: 0.06),
-          border: Border.all(
-            color: VisitGlassTokens.care.withValues(alpha: 0.14),
-          ),
+          color: SoriTokens.surface,
+          border: Border.all(color: SoriTokens.border),
         ),
         child: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.favorite_rounded,
               size: 18,
-              color: VisitGlassTokens.care.withValues(alpha: 0.9),
+              color: SoriTokens.textSecondary,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -50,9 +47,11 @@ class InsightsPulseStrip extends StatelessWidget {
                     : snap.topLine,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: VisitGlassTokens.captionCalm.copyWith(
-                  color: SoriTokens.textSecondary,
+                style: const TextStyle(
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
+                  height: 1.35,
+                  color: SoriTokens.textSecondary,
                 ),
               ),
             ),

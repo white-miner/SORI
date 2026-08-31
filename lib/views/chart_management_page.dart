@@ -5,12 +5,14 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/home_care_prescriptions.dart';
 import '../routing/sori_router.dart';
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/consent_publish_gate.dart';
+import '../visit_kernel/models/care_schedule_entry.dart';
 import '../widgets/ai_tool_sheet.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/media_permission_dialogs.dart';
@@ -359,6 +361,40 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
     return '${dt.month}/${dt.day}';
   }
 
+  String _summaryPreview(CustomerChart chart) {
+    final summary = chart.treatmentSummary.trim();
+    if (summary.isNotEmpty) return summary;
+    final insight = chart.directorInsight.trim();
+    if (insight.isNotEmpty) return insight;
+    return '요약 없음';
+  }
+
+  CareScheduleEntry? _nextVisitFor(CustomerChart chart) {
+    final customerId = chart.customerId.trim();
+    if (customerId.isEmpty) return null;
+    final anchor = chart.visitCheckedAt ?? chart.createdAt;
+    final upcoming = widget.store.careScheduleEntries
+        .where(
+          (e) =>
+              e.customerId == customerId &&
+              e.status == CareScheduleStatus.scheduled,
+        )
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    if (upcoming.isEmpty) return null;
+    if (anchor == null) return upcoming.first;
+    final after = upcoming
+        .where((e) => !e.scheduledAt.isBefore(anchor))
+        .toList();
+    return after.isNotEmpty ? after.first : upcoming.last;
+  }
+
+  String _nextVisitLabel(DateTime dt) {
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} $hh:$mm';
+  }
+
   Widget _networkOrPlaceholder(String? url, {required String label}) {
     final u = url?.trim() ?? '';
     if (u.isEmpty) {
@@ -441,7 +477,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       itemBuilder: (context, index) {
         if (index == 0) {
           return const Text(
-            '회차를 선택하면 사진·기록이 바로 열립니다',
+            '회차를 선택하면 상담·관리 계획을 열람할 수 있어요',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -455,6 +491,9 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
             : (chart.treatmentSummary.trim().isNotEmpty
                 ? chart.treatmentSummary.trim()
                 : '시술 기록');
+        final preview = _summaryPreview(chart);
+        final hasBa = chart.hasBeforeImage || chart.hasAfterImage;
+        final rxCount = chart.homeCarePrescriptions.length;
         return Material(
           color: SoriTokens.surface,
           borderRadius: BorderRadius.circular(16),
@@ -465,7 +504,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
               padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SoriTokens.outlinePurple),
+                border: Border.all(color: SoriTokens.border),
               ),
               child: Row(
                 children: [
@@ -474,14 +513,15 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                     height: 44,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: SoriTokens.primarySoft,
+                      color: SoriTokens.surface,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SoriTokens.border),
                     ),
                     child: Text(
                       '${chart.visitNumber}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
-                        color: SoriTokens.primary,
+                        color: SoriTokens.textPrimary,
                         fontSize: 16,
                       ),
                     ),
@@ -502,12 +542,49 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _dateLabel(chart),
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12.5,
                             color: SoriTokens.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              _dateLabel(chart),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: SoriTokens.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (hasBa) ...[
+                              const SizedBox(width: 8),
+                              const Text(
+                                'B/A',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                            if (rxCount > 0) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '처방 $rxCount',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -538,47 +615,307 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
   }
 
   Widget _buildDetailBody(CustomerChart selected) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: _buildFeedShareBar(selected),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: _editing
+                ? _buildEditScroll(selected)
+                : _buildReadDocument(selected),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditScroll(CustomerChart selected) {
+    return ListView(
+      children: [
+        _buildMetaPane(selected, expand: false),
+        const SizedBox(height: 12),
+        _buildCompactBaSection(selected),
+      ],
+    );
+  }
+
+  Widget _buildReadDocument(CustomerChart chart) {
+    final nextVisit = _nextVisitFor(chart);
+
+    return ListView(
+      children: [
+        _docSection(
+          title: '상담 차트',
+          icon: Icons.chat_bubble_outline_rounded,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFeedShareBar(selected),
-              const SizedBox(height: 10),
-              Expanded(
-                child: wide
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 7,
-                            child: _buildMediaPane(selected),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 3,
-                            child: _buildMetaPane(selected, expand: true),
-                          ),
-                        ],
+              if (chart.concernChips.isNotEmpty) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: chart.concernChips
+                      .map(
+                        (t) => Chip(
+                          label: Text(t, style: const TextStyle(fontSize: 11)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: SoriTokens.surface,
+                          side: const BorderSide(color: SoriTokens.border),
+                        ),
                       )
-                    : ListView(
-                        children: [
-                          SizedBox(
-                            height: 320,
-                            child: _buildMediaPane(selected),
+                      .toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+              _docField(
+                label: '고객 상태 · 대화',
+                value: chart.treatmentSummary.trim().isEmpty
+                    ? '기록 없음'
+                    : chart.treatmentSummary.trim(),
+              ),
+              if (chart.directorInsight.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _docField(
+                  label: '원장 인사이트',
+                  value: chart.directorInsight.trim(),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _docSection(
+          title: '관리 계획',
+          icon: Icons.event_note_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (chart.homeCarePrescriptions.isNotEmpty) ...[
+                const Text(
+                  '홈케어 처방',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: chart.homeCarePrescriptions
+                      .map(
+                        (id) => Chip(
+                          label: Text(
+                            HomecareDictionary.chipLabelOf(id) ?? id,
+                            style: const TextStyle(fontSize: 11),
                           ),
-                          const SizedBox(height: 12),
-                          _buildMetaPane(selected, expand: false),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: SoriTokens.surface,
+                          side: const BorderSide(color: SoriTokens.border),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+              _docField(
+                label: '다음 방문',
+                value: nextVisit == null
+                    ? '예약 없음'
+                    : _nextVisitLabel(nextVisit.scheduledAt),
+              ),
+              if (chart.careName.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _docField(
+                  label: '시술명',
+                  value: chart.careName.trim(),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildCompactBaSection(chart),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: () => setState(() => _editing = true),
+          style: FilledButton.styleFrom(
+            backgroundColor: SoriTokens.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          icon: const Icon(Icons.edit_rounded, size: 18),
+          label: const Text(
+            '수정하기',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: _openFullEditor,
+          child: const Text('전체 차트 작성기로 열기'),
+        ),
+      ],
+    );
+  }
+
+  Widget _docSection({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: SoriTokens.textSecondary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _docField({required String label, required String value}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: SoriTokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.45,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactBaSection(CustomerChart chart) {
+    final before = _networkOrPlaceholder(chart.beforeImageUrl, label: 'Before');
+    final after = _networkOrPlaceholder(chart.afterImageUrl, label: 'After');
+    final both = chart.hasBeforeImage && chart.hasAfterImage;
+    const baHeight = 220.0;
+
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Before / After',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+                const Spacer(),
+                if (_editing) ...[
+                  TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => _replacePhoto(isBefore: true),
+                    child: const Text('Before'),
+                  ),
+                  TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => _replacePhoto(isBefore: false),
+                    child: const Text('After'),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: baHeight,
+                child: both
+                    ? BeforeAfterSlider(
+                        before: before,
+                        after: after,
+                        height: baHeight,
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: before),
+                          const SizedBox(width: 8),
+                          Expanded(child: after),
                         ],
                       ),
               ),
+            ),
+            if (chart.needsAfterPhoto) ...[
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed:
+                    _patchingAfter ? null : () => _guideCapture(isBefore: false),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SoriTokens.primary,
+                  foregroundColor: SoriTokens.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.camera_enhance_outlined, size: 18),
+                label: Text(
+                  _patchingAfter ? '등록 중…' : 'After 가이드 촬영',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _patchingAfter ? null : _patchAfterOnly,
+                icon: _patchingAfter
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.photo_library_outlined, size: 18),
+                label: Text(
+                  _patchingAfter ? '등록 중…' : '갤러리에서 After 등록',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
             ],
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -701,114 +1038,6 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
               activeThumbColor: SoriTokens.primary,
               onChanged: (v) => _onFeedShareChanged(chart, v),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMediaPane(CustomerChart chart) {
-    final before = _networkOrPlaceholder(chart.beforeImageUrl, label: 'Before');
-    final after = _networkOrPlaceholder(chart.afterImageUrl, label: 'After');
-    final both = chart.hasBeforeImage && chart.hasAfterImage;
-
-    return Material(
-      color: SoriTokens.surface,
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Before / After',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                ),
-                const Spacer(),
-                if (_editing) ...[
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => _replacePhoto(isBefore: true),
-                    child: const Text('Before 교체'),
-                  ),
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => _replacePhoto(isBefore: false),
-                    child: const Text('After 교체'),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, c) {
-                  final h = c.maxHeight.isFinite ? c.maxHeight : 280.0;
-                  if (both) {
-                    return BeforeAfterSlider(
-                      before: before,
-                      after: after,
-                      height: h,
-                    );
-                  }
-                  return SizedBox(
-                    height: h,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: before,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: after,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (chart.needsAfterPhoto) ...[
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: _patchingAfter ? null : () => _guideCapture(isBefore: false),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SoriTokens.primary,
-                  foregroundColor: SoriTokens.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: const Icon(Icons.camera_enhance_outlined),
-                label: Text(
-                  _patchingAfter ? '등록 중…' : 'After 가이드 촬영',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _patchingAfter ? null : _patchAfterOnly,
-                icon: _patchingAfter
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.photo_library_outlined),
-                label: Text(
-                  _patchingAfter ? '등록 중…' : '갤러리에서 After 등록',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
           ],
         ),
       ),
