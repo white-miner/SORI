@@ -30,7 +30,7 @@ import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
 import 'widgets/smart_flip_timer_hero.dart';
 
-/// 상담 Home — Pre-Consultation Dashboard (Sprint 3.3 + 4.5 timer).
+/// PRD v5.1 — 원장 GNB 홈(Operation Desk): flip timer · ENV · walk-in.
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 

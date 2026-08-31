@@ -233,8 +233,10 @@ class _AppShellPageState extends State<AppShellPage> {
                 onSettings: _openSettings,
               );
 
+        final isFeedTab = (tab == 0 && !isDirector) || tab == 3;
+
         if (!wide) {
-          final shellBody = tab == 0
+          final shellBody = isFeedTab
               ? FeedWheelMarginSurface(child: widget.navigationShell)
               : widget.navigationShell;
           return Scaffold(
@@ -253,7 +255,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
         // PC: Row push-sidebar (no Scaffold.drawer overlay).
         final hasComment = _store.activeCommentPostId != null;
-        final onHomeFeed = tab == 0;
+        final onHomeFeed = isFeedTab;
 
         Widget pcBody = Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

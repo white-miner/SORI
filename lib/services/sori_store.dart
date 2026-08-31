@@ -127,7 +127,7 @@ class SoriStore implements Listenable {
   /// Community 허브 탭: 0 전체 · 1 팔로잉 · 2 탐색.
   int? pendingCommunityHubTab;
 
-  /// 원장 「고객」허브 세그먼트: 0 Today · 1 고객 · 2 리뷰.
+  /// 원장 「고객」허브 세그먼트: 0 고객 · 1 리뷰 (상담은 GNB 홈).
   int? pendingCustomerHubSegment;
 
   /// GNB 탭 (0=홈 … 4=마이) — 루트 오버레이에서 셸로 전환할 때.
@@ -136,20 +136,20 @@ class SoriStore implements Listenable {
   /// 홈 내부 탭: 0 추천 · 1 탐색 · 2 우리 지역.
   int? pendingHomeInnerTab;
 
-  /// 마이페이지 등에서 홈 탐색으로 이동.
+  /// 마이페이지 등에서 커뮤니티 탐색으로 이동.
   void requestHomeExplore() {
-    pendingAppTab = 0;
+    pendingAppTab = 3;
     pendingHomeInnerTab = 1;
     _notify();
   }
 
-  /// GNB 로고 — 홈 탭(추천) 초기화 + 피드 새로고침.
+  /// GNB 로고 — 홈 탭 초기화 + 역할별 새로고침.
   bool appHomeRefreshing = false;
 
   Future<void> refreshAppHomeFromLogo() async {
     closeCommentPanel();
     pendingAppTab = 0;
-    pendingHomeInnerTab = 0;
+    pendingHomeInnerTab = null;
     pendingCommunityHubTab = null;
     pendingCommunitySegment = null;
     pendingCommunityComposeDevice = false;
@@ -158,24 +158,31 @@ class SoriStore implements Listenable {
     appHomeRefreshing = true;
     _notify();
     try {
-      final tasks = <Future<void>>[
-        refreshCommunityHotCases(),
-        refreshShopFandomMeta(),
-        refreshCaseBookmarks(),
-        refreshChartLikes(),
-        ensureCommunityHubWarm(force: true),
-      ];
       final session = this.session;
+      final tasks = <Future<void>>[];
       if (session?.activeMode == UserRole.director) {
         tasks.addAll([
           refreshShopNotifications(),
           refreshShopSupporterHeader(),
+          refreshVisitSessions(force: true),
+          visit.ensureLoaded(),
+          refreshCareScheduleEntries(),
         ]);
-      } else if ((session?.customerId ?? '').trim().isNotEmpty) {
+      } else {
+        pendingHomeInnerTab = 0;
         tasks.addAll([
-          refreshCustomerEchoWallet(),
-          refreshMyBoostGifts(),
+          refreshCommunityHotCases(),
+          refreshShopFandomMeta(),
+          refreshCaseBookmarks(),
+          refreshChartLikes(),
+          ensureCommunityHubWarm(force: true),
         ]);
+        if ((session?.customerId ?? '').trim().isNotEmpty) {
+          tasks.addAll([
+            refreshCustomerEchoWallet(),
+            refreshMyBoostGifts(),
+          ]);
+        }
       }
       await Future.wait(tasks);
     } finally {
@@ -187,7 +194,7 @@ class SoriStore implements Listenable {
   /// 원장 GNB 「고객」→ 리뷰 세그먼트.
   void requestCustomerReviews() {
     pendingAppTab = 1;
-    pendingCustomerHubSegment = 2;
+    pendingCustomerHubSegment = 1;
     _notify();
   }
 

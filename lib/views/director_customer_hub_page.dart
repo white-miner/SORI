@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
-import '../features/visit/visit_launcher_page.dart';
 import 'director_customers_tab.dart';
 import 'director_review_manage_page.dart';
 
-/// 원장 GNB 「고객」— Visit · 고객 · 리뷰 (PRD v3.0 Phase 1).
+/// 원장 GNB 「고객」— CRM · 리뷰 (PRD v5.1: 상담 → 홈 승격).
 class DirectorCustomerHubPage extends StatefulWidget {
   const DirectorCustomerHubPage({super.key, required this.store});
 
@@ -30,9 +29,9 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
   @override
   void initState() {
     super.initState();
-    final initial = (store.pendingCustomerHubSegment ?? 0).clamp(0, 2);
+    final initial = (store.pendingCustomerHubSegment ?? 0).clamp(0, 1);
     store.pendingCustomerHubSegment = null;
-    _tabs = TabController(length: 3, vsync: this, initialIndex: initial);
+    _tabs = TabController(length: 2, vsync: this, initialIndex: initial);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.visit.ensureLoaded();
@@ -52,7 +51,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
     final pending = store.pendingCustomerHubSegment;
     if (pending != null) {
       store.pendingCustomerHubSegment = null;
-      final i = pending.clamp(0, 2);
+      final i = pending.clamp(0, 1);
       if (_tabs.index != i) {
         _tabs.animateTo(i);
       }
@@ -71,15 +70,14 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
             color: SoriTokens.background,
             child: SoriYoutubeTabBar(
               controller: _tabs,
-              labels: const ['상담', '고객', '리뷰'],
-              badges: [0, 0, _reviewBadge],
+              labels: const ['고객', '리뷰'],
+              badges: [0, _reviewBadge],
             ),
           ),
           Expanded(
             child: TabBarView(
               controller: _tabs,
               children: [
-                VisitLauncherPage(store: store),
                 DirectorCustomersTab(store: store),
                 DirectorReviewManagePage(store: store),
               ],

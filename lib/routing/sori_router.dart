@@ -10,11 +10,11 @@ import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
 import '../features/crm_today/care_schedule_lead_page.dart';
 import '../views/care_report_page.dart';
-import '../views/community_page.dart';
 import '../views/customer_care_page.dart';
 import '../views/customer_review_dashboard_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/customer_profile_page.dart';
+import '../features/visit/visit_launcher_page.dart';
 import '../views/director_customer_hub_page.dart';
 import '../views/entry_home_page.dart';
 import '../views/my_page.dart';
@@ -36,7 +36,7 @@ abstract final class AppPaths {
   /// 원장: 촬영 허브 / 고객: 리뷰 작성 (브랜치 index 2).
   static const appReview = '/app/review';
   static const appShoot = '/app/shoot';
-  /// B2B Community 광장 (구 관리 케이스 탭 자리).
+  /// B2B Community — UnifiedHomeFeedPage (Phase 3 social asset).
   static const appCommunity = '/app/community';
   /// 레거시 경로 — Community로 리다이렉트.
   static const appCases = '/app/cases';
@@ -347,7 +347,11 @@ class _RoleHome extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        // 원장·고객 공통 통합 커뮤니티 홈 피드
+        final isDirector = store.session?.activeMode == UserRole.director;
+        if (isDirector) {
+          // PRD v5.1 IA-1 — 원장 홈 = 현장 Operation Desk.
+          return VisitLauncherPage(store: store);
+        }
         return UnifiedHomeFeedPage(
           store: store,
           onSelectTab: (i) => _goShellTab(context, i),
@@ -403,7 +407,13 @@ class _RoleCommunityTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: store,
-      builder: (context, _) => CommunityPage(store: store),
+      builder: (context, _) {
+        // PRD v5.1 IA-1 — 소셜 피드 격리 보존 (CommunityPage는 Phase 3용 유지).
+        return UnifiedHomeFeedPage(
+          store: store,
+          onSelectTab: (i) => _goShellTab(context, i),
+        );
+      },
     );
   }
 }
