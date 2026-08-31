@@ -8,6 +8,7 @@ import '../../utils/sori_uuid.dart';
 import '../../visit_kernel/models/care_program_template.dart';
 import '../../visit_kernel/models/preset_slot_tint.dart';
 import '../../visit_kernel/models/visit_operation_timer.dart';
+import 'care_timer_tts_service.dart';
 import 'visit_timer_local_cache.dart';
 
 /// PRD v4.5 — 3-button timer engine (total / chart / care tracks).
@@ -24,6 +25,10 @@ class VisitTimerStore extends ChangeNotifier {
       List.generate(5, (i) => PresetSlotTint.defaultForSlot(i));
   VisitOperationTimer? active;
   int selectedPresetSlot = 0;
+
+  String? _ttsSessionId;
+  int _ttsLastStepAnnounced = -1;
+  bool _ttsPlanCompleteAnnounced = false;
 
   void bind(SoriStore store, SoriRepository repository) {
     _store = store;
@@ -90,23 +95,113 @@ class VisitTimerStore extends ChangeNotifier {
 
     if (cachedActive != null && cachedActive.status != VisitTimerStatus.done) {
       active = cachedActive;
+    }
+
+    final session = _store?.activeVisitSession;
+    if (session != null) {
+      try {
+        final remote =
+            await _repository?.loadVisitOperationTimer(session.id);
+        if (remote != null && remote.status != VisitTimerStatus.done) {
+          active = _pickNewer(active, remote);
+        }
+      } catch (_) {}
+    }
+
+    if (active != null && active!.status != VisitTimerStatus.done) {
+      _restoreTtsMarkersFrom(active!);
       _ensureTicking();
-      await _advanceStepsIfNeeded();
+      await _advanceStepsIfNeeded(silent: true);
     } else {
-      final session = _store?.activeVisitSession;
-      if (session != null) {
-        try {
-          final remote =
-              await _repository?.loadVisitOperationTimer(session.id);
-          if (remote != null && remote.status != VisitTimerStatus.done) {
-            active = remote;
-            _ensureTicking();
-          }
-        } catch (_) {}
-      }
+      active = null;
     }
 
     notifyListeners();
+  }
+
+  /// Background resume — merge local cache + Supabase, catch up steps.
+  Future<void> syncOnResume() async {
+    final sid = _shopId;
+    if (sid == null || sid.isEmpty) return;
+
+    final current = active;
+    if (current == null ||
+        current.status == VisitTimerStatus.done ||
+        current.status == VisitTimerStatus.idle) {
+      return;
+    }
+
+    VisitOperationTimer? cached;
+    try {
+      cached = await VisitTimerLocalCache.loadActiveTimer(sid);
+    } catch (_) {}
+
+    VisitOperationTimer? remote;
+    try {
+      remote =
+          await _repository?.loadVisitOperationTimer(current.visitSessionId);
+    } catch (_) {}
+
+    final merged = _pickNewer(
+      cached?.visitSessionId == current.visitSessionId ? cached : null,
+      remote,
+    );
+    if (merged != null && merged.visitSessionId == current.visitSessionId) {
+      active = merged;
+      _restoreTtsMarkersFrom(active!);
+    }
+
+    await _advanceStepsIfNeeded(silent: true);
+    notifyListeners();
+  }
+
+  VisitOperationTimer? _pickNewer(
+    VisitOperationTimer? a,
+    VisitOperationTimer? b,
+  ) {
+    if (a == null) return b;
+    if (b == null) return a;
+    final aTime = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bTime = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return aTime.isAfter(bTime) ? a : b;
+  }
+
+  void _resetTtsMarkers(String sessionId) {
+    _ttsSessionId = sessionId;
+    _ttsLastStepAnnounced = -1;
+    _ttsPlanCompleteAnnounced = false;
+  }
+
+  void _restoreTtsMarkersFrom(VisitOperationTimer timer) {
+    _ttsSessionId = timer.visitSessionId;
+    _ttsLastStepAnnounced = timer.currentStepIndex.clamp(-1, 999);
+    _ttsPlanCompleteAnnounced =
+        timer.status == VisitTimerStatus.careOvertime ||
+            timer.status == VisitTimerStatus.postCare ||
+            timer.status == VisitTimerStatus.done;
+  }
+
+  void _announceCareStartIfNeeded() {
+    if (active == null) return;
+    if (_ttsSessionId != active!.visitSessionId) {
+      _resetTtsMarkers(active!.visitSessionId);
+    }
+    if (_ttsLastStepAnnounced >= 0) return;
+    _ttsLastStepAnnounced = 0;
+    unawaited(CareTimerTtsService.announceCareStart());
+  }
+
+  void _announceNextStepIfNeeded(int stepIndex) {
+    if (active == null || stepIndex <= 0) return;
+    if (_ttsLastStepAnnounced >= stepIndex) return;
+    _ttsLastStepAnnounced = stepIndex;
+    unawaited(CareTimerTtsService.announceNextStep());
+  }
+
+  void _announcePlanCompleteIfNeeded() {
+    if (_ttsPlanCompleteAnnounced) return;
+    _ttsPlanCompleteAnnounced = true;
+    unawaited(CareTimerTtsService.announceCarePlanComplete());
   }
 
   List<CareProgramTemplate> _mergePresetSlots(
@@ -229,6 +324,8 @@ class VisitTimerStore extends ChangeNotifier {
     );
     await _persist(active!);
     await _logEvent('care_started', {'preset': preset.name});
+    _resetTtsMarkers(active!.visitSessionId);
+    _announceCareStartIfNeeded();
     _ensureTicking();
     notifyListeners();
   }
@@ -310,7 +407,7 @@ class VisitTimerStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _advanceStepsIfNeeded() async {
+  Future<void> _advanceStepsIfNeeded({bool silent = false}) async {
     final timer = active;
     if (timer == null || timer.status != VisitTimerStatus.care) return;
     if (timer.currentStepIndex >= timer.templateSnapshot.length) {
@@ -321,6 +418,7 @@ class VisitTimerStore extends ChangeNotifier {
         );
         await _persist(active!);
         await _logEvent('care_plan_complete', {});
+        if (!silent) _announcePlanCompleteIfNeeded();
       }
       return;
     }
@@ -342,6 +440,7 @@ class VisitTimerStore extends ChangeNotifier {
       );
       await _persist(active!);
       await _logEvent('care_plan_complete', {});
+      if (!silent) _announcePlanCompleteIfNeeded();
     } else {
       active = active!.copyWith(
         currentStepIndex: nextIndex,
@@ -350,6 +449,7 @@ class VisitTimerStore extends ChangeNotifier {
       );
       await _persist(active!);
       await _logEvent('step_completed', {'index': timer.currentStepIndex});
+      if (!silent) _announceNextStepIfNeeded(nextIndex);
     }
   }
 

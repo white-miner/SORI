@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/sori_store.dart';
-import '../../../theme/sori_tokens.dart';
-import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/visit_operation_timer.dart';
 import '../../../visit_kernel/models/visit_session.dart';
 import '../visit_timer_store.dart';
+import 'care_timer_action_strip.dart';
 import 'care_timer_preset_editor_page.dart';
 import 'flip_clock_display.dart';
+import 'preset_slot_row.dart';
 import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
@@ -118,9 +118,10 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
                 ),
               ],
             ),
-            _PresetChipRow(
+            PresetSlotRow(
               selected: timer.selectedPresetSlot,
               presets: timer.presets,
+              tintAt: timer.tintAt,
               onSelect: (i) {
                 timer.selectPresetSlot(i);
                 setState(() {});
@@ -133,6 +134,8 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
                 stepLabel: stepLabel,
                 subtitle: subtitle,
                 compact: true,
+                showSeconds: false,
+                style: FlipClockStyle.darkGlass,
               ),
             ),
             if (snap != null) ...[
@@ -144,7 +147,14 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
               ),
             ],
             const SizedBox(height: 14),
-            ..._actionButtons(active),
+            CareTimerActionStrip(
+              timer: active,
+              onConsultationStart: widget.onConsultationStart,
+              onOpenChart: widget.onOpenChart,
+              onCareStart: widget.onCareStart,
+              onCareEnd: widget.onCareEnd,
+              onVisitEnd: widget.onVisitEnd,
+            ),
             if (active?.status == VisitTimerStatus.postCare &&
                 !active!.afterPhotoCaptured) ...[
               const SizedBox(height: 12),
@@ -211,93 +221,6 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
     }
     return '전체 ${snap.formatDuration(snap.totalSeconds)}';
   }
-
-  List<Widget> _actionButtons(VisitOperationTimer? active) {
-    final status = active?.status ?? VisitTimerStatus.idle;
-
-    if (status == VisitTimerStatus.idle) {
-      return [
-        _PrimaryBtn(label: '상담 시작', onPressed: widget.onConsultationStart),
-      ];
-    }
-
-    if (status == VisitTimerStatus.consulting ||
-        status == VisitTimerStatus.prep) {
-      return [
-        _SecondaryBtn(label: '차트 열기', onPressed: widget.onOpenChart),
-        const SizedBox(height: 8),
-        _PrimaryBtn(
-          label: '케어 시작',
-          onPressed: timer.presetAt(timer.selectedPresetSlot).steps.isEmpty
-              ? null
-              : widget.onCareStart,
-        ),
-      ];
-    }
-
-    if (status == VisitTimerStatus.care ||
-        status == VisitTimerStatus.careOvertime) {
-      return [
-        _PrimaryBtn(
-          label: '케어 종료',
-          onPressed: active!.canEndCare ? widget.onCareEnd : null,
-          enabled: active.canEndCare,
-        ),
-      ];
-    }
-
-    if (status == VisitTimerStatus.postCare) {
-      return [
-        _PrimaryBtn(label: '방문 종료', onPressed: widget.onVisitEnd),
-      ];
-    }
-
-    return [];
-  }
-}
-
-class _PresetChipRow extends StatelessWidget {
-  const _PresetChipRow({
-    required this.selected,
-    required this.presets,
-    required this.onSelect,
-  });
-
-  final int selected;
-  final List<CareProgramTemplate> presets;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(5, (i) {
-          final p = i < presets.length ? presets[i] : null;
-          final hasPreset = p != null && !p.isEmpty;
-          final label =
-              hasPreset ? p.name.trim() : '슬롯 ${i + 1}';
-          final isSelected = i == selected;
-          return Padding(
-            padding: EdgeInsets.only(right: i < 4 ? 6 : 0),
-            child: FilterChip(
-              label: Text(label, overflow: TextOverflow.ellipsis),
-              selected: isSelected,
-              onSelected: hasPreset ? (_) => onSelect(i) : null,
-              labelStyle: GoogleFonts.nunito(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : const Color(0xFF3A3A3C),
-              ),
-              selectedColor: SoriTokens.primary,
-              backgroundColor: Colors.white.withValues(alpha: 0.85),
-              showCheckmark: false,
-            ),
-          );
-        }),
-      ),
-    );
-  }
 }
 
 class _MetricRow extends StatelessWidget {
@@ -345,64 +268,6 @@ class _Metric extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PrimaryBtn extends StatelessWidget {
-  const _PrimaryBtn({
-    required this.label,
-    required this.onPressed,
-    this.enabled = true,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: enabled ? onPressed : null,
-        style: VolumeGlassTheme.carePrimaryButtonStyle(enabled: enabled),
-        child: Text(
-          label,
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
-        ),
-      ),
-    );
-  }
-}
-
-class _SecondaryBtn extends StatelessWidget {
-  const _SecondaryBtn({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          foregroundColor: SoriTokens.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              VolumeGlassTheme.cardRadius * 0.58,
-            ),
-          ),
-          side: BorderSide.none,
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
-        ),
-      ),
     );
   }
 }

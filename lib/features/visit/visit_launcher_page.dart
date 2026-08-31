@@ -40,7 +40,8 @@ class VisitLauncherPage extends StatefulWidget {
   State<VisitLauncherPage> createState() => _VisitLauncherPageState();
 }
 
-class _VisitLauncherPageState extends State<VisitLauncherPage> {
+class _VisitLauncherPageState extends State<VisitLauncherPage>
+    with WidgetsBindingObserver {
   bool _loading = true;
   ShopClimateContext? _climate;
   ClinicalTrendSnapshot? _trends;
@@ -52,6 +53,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     visit.addListener(_onVisit);
     widget.store.addListener(_onVisit);
     VisitTimerStore.instance.addListener(_onVisit);
@@ -60,6 +62,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     visit.removeListener(_onVisit);
     widget.store.removeListener(_onVisit);
     VisitTimerStore.instance.removeListener(_onVisit);
@@ -118,6 +121,13 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(VisitTimerStore.instance.syncOnResume());
+    }
   }
 
   void _onVisit() {
@@ -352,6 +362,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
   @override
   Widget build(BuildContext context) {
     final snap = _agendaSnapshot();
+    final heroSession = snap.activeSessions.firstOrNull ??
+        widget.store.activeVisitSession;
 
     return ColoredBox(
       color: _groupedBg,
@@ -372,15 +384,25 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
               SliverToBoxAdapter(
                 child: SmartFlipTimerHero(
                   store: widget.store,
-                  activeSession: snap.activeSessions.firstOrNull ??
-                      widget.store.activeVisitSession,
-                  onOpenSession: snap.activeSessions.isNotEmpty
-                      ? () => _openSessionView(snap.activeSessions.first)
-                      : widget.store.activeVisitSession != null
-                          ? () => _openSessionView(
-                                widget.store.activeVisitSession!,
-                              )
-                          : null,
+                  activeSession: heroSession,
+                  onOpenSession: heroSession != null
+                      ? () => _openSessionView(heroSession)
+                      : null,
+                  onConsultationStart: heroSession != null
+                      ? () => _beginConsultation(heroSession)
+                      : null,
+                  onOpenChart: heroSession != null
+                      ? () => _openChartForSession(heroSession)
+                      : null,
+                  onCareStart: heroSession != null
+                      ? () => _handleCareStart(heroSession)
+                      : null,
+                  onCareEnd: heroSession != null
+                      ? () => _handleCareEnd(heroSession)
+                      : null,
+                  onVisitEnd: heroSession != null
+                      ? () => _endVisit(heroSession)
+                      : null,
                 ),
               ),
               SliverToBoxAdapter(

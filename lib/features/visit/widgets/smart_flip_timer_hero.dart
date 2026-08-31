@@ -6,6 +6,7 @@ import '../../../services/sori_store.dart';
 import '../../../visit_kernel/models/visit_operation_timer.dart';
 import '../../../visit_kernel/models/visit_session.dart';
 import '../../operation/visit_timer_store.dart';
+import '../../operation/widgets/care_timer_action_strip.dart';
 import '../../operation/widgets/care_timer_preset_editor_page.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/preset_slot_row.dart';
@@ -19,11 +20,21 @@ class SmartFlipTimerHero extends StatefulWidget {
     required this.store,
     this.activeSession,
     this.onOpenSession,
+    this.onConsultationStart,
+    this.onOpenChart,
+    this.onCareStart,
+    this.onCareEnd,
+    this.onVisitEnd,
   });
 
   final SoriStore store;
   final VisitSession? activeSession;
   final VoidCallback? onOpenSession;
+  final VoidCallback? onConsultationStart;
+  final VoidCallback? onOpenChart;
+  final VoidCallback? onCareStart;
+  final VoidCallback? onCareEnd;
+  final VoidCallback? onVisitEnd;
 
   @override
   State<SmartFlipTimerHero> createState() => _SmartFlipTimerHeroState();
@@ -93,18 +104,21 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
     VisitOperationTimer? active,
     VisitTimerLiveSnapshot? snap,
   ) {
-    if (!_isCareMode(active) || snap == null) {
-      return _wallClockSeconds();
+    if (active != null && _isTimerActive(active) && snap != null) {
+      if (_isCareMode(active)) {
+        if (active.status == VisitTimerStatus.care) {
+          return snap.currentStepRemainingSeconds > 0
+              ? snap.currentStepRemainingSeconds
+              : snap.careSeconds;
+        }
+        if (active.status == VisitTimerStatus.careOvertime) {
+          return snap.careSeconds;
+        }
+        return snap.totalSeconds;
+      }
+      return snap.totalSeconds;
     }
-    if (active!.status == VisitTimerStatus.care) {
-      return snap.currentStepRemainingSeconds > 0
-          ? snap.currentStepRemainingSeconds
-          : snap.careSeconds;
-    }
-    if (active.status == VisitTimerStatus.careOvertime) {
-      return snap.careSeconds;
-    }
-    return snap.totalSeconds;
+    return _wallClockSeconds();
   }
 
   String? _stepLabel(
@@ -136,69 +150,76 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
     final timerActive = _isTimerActive(active);
     final stepLabel = _stepLabel(active, snap);
 
+    final hasActions = session != null &&
+        widget.onConsultationStart != null &&
+        widget.onOpenChart != null &&
+        widget.onCareStart != null &&
+        widget.onCareEnd != null &&
+        widget.onVisitEnd != null;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Material(
         color: VolumeGlassTheme.cardFillColor(),
         elevation: 0,
         borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
-        child: InkWell(
-          onTap: widget.onOpenSession,
-          borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
-              boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.05),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PresetSlotRow(
-                    selected: timer.selectedPresetSlot,
-                    presets: timer.presets,
-                    tintAt: timer.tintAt,
-                    onSelect: (i) {
-                      timer.selectPresetSlot(i);
-                      setState(() {});
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  const _HeroDivider(),
-                  SizedBox(height: careMode ? 14 : 22),
-                  if (timerActive) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.access_time_filled_rounded,
-                          size: 18,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+            boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.05),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                PresetSlotRow(
+                  selected: timer.selectedPresetSlot,
+                  presets: timer.presets,
+                  tintAt: timer.tintAt,
+                  onSelect: (i) {
+                    timer.selectPresetSlot(i);
+                    setState(() {});
+                  },
+                ),
+                const SizedBox(height: 14),
+                const _HeroDivider(),
+                SizedBox(height: careMode ? 14 : 22),
+                if (timerActive) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.access_time_filled_rounded,
+                        size: 18,
+                        color: SemanticSignalTheme.red,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        careMode ? '케어 타이머 진행 중' : '세션 타이머 진행 중',
+                        style: VolumeGlassTheme.labelTextStyle(compact: true)
+                            .copyWith(
+                          fontWeight: FontWeight.w700,
                           color: SemanticSignalTheme.red,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          careMode ? '케어 타이머 진행 중' : '세션 타이머 진행 중',
-                          style: VolumeGlassTheme.labelTextStyle(compact: true)
-                              .copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: SemanticSignalTheme.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (careMode && stepLabel != null) ...[
-                    Text(
-                      stepLabel,
-                      textAlign: TextAlign.center,
-                      style: VolumeGlassTheme.labelTextStyle(compact: true)
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  Center(
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                if (careMode && stepLabel != null) ...[
+                  Text(
+                    stepLabel,
+                    textAlign: TextAlign.center,
+                    style: VolumeGlassTheme.labelTextStyle(compact: true)
+                        .copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                GestureDetector(
+                  onTap: widget.onOpenSession,
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
                     child: FlipClockDisplay(
                       totalSeconds: _displaySeconds(active, snap),
                       hero: true,
@@ -206,15 +227,26 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
                       style: FlipClockStyle.darkGlass,
                     ),
                   ),
-                  SizedBox(height: careMode ? 14 : 22),
-                  const _HeroDivider(),
-                  const SizedBox(height: 12),
-                  _HeroFooter(
-                    dateLabel: _koreanDate(DateTime.now()),
-                    onSettings: _openPresetEditor,
+                ),
+                if (hasActions) ...[
+                  SizedBox(height: careMode ? 14 : 18),
+                  CareTimerActionStrip(
+                    timer: active,
+                    onConsultationStart: widget.onConsultationStart!,
+                    onOpenChart: widget.onOpenChart!,
+                    onCareStart: widget.onCareStart!,
+                    onCareEnd: widget.onCareEnd!,
+                    onVisitEnd: widget.onVisitEnd!,
                   ),
                 ],
-              ),
+                SizedBox(height: careMode ? 14 : 22),
+                const _HeroDivider(),
+                const SizedBox(height: 12),
+                _HeroFooter(
+                  dateLabel: _koreanDate(DateTime.now()),
+                  onSettings: _openPresetEditor,
+                ),
+              ],
             ),
           ),
         ),
