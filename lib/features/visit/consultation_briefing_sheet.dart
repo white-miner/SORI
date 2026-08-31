@@ -102,6 +102,30 @@ class _ConsultationBriefingSheetState extends State<_ConsultationBriefingSheet> 
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   children: [
                     _Header(briefing: briefing),
+                    if (briefing.trendLead != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.06),
+                          ),
+                        ),
+                        child: SoriNarrativeBlock(
+                          headline:
+                              '트렌드 · ${briefing.trendLead!.keyword} +${briefing.trendLead!.surgePct}%',
+                          narrative: briefing.trendLead!.narrative,
+                          icon: Icons.trending_up_outlined,
+                          compact: true,
+                        ),
+                      ),
+                    ],
                     if (briefing.sosSignal.grade.index > 0) ...[
                       const SizedBox(height: 12),
                       SosSignalCard(signal: briefing.sosSignal),

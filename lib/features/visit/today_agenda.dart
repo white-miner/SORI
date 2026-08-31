@@ -5,6 +5,7 @@ import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../operation/clinical_assistant_store.dart';
 import '../operation/models/clinical_environment_brief.dart';
+import '../operation/models/clinical_trend_snapshot.dart';
 import '../operation/models/consultation_deep_mode.dart';
 import '../operation/models/sos_signal.dart';
 import '../operation/models/visit_biometrics.dart';
@@ -247,6 +248,7 @@ class ConsultationBriefing {
     this.biometrics = const VisitBiometrics(),
     this.deepMode = ConsultationDeepMode.fullDesign,
     this.environmentBrief = ClinicalEnvironmentBrief.standard,
+    this.trendLead,
   });
 
   final TodayAgendaItem item;
@@ -260,6 +262,7 @@ class ConsultationBriefing {
   final VisitBiometrics biometrics;
   final ConsultationDeepMode deepMode;
   final ClinicalEnvironmentBrief environmentBrief;
+  final ClinicalTrendItem? trendLead;
 
   List<String> get concernChips => priorChart?.careTags ?? const [];
 
@@ -298,6 +301,7 @@ ConsultationBriefing buildConsultationBriefing(
       todayDraft?.visitBiometrics ??
       const VisitBiometrics();
   final climate = ClinicalAssistantStore.instance.current;
+  final trendLead = ClinicalAssistantStore.instance.trends?.briefingLead;
   final deepMode = resolveDeepMode(
     track: item.track,
     sos: item.sosSignal,
@@ -339,6 +343,7 @@ ConsultationBriefing buildConsultationBriefing(
     biometrics: biometrics,
     deepMode: deepMode,
     environmentBrief: climate?.brief ?? ClinicalEnvironmentBrief.standard,
+    trendLead: trendLead,
   );
 }
 

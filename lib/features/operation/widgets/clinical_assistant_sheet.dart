@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../visit_kernel/theme/visit_glass_tokens.dart';
+import '../models/clinical_trend_snapshot.dart';
 import '../models/shop_climate_context.dart';
+import 'clinical_trend_radar_strip.dart';
 import 'skin_stress_gauge.dart';
 import 'sori_narrative_block.dart';
 
-/// PRD v4.2-B — Strip 탭 → 전체 임상 환경 시트.
+/// PRD v4.2 + v4.3 — Strip 탭 → SSI + Trend Radar 풀 시트.
 Future<void> showClinicalAssistantSheet({
   required BuildContext context,
   required ShopClimateContext climate,
+  ClinicalTrendSnapshot? trends,
+  ClinicalTrendItem? initialTrend,
   int tempoLevel = 1,
 }) {
   return showModalBottomSheet<void>(
@@ -17,35 +21,57 @@ Future<void> showClinicalAssistantSheet({
     backgroundColor: Colors.transparent,
     builder: (ctx) => _ClinicalAssistantSheet(
       climate: climate,
+      trends: trends,
+      initialTrend: initialTrend,
       tempoLevel: tempoLevel,
     ),
   );
 }
 
-class _ClinicalAssistantSheet extends StatelessWidget {
+class _ClinicalAssistantSheet extends StatefulWidget {
   const _ClinicalAssistantSheet({
     required this.climate,
+    this.trends,
+    this.initialTrend,
     required this.tempoLevel,
   });
 
   final ShopClimateContext climate;
+  final ClinicalTrendSnapshot? trends;
+  final ClinicalTrendItem? initialTrend;
   final int tempoLevel;
 
-  static const _groupedBg = Color(0xFFF2F2F7);
+  @override
+  State<_ClinicalAssistantSheet> createState() => _ClinicalAssistantSheetState();
+}
+
+class _ClinicalAssistantSheetState extends State<_ClinicalAssistantSheet> {
+  ClinicalTrendItem? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    final trends = widget.trends;
+    _selected = widget.initialTrend ??
+        trends?.top3.firstOrNull ??
+        trends?.briefingLead;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final brief = climate.brief;
+    final brief = widget.climate.brief;
+    final trends = widget.trends;
+    final selected = _selected;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.62,
-      minChildSize: 0.45,
-      maxChildSize: 0.9,
+      initialChildSize: 0.68,
+      minChildSize: 0.48,
+      maxChildSize: 0.92,
       expand: false,
       builder: (context, scrollController) {
         return DecoratedBox(
           decoration: const BoxDecoration(
-            color: _groupedBg,
+            color: Color(0xFFF2F2F7),
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -66,13 +92,13 @@ class _ClinicalAssistantSheet extends StatelessWidget {
                   children: [
                     Center(
                       child: SkinStressGauge(
-                        ssi: climate.ssi,
+                        ssi: widget.climate.ssi,
                         size: 160,
                         strokeWidth: 11,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _MetricGrid(climate: climate),
+                    _MetricGrid(climate: widget.climate),
                     const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
@@ -90,6 +116,80 @@ class _ClinicalAssistantSheet extends StatelessWidget {
                         icon: Icons.spa_outlined,
                       ),
                     ),
+                    if (trends != null && trends.top3.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        '임상 트렌드 레이더',
+                        style: VisitGlassTokens.captionCalm.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: VisitGlassTokens.care,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final item in trends.top3)
+                            _SelectableTrendChip(
+                              item: item,
+                              selected: selected?.id == item.id,
+                              onTap: () => setState(() => _selected = item),
+                            ),
+                        ],
+                      ),
+                      if (selected != null) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.06),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Center(
+                                child: TrendSparkline(
+                                  values: selected.sparkline7d,
+                                  width: 220,
+                                  height: 44,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Naver ${selected.naverScore} · CTI ${selected.cti}',
+                                style: VisitGlassTokens.captionCalm.copyWith(
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SoriNarrativeBlock(
+                                headline: selected.headline,
+                                narrative: selected.narrative,
+                                icon: Icons.trending_up_outlined,
+                                compact: true,
+                              ),
+                              if (brief.shouldSurface) ...[
+                                const SizedBox(height: 10),
+                                SoriNarrativeBlock(
+                                  headline: '환경 연계',
+                                  narrative:
+                                      'SSI ${widget.climate.ssi.band.label} — ${brief.headline}과 함께 "${selected.keyword}" 상담 화법을 연결하세요.',
+                                  compact: true,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                     if (brief.alerts.length > 1) ...[
                       const SizedBox(height: 12),
                       for (final alert in brief.alerts.skip(1).take(3))
@@ -123,7 +223,7 @@ class _ClinicalAssistantSheet extends StatelessWidget {
                       label: '장비 강도 상한',
                       value: 'Level ${brief.deviceIntensityCap}',
                     ),
-                    if (tempoLevel >= 4) ...[
+                    if (widget.tempoLevel >= 4) ...[
                       const SizedBox(height: 12),
                       const SoriNarrativeBlock(
                         headline: '과밀 스케줄',
@@ -139,6 +239,50 @@ class _ClinicalAssistantSheet extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SelectableTrendChip extends StatelessWidget {
+  const _SelectableTrendChip({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ClinicalTrendItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? VisitGlassTokens.care : const Color(0xFFF2F2F7),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: selected ? 0.12 : 0.06),
+            ),
+          ),
+          child: Text(
+            item.surgePct > 0
+                ? '${item.keyword} +${item.surgePct}%'
+                : item.keyword,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : VisitGlassTokens.care,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

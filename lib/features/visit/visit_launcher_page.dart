@@ -13,12 +13,15 @@ import '../../visit_kernel/visit_store.dart';
 import '../operation/clinical_assistant_store.dart';
 import '../operation/models/clinical_environment_brief.dart';
 import '../operation/models/consultation_deep_mode.dart';
+import '../operation/models/clinical_trend_snapshot.dart';
 import '../operation/models/shop_climate_context.dart';
 import '../operation/models/sos_signal.dart';
 import '../operation/models/visit_biometrics.dart';
 import '../operation/shop_climate_service.dart';
+import '../operation/shop_clinical_trend_service.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/clinical_assistant_strip.dart';
+import '../operation/widgets/clinical_trend_radar_strip.dart';
 import '../operation/widgets/sos_signal_bar.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_briefing_sheet.dart';
@@ -41,6 +44,7 @@ class VisitLauncherPage extends StatefulWidget {
 class _VisitLauncherPageState extends State<VisitLauncherPage> {
   bool _loading = true;
   ShopClimateContext? _climate;
+  ClinicalTrendSnapshot? _trends;
 
   VisitStore get visit => widget.store.visit;
 
@@ -67,6 +71,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       visit.ensureLoaded(force: force),
       widget.store.refreshCareScheduleEntries(force: force),
       _loadClimate(),
+      _loadTrends(),
     ]);
     if (!mounted) return;
     _autoWarmNextCustomer();
@@ -85,7 +90,17 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
     }
   }
 
-  void _openClinicalSheet() {
+  Future<void> _loadTrends() async {
+    try {
+      final snap = await ShopClinicalTrendService.instance
+          .fetchForShop(widget.store.shop);
+      if (mounted) _trends = snap;
+    } catch (_) {
+      if (mounted) _trends = ClinicalTrendSnapshot.fallback();
+    }
+  }
+
+  void _openClinicalSheet({ClinicalTrendItem? trend}) {
     final climate = _climate;
     if (climate == null) return;
     final snap = _agendaSnapshot();
@@ -93,6 +108,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
       showClinicalAssistantSheet(
         context: context,
         climate: climate,
+        trends: _trends,
+        initialTrend: trend,
         tempoLevel: computeTempoLevel(
           scheduledCount: snap.scheduledCount,
           inProgressCount: snap.inProgressCount,
@@ -427,7 +444,16 @@ class _VisitLauncherPageState extends State<VisitLauncherPage> {
                       scheduledCount: snap.scheduledCount,
                       inProgressCount: snap.inProgressCount,
                     ),
-                    onTap: _openClinicalSheet,
+                    onTap: () => _openClinicalSheet(),
+                  ),
+                ),
+              if (_trends != null)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ClinicalTrendRadarStripDelegate(
+                    snapshot: _trends!,
+                    onTap: () => _openClinicalSheet(),
+                    onChipTap: (item) => _openClinicalSheet(trend: item),
                   ),
                 ),
               if (snap.activeSessions.isNotEmpty) ...[
