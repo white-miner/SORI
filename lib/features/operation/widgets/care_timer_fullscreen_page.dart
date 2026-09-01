@@ -9,11 +9,13 @@ import '../../../visit_kernel/models/visit_operation_timer.dart';
 import '../../../visit_kernel/models/visit_session.dart';
 import '../care_timer_tts_service.dart';
 import '../visit_timer_store.dart';
-import 'care_segment_bar.dart';
+import 'care_stacked_segment_bar.dart';
+import 'care_timer_floating_bar.dart';
+import 'care_timer_step_list.dart';
 import 'flip_clock_display.dart';
 import 'volume_glass_theme.dart';
 
-/// PRD v5.2 Phase B — fullscreen care timer with segment bar + Hero flip.
+/// PRD v5.2 — fullscreen care timer (portrait + landscape, stacked queue).
 class CareTimerFullscreenPage extends StatefulWidget {
   const CareTimerFullscreenPage({
     super.key,
@@ -74,6 +76,8 @@ class CareTimerFullscreenPage extends StatefulWidget {
 class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
   VisitTimerStore get timer => VisitTimerStore.instance;
   bool _ttsMuted = CareTimerTtsService.isMuted;
+  bool _immersiveClock = false;
+  bool _floatingBarHidden = false;
 
   @override
   void initState() {
@@ -106,6 +110,27 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
     });
   }
 
+  void _toggleImmersive() {
+    setState(() {
+      _immersiveClock = !_immersiveClock;
+      if (!_immersiveClock) _floatingBarHidden = false;
+    });
+  }
+
+  void _hideFloatingBar() {
+    setState(() {
+      _floatingBarHidden = true;
+      _immersiveClock = true;
+    });
+  }
+
+  bool get _showCareEnd {
+    final active = _timer;
+    if (active == null) return false;
+    return active.status == VisitTimerStatus.care ||
+        active.status == VisitTimerStatus.careOvertime;
+  }
+
   @override
   Widget build(BuildContext context) {
     final active = _timer;
@@ -121,56 +146,92 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
     final isPaused = timer.carePaused;
     final currentIndex = active?.currentStepIndex ?? 0;
     final stepRemaining = snap?.currentStepRemainingSeconds ?? 0;
+    final isPlaying = isRunning && !isPaused;
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        bottom: !_immersiveClock,
+        child: Stack(
           children: [
-            _TopBar(
-              title: preset.name.trim().isEmpty ? '케어 타이머' : preset.name.trim(),
-              ttsMuted: _ttsMuted,
-              onClose: () => Navigator.of(context).pop(),
-              onToggleTts: _toggleTts,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_immersiveClock)
+                  _TopBar(
+                    title: '케어 타이머',
+                    onClose: () => Navigator.of(context).pop(),
+                  ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      _immersiveClock ? 0 : 8,
+                      16,
+                      _immersiveClock ? 0 : 12,
+                    ),
+                    child: isLandscape
+                        ? _LandscapeBody(
+                            steps: preset.steps,
+                            tint: tint,
+                            careSeconds: careSeconds,
+                            isArmed: isArmed,
+                            isRunning: isRunning,
+                            isPaused: isPaused,
+                            currentIndex: currentIndex,
+                            stepRemaining: stepRemaining,
+                            isOvertime: timer.isOvertime,
+                            isPlaying: isPlaying,
+                            isMuted: _ttsMuted,
+                            immersive: _immersiveClock,
+                            floatingBarHidden: _floatingBarHidden,
+                            onTogglePlayback: () => timer.toggleCarePlayback(),
+                            onToggleMute: _toggleTts,
+                            onToggleImmersive: _toggleImmersive,
+                            onHideFloatingBar: _hideFloatingBar,
+                            onStop: () => timer.pauseCare(),
+                            stepLabel: snap?.currentStepLabel,
+                          )
+                        : _PortraitBody(
+                            steps: preset.steps,
+                            tint: tint,
+                            careSeconds: careSeconds,
+                            isArmed: isArmed,
+                            isRunning: isRunning,
+                            isPaused: isPaused,
+                            currentIndex: currentIndex,
+                            stepRemaining: stepRemaining,
+                            isOvertime: timer.isOvertime,
+                            isPlaying: isPlaying,
+                            isMuted: _ttsMuted,
+                            immersive: _immersiveClock,
+                            onTogglePlayback: () => timer.toggleCarePlayback(),
+                            onToggleMute: _toggleTts,
+                            onToggleImmersive: _toggleImmersive,
+                            onStop: () => timer.pauseCare(),
+                            stepLabel: snap?.currentStepLabel,
+                          ),
+                  ),
+                ),
+                if (!_immersiveClock && active != null)
+                  _BottomActions(
+                    timer: active,
+                    onCareEnd: widget.onCareEnd,
+                    onVisitEnd: widget.onVisitEnd,
+                  ),
+              ],
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: isLandscape
-                    ? _LandscapeBody(
-                        steps: preset.steps,
-                        tint: tint,
-                        careSeconds: careSeconds,
-                        isArmed: isArmed,
-                        isRunning: isRunning,
-                        isPaused: isPaused,
-                        currentIndex: currentIndex,
-                        stepRemaining: stepRemaining,
-                        isOvertime: timer.isOvertime,
-                        onTogglePlayback: () => timer.toggleCarePlayback(),
-                        stepLabel: snap?.currentStepLabel,
-                      )
-                    : _PortraitBody(
-                        steps: preset.steps,
-                        tint: tint,
-                        careSeconds: careSeconds,
-                        isArmed: isArmed,
-                        isRunning: isRunning,
-                        isPaused: isPaused,
-                        currentIndex: currentIndex,
-                        stepRemaining: stepRemaining,
-                        isOvertime: timer.isOvertime,
-                        onTogglePlayback: () => timer.toggleCarePlayback(),
-                        stepLabel: snap?.currentStepLabel,
-                      ),
-              ),
-            ),
-            if (active != null)
-              _FullscreenControls(
-                timer: active,
-                onCareEnd: widget.onCareEnd,
-                onVisitEnd: widget.onVisitEnd,
+            if (_immersiveClock && _showCareEnd)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: _CareEndButton(
+                  onPressed: () async {
+                    await VisitTimerStore.instance.endCare();
+                    widget.onCareEnd?.call();
+                  },
+                ),
               ),
           ],
         ),
@@ -182,50 +243,53 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.title,
-    required this.ttsMuted,
     required this.onClose,
-    required this.onToggleTts,
   });
 
   final String title;
-  final bool ttsMuted;
   final VoidCallback onClose;
-  final VoidCallback onToggleTts;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          IconButton(
-            tooltip: '나가기',
-            onPressed: onClose,
-            icon: const Icon(Icons.close_rounded),
-          ),
-          Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.nunito(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              tooltip: '나가기',
+              onPressed: onClose,
+              icon: const Icon(Icons.close_rounded),
             ),
           ),
-          IconButton(
-            tooltip: ttsMuted ? '음성 안내 켜기' : '음성 안내 끄기',
-            onPressed: onToggleTts,
-            icon: Icon(
-              ttsMuted
-                  ? Icons.volume_off_rounded
-                  : Icons.volume_up_rounded,
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  const _GlassCard({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: VolumeGlassTheme.cardDecoration(radius: 22),
+      child: child,
     );
   }
 }
@@ -241,7 +305,13 @@ class _PortraitBody extends StatelessWidget {
     required this.currentIndex,
     required this.stepRemaining,
     required this.isOvertime,
+    required this.isPlaying,
+    required this.isMuted,
+    required this.immersive,
     required this.onTogglePlayback,
+    required this.onToggleMute,
+    required this.onToggleImmersive,
+    required this.onStop,
     this.stepLabel,
   });
 
@@ -254,7 +324,13 @@ class _PortraitBody extends StatelessWidget {
   final int currentIndex;
   final int stepRemaining;
   final bool isOvertime;
+  final bool isPlaying;
+  final bool isMuted;
+  final bool immersive;
   final VoidCallback onTogglePlayback;
+  final VoidCallback onToggleMute;
+  final VoidCallback onToggleImmersive;
+  final VoidCallback onStop;
   final String? stepLabel;
 
   @override
@@ -262,37 +338,83 @@ class _PortraitBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CareSegmentBar(
-          steps: steps,
-          tint: tint,
-          currentIndex: currentIndex,
-          isArmed: isArmed,
-          isRunning: isRunning,
-          isPaused: isPaused,
-          onTogglePlayback: onTogglePlayback,
-          stepRemainingSeconds: stepRemaining,
+        if (!immersive)
+          _GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: CareStackedSegmentBar(
+              steps: steps,
+              tint: tint,
+              currentIndex: currentIndex,
+              isArmed: isArmed,
+              isRunning: isRunning,
+              isPaused: isPaused,
+              stepRemainingSeconds: stepRemaining,
+            ),
+          ),
+        if (!immersive) const SizedBox(height: 12),
+        Expanded(
+          child: _GlassCard(
+            child: Column(
+              children: [
+                if (stepLabel != null &&
+                    stepLabel!.isNotEmpty &&
+                    !immersive)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      isArmed
+                          ? '▶ 를 눌러 케어를 시작하세요'
+                          : '현재: $stepLabel',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF8E8E93),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: immersive ? 1.12 : 1.0,
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutCubic,
+                      child: _MainFlipClock(
+                        careSeconds: careSeconds,
+                        large: immersive,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                CareTimerFloatingBar(
+                  isPlaying: isPlaying,
+                  isMuted: isMuted,
+                  isImmersive: immersive,
+                  onStop: onStop,
+                  onTogglePlay: onTogglePlayback,
+                  onToggleMute: onToggleMute,
+                  onToggleImmersive: onToggleImmersive,
+                ),
+              ],
+            ),
+          ),
         ),
-        if (isOvertime) ...[
+        if (!immersive) ...[
+          const SizedBox(height: 12),
+          CareTimerStepList(
+            steps: steps,
+            currentIndex: currentIndex,
+            isRunning: isRunning,
+          ),
+        ],
+        if (isOvertime && !immersive) ...[
           const SizedBox(height: 8),
           const Align(
             alignment: Alignment.centerLeft,
-            child: CareOvertimeSegmentChip(),
+            child: CareOvertimeStackChip(),
           ),
         ],
-        const Spacer(),
-        if (stepLabel != null && stepLabel!.isNotEmpty)
-          Text(
-            isArmed
-                ? '▶ 를 눌러 케어를 시작하세요'
-                : '현재: $stepLabel',
-            textAlign: TextAlign.center,
-            style: VolumeGlassTheme.labelTextStyle(compact: true).copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        const SizedBox(height: 12),
-        Center(child: _MainFlipClock(careSeconds: careSeconds)),
-        const Spacer(flex: 2),
       ],
     );
   }
@@ -309,7 +431,15 @@ class _LandscapeBody extends StatelessWidget {
     required this.currentIndex,
     required this.stepRemaining,
     required this.isOvertime,
+    required this.isPlaying,
+    required this.isMuted,
+    required this.immersive,
+    required this.floatingBarHidden,
     required this.onTogglePlayback,
+    required this.onToggleMute,
+    required this.onToggleImmersive,
+    required this.onHideFloatingBar,
+    required this.onStop,
     this.stepLabel,
   });
 
@@ -322,7 +452,15 @@ class _LandscapeBody extends StatelessWidget {
   final int currentIndex;
   final int stepRemaining;
   final bool isOvertime;
+  final bool isPlaying;
+  final bool isMuted;
+  final bool immersive;
+  final bool floatingBarHidden;
   final VoidCallback onTogglePlayback;
+  final VoidCallback onToggleMute;
+  final VoidCallback onToggleImmersive;
+  final VoidCallback onHideFloatingBar;
+  final VoidCallback onStop;
   final String? stepLabel;
 
   @override
@@ -330,75 +468,131 @@ class _LandscapeBody extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 160,
-          child: SingleChildScrollView(
+        if (!floatingBarHidden && !immersive)
+          GestureDetector(
+            onVerticalDragUpdate: (details) {
+              if (details.delta.dy > 6) onHideFloatingBar();
+            },
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: CareTimerFloatingBar(
+                vertical: true,
+                isPlaying: isPlaying,
+                isMuted: isMuted,
+                isImmersive: immersive,
+                showCollapse: true,
+                onStop: onStop,
+                onTogglePlay: onTogglePlayback,
+                onToggleMute: onToggleMute,
+                onToggleImmersive: onToggleImmersive,
+                onCollapse: onHideFloatingBar,
+              ),
+            ),
+          ),
+        if (!floatingBarHidden && !immersive) const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (stepLabel != null &&
+                  stepLabel!.isNotEmpty &&
+                  !immersive)
+                Text(
+                  isArmed
+                      ? '▶ 를 눌러 케어를 시작하세요'
+                      : '현재: $stepLabel',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8E8E93),
+                  ),
+                ),
+              if (!immersive) const SizedBox(height: 12),
+              Expanded(
+                child: Center(
+                  child: AnimatedScale(
+                    scale: immersive ? 1.22 : 1.0,
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeOutCubic,
+                    child: _MainFlipClock(
+                      careSeconds: careSeconds,
+                      large: immersive,
+                    ),
+                  ),
+                ),
+              ),
+              if (immersive)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: CareTimerFloatingBar(
+                    isPlaying: isPlaying,
+                    isMuted: isMuted,
+                    isImmersive: immersive,
+                    onStop: onStop,
+                    onTogglePlay: onTogglePlayback,
+                    onToggleMute: onToggleMute,
+                    onToggleImmersive: onToggleImmersive,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (!immersive) ...[
+          const SizedBox(width: 12),
+          Align(
+            alignment: Alignment.center,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                CareSegmentBar(
+                CareStackedSegmentBar(
                   steps: steps,
                   tint: tint,
                   currentIndex: currentIndex,
                   isArmed: isArmed,
                   isRunning: isRunning,
                   isPaused: isPaused,
-                  onTogglePlayback: onTogglePlayback,
                   stepRemainingSeconds: stepRemaining,
                   vertical: true,
                 ),
                 if (isOvertime) ...[
                   const SizedBox(height: 8),
-                  const CareOvertimeSegmentChip(),
+                  const CareOvertimeStackChip(),
                 ],
               ],
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (stepLabel != null && stepLabel!.isNotEmpty)
-                Text(
-                  isArmed
-                      ? '▶ 를 눌러 케어를 시작하세요'
-                      : '현재: $stepLabel',
-                  style: VolumeGlassTheme.labelTextStyle(compact: true)
-                      .copyWith(fontWeight: FontWeight.w700),
-                ),
-              const SizedBox(height: 16),
-              _MainFlipClock(careSeconds: careSeconds),
-            ],
-          ),
-        ),
+        ],
       ],
     );
   }
 }
 
 class _MainFlipClock extends StatelessWidget {
-  const _MainFlipClock({required this.careSeconds});
+  const _MainFlipClock({required this.careSeconds, this.large = false});
 
   final int careSeconds;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
-    return FlipClockDisplay(
-      totalSeconds: careSeconds,
-      hero: true,
-      showSeconds: false,
-      showCornerSeconds: true,
-      heroTag: CareTimerFullscreenPage.flipHeroTag,
-      style: FlipClockStyle.darkGlass,
-      stepLabel: '총 케어 소요',
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: FlipClockDisplay(
+        totalSeconds: careSeconds,
+        hero: true,
+        showSeconds: false,
+        showCornerSeconds: true,
+        heroTag: CareTimerFullscreenPage.flipHeroTag,
+        style: FlipClockStyle.darkGlass,
+        stepLabel: '총 케어 소요',
+        compact: !large,
+      ),
     );
   }
 }
 
-class _FullscreenControls extends StatelessWidget {
-  const _FullscreenControls({
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({
     required this.timer,
     this.onCareEnd,
     this.onVisitEnd,
@@ -431,15 +625,11 @@ class _FullscreenControls extends StatelessWidget {
             ),
           if (status == VisitTimerStatus.care ||
               status == VisitTimerStatus.careOvertime)
-            FilledButton(
-              onPressed: timer.canEndCare ? onCareEnd : null,
-              style: VolumeGlassTheme.carePrimaryButtonStyle(
-                enabled: timer.canEndCare,
-              ),
-              child: Text(
-                '케어 종료',
-                style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
-              ),
+            _CareEndButton(
+              onPressed: () async {
+                await VisitTimerStore.instance.endCare();
+                onCareEnd?.call();
+              },
             ),
           if (status == VisitTimerStatus.postCare)
             FilledButton(
@@ -451,6 +641,35 @@ class _FullscreenControls extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _CareEndButton extends StatelessWidget {
+  const _CareEndButton({this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: PresetSlotTint.iosOrange,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        elevation: 0,
+      ),
+      child: Text(
+        '케어 종료',
+        style: GoogleFonts.nunito(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

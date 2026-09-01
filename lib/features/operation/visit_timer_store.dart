@@ -412,7 +412,9 @@ class VisitTimerStore extends ChangeNotifier {
   Future<void> endCare() async {
     if (active == null || !active!.canEndCare) return;
     final now = DateTime.now();
-    await _finalizeCurrentStep(now);
+    if (active!.status == VisitTimerStatus.care) {
+      await _finalizeCurrentStep(now);
+    }
     active = active!.copyWith(
       careEndedAt: now,
       status: VisitTimerStatus.postCare,

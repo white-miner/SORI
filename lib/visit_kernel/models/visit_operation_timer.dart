@@ -105,11 +105,10 @@ class VisitOperationTimer {
   final VisitTimerStatus status;
   final DateTime? updatedAt;
 
+  /// PO v5.2 — 원장이 언제든 케어를 종료할 수 있음 (남은 구간 무관).
   bool get canEndCare =>
-      status == VisitTimerStatus.careOvertime ||
-      (status == VisitTimerStatus.care &&
-          templateSnapshot.isNotEmpty &&
-          currentStepIndex >= templateSnapshot.length);
+      status == VisitTimerStatus.care ||
+      status == VisitTimerStatus.careOvertime;
 
   VisitOperationTimer copyWith({
     String? id,

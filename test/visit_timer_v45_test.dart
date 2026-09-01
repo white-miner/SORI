@@ -54,6 +54,21 @@ void main() {
       expect(snap.isOvertime, isFalse);
     });
 
+    test('canEndCare allows early exit during active care', () {
+      final timer = VisitOperationTimer(
+        id: 't2b',
+        visitSessionId: 's2b',
+        shopId: 'shop1',
+        careStartedAt: DateTime(2026, 8, 31, 11),
+        currentStepIndex: 0,
+        templateSnapshot: const [
+          CareProgramStep(label: '클렌징', minutes: 10),
+        ],
+        status: VisitTimerStatus.care,
+      );
+      expect(timer.canEndCare, isTrue);
+    });
+
     test('overtime flag after preset complete', () {
       final timer = VisitOperationTimer(
         id: 't3',
