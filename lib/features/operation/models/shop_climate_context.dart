@@ -88,4 +88,15 @@ class ShopClimateContext {
       'fetched_at': DateTime.now().toUtc().toIso8601String(),
     });
   }
+
+  /// PRD v5.4 — toolbox weather label (Korean, no truncated headline).
+  String get weatherLabelKo {
+    final h = brief.headline.trim();
+    if (h.isEmpty ||
+        h == '표준 프로토콜' ||
+        h == '피부 스트레스 양호') {
+      return '조금 흐림';
+    }
+    return h;
+  }
 }

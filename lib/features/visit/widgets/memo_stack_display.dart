@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../visit_kernel/models/care_schedule_entry.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
+import '../home_visual_tokens.dart';
 import 'memo_display_policy.dart';
 
 class MemoStackDisplay extends StatelessWidget {
@@ -58,7 +59,7 @@ class MemoStackDisplay extends StatelessWidget {
     return GestureDetector(
       onTap: onToggleExpand,
       child: SizedBox(
-        height: 44,
+        height: HomeVisualTokens.memoBarHeight,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.centerLeft,
@@ -69,11 +70,13 @@ class MemoStackDisplay extends StatelessWidget {
                 front: true,
               ),
             Positioned(
-              right: 0,
+              right: 12,
               child: Icon(
                 Icons.layers_rounded,
                 size: 20,
-                color: Colors.black.withValues(alpha: 0.3),
+                color: chip != null
+                    ? Colors.white.withValues(alpha: 0.85)
+                    : Colors.black.withValues(alpha: 0.3),
               ),
             ),
           ],
@@ -93,18 +96,27 @@ class _MemoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      height: front ? HomeVisualTokens.memoBarHeight : null,
+      padding: EdgeInsets.only(
+        left: front ? HomeVisualTokens.memoDotInset : 14,
+        right: 14,
+        top: front ? 0 : 10,
+        bottom: front ? 0 : 10,
+      ),
+      alignment: front ? Alignment.centerLeft : null,
       decoration: BoxDecoration(
-        color: front ? const Color(0xFF34C759) : const Color(0xFFE8F8EC),
-        borderRadius: BorderRadius.circular(20),
+        color: front
+            ? HomeVisualTokens.memoActiveFill
+            : const Color(0xFFE8F8EC),
+        borderRadius: BorderRadius.circular(HomeVisualTokens.memoBarRadius),
         boxShadow: front ? VolumeGlassTheme.volumeShadow(alpha: 0.04) : null,
       ),
       child: Row(
         children: [
           if (front)
             Container(
-              width: 8,
-              height: 8,
+              width: HomeVisualTokens.memoDotSize,
+              height: HomeVisualTokens.memoDotSize,
               margin: const EdgeInsets.only(right: 8),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -117,7 +129,7 @@ class _MemoChip extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.nunito(
-                fontSize: 12,
+                fontSize: HomeVisualTokens.memoTextSize,
                 fontWeight: FontWeight.w700,
                 color: front ? Colors.white : const Color(0xFF111111),
               ),

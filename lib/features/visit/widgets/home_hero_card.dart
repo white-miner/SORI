@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/sori_store.dart';
-import '../../operation/visit_timer_store.dart';
 import '../../operation/widgets/care_timer_fullscreen_page.dart';
 import '../../operation/widgets/flip_clock_display.dart';
-import '../../operation/widgets/volume_glass_theme.dart';
+import '../home_visual_tokens.dart';
 import '../home_dashboard_controller.dart';
 import 'calendar_expand_panel.dart';
 import 'countdown_flip_zone.dart';
 import 'memo_stack_display.dart';
 import 'memo_time_slot_editor.dart';
 
-/// PRD v5.3 — home hero card (date, calendar, flip, memo stack).
+/// PRD v5.4 — home hero card (date, calendar, flip, memo stack).
 class HomeHeroCard extends StatefulWidget {
   const HomeHeroCard({
     super.key,
@@ -91,44 +90,65 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
     final calendarOpen = ctrl.heroMode == HomeHeroMode.calendarExpanded;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        HomeVisualTokens.heroCardPaddingH,
+        8,
+        HomeVisualTokens.heroCardPaddingH,
+        12,
+      ),
       child: Material(
-        color: VolumeGlassTheme.cardFillColor(),
+        color: HomeVisualTokens.heroCardFill,
         elevation: 0,
-        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+        borderRadius: BorderRadius.circular(HomeVisualTokens.heroCardRadius),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
-            boxShadow: VolumeGlassTheme.volumeShadow(alpha: 0.05),
+            borderRadius: BorderRadius.circular(HomeVisualTokens.heroCardRadius),
+            boxShadow: const [HomeVisualTokens.heroCardShadow],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+            padding: const EdgeInsets.fromLTRB(
+              HomeVisualTokens.heroCardPaddingH,
+              HomeVisualTokens.heroCardPaddingTop,
+              HomeVisualTokens.heroCardPaddingH,
+              HomeVisualTokens.heroCardPaddingBottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 InkWell(
                   onTap: ctrl.toggleCalendar,
                   borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: HomeVisualTokens.dateRowMinHeight,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        if (!calendarOpen) ...[
+                          const Icon(
+                            Icons.calendar_month_outlined,
+                            size: HomeVisualTokens.dateIconSize,
+                            color: HomeVisualTokens.dateIconColor,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         Text(
                           _koreanDate(ctrl.selectedDay),
                           style: GoogleFonts.nunito(
-                            fontSize: 13,
+                            fontSize: HomeVisualTokens.dateTextSize,
                             fontWeight: FontWeight.w700,
+                            color: HomeVisualTokens.dateTextColor,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          calendarOpen
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.calendar_month_outlined,
-                          size: 18,
-                          color: const Color(0xFF8E8E93),
-                        ),
+                        if (calendarOpen) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.keyboard_arrow_up_rounded,
+                            size: 18,
+                            color: HomeVisualTokens.dateIconColor,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -148,20 +168,32 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                   },
                 ),
                 const SizedBox(height: 8),
-                Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: isCount
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final clock = isCount
                         ? CountdownFlipZone(controller: ctrl)
                         : FlipClockDisplay(
                             totalSeconds: _wallClockSeconds(),
                             hero: true,
+                            homeHero: true,
                             showSeconds: false,
                             showCornerSeconds: true,
                             heroTag: CareTimerFullscreenPage.flipHeroTag,
                             style: FlipClockStyle.darkGlass,
-                          ),
-                  ),
+                          );
+                    return ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: HomeVisualTokens.flipHeroZoneMinHeight,
+                      ),
+                      child: Center(
+                        child: OverflowBox(
+                          maxWidth: constraints.maxWidth,
+                          alignment: Alignment.center,
+                          child: clock,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 14),
                 MemoStackDisplay(

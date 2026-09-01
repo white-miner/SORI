@@ -34,13 +34,21 @@ class VisitTimerStore extends ChangeNotifier {
   int _ttsLastStepAnnounced = -1;
   bool _ttsPlanCompleteAnnounced = false;
 
-  /// PRD v5.3 — home [케어 시작] quick path armed from timer field.
+  /// PRD v5.3 — timer field quick path (not home Path C).
   int? homeQuickCareSlot;
+
+  /// PRD v5.4 — home list selected preset (Path C, persisted).
+  int? homeSelectedPresetSlot;
 
   bool get isHomeQuickCareReady {
     if (homeQuickCareSlot == null) return false;
     final preset = presetAt(homeQuickCareSlot!);
     return !preset.isEmpty;
+  }
+
+  bool get isPathCEligible {
+    if (homeSelectedPresetSlot == null) return false;
+    return !presetAt(homeSelectedPresetSlot!).isEmpty;
   }
 
   bool get isStandaloneActive =>
@@ -73,6 +81,23 @@ class VisitTimerStore extends ChangeNotifier {
   void clearHomeQuickCare() {
     homeQuickCareSlot = null;
     notifyListeners();
+  }
+
+  Future<void> selectHomePresetSlot(int? slot) async {
+    homeSelectedPresetSlot = slot;
+    final sid = _shopId;
+    if (sid != null && sid.isNotEmpty) {
+      await VisitTimerLocalCache.saveHomeSelectedPresetSlot(sid, slot);
+    }
+    notifyListeners();
+  }
+
+  Future<void> toggleHomePresetSlot(int slot) async {
+    if (homeSelectedPresetSlot == slot) {
+      await selectHomePresetSlot(null);
+    } else {
+      await selectHomePresetSlot(slot.clamp(0, 4));
+    }
   }
 
   Future<void> bindPresetStandalone({int? presetSlot}) async {
@@ -177,6 +202,8 @@ class VisitTimerStore extends ChangeNotifier {
     final cachedPresets = await VisitTimerLocalCache.loadPresets(sid);
     final cachedActive = await VisitTimerLocalCache.loadActiveTimer(sid);
     slotTints = await VisitTimerLocalCache.loadSlotTints(sid);
+    homeSelectedPresetSlot =
+        await VisitTimerLocalCache.loadHomeSelectedPresetSlot(sid);
 
     try {
       final remote =

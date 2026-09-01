@@ -31,6 +31,7 @@ import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
 import '../operation/widgets/care_timer_fullscreen_page.dart';
 import 'widgets/active_session_strip.dart';
+import 'widgets/home_preset_quick_pick.dart';
 import 'widgets/home_hero_card.dart';
 import 'widgets/home_toolbox_row.dart';
 import 'widgets/quick_calculator_sheet.dart';
@@ -319,12 +320,12 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   Future<void> _openCareStart() async {
     final timerStore = VisitTimerStore.instance;
     await timerStore.ensureStandaloneTimer();
-    final quick = timerStore.isHomeQuickCareReady || timerStore.isCareArmed;
+    final quick = timerStore.isPathCEligible;
     final mode = quick
         ? CareTimerEntryMode.careStartQuick
         : CareTimerEntryMode.careStartManual;
     if (quick) {
-      final slot = timerStore.homeQuickCareSlot ?? timerStore.selectedPresetSlot;
+      final slot = timerStore.homeSelectedPresetSlot!;
       await timerStore.bindPreset(presetSlot: slot);
     }
     if (!mounted) return;
@@ -522,6 +523,19 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                       child: _CareStartButton(onTap: _openCareStart),
                     ),
                   ),
+                  SliverToBoxAdapter(
+                    child: HomePresetQuickPick(
+                      timerStore: VisitTimerStore.instance,
+                      onSlotSelected: (slot) {
+                        unawaited(
+                          VisitTimerStore.instance.toggleHomePresetSlot(slot),
+                        );
+                      },
+                      onConfigureSlot: (slot) {
+                        unawaited(_openTimerStandalone());
+                      },
+                    ),
+                  ),
                 ],
                 const SliverToBoxAdapter(child: SizedBox(height: 48)),
               ],
@@ -554,21 +568,33 @@ class _CareStartButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: VisitGlassTokens.care,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1F34C759),
+            blurRadius: 16,
+            offset: Offset(0, 6),
           ),
-        ),
-        child: const Text(
-          '케어 시작',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: FilledButton(
+          onPressed: onTap,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF34C759),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: const Text(
+            '케어 시작',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
         ),
       ),
     );
@@ -593,6 +619,7 @@ class _WalkInSection extends StatelessWidget {
             title: '신규 고객',
             subtitle: 'Before · 동의서',
             icon: Icons.person_add_alt_1_rounded,
+            variant: _WalkInVariant.newCustomer,
             onTap: onNewCustomer,
           ),
         ),
@@ -602,7 +629,7 @@ class _WalkInSection extends StatelessWidget {
             title: '재방문 고객',
             subtitle: 'B/A 회상 · 재방문',
             icon: Icons.history_rounded,
-            emphasized: true,
+            variant: _WalkInVariant.returning,
             onTap: onReturningCustomer,
           ),
         ),
@@ -611,60 +638,72 @@ class _WalkInSection extends StatelessWidget {
   }
 }
 
+enum _WalkInVariant { newCustomer, returning }
+
 class _WalkInCard extends StatelessWidget {
   const _WalkInCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.emphasized = false,
+    required this.variant,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
-  final bool emphasized;
+  final _WalkInVariant variant;
 
   @override
   Widget build(BuildContext context) {
+    final isNew = variant == _WalkInVariant.newCustomer;
+    final bg = isNew
+        ? const Color(0xFF34C759)
+        : const Color(0xFF1C1C1E);
+    final iconColor = isNew ? Colors.white : Colors.white;
+    final titleColor = isNew ? Colors.white : Colors.white;
+    final subtitleColor = isNew
+        ? Colors.white.withValues(alpha: 0.85)
+        : Colors.white.withValues(alpha: 0.72);
+
     return Material(
-      color: emphasized
-          ? VisitGlassTokens.care
-          : VolumeGlassTheme.cardFillColor(),
+      color: bg,
       elevation: 0,
       shadowColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+      borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
+        borderRadius: BorderRadius.circular(24),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius),
-            boxShadow: emphasized
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: isNew
                 ? VolumeGlassTheme.volumeShadow(
                     tint: VisitGlassTokens.care,
-                    alpha: 0.08,
+                    alpha: 0.12,
                   )
-                : VolumeGlassTheme.volumeShadow(),
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: emphasized ? Colors.white : VisitGlassTokens.care,
-                ),
+                Icon(icon, size: 22, color: iconColor),
                 const SizedBox(height: 10),
                 Text(
                   title,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: emphasized ? Colors.white : SoriTokens.textPrimary,
+                    color: titleColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -673,9 +712,7 @@ class _WalkInCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     height: 1.3,
-                    color: emphasized
-                        ? Colors.white.withValues(alpha: 0.85)
-                        : SoriTokens.textSecondary,
+                    color: subtitleColor,
                   ),
                 ),
               ],

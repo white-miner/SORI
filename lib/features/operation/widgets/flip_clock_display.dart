@@ -22,6 +22,7 @@ class FlipClockDisplay extends StatelessWidget {
     this.stepLabel,
     this.compact = false,
     this.hero = false,
+    this.homeHero = false,
     this.showSeconds = true,
     this.showCornerSeconds = false,
     this.heroTag,
@@ -33,6 +34,8 @@ class FlipClockDisplay extends StatelessWidget {
   final String? stepLabel;
   final bool compact;
   final bool hero;
+  /// PRD v5.4 — home dashboard flip clock (132dp digits, min zone 200dp).
+  final bool homeHero;
   final bool showSeconds;
   /// PRD v5.2 — HH:MM + small SS at lower-right (care fullscreen).
   final bool showCornerSeconds;
@@ -69,16 +72,23 @@ class FlipClockDisplay extends StatelessWidget {
       ];
     }
 
-    final digitHeight = _darkGlass && hero
-        ? 124.0
-        : (hero ? 108.0 : (compact ? 56.0 : 80.0));
-    final digitWidth = _darkGlass && hero
-        ? 78.0
-        : (hero ? 68.0 : (compact ? 36.0 : 52.0));
-    final colonSize = _darkGlass && hero
+    final digitHeight = homeHero
+        ? 132.0
+        : (_darkGlass && hero
+            ? 124.0
+            : (hero ? 108.0 : (compact ? 56.0 : 80.0)));
+    final digitWidth = homeHero
+        ? 82.0
+        : (_darkGlass && hero
+            ? 78.0
+            : (hero ? 68.0 : (compact ? 36.0 : 52.0)));
+    final colonSize = homeHero
         ? 56.0
-        : (hero ? 52.0 : (compact ? 32.0 : 40.0));
-    final pairGap = _darkGlass && hero ? 10.0 : 6.0;
+        : (_darkGlass && hero
+            ? 56.0
+            : (hero ? 52.0 : (compact ? 32.0 : 40.0)));
+    final pairGap = (homeHero || (_darkGlass && hero)) ? 10.0 : 6.0;
+    final cornerSsScale = homeHero ? 0.38 : (_darkGlass && hero ? 0.40 : 0.42);
 
     final clock = Column(
       mainAxisSize: MainAxisSize.min,
@@ -97,6 +107,7 @@ class FlipClockDisplay extends StatelessWidget {
           colonSize: colonSize,
           pairGap: pairGap,
           seconds: s,
+          cornerSsScale: cornerSsScale,
         ),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           SizedBox(height: compact ? 10 : 14),
@@ -121,6 +132,7 @@ class FlipClockDisplay extends StatelessWidget {
     required double colonSize,
     required double pairGap,
     required int seconds,
+    required double cornerSsScale,
   }) {
     final row = Row(
       mainAxisSize: MainAxisSize.min,
@@ -158,7 +170,7 @@ class FlipClockDisplay extends StatelessWidget {
 
     if (!showCornerSeconds) return row;
 
-    final ssSize = digitHeight * 0.4;
+    final ssSize = digitHeight * cornerSsScale;
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,

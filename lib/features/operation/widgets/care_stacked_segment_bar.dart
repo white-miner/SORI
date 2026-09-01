@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
 
+import '../../visit/home_visual_tokens.dart';
+
 /// PO v5.2 — stacked segment queue (front chip = active step).
 class CareStackedSegmentBar extends StatefulWidget {
   const CareStackedSegmentBar({
@@ -78,7 +80,7 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
 
     final stack = SizedBox(
       width: widget.vertical ? 92 : null,
-      height: widget.vertical ? 200 : 54,
+      height: widget.vertical ? 200 : HomeVisualTokens.stackedFrontH + 10,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: widget.vertical
@@ -90,8 +92,8 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
               key: ValueKey('pos-${queue[depth]}'),
               duration: const Duration(milliseconds: 380),
               curve: Curves.easeOutCubic,
-              left: widget.vertical ? 0 : depth * 16.0,
-              top: widget.vertical ? depth * 20.0 : 0,
+              left: widget.vertical ? 0 : depth * HomeVisualTokens.stackedOffsetH,
+              top: widget.vertical ? depth * HomeVisualTokens.stackedOffsetV : 0,
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 320),
                 switchInCurve: Curves.easeOutBack,
@@ -223,8 +225,12 @@ class _StackedChipState extends State<_StackedChip>
 
   @override
   Widget build(BuildContext context) {
-    final w = widget.compact ? 72.0 : 96.0;
-    final h = widget.compact ? 34.0 : 44.0;
+    final w = widget.compact
+        ? HomeVisualTokens.stackedBackW
+        : HomeVisualTokens.stackedFrontW;
+    final h = widget.compact
+        ? HomeVisualTokens.stackedBackH
+        : HomeVisualTokens.stackedFrontH;
     final fontSize = widget.compact ? 13.0 : 17.0;
 
     return AnimatedBuilder(
@@ -275,15 +281,18 @@ class _CircleIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = HomeVisualTokens.stackedAddCircle;
     return Material(
       color: Colors.white,
       shape: const CircleBorder(),
       elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.12),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
+        child: SizedBox(
+          width: size,
+          height: size,
           child: Icon(icon, size: 20, color: const Color(0xFF111111)),
         ),
       ),

@@ -11,6 +11,8 @@ abstract final class VisitTimerLocalCache {
   static String _presetKey(String shopId) => 'v45_timer_presets_$shopId';
   static String _activeKey(String shopId) => 'v45_active_timer_$shopId';
   static String _slotTintKey(String shopId) => 'v45_slot_tints_$shopId';
+  static String _homeSelectedSlotKey(String shopId) =>
+      'v54_home_selected_preset_$shopId';
 
   static Future<List<CareProgramTemplate>> loadPresets(String shopId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -90,5 +92,25 @@ abstract final class VisitTimerLocalCache {
       _slotTintKey(shopId),
       tints.map((t) => t.storageKey).toList(),
     );
+  }
+
+  static Future<int?> loadHomeSelectedPresetSlot(String shopId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_homeSelectedSlotKey(shopId))) return null;
+    final slot = prefs.getInt(_homeSelectedSlotKey(shopId));
+    if (slot == null || slot < 0 || slot > 4) return null;
+    return slot;
+  }
+
+  static Future<void> saveHomeSelectedPresetSlot(
+    String shopId,
+    int? slot,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (slot == null) {
+      await prefs.remove(_homeSelectedSlotKey(shopId));
+      return;
+    }
+    await prefs.setInt(_homeSelectedSlotKey(shopId), slot.clamp(0, 4));
   }
 }

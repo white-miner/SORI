@@ -1,0 +1,31 @@
+name: Flutter Tests & Golden
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run unit & widget tests
+        run: flutter test
+
+      - name: Run golden tests
+        run: flutter test test/home_dashboard_v54_golden_test.dart
