@@ -185,9 +185,10 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                       constraints: const BoxConstraints(
                         minHeight: HomeVisualTokens.flipHeroZoneMinHeight,
                       ),
-                      child: Center(
-                        child: OverflowBox(
-                          maxWidth: constraints.maxWidth,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
                           alignment: Alignment.center,
                           child: clock,
                         ),
