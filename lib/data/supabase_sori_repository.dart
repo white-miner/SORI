@@ -5426,9 +5426,10 @@ class SupabaseSoriRepository implements SoriRepository {
       payload.remove('id');
     }
     try {
+      final conflict = timer.isStandalone ? 'id' : 'visit_session_id';
       final row = await _db
           .from('visit_operation_timers')
-          .upsert(payload, onConflict: 'visit_session_id')
+          .upsert(payload, onConflict: conflict)
           .select()
           .single();
       return VisitOperationTimer.fromMap(Map<String, dynamic>.from(row));
@@ -5440,17 +5441,23 @@ class SupabaseSoriRepository implements SoriRepository {
 
   @override
   Future<void> appendVisitOperationEvent({
-    required String visitSessionId,
+    String? visitSessionId,
     required String shopId,
     required String eventType,
     Map<String, dynamic> payload = const {},
+    String? timerId,
+    String? utilitySource,
   }) async {
     try {
       await _db.from('visit_operation_events').insert({
-        'visit_session_id': visitSessionId.trim(),
+        if (visitSessionId != null && visitSessionId.trim().isNotEmpty)
+          'visit_session_id': visitSessionId.trim(),
         'shop_id': shopId.trim(),
         'event_type': eventType,
         'payload': payload,
+        if (timerId != null && timerId.trim().isNotEmpty) 'timer_id': timerId,
+        if (utilitySource != null && utilitySource.trim().isNotEmpty)
+          'utility_source': utilitySource,
       });
     } catch (e, st) {
       debugPrint('appendVisitOperationEvent failed: $e\n$st');

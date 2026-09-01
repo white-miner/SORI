@@ -884,9 +884,11 @@ abstract class SoriRepository {
   );
 
   Future<void> appendVisitOperationEvent({
-    required String visitSessionId,
+    String? visitSessionId,
     required String shopId,
     required String eventType,
     Map<String, dynamic> payload = const {},
+    String? timerId,
+    String? utilitySource,
   });
 }

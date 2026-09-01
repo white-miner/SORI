@@ -34,6 +34,72 @@ class VisitTimerStore extends ChangeNotifier {
   int _ttsLastStepAnnounced = -1;
   bool _ttsPlanCompleteAnnounced = false;
 
+  /// PRD v5.3 — home [케어 시작] quick path armed from timer field.
+  int? homeQuickCareSlot;
+
+  bool get isHomeQuickCareReady {
+    if (homeQuickCareSlot == null) return false;
+    final preset = presetAt(homeQuickCareSlot!);
+    return !preset.isEmpty;
+  }
+
+  bool get isStandaloneActive =>
+      active != null &&
+      active!.isStandalone &&
+      active!.status != VisitTimerStatus.done;
+
+  Future<void> ensureStandaloneTimer() async {
+    if (isStandaloneActive) return;
+    final sid = _shopId;
+    if (sid == null || sid.isEmpty) return;
+    final now = DateTime.now();
+    active = VisitOperationTimer(
+      id: newUuidV4(),
+      visitSessionId: '',
+      shopId: sid,
+      status: VisitTimerStatus.idle,
+      utilitySource: 'standalone_timer',
+      updatedAt: now,
+    );
+    await _persist(active!);
+    notifyListeners();
+  }
+
+  void armHomeQuickCare(int slot) {
+    homeQuickCareSlot = slot.clamp(0, 4);
+    notifyListeners();
+  }
+
+  void clearHomeQuickCare() {
+    homeQuickCareSlot = null;
+    notifyListeners();
+  }
+
+  Future<void> bindPresetStandalone({int? presetSlot}) async {
+    await ensureStandaloneTimer();
+    await bindPreset(presetSlot: presetSlot);
+  }
+
+  Future<void> finishStandaloneCare() async {
+    if (active == null || !active!.isStandalone) return;
+    if (active!.canEndCare) {
+      await endCare();
+    }
+    final finished = (active ?? VisitOperationTimer(
+      id: '',
+      visitSessionId: '',
+      shopId: _shopId ?? '',
+    )).copyWith(
+      status: VisitTimerStatus.done,
+      updatedAt: DateTime.now(),
+    );
+    await _persist(finished);
+    active = null;
+    clearHomeQuickCare();
+    _stopTicking();
+    notifyListeners();
+  }
+
   void bind(SoriStore store, SoriRepository repository) {
     _store = store;
     _repository = repository;
@@ -194,7 +260,7 @@ class VisitTimerStore extends ChangeNotifier {
   }
 
   void _resetTtsMarkers(String sessionId) {
-    _ttsSessionId = sessionId;
+    _ttsSessionId = sessionId.trim().isEmpty ? (active?.id ?? sessionId) : sessionId;
     _ttsLastStepAnnounced = -1;
     _ttsPlanCompleteAnnounced = false;
   }
@@ -477,6 +543,9 @@ class VisitTimerStore extends ChangeNotifier {
     if (preset.steps.isEmpty) return;
 
     selectedPresetSlot = slot;
+    if (active!.isStandalone || active!.status == VisitTimerStatus.idle) {
+      armHomeQuickCare(slot);
+    }
     carePaused = false;
     _pauseAnchor = null;
     final now = DateTime.now();
@@ -592,11 +661,11 @@ class VisitTimerStore extends ChangeNotifier {
     try {
       final saved = await _repository?.upsertVisitOperationTimer(timer);
       if (saved != null) {
-        // Prefer remote SSOT; fill any null ephemeral fields from local write.
         active = saved.copyWith(
           chartOpenedAt: saved.chartOpenedAt ?? timer.chartOpenedAt,
           currentStepStartedAt:
               saved.currentStepStartedAt ?? timer.currentStepStartedAt,
+          utilitySource: saved.utilitySource ?? timer.utilitySource,
         );
       }
     } catch (e) {
@@ -608,10 +677,14 @@ class VisitTimerStore extends ChangeNotifier {
     if (active == null || _repository == null) return;
     try {
       await _repository!.appendVisitOperationEvent(
-        visitSessionId: active!.visitSessionId,
+        visitSessionId: active!.visitSessionId.trim().isEmpty
+            ? null
+            : active!.visitSessionId,
         shopId: active!.shopId,
         eventType: type,
         payload: payload,
+        timerId: active!.id,
+        utilitySource: active!.utilitySource,
       );
     } catch (e) {
       debugPrint('VisitTimerStore event log failed: $e');

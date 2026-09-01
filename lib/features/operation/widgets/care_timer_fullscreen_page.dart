@@ -7,40 +7,50 @@ import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
 import '../../../visit_kernel/models/visit_operation_timer.dart';
 import '../../../visit_kernel/models/visit_session.dart';
+import '../../visit/models/care_timer_entry_mode.dart';
 import '../care_timer_tts_service.dart';
 import '../visit_timer_store.dart';
+import 'care_timer_preset_editor_page.dart';
 import 'care_stacked_segment_bar.dart';
 import 'care_timer_floating_bar.dart';
 import 'care_timer_step_list.dart';
 import 'flip_clock_display.dart';
 import 'volume_glass_theme.dart';
 
-/// PRD v5.2 — fullscreen care timer (portrait + landscape, stacked queue).
+enum CareAutoStartPhase { idle, waiting, tts, done, cancelled }
+
+/// PRD v5.2/v5.3 — fullscreen care timer (portrait + landscape, stacked queue).
 class CareTimerFullscreenPage extends StatefulWidget {
   const CareTimerFullscreenPage({
     super.key,
     required this.store,
-    required this.session,
+    this.session,
     required this.presetSlot,
+    this.entryMode = CareTimerEntryMode.standalone,
     this.onCareEnd,
     this.onVisitEnd,
+    this.onPopHome,
   });
 
   static const flipHeroTag = 'sori_care_flip_hero';
 
   final SoriStore store;
-  final VisitSession session;
+  final VisitSession? session;
   final int presetSlot;
+  final CareTimerEntryMode entryMode;
   final VoidCallback? onCareEnd;
   final VoidCallback? onVisitEnd;
+  final VoidCallback? onPopHome;
 
   static Future<void> open(
     BuildContext context, {
     required SoriStore store,
-    required VisitSession session,
+    VisitSession? session,
     required int presetSlot,
+    CareTimerEntryMode entryMode = CareTimerEntryMode.standalone,
     VoidCallback? onCareEnd,
     VoidCallback? onVisitEnd,
+    VoidCallback? onPopHome,
   }) {
     return Navigator.of(context).push<void>(
       PageRouteBuilder<void>(
@@ -51,8 +61,10 @@ class CareTimerFullscreenPage extends StatefulWidget {
             store: store,
             session: session,
             presetSlot: presetSlot,
+            entryMode: entryMode,
             onCareEnd: onCareEnd,
             onVisitEnd: onVisitEnd,
+            onPopHome: onPopHome,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -78,17 +90,66 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
   bool _ttsMuted = CareTimerTtsService.isMuted;
   bool _immersiveClock = false;
   bool _floatingBarHidden = false;
+  CareAutoStartPhase _autoPhase = CareAutoStartPhase.idle;
 
   @override
   void initState() {
     super.initState();
     timer.addListener(_onTimer);
+    if (widget.entryMode.autoStartPipeline) {
+      _runAutoStartPipeline();
+    }
   }
 
   @override
   void dispose() {
+    if (_autoPhase == CareAutoStartPhase.waiting ||
+        _autoPhase == CareAutoStartPhase.tts) {
+      _autoPhase = CareAutoStartPhase.cancelled;
+    }
     timer.removeListener(_onTimer);
     super.dispose();
+  }
+
+  Future<void> _runAutoStartPipeline() async {
+    _autoPhase = CareAutoStartPhase.waiting;
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (!mounted || _autoPhase == CareAutoStartPhase.cancelled) return;
+    _autoPhase = CareAutoStartPhase.tts;
+    await CareTimerTtsService.announceCareStartIntro();
+    if (!mounted || _autoPhase == CareAutoStartPhase.cancelled) return;
+    await timer.startCare(presetSlot: widget.presetSlot);
+    if (mounted) {
+      _autoPhase = CareAutoStartPhase.done;
+      setState(() {});
+    }
+  }
+
+  Future<void> _cancelAndPopHome() async {
+    _autoPhase = CareAutoStartPhase.cancelled;
+    if (timer.isCareRunning || timer.isCareArmed) {
+      if (timer.active?.isStandalone ?? false) {
+        await timer.finishStandaloneCare();
+      } else if (timer.isCareRunning) {
+        await timer.endCare();
+      }
+    }
+    widget.onCareEnd?.call();
+    widget.onPopHome?.call();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _handleCareStart() async {
+    if (timer.isCareArmed) {
+      await timer.startCare(presetSlot: widget.presetSlot);
+    } else {
+      final preset = timer.presetAt(widget.presetSlot);
+      if (preset.steps.isNotEmpty) {
+        await timer.bindPreset(presetSlot: widget.presetSlot);
+        await timer.startCare(presetSlot: widget.presetSlot);
+      }
+    }
+    if (mounted) setState(() {});
   }
 
   void _onTimer() {
@@ -97,10 +158,70 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
 
   VisitOperationTimer? get _timer {
     final active = timer.active;
-    if (active == null || active.visitSessionId != widget.session.id) {
+    if (active == null) return null;
+    if (widget.session != null) {
+      if (active.visitSessionId != widget.session!.id) return null;
+    } else if (!active.isStandalone) {
       return null;
     }
     return active;
+  }
+
+  bool get _showCareEndButton {
+    if (widget.entryMode.showCareEndImmediately) return true;
+    final active = _timer;
+    if (active == null) return false;
+    return active.status == VisitTimerStatus.care ||
+        active.status == VisitTimerStatus.careOvertime;
+  }
+
+  bool get _showCareStartButton {
+    if (!widget.entryMode.showCareStartButton) return false;
+    if (timer.isCareRunning) return false;
+    return true;
+  }
+
+  Future<void> _openPresetEditor() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CareTimerPresetEditorPage(
+          store: widget.store,
+          initialSlot: widget.presetSlot,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _pickProgram() async {
+    final presets = timer.presets.where((p) => !p.isEmpty).toList();
+    if (presets.isEmpty) {
+      await _openPresetEditor();
+      return;
+    }
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final p in presets)
+              ListTile(
+                title: Text(p.name),
+                onTap: () => Navigator.pop(ctx, p.slotIndex),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    timer.selectPresetSlot(picked);
+    if (timer.active?.isStandalone ?? true) {
+      await timer.bindPreset(presetSlot: picked);
+    } else {
+      await timer.bindPreset(presetSlot: picked);
+    }
+    setState(() {});
   }
 
   void _toggleTts() {
@@ -124,19 +245,15 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
     });
   }
 
-  bool get _showCareEnd {
-    final active = _timer;
-    if (active == null) return false;
-    return active.status == VisitTimerStatus.care ||
-        active.status == VisitTimerStatus.careOvertime;
-  }
-
   @override
   Widget build(BuildContext context) {
     final active = _timer;
     final snap = active == null ? null : timer.liveSnapshot;
-    final preset = timer.presetAt(widget.presetSlot);
-    final tint = timer.tintAt(widget.presetSlot);
+    final preset = timer.presetAt(timer.selectedPresetSlot);
+    final tint = timer.tintAt(timer.selectedPresetSlot);
+    final programTitle = preset.name.trim().isEmpty
+        ? '케어 프로그램 선택'
+        : preset.name.trim();
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
 
@@ -159,8 +276,10 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
               children: [
                 if (!_immersiveClock)
                   _TopBar(
-                    title: '케어 타이머',
+                    title: programTitle,
                     onClose: () => Navigator.of(context).pop(),
+                    onPickProgram: _pickProgram,
+                    onOpenSettings: _openPresetEditor,
                   ),
                 Expanded(
                   child: Padding(
@@ -213,25 +332,24 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
                           ),
                   ),
                 ),
-                if (!_immersiveClock && active != null)
+                if (!_immersiveClock)
                   _BottomActions(
+                    entryMode: widget.entryMode,
                     timer: active,
-                    onCareEnd: widget.onCareEnd,
+                    showCareEnd: _showCareEndButton,
+                    showCareStart: _showCareStartButton,
+                    onCareStart: _handleCareStart,
+                    onCareEnd: _cancelAndPopHome,
                     onVisitEnd: widget.onVisitEnd,
                   ),
               ],
             ),
-            if (_immersiveClock && _showCareEnd)
+            if (_immersiveClock && _showCareEndButton)
               Positioned(
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _CareEndButton(
-                  onPressed: () async {
-                    await VisitTimerStore.instance.endCare();
-                    widget.onCareEnd?.call();
-                  },
-                ),
+                child: _CareEndButton(onPressed: _cancelAndPopHome),
               ),
           ],
         ),
@@ -244,10 +362,14 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.title,
     required this.onClose,
+    required this.onPickProgram,
+    required this.onOpenSettings,
   });
 
   final String title;
   final VoidCallback onClose;
+  final VoidCallback onPickProgram;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -261,15 +383,36 @@ class _TopBar extends StatelessWidget {
             child: IconButton(
               tooltip: '나가기',
               onPressed: onClose,
-              icon: const Icon(Icons.close_rounded),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
           ),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
+          GestureDetector(
+            onTap: onPickProgram,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.nunito(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.expand_more_rounded, size: 20),
+              ],
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: '설정',
+              onPressed: onOpenSettings,
+              icon: const Icon(Icons.settings_outlined),
             ),
           ),
         ],
@@ -338,7 +481,7 @@ class _PortraitBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!immersive)
+        if (!immersive && steps.isNotEmpty) ...[
           _GlassCard(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: CareStackedSegmentBar(
@@ -351,7 +494,8 @@ class _PortraitBody extends StatelessWidget {
               stepRemainingSeconds: stepRemaining,
             ),
           ),
-        if (!immersive) const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         Expanded(
           child: _GlassCard(
             child: Column(
@@ -593,18 +737,26 @@ class _MainFlipClock extends StatelessWidget {
 
 class _BottomActions extends StatelessWidget {
   const _BottomActions({
+    required this.entryMode,
     required this.timer,
-    this.onCareEnd,
+    required this.showCareEnd,
+    required this.showCareStart,
+    required this.onCareStart,
+    required this.onCareEnd,
     this.onVisitEnd,
   });
 
-  final VisitOperationTimer timer;
-  final VoidCallback? onCareEnd;
+  final CareTimerEntryMode entryMode;
+  final VisitOperationTimer? timer;
+  final bool showCareEnd;
+  final bool showCareStart;
+  final VoidCallback onCareStart;
+  final VoidCallback onCareEnd;
   final VoidCallback? onVisitEnd;
 
   @override
   Widget build(BuildContext context) {
-    final status = timer.status;
+    final status = timer?.status;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -623,13 +775,19 @@ class _BottomActions extends StatelessWidget {
                 ),
               ),
             ),
-          if (status == VisitTimerStatus.care ||
-              status == VisitTimerStatus.careOvertime)
-            _CareEndButton(
-              onPressed: () async {
-                await VisitTimerStore.instance.endCare();
-                onCareEnd?.call();
-              },
+          if (showCareEnd)
+            _CareEndButton(onPressed: onCareEnd),
+          if (showCareStart)
+            Padding(
+              padding: EdgeInsets.only(top: showCareEnd ? 8 : 0),
+              child: FilledButton(
+                onPressed: onCareStart,
+                style: VolumeGlassTheme.carePrimaryButtonStyle(),
+                child: Text(
+                  '케어 시작',
+                  style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
           if (status == VisitTimerStatus.postCare)
             FilledButton(

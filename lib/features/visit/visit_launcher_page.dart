@@ -19,19 +19,21 @@ import '../operation/shop_clinical_trend_service.dart';
 import '../operation/visit_timer_store.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
-import '../operation/widgets/environment_widget_card.dart';
 import '../operation/widgets/volume_glass_theme.dart';
 import '../../views/smart_guide_camera_page.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_track.dart';
+import 'home_dashboard_controller.dart';
 import 'today_agenda.dart';
+import 'models/care_timer_entry_mode.dart';
 import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
 import '../operation/widgets/care_timer_fullscreen_page.dart';
 import 'widgets/active_session_strip.dart';
-import 'widgets/calendar_memo_panel.dart';
-import 'widgets/smart_flip_timer_hero.dart';
+import 'widgets/home_hero_card.dart';
+import 'widgets/home_toolbox_row.dart';
+import 'widgets/quick_calculator_sheet.dart';
 
 /// PRD v5.1 — 원장 GNB 홈(Operation Desk): flip timer · ENV · walk-in.
 class VisitLauncherPage extends StatefulWidget {
@@ -48,6 +50,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   bool _loading = true;
   ShopClimateContext? _climate;
   ClinicalTrendSnapshot? _trends;
+  final HomeDashboardController _homeCtrl = HomeDashboardController();
 
   VisitStore get visit => widget.store.visit;
 
@@ -69,6 +72,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     visit.removeListener(_onVisit);
     widget.store.removeListener(_onVisit);
     VisitTimerStore.instance.removeListener(_onVisit);
+    _homeCtrl.dispose();
     super.dispose();
   }
 
@@ -296,6 +300,46 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     if (mounted) setState(() {});
   }
 
+  Future<void> _openTimerStandalone() async {
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    if (!mounted) return;
+    await CareTimerFullscreenPage.open(
+      context,
+      store: widget.store,
+      presetSlot: timerStore.selectedPresetSlot,
+      entryMode: CareTimerEntryMode.standalone,
+      onPopHome: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openCareStart() async {
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    final quick = timerStore.isHomeQuickCareReady || timerStore.isCareArmed;
+    final mode = quick
+        ? CareTimerEntryMode.careStartQuick
+        : CareTimerEntryMode.careStartManual;
+    if (quick) {
+      final slot = timerStore.homeQuickCareSlot ?? timerStore.selectedPresetSlot;
+      await timerStore.bindPreset(presetSlot: slot);
+    }
+    if (!mounted) return;
+    await CareTimerFullscreenPage.open(
+      context,
+      store: widget.store,
+      presetSlot: timerStore.selectedPresetSlot,
+      entryMode: mode,
+      onPopHome: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _handlePresetSelected(VisitSession session, int slot) async {
     final timerStore = VisitTimerStore.instance;
     timerStore.selectPresetSlot(slot);
@@ -330,6 +374,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       store: widget.store,
       session: session,
       presetSlot: slot,
+      entryMode: CareTimerEntryMode.standalone,
       onCareEnd: () => _handleCareEnd(session),
       onVisitEnd: () async {
         await _endVisit(session);
@@ -407,83 +452,123 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final snap = _agendaSnapshot();
     final heroSession = snap.activeSessions.firstOrNull ??
         widget.store.activeVisitSession;
+    final careRunning = VisitTimerStore.instance.isCareRunning;
 
     return ColoredBox(
       color: _groupedBg,
-      child: RefreshIndicator(
-        color: SoriTokens.primary,
-        onRefresh: () => _load(force: true),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          slivers: [
-            if (_loading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else ...[
-              SliverToBoxAdapter(
-                child: SmartFlipTimerHero(
-                  store: widget.store,
-                  activeSession: heroSession,
-                  onOpenSession: heroSession != null
-                      ? () => _openSessionView(heroSession)
-                      : null,
-                  onConsultationStart: heroSession != null
-                      ? () => _beginConsultation(heroSession)
-                      : null,
-                  onOpenChart: heroSession != null
-                      ? () => _openChartForSession(heroSession)
-                      : null,
-                  onCareEnd: heroSession != null
-                      ? () => _handleCareEnd(heroSession)
-                      : null,
-                  onVisitEnd: heroSession != null
-                      ? () => _endVisit(heroSession)
-                      : null,
-                  onPresetSelected: heroSession != null
-                      ? (slot) => _handlePresetSelected(heroSession, slot)
-                      : null,
-                ),
+      child: Stack(
+        children: [
+          RefreshIndicator(
+            color: SoriTokens.primary,
+            onRefresh: () => _load(force: true),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
               ),
-              if (heroSession != null &&
-                  VisitTimerStore.instance.isCareRunning &&
-                  VisitTimerStore.instance.active?.visitSessionId ==
-                      heroSession.id)
-                SliverToBoxAdapter(
-                  child: ActiveSessionStrip(
-                    store: widget.store,
-                    session: heroSession,
-                    onTap: () => _openCareTimerFullscreen(heroSession),
-                  ),
-                ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: _WalkInSection(
-                    onNewCustomer: _startNewCustomerFlow,
-                    onReturningCustomer: _startReturningCustomerFlow,
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: CalendarMemoPanel(store: widget.store),
-              ),
-              if (_climate != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: EnvironmentWidgetCard(
-                      climate: _climate!,
-                      onDetail: () => _openClinicalSheet(),
+              slivers: [
+                if (_loading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else ...[
+                  SliverToBoxAdapter(
+                    child: ListenableBuilder(
+                      listenable: _homeCtrl,
+                      builder: (context, _) => HomeHeroCard(
+                        store: widget.store,
+                        controller: _homeCtrl,
+                        careRunning: careRunning,
+                      ),
                     ),
                   ),
-                ),
-            ],
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
-          ],
+                  SliverToBoxAdapter(
+                    child: ListenableBuilder(
+                      listenable: _homeCtrl,
+                      builder: (context, _) => HomeToolboxRow(
+                        controller: _homeCtrl,
+                        careRunning: careRunning,
+                        climate: _climate,
+                        onTimerTap: () {
+                          _homeCtrl.selectTimerTool();
+                          unawaited(_openTimerStandalone());
+                        },
+                        onWeatherTap: () => _openClinicalSheet(),
+                      ),
+                    ),
+                  ),
+                  if (careRunning)
+                    SliverToBoxAdapter(
+                      child: ActiveSessionStrip(
+                        store: widget.store,
+                        session: heroSession,
+                        onTap: heroSession != null
+                            ? () => _openCareTimerFullscreen(heroSession)
+                            : _openTimerStandalone,
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: _WalkInSection(
+                        onNewCustomer: _startNewCustomerFlow,
+                        onReturningCustomer: _startReturningCustomerFlow,
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: _CareStartButton(onTap: _openCareStart),
+                    ),
+                  ),
+                ],
+                const SliverToBoxAdapter(child: SizedBox(height: 48)),
+              ],
+            ),
+          ),
+          if (_homeCtrl.calculatorOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedSlide(
+                offset: _homeCtrl.calculatorOpen
+                    ? Offset.zero
+                    : const Offset(0, 1),
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                child: const QuickCalculatorSheet(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CareStartButton extends StatelessWidget {
+  const _CareStartButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: VisitGlassTokens.care,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: const Text(
+          '케어 시작',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),
     );
@@ -514,7 +599,7 @@ class _WalkInSection extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _WalkInCard(
-            title: '기존 고객',
+            title: '재방문 고객',
             subtitle: 'B/A 회상 · 재방문',
             icon: Icons.history_rounded,
             emphasized: true,

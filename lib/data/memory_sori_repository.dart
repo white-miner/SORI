@@ -4154,7 +4154,10 @@ class MemorySoriRepository implements SoriRepository {
     VisitOperationTimer timer,
   ) async {
     final idx = _visitOperationTimers.indexWhere(
-      (t) => t.visitSessionId == timer.visitSessionId,
+      (t) =>
+          timer.isStandalone
+              ? t.id == timer.id
+              : t.visitSessionId == timer.visitSessionId,
     );
     if (idx >= 0) {
       _visitOperationTimers[idx] = timer;
@@ -4166,10 +4169,12 @@ class MemorySoriRepository implements SoriRepository {
 
   @override
   Future<void> appendVisitOperationEvent({
-    required String visitSessionId,
+    String? visitSessionId,
     required String shopId,
     required String eventType,
     Map<String, dynamic> payload = const {},
+    String? timerId,
+    String? utilitySource,
   }) async {
     // Memory repo — audit log is a no-op.
   }

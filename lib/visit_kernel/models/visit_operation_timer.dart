@@ -85,6 +85,7 @@ class VisitOperationTimer {
     this.afterPhotoCaptured = false,
     this.status = VisitTimerStatus.idle,
     this.updatedAt,
+    this.utilitySource,
   });
 
   final String id;
@@ -104,6 +105,9 @@ class VisitOperationTimer {
   final bool afterPhotoCaptured;
   final VisitTimerStatus status;
   final DateTime? updatedAt;
+  final String? utilitySource;
+
+  bool get isStandalone => visitSessionId.trim().isEmpty;
 
   /// PO v5.2 — 원장이 언제든 케어를 종료할 수 있음 (남은 구간 무관).
   bool get canEndCare =>
@@ -132,6 +136,8 @@ class VisitOperationTimer {
     bool? afterPhotoCaptured,
     VisitTimerStatus? status,
     DateTime? updatedAt,
+    String? utilitySource,
+    bool clearUtilitySource = false,
   }) {
     return VisitOperationTimer(
       id: id ?? this.id,
@@ -156,12 +162,15 @@ class VisitOperationTimer {
       afterPhotoCaptured: afterPhotoCaptured ?? this.afterPhotoCaptured,
       status: status ?? this.status,
       updatedAt: updatedAt ?? this.updatedAt,
+      utilitySource:
+          clearUtilitySource ? null : (utilitySource ?? this.utilitySource),
     );
   }
 
   Map<String, dynamic> toMap() => {
         if (id.isNotEmpty) 'id': id,
-        'visit_session_id': visitSessionId,
+        if (visitSessionId.trim().isNotEmpty)
+          'visit_session_id': visitSessionId,
         'shop_id': shopId,
         if (templateId != null) 'template_id': templateId,
         'template_snapshot':
@@ -186,6 +195,8 @@ class VisitOperationTimer {
         'after_photo_captured': afterPhotoCaptured,
         'status': status.dbValue,
         'updated_at': (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
+        if (utilitySource != null && utilitySource!.isNotEmpty)
+          'utility_source': utilitySource,
       };
 
   /// Local cache payload — same as remote map after Migration 105.
@@ -233,6 +244,7 @@ class VisitOperationTimer {
       afterPhotoCaptured: DbMap.asBool(map['after_photo_captured']),
       status: VisitTimerStatus.fromDb(map['status']?.toString()),
       updatedAt: DbMap.asDateTime(map['updated_at']),
+      utilitySource: DbMap.asTextOrNull(map['utility_source']),
     );
   }
 }

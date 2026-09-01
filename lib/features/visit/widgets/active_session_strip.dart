@@ -13,12 +13,12 @@ class ActiveSessionStrip extends StatefulWidget {
   const ActiveSessionStrip({
     super.key,
     required this.store,
-    required this.session,
+    this.session,
     required this.onTap,
   });
 
   final SoriStore store;
-  final VisitSession session;
+  final VisitSession? session;
   final VoidCallback onTap;
 
   @override
@@ -46,13 +46,20 @@ class _ActiveSessionStripState extends State<ActiveSessionStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final customer = widget.store.findCustomer(widget.session.customerId);
-    final name = customer?.name ?? widget.session.customerName;
+    final session = widget.session;
+    final customer = session != null
+        ? widget.store.findCustomer(session.customerId)
+        : null;
+    final name = customer?.name ??
+        session?.customerName ??
+        '케어 타이머';
     final timerState = _timerForSession();
-    final snap =
-        timerState != null && timer.active?.visitSessionId == widget.session.id
-            ? timer.liveSnapshot
-            : null;
+    final snap = timerState != null &&
+            (session == null ||
+                timer.active?.visitSessionId == session.id ||
+                timer.active?.isStandalone == true)
+        ? timer.liveSnapshot
+        : null;
     final careRunning = timerState != null &&
         (timerState.status == VisitTimerStatus.care ||
             timerState.status == VisitTimerStatus.careOvertime);
@@ -132,9 +139,12 @@ class _ActiveSessionStripState extends State<ActiveSessionStrip> {
 
   VisitOperationTimer? _timerForSession() {
     final active = timer.active;
-    if (active != null && active.visitSessionId == widget.session.id) {
+    if (active == null) return null;
+    final session = widget.session;
+    if (session != null && active.visitSessionId == session.id) {
       return active;
     }
+    if (session == null && active.isStandalone) return active;
     return null;
   }
 

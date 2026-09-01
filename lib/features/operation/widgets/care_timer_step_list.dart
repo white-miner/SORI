@@ -56,7 +56,7 @@ class _CareTimerStepListState extends State<CareTimerStepList> {
                 child: Row(
                   children: [
                     Text(
-                      '타이머 리스트',
+                      '타임라인',
                       style: GoogleFonts.nunito(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,

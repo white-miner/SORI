@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sori/features/operation/widgets/care_stacked_segment_bar.dart';
 import 'package:sori/features/operation/widgets/care_timer_fullscreen_page.dart';
+import 'package:sori/features/visit/models/care_timer_entry_mode.dart';
 import 'package:sori/features/operation/visit_timer_store.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/visit_kernel/models/care_program_template.dart';
@@ -114,6 +115,7 @@ void main() {
             store: store,
             session: session,
             presetSlot: 0,
+            entryMode: CareTimerEntryMode.careStartManual,
           ),
         ),
       );
@@ -126,9 +128,9 @@ void main() {
     ) async {
       await pumpPage(tester);
 
-      expect(find.text('케어 타이머'), findsOneWidget);
+      expect(find.text('기본 케어'), findsOneWidget);
       expect(find.text('케어 종료'), findsOneWidget);
-      expect(find.text('타이머 리스트'), findsOneWidget);
+      expect(find.text('타임라인'), findsOneWidget);
       expect(find.byType(CareStackedSegmentBar), findsOneWidget);
     });
 

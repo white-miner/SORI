@@ -70,6 +70,27 @@ abstract final class CareTimerTtsService {
     }
   }
 
+  static Future<void> announceCareStartIntro() async =>
+      speakAndWait('케어를 시작합니다');
+
+  static Future<void> speakAndWait(String text, {Duration timeout = const Duration(seconds: 5)}) async {
+    if (text.trim().isEmpty || _muted || kIsWeb) return;
+    try {
+      await _ensureReady();
+      final tts = _tts;
+      if (tts == null) return;
+      await tts.stop();
+      final completer = Completer<void>();
+      tts.setCompletionHandler(() {
+        if (!completer.isCompleted) completer.complete();
+      });
+      await tts.speak(text);
+      await completer.future.timeout(timeout, onTimeout: () {});
+    } catch (e) {
+      debugPrint('CareTimerTts speakAndWait failed: $e');
+    }
+  }
+
   static Future<void> announceCareStart() =>
       speak('케어를 시작합니다');
 
