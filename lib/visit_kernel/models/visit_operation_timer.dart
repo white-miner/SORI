@@ -86,6 +86,7 @@ class VisitOperationTimer {
     this.status = VisitTimerStatus.idle,
     this.updatedAt,
     this.utilitySource,
+    this.overtimeSeconds = 0,
   });
 
   final String id;
@@ -106,6 +107,7 @@ class VisitOperationTimer {
   final VisitTimerStatus status;
   final DateTime? updatedAt;
   final String? utilitySource;
+  final int overtimeSeconds;
 
   bool get isStandalone => visitSessionId.trim().isEmpty;
 
@@ -138,6 +140,7 @@ class VisitOperationTimer {
     DateTime? updatedAt,
     String? utilitySource,
     bool clearUtilitySource = false,
+    int? overtimeSeconds,
   }) {
     return VisitOperationTimer(
       id: id ?? this.id,
@@ -164,6 +167,7 @@ class VisitOperationTimer {
       updatedAt: updatedAt ?? this.updatedAt,
       utilitySource:
           clearUtilitySource ? null : (utilitySource ?? this.utilitySource),
+      overtimeSeconds: overtimeSeconds ?? this.overtimeSeconds,
     );
   }
 
@@ -197,6 +201,7 @@ class VisitOperationTimer {
         'updated_at': (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
         if (utilitySource != null && utilitySource!.isNotEmpty)
           'utility_source': utilitySource,
+        'overtime_seconds': overtimeSeconds,
       };
 
   /// Local cache payload — same as remote map after Migration 105.
@@ -245,6 +250,7 @@ class VisitOperationTimer {
       status: VisitTimerStatus.fromDb(map['status']?.toString()),
       updatedAt: DbMap.asDateTime(map['updated_at']),
       utilitySource: DbMap.asTextOrNull(map['utility_source']),
+      overtimeSeconds: DbMap.asInt(map['overtime_seconds'], 0),
     );
   }
 }

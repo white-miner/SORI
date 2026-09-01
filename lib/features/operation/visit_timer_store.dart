@@ -544,17 +544,33 @@ class VisitTimerStore extends ChangeNotifier {
   }
 
   Future<void> endVisit() async {
+    await endVisitWithOvertime();
+  }
+
+  Future<void> endVisitWithOvertime({int? overtimeSeconds}) async {
     if (active == null) return;
     final now = DateTime.now();
+    final overtime = overtimeSeconds ??
+        _computeOvertimeSeconds(active!, now: now);
     active = active!.copyWith(
       visitEndedAt: now,
       status: VisitTimerStatus.done,
+      overtimeSeconds: overtime,
       updatedAt: now,
     );
     await _persist(active!);
-    await _logEvent('visit_ended', {});
+    await _logEvent('visit_ended', {'overtime_seconds': overtime});
     _stopTicking();
     notifyListeners();
+  }
+
+  int _computeOvertimeSeconds(VisitOperationTimer timer, {DateTime? now}) {
+    final snap = VisitTimerLiveSnapshot.compute(timer, now: now);
+    var planned = 0;
+    for (final step in timer.templateSnapshot) {
+      planned += step.seconds;
+    }
+    return (snap.careSeconds - planned).clamp(0, 86400);
   }
 
   void selectPresetSlot(int slot) {

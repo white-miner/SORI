@@ -18,6 +18,8 @@ class CustomerChart {
     this.careName = '',
     this.treatmentSummary = '',
     this.directorInsight = '',
+    this.careReportJson,
+    this.careReportGeneratedAt,
     this.allergyNotes = '',
     this.skinSensitivity = '',
     this.sideEffectHistory = '',
@@ -60,6 +62,10 @@ class CustomerChart {
   final String careName;
   final String treatmentSummary;
   final String directorInsight;
+
+  /// PRD v6.0 — structured visit care report for B2C page.
+  final Map<String, dynamic>? careReportJson;
+  final DateTime? careReportGeneratedAt;
 
   /// 방문 차트에 기록하는 메디컬 정보 (고객 등록 폼과 분리).
   final String allergyNotes;
@@ -278,6 +284,8 @@ class CustomerChart {
     String? careName,
     String? treatmentSummary,
     String? directorInsight,
+    Map<String, dynamic>? careReportJson,
+    DateTime? careReportGeneratedAt,
     String? allergyNotes,
     String? skinSensitivity,
     String? sideEffectHistory,
@@ -329,6 +337,9 @@ class CustomerChart {
       careName: careName ?? this.careName,
       treatmentSummary: treatmentSummary ?? this.treatmentSummary,
       directorInsight: directorInsight ?? this.directorInsight,
+      careReportJson: careReportJson ?? this.careReportJson,
+      careReportGeneratedAt:
+          careReportGeneratedAt ?? this.careReportGeneratedAt,
       allergyNotes: allergyNotes ?? this.allergyNotes,
       skinSensitivity: skinSensitivity ?? this.skinSensitivity,
       sideEffectHistory: sideEffectHistory ?? this.sideEffectHistory,
@@ -496,6 +507,8 @@ class CustomerChart {
       careName: DbMap.asText(map['care_name']),
       treatmentSummary: DbMap.asText(map['treatment_summary']),
       directorInsight: DbMap.asText(map['director_insight']),
+      careReportJson: _parseCareReportJson(map['care_report_json']),
+      careReportGeneratedAt: DbMap.asDateTime(map['care_report_generated_at']),
       allergyNotes: DbMap.asText(map['allergy_notes']),
       skinSensitivity: DbMap.asText(map['skin_sensitivity']),
       sideEffectHistory: DbMap.asText(map['side_effect_history']),
@@ -571,4 +584,10 @@ class CustomerChart {
       ),
     );
   }
+}
+
+Map<String, dynamic>? _parseCareReportJson(Object? raw) {
+  if (raw is Map<String, dynamic>) return raw;
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  return null;
 }

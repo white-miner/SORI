@@ -5405,6 +5405,8 @@ class SoriStore implements Listenable {
     List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
     Map<String, dynamic>? visitBiometrics,
+    Map<String, dynamic>? careReportJson,
+    DateTime? careReportGeneratedAt,
   }) async {
     final id = chartId.trim();
     final existing = findChartById(id);
@@ -5428,6 +5430,9 @@ class SoriStore implements Listenable {
         visitBiometrics: visitBiometrics == null
             ? existing.visitBiometrics
             : VisitBiometrics.fromMap(visitBiometrics),
+        careReportJson: careReportJson ?? existing.careReportJson,
+        careReportGeneratedAt:
+            careReportGeneratedAt ?? existing.careReportGeneratedAt,
         clearAfterImageUrl: clearAfterImageUrl,
       );
       _mergeChart(next);
@@ -5448,6 +5453,8 @@ class SoriStore implements Listenable {
         homeCarePrescriptions: homeCarePrescriptions,
         clearAfterImageUrl: clearAfterImageUrl,
         visitBiometrics: visitBiometrics,
+        careReportJson: careReportJson,
+        careReportGeneratedAt: careReportGeneratedAt,
       );
       _mergeChart(remote);
       BaRecallCache.instance.invalidate(existing.customerId);

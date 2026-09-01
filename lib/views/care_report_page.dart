@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../features/visit/report/visit_care_report.dart';
 import '../models/customer_chart.dart';
 import '../models/home_care_prescriptions.dart';
 import '../models/kakao_alimtalk.dart';
@@ -115,6 +116,7 @@ class _CareReportPageState extends State<CareReportPage> {
             ? chart.directorInsight.trim()
             : '오늘 케어 내용을 확인해 주세요.');
     final missions = _missionLines(chart);
+    final careReport = _parseCareReport(chart);
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
@@ -151,6 +153,10 @@ class _CareReportPageState extends State<CareReportPage> {
               ),
             ),
             const SizedBox(height: 22),
+            if (careReport != null) ...[
+              _CareTimeSummaryCard(report: careReport),
+              const SizedBox(height: 12),
+            ],
             _SectionCard(
               title: '오늘의 케어 내용',
               child: Text(
@@ -237,6 +243,16 @@ class _CareReportPageState extends State<CareReportPage> {
     );
   }
 
+  VisitCareReport? _parseCareReport(CustomerChart chart) {
+    final raw = chart.careReportJson;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return VisitCareReport.fromJson(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<String> _missionLines(CustomerChart chart) {
     final tags = HomecareDictionary.sanitizeTagIds(chart.homeCarePrescriptions);
     final lines = <String>[];
@@ -259,6 +275,133 @@ class _CareReportPageState extends State<CareReportPage> {
       lines.add(fallback[lines.length]);
     }
     return lines.take(3).toList(growable: false);
+  }
+}
+
+class _CareTimeSummaryCard extends StatelessWidget {
+  const _CareTimeSummaryCard({required this.report});
+
+  final VisitCareReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF34C759).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF34C759).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '오늘의 케어 시간',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${report.careMinutes}',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF34C759),
+                  height: 1,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 4),
+                child: Text(
+                  '분 케어',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (report.overtimeMinutes > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF34C759),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '+${report.overtimeMinutes}분 정성',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '샵에서 함께한 시간 총 ${report.totalVisitMinutes}분',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          if (report.steps.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (final step in report.steps) ...[
+              _StepTimelineRow(step: step),
+              const SizedBox(height: 6),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StepTimelineRow extends StatelessWidget {
+  const _StepTimelineRow({required this.step});
+
+  final VisitCareStepLine step;
+
+  @override
+  Widget build(BuildContext context) {
+    final actualMin = (step.actualSeconds + 59) ~/ 60;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            step.label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+        ),
+        Text(
+          '${step.plannedMinutes}분 → ${actualMin}분',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: SoriTokens.textSecondary,
+          ),
+        ),
+      ],
+    );
   }
 }
 

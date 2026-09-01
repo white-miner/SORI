@@ -31,8 +31,10 @@ import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
 import '../operation/widgets/care_timer_fullscreen_page.dart';
 import 'widgets/active_session_strip.dart';
-import 'widgets/home_preset_quick_pick.dart';
+import 'report/visit_end_pipeline.dart';
+import 'widgets/visit_report_send_sheet.dart';
 import 'widgets/home_hero_card.dart';
+import 'widgets/home_preset_quick_pick.dart';
 import 'widgets/home_toolbox_row.dart';
 import 'widgets/quick_calculator_sheet.dart';
 
@@ -421,30 +423,37 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   Future<void> _endVisit(VisitSession session) async {
-    final timer = VisitTimerStore.instance;
-    final report = await timer.buildReportBlock();
+    final pipeline = VisitEndPipeline(
+      store: widget.store,
+      visitStore: visit,
+      timerStore: VisitTimerStore.instance,
+    );
+    final result = await pipeline.run(session: session);
+    if (!mounted) return;
+
     final chart = widget.store.chartForVisitSession(session);
-    if (chart != null && report.isNotEmpty) {
-      final summary = chart.treatmentSummary.trim();
-      final next = summary.isEmpty ? report : '$summary\n\n$report';
-      await widget.store.updateCustomerChartFields(
-        chartId: chart.id,
-        treatmentSummary: next,
+    final customer =
+        chart != null ? widget.store.findCustomer(chart.customerId) : null;
+
+    if (result.hasReport) {
+      await VisitReportSendSheet.show(
+        context,
+        report: result.report!,
+        customerPhone: customer?.phone ?? '',
+        store: widget.store,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            chart?.afterImageUrl?.trim().isEmpty ?? true
+                ? '방문 종료 · 애프터 미촬영'
+                : '방문 종료 · 관리 리포트 저장',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
-    await timer.endVisit();
-    await visit.completeVisit(session.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          chart?.afterImageUrl?.trim().isEmpty ?? true
-              ? '방문 종료 · 애프터 미촬영'
-              : '방문 종료 · 관리 리포트 저장',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
     await _load(force: true);
   }
 

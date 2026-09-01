@@ -1478,6 +1478,8 @@ class SupabaseSoriRepository implements SoriRepository {
     List<String>? homeCarePrescriptions,
     bool clearAfterImageUrl = false,
     Map<String, dynamic>? visitBiometrics,
+    Map<String, dynamic>? careReportJson,
+    DateTime? careReportGeneratedAt,
   }) async {
     final id = chartId.trim();
     if (id.isEmpty) throw ArgumentError('chartId required');
@@ -1505,6 +1507,10 @@ class SupabaseSoriRepository implements SoriRepository {
         'prescription_tags': prescriptions,
       },
       if (visitBiometrics != null) 'visit_biometrics': visitBiometrics,
+      if (careReportJson != null) 'care_report_json': careReportJson,
+      if (careReportGeneratedAt != null)
+        'care_report_generated_at':
+            careReportGeneratedAt.toUtc().toIso8601String(),
     };
 
     final row = await _updateChartRow(chartId: id, payload: payload);
