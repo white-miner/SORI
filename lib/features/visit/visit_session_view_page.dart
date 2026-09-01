@@ -14,7 +14,7 @@ class VisitSessionViewPage extends StatelessWidget {
     required this.session,
     required this.onConsultationStart,
     required this.onOpenChart,
-    required this.onCareStart,
+    required this.onPresetSelected,
     required this.onCareEnd,
     required this.onAfterPhoto,
     required this.onVisitEnd,
@@ -24,7 +24,7 @@ class VisitSessionViewPage extends StatelessWidget {
   final VisitSession session;
   final VoidCallback onConsultationStart;
   final VoidCallback onOpenChart;
-  final VoidCallback onCareStart;
+  final ValueChanged<int> onPresetSelected;
   final VoidCallback onCareEnd;
   final VoidCallback onAfterPhoto;
   final Future<void> Function() onVisitEnd;
@@ -52,7 +52,7 @@ class VisitSessionViewPage extends StatelessWidget {
             session: session,
             onConsultationStart: onConsultationStart,
             onOpenChart: onOpenChart,
-            onCareStart: onCareStart,
+            onPresetSelected: onPresetSelected,
             onCareEnd: onCareEnd,
             onAfterPhoto: onAfterPhoto,
             onVisitEnd: () async {

@@ -122,6 +122,7 @@ class VisitOperationTimer {
     DateTime? chartOpenedAt,
     bool clearChartOpenedAt = false,
     DateTime? careStartedAt,
+    bool clearCareStartedAt = false,
     DateTime? careEndedAt,
     bool clearCareEndedAt = false,
     DateTime? visitEndedAt,
@@ -144,7 +145,8 @@ class VisitOperationTimer {
       chartActiveSeconds: chartActiveSeconds ?? this.chartActiveSeconds,
       chartOpenedAt:
           clearChartOpenedAt ? null : (chartOpenedAt ?? this.chartOpenedAt),
-      careStartedAt: careStartedAt ?? this.careStartedAt,
+      careStartedAt:
+          clearCareStartedAt ? null : (careStartedAt ?? this.careStartedAt),
       careEndedAt: clearCareEndedAt ? null : (careEndedAt ?? this.careEndedAt),
       visitEndedAt: visitEndedAt ?? this.visitEndedAt,
       currentStepIndex: currentStepIndex ?? this.currentStepIndex,

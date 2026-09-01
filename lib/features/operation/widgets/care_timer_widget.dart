@@ -8,7 +8,7 @@ import '../visit_timer_store.dart';
 import 'care_timer_action_strip.dart';
 import 'care_timer_preset_editor_page.dart';
 import 'flip_clock_display.dart';
-import 'preset_slot_row.dart';
+import 'preset_expand_panel.dart';
 import 'volume_glass_theme.dart';
 import 'widget_glass_card.dart';
 
@@ -20,7 +20,7 @@ class CareTimerWidget extends StatefulWidget {
     required this.session,
     required this.onConsultationStart,
     required this.onOpenChart,
-    required this.onCareStart,
+    required this.onPresetSelected,
     required this.onCareEnd,
     required this.onAfterPhoto,
     required this.onVisitEnd,
@@ -30,7 +30,7 @@ class CareTimerWidget extends StatefulWidget {
   final VisitSession session;
   final VoidCallback onConsultationStart;
   final VoidCallback onOpenChart;
-  final VoidCallback onCareStart;
+  final ValueChanged<int> onPresetSelected;
   final VoidCallback onCareEnd;
   final VoidCallback onAfterPhoto;
   final VoidCallback onVisitEnd;
@@ -118,14 +118,19 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
                 ),
               ],
             ),
-            PresetSlotRow(
-              selected: timer.selectedPresetSlot,
+            PresetExpandPanel(
               presets: timer.presets,
               tintAt: timer.tintAt,
-              onSelect: (i) {
-                timer.selectPresetSlot(i);
+              selectedSlot: timer.selectedPresetSlot,
+              onPresetSelected: (i) {
+                widget.onPresetSelected(i);
                 setState(() {});
               },
+              onConfigureSlot: (slot) async {
+                timer.selectPresetSlot(slot);
+                await _openPresetEditor();
+              },
+              onOpenEditor: _openPresetEditor,
             ),
             const SizedBox(height: 12),
             Center(
@@ -151,9 +156,10 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
               timer: active,
               onConsultationStart: widget.onConsultationStart,
               onOpenChart: widget.onOpenChart,
-              onCareStart: widget.onCareStart,
               onCareEnd: widget.onCareEnd,
               onVisitEnd: widget.onVisitEnd,
+              onOpenCareTimer: () =>
+                  widget.onPresetSelected(timer.selectedPresetSlot),
             ),
             if (active?.status == VisitTimerStatus.postCare &&
                 !active!.afterPhotoCaptured) ...[

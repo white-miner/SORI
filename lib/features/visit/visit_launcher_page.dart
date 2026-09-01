@@ -251,7 +251,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
           session: session,
           onConsultationStart: () => _beginConsultation(session),
           onOpenChart: () => _openChartForSession(session),
-          onCareStart: () => _handleCareStart(session),
+          onPresetSelected: (slot) => _handlePresetSelected(session, slot),
           onCareEnd: () => _handleCareEnd(session),
           onAfterPhoto: () => _captureAfterPhoto(session),
           onVisitEnd: () => _endVisit(session),
@@ -291,9 +291,28 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     if (mounted) setState(() {});
   }
 
-  Future<void> _handleCareStart(VisitSession session) async {
-    await VisitTimerStore.instance.startCare();
-    if (mounted) setState(() {});
+  Future<void> _handlePresetSelected(VisitSession session, int slot) async {
+    final timer = VisitTimerStore.instance;
+    timer.selectPresetSlot(slot);
+    if (timer.active == null ||
+        timer.active!.visitSessionId != session.id) {
+      await timer.startConsultation(
+        visitSessionId: session.id,
+        shopId: session.shopId,
+      );
+    }
+    await timer.bindPreset(presetSlot: slot);
+    if (!mounted) return;
+    setState(() {});
+    // Phase B: push CareTimerFullscreenPage
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '「${timer.presetAt(slot).name.trim()}」프리셋 연결 · Phase B 풀스크린 준비됨',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _handleCareEnd(VisitSession session) async {
@@ -394,14 +413,14 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   onOpenChart: heroSession != null
                       ? () => _openChartForSession(heroSession)
                       : null,
-                  onCareStart: heroSession != null
-                      ? () => _handleCareStart(heroSession)
-                      : null,
                   onCareEnd: heroSession != null
                       ? () => _handleCareEnd(heroSession)
                       : null,
                   onVisitEnd: heroSession != null
                       ? () => _endVisit(heroSession)
+                      : null,
+                  onPresetSelected: heroSession != null
+                      ? (slot) => _handlePresetSelected(heroSession, slot)
                       : null,
                 ),
               ),

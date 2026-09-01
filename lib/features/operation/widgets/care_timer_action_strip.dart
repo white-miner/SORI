@@ -5,24 +5,26 @@ import '../../../visit_kernel/models/visit_operation_timer.dart';
 import '../visit_timer_store.dart';
 import 'volume_glass_theme.dart';
 
-/// PRD UT-1 — 3-button flow: 상담 시작 · 케어 시작 · 케어/방문 종료.
+/// PRD v5.2 — 3-button flow + preset panel (no [케어 시작] on hero).
 class CareTimerActionStrip extends StatelessWidget {
   const CareTimerActionStrip({
     super.key,
     required this.timer,
     required this.onConsultationStart,
     required this.onOpenChart,
-    required this.onCareStart,
     required this.onCareEnd,
     required this.onVisitEnd,
+    this.onOpenCareTimer,
   });
 
   final VisitOperationTimer? timer;
   final VoidCallback onConsultationStart;
   final VoidCallback onOpenChart;
-  final VoidCallback onCareStart;
   final VoidCallback onCareEnd;
   final VoidCallback onVisitEnd;
+
+  /// Prep + bound preset — opens fullscreen care timer (Phase B).
+  final VoidCallback? onOpenCareTimer;
 
   @override
   Widget build(BuildContext context) {
@@ -41,22 +43,24 @@ class CareTimerActionStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SecondaryBtn(label: '차트 열기', onPressed: onOpenChart),
-          const SizedBox(height: 8),
-          _PrimaryBtn(
-            label: '케어 시작',
-            onPressed: presetReady ? onCareStart : null,
-            enabled: presetReady,
-          ),
-          if (!presetReady) ...[
-            const SizedBox(height: 6),
+          if (status == VisitTimerStatus.prep && presetReady) ...[
+            const SizedBox(height: 8),
             Text(
-              '프리셋을 설정한 슬롯을 선택해 주세요',
+              '아래 프리셋을 선택한 뒤 구간 [▶]로 케어를 시작하세요',
               textAlign: TextAlign.center,
               style: GoogleFonts.nunito(
                 fontSize: 11,
+                fontWeight: FontWeight.w600,
                 color: const Color(0xFF8E8E93),
               ),
             ),
+            if (onOpenCareTimer != null) ...[
+              const SizedBox(height: 8),
+              _PrimaryBtn(
+                label: '케어 타이머 열기',
+                onPressed: onOpenCareTimer,
+              ),
+            ],
           ],
         ],
       );

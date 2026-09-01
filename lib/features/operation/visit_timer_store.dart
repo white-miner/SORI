@@ -388,6 +388,30 @@ class VisitTimerStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// PRD v5.2 — bind preset without starting care (armed / prep).
+  Future<void> bindPreset({int? presetSlot}) async {
+    if (active == null) return;
+    final slot = (presetSlot ?? selectedPresetSlot).clamp(0, 4);
+    final preset = presetAt(slot);
+    if (preset.steps.isEmpty) return;
+
+    selectedPresetSlot = slot;
+    final now = DateTime.now();
+    active = active!.copyWith(
+      templateId: preset.id.isEmpty ? null : preset.id,
+      templateSnapshot: preset.steps,
+      clearCareStartedAt: true,
+      clearCareEndedAt: true,
+      currentStepIndex: 0,
+      clearCurrentStepStartedAt: true,
+      stepResults: const [],
+      status: VisitTimerStatus.prep,
+      updatedAt: now,
+    );
+    await _persist(active!);
+    notifyListeners();
+  }
+
   void _ensureTicking() {
     _tickTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => _onTick);
   }

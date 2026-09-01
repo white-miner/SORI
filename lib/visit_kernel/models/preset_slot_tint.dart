@@ -46,4 +46,12 @@ enum PresetSlotTint {
     }
     return defaultForSlot(fallbackIndex);
   }
+
+  /// PRD v5.2 D-4 — segment bar: base tint + per-step opacity ladder.
+  Color stepColor(int stepIndex, int totalSteps) {
+    if (totalSteps <= 1) return color;
+    final t = stepIndex.clamp(0, totalSteps - 1) / (totalSteps - 1);
+    final opacity = 1.0 - t * 0.42;
+    return color.withValues(alpha: opacity.clamp(0.55, 1.0));
+  }
 }
