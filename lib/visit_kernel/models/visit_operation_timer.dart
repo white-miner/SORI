@@ -171,6 +171,8 @@ class VisitOperationTimer {
           'consultation_started_at':
               consultationStartedAt!.toUtc().toIso8601String(),
         'chart_active_seconds': chartActiveSeconds,
+        if (chartOpenedAt != null)
+          'chart_opened_at': chartOpenedAt!.toUtc().toIso8601String(),
         if (careStartedAt != null)
           'care_started_at': careStartedAt!.toUtc().toIso8601String(),
         if (careEndedAt != null)
@@ -178,20 +180,17 @@ class VisitOperationTimer {
         if (visitEndedAt != null)
           'visit_ended_at': visitEndedAt!.toUtc().toIso8601String(),
         'current_step_index': currentStepIndex,
+        if (currentStepStartedAt != null)
+          'current_step_started_at':
+              currentStepStartedAt!.toUtc().toIso8601String(),
         'step_results': stepResults.map((s) => s.toJson()).toList(),
         'after_photo_captured': afterPhotoCaptured,
         'status': status.dbValue,
         'updated_at': (updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
       };
 
-  Map<String, dynamic> toLocalJson() => {
-        ...toMap(),
-        if (chartOpenedAt != null)
-          'chart_opened_at': chartOpenedAt!.toUtc().toIso8601String(),
-        if (currentStepStartedAt != null)
-          'current_step_started_at':
-              currentStepStartedAt!.toUtc().toIso8601String(),
-      };
+  /// Local cache payload — same as remote map after Migration 105.
+  Map<String, dynamic> toLocalJson() => toMap();
 
   factory VisitOperationTimer.fromMap(Map<String, dynamic> map) {
     final snapRaw = map['template_snapshot'];

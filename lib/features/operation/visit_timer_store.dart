@@ -590,9 +590,11 @@ class VisitTimerStore extends ChangeNotifier {
     try {
       final saved = await _repository?.upsertVisitOperationTimer(timer);
       if (saved != null) {
+        // Prefer remote SSOT; fill any null ephemeral fields from local write.
         active = saved.copyWith(
-          chartOpenedAt: timer.chartOpenedAt,
-          currentStepStartedAt: timer.currentStepStartedAt,
+          chartOpenedAt: saved.chartOpenedAt ?? timer.chartOpenedAt,
+          currentStepStartedAt:
+              saved.currentStepStartedAt ?? timer.currentStepStartedAt,
         );
       }
     } catch (e) {

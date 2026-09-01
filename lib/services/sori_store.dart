@@ -363,8 +363,8 @@ class SoriStore implements Listenable {
     }
     try {
       final now = DateTime.now();
-      final from = DateTime(now.year, now.month, now.day - 7);
-      final to = DateTime(now.year, now.month, now.day + 30, 23, 59, 59);
+      final from = DateTime(now.year, now.month - 1, 1);
+      final to = DateTime(now.year, now.month + 2, 0, 23, 59, 59);
       careScheduleEntries = await _repository.loadCareScheduleEntries(
         sid,
         from: from,

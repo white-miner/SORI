@@ -408,7 +408,8 @@ class _RoleCommunityTab extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        // PRD v5.1 IA-1 — 소셜 피드 격리 보존 (CommunityPage는 Phase 3용 유지).
+        // PRD v5.1 IA-1 / v5.2 Phase F — social feed on Community tab.
+        // Legacy CommunityPage pruned from GNB; UnifiedHomeFeedPage is SSOT.
         return UnifiedHomeFeedPage(
           store: store,
           onSelectTab: (i) => _goShellTab(context, i),

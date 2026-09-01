@@ -30,6 +30,7 @@ import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
 import '../operation/widgets/care_timer_fullscreen_page.dart';
 import 'widgets/active_session_strip.dart';
+import 'widgets/calendar_memo_panel.dart';
 import 'widgets/smart_flip_timer_hero.dart';
 
 /// PRD v5.1 — 원장 GNB 홈(Operation Desk): flip timer · ENV · walk-in.
@@ -466,6 +467,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                     onReturningCustomer: _startReturningCustomerFlow,
                   ),
                 ),
+              ),
+              SliverToBoxAdapter(
+                child: CalendarMemoPanel(store: widget.store),
               ),
               if (_climate != null)
                 SliverToBoxAdapter(

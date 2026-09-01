@@ -64,11 +64,11 @@
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **A** | Wall Clock hero + `PresetExpandPanel` | Done (`7693514`) |
-| **B** | `CareTimerFullscreenPage` + segment bar + transitions | Done |
-| **C** | `pauseCare`/`resumeCare`, TTS mute, seconds flip |
-| **D** | `CalendarMemoPanel` (월/주/일) |
-| **E** | A-3 Migration 105 + sync E2E |
-| **F** | Social dead-code prune (optional) |
+| **B** | `CareTimerFullscreenPage` + segment bar + transitions | Done (`17a54e4`) |
+| **C** | `pauseCare`/`resumeCare`, TTS mute, seconds flip | Done (bundled in B) |
+| **D** | `CalendarMemoPanel` (월/주/일) | Done |
+| **E** | A-3 Migration 105 + sync E2E | Done |
+| **F** | Social dead-code prune (optional) | Done |
 
 ---
 

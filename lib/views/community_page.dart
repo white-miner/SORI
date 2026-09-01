@@ -19,7 +19,9 @@ import '../widgets/sori_insta_picker.dart';
 import '../widgets/unified_compose_sheet.dart';
 import 'whisper_composer_sheet.dart';
 
-/// 글로벌 Community 탭 — Unified Feed (필터 칩 + 로컬 필터링).
+/// Legacy Community surface — not on GNB (UnifiedHomeFeedPage is SSOT).
+/// Kept for Phase 3 recovery + layout regression tests.
+@Deprecated('Use UnifiedHomeFeedPage via router')
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key, required this.store});
 
