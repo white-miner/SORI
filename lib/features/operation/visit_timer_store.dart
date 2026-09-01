@@ -26,6 +26,10 @@ class VisitTimerStore extends ChangeNotifier {
   VisitOperationTimer? active;
   int selectedPresetSlot = 0;
 
+  /// PRD v5.2 — care playback paused (step tick + TTS frozen).
+  bool carePaused = false;
+  DateTime? _pauseAnchor;
+
   String? _ttsSessionId;
   int _ttsLastStepAnnounced = -1;
   bool _ttsPlanCompleteAnnounced = false;
@@ -37,8 +41,31 @@ class VisitTimerStore extends ChangeNotifier {
 
   String? get _shopId => _store?.shop.id.trim();
 
+  bool get isCareArmed =>
+      active != null &&
+      active!.status == VisitTimerStatus.prep &&
+      active!.templateSnapshot.isNotEmpty &&
+      active!.careStartedAt == null;
+
+  bool get isCareRunning =>
+      active != null &&
+      (active!.status == VisitTimerStatus.care ||
+          active!.status == VisitTimerStatus.careOvertime);
+
+  bool get canTogglePlayback =>
+      isCareArmed ||
+      (active?.status == VisitTimerStatus.care && !isOvertime);
+
+  bool get isOvertime =>
+      active?.status == VisitTimerStatus.careOvertime;
+
   VisitTimerLiveSnapshot? get liveSnapshot =>
-      active == null ? null : VisitTimerLiveSnapshot.compute(active!);
+      active == null
+          ? null
+          : VisitTimerLiveSnapshot.compute(
+              active!,
+              now: carePaused ? _pauseAnchor : null,
+            );
 
   CareProgramTemplate presetAt(int slot) {
     if (slot >= 0 && slot < presets.length && !presets[slot].isEmpty) {
@@ -182,7 +209,7 @@ class VisitTimerStore extends ChangeNotifier {
   }
 
   void _announceCareStartIfNeeded() {
-    if (active == null) return;
+    if (active == null || carePaused || CareTimerTtsService.isMuted) return;
     if (_ttsSessionId != active!.visitSessionId) {
       _resetTtsMarkers(active!.visitSessionId);
     }
@@ -193,6 +220,7 @@ class VisitTimerStore extends ChangeNotifier {
 
   void _announceNextStepIfNeeded(int stepIndex) {
     if (active == null || stepIndex <= 0) return;
+    if (carePaused || CareTimerTtsService.isMuted) return;
     if (_ttsLastStepAnnounced >= stepIndex) return;
     _ttsLastStepAnnounced = stepIndex;
     unawaited(CareTimerTtsService.announceNextStep());
@@ -200,6 +228,7 @@ class VisitTimerStore extends ChangeNotifier {
 
   void _announcePlanCompleteIfNeeded() {
     if (_ttsPlanCompleteAnnounced) return;
+    if (carePaused || CareTimerTtsService.isMuted) return;
     _ttsPlanCompleteAnnounced = true;
     unawaited(CareTimerTtsService.announceCarePlanComplete());
   }
@@ -304,6 +333,54 @@ class VisitTimerStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> playCare() async {
+    if (active == null) return;
+    if (isCareArmed) {
+      await startCare(presetSlot: selectedPresetSlot);
+      return;
+    }
+    if (active!.status == VisitTimerStatus.care && carePaused) {
+      await resumeCare();
+    }
+  }
+
+  Future<void> pauseCare() async {
+    if (active == null || active!.status != VisitTimerStatus.care) return;
+    if (carePaused) return;
+    carePaused = true;
+    _pauseAnchor = DateTime.now();
+    notifyListeners();
+  }
+
+  Future<void> resumeCare() async {
+    if (active == null || !carePaused || _pauseAnchor == null) return;
+    final delta = DateTime.now().difference(_pauseAnchor!);
+    final timer = active!;
+    active = timer.copyWith(
+      careStartedAt: timer.careStartedAt?.add(delta),
+      currentStepStartedAt: timer.currentStepStartedAt?.add(delta),
+      updatedAt: DateTime.now(),
+    );
+    carePaused = false;
+    _pauseAnchor = null;
+    await _persist(active!);
+    notifyListeners();
+  }
+
+  Future<void> toggleCarePlayback() async {
+    if (isCareArmed) {
+      await playCare();
+      return;
+    }
+    if (active?.status == VisitTimerStatus.care) {
+      if (carePaused) {
+        await resumeCare();
+      } else {
+        await pauseCare();
+      }
+    }
+  }
+
   Future<void> startCare({int? presetSlot}) async {
     if (active == null) return;
     final slot = presetSlot ?? selectedPresetSlot;
@@ -324,6 +401,8 @@ class VisitTimerStore extends ChangeNotifier {
     );
     await _persist(active!);
     await _logEvent('care_started', {'preset': preset.name});
+    carePaused = false;
+    _pauseAnchor = null;
     _resetTtsMarkers(active!.visitSessionId);
     _announceCareStartIfNeeded();
     _ensureTicking();
@@ -396,6 +475,8 @@ class VisitTimerStore extends ChangeNotifier {
     if (preset.steps.isEmpty) return;
 
     selectedPresetSlot = slot;
+    carePaused = false;
+    _pauseAnchor = null;
     final now = DateTime.now();
     active = active!.copyWith(
       templateId: preset.id.isEmpty ? null : preset.id,
@@ -427,6 +508,7 @@ class VisitTimerStore extends ChangeNotifier {
         active!.status == VisitTimerStatus.idle) {
       return;
     }
+    if (carePaused) return;
     await _advanceStepsIfNeeded();
     notifyListeners();
   }

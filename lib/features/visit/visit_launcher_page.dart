@@ -28,6 +28,8 @@ import 'today_agenda.dart';
 import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
+import '../operation/widgets/care_timer_fullscreen_page.dart';
+import 'widgets/active_session_strip.dart';
 import 'widgets/smart_flip_timer_hero.dart';
 
 /// PRD v5.1 — 원장 GNB 홈(Operation Desk): flip timer · ENV · walk-in.
@@ -251,7 +253,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
           session: session,
           onConsultationStart: () => _beginConsultation(session),
           onOpenChart: () => _openChartForSession(session),
-          onPresetSelected: (slot) => _handlePresetSelected(session, slot),
+          onPresetSelected: (slot) async {
+            await _handlePresetSelected(session, slot);
+          },
           onCareEnd: () => _handleCareEnd(session),
           onAfterPhoto: () => _captureAfterPhoto(session),
           onVisitEnd: () => _endVisit(session),
@@ -292,27 +296,46 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   Future<void> _handlePresetSelected(VisitSession session, int slot) async {
-    final timer = VisitTimerStore.instance;
-    timer.selectPresetSlot(slot);
-    if (timer.active == null ||
-        timer.active!.visitSessionId != session.id) {
-      await timer.startConsultation(
+    final timerStore = VisitTimerStore.instance;
+    timerStore.selectPresetSlot(slot);
+    if (timerStore.active == null ||
+        timerStore.active!.visitSessionId != session.id) {
+      await timerStore.startConsultation(
         visitSessionId: session.id,
         shopId: session.shopId,
       );
     }
-    await timer.bindPreset(presetSlot: slot);
+    await timerStore.bindPreset(presetSlot: slot);
     if (!mounted) return;
     setState(() {});
-    // Phase B: push CareTimerFullscreenPage
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '「${timer.presetAt(slot).name.trim()}」프리셋 연결 · Phase B 풀스크린 준비됨',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
+    await CareTimerFullscreenPage.open(
+      context,
+      store: widget.store,
+      session: session,
+      presetSlot: slot,
+      onCareEnd: () => _handleCareEnd(session),
+      onVisitEnd: () async {
+        await _endVisit(session);
+        if (mounted) Navigator.of(context).pop();
+      },
     );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openCareTimerFullscreen(VisitSession session) async {
+    final slot = VisitTimerStore.instance.selectedPresetSlot;
+    await CareTimerFullscreenPage.open(
+      context,
+      store: widget.store,
+      session: session,
+      presetSlot: slot,
+      onCareEnd: () => _handleCareEnd(session),
+      onVisitEnd: () async {
+        await _endVisit(session);
+        if (mounted) Navigator.of(context).pop();
+      },
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _handleCareEnd(VisitSession session) async {
@@ -424,6 +447,17 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                       : null,
                 ),
               ),
+              if (heroSession != null &&
+                  VisitTimerStore.instance.isCareRunning &&
+                  VisitTimerStore.instance.active?.visitSessionId ==
+                      heroSession.id)
+                SliverToBoxAdapter(
+                  child: ActiveSessionStrip(
+                    store: widget.store,
+                    session: heroSession,
+                    onTap: () => _openCareTimerFullscreen(heroSession),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

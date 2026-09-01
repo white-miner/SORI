@@ -8,6 +8,7 @@ import '../../../visit_kernel/models/visit_session.dart';
 import '../../operation/visit_timer_store.dart';
 import '../../operation/widgets/care_timer_action_strip.dart';
 import '../../operation/widgets/care_timer_preset_editor_page.dart';
+import '../../operation/widgets/care_timer_fullscreen_page.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/preset_expand_panel.dart';
 import '../../operation/widgets/semantic_signal_theme.dart';
@@ -188,6 +189,7 @@ class _SmartFlipTimerHeroState extends State<SmartFlipTimerHero> {
                       hero: true,
                       showSeconds: false,
                       style: FlipClockStyle.darkGlass,
+                      heroTag: CareTimerFullscreenPage.flipHeroTag,
                     ),
                   ),
                 ),

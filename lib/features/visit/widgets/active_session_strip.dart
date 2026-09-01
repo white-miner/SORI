@@ -49,11 +49,17 @@ class _ActiveSessionStripState extends State<ActiveSessionStrip> {
     final customer = widget.store.findCustomer(widget.session.customerId);
     final name = customer?.name ?? widget.session.customerName;
     final timerState = _timerForSession();
-    final snap = timerState == null
-        ? null
-        : VisitTimerLiveSnapshot.compute(timerState);
-    final totalLabel =
-        snap == null ? '00:00' : _formatHms(snap.totalSeconds);
+    final snap =
+        timerState != null && timer.active?.visitSessionId == widget.session.id
+            ? timer.liveSnapshot
+            : null;
+    final careRunning = timerState != null &&
+        (timerState.status == VisitTimerStatus.care ||
+            timerState.status == VisitTimerStatus.careOvertime);
+    final displaySeconds = careRunning && snap != null
+        ? snap.careSeconds
+        : (snap?.totalSeconds ?? 0);
+    final totalLabel = snap == null ? '00:00' : _formatHms(displaySeconds);
     final phaseLabel = _phaseLabel(timerState);
 
     return Padding(

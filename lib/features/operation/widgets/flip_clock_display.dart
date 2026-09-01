@@ -23,6 +23,8 @@ class FlipClockDisplay extends StatelessWidget {
     this.compact = false,
     this.hero = false,
     this.showSeconds = true,
+    this.showCornerSeconds = false,
+    this.heroTag,
     this.style = FlipClockStyle.lightSoft,
   });
 
@@ -32,6 +34,9 @@ class FlipClockDisplay extends StatelessWidget {
   final bool compact;
   final bool hero;
   final bool showSeconds;
+  /// PRD v5.2 — HH:MM + small SS at lower-right (care fullscreen).
+  final bool showCornerSeconds;
+  final Object? heroTag;
   final FlipClockStyle style;
 
   bool get _darkGlass => style == FlipClockStyle.darkGlass;
@@ -42,7 +47,7 @@ class FlipClockDisplay extends StatelessWidget {
     final m = (totalSeconds % 3600) ~/ 60;
     final s = totalSeconds % 60;
     final List<String> segments;
-    if (!showSeconds) {
+    if (!showSeconds || showCornerSeconds) {
       segments = [
         _timeSegment(h, 2),
         ':',
@@ -75,7 +80,7 @@ class FlipClockDisplay extends StatelessWidget {
         : (hero ? 52.0 : (compact ? 32.0 : 40.0));
     final pairGap = _darkGlass && hero ? 10.0 : 6.0;
 
-    return Column(
+    final clock = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (stepLabel != null && stepLabel!.isNotEmpty) ...[
@@ -85,38 +90,13 @@ class FlipClockDisplay extends StatelessWidget {
           ),
           SizedBox(height: compact ? 8 : 12),
         ],
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            for (final segment in segments)
-              if (segment == ':')
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: hero ? 8 : 4),
-                  child: Text(
-                    ':',
-                    style: GoogleFonts.nunito(
-                      fontSize: colonSize,
-                      fontWeight: FontWeight.w300,
-                      color: _darkGlass
-                          ? Colors.white.withValues(alpha: 0.42)
-                          : SemanticSignalTheme.heroTextColor
-                              .withValues(alpha: 0.28),
-                      height: 1,
-                    ),
-                  ),
-                )
-              else
-                _FlipDigitPair(
-                  value: segment,
-                  height: digitHeight,
-                  width: digitWidth,
-                  compact: compact,
-                  hero: hero,
-                  style: style,
-                  digitGap: pairGap,
-                ),
-          ],
+        _buildClockRow(
+          segments: segments,
+          digitHeight: digitHeight,
+          digitWidth: digitWidth,
+          colonSize: colonSize,
+          pairGap: pairGap,
+          seconds: s,
         ),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           SizedBox(height: compact ? 10 : 14),
@@ -125,6 +105,79 @@ class FlipClockDisplay extends StatelessWidget {
             style: VolumeGlassTheme.labelTextStyle(compact: true),
           ),
         ],
+      ],
+    );
+
+    if (heroTag != null) {
+      return Hero(tag: heroTag!, child: clock);
+    }
+    return clock;
+  }
+
+  Widget _buildClockRow({
+    required List<String> segments,
+    required double digitHeight,
+    required double digitWidth,
+    required double colonSize,
+    required double pairGap,
+    required int seconds,
+  }) {
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final segment in segments)
+          if (segment == ':')
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: hero ? 8 : 4),
+              child: Text(
+                ':',
+                style: GoogleFonts.nunito(
+                  fontSize: colonSize,
+                  fontWeight: FontWeight.w300,
+                  color: _darkGlass
+                      ? Colors.white.withValues(alpha: 0.42)
+                      : SemanticSignalTheme.heroTextColor
+                          .withValues(alpha: 0.28),
+                  height: 1,
+                ),
+              ),
+            )
+          else
+            _FlipDigitPair(
+              value: segment,
+              height: digitHeight,
+              width: digitWidth,
+              compact: compact,
+              hero: hero,
+              style: style,
+              digitGap: pairGap,
+            ),
+      ],
+    );
+
+    if (!showCornerSeconds) return row;
+
+    final ssSize = digitHeight * 0.4;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        row,
+        Positioned(
+          right: -ssSize * 0.9,
+          bottom: -ssSize * 0.15,
+          child: Text(
+            seconds.toString().padLeft(2, '0'),
+            style: GoogleFonts.nunito(
+              fontSize: ssSize,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: Colors.white.withValues(alpha: 0.8),
+              height: 1,
+            ),
+          ),
+        ),
       ],
     );
   }

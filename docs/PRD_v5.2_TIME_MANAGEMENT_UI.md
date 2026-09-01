@@ -63,8 +63,8 @@
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **A** | Wall Clock hero + `PresetExpandPanel` | In progress |
-| **B** | `CareTimerFullscreenPage` + segment bar + transitions |
+| **A** | Wall Clock hero + `PresetExpandPanel` | Done (`7693514`) |
+| **B** | `CareTimerFullscreenPage` + segment bar + transitions | Done |
 | **C** | `pauseCare`/`resumeCare`, TTS mute, seconds flip |
 | **D** | `CalendarMemoPanel` (월/주/일) |
 | **E** | A-3 Migration 105 + sync E2E |

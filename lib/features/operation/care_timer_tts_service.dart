@@ -1,10 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
-/// PRD UT-1 — Korean care timer voice prompts (tablet TTS).
+/// PRD UT-1 / v5.2 — Korean care timer voice prompts (Native tablet TTS).
 abstract final class CareTimerTtsService {
   static FlutterTts? _tts;
   static bool _ready = false;
+  static bool _muted = false;
+
+  static bool get isMuted => _muted;
+
+  static void setMuted(bool muted) {
+    _muted = muted;
+    if (muted) unawaited(_tts?.stop());
+  }
 
   static Future<void> _ensureReady() async {
     if (_ready && _tts != null) return;
@@ -48,7 +58,7 @@ abstract final class CareTimerTtsService {
   }
 
   static Future<void> speak(String text) async {
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty || _muted || kIsWeb) return;
     try {
       await _ensureReady();
       final tts = _tts;
