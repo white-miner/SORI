@@ -34,14 +34,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('홈은 My Feed / My Asset / Timer 3탭으로 열린다', (tester) async {
+  testWidgets('홈은 My Feed / Program / Timer 3탭으로 열린다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
 
     expect(find.text('My Feed'), findsOneWidget);
-    expect(find.text('My Asset'), findsOneWidget);
+    expect(find.text('Program'), findsOneWidget);
+    expect(find.text('My Asset'), findsNothing);
     expect(find.text('Timer'), findsOneWidget);
 
     // 기본 선택은 My Feed — 4대 컴포넌트가 한 화면에 조립된다.
@@ -189,16 +190,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('My Asset 탭은 뼈대만 노출한다 (Q7)', (tester) async {
+  testWidgets('Program 탭은 앵커만 접힌 채로 열린다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
 
-    await tester.tap(find.text('My Asset'));
+    await tester.tap(find.text('Program'));
     await _settle(tester);
 
-    expect(find.textContaining('다음 스프린트'), findsOneWidget);
+    expect(find.text('윤곽 관리'), findsOneWidget);
+    expect(find.text('3,000,000'), findsOneWidget);
+    expect(find.text('1,500,000'), findsNothing);
+    expect(find.text('1,000,000'), findsNothing);
+    expect(find.textContaining('다음 스프린트'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

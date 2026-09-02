@@ -40,6 +40,7 @@ import '../models/seminar_enrollment.dart';
 import '../models/shop_highlight.dart';
 import '../models/subscription.dart';
 import '../models/whisper.dart';
+import '../models/program_sales.dart';
 import '../visit_kernel/models/care_schedule_entry.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../visit_kernel/models/care_program_template.dart';
@@ -879,6 +880,29 @@ abstract class SoriRepository {
   });
 
   Future<void> deleteBaCaptureSession(String sessionId);
+
+  /// PRD v7.1 — Program 세일즈 보드 (109).
+  Future<ProgramBoardSnapshot> loadProgramBoard(String shopId);
+
+  Future<ProgramCategory> upsertProgramCategory(ProgramCategory category);
+
+  Future<void> deleteProgramCategory(String categoryId);
+
+  Future<ProgramPackage> upsertProgramPackage(ProgramPackage package);
+
+  Future<void> deleteProgramPackage(String packageId);
+
+  Future<ProgramPromotion> upsertProgramPromotion(ProgramPromotion promotion);
+
+  Future<void> deleteProgramPromotion(String promotionId);
+
+  Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote);
+
+  /// 견적 수락 RPC. 회원권 jsonb 기록은 서버가 수행한다.
+  Future<ProgramQuote> acceptProgramQuote({
+    required String quoteId,
+    required String customerId,
+  });
 
   /// Visit OS — on-site session SSOT (097).
   Future<List<VisitSession>> loadVisitSessions(

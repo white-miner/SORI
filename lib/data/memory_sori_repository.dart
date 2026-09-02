@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../models/ba_capture_session.dart';
+import '../models/program_sales.dart';
 import '../models/care_diary_note.dart';
 import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
@@ -4288,6 +4289,157 @@ class MemorySoriRepository implements SoriRepository {
   @override
   Future<void> deleteBaCaptureSession(String sessionId) async {
     _baSessions.removeWhere((s) => s.id == sessionId);
+  }
+
+  // ── PRD v7.1 Program ────────────────────────────────────────────────
+  final List<ProgramCategory> _programCategories = [];
+  final List<ProgramPackage> _programPackages = [];
+  final List<ProgramPromotion> _programPromotions = [];
+  final List<ProgramQuote> _programQuotes = [];
+  String? _programSeedShopId;
+
+  void _ensureProgramSeed(String shopId) {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return;
+    if (_programSeedShopId == sid) return;
+    if (_programCategories.isNotEmpty && _programSeedShopId != null) return;
+    final demo = ProgramDemoSeed.forShop(sid);
+    _programCategories
+      ..clear()
+      ..addAll(demo.categories);
+    _programPackages
+      ..clear()
+      ..addAll(demo.packages);
+    _programPromotions
+      ..clear()
+      ..addAll(demo.promotions);
+    _programSeedShopId = sid;
+  }
+
+  @override
+  Future<ProgramBoardSnapshot> loadProgramBoard(String shopId) async {
+    _ensureProgramSeed(shopId);
+    final sid = shopId.trim();
+    return ProgramBoardSnapshot(
+      categories: _programCategories.where((c) => c.shopId == sid).toList(),
+      packages: _programPackages.where((p) => p.shopId == sid).toList(),
+      promotions: _programPromotions.where((p) => p.shopId == sid).toList(),
+      quotes: _programQuotes.where((q) => q.shopId == sid).toList(),
+    );
+  }
+
+  String _assignedId(String id) =>
+      id.trim().isEmpty ? newUuidV4() : id.trim();
+
+  @override
+  Future<ProgramCategory> upsertProgramCategory(
+    ProgramCategory category,
+  ) async {
+    _ensureProgramSeed(category.shopId);
+    final saved = category.copyWith(id: _assignedId(category.id));
+    final idx = _programCategories.indexWhere((c) => c.id == saved.id);
+    if (idx >= 0) {
+      _programCategories[idx] = saved;
+    } else {
+      _programCategories.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<void> deleteProgramCategory(String categoryId) async {
+    _programCategories.removeWhere((c) => c.id == categoryId);
+    final removed = _programPackages
+        .where((p) => p.categoryId == categoryId)
+        .map((p) => p.id)
+        .toSet();
+    _programPackages.removeWhere((p) => p.categoryId == categoryId);
+    _programQuotes.removeWhere(
+      (q) =>
+          removed.contains(q.leftPackageId) ||
+          removed.contains(q.rightPackageId),
+    );
+  }
+
+  @override
+  Future<ProgramPackage> upsertProgramPackage(ProgramPackage package) async {
+    _ensureProgramSeed(package.shopId);
+    final id = _assignedId(package.id);
+    final lines = package.lines
+        .map((l) => l.copyWith(id: _assignedId(l.id), packageId: id))
+        .toList();
+    final saved = package.copyWith(id: id, lines: lines);
+    final idx = _programPackages.indexWhere((p) => p.id == saved.id);
+    if (idx >= 0) {
+      _programPackages[idx] = saved;
+    } else {
+      _programPackages.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<void> deleteProgramPackage(String packageId) async {
+    _programPackages.removeWhere((p) => p.id == packageId);
+  }
+
+  @override
+  Future<ProgramPromotion> upsertProgramPromotion(
+    ProgramPromotion promotion,
+  ) async {
+    _ensureProgramSeed(promotion.shopId);
+    final saved = promotion.copyWith(id: _assignedId(promotion.id));
+    final idx = _programPromotions.indexWhere((p) => p.id == saved.id);
+    if (idx >= 0) {
+      _programPromotions[idx] = saved;
+    } else {
+      _programPromotions.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<void> deleteProgramPromotion(String promotionId) async {
+    _programPromotions.removeWhere((p) => p.id == promotionId);
+    for (var i = 0; i < _programQuotes.length; i++) {
+      final q = _programQuotes[i];
+      if (!q.promotionIds.contains(promotionId)) continue;
+      _programQuotes[i] = q.copyWith(
+        promotionIds: q.promotionIds.where((id) => id != promotionId).toList(),
+      );
+    }
+  }
+
+  @override
+  Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote) async {
+    final saved = quote.copyWith(id: _assignedId(quote.id));
+    final idx = _programQuotes.indexWhere((q) => q.id == saved.id);
+    if (idx >= 0) {
+      _programQuotes[idx] = saved;
+    } else {
+      _programQuotes.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<ProgramQuote> acceptProgramQuote({
+    required String quoteId,
+    required String customerId,
+  }) async {
+    final idx = _programQuotes.indexWhere((q) => q.id == quoteId);
+    if (idx < 0) {
+      throw StateError('program_quote $quoteId not found');
+    }
+    final cid = customerId.trim();
+    if (cid.isEmpty) throw StateError('customerId required');
+    final accepted = _programQuotes[idx].copyWith(
+      customerId: cid,
+      status: ProgramQuoteStatus.accepted,
+      acceptedAt: DateTime.now(),
+    );
+    _programQuotes[idx] = accepted;
+    return accepted;
   }
 }
 

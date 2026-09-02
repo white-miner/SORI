@@ -24,6 +24,7 @@ import '../operation/visit_timer_store.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
 import '../../views/smart_guide_camera_page.dart';
+import '../program/program_pane.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_track.dart';
 import 'home_dashboard_controller.dart';
@@ -49,9 +50,9 @@ import 'widgets/management_case_card.dart';
 import 'widgets/quick_calculator_sheet.dart';
 
 /// PRD v7.0 — 원장 홈 상단 탭.
-enum HomeTab { myFeed, myAsset, timer }
+enum HomeTab { myFeed, program, timer }
 
-/// PRD v7.0 — 원장 GNB 홈: My Feed / My Asset / Timer 3탭 셸.
+/// PRD v7.1 — 원장 GNB 홈: My Feed / Program / Timer 3탭 셸.
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -115,6 +116,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       widget.store.refreshCareScheduleEntries(force: force),
       widget.store.hydrateVisitTimer(),
       widget.store.refreshBaSessions(),
+      widget.store.refreshProgramBoard(),
       _loadClimate(),
       _loadTrends(),
     ]);
@@ -723,11 +725,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                         controller: _tabs,
                         children: [
                           _buildMyFeed(careRunning),
-                          const _ComingSoonPane(
-                            title: 'My Asset',
-                            subtitle: '샵 자산 대시보드는 다음 스프린트에서 열립니다',
-                            icon: Icons.donut_large_rounded,
-                          ),
+                          ProgramPane(store: widget.store),
                           _buildTimerPane(careRunning),
                         ],
                       ),
@@ -933,7 +931,7 @@ class _HomeTabBar extends StatelessWidget {
         ),
         tabs: [
           const Tab(text: 'My Feed'),
-          const Tab(text: 'My Asset'),
+          const Tab(text: 'Program'),
           Tab(
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -955,52 +953,6 @@ class _HomeTabBar extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ComingSoonPane extends StatelessWidget {
-  const _ComingSoonPane({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 34, color: HomeVisualTokens.dateIconColor),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: HomeVisualTokens.dateTextColor,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: HomeVisualTokens.dateIconColor,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

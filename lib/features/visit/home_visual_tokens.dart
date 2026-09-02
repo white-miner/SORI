@@ -143,4 +143,19 @@ abstract final class HomeVisualTokens {
   static const caseCaptionColor = Color(0xFF5B5B60);
   static const caseCaptionDivider = Color(0xFFEDEDF0);
   static const caseFeedPageSize = 10;
+
+  // ── PRD v7.1 — Program 세일즈 OS ────────────────────────────────────
+  // Green/Violet 은 각각 Timer · 신규 고객 소유. 닫는 색은 charcoal 하나.
+
+  static const programCloserFill = Color(0xFF1C1C1E);
+  static const programCloserOn = Color(0xFFFFFFFF);
+  static const programPriceSize = 28.0;
+  static const programUnitSize = 13.0;
+  static const programBenefitSize = 15.0;
+  static const programDockH = 56.0;
+  static const programCardRadius = 24.0;
+  static const programExpandDuration = Duration(milliseconds: 280);
+  static const programExpandCurve = Curves.easeOutCubic;
+  static const programCheckFill = Color(0xFF111111);
+  static const programStrike = Color(0xFF8E8E93);
 }

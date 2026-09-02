@@ -48,6 +48,7 @@ import '../models/review_reply.dart';
 import '../models/review_request_event.dart';
 import '../models/session_user.dart';
 import '../models/ba_capture_session.dart';
+import '../models/program_sales.dart';
 import '../models/shoot_inbox_item.dart';
 import '../models/shop.dart';
 import '../models/shop_supporter_header.dart';
@@ -103,6 +104,9 @@ class SoriStore implements Listenable {
   })  : _visitTrigger = visitTrigger ?? VisitTriggerService(),
         _repository = repository ?? MemorySoriRepository() {
     _applySnapshot(MemorySoriRepository.createSeedSnapshot());
+    if (!_repository.isRemote) {
+      _applyProgramSnapshot(ProgramDemoSeed.forShop(shop.id));
+    }
   }
 
   static final SoriStore instance = SoriStore();
@@ -6339,6 +6343,320 @@ class SoriStore implements Listenable {
         return byDate != 0 ? byDate : b.id.compareTo(a.id);
       });
     return out;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // PRD v7.1 — Program 세일즈 OS
+  // ══════════════════════════════════════════════════════════════════════
+
+  final List<ProgramCategory> programCategories = [];
+  final List<ProgramPackage> programPackages = [];
+  final List<ProgramPromotion> programPromotions = [];
+  final List<ProgramQuote> programQuotes = [];
+  bool programRemoteReady = true;
+
+  List<ProgramCategoryBoard> get programBoards {
+    final cats = programCategories.where((c) => c.isActive).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return [
+      for (final c in cats)
+        ProgramCategoryBoard.assemble(
+          category: c,
+          allPackages: programPackages,
+        ),
+    ];
+  }
+
+  List<ProgramPromotion> get liveProgramPromotions {
+    final now = DateTime.now();
+    return programPromotions.where((p) => p.isLiveAt(now)).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  ProgramPackage? findProgramPackage(String id) {
+    final n = id.trim();
+    if (n.isEmpty) return null;
+    for (final p in programPackages) {
+      if (p.id == n) return p;
+    }
+    return null;
+  }
+
+  ProgramQuote? findProgramQuote(String id) {
+    final n = id.trim();
+    if (n.isEmpty) return null;
+    for (final q in programQuotes) {
+      if (q.id == n) return q;
+    }
+    return null;
+  }
+
+  String? programCategoryName(String categoryId) {
+    for (final c in programCategories) {
+      if (c.id == categoryId) return c.name;
+    }
+    return null;
+  }
+
+  Future<void> refreshProgramBoard() async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return;
+    try {
+      final snap = await _repository.loadProgramBoard(shopId);
+      programRemoteReady = true;
+      _applyProgramSnapshot(snap);
+    } catch (e, st) {
+      if (isMissingSchemaError(e)) {
+        programRemoteReady = false;
+        if (programCategories.isEmpty) {
+          _applyProgramSnapshot(ProgramDemoSeed.forShop(shopId));
+        }
+        debugPrint('refreshProgramBoard: schema missing — demo/local board');
+      } else {
+        debugPrint('refreshProgramBoard failed: $e\n$st');
+      }
+    } finally {
+      _notify();
+    }
+  }
+
+  void _applyProgramSnapshot(ProgramBoardSnapshot snap) {
+    programCategories
+      ..clear()
+      ..addAll(snap.categories);
+    programPackages
+      ..clear()
+      ..addAll(snap.packages);
+    programPromotions
+      ..clear()
+      ..addAll(snap.promotions);
+    programQuotes
+      ..clear()
+      ..addAll(snap.quotes);
+  }
+
+  Future<ProgramCategory> upsertProgramCategory(ProgramCategory category) async {
+    final saved = await _repository.upsertProgramCategory(category);
+    final idx = programCategories.indexWhere((c) => c.id == saved.id);
+    if (idx >= 0) {
+      programCategories[idx] = saved;
+    } else {
+      programCategories.add(saved);
+    }
+    _notify();
+    return saved;
+  }
+
+  Future<void> deleteProgramCategory(String categoryId) async {
+    await _repository.deleteProgramCategory(categoryId);
+    programCategories.removeWhere((c) => c.id == categoryId);
+    programPackages.removeWhere((p) => p.categoryId == categoryId);
+    _notify();
+  }
+
+  Future<ProgramPackage> upsertProgramPackage(ProgramPackage package) async {
+    final saved = await _repository.upsertProgramPackage(package);
+    final idx = programPackages.indexWhere((p) => p.id == saved.id);
+    if (idx >= 0) {
+      programPackages[idx] = saved;
+    } else {
+      programPackages.add(saved);
+    }
+    _notify();
+    return saved;
+  }
+
+  Future<void> deleteProgramPackage(String packageId) async {
+    await _repository.deleteProgramPackage(packageId);
+    programPackages.removeWhere((p) => p.id == packageId);
+    _notify();
+  }
+
+  Future<ProgramPromotion> upsertProgramPromotion(
+    ProgramPromotion promotion,
+  ) async {
+    final saved = await _repository.upsertProgramPromotion(promotion);
+    final idx = programPromotions.indexWhere((p) => p.id == saved.id);
+    if (idx >= 0) {
+      programPromotions[idx] = saved;
+    } else {
+      programPromotions.add(saved);
+    }
+    _notify();
+    return saved;
+  }
+
+  Future<void> deleteProgramPromotion(String promotionId) async {
+    await _repository.deleteProgramPromotion(promotionId);
+    programPromotions.removeWhere((p) => p.id == promotionId);
+    _notify();
+  }
+
+  /// 비교 화면 진입 — 패키지 스냅샷을 얼리고 presented 견적을 만든다.
+  Future<ProgramQuote> presentProgramQuote({
+    required ProgramPackage left,
+    required ProgramPackage right,
+    String? customerId,
+  }) async {
+    final leftName = programCategoryName(left.categoryId) ?? '';
+    final rightName = programCategoryName(right.categoryId) ?? '';
+    final chosen = left;
+    var quote = ProgramQuote(
+      id: newUuidV4(),
+      shopId: shop.id,
+      authorId: session?.id,
+      customerId: customerId,
+      leftPackageId: left.id,
+      rightPackageId: right.id,
+      chosenPackageId: chosen.id,
+      left: left.toSnapshot(categoryName: leftName),
+      right: right.toSnapshot(categoryName: rightName),
+      listPriceKrw: chosen.listPriceKrw,
+      benefitValueKrw: 0,
+      payableKrw: chosen.listPriceKrw,
+      status: ProgramQuoteStatus.presented,
+      presentedAt: DateTime.now(),
+      createdAt: DateTime.now(),
+    );
+    quote = _repriceQuote(quote);
+    try {
+      quote = await _repository.upsertProgramQuote(quote);
+    } catch (e) {
+      if (!isMissingSchemaError(e)) rethrow;
+      programRemoteReady = false;
+    }
+    final idx = programQuotes.indexWhere((q) => q.id == quote.id);
+    if (idx >= 0) {
+      programQuotes[idx] = quote;
+    } else {
+      programQuotes.insert(0, quote);
+    }
+    _notify();
+    return quote;
+  }
+
+  ProgramQuote _repriceQuote(ProgramQuote quote) {
+    final promos = [
+      for (final id in quote.promotionIds)
+        ...programPromotions.where((p) => p.id == id),
+    ];
+    final list = quote.chosen.listPriceKrw;
+    return quote.copyWith(
+      listPriceKrw: list,
+      benefitValueKrw: ProgramPricing.benefitValue(promos),
+      payableKrw: ProgramPricing.payable(list, promos),
+    );
+  }
+
+  Future<ProgramQuote> setQuoteChosen({
+    required ProgramQuote quote,
+    required String packageId,
+  }) async {
+    var next = quote.copyWith(chosenPackageId: packageId);
+    next = _repriceQuote(next);
+    return _persistQuote(next);
+  }
+
+  Future<ProgramQuote> setQuotePromotions({
+    required ProgramQuote quote,
+    required List<String> promotionIds,
+  }) async {
+    var next = quote.copyWith(promotionIds: List<String>.from(promotionIds));
+    next = _repriceQuote(next);
+    return _persistQuote(next);
+  }
+
+  Future<ProgramQuote> _persistQuote(ProgramQuote quote) async {
+    var saved = quote;
+    try {
+      saved = await _repository.upsertProgramQuote(quote);
+    } catch (e) {
+      if (!isMissingSchemaError(e)) rethrow;
+      programRemoteReady = false;
+    }
+    final idx = programQuotes.indexWhere((q) => q.id == saved.id);
+    if (idx >= 0) {
+      programQuotes[idx] = saved;
+    } else {
+      programQuotes.insert(0, saved);
+    }
+    _notify();
+    return saved;
+  }
+
+  /// 견적 수락 → 회원권 발급. 고객 id 가 비면 거부한다.
+  Future<Customer> acceptProgramQuote({
+    required ProgramQuote quote,
+    required String customerId,
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) throw StateError('customerId required');
+    final customer = findCustomer(cid);
+    if (customer == null) throw StateError('customer not found');
+
+    final promos = [
+      for (final id in quote.promotionIds)
+        ...programPromotions.where((p) => p.id == id),
+    ];
+    final visits = ProgramPricing.membershipVisits(
+      quote.chosen.visitCount,
+      promos,
+    );
+    final paid = quote.payableKrw;
+    final ticket = CustomerMembership(
+      id: newUuidV4(),
+      serviceName: quote.chosen.name,
+      totalVisits: visits,
+      paidAmount: paid,
+      perSessionValue: ProgramPricing.unitPrice(paid, visits),
+    );
+
+    var remoteAccepted = false;
+    if (_repository.isRemote && programRemoteReady) {
+      try {
+        await _repository.acceptProgramQuote(
+          quoteId: quote.id,
+          customerId: cid,
+        );
+        remoteAccepted = true;
+      } catch (e) {
+        if (!isMissingSchemaError(e)) rethrow;
+        programRemoteReady = false;
+      }
+    } else {
+      try {
+        await _repository.acceptProgramQuote(
+          quoteId: quote.id,
+          customerId: cid,
+        );
+      } catch (e) {
+        debugPrint('acceptProgramQuote local: $e');
+      }
+    }
+
+    final accepted = quote.copyWith(
+      customerId: cid,
+      status: ProgramQuoteStatus.accepted,
+      acceptedAt: DateTime.now(),
+    );
+    final qidx = programQuotes.indexWhere((q) => q.id == accepted.id);
+    if (qidx >= 0) {
+      programQuotes[qidx] = accepted;
+    }
+
+    if (remoteAccepted) {
+      final mirrored = customer
+          .copyWith(memberships: [...customer.memberships, ticket])
+          .withSyncedMembershipMirrors();
+      _mergeCustomer(mirrored);
+      _notify();
+      return mirrored;
+    }
+
+    return saveCustomerMemberships(
+      customerId: cid,
+      memberships: [...customer.memberships, ticket],
+    );
   }
 
   /// 세션 고객의 스마트 회원권 지갑 (다중 샵).

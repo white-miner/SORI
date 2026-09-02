@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/ai_reply.dart';
 import '../models/ba_capture_session.dart';
+import '../models/program_sales.dart';
 import '../models/care_diary_note.dart';
 import '../models/chart_db_columns.dart';
 import '../models/case_timeline_entry.dart';
@@ -5562,6 +5563,217 @@ class SupabaseSoriRepository implements SoriRepository {
       debugPrint('appendVisitOperationEvent failed: $e\n$st');
       rethrow;
     }
+  }
+
+  Map<String, dynamic> _programPayload(Map<String, dynamic> map) {
+    final payload = Map<String, dynamic>.from(map);
+    final rawId = payload['id']?.toString().trim() ?? '';
+    if (rawId.isEmpty || !isUuidV4(rawId)) payload.remove('id');
+    return payload;
+  }
+
+  @override
+  Future<ProgramBoardSnapshot> loadProgramBoard(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const ProgramBoardSnapshot();
+    try {
+      final catRows = await _db
+          .from('program_categories')
+          .select()
+          .eq('shop_id', sid)
+          .order('sort_order');
+      final pkgRows = await _db
+          .from('program_packages')
+          .select()
+          .eq('shop_id', sid)
+          .order('sort_order');
+      final promoRows = await _db
+          .from('program_promotions')
+          .select()
+          .eq('shop_id', sid)
+          .order('sort_order');
+      final quoteRows = await _db
+          .from('program_quotes')
+          .select()
+          .eq('shop_id', sid)
+          .order('created_at', ascending: false);
+
+      final packages = <ProgramPackage>[];
+      final pkgMaps = (pkgRows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final pkgIds = pkgMaps.map((e) => DbMap.asText(e['id'])).where((e) => e.isNotEmpty).toList();
+      var linesByPkg = <String, List<ProgramPackageLine>>{};
+      if (pkgIds.isNotEmpty) {
+        final lineRows = await _db
+            .from('program_package_lines')
+            .select()
+            .inFilter('package_id', pkgIds)
+            .order('sort_order');
+        for (final raw in lineRows as List) {
+          final line = ProgramPackageLine.fromMap(Map<String, dynamic>.from(raw as Map));
+          linesByPkg.putIfAbsent(line.packageId, () => []).add(line);
+        }
+      }
+      for (final row in pkgMaps) {
+        final id = DbMap.asText(row['id']);
+        packages.add(ProgramPackage.fromMap(row, lines: linesByPkg[id] ?? const []));
+      }
+
+      final quoteIds = (quoteRows as List)
+          .map((e) => DbMap.asText((e as Map)['id']))
+          .where((e) => e.isNotEmpty)
+          .toList();
+      final promosByQuote = <String, List<String>>{};
+      if (quoteIds.isNotEmpty) {
+        final qpRows = await _db
+            .from('program_quote_promos')
+            .select()
+            .inFilter('quote_id', quoteIds)
+            .order('sort_order');
+        for (final raw in qpRows as List) {
+          final map = Map<String, dynamic>.from(raw as Map);
+          final qid = DbMap.asText(map['quote_id']);
+          final pid = DbMap.asText(map['promotion_id']);
+          if (qid.isEmpty || pid.isEmpty) continue;
+          promosByQuote.putIfAbsent(qid, () => []).add(pid);
+        }
+      }
+
+      return ProgramBoardSnapshot(
+        categories: (catRows as List)
+            .map((e) => ProgramCategory.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        packages: packages,
+        promotions: (promoRows as List)
+            .map((e) => ProgramPromotion.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        quotes: (quoteRows as List)
+            .map((e) {
+              final map = Map<String, dynamic>.from(e as Map);
+              return ProgramQuote.fromMap(
+                map,
+                promotionIds: promosByQuote[DbMap.asText(map['id'])] ?? const [],
+              );
+            })
+            .toList(),
+      );
+    } catch (e, st) {
+      debugPrint('loadProgramBoard failed: $e\n$st');
+      if (isMissingSchemaError(e)) rethrow;
+      return const ProgramBoardSnapshot();
+    }
+  }
+
+  @override
+  Future<ProgramCategory> upsertProgramCategory(ProgramCategory category) async {
+    final row = await _db
+        .from('program_categories')
+        .upsert(_programPayload(category.toMap()))
+        .select()
+        .single();
+    return ProgramCategory.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> deleteProgramCategory(String categoryId) async {
+    await _db.from('program_categories').delete().eq('id', categoryId);
+  }
+
+  @override
+  Future<ProgramPackage> upsertProgramPackage(ProgramPackage package) async {
+    final row = await _db
+        .from('program_packages')
+        .upsert(_programPayload(package.toMap()))
+        .select()
+        .single();
+    final saved = ProgramPackage.fromMap(Map<String, dynamic>.from(row));
+    await _db.from('program_package_lines').delete().eq('package_id', saved.id);
+    if (package.lines.isNotEmpty) {
+      final payload = package.lines.map((l) {
+        final map = l.copyWith(packageId: saved.id).toMap();
+        final lid = map['id']?.toString().trim() ?? '';
+        if (lid.isEmpty || !isUuidV4(lid)) map.remove('id');
+        return map;
+      }).toList();
+      await _db.from('program_package_lines').insert(payload);
+      final lineRows = await _db
+          .from('program_package_lines')
+          .select()
+          .eq('package_id', saved.id)
+          .order('sort_order');
+      final lines = (lineRows as List)
+          .map((e) => ProgramPackageLine.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      return saved.copyWith(lines: lines);
+    }
+    return saved.copyWith(lines: const []);
+  }
+
+  @override
+  Future<void> deleteProgramPackage(String packageId) async {
+    await _db.from('program_packages').delete().eq('id', packageId);
+  }
+
+  @override
+  Future<ProgramPromotion> upsertProgramPromotion(
+    ProgramPromotion promotion,
+  ) async {
+    final row = await _db
+        .from('program_promotions')
+        .upsert(_programPayload(promotion.toMap()))
+        .select()
+        .single();
+    return ProgramPromotion.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> deleteProgramPromotion(String promotionId) async {
+    await _db.from('program_promotions').delete().eq('id', promotionId);
+  }
+
+  @override
+  Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote) async {
+    final row = await _db
+        .from('program_quotes')
+        .upsert(_programPayload(quote.toMap()))
+        .select()
+        .single();
+    final saved = ProgramQuote.fromMap(
+      Map<String, dynamic>.from(row),
+      promotionIds: quote.promotionIds,
+    );
+    await _db.from('program_quote_promos').delete().eq('quote_id', saved.id);
+    if (quote.promotionIds.isNotEmpty) {
+      var order = 0;
+      await _db.from('program_quote_promos').insert(
+        quote.promotionIds
+            .map(
+              (id) => {
+                'quote_id': saved.id,
+                'promotion_id': id,
+                'sort_order': order++,
+              },
+            )
+            .toList(),
+      );
+    }
+    return saved;
+  }
+
+  @override
+  Future<ProgramQuote> acceptProgramQuote({
+    required String quoteId,
+    required String customerId,
+  }) async {
+    final raw = await _db.rpc(
+      'accept_program_quote',
+      params: {
+        'p_quote_id': quoteId,
+        'p_customer_id': customerId,
+      },
+    );
+    return ProgramQuote.fromMap(_unwrapRpcMap(raw));
   }
 }
 
