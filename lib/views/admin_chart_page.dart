@@ -116,6 +116,8 @@ class _AdminChartPageState extends State<AdminChartPage> {
       context: context,
       customerName: customer.name,
       charts: _timeline,
+      initialChartId: _timeline.isEmpty ? null : _timeline.first.id,
+      initialCareName: _timeline.isEmpty ? null : _timeline.first.careName,
     );
   }
 
