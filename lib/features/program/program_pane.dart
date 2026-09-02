@@ -6,6 +6,7 @@ import '../visit/home_visual_tokens.dart';
 import 'program_edit_page.dart';
 import 'widgets/program_board.dart';
 import 'widgets/program_compare_page.dart';
+import 'widgets/program_quote_page.dart';
 
 /// PRD v7.1 — 홈 2번 탭. 고객을 향하는 Presentation 모드가 기본이다.
 class ProgramPane extends StatefulWidget {
@@ -71,11 +72,14 @@ class _ProgramPaneState extends State<ProgramPane>
     return a.categoryId != b.categoryId;
   }
 
-  Future<void> _openCompare() async {
-    if (_selectedIds.length != 2) return;
+  Future<void> _openSelected() async {
+    if (_selectedIds.isEmpty) return;
     final left = store.findProgramPackage(_selectedIds[0]);
-    final right = store.findProgramPackage(_selectedIds[1]);
-    if (left == null || right == null) return;
+    if (left == null) return;
+    final right = _selectedIds.length > 1
+        ? store.findProgramPackage(_selectedIds[1])
+        : null;
+    if (_selectedIds.length > 1 && right == null) return;
     final quote = await store.presentProgramQuote(left: left, right: right);
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -88,10 +92,9 @@ class _ProgramPaneState extends State<ProgramPane>
               parent: animation,
               curve: HomeVisualTokens.programExpandCurve,
             ),
-            child: ProgramComparePage(
-              store: store,
-              quoteId: quote.id,
-            ),
+            child: quote.isSingle
+                ? ProgramQuotePage(store: store, quoteId: quote.id)
+                : ProgramComparePage(store: store, quoteId: quote.id),
           );
         },
       ),
@@ -201,7 +204,7 @@ class _ProgramPaneState extends State<ProgramPane>
                 onClearRight: () => setState(() {
                   if (_selectedIds.length > 1) _selectedIds.removeAt(1);
                 }),
-                onCompare: _openCompare,
+                onProceed: _openSelected,
               ),
             ),
         ],
@@ -258,7 +261,7 @@ class _CompareDock extends StatelessWidget {
     required this.compareEnabled,
     required this.onClearLeft,
     required this.onClearRight,
-    required this.onCompare,
+    required this.onProceed,
   });
 
   final String leftName;
@@ -267,7 +270,7 @@ class _CompareDock extends StatelessWidget {
   final bool compareEnabled;
   final VoidCallback onClearLeft;
   final VoidCallback onClearRight;
-  final VoidCallback onCompare;
+  final VoidCallback onProceed;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +290,7 @@ class _CompareDock extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '하나를 더 고르면 비교할 수 있습니다',
+                    '비교하려면 하나를 더 고르세요',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -326,21 +329,18 @@ class _CompareDock extends StatelessWidget {
                 SizedBox(
                   height: HomeVisualTokens.programDockH - 16,
                   child: FilledButton(
-                    onPressed: compareEnabled ? onCompare : null,
+                    key: const Key('program-dock-proceed'),
+                    onPressed: onProceed,
                     style: FilledButton.styleFrom(
                       backgroundColor: HomeVisualTokens.programCloserFill,
                       foregroundColor: HomeVisualTokens.programCloserOn,
-                      disabledBackgroundColor: HomeVisualTokens.programCloserFill
-                          .withValues(alpha: 0.35),
-                      disabledForegroundColor: HomeVisualTokens.programCloserOn
-                          .withValues(alpha: 0.7),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text(
-                      '비교하기',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    child: Text(
+                      compareEnabled ? '비교하기' : '이 구성으로 진행',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),

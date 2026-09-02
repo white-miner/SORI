@@ -6353,6 +6353,7 @@ class SoriStore implements Listenable {
   final List<ProgramPackage> programPackages = [];
   final List<ProgramPromotion> programPromotions = [];
   final List<ProgramQuote> programQuotes = [];
+  final List<ProgramCustomerCoupon> programCoupons = [];
   bool programRemoteReady = true;
 
   List<ProgramCategoryBoard> get programBoards {
@@ -6371,6 +6372,46 @@ class SoriStore implements Listenable {
     final now = DateTime.now();
     return programPromotions.where((p) => p.isLiveAt(now)).toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  /// C6/S2 — 이 패키지에 실제로 붙일 수 있는 혜택만. 전용 혜택이 남의 견적에 새지 않는다.
+  List<ProgramPromotion> promotionsForPackage(ProgramPackageSnapshot? side) {
+    if (side == null) return liveProgramPromotions;
+    return liveProgramPromotions
+        .where(
+          (p) => p.appliesTo(
+            packageId: side.id,
+            categoryId: side.categoryId,
+          ),
+        )
+        .toList();
+  }
+
+  /// S7 — 고객이 들고 있는 미사용 쿠폰. 재방문 즉시 식별의 근거다.
+  List<ProgramCustomerCoupon> unusedCouponsFor(String customerId) {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return const [];
+    final now = DateTime.now();
+    return programCoupons
+        .where(
+          (c) => c.customerId == cid && c.isUnused && !c.isExpiredAt(now),
+        )
+        .toList();
+  }
+
+  int unusedCouponCount(String customerId) =>
+      unusedCouponsFor(customerId).length;
+
+  /// Q3(a) — 수락됐지만 아직 못 받은 돈. 차감은 막지 않고 배지로 보여 준다.
+  List<ProgramQuote> get unpaidProgramQuotes =>
+      programQuotes.where((q) => q.isUnpaid).toList();
+
+  int outstandingKrwFor(String customerId) {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return 0;
+    return programQuotes
+        .where((q) => q.customerId == cid && q.isUnpaid)
+        .fold<int>(0, (sum, q) => sum + q.outstandingKrw);
   }
 
   ProgramPackage? findProgramPackage(String id) {
@@ -6433,6 +6474,9 @@ class SoriStore implements Listenable {
     programQuotes
       ..clear()
       ..addAll(snap.quotes);
+    programCoupons
+      ..clear()
+      ..addAll(snap.coupons);
   }
 
   Future<ProgramCategory> upsertProgramCategory(ProgramCategory category) async {
@@ -6492,14 +6536,16 @@ class SoriStore implements Listenable {
     _notify();
   }
 
-  /// 비교 화면 진입 — 패키지 스냅샷을 얼리고 presented 견적을 만든다.
+  /// 상담 진입 — 패키지 스냅샷을 얼리고 presented 견적을 만든다.
+  /// [right] 가 비면 단건 요약 견적이다 (R2). 비교는 나중에 붙일 수 있다.
   Future<ProgramQuote> presentProgramQuote({
     required ProgramPackage left,
-    required ProgramPackage right,
+    ProgramPackage? right,
     String? customerId,
   }) async {
     final leftName = programCategoryName(left.categoryId) ?? '';
-    final rightName = programCategoryName(right.categoryId) ?? '';
+    final rightName =
+        right == null ? '' : (programCategoryName(right.categoryId) ?? '');
     final chosen = left;
     var quote = ProgramQuote(
       id: newUuidV4(),
@@ -6507,10 +6553,10 @@ class SoriStore implements Listenable {
       authorId: session?.id,
       customerId: customerId,
       leftPackageId: left.id,
-      rightPackageId: right.id,
+      rightPackageId: right?.id,
       chosenPackageId: chosen.id,
       left: left.toSnapshot(categoryName: leftName),
-      right: right.toSnapshot(categoryName: rightName),
+      right: right?.toSnapshot(categoryName: rightName),
       listPriceKrw: chosen.listPriceKrw,
       benefitValueKrw: 0,
       payableKrw: chosen.listPriceKrw,
@@ -6586,10 +6632,13 @@ class SoriStore implements Listenable {
     return saved;
   }
 
-  /// 견적 수락 → 회원권 발급. 고객 id 가 비면 거부한다.
+  /// 견적 수락 → 회원권 발급 + 미래가치 쿠폰 + 수기 결제 기록. 고객 id 가 비면 거부한다.
   Future<Customer> acceptProgramQuote({
     required ProgramQuote quote,
     required String customerId,
+    ProgramPaymentStatus paymentStatus = ProgramPaymentStatus.unpaid,
+    int paidKrw = 0,
+    ProgramPaymentMethod method = ProgramPaymentMethod.cash,
   }) async {
     final cid = customerId.trim();
     if (cid.isEmpty) throw StateError('customerId required');
@@ -6614,11 +6663,15 @@ class SoriStore implements Listenable {
     );
 
     var remoteAccepted = false;
+    ProgramAcceptResult? result;
     if (_repository.isRemote && programRemoteReady) {
       try {
-        await _repository.acceptProgramQuote(
+        result = await _repository.acceptProgramQuote(
           quoteId: quote.id,
           customerId: cid,
+          paymentStatus: paymentStatus,
+          paidKrw: paidKrw,
+          method: method,
         );
         remoteAccepted = true;
       } catch (e) {
@@ -6627,24 +6680,45 @@ class SoriStore implements Listenable {
       }
     } else {
       try {
-        await _repository.acceptProgramQuote(
+        result = await _repository.acceptProgramQuote(
           quoteId: quote.id,
           customerId: cid,
+          paymentStatus: paymentStatus,
+          paidKrw: paidKrw,
+          method: method,
         );
       } catch (e) {
         debugPrint('acceptProgramQuote local: $e');
       }
     }
 
+    final settled = paidKrw >= paid && paidKrw > 0
+        ? ProgramPaymentStatus.paid
+        : paidKrw > 0
+            ? ProgramPaymentStatus.partial
+            : paymentStatus;
     final accepted = quote.copyWith(
       customerId: cid,
       status: ProgramQuoteStatus.accepted,
       acceptedAt: DateTime.now(),
+      paymentStatus: settled,
+      paidKrw: paidKrw,
+      paymentMethod: paidKrw > 0 ? method : null,
+      paidAt: settled.isSettled ? DateTime.now() : null,
     );
     final qidx = programQuotes.indexWhere((q) => q.id == accepted.id);
     if (qidx >= 0) {
       programQuotes[qidx] = accepted;
+    } else {
+      programQuotes.insert(0, accepted);
     }
+
+    _absorbIssuedCoupons(
+      result: result,
+      quote: accepted,
+      customerId: cid,
+      promos: promos,
+    );
 
     if (remoteAccepted) {
       final mirrored = customer
@@ -6659,6 +6733,31 @@ class SoriStore implements Listenable {
       customerId: cid,
       memberships: [...customer.memberships, ticket],
     );
+  }
+
+  /// S7 — 서버가 쿠폰을 돌려주면 그걸 쓰고, 아니면 로컬에서 같은 규칙으로 찍는다.
+  void _absorbIssuedCoupons({
+    required ProgramAcceptResult? result,
+    required ProgramQuote quote,
+    required String customerId,
+    required List<ProgramPromotion> promos,
+  }) {
+    programCoupons.removeWhere((c) => c.issuedQuoteId == quote.id);
+    final remote = result?.coupons ?? const <ProgramCustomerCoupon>[];
+    if (remote.isNotEmpty) {
+      programCoupons.addAll(remote);
+      return;
+    }
+    for (final promo in ProgramPricing.futureCredits(promos)) {
+      programCoupons.add(
+        ProgramCustomerCoupon.fromPromotion(
+          id: newUuidV4(),
+          promo: promo,
+          customerId: customerId,
+          quoteId: quote.id,
+        ),
+      );
+    }
   }
 
   /// 세션 고객의 스마트 회원권 지갑 (다중 샵).

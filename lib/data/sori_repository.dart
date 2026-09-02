@@ -898,11 +898,21 @@ abstract class SoriRepository {
 
   Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote);
 
-  /// 견적 수락 RPC. 회원권 jsonb 기록은 서버가 수행한다.
-  Future<ProgramQuote> acceptProgramQuote({
+  /// 견적 수락 RPC (116). 회원권·쿠폰·결제 기록을 서버가 한 트랜잭션으로 닫는다.
+  Future<ProgramAcceptResult> acceptProgramQuote({
     required String quoteId,
     required String customerId,
+    ProgramPaymentStatus paymentStatus = ProgramPaymentStatus.unpaid,
+    int paidKrw = 0,
+    ProgramPaymentMethod method = ProgramPaymentMethod.cash,
   });
+
+  /// PRD v7.2 — 고객 보유 쿠폰 (114).
+  Future<List<ProgramCustomerCoupon>> loadProgramCoupons(String shopId);
+
+  Future<ProgramCustomerCoupon> upsertProgramCoupon(
+    ProgramCustomerCoupon coupon,
+  );
 
   /// Visit OS — on-site session SSOT (097).
   Future<List<VisitSession>> loadVisitSessions(

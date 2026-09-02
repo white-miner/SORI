@@ -37,12 +37,14 @@ enum ProgramPromoKind {
   extraSession,
   gift,
   instantDiscount,
+  percentDiscount,
   nextVisitCredit;
 
   String get dbValue => switch (this) {
         ProgramPromoKind.extraSession => 'extra_session',
         ProgramPromoKind.gift => 'gift',
         ProgramPromoKind.instantDiscount => 'instant_discount',
+        ProgramPromoKind.percentDiscount => 'percent_discount',
         ProgramPromoKind.nextVisitCredit => 'next_visit_credit',
       };
 
@@ -51,6 +53,7 @@ enum ProgramPromoKind {
       'extra_session' => ProgramPromoKind.extraSession,
       'gift' => ProgramPromoKind.gift,
       'instant_discount' => ProgramPromoKind.instantDiscount,
+      'percent_discount' => ProgramPromoKind.percentDiscount,
       'next_visit_credit' => ProgramPromoKind.nextVisitCredit,
       _ => ProgramPromoKind.gift,
     };
@@ -61,7 +64,87 @@ enum ProgramPromoKind {
         ProgramPromoKind.extraSession => '횟수 추가',
         ProgramPromoKind.gift => '사은품 증정',
         ProgramPromoKind.instantDiscount => '즉시 할인',
+        ProgramPromoKind.percentDiscount => '퍼센트 할인',
         ProgramPromoKind.nextVisitCredit => '다음 방문 크레딧',
+      };
+
+  /// 미래가치 — 오늘의 회원권이 아니라 고객 쿠폰으로 떨어진다.
+  bool get isFutureCredit => this == ProgramPromoKind.nextVisitCredit;
+}
+
+/// 수기 결제 상태. SORI 에 PG 는 없다 (Q3(a) — 막지 않고 보이게 한다).
+enum ProgramPaymentStatus {
+  unpaid,
+  partial,
+  paid,
+  refunded;
+
+  String get dbValue => name;
+
+  static ProgramPaymentStatus fromDb(String? raw) {
+    return ProgramPaymentStatus.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => ProgramPaymentStatus.unpaid,
+    );
+  }
+
+  String get labelKo => switch (this) {
+        ProgramPaymentStatus.unpaid => '미결제',
+        ProgramPaymentStatus.partial => '일부 결제',
+        ProgramPaymentStatus.paid => '결제 완료',
+        ProgramPaymentStatus.refunded => '환불',
+      };
+
+  bool get isSettled => this == ProgramPaymentStatus.paid;
+}
+
+enum ProgramPaymentMethod {
+  cash,
+  card,
+  transfer,
+  etc;
+
+  String get dbValue => name;
+
+  static ProgramPaymentMethod fromDb(String? raw) {
+    return ProgramPaymentMethod.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => ProgramPaymentMethod.cash,
+    );
+  }
+
+  String get labelKo => switch (this) {
+        ProgramPaymentMethod.cash => '현금',
+        ProgramPaymentMethod.card => '카드',
+        ProgramPaymentMethod.transfer => '이체',
+        ProgramPaymentMethod.etc => '기타',
+      };
+}
+
+enum ProgramCouponStatus {
+  issued,
+  used,
+  expired,
+  voided;
+
+  /// DB 는 'void' 를 쓴다. Dart 예약어라 enum 이름만 voided 로 둔다.
+  String get dbValue =>
+      this == ProgramCouponStatus.voided ? 'void' : name;
+
+  static ProgramCouponStatus fromDb(String? raw) {
+    return switch (raw) {
+      'used' => ProgramCouponStatus.used,
+      'expired' => ProgramCouponStatus.expired,
+      'void' => ProgramCouponStatus.voided,
+      _ => ProgramCouponStatus.issued,
+    };
+  }
+
+  String get labelKo => switch (this) {
+        ProgramCouponStatus.issued => '미사용',
+        ProgramCouponStatus.used => '사용 완료',
+        ProgramCouponStatus.expired => '기한 만료',
+        ProgramCouponStatus.voided => '무효',
       };
 }
 
@@ -91,17 +174,41 @@ abstract final class ProgramPricing {
   static int benefitValue(Iterable<ProgramPromotion> promos) =>
       promos.fold<int>(0, (sum, p) => sum + p.valueKrw);
 
+  /// Q4(a) — 정액 할인 합계를 먼저 빼고, 남은 금액에 퍼센트를 적용한다.
+  /// 순서를 뒤집으면 9장까지 겹치는 스택에서 결제액이 0으로 수렴한다.
   static int payable(int listPriceKrw, Iterable<ProgramPromotion> promos) {
-    final discount = promos.fold<int>(0, (sum, p) => sum + p.discountKrw);
-    final next = listPriceKrw - discount;
+    final flat = promos.fold<int>(0, (sum, p) => sum + p.discountKrw);
+    var next = listPriceKrw - flat;
+    if (next <= 0) return 0;
+
+    final percent = percentOffTotal(promos);
+    if (percent <= 0) return next;
+    next = (next * (100 - percent) / 100).floor();
     return next < 0 ? 0 : next;
   }
 
+  /// 퍼센트 할인은 합산 후 100 에서 자른다. 100 을 넘겨 음수 결제액을 만들지 않는다.
+  static double percentOffTotal(Iterable<ProgramPromotion> promos) {
+    final sum = promos.fold<double>(0, (acc, p) => acc + p.percentOff);
+    if (sum <= 0) return 0;
+    return sum > 100 ? 100 : sum;
+  }
+
+  /// 회원권 횟수는 '오늘의 혜택'만 더한다. 다음 방문 크레딧은 쿠폰으로 분기한다.
   static int membershipVisits(
     int packageVisits,
     Iterable<ProgramPromotion> promos,
   ) =>
-      packageVisits + promos.fold<int>(0, (sum, p) => sum + p.extraVisits);
+      packageVisits +
+      promos
+          .where((p) => !p.kind.isFutureCredit)
+          .fold<int>(0, (sum, p) => sum + p.extraVisits);
+
+  /// 수락 시 고객 쿠폰으로 떨어질 혜택만 추린다 (S7).
+  static List<ProgramPromotion> futureCredits(
+    Iterable<ProgramPromotion> promos,
+  ) =>
+      promos.where((p) => p.kind.isFutureCredit).toList();
 
   /// 견적에 붙은 프로모션 id 목록을 카탈로그 행으로 펼친다. 같은 id가 두 번이면 두 장.
   static List<ProgramPromotion> stacked(
@@ -137,6 +244,14 @@ abstract final class ProgramPricing {
 
   static bool unitBeatsWalkIn(int unitPriceKrw, int walkInPriceKrw) =>
       walkInPriceKrw > 0 && unitPriceKrw < walkInPriceKrw;
+
+  /// numeric(5,2) 는 드라이버에 따라 num / String 으로 온다. 0~100 으로 자른다.
+  static double asPercent(dynamic raw) {
+    if (raw == null) return 0;
+    final value = raw is num ? raw.toDouble() : double.tryParse('$raw') ?? 0;
+    if (value <= 0) return 0;
+    return value > 100 ? 100 : value;
+  }
 }
 
 /// 견적 프로모션 스택. 같은 카탈로그 혜택을 여러 장 붙일 수 있다.
@@ -604,6 +719,28 @@ class ProgramPackageSnapshot {
   }
 }
 
+/// 혜택 적용 범위 (112). global 이면 target 은 반드시 비어 있다.
+enum ProgramPromoScope {
+  global,
+  category,
+  package;
+
+  String get dbValue => name;
+
+  static ProgramPromoScope fromDb(String? raw) {
+    return ProgramPromoScope.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => ProgramPromoScope.global,
+    );
+  }
+
+  String get labelKo => switch (this) {
+        ProgramPromoScope.global => '전체',
+        ProgramPromoScope.category => '카테고리 전용',
+        ProgramPromoScope.package => '패키지 전용',
+      };
+}
+
 class ProgramPromotion {
   const ProgramPromotion({
     required this.id,
@@ -614,6 +751,10 @@ class ProgramPromotion {
     this.valueKrw = 0,
     this.extraVisits = 0,
     this.discountKrw = 0,
+    this.percentOff = 0,
+    this.giftQty = 0,
+    this.scope = ProgramPromoScope.global,
+    this.targetId,
     this.isActive = true,
     this.sortOrder = 0,
     this.validFrom,
@@ -629,11 +770,24 @@ class ProgramPromotion {
   final int valueKrw;
   final int extraVisits;
   final int discountKrw;
+  final double percentOff;
+  final int giftQty;
+  final ProgramPromoScope scope;
+  final String? targetId;
   final bool isActive;
   final int sortOrder;
   final DateTime? validFrom;
   final DateTime? validUntil;
   final DateTime? createdAt;
+
+  /// 이 혜택이 해당 패키지 견적에 붙을 수 있는가 (C6/S2).
+  bool appliesTo({required String packageId, required String categoryId}) {
+    return switch (scope) {
+      ProgramPromoScope.global => true,
+      ProgramPromoScope.category => targetId == categoryId,
+      ProgramPromoScope.package => targetId == packageId,
+    };
+  }
 
   bool isLiveAt(DateTime now) {
     if (!isActive) return false;
@@ -650,10 +804,15 @@ class ProgramPromotion {
     int? valueKrw,
     int? extraVisits,
     int? discountKrw,
+    double? percentOff,
+    int? giftQty,
+    ProgramPromoScope? scope,
+    String? targetId,
     bool? isActive,
     int? sortOrder,
     DateTime? validFrom,
     DateTime? validUntil,
+    bool clearTarget = false,
     bool clearValidFrom = false,
     bool clearValidUntil = false,
   }) {
@@ -666,6 +825,10 @@ class ProgramPromotion {
       valueKrw: valueKrw ?? this.valueKrw,
       extraVisits: extraVisits ?? this.extraVisits,
       discountKrw: discountKrw ?? this.discountKrw,
+      percentOff: percentOff ?? this.percentOff,
+      giftQty: giftQty ?? this.giftQty,
+      scope: scope ?? this.scope,
+      targetId: clearTarget ? null : (targetId ?? this.targetId),
       isActive: isActive ?? this.isActive,
       sortOrder: sortOrder ?? this.sortOrder,
       validFrom: clearValidFrom ? null : (validFrom ?? this.validFrom),
@@ -683,13 +846,29 @@ class ProgramPromotion {
         'value_krw': valueKrw,
         'extra_visits': extraVisits,
         'discount_krw': discountKrw,
+        'percent_off': percentOff,
+        'gift_qty': giftQty,
+        'scope': scope.dbValue,
+        'target_id': scope == ProgramPromoScope.global
+            ? null
+            : DbMap.nullIfBlank(targetId),
         'is_active': isActive,
         'sort_order': sortOrder,
         'valid_from': validFrom?.toUtc().toIso8601String(),
         'valid_until': validUntil?.toUtc().toIso8601String(),
       };
 
+  /// 112 미적용 DB 로 저장할 때 벗겨 낼 키. 스키마 진화 폴백에 쓴다.
+  static const v72Columns = <String>[
+    'percent_off',
+    'gift_qty',
+    'scope',
+    'target_id',
+  ];
+
   factory ProgramPromotion.fromMap(Map<String, dynamic> map) {
+    final scope = ProgramPromoScope.fromDb(DbMap.asTextOrNull(map['scope']));
+    final target = DbMap.asTextOrNull(map['target_id'] ?? map['targetId']);
     return ProgramPromotion(
       id: DbMap.asText(map['id']),
       shopId: DbMap.asText(map['shop_id'] ?? map['shopId']),
@@ -699,6 +878,12 @@ class ProgramPromotion {
       valueKrw: DbMap.asInt(map['value_krw'] ?? map['valueKrw']),
       extraVisits: DbMap.asInt(map['extra_visits'] ?? map['extraVisits']),
       discountKrw: DbMap.asInt(map['discount_krw'] ?? map['discountKrw']),
+      percentOff: ProgramPricing.asPercent(
+        map['percent_off'] ?? map['percentOff'],
+      ),
+      giftQty: DbMap.asInt(map['gift_qty'] ?? map['giftQty']),
+      scope: scope,
+      targetId: scope == ProgramPromoScope.global ? null : target,
       isActive: DbMap.asBool(map['is_active'] ?? map['isActive'], true),
       sortOrder: DbMap.asInt(map['sort_order'] ?? map['sortOrder']),
       validFrom: DbMap.asDateTime(map['valid_from'] ?? map['validFrom']),
@@ -708,12 +893,158 @@ class ProgramPromotion {
   }
 }
 
+/// S7 — 고객이 들고 가는 미래가치. 회원권(횟수)과 다른 자산이다 (114).
+class ProgramCustomerCoupon {
+  const ProgramCustomerCoupon({
+    required this.id,
+    required this.shopId,
+    required this.customerId,
+    required this.title,
+    this.issuedQuoteId,
+    this.promotionId,
+    this.percentOff = 0,
+    this.discountKrw = 0,
+    this.extraVisits = 0,
+    this.giftQty = 0,
+    this.status = ProgramCouponStatus.issued,
+    this.issuedAt,
+    this.expiresAt,
+    this.usedAt,
+    this.usedQuoteId,
+  });
+
+  final String id;
+  final String shopId;
+  final String customerId;
+  final String title;
+  final String? issuedQuoteId;
+  final String? promotionId;
+  final double percentOff;
+  final int discountKrw;
+  final int extraVisits;
+  final int giftQty;
+  final ProgramCouponStatus status;
+  final DateTime? issuedAt;
+  final DateTime? expiresAt;
+  final DateTime? usedAt;
+  final String? usedQuoteId;
+
+  bool get isUnused => status == ProgramCouponStatus.issued;
+
+  bool isExpiredAt(DateTime now) =>
+      expiresAt != null && now.isAfter(expiresAt!);
+
+  /// 배지·칩 한 줄. "20% 할인" / "+1회" / "사은품 2개".
+  String get benefitLine {
+    if (percentOff > 0) {
+      final p = percentOff == percentOff.roundToDouble()
+          ? percentOff.round().toString()
+          : percentOff.toStringAsFixed(1);
+      return '$p% 할인';
+    }
+    if (discountKrw > 0) return '${ProgramPricing.formatKrw(discountKrw)}원 할인';
+    if (extraVisits > 0) return '+$extraVisits회';
+    if (giftQty > 0) return '사은품 $giftQty개';
+    return title;
+  }
+
+  ProgramCustomerCoupon copyWith({
+    String? id,
+    ProgramCouponStatus? status,
+    DateTime? usedAt,
+    String? usedQuoteId,
+  }) {
+    return ProgramCustomerCoupon(
+      id: id ?? this.id,
+      shopId: shopId,
+      customerId: customerId,
+      title: title,
+      issuedQuoteId: issuedQuoteId,
+      promotionId: promotionId,
+      percentOff: percentOff,
+      discountKrw: discountKrw,
+      extraVisits: extraVisits,
+      giftQty: giftQty,
+      status: status ?? this.status,
+      issuedAt: issuedAt,
+      expiresAt: expiresAt,
+      usedAt: usedAt ?? this.usedAt,
+      usedQuoteId: usedQuoteId ?? this.usedQuoteId,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'shop_id': shopId,
+        'customer_id': customerId,
+        'issued_quote_id': DbMap.nullIfBlank(issuedQuoteId),
+        'promotion_id': DbMap.nullIfBlank(promotionId),
+        'title': title,
+        'percent_off': percentOff,
+        'discount_krw': discountKrw,
+        'extra_visits': extraVisits,
+        'gift_qty': giftQty,
+        'status': status.dbValue,
+        'expires_at': expiresAt?.toUtc().toIso8601String(),
+        'used_at': usedAt?.toUtc().toIso8601String(),
+        'used_quote_id': DbMap.nullIfBlank(usedQuoteId),
+      };
+
+  factory ProgramCustomerCoupon.fromMap(Map<String, dynamic> map) {
+    return ProgramCustomerCoupon(
+      id: DbMap.asText(map['id']),
+      shopId: DbMap.asText(map['shop_id'] ?? map['shopId']),
+      customerId: DbMap.asText(map['customer_id'] ?? map['customerId']),
+      title: DbMap.asText(map['title']),
+      issuedQuoteId:
+          DbMap.asTextOrNull(map['issued_quote_id'] ?? map['issuedQuoteId']),
+      promotionId: DbMap.asTextOrNull(map['promotion_id'] ?? map['promotionId']),
+      percentOff: ProgramPricing.asPercent(
+        map['percent_off'] ?? map['percentOff'],
+      ),
+      discountKrw: DbMap.asInt(map['discount_krw'] ?? map['discountKrw']),
+      extraVisits: DbMap.asInt(map['extra_visits'] ?? map['extraVisits']),
+      giftQty: DbMap.asInt(map['gift_qty'] ?? map['giftQty']),
+      status: ProgramCouponStatus.fromDb(DbMap.asTextOrNull(map['status'])),
+      issuedAt: DbMap.asDateTime(map['issued_at'] ?? map['issuedAt']),
+      expiresAt: DbMap.asDateTime(map['expires_at'] ?? map['expiresAt']),
+      usedAt: DbMap.asDateTime(map['used_at'] ?? map['usedAt']),
+      usedQuoteId:
+          DbMap.asTextOrNull(map['used_quote_id'] ?? map['usedQuoteId']),
+    );
+  }
+
+  /// 견적에 붙은 미래가치 혜택 1장을 고객 쿠폰으로 찍어 낸다.
+  factory ProgramCustomerCoupon.fromPromotion({
+    required String id,
+    required ProgramPromotion promo,
+    required String customerId,
+    required String quoteId,
+    DateTime? issuedAt,
+  }) {
+    return ProgramCustomerCoupon(
+      id: id,
+      shopId: promo.shopId,
+      customerId: customerId,
+      title: promo.title,
+      issuedQuoteId: quoteId,
+      promotionId: promo.id,
+      percentOff: promo.percentOff,
+      discountKrw: promo.discountKrw,
+      extraVisits: promo.extraVisits,
+      giftQty: promo.giftQty,
+      expiresAt: promo.validUntil,
+      issuedAt: issuedAt ?? DateTime.now(),
+    );
+  }
+}
+
 class ProgramQuote {
   const ProgramQuote({
     required this.id,
     required this.shopId,
     required this.left,
-    required this.right,
+    this.right,
     this.authorId,
     this.customerId,
     this.leftPackageId,
@@ -724,6 +1055,10 @@ class ProgramQuote {
     this.benefitValueKrw = 0,
     this.payableKrw = 0,
     this.status = ProgramQuoteStatus.draft,
+    this.paymentStatus = ProgramPaymentStatus.unpaid,
+    this.paidKrw = 0,
+    this.paymentMethod,
+    this.paidAt,
     this.presentedAt,
     this.acceptedAt,
     this.createdAt,
@@ -737,22 +1072,43 @@ class ProgramQuote {
   final String? rightPackageId;
   final String? chosenPackageId;
   final ProgramPackageSnapshot left;
-  final ProgramPackageSnapshot right;
+
+  /// 단건 상담이면 null. 비교 진입 시에만 두 번째 스냅샷이 생긴다 (R2).
+  final ProgramPackageSnapshot? right;
   final List<String> promotionIds;
   final int listPriceKrw;
   final int benefitValueKrw;
   final int payableKrw;
   final ProgramQuoteStatus status;
+  final ProgramPaymentStatus paymentStatus;
+  final int paidKrw;
+  final ProgramPaymentMethod? paymentMethod;
+  final DateTime? paidAt;
   final DateTime? presentedAt;
   final DateTime? acceptedAt;
   final DateTime? createdAt;
 
+  bool get isSingle => right == null;
+
   ProgramPackageSnapshot get chosen {
-    if (chosenPackageId == right.id) return right;
+    final r = right;
+    if (r != null && chosenPackageId == r.id) return r;
     return left;
   }
 
-  bool get isCrossCategory => left.categoryId != right.categoryId;
+  bool get isCrossCategory {
+    final r = right;
+    return r != null && left.categoryId != r.categoryId;
+  }
+
+  /// Q3(a) — 못 받은 돈. 0 이면 미수 배지를 띄우지 않는다.
+  int get outstandingKrw {
+    final due = payableKrw - paidKrw;
+    return due < 0 ? 0 : due;
+  }
+
+  bool get isUnpaid =>
+      status == ProgramQuoteStatus.accepted && outstandingKrw > 0;
 
   /// 같은 혜택을 여러 장 붙인 횟수. UI 칩의 `×N`.
   Map<String, int> get promotionQty => ProgramPromoStack.qtyById(promotionIds);
@@ -764,11 +1120,17 @@ class ProgramQuote {
     String? id,
     String? customerId,
     String? chosenPackageId,
+    ProgramPackageSnapshot? right,
+    String? rightPackageId,
     List<String>? promotionIds,
     int? listPriceKrw,
     int? benefitValueKrw,
     int? payableKrw,
     ProgramQuoteStatus? status,
+    ProgramPaymentStatus? paymentStatus,
+    int? paidKrw,
+    ProgramPaymentMethod? paymentMethod,
+    DateTime? paidAt,
     DateTime? presentedAt,
     DateTime? acceptedAt,
     bool clearCustomer = false,
@@ -779,15 +1141,19 @@ class ProgramQuote {
       authorId: authorId,
       customerId: clearCustomer ? null : (customerId ?? this.customerId),
       leftPackageId: leftPackageId,
-      rightPackageId: rightPackageId,
+      rightPackageId: rightPackageId ?? this.rightPackageId,
       chosenPackageId: chosenPackageId ?? this.chosenPackageId,
       left: left,
-      right: right,
+      right: right ?? this.right,
       promotionIds: promotionIds ?? this.promotionIds,
       listPriceKrw: listPriceKrw ?? this.listPriceKrw,
       benefitValueKrw: benefitValueKrw ?? this.benefitValueKrw,
       payableKrw: payableKrw ?? this.payableKrw,
       status: status ?? this.status,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paidKrw: paidKrw ?? this.paidKrw,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paidAt: paidAt ?? this.paidAt,
       presentedAt: presentedAt ?? this.presentedAt,
       acceptedAt: acceptedAt ?? this.acceptedAt,
       createdAt: createdAt,
@@ -804,15 +1170,25 @@ class ProgramQuote {
         'chosen_package_id': DbMap.nullIfBlank(chosenPackageId),
         'snapshot': {
           'left': left.toMap(),
-          'right': right.toMap(),
+          if (right != null) 'right': right!.toMap(),
         },
         'list_price_krw': listPriceKrw,
         'benefit_value_krw': benefitValueKrw,
         'payable_krw': payableKrw,
         'status': status.dbValue,
+        'payment_status': paymentStatus.dbValue,
+        'paid_krw': paidKrw,
+        'paid_at': paidAt?.toUtc().toIso8601String(),
         'presented_at': presentedAt?.toUtc().toIso8601String(),
         'accepted_at': acceptedAt?.toUtc().toIso8601String(),
       };
+
+  /// 113 미적용 DB 로 저장할 때 벗겨 낼 키.
+  static const v72Columns = <String>[
+    'payment_status',
+    'paid_krw',
+    'paid_at',
+  ];
 
   factory ProgramQuote.fromMap(
     Map<String, dynamic> map, {
@@ -846,23 +1222,57 @@ class ProgramQuote {
             ),
       right: rightRaw is Map
           ? ProgramPackageSnapshot.fromMap(Map<String, dynamic>.from(rightRaw))
-          : const ProgramPackageSnapshot(
-              id: '',
-              name: '',
-              categoryId: '',
-              categoryName: '',
-              visitCount: 1,
-              listPriceKrw: 0,
-            ),
+          : null,
       promotionIds: promotionIds,
       listPriceKrw: DbMap.asInt(map['list_price_krw'] ?? map['listPriceKrw']),
       benefitValueKrw:
           DbMap.asInt(map['benefit_value_krw'] ?? map['benefitValueKrw']),
       payableKrw: DbMap.asInt(map['payable_krw'] ?? map['payableKrw']),
       status: ProgramQuoteStatus.fromDb(DbMap.asTextOrNull(map['status'])),
+      paymentStatus: ProgramPaymentStatus.fromDb(
+        DbMap.asTextOrNull(map['payment_status'] ?? map['paymentStatus']),
+      ),
+      paidKrw: DbMap.asInt(map['paid_krw'] ?? map['paidKrw']),
+      paidAt: DbMap.asDateTime(map['paid_at'] ?? map['paidAt']),
       presentedAt: DbMap.asDateTime(map['presented_at'] ?? map['presentedAt']),
       acceptedAt: DbMap.asDateTime(map['accepted_at'] ?? map['acceptedAt']),
       createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
+    );
+  }
+}
+
+/// 수락 RPC 의 반환. 회원권·쿠폰·결제가 한 트랜잭션으로 닫힌 결과다 (116).
+class ProgramAcceptResult {
+  const ProgramAcceptResult({
+    required this.quote,
+    this.membershipId,
+    this.coupons = const [],
+  });
+
+  final ProgramQuote quote;
+  final String? membershipId;
+  final List<ProgramCustomerCoupon> coupons;
+
+  factory ProgramAcceptResult.fromRpc(Map<String, dynamic> raw) {
+    final quoteRaw = raw['quote'];
+    final quoteMap = quoteRaw is Map
+        ? Map<String, dynamic>.from(quoteRaw)
+        : raw;
+    final couponsRaw = raw['coupons'];
+    final coupons = <ProgramCustomerCoupon>[];
+    if (couponsRaw is List) {
+      for (final item in couponsRaw) {
+        if (item is Map) {
+          coupons.add(
+            ProgramCustomerCoupon.fromMap(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+    return ProgramAcceptResult(
+      quote: ProgramQuote.fromMap(quoteMap),
+      membershipId: DbMap.asTextOrNull(raw['membership_id']),
+      coupons: coupons,
     );
   }
 }
@@ -904,12 +1314,14 @@ class ProgramBoardSnapshot {
     this.packages = const [],
     this.promotions = const [],
     this.quotes = const [],
+    this.coupons = const [],
   });
 
   final List<ProgramCategory> categories;
   final List<ProgramPackage> packages;
   final List<ProgramPromotion> promotions;
   final List<ProgramQuote> quotes;
+  final List<ProgramCustomerCoupon> coupons;
 }
 
 /// 메모리/E2E용 윤곽 디코이 산수. 운영 메뉴(`shop_menus`)와 id가 겹치지 않는다.
@@ -922,6 +1334,7 @@ abstract final class ProgramDemoSeed {
   static const pkgWedding = '00000000-0000-4000-8000-00000000a004';
   static const promoExtra = '00000000-0000-4000-8000-00000000p001';
   static const promoGift = '00000000-0000-4000-8000-00000000p002';
+  static const promoCredit = '00000000-0000-4000-8000-00000000p003';
 
   static ProgramBoardSnapshot forShop(String shopId) {
     final sid = shopId.trim().isEmpty ? 'shop-demo' : shopId.trim();
@@ -1110,6 +1523,16 @@ abstract final class ProgramDemoSeed {
           subtitle: '오늘 가져가시는 홈케어',
           valueKrw: 100000,
           sortOrder: 1,
+        ),
+        ProgramPromotion(
+          id: promoCredit,
+          shopId: sid,
+          kind: ProgramPromoKind.nextVisitCredit,
+          title: '다음 패키지 20% 할인',
+          subtitle: '재방문 시 쿠폰으로 드립니다',
+          valueKrw: 200000,
+          percentOff: 20,
+          sortOrder: 2,
         ),
       ],
     );

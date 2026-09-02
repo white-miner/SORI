@@ -5649,6 +5649,7 @@ class SupabaseSoriRepository implements SoriRepository {
       }
 
       return ProgramBoardSnapshot(
+        coupons: await loadProgramCoupons(sid),
         categories: (catRows as List)
             .map((e) => ProgramCategory.fromMap(Map<String, dynamic>.from(e as Map)))
             .toList(),
@@ -5754,12 +5755,75 @@ class SupabaseSoriRepository implements SoriRepository {
   Future<ProgramPromotion> upsertProgramPromotion(
     ProgramPromotion promotion,
   ) async {
+    Map<String, dynamic> row;
+    try {
+      row = Map<String, dynamic>.from(
+        await _db
+            .from('program_promotions')
+            .upsert(_programPayload(promotion.toMap()))
+            .select()
+            .single(),
+      );
+    } catch (e) {
+      // 112 미적용 DB — scope/percent 컬럼을 벗기고 다시 시도한다.
+      if (!_isUnknownColumn(e)) rethrow;
+      final stripped = promotion.toMap();
+      for (final key in ProgramPromotion.v72Columns) {
+        stripped.remove(key);
+      }
+      row = Map<String, dynamic>.from(
+        await _db
+            .from('program_promotions')
+            .upsert(_programPayload(stripped))
+            .select()
+            .single(),
+      );
+    }
+    final saved = ProgramPromotion.fromMap(row);
+    return saved.copyWith(
+      percentOff: promotion.percentOff,
+      giftQty: promotion.giftQty,
+      scope: promotion.scope,
+      targetId: promotion.targetId,
+      clearTarget: promotion.targetId == null,
+    );
+  }
+
+  @override
+  Future<List<ProgramCustomerCoupon>> loadProgramCoupons(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('program_customer_coupons')
+          .select()
+          .eq('shop_id', sid)
+          .order('issued_at', ascending: false);
+      return (rows as List)
+          .map(
+            (e) => ProgramCustomerCoupon.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      // 114 미적용 DB — 쿠폰 기능만 조용히 비활성화한다.
+      if (isMissingSchemaError(e)) return const [];
+      debugPrint('loadProgramCoupons failed: $e');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ProgramCustomerCoupon> upsertProgramCoupon(
+    ProgramCustomerCoupon coupon,
+  ) async {
     final row = await _db
-        .from('program_promotions')
-        .upsert(_programPayload(promotion.toMap()))
+        .from('program_customer_coupons')
+        .upsert(_programPayload(coupon.toMap()))
         .select()
         .single();
-    return ProgramPromotion.fromMap(Map<String, dynamic>.from(row));
+    return ProgramCustomerCoupon.fromMap(Map<String, dynamic>.from(row));
   }
 
   @override
@@ -5796,13 +5860,32 @@ class SupabaseSoriRepository implements SoriRepository {
 
   @override
   Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote) async {
-    final row = await _db
-        .from('program_quotes')
-        .upsert(_programPayload(quote.toMap()))
-        .select()
-        .single();
+    Map<String, dynamic> row;
+    try {
+      row = Map<String, dynamic>.from(
+        await _db
+            .from('program_quotes')
+            .upsert(_programPayload(quote.toMap()))
+            .select()
+            .single(),
+      );
+    } catch (e) {
+      // 113 미적용 DB — 결제 컬럼을 벗기고 다시 시도한다.
+      if (!_isUnknownColumn(e)) rethrow;
+      final stripped = quote.toMap();
+      for (final key in ProgramQuote.v72Columns) {
+        stripped.remove(key);
+      }
+      row = Map<String, dynamic>.from(
+        await _db
+            .from('program_quotes')
+            .upsert(_programPayload(stripped))
+            .select()
+            .single(),
+      );
+    }
     final saved = ProgramQuote.fromMap(
-      Map<String, dynamic>.from(row),
+      row,
       promotionIds: quote.promotionIds,
     );
     await _db.from('program_quote_promos').delete().eq('quote_id', saved.id);
@@ -5815,19 +5898,46 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
-  Future<ProgramQuote> acceptProgramQuote({
+  Future<ProgramAcceptResult> acceptProgramQuote({
     required String quoteId,
     required String customerId,
+    ProgramPaymentStatus paymentStatus = ProgramPaymentStatus.unpaid,
+    int paidKrw = 0,
+    ProgramPaymentMethod method = ProgramPaymentMethod.cash,
   }) async {
-    final raw = await _db.rpc(
-      'accept_program_quote',
-      params: {
-        'p_quote_id': quoteId,
-        'p_customer_id': customerId,
-      },
-    );
-    return ProgramQuote.fromMap(_unwrapRpcMap(raw));
+    try {
+      final raw = await _db.rpc(
+        'accept_program_quote_v2',
+        params: {
+          'p_quote_id': quoteId,
+          'p_customer_id': customerId,
+          'p_payment_status': paymentStatus.dbValue,
+          'p_paid_krw': paidKrw,
+          'p_method': method.dbValue,
+        },
+      );
+      return ProgramAcceptResult.fromRpc(_unwrapRpcMap(raw));
+    } catch (e) {
+      // 116 미적용 DB — v1 로 폴백한다. 쿠폰·결제는 이 경로에서 남지 않는다.
+      if (!isMissingSchemaError(e)) rethrow;
+      final raw = await _db.rpc(
+        'accept_program_quote',
+        params: {
+          'p_quote_id': quoteId,
+          'p_customer_id': customerId,
+        },
+      );
+      return ProgramAcceptResult(
+        quote: ProgramQuote.fromMap(_unwrapRpcMap(raw)),
+      );
+    }
   }
+}
+
+/// PGRST204 / 42703 — 서버에 없는 컬럼을 보냈다는 신호.
+bool _isUnknownColumn(Object error) {
+  final text = error.toString();
+  return text.contains('PGRST204') || text.contains('42703');
 }
 
 Map<String, dynamic> _unwrapRpcMap(dynamic raw) {

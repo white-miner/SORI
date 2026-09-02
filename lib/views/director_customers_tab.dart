@@ -730,6 +730,11 @@ class _CustomerListSlivers {
               remainLabel: remainBadgeLabelForCustomer(c, store),
               remainUrgent: ticketingUrgent,
               remainWarn: hasMembership && c.isMembershipLow && !ticketingUrgent,
+              couponLabel: store.unusedCouponCount(c.id) > 0
+                  ? '미사용 쿠폰 ${store.unusedCouponCount(c.id)}장'
+                  : null,
+              unpaidLabel: store.outstandingKrwFor(c.id) > 0
+                  ? '미수금' : null,
               selecting: selecting,
               selected: selected,
               onTap: () {
@@ -838,6 +843,8 @@ class _DenseCustomerTile extends StatelessWidget {
     this.dormantDays = 0,
     this.remainUrgent = false,
     this.remainWarn = false,
+    this.couponLabel,
+    this.unpaidLabel,
     this.selecting = false,
     this.selected = false,
   });
@@ -852,6 +859,8 @@ class _DenseCustomerTile extends StatelessWidget {
   final String remainLabel;
   final bool remainUrgent;
   final bool remainWarn;
+  final String? couponLabel;
+  final String? unpaidLabel;
   final bool selecting;
   final bool selected;
   final VoidCallback onTap;
@@ -966,6 +975,46 @@ class _DenseCustomerTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (couponLabel != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  key: const Key('program-coupon-badge'),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C1C1E),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    couponLabel!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+              if (unpaidLabel != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  key: const Key('program-unpaid-badge'),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C1C1E),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    unpaidLabel!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
               if (!selecting) ...[
                 const SizedBox(height: 6),
                 TextButton(

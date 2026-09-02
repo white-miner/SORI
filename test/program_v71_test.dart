@@ -53,6 +53,7 @@ void main() {
       expect(ProgramPromoKind.gift.labelKo, '사은품 증정');
       expect(ProgramPromoKind.instantDiscount.labelKo, '즉시 할인');
       expect(ProgramPromoKind.nextVisitCredit.labelKo, '다음 방문 크레딧');
+      expect(ProgramPromoKind.percentDiscount.labelKo, '퍼센트 할인');
     });
 
     test('단품 대비 회당 카피가 맞다', () {

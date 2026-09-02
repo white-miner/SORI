@@ -284,11 +284,12 @@ void main() {
     await tester.tap(find.byKey(const Key('program-check-${ProgramDemoSeed.pkgA}')));
     await tester.pump();
     expect(find.byKey(const Key('program-compare-dock')), findsOneWidget);
-    expect(find.text('하나를 더 고르면 비교할 수 있습니다'), findsOneWidget);
+    expect(find.text('비교하려면 하나를 더 고르세요'), findsOneWidget);
+    expect(find.text('이 구성으로 진행'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('program-check-${ProgramDemoSeed.pkgB}')));
     await tester.pump();
-    expect(find.text('하나를 더 고르면 비교할 수 있습니다'), findsNothing);
+    expect(find.text('비교하려면 하나를 더 고르세요'), findsNothing);
 
     await tester.tap(find.text('비교하기'));
     await tester.pump(HomeVisualTokens.programExpandDuration);

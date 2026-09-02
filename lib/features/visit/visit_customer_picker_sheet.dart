@@ -8,6 +8,7 @@ import '../../visit_kernel/theme/visit_glass_tokens.dart';
 Future<Customer?> showVisitCustomerPickerSheet(
   BuildContext context, {
   required SoriStore store,
+  bool allowQuickCreate = false,
 }) {
   return showModalBottomSheet<Customer>(
     context: context,
@@ -16,14 +17,21 @@ Future<Customer?> showVisitCustomerPickerSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
     ),
-    builder: (ctx) => _VisitCustomerPickerBody(store: store),
+    builder: (ctx) => _VisitCustomerPickerBody(
+      store: store,
+      allowQuickCreate: allowQuickCreate,
+    ),
   );
 }
 
 class _VisitCustomerPickerBody extends StatefulWidget {
-  const _VisitCustomerPickerBody({required this.store});
+  const _VisitCustomerPickerBody({
+    required this.store,
+    this.allowQuickCreate = false,
+  });
 
   final SoriStore store;
+  final bool allowQuickCreate;
 
   @override
   State<_VisitCustomerPickerBody> createState() =>
@@ -32,12 +40,23 @@ class _VisitCustomerPickerBody extends StatefulWidget {
 
 class _VisitCustomerPickerBodyState extends State<_VisitCustomerPickerBody> {
   final _search = TextEditingController();
+  final _quickName = TextEditingController();
+  final _quickPhone = TextEditingController();
   String _query = '';
+  var _showQuickForm = false;
+  var _saving = false;
 
   @override
   void dispose() {
     _search.dispose();
+    _quickName.dispose();
+    _quickPhone.dispose();
     super.dispose();
+  }
+
+  bool get _queryLooksLikePhone {
+    final digits = _query.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 4 && digits.length >= _query.trim().length - 2;
   }
 
   List<Customer> get _filtered {
@@ -47,21 +66,56 @@ class _VisitCustomerPickerBodyState extends State<_VisitCustomerPickerBody> {
       return List<Customer>.from(all)
         ..sort((a, b) => b.lastTreatmentDate.compareTo(a.lastTreatmentDate));
     }
-    return all
-        .where((c) {
-          final name = c.name.toLowerCase();
-          final phone = c.phone.replaceAll(RegExp(r'\D'), '');
-          final qq = q.replaceAll(RegExp(r'\D'), '');
-          return name.contains(q) ||
-              (qq.isNotEmpty && phone.contains(qq));
-        })
-        .toList();
+    return all.where((c) {
+      final name = c.name.toLowerCase();
+      final phone = c.phone.replaceAll(RegExp(r'\D'), '');
+      final qq = q.replaceAll(RegExp(r'\D'), '');
+      return name.contains(q) || (qq.isNotEmpty && phone.contains(qq));
+    }).toList();
+  }
+
+  void _openQuickForm() {
+    final q = _query.trim();
+    if (_queryLooksLikePhone) {
+      _quickPhone.text = q;
+      if (_quickName.text.trim().isEmpty) _quickName.clear();
+    } else {
+      _quickName.text = q;
+    }
+    setState(() => _showQuickForm = true);
+  }
+
+  Future<void> _saveQuick() async {
+    final name = _quickName.text.trim();
+    final phone = _quickPhone.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final saved = await widget.store.addCustomerAsync(
+        Customer(
+          id: '',
+          shopId: widget.store.shop.id,
+          name: name,
+          phone: phone,
+          lastTreatmentDate: DateTime.now(),
+          treatmentType: '',
+        ),
+      );
+      if (!mounted) return;
+      Navigator.pop(context, saved);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final items = _filtered.take(50).toList();
+    final showCta = widget.allowQuickCreate &&
+        _query.trim().isNotEmpty &&
+        !_showQuickForm;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
@@ -97,8 +151,52 @@ class _VisitCustomerPickerBodyState extends State<_VisitCustomerPickerBody> {
                 borderSide: BorderSide.none,
               ),
             ),
-            onChanged: (v) => setState(() => _query = v),
+            onChanged: (v) => setState(() {
+              _query = v;
+              _showQuickForm = false;
+            }),
           ),
+          if (showCta) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              key: const Key('program-quick-create'),
+              onPressed: _openQuickForm,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF8B5CF6),
+                alignment: Alignment.centerLeft,
+              ),
+              child: Text(
+                "'${_query.trim()}' 신규 등록",
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+          if (_showQuickForm) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('program-quick-create-name'),
+              controller: _quickName,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: '이름'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('program-quick-create-phone'),
+              controller: _quickPhone,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: '연락처'),
+            ),
+            const SizedBox(height: 10),
+            FilledButton(
+              key: const Key('program-quick-create-save'),
+              onPressed: _saving ? null : _saveQuick,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1C1C1E),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(_saving ? '등록 중…' : '등록하고 이어서'),
+            ),
+          ],
           const SizedBox(height: 12),
           ConstrainedBox(
             constraints: BoxConstraints(
@@ -108,7 +206,9 @@ class _VisitCustomerPickerBodyState extends State<_VisitCustomerPickerBody> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      '고객을 찾을 수 없어요.',
+                      widget.allowQuickCreate
+                          ? '검색 결과가 없어요. 위에서 신규로 등록할 수 있습니다.'
+                          : '고객을 찾을 수 없어요.',
                       textAlign: TextAlign.center,
                       style: VisitGlassTokens.bodyCalm.copyWith(
                         color: SoriTokens.textSecondary,
@@ -130,8 +230,10 @@ class _VisitCustomerPickerBodyState extends State<_VisitCustomerPickerBody> {
                             color: SoriTokens.textSecondary,
                           ),
                         ),
-                        trailing: const Icon(Icons.arrow_forward_ios_rounded,
-                            size: 16),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 16,
+                        ),
                         onTap: () => Navigator.pop(context, c),
                       );
                     },
