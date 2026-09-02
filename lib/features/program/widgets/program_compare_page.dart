@@ -4,6 +4,7 @@ import '../../../models/program_sales.dart';
 import '../../../services/sori_store.dart';
 import '../../visit/home_visual_tokens.dart';
 import '../program_accept.dart';
+import 'program_unit_price.dart';
 import 'promotion_closer_sheet.dart';
 
 class ProgramComparePage extends StatefulWidget {
@@ -95,7 +96,7 @@ class _ProgramComparePageState extends State<ProgramComparePage> {
                 switchInCurve: HomeVisualTokens.programExpandCurve,
                 child: KeyedSubtree(
                   key: const Key('program-compare-stage'),
-                  child: landscape
+                      child: landscape
                       ? _LandscapeStage(
                           quote: quote,
                           onChoose: _choose,
@@ -108,7 +109,11 @@ class _ProgramComparePageState extends State<ProgramComparePage> {
               ),
             ),
             _DeltaLine(quote: quote),
-            _BenefitBar(quote: quote),
+            _AvailablePromos(promotions: widget.store.liveProgramPromotions),
+            _BenefitBar(
+              quote: quote,
+              catalog: widget.store.programPromotions,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
@@ -129,9 +134,11 @@ class _ProgramComparePageState extends State<ProgramComparePage> {
                           ),
                         ),
                         icon: const Icon(Icons.card_giftcard_outlined, size: 20),
-                        label: const Text(
-                          '프로모션 적용',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                        label: Text(
+                          quote.promotionIds.isEmpty
+                              ? '프로모션 적용'
+                              : '프로모션 ${quote.promotionIds.length}건',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),
@@ -197,7 +204,10 @@ class _TopBar extends StatelessWidget {
 }
 
 class _LandscapeStage extends StatelessWidget {
-  const _LandscapeStage({required this.quote, required this.onChoose});
+  const _LandscapeStage({
+    required this.quote,
+    required this.onChoose,
+  });
 
   final ProgramQuote quote;
   final ValueChanged<String> onChoose;
@@ -232,7 +242,10 @@ class _LandscapeStage extends StatelessWidget {
 }
 
 class _PortraitStage extends StatelessWidget {
-  const _PortraitStage({required this.quote, required this.onChoose});
+  const _PortraitStage({
+    required this.quote,
+    required this.onChoose,
+  });
 
   final ProgramQuote quote;
   final ValueChanged<String> onChoose;
@@ -282,6 +295,8 @@ class _CompareColumn extends StatelessWidget {
     final steps = side.lines.where((l) => l.kind == ProgramLineKind.step);
     final devices = side.lines.where((l) => l.kind == ProgramLineKind.device);
     final ampoules = side.lines.where((l) => l.kind == ProgramLineKind.ampoule);
+    final accent = Color(ProgramAccent.argbOf(side.accentHex));
+    final perks = side.lines.where((l) => l.kind == ProgramLineKind.perk);
 
     return Material(
       color: selected ? HomeVisualTokens.canvasBg : Colors.transparent,
@@ -292,12 +307,28 @@ class _CompareColumn extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                side.name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accent,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      side.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: accent,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (side.categoryName.trim().isNotEmpty)
                 Text(
@@ -314,6 +345,12 @@ class _CompareColumn extends StatelessWidget {
                 ProgramPricing.formatKrw(side.unitPriceKrw),
                 emphasize: unitWins,
               ),
+              ProgramUnitPriceBlock(
+                unitPriceKrw: side.unitPriceKrw,
+                visitCount: side.visitCount,
+                walkInPriceKrw: side.walkInPriceKrw,
+              ),
+              const SizedBox(height: 6),
               _kv(
                 '정가',
                 ProgramPricing.formatKrw(side.listPriceKrw),
@@ -321,7 +358,7 @@ class _CompareColumn extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                '케어 순서',
+                '구성',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -333,6 +370,11 @@ class _CompareColumn extends StatelessWidget {
                 Text(
                   '${i + 1}. ${steps.elementAt(i).label}'
                   '${steps.elementAt(i).minutes == null ? '' : ' ${steps.elementAt(i).minutes}분'}',
+                  style: const TextStyle(fontSize: 13, height: 1.35),
+                ),
+              for (final perk in perks)
+                Text(
+                  '· ${perk.label}',
                   style: const TextStyle(fontSize: 13, height: 1.35),
                 ),
               if (devices.isNotEmpty) ...[
@@ -443,14 +485,68 @@ class _DeltaLine extends StatelessWidget {
   }
 }
 
+class _AvailablePromos extends StatelessWidget {
+  const _AvailablePromos({required this.promotions});
+
+  final List<ProgramPromotion> promotions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (promotions.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+      child: Column(
+        children: [
+          const Text(
+            '적용 가능 프로모션',
+            key: Key('program-available-promos'),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: HomeVisualTokens.dateIconColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final p in promotions)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: HomeVisualTokens.canvasBg,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${p.kind.labelKo} · ${p.title}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BenefitBar extends StatelessWidget {
-  const _BenefitBar({required this.quote});
+  const _BenefitBar({required this.quote, required this.catalog});
 
   final ProgramQuote quote;
+  final List<ProgramPromotion> catalog;
 
   @override
   Widget build(BuildContext context) {
     final hasDiscount = quote.payableKrw < quote.listPriceKrw;
+    final qty = quote.promotionQty;
+    final order = quote.uniquePromotionIds;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
       child: Column(
@@ -468,6 +564,27 @@ class _BenefitBar extends StatelessWidget {
                   : HomeVisualTokens.dateTextColor,
             ),
           ),
+          if (order.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final id in order)
+                    _AppliedPromoChip(
+                      key: Key('program-applied-promo-$id'),
+                      title: catalog
+                              .where((p) => p.id == id)
+                              .map((p) => p.title)
+                              .firstOrNull ??
+                          id,
+                      qty: qty[id] ?? 1,
+                    ),
+                ],
+              ),
+            ),
           if (quote.benefitValueKrw > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -494,6 +611,38 @@ class _BenefitBar extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _AppliedPromoChip extends StatelessWidget {
+  const _AppliedPromoChip({
+    super.key,
+    required this.title,
+    required this.qty,
+  });
+
+  final String title;
+  final int qty;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = qty > 1 ? '$title ×$qty' : title;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: HomeVisualTokens.canvasBg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: HomeVisualTokens.programCloserFill),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: HomeVisualTokens.programCloserFill,
+        ),
       ),
     );
   }

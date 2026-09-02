@@ -44,6 +44,29 @@ void main() {
       expect(ProgramPricing.payable(3000000, [gift, extra]), 3000000);
       expect(ProgramPricing.payable(3000000, [gift, extra, cut]), 2900000);
       expect(ProgramPricing.membershipVisits(6, [extra]), 7);
+      expect(ProgramPricing.benefitValue([extra, extra, gift]), 700000);
+      expect(ProgramPricing.membershipVisits(6, [extra, extra]), 8);
+    });
+
+    test('프로모션 종류는 한국어로만 노출한다', () {
+      expect(ProgramPromoKind.extraSession.labelKo, '횟수 추가');
+      expect(ProgramPromoKind.gift.labelKo, '사은품 증정');
+      expect(ProgramPromoKind.instantDiscount.labelKo, '즉시 할인');
+      expect(ProgramPromoKind.nextVisitCredit.labelKo, '다음 방문 크레딧');
+    });
+
+    test('단품 대비 회당 카피가 맞다', () {
+      expect(ProgramPricing.walkInLine(350000), '단품 1회 350,000원');
+      expect(ProgramPricing.packageUnitLine(250000, 6), '6회 시 1회 250,000원');
+      expect(ProgramPricing.unitBeatsWalkIn(250000, 350000), isTrue);
+      expect(ProgramPricing.unitBeatsWalkIn(350000, 350000), isFalse);
+    });
+
+    test('Timer Green / Violet / 세일 Red 는 charcoal 로 되돌린다', () {
+      expect(ProgramAccent.normalize('34C759'), ProgramAccent.charcoal);
+      expect(ProgramAccent.normalize('8B5CF6'), ProgramAccent.charcoal);
+      expect(ProgramAccent.normalize('#FF3B30'), ProgramAccent.charcoal);
+      expect(ProgramAccent.normalize('8B7355'), '8B7355');
     });
 
     test('formatKrw 는 3자리 콤마', () {
@@ -117,6 +140,33 @@ void main() {
       final frozen = store.findProgramQuote(quote.id)!;
       expect(frozen.left.listPriceKrw, 3000000);
       expect(store.findProgramPackage(a.id)!.listPriceKrw, 1);
+    });
+
+    test('같은 프로모션을 여러 장 붙이면 혜택과 횟수가 합산된다', () async {
+      final store = SoriStore();
+      final a = store.findProgramPackage(ProgramDemoSeed.pkgA)!;
+      final b = store.findProgramPackage(ProgramDemoSeed.pkgB)!;
+      var quote = await store.presentProgramQuote(left: a, right: b);
+      quote = await store.setQuoteChosen(quote: quote, packageId: b.id);
+      quote = await store.setQuotePromotions(
+        quote: quote,
+        promotionIds: const [
+          ProgramDemoSeed.promoExtra,
+          ProgramDemoSeed.promoExtra,
+          ProgramDemoSeed.promoGift,
+        ],
+      );
+      expect(quote.promotionIds, hasLength(3));
+      expect(quote.promotionQty[ProgramDemoSeed.promoExtra], 2);
+      expect(quote.benefitValueKrw, 700000);
+      expect(quote.payableKrw, 1500000);
+      expect(
+        ProgramPricing.membershipVisits(
+          quote.chosen.visitCount,
+          ProgramPricing.stacked(quote.promotionIds, store.programPromotions),
+        ),
+        8,
+      );
     });
 
     test('고객 없이 수락하면 거부한다', () async {

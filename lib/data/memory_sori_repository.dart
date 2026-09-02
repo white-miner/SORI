@@ -4412,7 +4412,10 @@ class MemorySoriRepository implements SoriRepository {
 
   @override
   Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote) async {
-    final saved = quote.copyWith(id: _assignedId(quote.id));
+    final saved = quote.copyWith(
+      id: _assignedId(quote.id),
+      promotionIds: ProgramPromoStack.clamp(quote.promotionIds),
+    );
     final idx = _programQuotes.indexWhere((q) => q.id == saved.id);
     if (idx >= 0) {
       _programQuotes[idx] = saved;

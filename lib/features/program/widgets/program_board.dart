@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/program_sales.dart';
 import '../../visit/home_visual_tokens.dart';
+import 'program_unit_price.dart';
 
 /// 카테고리 1장. Collapsed 에는 앵커 가격만 트리에 올린다.
 class ProgramCategoryCard extends StatelessWidget {
@@ -99,13 +100,11 @@ class ProgramCategoryCard extends StatelessWidget {
                             color: HomeVisualTokens.dateTextColor,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '회당 ${ProgramPricing.formatKrw(anchor.unitPriceKrw)}',
-                          style: const TextStyle(
-                            fontSize: HomeVisualTokens.programUnitSize,
-                            color: HomeVisualTokens.dateIconColor,
-                          ),
+                        const SizedBox(height: 6),
+                        ProgramUnitPriceBlock(
+                          unitPriceKrw: anchor.unitPriceKrw,
+                          visitCount: anchor.visitCount,
+                          walkInPriceKrw: anchor.walkInPriceKrw,
                         ),
                       ],
                     ),
@@ -150,73 +149,82 @@ class _ExpandedRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            key: Key('program-check-${package.id}'),
-            onTap: onToggleCheck,
-            child: Padding(
+      child: InkWell(
+        onTap: onToggleCheck,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
               padding: const EdgeInsets.only(right: 10, top: 2),
               child: Icon(
+                key: Key('program-check-${package.id}'),
                 checked
                     ? Icons.check_box_rounded
                     : Icons.check_box_outline_blank_rounded,
-                size: 22,
+                size: 24,
                 color: checked
                     ? HomeVisualTokens.programCheckFill
                     : HomeVisualTokens.dateIconColor,
               ),
             ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (isAnchor)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(right: 6),
-                        decoration: const BoxDecoration(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: HomeVisualTokens.dateTextColor,
+                          color: Color(ProgramAccent.argbOf(package.accentHex)),
                         ),
                       ),
-                    Expanded(
-                      child: Text(
-                        '${package.name}  ${package.visitCount}회',
+                      Expanded(
+                        child: Text(
+                          '${package.name}  ${package.visitCount}회',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isAnchor ? FontWeight.w700 : FontWeight.w600,
+                            color: Color(ProgramAccent.argbOf(package.accentHex)),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ProgramPricing.formatKrw(package.listPriceKrw),
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isAnchor ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: isAnchor ? 16 : 14,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ProgramUnitPriceBlock(
+                    unitPriceKrw: package.unitPriceKrw,
+                    visitCount: package.visitCount,
+                    walkInPriceKrw: package.walkInPriceKrw,
+                    compact: true,
+                  ),
+                  if (devices.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        devices,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: HomeVisualTokens.dateIconColor,
                         ),
                       ),
                     ),
-                    Text(
-                      ProgramPricing.formatKrw(package.listPriceKrw),
-                      style: TextStyle(
-                        fontSize: isAnchor ? 16 : 14,
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '회당 ${ProgramPricing.formatKrw(package.unitPriceKrw)}'
-                  '${devices.isEmpty ? '' : '  ·  $devices'}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: HomeVisualTokens.dateIconColor,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -5636,7 +5636,15 @@ class SupabaseSoriRepository implements SoriRepository {
           final qid = DbMap.asText(map['quote_id']);
           final pid = DbMap.asText(map['promotion_id']);
           if (qid.isEmpty || pid.isEmpty) continue;
-          promosByQuote.putIfAbsent(qid, () => []).add(pid);
+          var qty = DbMap.asInt(map['qty'], 1);
+          if (qty < 1) qty = 1;
+          if (qty > ProgramPromoStack.maxQtyPerPromo) {
+            qty = ProgramPromoStack.maxQtyPerPromo;
+          }
+          final bucket = promosByQuote.putIfAbsent(qid, () => []);
+          for (var i = 0; i < qty; i++) {
+            bucket.add(pid);
+          }
         }
       }
 
@@ -5682,12 +5690,31 @@ class SupabaseSoriRepository implements SoriRepository {
 
   @override
   Future<ProgramPackage> upsertProgramPackage(ProgramPackage package) async {
-    final row = await _db
-        .from('program_packages')
-        .upsert(_programPayload(package.toMap()))
-        .select()
-        .single();
-    final saved = ProgramPackage.fromMap(Map<String, dynamic>.from(row));
+    Map<String, dynamic> row;
+    try {
+      row = Map<String, dynamic>.from(
+        await _db
+            .from('program_packages')
+            .upsert(_programPayload(package.toMap()))
+            .select()
+            .single(),
+      );
+    } catch (e) {
+      final text = e.toString();
+      final unknown = text.contains('PGRST204') || text.contains('42703');
+      if (!unknown) rethrow;
+      final stripped = package.toMap()
+        ..remove('accent_hex')
+        ..remove('walk_in_price_krw');
+      row = Map<String, dynamic>.from(
+        await _db
+            .from('program_packages')
+            .upsert(_programPayload(stripped))
+            .select()
+            .single(),
+      );
+    }
+    final saved = ProgramPackage.fromMap(row);
     await _db.from('program_package_lines').delete().eq('package_id', saved.id);
     if (package.lines.isNotEmpty) {
       final payload = package.lines.map((l) {
@@ -5705,9 +5732,17 @@ class SupabaseSoriRepository implements SoriRepository {
       final lines = (lineRows as List)
           .map((e) => ProgramPackageLine.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList();
-      return saved.copyWith(lines: lines);
+      return saved.copyWith(
+        lines: lines,
+        accentHex: package.accentHex,
+        walkInPriceKrw: package.walkInPriceKrw,
+      );
     }
-    return saved.copyWith(lines: const []);
+    return saved.copyWith(
+      lines: const [],
+      accentHex: package.accentHex,
+      walkInPriceKrw: package.walkInPriceKrw,
+    );
   }
 
   @override
@@ -5732,6 +5767,33 @@ class SupabaseSoriRepository implements SoriRepository {
     await _db.from('program_promotions').delete().eq('id', promotionId);
   }
 
+  Future<void> _insertQuotePromos(
+    String quoteId,
+    List<String> promotionIds,
+  ) async {
+    final withQty = ProgramPromoStack.junctionRows(
+      quoteId: quoteId,
+      promotionIds: promotionIds,
+      includeQty: true,
+    );
+    if (withQty.isEmpty) return;
+    try {
+      await _db.from('program_quote_promos').insert(withQty);
+    } catch (e) {
+      final text = e.toString();
+      final qtyColumnMissing =
+          text.contains('PGRST204') || text.contains('42703');
+      if (!qtyColumnMissing) rethrow;
+      await _db.from('program_quote_promos').insert(
+        ProgramPromoStack.junctionRows(
+          quoteId: quoteId,
+          promotionIds: ProgramPromoStack.uniqueInOrder(promotionIds),
+          includeQty: false,
+        ),
+      );
+    }
+  }
+
   @override
   Future<ProgramQuote> upsertProgramQuote(ProgramQuote quote) async {
     final row = await _db
@@ -5745,20 +5807,11 @@ class SupabaseSoriRepository implements SoriRepository {
     );
     await _db.from('program_quote_promos').delete().eq('quote_id', saved.id);
     if (quote.promotionIds.isNotEmpty) {
-      var order = 0;
-      await _db.from('program_quote_promos').insert(
-        quote.promotionIds
-            .map(
-              (id) => {
-                'quote_id': saved.id,
-                'promotion_id': id,
-                'sort_order': order++,
-              },
-            )
-            .toList(),
-      );
+      await _insertQuotePromos(saved.id, quote.promotionIds);
     }
-    return saved;
+    return saved.copyWith(
+      promotionIds: ProgramPromoStack.clamp(quote.promotionIds),
+    );
   }
 
   @override

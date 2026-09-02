@@ -19,7 +19,7 @@ Future<void> acceptProgramQuoteWithCustomer({
   if (!context.mounted) return;
   final visits = ProgramPricing.membershipVisits(
     quote.chosen.visitCount,
-    store.programPromotions.where((p) => quote.promotionIds.contains(p.id)),
+    ProgramPricing.stacked(quote.promotionIds, store.programPromotions),
   );
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(

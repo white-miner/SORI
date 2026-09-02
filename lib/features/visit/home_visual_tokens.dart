@@ -158,4 +158,5 @@ abstract final class HomeVisualTokens {
   static const programExpandCurve = Curves.easeOutCubic;
   static const programCheckFill = Color(0xFF111111);
   static const programStrike = Color(0xFF8E8E93);
+  static const programUnitWinSize = 17.0;
 }

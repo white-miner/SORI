@@ -141,6 +141,7 @@ class _ProgramPaneState extends State<ProgramPane>
                         ),
                       ),
                       IconButton(
+                        key: const Key('program-edit-open'),
                         tooltip: '메뉴 보드 편집',
                         onPressed: _openEdit,
                         icon: const Icon(
@@ -163,7 +164,7 @@ class _ProgramPaneState extends State<ProgramPane>
                     HomeVisualTokens.sectionGutter,
                     0,
                     HomeVisualTokens.sectionGutter,
-                    _selectedIds.length == 2 ? 88 : 24,
+                    _selectedIds.isNotEmpty ? 88 : 24,
                   ),
                   sliver: SliverList.separated(
                     itemCount: boards.length,
@@ -183,7 +184,7 @@ class _ProgramPaneState extends State<ProgramPane>
                 ),
             ],
           ),
-          if (_selectedIds.length == 2)
+          if (_selectedIds.isNotEmpty)
             Positioned(
               left: 16,
               right: 16,
@@ -192,8 +193,10 @@ class _ProgramPaneState extends State<ProgramPane>
                 crossCategory: _crossCategory,
                 leftName:
                     store.findProgramPackage(_selectedIds[0])?.name ?? '',
-                rightName:
-                    store.findProgramPackage(_selectedIds[1])?.name ?? '',
+                rightName: _selectedIds.length > 1
+                    ? (store.findProgramPackage(_selectedIds[1])?.name ?? '')
+                    : '',
+                compareEnabled: _selectedIds.length == 2,
                 onClearLeft: () => setState(() => _selectedIds.removeAt(0)),
                 onClearRight: () => setState(() {
                   if (_selectedIds.length > 1) _selectedIds.removeAt(1);
@@ -252,6 +255,7 @@ class _CompareDock extends StatelessWidget {
     required this.leftName,
     required this.rightName,
     required this.crossCategory,
+    required this.compareEnabled,
     required this.onClearLeft,
     required this.onClearRight,
     required this.onCompare,
@@ -260,6 +264,7 @@ class _CompareDock extends StatelessWidget {
   final String leftName;
   final String rightName;
   final bool crossCategory;
+  final bool compareEnabled;
   final VoidCallback onClearLeft;
   final VoidCallback onClearRight;
   final VoidCallback onCompare;
@@ -276,7 +281,22 @@ class _CompareDock extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (crossCategory)
+            if (!compareEnabled)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '하나를 더 고르면 비교할 수 있습니다',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: HomeVisualTokens.dateIconColor,
+                    ),
+                  ),
+                ),
+              )
+            else if (crossCategory)
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Align(
@@ -296,16 +316,24 @@ class _CompareDock extends StatelessWidget {
                 Expanded(child: _NameChip(name: leftName, onClear: onClearLeft)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _NameChip(name: rightName, onClear: onClearRight),
+                  child: _NameChip(
+                    name: rightName.isEmpty ? '하나를 더 고르세요' : rightName,
+                    onClear: rightName.isEmpty ? null : onClearRight,
+                    placeholder: rightName.isEmpty,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
                   height: HomeVisualTokens.programDockH - 16,
                   child: FilledButton(
-                    onPressed: onCompare,
+                    onPressed: compareEnabled ? onCompare : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: HomeVisualTokens.programCloserFill,
                       foregroundColor: HomeVisualTokens.programCloserOn,
+                      disabledBackgroundColor: HomeVisualTokens.programCloserFill
+                          .withValues(alpha: 0.35),
+                      disabledForegroundColor: HomeVisualTokens.programCloserOn
+                          .withValues(alpha: 0.7),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -326,10 +354,15 @@ class _CompareDock extends StatelessWidget {
 }
 
 class _NameChip extends StatelessWidget {
-  const _NameChip({required this.name, required this.onClear});
+  const _NameChip({
+    required this.name,
+    this.onClear,
+    this.placeholder = false,
+  });
 
   final String name;
-  final VoidCallback onClear;
+  final VoidCallback? onClear;
+  final bool placeholder;
 
   @override
   Widget build(BuildContext context) {
@@ -347,17 +380,23 @@ class _NameChip extends StatelessWidget {
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
+                color: placeholder
+                    ? HomeVisualTokens.dateIconColor
+                    : HomeVisualTokens.dateTextColor,
               ),
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: onClear,
-            icon: const Icon(Icons.close_rounded, size: 16),
-          ),
+          if (onClear != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: onClear,
+              icon: const Icon(Icons.close_rounded, size: 16),
+            )
+          else
+            const SizedBox(width: 8),
         ],
       ),
     );

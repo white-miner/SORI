@@ -39,6 +39,8 @@ void main() {
     expect(find.text('1,500,000'), findsNothing);
     expect(find.text('1,000,000'), findsNothing);
     expect(find.text('B패키지  6회'), findsNothing);
+    expect(find.text('단품 1회 350,000원'), findsOneWidget);
+    expect(find.text('10회 시 1회 300,000원'), findsOneWidget);
   });
 
   testWidgets('Expand 해도 앵커가 맨 위에 남는다', (tester) async {

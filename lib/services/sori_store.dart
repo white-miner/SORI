@@ -6536,10 +6536,10 @@ class SoriStore implements Listenable {
   }
 
   ProgramQuote _repriceQuote(ProgramQuote quote) {
-    final promos = [
-      for (final id in quote.promotionIds)
-        ...programPromotions.where((p) => p.id == id),
-    ];
+    final promos = ProgramPricing.stacked(
+      quote.promotionIds,
+      programPromotions,
+    );
     final list = quote.chosen.listPriceKrw;
     return quote.copyWith(
       listPriceKrw: list,
@@ -6561,7 +6561,9 @@ class SoriStore implements Listenable {
     required ProgramQuote quote,
     required List<String> promotionIds,
   }) async {
-    var next = quote.copyWith(promotionIds: List<String>.from(promotionIds));
+    var next = quote.copyWith(
+      promotionIds: ProgramPromoStack.clamp(promotionIds),
+    );
     next = _repriceQuote(next);
     return _persistQuote(next);
   }
@@ -6594,10 +6596,10 @@ class SoriStore implements Listenable {
     final customer = findCustomer(cid);
     if (customer == null) throw StateError('customer not found');
 
-    final promos = [
-      for (final id in quote.promotionIds)
-        ...programPromotions.where((p) => p.id == id),
-    ];
+    final promos = ProgramPricing.stacked(
+      quote.promotionIds,
+      programPromotions,
+    );
     final visits = ProgramPricing.membershipVisits(
       quote.chosen.visitCount,
       promos,

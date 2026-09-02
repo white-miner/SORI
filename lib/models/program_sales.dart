@@ -55,6 +55,14 @@ enum ProgramPromoKind {
       _ => ProgramPromoKind.gift,
     };
   }
+
+  /// 원장 화면에만 쓴다. dbValue 를 그대로 노출하지 않는다.
+  String get labelKo => switch (this) {
+        ProgramPromoKind.extraSession => '횟수 추가',
+        ProgramPromoKind.gift => '사은품 증정',
+        ProgramPromoKind.instantDiscount => '즉시 할인',
+        ProgramPromoKind.nextVisitCredit => '다음 방문 크레딧',
+      };
 }
 
 enum ProgramQuoteStatus {
@@ -95,6 +103,18 @@ abstract final class ProgramPricing {
   ) =>
       packageVisits + promos.fold<int>(0, (sum, p) => sum + p.extraVisits);
 
+  /// 견적에 붙은 프로모션 id 목록을 카탈로그 행으로 펼친다. 같은 id가 두 번이면 두 장.
+  static List<ProgramPromotion> stacked(
+    Iterable<String> promotionIds,
+    Iterable<ProgramPromotion> catalog,
+  ) {
+    final byId = {for (final p in catalog) p.id: p};
+    return [
+      for (final id in promotionIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+  }
+
   /// 3,000,000 — 앵커 숫자의 시선 단위.
   static String formatKrw(int amount) {
     final sign = amount < 0 ? '-' : '';
@@ -105,6 +125,119 @@ abstract final class ProgramPricing {
       buf.write(digits[i]);
     }
     return buf.toString();
+  }
+
+  static String packageUnitLine(int unitPriceKrw, int visitCount) =>
+      '$visitCount회 시 1회 ${formatKrw(unitPriceKrw)}원';
+
+  static String? walkInLine(int walkInPriceKrw) {
+    if (walkInPriceKrw <= 0) return null;
+    return '단품 1회 ${formatKrw(walkInPriceKrw)}원';
+  }
+
+  static bool unitBeatsWalkIn(int unitPriceKrw, int walkInPriceKrw) =>
+      walkInPriceKrw > 0 && unitPriceKrw < walkInPriceKrw;
+}
+
+/// 견적 프로모션 스택. 같은 카탈로그 혜택을 여러 장 붙일 수 있다.
+abstract final class ProgramPromoStack {
+  static const maxQtyPerPromo = 9;
+
+  static Map<String, int> qtyById(Iterable<String> ids) {
+    final out = <String, int>{};
+    for (final id in ids) {
+      final n = id.trim();
+      if (n.isEmpty) continue;
+      out[n] = (out[n] ?? 0) + 1;
+    }
+    return out;
+  }
+
+  static List<String> uniqueInOrder(Iterable<String> ids) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final id in ids) {
+      final n = id.trim();
+      if (n.isEmpty || !seen.add(n)) continue;
+      out.add(n);
+    }
+    return out;
+  }
+
+  static List<String> expand(
+    Map<String, int> qty, {
+    Iterable<String>? order,
+  }) {
+    final keys = [
+      ...uniqueInOrder(order ?? const <String>[]),
+    ];
+    for (final id in qty.keys) {
+      if (!keys.contains(id)) keys.add(id);
+    }
+    return [
+      for (final id in keys)
+        for (var i = 0; i < (qty[id] ?? 0).clamp(0, maxQtyPerPromo); i++) id,
+    ];
+  }
+
+  static List<String> clamp(Iterable<String> ids) {
+    final qty = qtyById(ids);
+    for (final id in qty.keys.toList()) {
+      final n = qty[id] ?? 0;
+      if (n > maxQtyPerPromo) qty[id] = maxQtyPerPromo;
+      if (n <= 0) qty.remove(id);
+    }
+    return expand(qty, order: ids);
+  }
+
+  static List<Map<String, dynamic>> junctionRows({
+    required String quoteId,
+    required List<String> promotionIds,
+    required bool includeQty,
+  }) {
+    final qty = qtyById(promotionIds);
+    final order = uniqueInOrder(promotionIds);
+    var sort = 0;
+    return [
+      for (final id in order)
+        {
+          'quote_id': quoteId,
+          'promotion_id': id,
+          'sort_order': sort++,
+          if (includeQty) 'qty': qty[id] ?? 1,
+        },
+    ];
+  }
+}
+
+/// 패키지 뱃지 색. Timer Green · 신규 Violet · 세일 Red 는 팔레트에 넣지 않는다.
+abstract final class ProgramAccent {
+  static const charcoal = '1C1C1E';
+  static const swatches = <String>[
+    '1C1C1E',
+    '3A3A3C',
+    '5C6B73',
+    '8B7355',
+    '9A6B4F',
+    '6B4F5B',
+    '3D4F5F',
+    '4A5C4E',
+  ];
+
+  static String normalize(String? raw) {
+    final hex = (raw ?? '').replaceAll('#', '').trim().toUpperCase();
+    if (RegExp(r'^[0-9A-F]{6}$').hasMatch(hex)) {
+      if (hex == '34C759' || hex == '8B5CF6' || hex == 'FF3B30') {
+        return charcoal;
+      }
+      return hex;
+    }
+    return charcoal;
+  }
+
+  static int argbOf(String? raw) {
+    final hex = normalize(raw);
+    return int.parse('FF$hex', radix: 16);
   }
 }
 
@@ -248,6 +381,8 @@ class ProgramPackage {
     this.isActive = true,
     this.sortOrder = 0,
     this.lines = const [],
+    this.accentHex = ProgramAccent.charcoal,
+    this.walkInPriceKrw = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -262,6 +397,8 @@ class ProgramPackage {
   final bool isActive;
   final int sortOrder;
   final List<ProgramPackageLine> lines;
+  final String accentHex;
+  final int walkInPriceKrw;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -282,6 +419,8 @@ class ProgramPackage {
     bool? isActive,
     int? sortOrder,
     List<ProgramPackageLine>? lines,
+    String? accentHex,
+    int? walkInPriceKrw,
     DateTime? updatedAt,
   }) {
     return ProgramPackage(
@@ -295,6 +434,8 @@ class ProgramPackage {
       isActive: isActive ?? this.isActive,
       sortOrder: sortOrder ?? this.sortOrder,
       lines: lines ?? this.lines,
+      accentHex: accentHex ?? this.accentHex,
+      walkInPriceKrw: walkInPriceKrw ?? this.walkInPriceKrw,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -310,6 +451,8 @@ class ProgramPackage {
         'tier': tier.dbValue,
         'is_active': isActive,
         'sort_order': sortOrder,
+        'accent_hex': ProgramAccent.normalize(accentHex),
+        'walk_in_price_krw': walkInPriceKrw < 0 ? 0 : walkInPriceKrw,
       };
 
   factory ProgramPackage.fromMap(
@@ -330,6 +473,12 @@ class ProgramPackage {
       isActive: DbMap.asBool(map['is_active'] ?? map['isActive'], true),
       sortOrder: DbMap.asInt(map['sort_order'] ?? map['sortOrder']),
       lines: lines,
+      accentHex: ProgramAccent.normalize(
+        DbMap.asTextOrNull(map['accent_hex'] ?? map['accentHex']),
+      ),
+      walkInPriceKrw: DbMap.asInt(
+        map['walk_in_price_krw'] ?? map['walkInPriceKrw'],
+      ).clamp(0, 999999999),
       createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
       updatedAt: DbMap.asDateTime(map['updated_at'] ?? map['updatedAt']),
     );
@@ -344,6 +493,8 @@ class ProgramPackage {
       visitCount: visitCount,
       listPriceKrw: listPriceKrw,
       lines: List<ProgramPackageLine>.from(lines),
+      accentHex: accentHex,
+      walkInPriceKrw: walkInPriceKrw,
     );
   }
 
@@ -390,6 +541,8 @@ class ProgramPackageSnapshot {
     required this.visitCount,
     required this.listPriceKrw,
     this.lines = const [],
+    this.accentHex = ProgramAccent.charcoal,
+    this.walkInPriceKrw = 0,
   });
 
   final String id;
@@ -399,6 +552,8 @@ class ProgramPackageSnapshot {
   final int visitCount;
   final int listPriceKrw;
   final List<ProgramPackageLine> lines;
+  final String accentHex;
+  final int walkInPriceKrw;
 
   int get unitPriceKrw =>
       ProgramPricing.unitPrice(listPriceKrw, visitCount);
@@ -414,6 +569,8 @@ class ProgramPackageSnapshot {
         'category_name': categoryName,
         'visit_count': visitCount,
         'list_price_krw': listPriceKrw,
+        'accent_hex': ProgramAccent.normalize(accentHex),
+        'walk_in_price_krw': walkInPriceKrw,
         'lines': lines.map((e) => e.toMap()).toList(),
       };
 
@@ -437,6 +594,12 @@ class ProgramPackageSnapshot {
       visitCount: DbMap.asInt(map['visit_count'] ?? map['visitCount'], 1),
       listPriceKrw: DbMap.asInt(map['list_price_krw'] ?? map['listPriceKrw']),
       lines: lines,
+      accentHex: ProgramAccent.normalize(
+        DbMap.asTextOrNull(map['accent_hex'] ?? map['accentHex']),
+      ),
+      walkInPriceKrw: DbMap.asInt(
+        map['walk_in_price_krw'] ?? map['walkInPriceKrw'],
+      ),
     );
   }
 }
@@ -590,6 +753,12 @@ class ProgramQuote {
   }
 
   bool get isCrossCategory => left.categoryId != right.categoryId;
+
+  /// 같은 혜택을 여러 장 붙인 횟수. UI 칩의 `×N`.
+  Map<String, int> get promotionQty => ProgramPromoStack.qtyById(promotionIds);
+
+  List<String> get uniquePromotionIds =>
+      ProgramPromoStack.uniqueInOrder(promotionIds);
 
   ProgramQuote copyWith({
     String? id,
@@ -868,6 +1037,8 @@ abstract final class ProgramDemoSeed {
           tier: ProgramPackageTier.anchor,
           sortOrder: 0,
           lines: pkgALines,
+          accentHex: ProgramAccent.charcoal,
+          walkInPriceKrw: 350000,
           createdAt: now,
         ),
         ProgramPackage(
@@ -880,6 +1051,8 @@ abstract final class ProgramDemoSeed {
           tier: ProgramPackageTier.target,
           sortOrder: 1,
           lines: pkgBLines,
+          accentHex: '8B7355',
+          walkInPriceKrw: 350000,
           createdAt: now.add(const Duration(minutes: 1)),
         ),
         ProgramPackage(
@@ -892,6 +1065,8 @@ abstract final class ProgramDemoSeed {
           tier: ProgramPackageTier.decoy,
           sortOrder: 2,
           lines: pkgCLines,
+          accentHex: '5C6B73',
+          walkInPriceKrw: 350000,
           createdAt: now.add(const Duration(minutes: 2)),
         ),
         ProgramPackage(
@@ -904,6 +1079,8 @@ abstract final class ProgramDemoSeed {
           tier: ProgramPackageTier.anchor,
           sortOrder: 0,
           createdAt: now,
+          accentHex: '6B4F5B',
+          walkInPriceKrw: 400000,
           lines: [
             line(
               packageId: pkgWedding,
