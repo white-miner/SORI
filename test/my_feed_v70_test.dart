@@ -102,7 +102,7 @@ void main() {
       expect(s.showsInCarousel, isTrue);
     });
 
-    test('두 장 + 차트 매핑 → 🟢 complete, 캐러셀에서 제외', () {
+    test('두 장 + 차트 매핑 → 🟢 complete, 캐러셀에는 그대로 남는다', () {
       final s = _session(
         before: 'https://x/b.webp',
         after: 'https://x/a.webp',
@@ -110,6 +110,12 @@ void main() {
       );
       expect(s.isComplete, isTrue);
       expect(s.reason, BaDraftReason.complete);
+      // v7.0.2 정책 — 완성분도 참고용으로 캐러셀에 남긴다.
+      expect(s.showsInCarousel, isTrue);
+    });
+
+    test('archived 세션만 캐러셀에서 빠진다', () {
+      final s = _session().copyWith(status: BaCaptureStatus.archived);
       expect(s.showsInCarousel, isFalse);
     });
 
@@ -137,6 +143,28 @@ void main() {
     expect(list.last.id, 'b');
     // 그래도 캐러셀에는 남아 경고를 유지한다.
     expect(deferred.showsInCarousel, isTrue);
+  });
+
+  test('캐러셀 정렬 — 🔴 미완성이 먼저, 🟢 완성이 뒤', () {
+    final now = DateTime(2026, 9, 2, 10);
+    // 완성분이 가장 최신이어도 미완성 뒤로 밀려야 한다.
+    final done = _session(
+      id: 'done',
+      before: 'https://x/b.webp',
+      after: 'https://x/a.webp',
+      chartId: 'chart-1',
+      createdAt: now.add(const Duration(hours: 2)),
+    );
+    final todo = _session(id: 'todo', createdAt: now);
+    final deferred = _session(
+      id: 'later',
+      createdAt: now.add(const Duration(hours: 1)),
+      deferredAt: now,
+    );
+
+    final list = [done, deferred, todo]..sort(BaCaptureSession.carouselOrder);
+
+    expect(list.map((s) => s.id), ['todo', 'later', 'done']);
   });
 
   test('BaCaptureSession JSON 왕복', () {
@@ -340,10 +368,20 @@ void main() {
         customerId: customer.id,
       );
 
+      final stillThere = store.baCarouselSessions
+          .where((s) => s.sessionToken == session.sessionToken)
+          .toList();
       expect(
-        store.baCarouselSessions.any((s) => s.id == session.id),
-        isFalse,
-        reason: '🟢 판정 후 캐러셀에서 이탈',
+        stillThere,
+        hasLength(1),
+        reason: '🟢 판정 후에도 캐러셀에 남는다 (v7.0.2)',
+      );
+      expect(stillThere.single.isComplete, isTrue);
+      expect(stillThere.single.chartId, chart.id);
+      // 완성분은 넛지 카운트에서는 빠진다.
+      expect(
+        store.baIncompleteCount,
+        store.baCarouselSessions.where((s) => !s.isComplete).length,
       );
       expect(chart.hasBeforeImage && chart.hasAfterImage, isTrue);
       expect(
@@ -448,8 +486,12 @@ void main() {
 
       expect(chart.beforeImageUrl, 'https://example.com/local-b.webp');
       expect(chart.afterImageUrl, 'https://example.com/local-a.webp');
-      expect(store.baCarouselSessions, isEmpty);
+
+      // 사진은 차트로 넘어가 큐에서 빠지지만, 🟢 카드는 캐러셀에 남는다.
       expect(await ShootInboxLocal.load(store.shop.id), isEmpty);
+      expect(store.baCarouselSessions, hasLength(1));
+      expect(store.baCarouselSessions.single.isComplete, isTrue);
+      expect(store.baIncompleteCount, 0);
     });
 
     test('테이블 미적용 시 로컬 큐를 한 장도 지우지 않는다', () async {

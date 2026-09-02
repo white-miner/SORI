@@ -5686,15 +5686,16 @@ class SoriStore implements Listenable {
   // PRD v7.0 — B/A 임시 촬영 세션 (My Feed 캐러셀)
   // ══════════════════════════════════════════════════════════════════════
 
-  /// 캐러셀 노출 대상 — 미완성 draft만, 밀어둔 세션은 뒤로.
+  /// 캐러셀 노출 대상 — 🔴 미완성이 먼저, 🟢 완성은 뒤에 그대로 남는다.
   List<BaCaptureSession> get baCarouselSessions {
     final out = baSessions.where((s) => s.showsInCarousel).toList()
       ..sort(BaCaptureSession.carouselOrder);
     return out;
   }
 
-  /// 넛지 배지 카운트 — 밀어둔 세션도 경고에 계속 포함한다.
-  int get baIncompleteCount => baCarouselSessions.length;
+  /// 넛지 배지 카운트 — 완성분은 빼고 밀어둔 세션은 경고에 계속 포함한다.
+  int get baIncompleteCount =>
+      baCarouselSessions.where((s) => !s.isComplete).length;
 
   /// `ba_capture_sessions` 마이그레이션이 아직 적용되지 않은 환경인지.
   ///
@@ -5706,8 +5707,11 @@ class SoriStore implements Listenable {
   /// 원격 불가 구간에서 "완료"로 밀어둔 세션 토큰.
   final Set<String> _localDeferredTokens = {};
 
-  /// 사진이 아직 한 장도 없는 로컬 임시 카드 (촬영 시 큐로 승격된다).
-  final List<BaCaptureSession> _localEmptyDrafts = [];
+  /// 촬영 큐로 표현되지 않는 로컬 카드.
+  ///
+  /// 두 종류가 들어온다 — 아직 사진이 한 장도 없는 빈 카드, 그리고 차트로
+  /// 이관되어 사진이 큐에서 빠졌지만 🟢로 계속 노출되어야 하는 카드.
+  final List<BaCaptureSession> _localExtraSessions = [];
 
   Future<void> refreshBaSessions() async {
     final shopId = shop.id.trim();
@@ -5718,14 +5722,21 @@ class SoriStore implements Listenable {
       if (baRemoteReady) {
         // 원격을 읽기 전에 로컬 잔여분을 먼저 승격해야 중복 카드가 생기지 않는다.
         await promoteLocalShootInbox();
-        final rows = await _repository.loadBaCaptureSessions(shopId);
+        // draftOnly:false — 이관 완료된 🟢 세션도 캐러셀에 계속 노출한다.
+        final rows = await _repository.loadBaCaptureSessions(
+          shopId,
+          draftOnly: false,
+        );
         baSessions
           ..clear()
           ..addAll(rows);
         return;
       }
       // 마이그레이션 적용 여부를 매 새로고침마다 한 번씩 재확인한다.
-      final rows = await _repository.loadBaCaptureSessions(shopId);
+      final rows = await _repository.loadBaCaptureSessions(
+        shopId,
+        draftOnly: false,
+      );
       baRemoteReady = true;
       _baLocalPromotionDone = false;
       await promoteLocalShootInbox();
@@ -5814,7 +5825,7 @@ class SoriStore implements Listenable {
 
     baSessions
       ..clear()
-      ..addAll(_localEmptyDrafts)
+      ..addAll(_localExtraSessions)
       ..addAll(projected);
   }
 
@@ -5976,7 +5987,7 @@ class SoriStore implements Listenable {
 
     if (!baRemoteReady) {
       final local = draft.copyWith(id: localBaSessionId(token));
-      _localEmptyDrafts.insert(0, local);
+      _localExtraSessions.insert(0, local);
       _upsertBaSessionLocal(local);
       _notify();
       return local;
@@ -5991,7 +6002,7 @@ class SoriStore implements Listenable {
       if (!isMissingSchemaError(e)) rethrow;
       baRemoteReady = false;
       final local = draft.copyWith(id: localBaSessionId(token));
-      _localEmptyDrafts.insert(0, local);
+      _localExtraSessions.insert(0, local);
       _upsertBaSessionLocal(local);
       _notify();
       return local;
@@ -6065,7 +6076,7 @@ class SoriStore implements Listenable {
       ),
     );
     await _persistShootInbox();
-    _localEmptyDrafts.removeWhere((s) => s.sessionToken == token);
+    _localExtraSessions.removeWhere((s) => s.sessionToken == token);
     await _rebuildLocalBaSessions();
     _notify();
     return findBaSession(localBaSessionId(token)) ??
@@ -6094,7 +6105,7 @@ class SoriStore implements Listenable {
       shootInbox.removeWhere(
         (e) => _localSessionToken(e) == target.sessionToken,
       );
-      _localEmptyDrafts.removeWhere(
+      _localExtraSessions.removeWhere(
         (s) => s.sessionToken == target.sessionToken,
       );
       await _persistShootInbox();
@@ -6149,13 +6160,13 @@ class SoriStore implements Listenable {
       );
     }
 
-    // linked 세션은 캐러셀 대상이 아니므로 목록에서 제거한다.
-    baSessions.removeWhere((s) => s.id == target.id);
+    // v7.0.2 — linked 세션도 캐러셀에 🟢로 남는다. 제거하지 않고 갱신한다.
+    _upsertBaSessionLocal(bound);
     _notify();
     return findChartById(chart.id) ?? chart;
   }
 
-  /// 원격 불가 구간 이관 — 큐의 before/after를 차트에 직접 반영하고 큐를 비운다.
+  /// 원격 불가 구간 이관 — 큐의 before/after를 차트에 반영하고 🟢 카드로 남긴다.
   Future<CustomerChart> _bindLocalBaSessionToChart({
     required BaCaptureSession target,
     required CustomerChart chart,
@@ -6170,14 +6181,26 @@ class SoriStore implements Listenable {
       );
     }
 
+    // 사진은 차트로 옮겨졌으므로 큐에서는 뺀다. 카드 자체는 🟢로 유지한다.
     shootInbox.removeWhere(
       (e) => _localSessionToken(e) == target.sessionToken,
     );
-    _localEmptyDrafts.removeWhere(
-      (s) => s.sessionToken == target.sessionToken,
-    );
     _localDeferredTokens.remove(target.sessionToken);
     await _persistShootInbox();
+
+    _localExtraSessions.removeWhere(
+      (s) => s.sessionToken == target.sessionToken,
+    );
+    _localExtraSessions.insert(
+      0,
+      target.copyWith(
+        customerId: chart.customerId,
+        chartId: chart.id,
+        status: BaCaptureStatus.linked,
+        linkedAt: DateTime.now(),
+      ),
+    );
+
     await _rebuildLocalBaSessions();
     _notify();
     return findChartById(chart.id) ?? chart;

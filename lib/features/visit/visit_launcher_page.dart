@@ -564,7 +564,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     }
   }
 
-  /// 🟢 이관 — 고객을 고르고, 320ms 확정 애니메이션 후 목록에서 제거한다.
+  /// 🟢 이관 — 고객을 고르고, 320ms 확정 애니메이션 후 🟢 카드로 굳는다.
+  ///
+  /// v7.0.2 — 카드는 캐러셀에 남는다. 피드에는 같은 케이스가 추가로 꽂힌다.
   Future<void> _bindBaSession(BaCaptureSession session) async {
     if (_baBusy) return;
     final customer = await Navigator.of(context).push<Customer>(
@@ -583,7 +585,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
         target: session,
         customerId: customer.id,
       );
-      // 카드가 슬라이드 아웃되는 동안 기다렸다가 피드 최상단에 꽂는다.
+      // 확정 애니메이션이 끝나는 시점에 맞춰 피드 최상단에 꽂는다.
       await Future<void>.delayed(HomeVisualTokens.baTransferDuration);
       if (!mounted) return;
       _casePager.prepend(chart);
@@ -611,6 +613,35 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     } catch (e) {
       if (mounted) _toast('보관함 처리 실패: $e', error: true);
     }
+  }
+
+  /// 🟢 카드 탭 — 이관된 케이스를 뷰어로 연다.
+  ///
+  /// 차트를 못 찾으면(로컬 폴백 등) 뷰어 대신 피드의 해당 카드로 스크롤한다.
+  Future<void> _openBaSession(BaCaptureSession session) async {
+    final chartId = session.chartId?.trim() ?? '';
+    if (chartId.isEmpty) return;
+
+    final chart = widget.store.findChartById(chartId);
+    if (chart != null) {
+      await _openCaseCompare(chart);
+      return;
+    }
+    _focusCaseInFeed(chartId);
+  }
+
+  /// 피드에 이미 로드된 케이스라면 그 위치로 스크롤해 준다.
+  void _focusCaseInFeed(String chartId) {
+    final index = _casePager.items.indexWhere((c) => c.id == chartId);
+    if (index < 0 || !_feedScroll.hasClients) return;
+    final target = (_feedScroll.position.maxScrollExtent *
+            (index / _casePager.items.length))
+        .clamp(0.0, _feedScroll.position.maxScrollExtent);
+    _feedScroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _openCaseCompare(CustomerChart chart) async {
@@ -739,6 +770,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
               onCapture: _captureBaPhoto,
               onBind: _bindBaSession,
               onDefer: _deferBaSession,
+              onOpen: (s) => unawaited(_openBaSession(s)),
             ),
           ),
           SliverToBoxAdapter(

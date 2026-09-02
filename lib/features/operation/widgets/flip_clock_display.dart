@@ -170,29 +170,53 @@ class FlipClockDisplay extends StatelessWidget {
 
     if (!showCornerSeconds) return row;
 
+    // SS는 HH:MM 뒤에 이어 붙이는 게 아니라, 시계 박스 **안쪽** 우측 하단에
+    // 얹는다. Row로 이어 붙이거나 음수 offset으로 밖에 걸면 SS 폭만큼 시계가
+    // 밀려 화면을 벗어난다. 오른쪽에 SS 자리만큼 여백을 미리 떼어 두고
+    // Stack의 크기를 그 여백 포함으로 확정한 뒤, 그 안에 SS를 고정한다.
     final ssSize = digitHeight * cornerSsScale;
+    final ssBoxW = ssSize * _ssBoxWidthRatio;
+    final ssBoxH = ssSize * _ssBoxHeightRatio;
+    final gutter = ssBoxW + ssSize * _ssGapRatio;
+
     return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.center,
       children: [
-        row,
+        // 이 Padding이 Stack의 크기를 결정한다 → SS는 절대 밖으로 못 나간다.
+        Padding(
+          padding: EdgeInsets.only(right: gutter),
+          child: row,
+        ),
         Positioned(
-          right: -ssSize * 0.9,
-          bottom: -ssSize * 0.15,
-          child: Text(
-            seconds.toString().padLeft(2, '0'),
-            style: GoogleFonts.nunito(
-              fontSize: ssSize,
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
-              color: Colors.white.withValues(alpha: 0.8),
-              height: 1,
+          right: 0,
+          bottom: ssSize * _ssBottomInsetRatio,
+          width: ssBoxW,
+          height: ssBoxH,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.bottomLeft,
+            child: Text(
+              seconds.toString().padLeft(2, '0'),
+              maxLines: 1,
+              softWrap: false,
+              style: GoogleFonts.nunito(
+                fontSize: ssSize,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: Colors.white.withValues(alpha: 0.8),
+                height: 1,
+              ),
             ),
           ),
         ),
       ],
     );
   }
+
+  /// SS 두 자리(tabular) + 여유. 폰트가 바뀌어도 FittedBox가 안쪽에서 흡수한다.
+  static const _ssBoxWidthRatio = 1.32;
+  static const _ssBoxHeightRatio = 1.08;
+  static const _ssGapRatio = 0.20;
+  static const _ssBottomInsetRatio = 0.10;
 
   String _timeSegment(int value, int width) =>
       value.toString().padLeft(width, '0');

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sori/features/operation/widgets/flip_clock_display.dart';
 import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
 import 'package:sori/features/visit/widgets/ba_capture_carousel.dart';
@@ -64,6 +65,14 @@ void main() {
 
     final carousel = tester.getSize(find.byType(BaCaptureCarousel));
     expect(carousel.height, greaterThan(100));
+
+    // 플립 시계가 초(SS)를 달고도 hero 카드 폭 안에 들어와야 한다.
+    final clock = tester.getRect(find.byType(FlipClockDisplay));
+    final heroRect = tester.getRect(find.byType(HomeHeroCard));
+    expect(clock.left, greaterThanOrEqualTo(heroRect.left - 0.5));
+    expect(clock.right, lessThanOrEqualTo(heroRect.right + 0.5));
+    expect(clock.right, lessThanOrEqualTo(430.0 + 0.5));
+
     expect(tester.takeException(), isNull);
   });
 

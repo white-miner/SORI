@@ -7,9 +7,12 @@ import '../home_visual_tokens.dart';
 
 /// PRD v7.0 ③ — B/A 등록 캐러셀.
 ///
-/// 신호등 규약:
-/// - 🔴 사진 누락 또는 차트 미연동 → 캐러셀에 남아 경고로 계속 노출된다.
-/// - 🟢 두 장 + 차트 매핑 완료 → [transferringId]로 320ms 확정 애니메이션 후 이탈.
+/// 신호등 규약 (v7.0.2 정책 변경):
+/// - 🔴 사진 누락 또는 차트 미연동 → 앞쪽에 남아 경고로 계속 노출된다.
+/// - 🟢 두 장 + 차트 매핑 완료 → **사라지지 않고** 뒤쪽에 그대로 남는다.
+///   카드를 탭하면 뷰어로 열린다.
+///
+/// 카드 순서: [빈 촬영 슬롯] → [🔴 미완성] → [🟢 완성].
 class BaCaptureCarousel extends StatelessWidget {
   const BaCaptureCarousel({
     super.key,
@@ -17,6 +20,7 @@ class BaCaptureCarousel extends StatelessWidget {
     required this.onCapture,
     required this.onBind,
     required this.onDefer,
+    required this.onOpen,
     this.transferringId,
     this.offlineDraft = false,
   });
@@ -31,12 +35,15 @@ class BaCaptureCarousel extends StatelessWidget {
   final void Function(BaCaptureSession session) onBind;
   final void Function(BaCaptureSession session) onDefer;
 
-  /// 이관 확정 애니메이션 중인 세션 (🟢 렌더링 대상).
+  /// 🟢 카드 탭 — 이관된 관리 케이스를 뷰어로 연다.
+  final void Function(BaCaptureSession session) onOpen;
+
+  /// 이관 확정 애니메이션 중인 세션 (320ms 동안 제자리에서 🟢로 굳는다).
   final String? transferringId;
 
   @override
   Widget build(BuildContext context) {
-    final incomplete = sessions.length;
+    final incomplete = sessions.where((s) => !s.isComplete).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,6 +102,7 @@ class BaCaptureCarousel extends StatelessWidget {
                   onCapture: (kind) => onCapture(null, kind),
                   onBind: null,
                   onDefer: null,
+                  onOpen: null,
                 );
               }
               final session = sessions[index - 1];
@@ -104,6 +112,7 @@ class BaCaptureCarousel extends StatelessWidget {
                 onCapture: (kind) => onCapture(session, kind),
                 onBind: () => onBind(session),
                 onDefer: () => onDefer(session),
+                onOpen: () => onOpen(session),
               );
             },
           ),
@@ -152,6 +161,7 @@ class _BaCard extends StatelessWidget {
     required this.onCapture,
     required this.onBind,
     required this.onDefer,
+    required this.onOpen,
   });
 
   final BaCaptureSession? session;
@@ -159,106 +169,114 @@ class _BaCard extends StatelessWidget {
   final void Function(String kind) onCapture;
   final VoidCallback? onBind;
   final VoidCallback? onDefer;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
     final s = session;
     final reason = s?.reason ?? BaDraftReason.empty;
-    // linked 세션은 목록에서 즉시 제거되므로, 🟢는 사실상 전이 중에만 보인다.
+    // 이관 요청 직후에는 서버 응답 전이라도 🟢로 먼저 굳혀 보여준다.
     final complete = transferring || (s?.isComplete ?? false);
     final label = s?.label.trim() ?? '';
 
-    return AnimatedSlide(
-      offset: transferring ? const Offset(1.2, 0) : Offset.zero,
+    // 완성 카드는 촬영 대상이 아니라 참고용 뷰어다.
+    final slotTap = complete && onOpen != null
+        ? (String _) => onOpen!()
+        : onCapture;
+
+    return AnimatedScale(
+      // 제자리 확정 — 밖으로 밀어내면 🟢 카드가 캐러셀에서 사라진다.
+      scale: transferring ? 1.04 : 1.0,
       duration: HomeVisualTokens.baTransferDuration,
       curve: HomeVisualTokens.baTransferCurve,
-      child: AnimatedOpacity(
-        opacity: transferring ? 0 : 1,
-        duration: HomeVisualTokens.baTransferDuration,
-        curve: HomeVisualTokens.baTransferCurve,
-        child: SizedBox(
-          width: HomeVisualTokens.baCardW,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: HomeVisualTokens.baDotSize,
-                    height: HomeVisualTokens.baDotSize,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+      child: SizedBox(
+        width: HomeVisualTokens.baCardW,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: HomeVisualTokens.baDotSize,
+                  height: HomeVisualTokens.baDotSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: complete
+                        ? HomeVisualTokens.baDotGreen
+                        : HomeVisualTokens.baDotRed,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    label.isNotEmpty ? label : reason.badgeLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: HomeVisualTokens.baLabelSize,
+                      fontWeight: FontWeight.w600,
                       color: complete
                           ? HomeVisualTokens.baDotGreen
-                          : HomeVisualTokens.baDotRed,
+                          : HomeVisualTokens.dateIconColor,
                     ),
                   ),
-                  const SizedBox(width: 5),
+                ),
+                if (s != null && onDefer != null && !complete)
+                  _MiniIconButton(
+                    icon: s.isDeferred
+                        ? Icons.push_pin_rounded
+                        : Icons.check_rounded,
+                    onTap: onDefer!,
+                  ),
+                if (complete)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 14,
+                    color: HomeVisualTokens.baDotGreen,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Expanded로 잔여 높이를 흡수해 "고객 연결" 칩이 붙어도 넘치지 않는다.
+            Expanded(
+              child: Row(
+                children: [
                   Expanded(
-                    child: Text(
-                      label.isNotEmpty ? label : reason.badgeLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: HomeVisualTokens.baLabelSize,
-                        fontWeight: FontWeight.w600,
-                        color: complete
-                            ? HomeVisualTokens.baDotGreen
-                            : HomeVisualTokens.dateIconColor,
+                    child: _Slot(
+                      url: s?.beforeImageUrl,
+                      caption: 'Before',
+                      radius: const BorderRadius.horizontal(
+                        left: Radius.circular(
+                          HomeVisualTokens.baCardRadius,
+                        ),
                       ),
+                      onTap: () => slotTap('before'),
                     ),
                   ),
-                  if (s != null && onDefer != null && !complete)
-                    _MiniIconButton(
-                      icon: s.isDeferred
-                          ? Icons.push_pin_rounded
-                          : Icons.check_rounded,
-                      onTap: onDefer!,
+                  const SizedBox(width: HomeVisualTokens.baSlotGap),
+                  Expanded(
+                    child: _Slot(
+                      url: s?.afterImageUrl,
+                      caption: 'After',
+                      radius: const BorderRadius.horizontal(
+                        right: Radius.circular(
+                          HomeVisualTokens.baCardRadius,
+                        ),
+                      ),
+                      onTap: () => slotTap('after'),
                     ),
+                  ),
                 ],
               ),
+            ),
+            if (s != null &&
+                reason == BaDraftReason.unlinked &&
+                onBind != null &&
+                !complete) ...[
               const SizedBox(height: 4),
-              // Expanded로 잔여 높이를 흡수해 "고객 연결" 칩이 붙어도 넘치지 않는다.
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _Slot(
-                        url: s?.beforeImageUrl,
-                        caption: 'Before',
-                        radius: const BorderRadius.horizontal(
-                          left: Radius.circular(
-                            HomeVisualTokens.baCardRadius,
-                          ),
-                        ),
-                        onTap: () => onCapture('before'),
-                      ),
-                    ),
-                    const SizedBox(width: HomeVisualTokens.baSlotGap),
-                    Expanded(
-                      child: _Slot(
-                        url: s?.afterImageUrl,
-                        caption: 'After',
-                        radius: const BorderRadius.horizontal(
-                          right: Radius.circular(
-                            HomeVisualTokens.baCardRadius,
-                          ),
-                        ),
-                        onTap: () => onCapture('after'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (s != null &&
-                  reason == BaDraftReason.unlinked &&
-                  onBind != null &&
-                  !complete) ...[
-                const SizedBox(height: 4),
-                _BindChip(onTap: onBind!),
-              ],
+              _BindChip(onTap: onBind!),
             ],
-          ),
+          ],
         ),
       ),
     );

@@ -44,6 +44,7 @@ import '../visit_kernel/models/care_program_template.dart';
 import '../visit_kernel/models/visit_operation_timer.dart';
 import '../utils/db_map.dart';
 import '../utils/feed_interleave.dart';
+import '../utils/sori_uuid.dart';
 import '../models/shop_highlight.dart';
 import '../models/shop_tier_badge.dart';
 import '../models/shop_service_item.dart';
@@ -4254,8 +4255,13 @@ class MemorySoriRepository implements SoriRepository {
       _baSessions[byToken] = merged;
       return merged;
     }
-    _baSessions.add(session);
-    return session;
+    // `id uuid default gen_random_uuid()` 와 동일하게, 신규 row에는 id를 발급한다.
+    // 빈 id로 저장하면 서로 다른 세션이 id ''로 뭉쳐 잘못 매칭된다.
+    final assigned = session.id.trim().isEmpty
+        ? session.copyWith(id: newUuidV4())
+        : session;
+    _baSessions.add(assigned);
+    return assigned;
   }
 
   @override

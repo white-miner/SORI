@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sori/features/operation/widgets/flip_clock_display.dart';
 import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/features/visit/widgets/ba_capture_carousel.dart';
 import 'package:sori/features/visit/widgets/home_quick_action_row.dart';
@@ -37,6 +38,86 @@ BaCaptureSession _draft({
 }
 
 void main() {
+  group('⓪ 플립 시계 — 초(SS) 오버플로우', () {
+    // 화면 폭을 바꿔가며 SS가 시계 박스 밖으로 새지 않는지 본다.
+    for (final size in const [
+      Size(360, 800), // 좁은 세로
+      Size(430, 932), // 기본 세로
+      Size(932, 430), // 가로
+    ]) {
+      testWidgets('${size.width.toInt()}x${size.height.toInt()} 에서 넘치지 않는다',
+          (tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          _host(
+            Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: FlipClockDisplay(
+                  totalSeconds: 12 * 3600 + 2 * 60 + 38,
+                  hero: true,
+                  homeHero: true,
+                  showSeconds: false,
+                  showCornerSeconds: true,
+                  style: FlipClockStyle.darkGlass,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+
+        // SS가 시계 위젯의 경계 안에 완전히 들어와야 한다.
+        final clockRect = tester.getRect(find.byType(FlipClockDisplay));
+        final ssRect = tester.getRect(find.text('38'));
+
+        expect(ssRect.right, lessThanOrEqualTo(clockRect.right + 0.5));
+        expect(ssRect.bottom, lessThanOrEqualTo(clockRect.bottom + 0.5));
+        expect(ssRect.left, greaterThanOrEqualTo(clockRect.left - 0.5));
+
+        // 그리고 화면 밖으로도 나가면 안 된다.
+        expect(ssRect.right, lessThanOrEqualTo(size.width + 0.5));
+      });
+    }
+
+    testWidgets('SS가 HH:MM 타일을 밀어내지 않는다', (tester) async {
+      // 축소 없이 원래 크기로 재야 하므로 넉넉한 서피스에서 측정한다.
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      Future<Rect> digitsRect({required bool withSeconds}) async {
+        await tester.pumpWidget(
+          _host(
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FlipClockDisplay(
+                totalSeconds: 12 * 3600 + 2 * 60 + 38,
+                hero: true,
+                homeHero: true,
+                showSeconds: false,
+                showCornerSeconds: withSeconds,
+                style: FlipClockStyle.darkGlass,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        return tester.getRect(find.text('0'));
+      }
+
+      final without = await digitsRect(withSeconds: false);
+      final with_ = await digitsRect(withSeconds: true);
+
+      // SS를 켜도 HH:MM 타일 위치가 그대로여야 한다 (Row로 이어 붙이지 않는다).
+      expect(with_.left, closeTo(without.left, 0.5));
+      expect(with_.width, closeTo(without.width, 0.5));
+    });
+  });
+
   group('② Quick Action — 컬러 헌법 (Q2a)', () {
     testWidgets('신규 고객은 보라 #8B5CF6, 재방문은 흰 배경 + 보더', (tester) async {
       await tester.pumpWidget(
@@ -114,6 +195,7 @@ void main() {
             onCapture: (_, _) {},
             onBind: (_) {},
             onDefer: (_) {},
+            onOpen: (_) {},
           ),
         ),
       );
@@ -131,6 +213,7 @@ void main() {
             onCapture: (_, _) {},
             onBind: (_) {},
             onDefer: (_) {},
+            onOpen: (_) {},
           ),
         ),
       );
@@ -154,6 +237,7 @@ void main() {
             onCapture: (_, _) {},
             onBind: (s) => bound = s,
             onDefer: (_) {},
+            onOpen: (_) {},
           ),
         ),
       );
@@ -164,7 +248,7 @@ void main() {
       expect(bound?.id, 'a');
     });
 
-    testWidgets('이관 중 카드는 320ms 동안 슬라이드 아웃한다 (Q3a)', (tester) async {
+    testWidgets('이관 중 카드는 320ms 동안 제자리에서 확정된다 (Q3a)', (tester) async {
       final session = _draft(
         id: 'a',
         before: 'https://x/b.webp',
@@ -180,20 +264,24 @@ void main() {
             onCapture: (_, _) {},
             onBind: (_) {},
             onDefer: (_) {},
+            onOpen: (_) {},
           ),
         ),
       );
 
       // index 0은 "새 촬영" 카드이므로, 이관 대상은 두 번째 카드다.
-      final slides =
-          tester.widgetList<AnimatedSlide>(find.byType(AnimatedSlide)).toList();
-      expect(slides.length, 2);
-      expect(slides.first.offset, Offset.zero, reason: '새 촬영 카드는 정지');
+      final scales =
+          tester.widgetList<AnimatedScale>(find.byType(AnimatedScale)).toList();
+      expect(scales.length, 2);
+      expect(scales.first.scale, 1.0, reason: '새 촬영 카드는 정지');
 
-      final transferring = slides[1];
+      final transferring = scales[1];
       expect(transferring.duration, HomeVisualTokens.baTransferDuration);
       expect(transferring.duration, const Duration(milliseconds: 320));
-      expect(transferring.offset.dx, greaterThan(0), reason: '우측으로 이탈');
+      expect(transferring.scale, greaterThan(1.0), reason: '제자리 확정 팝');
+
+      // v7.0.2 — 캐러셀 밖으로 밀어내지 않는다.
+      expect(find.byType(AnimatedSlide), findsNothing);
 
       // 이관 중에는 고객 연결 액션을 감춘다 (중복 바인딩 방지).
       expect(find.text('고객 연결'), findsNothing);
@@ -217,12 +305,85 @@ void main() {
             onCapture: (_, _) {},
             onBind: (_) {},
             onDefer: (_) {},
+            onOpen: (_) {},
           ),
         ),
       );
 
       expect(find.text('1'), findsOneWidget);
       expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
+    });
+
+    testWidgets('🟢 완성 카드는 캐러셀에 남고, 탭하면 뷰어로 열린다', (tester) async {
+      BaCaptureSession? opened;
+      final done = BaCaptureSession(
+        id: 'done',
+        shopId: 'shop-1',
+        sessionToken: 'token-done',
+        beforeImageUrl: 'https://x/b.webp',
+        afterImageUrl: 'https://x/a.webp',
+        chartId: 'chart-1',
+        status: BaCaptureStatus.linked,
+        createdAt: DateTime(2026, 9, 2, 8),
+      );
+
+      await tester.pumpWidget(
+        _host(
+          BaCaptureCarousel(
+            sessions: [done],
+            onCapture: (_, _) => fail('완성 카드는 촬영을 다시 열지 않는다'),
+            onBind: (_) {},
+            onDefer: (_) {},
+            onOpen: (s) => opened = s,
+          ),
+        ),
+      );
+
+      expect(find.text('완료'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      // 완성 카드에는 후순위화/연결 액션이 없다.
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
+      expect(find.text('고객 연결'), findsNothing);
+      // 미완성이 없으므로 넛지 배지도 뜨지 않는다.
+      expect(find.text('1'), findsNothing);
+
+      await tester.tap(find.byType(InkWell).last);
+      await tester.pump();
+      expect(opened?.id, 'done');
+    });
+
+    testWidgets('🔴 미완성이 앞, 🟢 완성이 뒤에 배치된다', (tester) async {
+      final done = BaCaptureSession(
+        id: 'done',
+        shopId: 'shop-1',
+        sessionToken: 'token-done',
+        beforeImageUrl: 'https://x/b.webp',
+        afterImageUrl: 'https://x/a.webp',
+        chartId: 'chart-1',
+        status: BaCaptureStatus.linked,
+        createdAt: DateTime(2026, 9, 2, 12),
+      );
+      final todo = _draft(id: 'todo', before: 'https://x/b.webp');
+
+      // 스토어가 넘겨주는 정렬과 동일하게 정렬해 전달한다.
+      final ordered = [done, todo]..sort(BaCaptureSession.carouselOrder);
+
+      await tester.pumpWidget(
+        _host(
+          BaCaptureCarousel(
+            sessions: ordered,
+            onCapture: (_, _) {},
+            onBind: (_) {},
+            onDefer: (_) {},
+            onOpen: (_) {},
+          ),
+        ),
+      );
+
+      final todoX = tester.getTopLeft(find.text('After 필요')).dx;
+      final doneX = tester.getTopLeft(find.text('완료')).dx;
+      expect(todoX, lessThan(doneX), reason: '🔴 → 🟢 순서');
+      expect(find.text('1'), findsOneWidget, reason: '넛지는 미완성 1건만');
     });
   });
 

@@ -583,3 +583,83 @@ PostgREST는 스키마를 캐시하므로, 테이블을 만들어도 캐시를 �
 | 북마크 필터 토글 E2E | 통과 |
 | 골든 (v5.4 · v7.0) | 통과 (캡션 토큰 2종 추가 반영) |
 | 전체 스위트 회귀 | 20 실패 — **베이스라인과 동일 집합** |
+
+---
+
+## 13. v7.0.2 — 플립 시계 오버플로우 + 캐러셀 정책 변경 (2026-09-02)
+
+### 13.1 C1 — 플립 시계 초(SS) 오버플로우
+
+**현상.** 메인 플립 시계 우측의 초 단위가 카드 밖으로 밀려나 잘렸다.
+
+**원인.** `_buildClockRow`가 SS를 **음수 offset**으로 배치했다.
+
+```dart
+Stack(clipBehavior: Clip.none, children: [
+  row,
+  Positioned(right: -ssSize * 0.9, bottom: -ssSize * 0.15, child: ssText),
+]);
+```
+
+`Stack`은 positioned가 아닌 자식(`row`)에만 맞춰 크기를 잡는다. SS는 음수 offset
+탓에 그 경계 **밖**에 그려지므로, 부모 `FittedBox(scaleDown)`이 SS 폭을 계산에
+넣지 못한다. 결과적으로 시계는 축소되지 않고 SS만 화면 밖으로 잘려 나갔다.
+
+**조치.** SS 자리를 미리 떼어 두고 Stack의 크기를 그 여백까지 포함해 확정한다.
+
+```dart
+Stack(children: [
+  Padding(padding: EdgeInsets.only(right: gutter), child: row), // 크기 결정
+  Positioned(right: 0, bottom: …, width: ssBoxW, height: ssBoxH,
+             child: FittedBox(fit: BoxFit.scaleDown, child: ssText)),
+]);
+```
+
+- `gutter = ssBoxW + ssSize * 0.20` — SS는 항상 안쪽에 놓인다.
+- `Positioned`에 `width`/`height`를 못박고 그 안에 `FittedBox`를 둬서, 폰트가
+  바뀌어도 SS 박스가 커지지 않는다.
+- HH:MM 타일 좌표는 SS 유무와 무관하게 동일하다 (Row로 이어 붙이지 않는다).
+- `FittedBox`가 이제 SS 폭까지 포함해 측정하므로 좁은 화면에서는 시계 전체가
+  비례 축소된다. 360dp 세로 / 430dp 세로 / 932dp 가로 3종을 회귀 테스트로 고정했다.
+
+동일 코드를 케어 타이머 전체화면(`care_timer_fullscreen_page`)도 공유하므로
+같은 결함이 함께 해소된다.
+
+### 13.2 C2 — B/A 캐러셀 렌더링 정책 변경
+
+**기존 규칙 폐기.** "완성(🟢)되면 캐러셀에서 사라진다"를 취소한다.
+
+**새 규칙.** 카드 순서는 **[빈 촬영 슬롯] → [🔴 미완성] → [🟢 완성]** 이며,
+완성분도 사라지지 않고 뒤에 남아 가로 스크롤로 전부 훑을 수 있다.
+
+| 지점 | 변경 |
+|------|------|
+| `BaCaptureSession.showsInCarousel` | `draft && !isComplete` → `status != archived` |
+| `BaCaptureSession.carouselOrder` | 1차 키로 `isComplete` 추가 (미완성 우선) |
+| `SoriStore.baIncompleteCount` | 캐러셀 길이 → **미완성만** 카운트 (넛지 배지) |
+| `refreshBaSessions` | `draftOnly: false` — linked 세션도 함께 읽는다 |
+| `bindBaSessionToChart` | 목록에서 제거 → **갱신**해서 🟢로 유지 |
+| 로컬 폴백 이관 | 사진은 큐에서 빼되 🟢 카드는 `_localExtraSessions`로 보존 |
+| `_BaCard` 이관 애니메이션 | 밖으로 밀어내는 `AnimatedSlide` → 제자리 `AnimatedScale` 확정 |
+| `_BaCard` 완성 상태 | 촬영 진입 차단, 탭하면 `onOpen` → 뷰어 |
+
+🟢 카드를 탭하면 연결된 차트의 B/A 비교 뷰어가 열린다. 차트를 찾지 못하는
+경우(로컬 폴백 등)에는 피드에서 해당 카드 위치로 스크롤한다.
+
+**부수 수정.** `MemorySoriRepository.upsertBaCaptureSession`이 신규 세션에 id를
+발급하지 않아, 서로 다른 세션이 모두 `id: ''`로 저장돼 바인딩 시 엉뚱한 row가
+매칭됐다. Postgres의 `default gen_random_uuid()`와 동일하게 id를 발급하도록
+고쳤다. 기존에는 "바인딩 후 목록에서 제거" 로직이 이 결함을 가리고 있었다.
+
+### 13.3 검증
+
+| 게이트 | 결과 |
+|--------|------|
+| SS 경계 내 배치 (360x800 / 430x932 / 932x430) | 통과 |
+| SS 유무와 무관한 HH:MM 타일 좌표 | 통과 |
+| 홈 hero 안에서 시계가 카드 폭을 넘지 않음 (E2E) | 통과 |
+| 🟢 완성 카드 캐러셀 잔류 + 탭 → 뷰어 | 통과 |
+| 카드 순서 🔴 → 🟢, 넛지는 미완성만 | 통과 |
+| 로컬 폴백 이관 후에도 🟢 잔류 | 통과 |
+| 골든 (v5.4 · v7.0) | 통과 |
+| 전체 스위트 회귀 | 20 실패 — **베이스라인과 동일 집합** |

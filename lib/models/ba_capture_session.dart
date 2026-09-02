@@ -51,7 +51,7 @@ enum BaDraftReason {
 ///
 /// 차트를 열지 않은 상태에서도 Before/After를 촬영·보관할 수 있게 하는
 /// 독립 임시 저장 단위이며, [chartId]가 채워지는 순간 🟢로 판정되어
-/// 캐러셀에서 빠지고 관리 케이스 피드에 나타난다.
+/// 관리 케이스 피드에 나타난다. 캐러셀에서는 빠지지 않고 🟢로 남는다.
 class BaCaptureSession {
   const BaCaptureSession({
     required this.id,
@@ -113,9 +113,12 @@ class BaCaptureSession {
     return BaDraftReason.unlinked;
   }
 
-  /// 캐러셀 노출 대상 — 미완성 draft만.
-  bool get showsInCarousel =>
-      status == BaCaptureStatus.draft && !isComplete;
+  /// 캐러셀 노출 대상.
+  ///
+  /// v7.0.2 정책 변경 — 완성(🟢)되어 관리 케이스로 이관된 세션도 캐러셀에
+  /// 그대로 남는다. 원장이 오늘 찍은 것을 한 줄에서 전부 훑을 수 있어야 한다.
+  /// 정리된(archived) 세션만 빠진다.
+  bool get showsInCarousel => status != BaCaptureStatus.archived;
 
   /// After 촬영 시 잔상 가이드로 넘길 Before URL.
   String? get ghostBeforeUrl => hasBefore ? beforeImageUrl : null;
@@ -207,8 +210,11 @@ class BaCaptureSession {
     );
   }
 
-  /// 캐러셀 정렬 — 밀어둔 세션은 뒤로, 나머지는 최신순.
+  /// 캐러셀 정렬 — 🔴 미완성이 먼저(할 일), 🟢 완성이 뒤(참고용).
+  ///
+  /// 미완성 그룹 안에서는 밀어둔 세션이 뒤로 가고, 나머지는 최신순이다.
   static int carouselOrder(BaCaptureSession a, BaCaptureSession b) {
+    if (a.isComplete != b.isComplete) return a.isComplete ? 1 : -1;
     if (a.isDeferred != b.isDeferred) return a.isDeferred ? 1 : -1;
     final at = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
