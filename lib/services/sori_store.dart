@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/post/post_view_data.dart';
 import '../utils/post_author.dart';
 import '../utils/sori_uuid.dart';
+import '../utils/supabase_schema_error.dart';
 
 import '../data/memory_sori_repository.dart';
 import '../data/repository_factory.dart';
@@ -5695,25 +5696,138 @@ class SoriStore implements Listenable {
   /// 넛지 배지 카운트 — 밀어둔 세션도 경고에 계속 포함한다.
   int get baIncompleteCount => baCarouselSessions.length;
 
+  /// `ba_capture_sessions` 마이그레이션이 아직 적용되지 않은 환경인지.
+  ///
+  /// false가 되면 캐러셀 전체가 로컬 촬영 큐(`sori_shoot_inbox_*`) 위에서
+  /// 동작한다. 원장 입장에서는 기능이 그대로 살아 있고, 마이그레이션이
+  /// 적용되는 순간 다음 새로고침에서 서버로 자동 승격된다.
+  bool baRemoteReady = true;
+
+  /// 원격 불가 구간에서 "완료"로 밀어둔 세션 토큰.
+  final Set<String> _localDeferredTokens = {};
+
+  /// 사진이 아직 한 장도 없는 로컬 임시 카드 (촬영 시 큐로 승격된다).
+  final List<BaCaptureSession> _localEmptyDrafts = [];
+
   Future<void> refreshBaSessions() async {
     final shopId = shop.id.trim();
     if (shopId.isEmpty) return;
     baSessionsLoading = true;
     _notify();
     try {
-      // 원격을 읽기 전에 로컬 잔여분을 먼저 승격해야 중복 카드가 생기지 않는다.
-      await promoteLocalShootInbox();
+      if (baRemoteReady) {
+        // 원격을 읽기 전에 로컬 잔여분을 먼저 승격해야 중복 카드가 생기지 않는다.
+        await promoteLocalShootInbox();
+        final rows = await _repository.loadBaCaptureSessions(shopId);
+        baSessions
+          ..clear()
+          ..addAll(rows);
+        return;
+      }
+      // 마이그레이션 적용 여부를 매 새로고침마다 한 번씩 재확인한다.
       final rows = await _repository.loadBaCaptureSessions(shopId);
+      baRemoteReady = true;
+      _baLocalPromotionDone = false;
+      await promoteLocalShootInbox();
       baSessions
         ..clear()
         ..addAll(rows);
+      return;
     } catch (e, st) {
-      debugPrint('refreshBaSessions failed: $e\n$st');
+      if (isMissingSchemaError(e)) {
+        if (baRemoteReady) {
+          debugPrint(
+            'refreshBaSessions: ba_capture_sessions 미적용 — 로컬 큐로 폴백. '
+            'supabase/migrations/108_ba_capture_sessions.sql 을 적용하세요.',
+          );
+        }
+        baRemoteReady = false;
+      } else {
+        debugPrint('refreshBaSessions failed: $e\n$st');
+      }
     } finally {
+      if (!baRemoteReady) await _rebuildLocalBaSessions();
       baSessionsLoading = false;
       _notify();
     }
   }
+
+  /// 로컬 촬영 큐를 캐러셀 카드로 투영한다 (원격 폴백 전용).
+  ///
+  /// 같은 `sessionToken`의 before/after를 한 장으로 병합하므로, 서버가 살아
+  /// 있을 때의 카드 구성과 동일한 모양이 나온다.
+  Future<void> _rebuildLocalBaSessions() async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return;
+    if (shootInbox.isEmpty) {
+      try {
+        final rows = await ShootInboxLocal.load(shopId);
+        shootInbox
+          ..clear()
+          ..addAll(rows);
+      } catch (e) {
+        debugPrint('_rebuildLocalBaSessions: local load failed: $e');
+      }
+    }
+
+    final grouped = <String, List<ShootInboxItem>>{};
+    for (final item in shootInbox) {
+      if (item.imageUrl.trim().isEmpty) continue;
+      grouped.putIfAbsent(_localSessionToken(item), () => []).add(item);
+    }
+
+    final projected = <BaCaptureSession>[];
+    for (final entry in grouped.entries) {
+      ShootInboxItem? before;
+      ShootInboxItem? after;
+      for (final item in entry.value) {
+        if (item.isBefore) {
+          before ??= item;
+        } else if (item.isAfter) {
+          after ??= item;
+        }
+      }
+      final createdAt = entry.value
+          .map((e) => e.createdAt)
+          .whereType<DateTime>()
+          .fold<DateTime?>(null, (a, b) => a == null || b.isBefore(a) ? b : a);
+
+      projected.add(
+        BaCaptureSession(
+          id: localBaSessionId(entry.key),
+          shopId: shopId,
+          sessionToken: entry.key,
+          authorId: session?.id,
+          beforeImageUrl: before?.imageUrl,
+          afterImageUrl: after?.imageUrl,
+          beforeCapturedAt: before?.createdAt,
+          afterCapturedAt: after?.createdAt,
+          label: entry.value
+              .map((e) => e.label.trim())
+              .firstWhere((e) => e.isNotEmpty, orElse: () => ''),
+          deferredAt:
+              _localDeferredTokens.contains(entry.key) ? DateTime.now() : null,
+          createdAt: createdAt,
+        ),
+      );
+    }
+
+    baSessions
+      ..clear()
+      ..addAll(_localEmptyDrafts)
+      ..addAll(projected);
+  }
+
+  /// 로컬 큐 항목이 속한 카드 토큰. 토큰이 없는 레거시는 항목별 단독 카드.
+  static String _localSessionToken(ShootInboxItem item) {
+    final token = item.sessionToken.trim();
+    return token.isEmpty ? 'legacy-${item.id}' : token;
+  }
+
+  /// 로컬 투영 세션 id — 서버 uuid와 섞이지 않도록 접두사를 붙인다.
+  static String localBaSessionId(String token) => 'local:$token';
+
+  static bool isLocalBaSessionId(String id) => id.startsWith('local:');
 
   /// 기존 SharedPreferences 큐(`sori_shoot_inbox_*`)를 서버로 무손실 승격.
   ///
@@ -5788,6 +5902,13 @@ class SoriStore implements Listenable {
         promotedIds.addAll(items.map((e) => e.id));
       } catch (e, st) {
         failures++;
+        if (isMissingSchemaError(e)) {
+          // 테이블 자체가 없다. 남은 그룹도 전부 실패할 것이므로 즉시 중단하고
+          // 로컬 큐를 그대로 보존한다 (한 장도 지우지 않는다).
+          baRemoteReady = false;
+          debugPrint('promoteLocalShootInbox: 테이블 미적용 — 승격 보류');
+          return;
+        }
         debugPrint('promoteLocalShootInbox: group ${entry.key} failed: $e\n$st');
       }
     }
@@ -5839,23 +5960,42 @@ class SoriStore implements Listenable {
     }
   }
 
-  /// 빈 카드 → 서버 세션 생성. 첫 촬영 전에도 카드가 존재할 수 있다.
+  /// 빈 카드 → 세션 생성. 첫 촬영 전에도 카드가 존재할 수 있다.
   Future<BaCaptureSession> createBaSession({String label = ''}) async {
     final shopId = shop.id.trim();
     if (shopId.isEmpty) throw StateError('shop required');
-    final saved = await _repository.upsertBaCaptureSession(
-      BaCaptureSession(
-        id: '',
-        shopId: shopId,
-        sessionToken: newUuidV4(),
-        authorId: session?.id,
-        label: label.trim(),
-        createdAt: DateTime.now(),
-      ),
+    final token = newUuidV4();
+    final draft = BaCaptureSession(
+      id: '',
+      shopId: shopId,
+      sessionToken: token,
+      authorId: session?.id,
+      label: label.trim(),
+      createdAt: DateTime.now(),
     );
-    _upsertBaSessionLocal(saved);
-    _notify();
-    return saved;
+
+    if (!baRemoteReady) {
+      final local = draft.copyWith(id: localBaSessionId(token));
+      _localEmptyDrafts.insert(0, local);
+      _upsertBaSessionLocal(local);
+      _notify();
+      return local;
+    }
+
+    try {
+      final saved = await _repository.upsertBaCaptureSession(draft);
+      _upsertBaSessionLocal(saved);
+      _notify();
+      return saved;
+    } catch (e) {
+      if (!isMissingSchemaError(e)) rethrow;
+      baRemoteReady = false;
+      final local = draft.copyWith(id: localBaSessionId(token));
+      _localEmptyDrafts.insert(0, local);
+      _upsertBaSessionLocal(local);
+      _notify();
+      return local;
+    }
   }
 
   /// 임시 세션 사진의 스토리지 경로 세그먼트.
@@ -5876,21 +6016,71 @@ class SoriStore implements Listenable {
     if (url.isEmpty) throw StateError('imageUrl required');
 
     final now = DateTime.now();
-    final saved = await _repository.upsertBaCaptureSession(
-      target.copyWith(
-        beforeImageUrl: isBefore ? url : null,
-        afterImageUrl: isBefore ? null : url,
-        beforeCapturedAt: isBefore ? now : null,
-        afterCapturedAt: isBefore ? null : now,
+    final next = target.copyWith(
+      beforeImageUrl: isBefore ? url : null,
+      afterImageUrl: isBefore ? null : url,
+      beforeCapturedAt: isBefore ? now : null,
+      afterCapturedAt: isBefore ? null : now,
+    );
+
+    if (!baRemoteReady || isLocalBaSessionId(target.id)) {
+      return _attachBaPhotoLocally(next, isBefore: isBefore, url: url);
+    }
+
+    try {
+      final saved = await _repository.upsertBaCaptureSession(next);
+      _upsertBaSessionLocal(saved);
+      _notify();
+      return saved;
+    } catch (e) {
+      if (!isMissingSchemaError(e)) rethrow;
+      baRemoteReady = false;
+      return _attachBaPhotoLocally(next, isBefore: isBefore, url: url);
+    }
+  }
+
+  /// 원격 불가 구간 — 업로드된 URL을 로컬 큐에 적재해 사진을 보존한다.
+  Future<BaCaptureSession> _attachBaPhotoLocally(
+    BaCaptureSession next, {
+    required bool isBefore,
+    required String url,
+  }) async {
+    final token = next.sessionToken;
+    shootInbox.removeWhere(
+      (e) =>
+          _localSessionToken(e) == token &&
+          (isBefore ? e.isBefore : e.isAfter),
+    );
+    shootInbox.insert(
+      0,
+      ShootInboxItem(
+        id: 'inbox-${DateTime.now().microsecondsSinceEpoch}',
+        shopId: next.shopId,
+        kind: isBefore ? 'before' : 'after',
+        imageUrl: url,
+        label: next.label,
+        sessionToken: token,
+        createdAt: DateTime.now(),
+        ghostBeforeUrl: isBefore ? null : next.beforeImageUrl,
       ),
     );
-    _upsertBaSessionLocal(saved);
+    await _persistShootInbox();
+    _localEmptyDrafts.removeWhere((s) => s.sessionToken == token);
+    await _rebuildLocalBaSessions();
     _notify();
-    return saved;
+    return findBaSession(localBaSessionId(token)) ??
+        next.copyWith(id: localBaSessionId(token));
   }
 
   /// "완료" — 삭제가 아니라 후순위화. 🔴 경고는 그대로 남는다.
   Future<BaCaptureSession> deferBaSession(BaCaptureSession target) async {
+    if (!baRemoteReady || isLocalBaSessionId(target.id)) {
+      _localDeferredTokens.add(target.sessionToken);
+      await _rebuildLocalBaSessions();
+      _notify();
+      return findBaSession(target.id) ??
+          target.copyWith(deferredAt: DateTime.now());
+    }
     final saved = await _repository.upsertBaCaptureSession(
       target.copyWith(deferredAt: DateTime.now()),
     );
@@ -5900,6 +6090,18 @@ class SoriStore implements Listenable {
   }
 
   Future<void> discardBaSession(BaCaptureSession target) async {
+    if (isLocalBaSessionId(target.id)) {
+      shootInbox.removeWhere(
+        (e) => _localSessionToken(e) == target.sessionToken,
+      );
+      _localEmptyDrafts.removeWhere(
+        (s) => s.sessionToken == target.sessionToken,
+      );
+      await _persistShootInbox();
+      await _rebuildLocalBaSessions();
+      _notify();
+      return;
+    }
     await _repository.deleteBaCaptureSession(target.id);
     baSessions.removeWhere((s) => s.id == target.id);
     _notify();
@@ -5921,11 +6123,22 @@ class SoriStore implements Listenable {
             await ensureTodayShootChart(customerId: cid))
         : await ensureTodayShootChart(customerId: cid);
 
-    final bound = await _repository.bindBaCaptureSessionToChart(
-      sessionId: target.id,
-      customerId: cid,
-      chartId: chart.id,
-    );
+    if (isLocalBaSessionId(target.id)) {
+      return _bindLocalBaSessionToChart(target: target, chart: chart);
+    }
+
+    final BaCaptureSession bound;
+    try {
+      bound = await _repository.bindBaCaptureSessionToChart(
+        sessionId: target.id,
+        customerId: cid,
+        chartId: chart.id,
+      );
+    } catch (e) {
+      if (!isMissingSchemaError(e)) rethrow;
+      baRemoteReady = false;
+      return _bindLocalBaSessionToChart(target: target, chart: chart);
+    }
 
     // 차트 로컬 미러 — 서버 RPC가 이미 반영했으므로 화면 상태만 맞춘다.
     final idx = charts.indexWhere((c) => c.id == chart.id);
@@ -5938,6 +6151,34 @@ class SoriStore implements Listenable {
 
     // linked 세션은 캐러셀 대상이 아니므로 목록에서 제거한다.
     baSessions.removeWhere((s) => s.id == target.id);
+    _notify();
+    return findChartById(chart.id) ?? chart;
+  }
+
+  /// 원격 불가 구간 이관 — 큐의 before/after를 차트에 직접 반영하고 큐를 비운다.
+  Future<CustomerChart> _bindLocalBaSessionToChart({
+    required BaCaptureSession target,
+    required CustomerChart chart,
+  }) async {
+    final before = target.beforeImageUrl?.trim() ?? '';
+    final after = target.afterImageUrl?.trim() ?? '';
+    if (before.isNotEmpty || after.isNotEmpty) {
+      await updateCustomerChartFields(
+        chartId: chart.id,
+        beforeImageUrl: before.isEmpty ? null : before,
+        afterImageUrl: after.isEmpty ? null : after,
+      );
+    }
+
+    shootInbox.removeWhere(
+      (e) => _localSessionToken(e) == target.sessionToken,
+    );
+    _localEmptyDrafts.removeWhere(
+      (s) => s.sessionToken == target.sessionToken,
+    );
+    _localDeferredTokens.remove(target.sessionToken);
+    await _persistShootInbox();
+    await _rebuildLocalBaSessions();
     _notify();
     return findChartById(chart.id) ?? chart;
   }

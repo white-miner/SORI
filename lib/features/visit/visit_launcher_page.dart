@@ -7,6 +7,7 @@ import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../utils/supabase_schema_error.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../views/before_after_compare_page.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
@@ -74,6 +75,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   String? _baTransferringId;
   bool _baBusy = false;
 
+  /// 상담 중 즐겨찾기한 레퍼런스만 빠르게 훑기 위한 필터.
+  bool _caseBookmarkOnly = false;
+
   VisitStore get visit => widget.store.visit;
 
   static const _groupedBg = SoriTokens.background;
@@ -115,9 +119,29 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     ]);
     if (!mounted) return;
     _autoWarmNextCustomer();
-    _casePager.reset();
-    _casePager.loadMore(widget.store.managementCaseCharts());
+    _reloadCaseFeed();
     setState(() => _loading = false);
+  }
+
+  /// 무한 스크롤 소스 — 북마크 필터가 켜지면 즐겨찾기한 케이스로 좁힌다.
+  List<CustomerChart> _caseSource() {
+    final all = widget.store.managementCaseCharts();
+    if (!_caseBookmarkOnly) return all;
+    return all
+        .where((c) => widget.store.isChartBookmarked(c.id))
+        .toList(growable: false);
+  }
+
+  void _reloadCaseFeed() {
+    _casePager.reset();
+    _casePager.loadMore(_caseSource());
+  }
+
+  void _toggleCaseBookmarkFilter() {
+    setState(() {
+      _caseBookmarkOnly = !_caseBookmarkOnly;
+      _reloadCaseFeed();
+    });
   }
 
   void _onFeedScroll() {
@@ -125,7 +149,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final position = _feedScroll.position;
     // 잔여 3건 지점에서 미리 당겨온다 (카드 1장 ≈ 화면 절반).
     if (position.pixels < position.maxScrollExtent - 900) return;
-    if (_casePager.loadMore(widget.store.managementCaseCharts()) > 0) {
+    if (_casePager.loadMore(_caseSource()) > 0) {
       setState(() {});
     }
   }
@@ -521,17 +545,22 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       );
     } catch (e) {
       if (!mounted) return;
-      _toast('촬영 저장 실패: $e', error: true);
+      _toast('촬영 저장 실패: ${_readableError(e)}', error: true);
     } finally {
       if (mounted) setState(() => _baBusy = false);
     }
   }
 
+  /// 원장님 화면에 PostgrestException 원문이 그대로 뜨면 대응할 방법이 없다.
+  String _readableError(Object e) => isMissingSchemaError(e)
+      ? '서버 준비가 끝나지 않았습니다. 잠시 후 다시 시도해 주세요'
+      : '$e';
+
   Future<void> _deferBaSession(BaCaptureSession session) async {
     try {
       await widget.store.deferBaSession(session);
     } catch (e) {
-      if (mounted) _toast('처리 실패: $e', error: true);
+      if (mounted) _toast('처리 실패: ${_readableError(e)}', error: true);
     }
   }
 
@@ -561,7 +590,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       _toast('${customer.name} · ${chart.visitNumber}회 케이스로 이관');
     } catch (e) {
       if (!mounted) return;
-      _toast('고객 연결 실패: $e', error: true);
+      _toast('고객 연결 실패: ${_readableError(e)}', error: true);
     } finally {
       if (mounted) {
         setState(() {
@@ -577,6 +606,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   Future<void> _toggleCaseBookmark(CustomerChart chart) async {
     try {
       await widget.store.toggleCaseBookmark(chart.id);
+      // 필터가 켜진 상태에서 해제하면 그 카드는 목록에서 빠져야 한다.
+      if (mounted && _caseBookmarkOnly) setState(_reloadCaseFeed);
     } catch (e) {
       if (mounted) _toast('보관함 처리 실패: $e', error: true);
     }
@@ -704,32 +735,29 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
             child: BaCaptureCarousel(
               sessions: drafts,
               transferringId: _baTransferringId,
+              offlineDraft: !widget.store.baRemoteReady,
               onCapture: _captureBaPhoto,
               onBind: _bindBaSession,
               onDefer: _deferBaSession,
             ),
           ),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 22, 16, 10),
-              child: Text(
-                '관리 케이스',
-                style: TextStyle(
-                  fontSize: HomeVisualTokens.sectionLabelSize,
-                  fontWeight: FontWeight.w700,
-                  color: HomeVisualTokens.sectionLabelColor,
-                ),
-              ),
+          SliverToBoxAdapter(
+            child: _CaseFeedHeader(
+              bookmarkOnly: _caseBookmarkOnly,
+              onToggleBookmark: _toggleCaseBookmarkFilter,
             ),
           ),
           if (cases.isEmpty)
-            const SliverToBoxAdapter(child: _EmptyCaseFeed())
+            SliverToBoxAdapter(
+              child: _EmptyCaseFeed(bookmarkOnly: _caseBookmarkOnly),
+            )
           else
             SliverList.builder(
               itemCount: cases.length,
               itemBuilder: (context, index) {
                 final chart = cases[index];
                 return ManagementCaseCard(
+                  key: ValueKey(chart.id),
                   chart: chart,
                   bookmarked: widget.store.isChartBookmarked(chart.id),
                   onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
@@ -822,9 +850,17 @@ class _HomeTabBar extends StatelessWidget {
         controller: controller,
         labelColor: HomeVisualTokens.tabActiveColor,
         unselectedLabelColor: HomeVisualTokens.tabInactiveColor,
-        indicatorColor: HomeVisualTokens.tabActiveColor,
-        indicatorSize: TabBarIndicatorSize.label,
-        indicatorWeight: 2,
+        // 전역 soriTabBarTheme은 채워진 검정 칩 indicator를 쓴다. 그대로 두면
+        // 검정 칩 위에 검정 라벨이 얹혀 선택된 탭이 통째로 까맣게 보인다.
+        // 밑줄 indicator로 덮어써 라벨이 선명한 블랙으로 읽히게 한다.
+        indicator: const UnderlineTabIndicator(
+          borderSide: BorderSide(
+            color: HomeVisualTokens.tabActiveColor,
+            width: 2,
+          ),
+          insets: EdgeInsets.symmetric(horizontal: 20),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelStyle: const TextStyle(
           fontSize: HomeVisualTokens.tabLabelSize,
@@ -909,8 +945,65 @@ class _ComingSoonPane extends StatelessWidget {
   }
 }
 
+class _CaseFeedHeader extends StatelessWidget {
+  const _CaseFeedHeader({
+    required this.bookmarkOnly,
+    required this.onToggleBookmark,
+  });
+
+  final bool bookmarkOnly;
+  final VoidCallback onToggleBookmark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 22, 8, 10),
+      child: Row(
+        children: [
+          const Text(
+            '관리 케이스',
+            style: TextStyle(
+              fontSize: HomeVisualTokens.sectionLabelSize,
+              fontWeight: FontWeight.w700,
+              color: HomeVisualTokens.sectionLabelColor,
+            ),
+          ),
+          if (bookmarkOnly) ...[
+            const SizedBox(width: 8),
+            const Text(
+              '즐겨찾기만',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.primary,
+              ),
+            ),
+          ],
+          const Spacer(),
+          IconButton(
+            onPressed: onToggleBookmark,
+            visualDensity: VisualDensity.compact,
+            tooltip: bookmarkOnly ? '전체 케이스 보기' : '즐겨찾기한 케이스만 보기',
+            icon: Icon(
+              bookmarkOnly
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
+              size: 20,
+              color: bookmarkOnly
+                  ? SoriTokens.primary
+                  : HomeVisualTokens.dateIconColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyCaseFeed extends StatelessWidget {
-  const _EmptyCaseFeed();
+  const _EmptyCaseFeed({required this.bookmarkOnly});
+
+  final bool bookmarkOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -919,24 +1012,30 @@ class _EmptyCaseFeed extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            Icons.photo_library_outlined,
+            bookmarkOnly
+                ? Icons.bookmark_border_rounded
+                : Icons.photo_library_outlined,
             size: 30,
             color: HomeVisualTokens.dateIconColor,
           ),
           const SizedBox(height: 10),
-          const Text(
-            '완성된 B/A 케이스가 아직 없습니다',
-            style: TextStyle(
+          Text(
+            bookmarkOnly
+                ? '즐겨찾기한 케이스가 없습니다'
+                : '완성된 B/A 케이스가 아직 없습니다',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: HomeVisualTokens.dateTextColor,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '위 B/A 등록에서 Before·After를 찍고 고객에 연결해 보세요',
+          Text(
+            bookmarkOnly
+                ? '카드 우측 상단 책갈피를 눌러 상담용 레퍼런스를 모아 두세요'
+                : '위 B/A 등록에서 Before·After를 찍고 고객에 연결해 보세요',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               height: 1.4,
               color: HomeVisualTokens.dateIconColor,

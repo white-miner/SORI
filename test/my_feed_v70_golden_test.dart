@@ -93,6 +93,19 @@ class MyFeedVisualGoldenHarness extends StatelessWidget {
                   height: 22,
                   radius: 12,
                 ),
+                // 캡션 영역 — 헤어라인으로 사진과 끊고, 본문은 읽히는 회색.
+                _Swatch(
+                  color: HomeVisualTokens.caseCaptionDivider,
+                  width: 54,
+                  height: 22,
+                  radius: 2,
+                ),
+                _Swatch(
+                  color: HomeVisualTokens.caseCaptionColor,
+                  width: 54,
+                  height: 22,
+                  radius: 2,
+                ),
               ],
             ),
             SizedBox(height: 12),

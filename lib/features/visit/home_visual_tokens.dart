@@ -131,11 +131,14 @@ abstract final class HomeVisualTokens {
     blurRadius: 30,
     offset: Offset(0, 8),
   );
-  static const caseHeaderSize = 14.0;
-  static const caseVisitSize = 12.0;
+  static const caseHeaderSize = 15.0;
+  static const caseVisitSize = 13.0;
   static const casePillFill = Color(0x73000000);
   static const casePillTextSize = 11.0;
-  static const caseCaptionSize = 12.0;
-  static const caseCaptionColor = Color(0xFF8E8E93);
+
+  /// 상담 중 원장이 읽어주는 문장이라 12sp로는 영역 구분이 되지 않았다.
+  static const caseCaptionSize = 13.0;
+  static const caseCaptionColor = Color(0xFF5B5B60);
+  static const caseCaptionDivider = Color(0xFFEDEDF0);
   static const caseFeedPageSize = 10;
 }

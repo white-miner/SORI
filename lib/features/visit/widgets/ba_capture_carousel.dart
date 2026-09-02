@@ -18,9 +18,13 @@ class BaCaptureCarousel extends StatelessWidget {
     required this.onBind,
     required this.onDefer,
     this.transferringId,
+    this.offlineDraft = false,
   });
 
   final List<BaCaptureSession> sessions;
+
+  /// 서버 세션 테이블을 못 쓰는 구간 — 촬영은 되지만 기기 로컬에만 남는다.
+  final bool offlineDraft;
 
   /// (세션, 'before' | 'after') — 세션이 null이면 새 카드에서 촬영 시작.
   final void Function(BaCaptureSession? session, String kind) onCapture;
@@ -55,6 +59,18 @@ class BaCaptureCarousel extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              if (offlineDraft)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Text(
+                    '이 기기에만 저장 중',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: HomeVisualTokens.dateIconColor,
+                    ),
+                  ),
+                ),
               if (incomplete > 0) _NudgeBadge(count: incomplete),
             ],
           ),

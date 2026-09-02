@@ -49,7 +49,7 @@ class ManagementCaseCard extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  '${chart.visitNumber} 회차',
+                  '${chart.visitNumber}회차',
                   style: const TextStyle(
                     fontSize: HomeVisualTokens.caseVisitSize,
                     fontWeight: FontWeight.w600,
@@ -86,6 +86,8 @@ class ManagementCaseCard extends StatelessWidget {
           ),
           Stack(
             children: [
+              // Before/After 코너 태그는 BeforeAfterSlider가 이미 그린다.
+              // 여기서 다시 얹으면 같은 자리에 두 겹으로 겹친다.
               BeforeAfterSlider(
                 aspectRatio: 4 / 3,
                 borderRadius: BorderRadius.zero,
@@ -100,8 +102,6 @@ class ManagementCaseCard extends StatelessWidget {
                   tone: SoriTokens.textSecondary,
                 ),
               ),
-              const Positioned(left: 10, top: 10, child: _Pill('Before')),
-              const Positioned(right: 10, top: 10, child: _Pill('After')),
               Positioned(
                 right: 10,
                 bottom: 10,
@@ -110,42 +110,26 @@ class ManagementCaseCard extends StatelessWidget {
             ],
           ),
           if (caption.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            Container(
+              width: double.infinity,
+              // 사진과 텍스트 영역이 붙어 보이지 않도록 헤어라인으로 끊는다.
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: HomeVisualTokens.caseCaptionDivider),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               child: Text(
                 caption,
                 style: const TextStyle(
                   fontSize: HomeVisualTokens.caseCaptionSize,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
                   color: HomeVisualTokens.caseCaptionColor,
                 ),
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: HomeVisualTokens.casePillFill,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: HomeVisualTokens.casePillTextSize,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
       ),
     );
   }

@@ -166,3 +166,11 @@ grant execute on function public.bind_ba_session_to_chart(uuid, uuid, uuid)
 
 comment on function public.bind_ba_session_to_chart(uuid, uuid, uuid) is
   'PRD v7.0 — B/A 세션을 고객 차트에 원자적으로 연결. 성공 시 🟢 판정 → 관리 케이스 피드로 이관.';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 4) PostgREST 스키마 캐시 리로드
+--    이걸 빠뜨리면 테이블이 실제로 존재해도 클라이언트가 PGRST205
+--    ("Could not find the table ... in the schema cache")를 받는다.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+notify pgrst, 'reload schema';

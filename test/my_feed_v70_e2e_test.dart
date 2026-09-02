@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
 import 'package:sori/features/visit/widgets/ba_capture_carousel.dart';
 import 'package:sori/features/visit/widgets/home_hero_card.dart';
@@ -131,6 +132,55 @@ void main() {
     await _settle(tester);
 
     expect(find.textContaining('다음 스프린트'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('선택된 탭 라벨은 검정으로 읽힌다 (검정 칩에 묻히지 않는다)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _mountHome(tester);
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar).first);
+
+    // 전역 soriTabBarTheme의 채워진 검정 칩을 상속하면 라벨이 통째로 사라진다.
+    expect(tabBar.indicator, isA<UnderlineTabIndicator>());
+    expect(tabBar.labelColor, HomeVisualTokens.tabActiveColor);
+    expect(tabBar.labelColor, isNot(tabBar.unselectedLabelColor));
+
+    // 선택 라벨이 배경과 충분히 대비되는 어두운 색인지.
+    final luminance = tabBar.labelColor!.computeLuminance();
+    expect(luminance, lessThan(0.2));
+  });
+
+  testWidgets('관리 케이스 북마크 토글이 즐겨찾기만 남긴다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = await _mountHome(tester);
+    final completed = store.managementCaseCharts();
+
+    final filterOn = find.byTooltip('즐겨찾기한 케이스만 보기');
+    expect(filterOn, findsOneWidget);
+
+    await tester.ensureVisible(filterOn);
+    await tester.tap(filterOn);
+    await _settle(tester);
+
+    // 즐겨찾기가 하나도 없으므로 필터 켠 직후에는 빈 상태여야 한다.
+    expect(find.text('즐겨찾기만'), findsOneWidget);
+    expect(find.text('즐겨찾기한 케이스가 없습니다'), findsOneWidget);
+    expect(find.byType(ManagementCaseCard), findsNothing);
+
+    final filterOff = find.byTooltip('전체 케이스 보기');
+    await tester.ensureVisible(filterOff);
+    await tester.tap(filterOff);
+    await _settle(tester);
+
+    expect(find.text('즐겨찾기만'), findsNothing);
+    if (completed.isNotEmpty) {
+      expect(find.byType(ManagementCaseCard), findsWidgets);
+    }
     expect(tester.takeException(), isNull);
   });
 }

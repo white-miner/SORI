@@ -7,7 +7,37 @@ import 'package:sori/models/ba_capture_session.dart';
 import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/shoot_inbox_item.dart';
 import 'package:sori/services/shoot_inbox_local.dart';
+import 'package:sori/data/memory_sori_repository.dart';
 import 'package:sori/services/sori_store.dart';
+
+/// `108_ba_capture_sessions.sql` 이 아직 적용되지 않은 Supabase를 흉내 낸다.
+class _MissingTableRepository extends MemorySoriRepository {
+  static const _pgrst205 =
+      "PostgrestException(message: Could not find the table "
+      "'public.ba_capture_sessions' in the schema cache, code: PGRST205)";
+
+  @override
+  Future<List<BaCaptureSession>> loadBaCaptureSessions(
+    String shopId, {
+    bool draftOnly = true,
+  }) async {
+    throw StateError(_pgrst205);
+  }
+
+  @override
+  Future<BaCaptureSession> upsertBaCaptureSession(BaCaptureSession session) async {
+    throw StateError(_pgrst205);
+  }
+
+  @override
+  Future<BaCaptureSession> bindBaCaptureSessionToChart({
+    required String sessionId,
+    required String customerId,
+    required String chartId,
+  }) async {
+    throw StateError(_pgrst205);
+  }
+}
 
 BaCaptureSession _session({
   String id = 'sess-1',
@@ -329,6 +359,118 @@ void main() {
         expect(chart.hasBeforeImage, isTrue);
         expect(chart.hasAfterImage, isTrue);
       }
+    });
+  });
+
+  group('마이그레이션 미적용(PGRST205) 내성', () {
+    test('세션 테이블이 없으면 로컬 큐로 폴백하고 캐러셀이 살아 있다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SoriStore(repository: _MissingTableRepository());
+
+      await ShootInboxLocal.save(store.shop.id, [
+        ShootInboxItem(
+          id: 'inbox-1',
+          shopId: store.shop.id,
+          kind: 'before',
+          imageUrl: 'https://example.com/b.webp',
+          sessionToken: 'tok-1',
+          createdAt: DateTime(2026, 9, 2, 10),
+        ),
+        ShootInboxItem(
+          id: 'inbox-2',
+          shopId: store.shop.id,
+          kind: 'after',
+          imageUrl: 'https://example.com/a.webp',
+          sessionToken: 'tok-1',
+          createdAt: DateTime(2026, 9, 2, 11),
+        ),
+      ]);
+      await store.refreshShootInbox();
+      await store.refreshBaSessions();
+
+      expect(store.baRemoteReady, isFalse);
+
+      // 로컬 큐가 서버와 동일한 카드 모양으로 투영된다 (before/after 한 장).
+      expect(store.baSessions, hasLength(1));
+      final card = store.baSessions.single;
+      expect(card.beforeImageUrl, 'https://example.com/b.webp');
+      expect(card.afterImageUrl, 'https://example.com/a.webp');
+      expect(card.reason, BaDraftReason.unlinked);
+      expect(store.baCarouselSessions, hasLength(1));
+    });
+
+    test('폴백 구간에서도 촬영이 저장되고 사진이 유실되지 않는다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SoriStore(repository: _MissingTableRepository());
+      await store.refreshBaSessions();
+      expect(store.baRemoteReady, isFalse);
+
+      final draft = await store.createBaSession();
+      expect(SoriStore.isLocalBaSessionId(draft.id), isTrue);
+
+      final withBefore = await store.attachBaPhoto(
+        target: draft,
+        kind: 'before',
+        imageUrl: 'https://example.com/local-b.webp',
+      );
+      expect(withBefore.beforeImageUrl, 'https://example.com/local-b.webp');
+      expect(withBefore.reason, BaDraftReason.missingAfter);
+
+      // 재부팅해도 로컬 큐에 남아 있어야 한다.
+      final persisted = await ShootInboxLocal.load(store.shop.id);
+      expect(persisted, hasLength(1));
+      expect(persisted.single.imageUrl, 'https://example.com/local-b.webp');
+    });
+
+    test('폴백 구간 이관은 차트에 사진을 붙이고 캐러셀에서 뺀다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SoriStore(repository: _MissingTableRepository());
+      await store.refreshBaSessions();
+
+      final draft = await store.createBaSession();
+      await store.attachBaPhoto(
+        target: draft,
+        kind: 'before',
+        imageUrl: 'https://example.com/local-b.webp',
+      );
+      final ready = await store.attachBaPhoto(
+        target: store.baSessions.first,
+        kind: 'after',
+        imageUrl: 'https://example.com/local-a.webp',
+      );
+      expect(ready.reason, BaDraftReason.unlinked);
+
+      final customer = store.customers.first;
+      final chart = await store.bindBaSessionToChart(
+        target: ready,
+        customerId: customer.id,
+      );
+
+      expect(chart.beforeImageUrl, 'https://example.com/local-b.webp');
+      expect(chart.afterImageUrl, 'https://example.com/local-a.webp');
+      expect(store.baCarouselSessions, isEmpty);
+      expect(await ShootInboxLocal.load(store.shop.id), isEmpty);
+    });
+
+    test('테이블 미적용 시 로컬 큐를 한 장도 지우지 않는다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SoriStore(repository: _MissingTableRepository());
+      final queued = [
+        ShootInboxItem(
+          id: 'inbox-1',
+          shopId: store.shop.id,
+          kind: 'before',
+          imageUrl: 'https://example.com/b.webp',
+          sessionToken: 'tok-1',
+          createdAt: DateTime(2026, 9, 2, 10),
+        ),
+      ];
+      await ShootInboxLocal.save(store.shop.id, queued);
+
+      await store.promoteLocalShootInbox();
+
+      expect(store.baRemoteReady, isFalse);
+      expect(await ShootInboxLocal.load(store.shop.id), hasLength(1));
     });
   });
 

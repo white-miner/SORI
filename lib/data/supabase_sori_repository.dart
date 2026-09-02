@@ -54,6 +54,7 @@ import '../utils/sori_uuid.dart';
 import '../visit_kernel/models/visit_session.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
+import '../utils/supabase_schema_error.dart';
 import 'sori_repository.dart';
 
 /// Supabase SDK 실연동 Repository.
@@ -5304,6 +5305,9 @@ class SupabaseSoriRepository implements SoriRepository {
           .toList();
     } catch (e, st) {
       debugPrint('loadBaCaptureSessions failed: $e\n$st');
+      // 마이그레이션 미적용(PGRST205)은 일시 장애가 아니라 기능 부재다.
+      // 호출자가 로컬 폴백으로 전환할 수 있도록 그대로 올려보낸다.
+      if (isMissingSchemaError(e)) rethrow;
       return const [];
     }
   }

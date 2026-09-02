@@ -313,10 +313,8 @@ void main() {
         ),
       );
 
-      expect(find.text('3 회차'), findsOneWidget);
+      expect(find.text('3회차'), findsOneWidget);
       expect(find.text('스페셜 웨딩 케어'), findsOneWidget);
-      expect(find.text('Before'), findsWidgets);
-      expect(find.text('After'), findsWidgets);
 
       final caption = tester.widget<Text>(
         find.textContaining('만 38세').first,
@@ -324,6 +322,39 @@ void main() {
       expect(caption.data, contains('여성'));
       expect(caption.data, contains('민감'));
       expect(caption.data, contains('부종'));
+
+      // 상담 중 원장이 읽는 문장 — 12sp 미만으로 다시 내려가지 않도록 고정.
+      expect(caption.style?.fontSize, greaterThanOrEqualTo(13.0));
+      expect(caption.style?.fontWeight, FontWeight.w600);
+    });
+
+    testWidgets('Before/After 코너 태그가 두 겹으로 겹치지 않는다', (tester) async {
+      final chart = CustomerChart(
+        id: 'c1',
+        shopId: 'shop-1',
+        customerId: 'cus-1',
+        visitNumber: 2,
+        careName: '스페셜 웨딩 케어',
+        beforeImageUrl: 'https://example.com/b.webp',
+        afterImageUrl: 'https://example.com/a.webp',
+      );
+
+      await tester.pumpWidget(
+        _host(
+          SingleChildScrollView(
+            child: ManagementCaseCard(
+              chart: chart,
+              bookmarked: false,
+              onBookmark: () {},
+              onExpand: () {},
+            ),
+          ),
+        ),
+      );
+
+      // BeforeAfterSlider가 그리는 코너 태그 1쌍만 존재해야 한다.
+      expect(find.text('Before'), findsOneWidget);
+      expect(find.text('After'), findsOneWidget);
     });
 
     testWidgets('북마크 상태가 아이콘에 반영되고 탭이 전달된다', (tester) async {

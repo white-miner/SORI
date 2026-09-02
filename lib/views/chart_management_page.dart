@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../models/customer_chart_tree.dart';
 import '../models/home_care_prescriptions.dart';
 import '../routing/sori_router.dart';
 import '../services/chart_photo_compressor.dart';
@@ -108,6 +109,15 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
 
   List<CustomerChart> get _timeline =>
       widget.store.chartsForCustomer(widget.customerId);
+
+  /// 1고객 = 1차트. 평면 회차 row를 회차 → 기록 트리로 접어서 렌더링한다.
+  CustomerChartFile get _chartFile => CustomerChartFile.from(
+        customerId: widget.customerId,
+        charts: _timeline,
+      );
+
+  /// 하위 기록이 여러 건인 회차 중 펼쳐진 것.
+  final Set<int> _expandedRounds = {};
 
   CustomerChart? get _selected {
     final id = _selectedChartId;
@@ -462,46 +472,56 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       body: charts.isEmpty
           ? const Center(child: Text('작성된 차트가 없습니다'))
           : !_showingDetail
-              ? _buildVisitList(charts)
+              ? _buildVisitList(name)
               : selected == null
                   ? const Center(child: Text('차트를 선택해 주세요'))
                   : _buildDetailBody(selected),
     );
   }
 
-  Widget _buildVisitList(List<CustomerChart> charts) {
+  String _careLabel(CustomerChart chart) {
+    final care = chart.careName.trim();
+    if (care.isNotEmpty) return care;
+    final summary = chart.treatmentSummary.trim();
+    if (summary.isNotEmpty) return summary;
+    return '시술 기록';
+  }
+
+  Widget _buildVisitList(String customerName) {
+    final file = _chartFile;
+    final rounds = file.rounds;
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-      itemCount: charts.length + 1,
+      itemCount: rounds.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         if (index == 0) {
-          return const Text(
-            '회차를 선택하면 상담·관리 계획을 열람할 수 있어요',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: SoriTokens.textSecondary,
-            ),
-          );
+          return _buildChartFileHeader(file, customerName);
         }
-        final chart = charts[index - 1];
-        final care = chart.careName.trim().isNotEmpty
-            ? chart.careName.trim()
-            : (chart.treatmentSummary.trim().isNotEmpty
-                ? chart.treatmentSummary.trim()
-                : '시술 기록');
-        final preview = _summaryPreview(chart);
-        final hasBa = chart.hasBeforeImage || chart.hasAfterImage;
-        final rxCount = chart.homeCarePrescriptions.length;
-        return Material(
-          color: SoriTokens.surface,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
+        return _buildRoundNode(rounds[index - 1]);
+      },
+    );
+  }
+
+  /// 고객 1명에 고정된 차트 헤더 — 트리의 루트.
+  Widget _buildChartFileHeader(CustomerChartFile file, String customerName) {
+    final last = file.lastVisitedAt;
+    final lastLabel = last == null
+        ? '방문 기록 없음'
+        : '최근 ${last.year}.${last.month.toString().padLeft(2, '0')}.'
+            '${last.day.toString().padLeft(2, '0')}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Material(
+            color: SoriTokens.surface,
             borderRadius: BorderRadius.circular(16),
-            onTap: () => _openVisitDetail(chart.id),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: SoriTokens.border),
@@ -513,17 +533,13 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                     height: 44,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: SoriTokens.surface,
+                      color: SoriTokens.primarySoft,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SoriTokens.border),
                     ),
-                    child: Text(
-                      '${chart.visitNumber}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: SoriTokens.textPrimary,
-                        fontSize: 16,
-                      ),
+                    child: const Icon(
+                      Icons.folder_shared_outlined,
+                      size: 22,
+                      color: SoriTokens.primary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -532,85 +548,259 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${chart.visitNumber}회차 · $care',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          '$customerName 차트',
                           style: const TextStyle(
+                            fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            fontSize: 14.5,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
-                          preview,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          '${file.chartCode} · 총 ${file.totalRounds}회차 · '
+                          '$lastLabel',
                           style: const TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                             color: SoriTokens.textSecondary,
-                            fontWeight: FontWeight.w500,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              _dateLabel(chart),
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: SoriTokens.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            if (hasBa) ...[
-                              const SizedBox(width: 8),
-                              const Text(
-                                'B/A',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: SoriTokens.textSecondary,
-                                ),
-                              ),
-                            ],
-                            if (rxCount > 0) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '처방 $rxCount',
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: SoriTokens.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ],
                         ),
                       ],
                     ),
-                  ),
-                  if (chart.needsAfterPhoto)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Text(
-                        'After 대기',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.amber.shade700,
-                        ),
-                      ),
-                    ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: SoriTokens.textSecondary,
                   ),
                 ],
               ),
             ),
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          const Text(
+            '회차를 선택하면 상담·관리 계획을 열람할 수 있어요',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 회차 노드 — 기록이 하나면 바로 열고, 여러 건이면 하위로 펼친다.
+  Widget _buildRoundNode(VisitRoundNode round) {
+    final primary = round.primary.chart;
+    final expanded = _expandedRounds.contains(round.visitNumber);
+    final branches = round.records.skip(1).toList();
+    final rxCount = primary.homeCarePrescriptions.length;
+
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: SoriTokens.border),
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                if (round.hasBranches) {
+                  setState(() {
+                    if (expanded) {
+                      _expandedRounds.remove(round.visitNumber);
+                    } else {
+                      _expandedRounds.add(round.visitNumber);
+                    }
+                  });
+                } else {
+                  _openVisitDetail(primary.id);
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: SoriTokens.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: SoriTokens.border),
+                      ),
+                      child: Text(
+                        '${round.visitNumber}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: SoriTokens.textPrimary,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${round.visitNumber}회차 · ${_careLabel(primary)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _summaryPreview(primary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: SoriTokens.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                _dateLabel(primary),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: SoriTokens.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (round.hasAnyPhoto) ...[
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'B/A',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: SoriTokens.textSecondary,
+                                  ),
+                                ),
+                              ],
+                              if (rxCount > 0) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '처방 $rxCount',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: SoriTokens.textSecondary,
+                                  ),
+                                ),
+                              ],
+                              if (round.hasBranches) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '기록 ${round.records.length}건',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: SoriTokens.primary,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (primary.needsAfterPhoto)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text(
+                          'After 대기',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.amber.shade700,
+                          ),
+                        ),
+                      ),
+                    Icon(
+                      round.hasBranches
+                          ? (expanded
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded)
+                          : Icons.chevron_right_rounded,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (round.hasBranches && expanded) ...[
+              const Divider(height: 1, color: SoriTokens.border),
+              _buildBranchRow(round.primary, isPrimary: true),
+              for (final branch in branches) _buildBranchRow(branch),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 같은 회차에 속한 개별 기록 (동의서 / 시술 등).
+  Widget _buildBranchRow(ChartRecordNode node, {bool isPrimary = false}) {
+    final chart = node.chart;
+    return InkWell(
+      onTap: () => _openVisitDetail(chart.id),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 11, 12, 11),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _careLabel(chart),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: isPrimary ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    node.hasDuplicates
+                        ? '${_dateLabel(chart)} · 동일 기록 ${node.duplicateCount}건 병합'
+                        : _dateLabel(chart),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: SoriTokens.textSecondary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
