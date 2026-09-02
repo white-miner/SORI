@@ -31,6 +31,7 @@ import 'home_visual_tokens.dart';
 import 'management_case_paginator.dart';
 import 'today_agenda.dart';
 import 'models/care_timer_entry_mode.dart';
+import 'visit_customer_picker_sheet.dart';
 import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
@@ -520,29 +521,49 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
 
   // ── PRD v7.0 ③ B/A 캐러셀 ──────────────────────────────────────────
 
+  /// [session]이 null이면 좌측 고정 'B/A 촬영' 슬롯에서의 촬영이다.
+  ///
+  /// 세션 row는 **사진이 실제로 찍힌 뒤에만** 만든다. 예전처럼 카메라를 열기
+  /// 전에 만들어 두면 촬영을 취소할 때마다 빈 카드가 하나씩 쌓였다.
   Future<void> _captureBaPhoto(BaCaptureSession? session, String kind) async {
     if (_baBusy) return;
     setState(() => _baBusy = true);
     try {
-      final target = session ?? await widget.store.createBaSession();
-      if (!mounted) return;
-
+      final store = widget.store;
+      final pending = session ?? store.baPendingSession;
+      final token = pending?.sessionToken ?? store.reservePendingBaToken();
       final isBefore = kind != 'after';
+
       final result = await SmartGuideCameraPage.open(
         context,
-        shopId: target.shopId,
+        shopId: store.shop.id,
         // public 버킷이므로 UUID 토큰 경로로 URL 추측을 어렵게 한다.
-        customerId: SoriStore.baDraftStorageSegment(target.sessionToken),
+        customerId: SoriStore.baDraftStorageSegment(token),
         kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
-        ghostBeforeUrl: isBefore ? null : target.ghostBeforeUrl,
+        ghostBeforeUrl: isBefore ? null : pending?.ghostBeforeUrl,
       );
+      // 취소 — 아무것도 만들지 않는다. 슬롯 증식의 원인이었다.
       if (result == null || !mounted) return;
 
-      await widget.store.attachBaPhoto(
-        target: target,
-        kind: isBefore ? 'before' : 'after',
-        imageUrl: result.url,
-      );
+      final photoKind = isBefore ? 'before' : 'after';
+      final saved = session == null
+          ? await store.captureIntoPendingBaSlot(
+              kind: photoKind,
+              imageUrl: result.url,
+            )
+          : await store.attachBaPhoto(
+              target: session,
+              kind: photoKind,
+              imageUrl: result.url,
+            );
+      if (!mounted) return;
+
+      // 헌법 3 — 촬영 직후 곧바로 고객 차트를 연결할 수 있어야 한다.
+      if (!saved.hasCustomer) {
+        setState(() => _baBusy = false);
+        await _bindBaSession(saved);
+        return;
+      }
     } catch (e) {
       if (!mounted) return;
       _toast('촬영 저장 실패: ${_readableError(e)}', error: true);
@@ -564,15 +585,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     }
   }
 
-  /// 🟢 이관 — 고객을 고르고, 320ms 확정 애니메이션 후 🟢 카드로 굳는다.
+  /// 고객 연결 — 고정 슬롯의 촬영본이 고객 이름 카드로 분리되는 순간이다.
   ///
-  /// v7.0.2 — 카드는 캐러셀에 남는다. 피드에는 같은 케이스가 추가로 꽂힌다.
+  /// 헌법 3에 따라 전체 화면 피커가 아니라 바텀시트 검색으로 즉시 처리한다.
+  /// 두 장이 모두 모여 있었다면 그대로 🟢가 되어 관리 케이스 피드로 간다.
   Future<void> _bindBaSession(BaCaptureSession session) async {
     if (_baBusy) return;
-    final customer = await Navigator.of(context).push<Customer>(
-      MaterialPageRoute(
-        builder: (_) => VisitExistingCustomerPickerPage(store: widget.store),
-      ),
+    final customer = await showVisitCustomerPickerSheet(
+      context,
+      store: widget.store,
     );
     if (customer == null || !mounted) return;
 
@@ -588,8 +609,12 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       // 확정 애니메이션이 끝나는 시점에 맞춰 피드 최상단에 꽂는다.
       await Future<void>.delayed(HomeVisualTokens.baTransferDuration);
       if (!mounted) return;
-      _casePager.prepend(chart);
-      _toast('${customer.name} · ${chart.visitNumber}회 케이스로 이관');
+      if (chart.hasBeforeImage && chart.hasAfterImage) {
+        _casePager.prepend(chart);
+        _toast('${customer.name} · ${chart.visitNumber}회 케이스로 이관');
+      } else {
+        _toast('${customer.name} 고객에 연결했어요 · 나머지 한 장을 채워주세요');
+      }
     } catch (e) {
       if (!mounted) return;
       _toast('고객 연결 실패: ${_readableError(e)}', error: true);
@@ -767,6 +792,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
           SliverToBoxAdapter(
             child: BaCaptureCarousel(
               sessions: drafts,
+              pending: widget.store.baPendingSession,
+              incompleteCount: widget.store.baIncompleteCount,
               transferringId: _baTransferringId,
               offlineDraft: !widget.store.baRemoteReady,
               onCapture: _captureBaPhoto,

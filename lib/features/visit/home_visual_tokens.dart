@@ -6,8 +6,8 @@ abstract final class HomeVisualTokens {
   static const heroCardFill = Color(0xF2FFFFFF);
   static const heroCardRadius = 24.0;
   static const heroCardPaddingH = 16.0;
-  static const heroCardPaddingTop = 20.0;
-  static const heroCardPaddingBottom = 16.0;
+  static const heroCardPaddingTop = 14.0;
+  static const heroCardPaddingBottom = 12.0;
 
   static const heroCardShadow = BoxShadow(
     color: Color(0x0A000000),
@@ -19,12 +19,14 @@ abstract final class HomeVisualTokens {
   static const dateIconColor = Color(0xFF8E8E93);
   static const dateTextSize = 13.0;
   static const dateTextColor = Color(0xFF111111);
-  static const dateRowMinHeight = 44.0;
+  // 날짜 · 시계 · 메모가 하나의 응집된 컴포넌트로 읽혀야 한다.
+  // 이 세 값이 벌어지면 히어로 카드가 통째로 허술해 보인다.
+  static const dateRowMinHeight = 28.0;
 
   static const flipDigitHeightHome = 132.0;
   static const flipDigitWidthHome = 82.0;
   static const flipColonSizeHome = 56.0;
-  static const flipHeroZoneMinHeight = 200.0;
+  static const flipHeroZoneMinHeight = 146.0;
   static const flipTileFill = Color(0xFF111111);
   static const flipTileRadius = 14.0;
 

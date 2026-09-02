@@ -7,43 +7,59 @@ import '../home_visual_tokens.dart';
 
 /// PRD v7.0 ③ — B/A 등록 캐러셀.
 ///
-/// 신호등 규약 (v7.0.2 정책 변경):
-/// - 🔴 사진 누락 또는 차트 미연동 → 앞쪽에 남아 경고로 계속 노출된다.
-/// - 🟢 두 장 + 차트 매핑 완료 → **사라지지 않고** 뒤쪽에 그대로 남는다.
-///   카드를 탭하면 뷰어로 열린다.
+/// 헌법 (v7.0.3):
+/// 1. 좌측 맨 앞은 **'B/A 촬영' 고정 슬롯 단 1개**다. 빈 슬롯이 둘로 늘어나는
+///    일은 없다. 여기서 찍은 사진은 고객을 연결하기 전까지 이 자리에 머문다.
+/// 2. 고객을 연결해야만 고객 이름 + 🔴가 달린 독립 카드로 분리되어 우측에
+///    쌓인다.
+/// 3. 🟢 두 장 + 차트 매핑 완료 → **사라지지 않고** 뒤쪽에 그대로 남는다.
+///    카드를 탭하면 뷰어로 열린다.
 ///
-/// 카드 순서: [빈 촬영 슬롯] → [🔴 미완성] → [🟢 완성].
+/// 카드 순서: [B/A 촬영 고정 슬롯] → [🔴 미완성] → [🟢 완성].
 class BaCaptureCarousel extends StatelessWidget {
   const BaCaptureCarousel({
     super.key,
     required this.sessions,
+    this.pending,
     required this.onCapture,
     required this.onBind,
     required this.onDefer,
     required this.onOpen,
+    this.incompleteCount,
     this.transferringId,
     this.offlineDraft = false,
   });
 
+  /// 고객이 연결되어 독립 카드로 분리된 세션들.
   final List<BaCaptureSession> sessions;
+
+  /// 고정 슬롯에 머무는 미연결 촬영. null이면 슬롯은 비어 있다.
+  final BaCaptureSession? pending;
 
   /// 서버 세션 테이블을 못 쓰는 구간 — 촬영은 되지만 기기 로컬에만 남는다.
   final bool offlineDraft;
 
-  /// (세션, 'before' | 'after') — 세션이 null이면 새 카드에서 촬영 시작.
+  /// (세션, 'before' | 'after') — 세션이 null이면 고정 슬롯에서 촬영 시작.
   final void Function(BaCaptureSession? session, String kind) onCapture;
+
+  /// 고객 차트 연결 — 고정 슬롯의 사진을 탭했을 때도 이 경로로 들어온다.
   final void Function(BaCaptureSession session) onBind;
   final void Function(BaCaptureSession session) onDefer;
 
   /// 🟢 카드 탭 — 이관된 관리 케이스를 뷰어로 연다.
   final void Function(BaCaptureSession session) onOpen;
 
+  /// 넛지 배지 숫자. 생략하면 카드 목록에서 계산한다.
+  final int? incompleteCount;
+
   /// 이관 확정 애니메이션 중인 세션 (320ms 동안 제자리에서 🟢로 굳는다).
   final String? transferringId;
 
   @override
   Widget build(BuildContext context) {
-    final incomplete = sessions.where((s) => !s.isComplete).length;
+    final incomplete = incompleteCount ??
+        (sessions.where((s) => !s.isComplete).length +
+            (pending == null ? 0 : 1));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,13 +110,17 @@ class BaCaptureCarousel extends StatelessWidget {
             separatorBuilder: (_, _) =>
                 const SizedBox(width: HomeVisualTokens.baCardGap),
             itemBuilder: (context, index) {
-              // 첫 슬롯은 항상 새 촬영 — 스크롤 없이 즉시 진입 가능해야 한다.
+              // 헌법 1 — 첫 칸은 언제나 이 고정 슬롯 하나뿐이다. 촬영본이
+              // 있어도 고객을 연결하기 전까지 여기 머문다.
               if (index == 0) {
+                final p = pending;
                 return _BaCard(
-                  session: null,
+                  key: const Key('ba-fixed-capture-slot'),
+                  session: p,
+                  fixedSlot: true,
                   transferring: false,
                   onCapture: (kind) => onCapture(null, kind),
-                  onBind: null,
+                  onBind: p == null ? null : () => onBind(p),
                   onDefer: null,
                   onOpen: null,
                 );
@@ -108,6 +128,7 @@ class BaCaptureCarousel extends StatelessWidget {
               final session = sessions[index - 1];
               return _BaCard(
                 session: session,
+                fixedSlot: false,
                 transferring: session.id == transferringId,
                 onCapture: (kind) => onCapture(session, kind),
                 onBind: () => onBind(session),
@@ -156,7 +177,9 @@ class _NudgeBadge extends StatelessWidget {
 
 class _BaCard extends StatelessWidget {
   const _BaCard({
+    super.key,
     required this.session,
+    required this.fixedSlot,
     required this.transferring,
     required this.onCapture,
     required this.onBind,
@@ -165,6 +188,9 @@ class _BaCard extends StatelessWidget {
   });
 
   final BaCaptureSession? session;
+
+  /// 좌측 고정 'B/A 촬영' 슬롯인지. 고정 슬롯은 비워도 카드가 유지된다.
+  final bool fixedSlot;
   final bool transferring;
   final void Function(String kind) onCapture;
   final VoidCallback? onBind;
@@ -177,12 +203,47 @@ class _BaCard extends StatelessWidget {
     final reason = s?.reason ?? BaDraftReason.empty;
     // 이관 요청 직후에는 서버 응답 전이라도 🟢로 먼저 굳혀 보여준다.
     final complete = transferring || (s?.isComplete ?? false);
-    final label = s?.label.trim() ?? '';
+    final hasPhoto = s?.hasPhoto ?? false;
+    final label = fixedSlot ? '' : (s?.label.trim() ?? '');
+
+    // 고정 슬롯은 항상 '무엇을 하는 자리'인지로 읽혀야 한다.
+    final title = fixedSlot
+        ? 'B/A 촬영'
+        : (label.isNotEmpty ? label : reason.badgeLabel);
 
     // 완성 카드는 촬영 대상이 아니라 참고용 뷰어다.
-    final slotTap = complete && onOpen != null
-        ? (String _) => onOpen!()
-        : onCapture;
+    // 고정 슬롯의 사진을 탭하면 곧장 고객 연결로 간다(헌법 3).
+    final void Function(String kind) slotTap;
+    if (complete && onOpen != null) {
+      slotTap = (_) => onOpen!();
+    } else if (fixedSlot && hasPhoto && onBind != null) {
+      slotTap = (kind) {
+        final filled = kind == 'after'
+            ? (s?.hasAfter ?? false)
+            : (s?.hasBefore ?? false);
+        if (filled) {
+          onBind!();
+        } else {
+          onCapture(kind);
+        }
+      };
+    } else {
+      slotTap = onCapture;
+    }
+
+    // 헌법 2 — 고객을 연결해야 독립 카드로 분리된다. 고정 슬롯에 사진이
+    // 들어온 순간부터 연결 동선이 눈에 보여야 한다.
+    // 헤더가 이미 사유를 말하고 있으면(라벨 없음) 아래에 또 쓰지 않는다.
+    final Widget? footer;
+    if (complete || s == null) {
+      footer = null;
+    } else if (fixedSlot) {
+      footer = hasPhoto && onBind != null ? _BindChip(onTap: onBind!) : null;
+    } else if (reason == BaDraftReason.unlinked && onBind != null) {
+      footer = _BindChip(onTap: onBind!);
+    } else {
+      footer = label.isEmpty ? null : _ReasonChip(label: reason.badgeLabel);
+    }
 
     return AnimatedScale(
       // 제자리 확정 — 밖으로 밀어내면 🟢 카드가 캐러셀에서 사라진다.
@@ -196,28 +257,43 @@ class _BaCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: HomeVisualTokens.baDotSize,
-                  height: HomeVisualTokens.baDotSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: complete
-                        ? HomeVisualTokens.baDotGreen
-                        : HomeVisualTokens.baDotRed,
+                // 빈 고정 슬롯에는 신호등을 켜지 않는다 — 할 일이 없는 자리다.
+                if (!fixedSlot || hasPhoto)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 5),
+                    child: Container(
+                      width: HomeVisualTokens.baDotSize,
+                      height: HomeVisualTokens.baDotSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: complete
+                            ? HomeVisualTokens.baDotGreen
+                            : HomeVisualTokens.baDotRed,
+                      ),
+                    ),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.photo_camera_rounded,
+                      size: 13,
+                      color: HomeVisualTokens.dateIconColor,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 5),
                 Expanded(
                   child: Text(
-                    label.isNotEmpty ? label : reason.badgeLabel,
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: HomeVisualTokens.baLabelSize,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: complete
                           ? HomeVisualTokens.baDotGreen
-                          : HomeVisualTokens.dateIconColor,
+                          : (fixedSlot && !hasPhoto
+                              ? HomeVisualTokens.dateTextColor
+                              : HomeVisualTokens.dateIconColor),
                     ),
                   ),
                 ),
@@ -269,12 +345,9 @@ class _BaCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (s != null &&
-                reason == BaDraftReason.unlinked &&
-                onBind != null &&
-                !complete) ...[
+            if (footer != null) ...[
               const SizedBox(height: 4),
-              _BindChip(onTap: onBind!),
+              footer,
             ],
           ],
         ),
@@ -364,6 +437,34 @@ class _MiniIconButton extends StatelessWidget {
           icon,
           size: 14,
           color: HomeVisualTokens.dateIconColor,
+        ),
+      ),
+    );
+  }
+}
+
+/// 이미 고객이 붙은 카드에서 "무엇이 비었는지"만 조용히 알린다.
+class _ReasonChip extends StatelessWidget {
+  const _ReasonChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: HomeVisualTokens.baDotRed.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: HomeVisualTokens.baDotRed,
         ),
       ),
     );

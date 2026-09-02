@@ -116,6 +116,90 @@ void main() {
       expect(with_.left, closeTo(without.left, 0.5));
       expect(with_.width, closeTo(without.width, 0.5));
     });
+
+    testWidgets('HH와 MM 사이에 콜론이 보이는 색으로 렌더된다', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const Center(
+            child: FlipClockDisplay(
+              totalSeconds: 13 * 3600 + 4 * 60 + 38,
+              hero: true,
+              homeHero: true,
+              showSeconds: false,
+              showCornerSeconds: true,
+              style: FlipClockStyle.darkGlass,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text(':'), findsOneWidget);
+
+      // 히어로 카드는 밝다 — 흰 콜론은 배경에 묻혀 사라진다.
+      final colon = tester.widget<Text>(find.text(':'));
+      final color = colon.style!.color!;
+      expect(color.a, greaterThan(0.5), reason: '너무 투명하면 안 보인다');
+      expect(color.computeLuminance(), lessThan(0.3), reason: '밝은 배경 위 어두운 글자');
+
+      // 콜론은 시(HH)와 분(MM) 사이에 있어야 한다. (13:04)
+      final colonX = tester.getCenter(find.text(':')).dx;
+      expect(colonX, greaterThan(tester.getCenter(find.text('3').first).dx));
+      expect(colonX, lessThan(tester.getCenter(find.text('4').first).dx));
+    });
+
+    testWidgets('초(SS)에도 시/분과 동일한 다크 글래스 패널이 깔린다', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const Center(
+            child: FlipClockDisplay(
+              totalSeconds: 13 * 3600 + 4 * 60 + 38,
+              hero: true,
+              homeHero: true,
+              showSeconds: false,
+              showCornerSeconds: true,
+              style: FlipClockStyle.darkGlass,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // '38' 을 감싼 조상 중에 어두운 그라디언트 배경이 있어야 한다.
+      final panel = find
+          .ancestor(of: find.text('38'), matching: find.byType(Container))
+          .evaluate()
+          .map((e) => e.widget as Container)
+          .where((c) => c.decoration is BoxDecoration)
+          .map((c) => c.decoration as BoxDecoration)
+          .where((d) => d.gradient != null)
+          .toList();
+
+      expect(panel, isNotEmpty, reason: '흰 배경에 흰 글자만 떠 있으면 초가 안 보인다');
+      final colors = (panel.first.gradient as LinearGradient).colors;
+      for (final c in colors) {
+        expect(c.computeLuminance(), lessThan(0.1), reason: '다크 글래스');
+      }
+
+      // 글자는 패널 위에서 흰색이다.
+      final ss = tester.widget<Text>(find.text('38'));
+      expect(ss.style!.color!.computeLuminance(), greaterThan(0.7));
+    });
+  });
+
+  group('⓪-2 히어로 카드 — 날짜·시계·메모 응집', () {
+    testWidgets('세 요소 사이 여백이 타이트하게 붙어 있다', (tester) async {
+      expect(
+        HomeVisualTokens.dateRowMinHeight,
+        lessThanOrEqualTo(32.0),
+        reason: '날짜 줄이 부풀면 시계와 멀어진다',
+      );
+      // 시계 타일 높이(132)에 붙는 여유만 남긴다.
+      expect(HomeVisualTokens.flipHeroZoneMinHeight, lessThanOrEqualTo(150.0));
+      expect(HomeVisualTokens.flipHeroZoneMinHeight, greaterThanOrEqualTo(132.0));
+      expect(HomeVisualTokens.heroCardPaddingTop, lessThanOrEqualTo(16.0));
+      expect(HomeVisualTokens.heroCardPaddingBottom, lessThanOrEqualTo(14.0));
+    });
   });
 
   group('② Quick Action — 컬러 헌법 (Q2a)', () {
@@ -187,7 +271,7 @@ void main() {
   });
 
   group('③ B/A 캐러셀 — 신호등 및 이관 애니메이션', () {
-    testWidgets('첫 슬롯은 항상 새 촬영 카드다', (tester) async {
+    testWidgets('첫 슬롯은 "B/A 촬영" 고정 슬롯 단 1개다 (헌법 1)', (tester) async {
       await tester.pumpWidget(
         _host(
           BaCaptureCarousel(
@@ -201,8 +285,41 @@ void main() {
       );
 
       expect(find.text('B/A 등록'), findsOneWidget);
+      expect(find.text('B/A 촬영'), findsOneWidget);
+      expect(find.text('촬영 대기'), findsNothing);
+      expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
       // 빈 상태에서도 ⊕ 두 개(Before/After)가 즉시 보인다.
       expect(find.byIcon(Icons.add_rounded), findsNWidgets(2));
+      // 할 일이 없으므로 넛지 배지도 없다.
+      expect(find.text('1'), findsNothing);
+    });
+
+    testWidgets('고정 슬롯의 촬영본은 탭하면 곧장 고객 연결로 간다 (헌법 3)', (tester) async {
+      BaCaptureSession? bound;
+      final pending = _draft(id: 'p', before: 'https://x/b.webp');
+
+      await tester.pumpWidget(
+        _host(
+          BaCaptureCarousel(
+            sessions: const [],
+            pending: pending,
+            onCapture: (_, _) {},
+            onBind: (s) => bound = s,
+            onDefer: (_) {},
+            onOpen: (_) {},
+          ),
+        ),
+      );
+
+      // 고정 슬롯은 여전히 1개다 — 사진이 들어와도 카드로 분리되지 않는다.
+      expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
+      expect(find.text('B/A 촬영'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget, reason: '연결 대기 1건');
+
+      expect(find.text('고객 연결'), findsOneWidget);
+      await tester.tap(find.text('고객 연결'));
+      await tester.pump();
+      expect(bound?.id, 'p');
     });
 
     testWidgets('Before만 찍힌 세션은 🔴와 "After 필요" 배지', (tester) async {

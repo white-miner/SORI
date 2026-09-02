@@ -76,6 +76,64 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('B/A 캐러셀에 빈 슬롯은 "B/A 촬영" 단 1개뿐이다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = await _mountHome(tester);
+
+    expect(find.text('B/A 촬영'), findsOneWidget);
+    expect(find.text('촬영 대기'), findsNothing);
+    expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
+
+    // 카메라 진입/취소를 반복해도 슬롯이 늘지 않는다.
+    // (예전에는 카메라를 열기 전에 세션을 만들어 취소마다 카드가 쌓였다.)
+    for (var i = 0; i < 5; i++) {
+      store.reservePendingBaToken();
+    }
+    await tester.pump();
+    await _settle(tester);
+
+    expect(find.text('B/A 촬영'), findsOneWidget);
+    expect(store.baPendingSession, isNull);
+    expect(store.baSessions.where((s) => !s.hasPhoto), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('고객을 연결하면 이름 + 🔴 카드로 분리된다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = await _mountHome(tester);
+    if (store.customers.isEmpty) return;
+    final customer = store.customers.first;
+
+    final pending = await store.captureIntoPendingBaSlot(
+      kind: 'before',
+      imageUrl: 'https://example.com/e2e-b.webp',
+    );
+    await tester.pump();
+    await _settle(tester);
+
+    // 아직은 고정 슬롯에 머문다 — 카드로 분리되지 않는다.
+    expect(find.text('B/A 촬영'), findsOneWidget);
+    expect(find.text(customer.name), findsNothing);
+    expect(find.text('고객 연결'), findsOneWidget);
+
+    await store.bindBaSessionToChart(
+      target: pending,
+      customerId: customer.id,
+    );
+    await tester.pump();
+    await _settle(tester);
+
+    // 이제 고객 이름 카드로 분리되고, After가 없으니 🔴다.
+    expect(find.text('B/A 촬영'), findsOneWidget, reason: '고정 슬롯은 그대로 1개');
+    expect(find.text(customer.name), findsWidgets);
+    expect(find.text('After 필요'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('B/A 캐러셀에서 관리 케이스까지 끊김 없이 스크롤된다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));

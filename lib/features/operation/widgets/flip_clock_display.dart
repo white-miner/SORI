@@ -146,9 +146,11 @@ class FlipClockDisplay extends StatelessWidget {
                 ':',
                 style: GoogleFonts.nunito(
                   fontSize: colonSize,
-                  fontWeight: FontWeight.w300,
+                  fontWeight: FontWeight.w700,
+                  // 다크 글래스는 타일만 어둡고 주변은 밝은 카드다.
+                  // 흰 콜론을 쓰면 흰 배경에 묻혀 구분자가 사라진다.
                   color: _darkGlass
-                      ? Colors.white.withValues(alpha: 0.42)
+                      ? const Color(0xFF1C1C1E).withValues(alpha: 0.65)
                       : SemanticSignalTheme.heroTextColor
                           .withValues(alpha: 0.28),
                   height: 1,
@@ -191,35 +193,91 @@ class FlipClockDisplay extends StatelessWidget {
           bottom: ssSize * _ssBottomInsetRatio,
           width: ssBoxW,
           height: ssBoxH,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.bottomLeft,
-            child: Text(
-              seconds.toString().padLeft(2, '0'),
-              maxLines: 1,
-              softWrap: false,
-              style: GoogleFonts.nunito(
-                fontSize: ssSize,
-                fontWeight: FontWeight.w600,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: Colors.white.withValues(alpha: 0.8),
-                height: 1,
-              ),
-            ),
+          child: _CornerSeconds(
+            seconds: seconds,
+            fontSize: ssSize,
+            darkGlass: _darkGlass,
           ),
         ),
       ],
     );
   }
 
-  /// SS 두 자리(tabular) + 여유. 폰트가 바뀌어도 FittedBox가 안쪽에서 흡수한다.
-  static const _ssBoxWidthRatio = 1.32;
-  static const _ssBoxHeightRatio = 1.08;
-  static const _ssGapRatio = 0.20;
+  /// SS 두 자리(tabular) + 패널 여백. 폰트가 바뀌어도 FittedBox가 흡수한다.
+  static const _ssBoxWidthRatio = 1.72;
+  static const _ssBoxHeightRatio = 1.38;
+  static const _ssGapRatio = 0.16;
   static const _ssBottomInsetRatio = 0.10;
 
   String _timeSegment(int value, int width) =>
       value.toString().padLeft(width, '0');
+}
+
+/// HH:MM 우측 하단에 얹히는 초(SS) 패널.
+///
+/// 시/분 타일과 같은 다크 글래스를 깔아야 한다. 배경 없이 흰 글자만 두면
+/// 밝은 히어로 카드 위에서 초가 통째로 사라진다.
+class _CornerSeconds extends StatelessWidget {
+  const _CornerSeconds({
+    required this.seconds,
+    required this.fontSize,
+    required this.darkGlass,
+  });
+
+  final int seconds;
+  final double fontSize;
+  final bool darkGlass;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = fontSize * 0.34;
+    final text = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        seconds.toString().padLeft(2, '0'),
+        maxLines: 1,
+        softWrap: false,
+        style: GoogleFonts.nunito(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          color: darkGlass
+              ? Colors.white.withValues(alpha: 0.92)
+              : SemanticSignalTheme.heroTextColor.withValues(alpha: 0.55),
+          height: 1,
+        ),
+      ),
+    );
+
+    if (!darkGlass) {
+      return Align(alignment: Alignment.bottomRight, child: text);
+    }
+
+    return Container(
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(horizontal: fontSize * 0.20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF2C2C2E), Color(0xFF1C1C1E)],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: text,
+    );
+  }
 }
 
 class _FlipDigitPair extends StatelessWidget {

@@ -76,11 +76,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('신호등 진리표 (is_complete generated column과 동일 수식)', () {
-    test('아무것도 없음 → 🔴 empty', () {
+    test('아무것도 없음 → 🔴 empty, 카드가 되지 않는다', () {
       final s = _session();
       expect(s.isComplete, isFalse);
       expect(s.reason, BaDraftReason.empty);
-      expect(s.showsInCarousel, isTrue);
+      // 헌법 1 — 빈 세션은 좌측 고정 슬롯이 대신한다. 카드로 증식하지 않는다.
+      expect(s.showsInCarousel, isFalse);
     });
 
     test('Before만 → 🔴 missingAfter', () {
@@ -114,8 +115,9 @@ void main() {
       expect(s.showsInCarousel, isTrue);
     });
 
-    test('archived 세션만 캐러셀에서 빠진다', () {
-      final s = _session().copyWith(status: BaCaptureStatus.archived);
+    test('archived 세션은 사진이 있어도 캐러셀에서 빠진다', () {
+      final s = _session(before: 'https://x/b.webp', after: 'https://x/a.webp')
+          .copyWith(status: BaCaptureStatus.archived);
       expect(s.showsInCarousel, isFalse);
     });
 
@@ -129,9 +131,14 @@ void main() {
 
   test('"완료"로 밀어둔 세션은 뒤로 밀리되 사라지지 않는다', () {
     final now = DateTime(2026, 9, 2, 10);
-    final fresh = _session(id: 'a', createdAt: now);
+    final fresh = _session(
+      id: 'a',
+      before: 'https://x/a-b.webp',
+      createdAt: now,
+    );
     final deferred = _session(
       id: 'b',
+      before: 'https://x/b-b.webp',
       createdAt: now.add(const Duration(hours: 1)),
       deferredAt: now,
     );
@@ -356,11 +363,13 @@ void main() {
         imageUrl: 'https://example.com/bind-a.webp',
       );
 
-      // 두 장 다 찍었어도 차트 미연동이면 🔴로 캐러셀에 남는다.
+      // 헌법 2 — 고객 미연결이면 독립 카드가 아니라 고정 슬롯에 머문다.
       expect(session.reason, BaDraftReason.unlinked);
+      expect(store.baPendingSession?.id, session.id);
       expect(
         store.baCarouselSessions.any((s) => s.id == session.id),
-        isTrue,
+        isFalse,
+        reason: '고객을 연결해야 카드로 분리된다',
       );
 
       final chart = await store.bindBaSessionToChart(
@@ -378,7 +387,8 @@ void main() {
       );
       expect(stillThere.single.isComplete, isTrue);
       expect(stillThere.single.chartId, chart.id);
-      // 완성분은 넛지 카운트에서는 빠진다.
+      // 고정 슬롯이 비었고 완성분은 넛지 카운트에서 빠진다.
+      expect(store.baPendingSession, isNull);
       expect(
         store.baIncompleteCount,
         store.baCarouselSessions.where((s) => !s.isComplete).length,
@@ -397,6 +407,116 @@ void main() {
         expect(chart.hasBeforeImage, isTrue);
         expect(chart.hasAfterImage, isTrue);
       }
+    });
+  });
+
+  group('B/A 캐러셀 헌법 (v7.0.3)', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('헌법 1 — 카메라를 열었다 취소해도 슬롯이 증식하지 않는다', () async {
+      final store = SoriStore();
+      final before = store.baCarouselSessions.length;
+
+      // 촬영 화면 진입 = 업로드 경로 예약. 취소하면 여기서 끝난다.
+      final t1 = store.reservePendingBaToken();
+      final t2 = store.reservePendingBaToken();
+      final t3 = store.reservePendingBaToken();
+
+      expect(t1, isNotEmpty);
+      expect(t2, t1, reason: '진입할 때마다 새 토큰을 뽑으면 슬롯이 증식한다');
+      expect(t3, t1);
+      expect(store.baSessions.where((s) => !s.hasPhoto), isEmpty);
+      expect(store.baPendingSession, isNull);
+      expect(store.baCarouselSessions, hasLength(before));
+      expect(store.baIncompleteCount, 0);
+    });
+
+    test('헌법 2 — 고객을 연결해야 🔴 카드로 분리된다', () async {
+      final store = SoriStore();
+      if (store.customers.isEmpty) return;
+      final customer = store.customers.first;
+      final baseline = store.baCarouselSessions.length;
+
+      final pending = await store.captureIntoPendingBaSlot(
+        kind: 'before',
+        imageUrl: 'https://example.com/pending-b.webp',
+      );
+
+      // 아직은 고정 슬롯에만 머문다.
+      expect(store.baPendingSession?.id, pending.id);
+      expect(store.baCarouselSessions, hasLength(baseline));
+      expect(store.baIncompleteCount, 1);
+
+      await store.bindBaSessionToChart(
+        target: pending,
+        customerId: customer.id,
+      );
+
+      // 연결되는 순간 고객 이름 + 🔴 카드로 분리되고 고정 슬롯은 비워진다.
+      expect(store.baPendingSession, isNull);
+      final cards = store.baCarouselSessions;
+      expect(cards.length, baseline + 1);
+      final card = cards.firstWhere(
+        (s) => s.sessionToken == pending.sessionToken,
+      );
+      expect(card.hasCustomer, isTrue);
+      expect(card.isComplete, isFalse, reason: 'After가 없으므로 🔴');
+      expect(card.reason, BaDraftReason.missingAfter);
+      expect(card.label, customer.name, reason: '카드에 고객 이름이 뜬다');
+
+      // 다음 촬영은 새 토큰으로 시작해야 방금 연결한 세션을 덮어쓰지 않는다.
+      expect(store.reservePendingBaToken(), isNot(pending.sessionToken));
+    });
+
+    test('헌법 3 — 이관된 🟢 케이스도 캐러셀에 병행 렌더링된다', () async {
+      final store = SoriStore();
+      if (store.customers.isEmpty) return;
+      final customer = store.customers.first;
+
+      // 세션 row 없이 차트만 완성된 상태 (마이그레이션 이전에 만들어진 케이스).
+      final chart = await store.ensureTodayShootChart(customerId: customer.id);
+      await store.updateCustomerChartFields(
+        chartId: chart.id,
+        beforeImageUrl: 'https://example.com/legacy-b.webp',
+        afterImageUrl: 'https://example.com/legacy-a.webp',
+      );
+      expect(store.baSessions.any((s) => s.chartId == chart.id), isFalse);
+
+      final mirrored = store.baCarouselSessions
+          .where((s) => s.chartId == chart.id)
+          .toList();
+      expect(mirrored, hasLength(1), reason: '🟢가 캐러셀에서 사라지면 안 된다');
+      expect(mirrored.single.isComplete, isTrue);
+      expect(mirrored.single.label, customer.name);
+      expect(SoriStore.isChartMirrorSessionId(mirrored.single.id), isTrue);
+      // 넛지 배지에는 잡히지 않는다.
+      expect(store.baIncompleteCount, 0);
+    });
+
+    test('같은 차트가 세션과 미러로 중복 노출되지 않는다', () async {
+      final store = SoriStore();
+      if (store.customers.isEmpty) return;
+      final customer = store.customers.first;
+
+      var s = await store.captureIntoPendingBaSlot(
+        kind: 'before',
+        imageUrl: 'https://example.com/dup-b.webp',
+      );
+      s = await store.attachBaPhoto(
+        target: s,
+        kind: 'after',
+        imageUrl: 'https://example.com/dup-a.webp',
+      );
+      final chart = await store.bindBaSessionToChart(
+        target: s,
+        customerId: customer.id,
+      );
+
+      final forChart = store.baCarouselSessions
+          .where((x) => x.chartId == chart.id)
+          .toList();
+      expect(forChart, hasLength(1));
+      expect(SoriStore.isChartMirrorSessionId(forChart.single.id), isFalse);
     });
   });
 
@@ -434,7 +554,9 @@ void main() {
       expect(card.beforeImageUrl, 'https://example.com/b.webp');
       expect(card.afterImageUrl, 'https://example.com/a.webp');
       expect(card.reason, BaDraftReason.unlinked);
-      expect(store.baCarouselSessions, hasLength(1));
+      // 고객 미연결이므로 카드가 아니라 고정 슬롯에 들어간다.
+      expect(store.baPendingSession?.id, card.id);
+      expect(store.baCarouselSessions, isEmpty);
     });
 
     test('폴백 구간에서도 촬영이 저장되고 사진이 유실되지 않는다', () async {

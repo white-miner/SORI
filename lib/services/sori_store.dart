@@ -5686,16 +5686,94 @@ class SoriStore implements Listenable {
   // PRD v7.0 — B/A 임시 촬영 세션 (My Feed 캐러셀)
   // ══════════════════════════════════════════════════════════════════════
 
-  /// 캐러셀 노출 대상 — 🔴 미완성이 먼저, 🟢 완성은 뒤에 그대로 남는다.
+  /// 좌측 고정 'B/A 촬영' 슬롯에 머무는 미연결 촬영.
+  ///
+  /// 헌법 1 — 빈 슬롯은 언제나 정확히 1개다. 여기에 담긴 사진은 고객을
+  /// 연결하기 전까지 독립 카드로 분리되지 않는다. null이면 슬롯은 비어 있다.
+  BaCaptureSession? get baPendingSession {
+    BaCaptureSession? newest;
+    for (final s in baSessions) {
+      if (!s.isPendingLink) continue;
+      if (newest == null ||
+          BaCaptureSession.carouselOrder(s, newest) < 0) {
+        newest = s;
+      }
+    }
+    return newest;
+  }
+
+  /// 고정 슬롯 오른쪽에 쌓이는 카드 — 🔴 미완성이 먼저, 🟢 완성이 뒤.
+  ///
+  /// 고객이 연결된 세션만 카드가 된다(헌법 2). 관리 케이스 피드로 이관된
+  /// 🟢 케이스는 세션 row가 없더라도 차트에서 되살려 병행 노출한다.
   List<BaCaptureSession> get baCarouselSessions {
-    final out = baSessions.where((s) => s.showsInCarousel).toList()
-      ..sort(BaCaptureSession.carouselOrder);
+    final pendingId = baPendingSession?.id;
+    final out = <BaCaptureSession>[];
+    final seenCharts = <String>{};
+
+    for (final s in baSessions) {
+      if (!s.showsInCarousel || s.id == pendingId) continue;
+      final chartId = s.chartId?.trim() ?? '';
+      if (chartId.isNotEmpty && !seenCharts.add(chartId)) continue;
+      out.add(_withDisplayLabel(s));
+    }
+
+    for (final chart in managementCaseCharts()) {
+      if (!_isTodaysCase(chart)) continue;
+      if (!seenCharts.add(chart.id)) continue;
+      out.add(_chartMirrorSession(chart));
+    }
+
+    out.sort(BaCaptureSession.carouselOrder);
     return out;
   }
 
-  /// 넛지 배지 카운트 — 완성분은 빼고 밀어둔 세션은 경고에 계속 포함한다.
+  /// 캐러셀은 '오늘 작업대'다. 지난 케이스까지 되살리면 줄이 끝없이 길어져
+  /// 정작 손봐야 할 🔴가 묻힌다.
+  bool _isTodaysCase(CustomerChart chart) {
+    final at = chart.feedPostedAt ?? chart.createdAt;
+    if (at == null) return false;
+    final now = DateTime.now();
+    return at.year == now.year && at.month == now.month && at.day == now.day;
+  }
+
+  /// 넛지 배지 카운트 — 손대야 할 것의 개수.
+  /// 고정 슬롯에 연결 대기 사진이 있으면 그것도 한 건이다.
   int get baIncompleteCount =>
-      baCarouselSessions.where((s) => !s.isComplete).length;
+      baCarouselSessions.where((s) => !s.isComplete).length +
+      (baPendingSession == null ? 0 : 1);
+
+  /// 카드 라벨이 비어 있으면 연결된 고객 이름으로 채운다(표시 전용).
+  BaCaptureSession _withDisplayLabel(BaCaptureSession s) {
+    if (s.label.trim().isNotEmpty) return s;
+    final cid = s.customerId?.trim() ?? '';
+    if (cid.isEmpty) return s;
+    final name = findCustomer(cid)?.name.trim() ?? '';
+    return name.isEmpty ? s : s.copyWith(label: name);
+  }
+
+  /// 세션 테이블이 없던 시절에 만들어진 🟢 케이스를 캐러셀 카드로 되살린다.
+  BaCaptureSession _chartMirrorSession(CustomerChart chart) {
+    final at = chart.feedPostedAt ?? chart.createdAt;
+    return BaCaptureSession(
+      id: chartMirrorSessionId(chart.id),
+      shopId: chart.shopId,
+      sessionToken: 'chart-${chart.id}',
+      beforeImageUrl: chart.beforeImageUrl,
+      afterImageUrl: chart.afterImageUrl,
+      customerId: chart.customerId,
+      chartId: chart.id,
+      label: findCustomer(chart.customerId)?.name.trim() ?? '',
+      status: BaCaptureStatus.linked,
+      linkedAt: at,
+      createdAt: at,
+    );
+  }
+
+  /// 차트에서 되살린 미러 카드의 id — 실제 세션 row가 아니다.
+  static String chartMirrorSessionId(String chartId) => 'chart:$chartId';
+
+  static bool isChartMirrorSessionId(String id) => id.startsWith('chart:');
 
   /// `ba_capture_sessions` 마이그레이션이 아직 적용되지 않은 환경인지.
   ///
@@ -6016,6 +6094,39 @@ class SoriStore implements Listenable {
   static String baDraftStorageSegment(String sessionToken) =>
       'ba_draft_$sessionToken';
 
+  /// 고정 슬롯이 아직 세션 row 없이 예약해 둔 스토리지 토큰.
+  String? _reservedPendingToken;
+
+  /// 촬영 **전에** 업로드 경로만 확보한다.
+  ///
+  /// 세션 row는 만들지 않는다. 카메라를 열기만 하고 취소했을 때 빈 세션이
+  /// 남아 캐러셀에 빈 슬롯이 무한 증식하던 버그의 직접 원인이었다.
+  String reservePendingBaToken() =>
+      baPendingSession?.sessionToken ?? (_reservedPendingToken ??= newUuidV4());
+
+  /// 고정 'B/A 촬영' 슬롯에 촬영본을 넣는다.
+  ///
+  /// 슬롯에 이미 사진이 있으면 같은 세션에 합쳐진다(Before+After 한 쌍).
+  /// 세션은 실제 사진이 생긴 이 시점에 처음 만들어진다.
+  Future<BaCaptureSession> captureIntoPendingBaSlot({
+    required String kind,
+    required String imageUrl,
+  }) async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) throw StateError('shop required');
+
+    final target = baPendingSession ??
+        BaCaptureSession(
+          id: '',
+          shopId: shopId,
+          sessionToken: reservePendingBaToken(),
+          authorId: session?.id,
+          createdAt: DateTime.now(),
+        );
+
+    return attachBaPhoto(target: target, kind: kind, imageUrl: imageUrl);
+  }
+
   /// 촬영본 URL을 세션 슬롯에 부착. 업로드는 카메라가 이미 완료한 상태다.
   Future<BaCaptureSession> attachBaPhoto({
     required BaCaptureSession target,
@@ -6101,6 +6212,8 @@ class SoriStore implements Listenable {
   }
 
   Future<void> discardBaSession(BaCaptureSession target) async {
+    _releasePendingToken(target.sessionToken);
+    if (isChartMirrorSessionId(target.id)) return;
     if (isLocalBaSessionId(target.id)) {
       shootInbox.removeWhere(
         (e) => _localSessionToken(e) == target.sessionToken,
@@ -6162,8 +6275,15 @@ class SoriStore implements Listenable {
 
     // v7.0.2 — linked 세션도 캐러셀에 🟢로 남는다. 제거하지 않고 갱신한다.
     _upsertBaSessionLocal(bound);
+    _releasePendingToken(target.sessionToken);
     _notify();
     return findChartById(chart.id) ?? chart;
+  }
+
+  /// 고정 슬롯을 비운다 — 다음 촬영은 새 토큰으로 시작해야 한다.
+  /// 놓치면 새 촬영이 방금 연결한 세션 위에 덮어써진다.
+  void _releasePendingToken(String sessionToken) {
+    if (_reservedPendingToken == sessionToken) _reservedPendingToken = null;
   }
 
   /// 원격 불가 구간 이관 — 큐의 before/after를 차트에 반영하고 🟢 카드로 남긴다.
@@ -6201,6 +6321,7 @@ class SoriStore implements Listenable {
       ),
     );
 
+    _releasePendingToken(target.sessionToken);
     await _rebuildLocalBaSessions();
     _notify();
     return findChartById(chart.id) ?? chart;

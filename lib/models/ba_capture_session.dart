@@ -99,6 +99,8 @@ class BaCaptureSession {
   bool get hasBefore => (beforeImageUrl?.trim().isNotEmpty ?? false);
   bool get hasAfter => (afterImageUrl?.trim().isNotEmpty ?? false);
   bool get hasChart => (chartId?.trim().isNotEmpty ?? false);
+  bool get hasCustomer => (customerId?.trim().isNotEmpty ?? false);
+  bool get hasPhoto => hasBefore || hasAfter;
 
   /// 신호등 SSOT — `ba_capture_sessions.is_complete` generated column과 동일 수식.
   bool get isComplete => hasBefore && hasAfter && hasChart;
@@ -113,12 +115,18 @@ class BaCaptureSession {
     return BaDraftReason.unlinked;
   }
 
-  /// 캐러셀 노출 대상.
+  /// 캐러셀 카드로 노출할 대상.
   ///
-  /// v7.0.2 정책 변경 — 완성(🟢)되어 관리 케이스로 이관된 세션도 캐러셀에
-  /// 그대로 남는다. 원장이 오늘 찍은 것을 한 줄에서 전부 훑을 수 있어야 한다.
-  /// 정리된(archived) 세션만 빠진다.
-  bool get showsInCarousel => status != BaCaptureStatus.archived;
+  /// - 완성(🟢)되어 관리 케이스로 이관된 세션도 그대로 남는다. 원장이 오늘
+  ///   찍은 것을 한 줄에서 전부 훑을 수 있어야 한다.
+  /// - 사진이 한 장도 없는 세션은 **카드가 되지 않는다.** 좌측 고정
+  ///   'B/A 촬영' 슬롯이 그 역할을 대신하며, 이 규칙이 카메라를 취소할
+  ///   때마다 빈 카드가 증식하던 버그를 원천 차단한다.
+  bool get showsInCarousel =>
+      status != BaCaptureStatus.archived && hasPhoto;
+
+  /// 고정 슬롯에 머무는 미연결 촬영 — 고객을 연결해야 독립 카드로 분리된다.
+  bool get isPendingLink => showsInCarousel && !hasCustomer;
 
   /// After 촬영 시 잔상 가이드로 넘길 Before URL.
   String? get ghostBeforeUrl => hasBefore ? beforeImageUrl : null;

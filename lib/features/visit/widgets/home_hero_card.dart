@@ -172,7 +172,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                     _openMemoEditor();
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 2),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final clock = isCount
@@ -201,7 +201,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                     );
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 6),
                 widget.schedulerStrip ??
                     MemoStackDisplay(
                       entries: widget.store.careScheduleEntries,
