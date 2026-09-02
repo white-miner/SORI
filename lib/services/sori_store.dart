@@ -46,6 +46,7 @@ import '../models/membership_ticket.dart';
 import '../models/review_reply.dart';
 import '../models/review_request_event.dart';
 import '../models/session_user.dart';
+import '../models/ba_capture_session.dart';
 import '../models/shoot_inbox_item.dart';
 import '../models/shop.dart';
 import '../models/shop_supporter_header.dart';
@@ -600,6 +601,11 @@ class SoriStore implements Listenable {
   /// 촬영 허브 미연결(신규) 큐.
   final List<ShootInboxItem> shootInbox = [];
   bool shootInboxLoading = false;
+
+  /// PRD v7.0 — My Feed B/A 캐러셀 SSOT (108).
+  final List<BaCaptureSession> baSessions = [];
+  bool baSessionsLoading = false;
+  bool _baLocalPromotionDone = false;
   SeminarEducationInsight? seminarEducationInsight;
   bool seminarEducationLoading = false;
   List<SeminarEnrollment> mySeminarEnrollments = [];
@@ -5673,6 +5679,281 @@ class SoriStore implements Listenable {
     await _persistShootInbox();
     _notify();
     return findChartById(chart.id) ?? chart;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // PRD v7.0 — B/A 임시 촬영 세션 (My Feed 캐러셀)
+  // ══════════════════════════════════════════════════════════════════════
+
+  /// 캐러셀 노출 대상 — 미완성 draft만, 밀어둔 세션은 뒤로.
+  List<BaCaptureSession> get baCarouselSessions {
+    final out = baSessions.where((s) => s.showsInCarousel).toList()
+      ..sort(BaCaptureSession.carouselOrder);
+    return out;
+  }
+
+  /// 넛지 배지 카운트 — 밀어둔 세션도 경고에 계속 포함한다.
+  int get baIncompleteCount => baCarouselSessions.length;
+
+  Future<void> refreshBaSessions() async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return;
+    baSessionsLoading = true;
+    _notify();
+    try {
+      // 원격을 읽기 전에 로컬 잔여분을 먼저 승격해야 중복 카드가 생기지 않는다.
+      await promoteLocalShootInbox();
+      final rows = await _repository.loadBaCaptureSessions(shopId);
+      baSessions
+        ..clear()
+        ..addAll(rows);
+    } catch (e, st) {
+      debugPrint('refreshBaSessions failed: $e\n$st');
+    } finally {
+      baSessionsLoading = false;
+      _notify();
+    }
+  }
+
+  /// 기존 SharedPreferences 큐(`sori_shoot_inbox_*`)를 서버로 무손실 승격.
+  ///
+  /// 손실 방지 규약:
+  /// - 그룹 단위 try/catch — 한 건이 실패해도 나머지는 계속 승격한다.
+  /// - upsert 성공을 확인한 항목만 로컬에서 제거한다.
+  /// - 실패분은 로컬에 남겨 다음 부팅에 재시도한다.
+  /// - `unique(shop_id, session_token)` 덕분에 재실행해도 중복 row가 생기지 않는다.
+  Future<void> promoteLocalShootInbox() async {
+    if (_baLocalPromotionDone) return;
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) return;
+
+    List<ShootInboxItem> legacy;
+    try {
+      legacy = await ShootInboxLocal.load(shopId);
+    } catch (e, st) {
+      debugPrint('promoteLocalShootInbox: local load failed: $e\n$st');
+      return;
+    }
+    if (legacy.isEmpty) {
+      _baLocalPromotionDone = true;
+      return;
+    }
+
+    // 같은 sessionToken의 before/after를 한 장의 카드로 병합.
+    final grouped = <String, List<ShootInboxItem>>{};
+    for (final item in legacy) {
+      if (item.imageUrl.trim().isEmpty) continue;
+      final token = item.sessionToken.trim().isEmpty
+          ? 'legacy-${item.id}'
+          : item.sessionToken.trim();
+      grouped.putIfAbsent(token, () => []).add(item);
+    }
+
+    final promotedIds = <String>{};
+    var failures = 0;
+
+    for (final entry in grouped.entries) {
+      final items = entry.value;
+      try {
+        ShootInboxItem? before;
+        ShootInboxItem? after;
+        for (final item in items) {
+          if (item.isBefore) {
+            before ??= item;
+          } else if (item.isAfter) {
+            after ??= item;
+          }
+        }
+        final createdAt = items
+            .map((e) => e.createdAt)
+            .whereType<DateTime>()
+            .fold<DateTime?>(null, (a, b) => a == null || b.isBefore(a) ? b : a);
+
+        await _repository.upsertBaCaptureSession(
+          BaCaptureSession(
+            id: '',
+            shopId: shopId,
+            sessionToken: entry.key,
+            authorId: session?.id,
+            beforeImageUrl: before?.imageUrl,
+            afterImageUrl: after?.imageUrl,
+            beforeCapturedAt: before?.createdAt,
+            afterCapturedAt: after?.createdAt,
+            label: items
+                .map((e) => e.label.trim())
+                .firstWhere((e) => e.isNotEmpty, orElse: () => ''),
+            createdAt: createdAt,
+          ),
+        );
+        promotedIds.addAll(items.map((e) => e.id));
+      } catch (e, st) {
+        failures++;
+        debugPrint('promoteLocalShootInbox: group ${entry.key} failed: $e\n$st');
+      }
+    }
+
+    if (promotedIds.isEmpty) {
+      debugPrint('promoteLocalShootInbox: nothing promoted ($failures failed)');
+      return;
+    }
+
+    // 승격에 성공한 항목만 로컬에서 제거. 실패분은 다음 부팅에 재시도한다.
+    final remaining =
+        legacy.where((e) => !promotedIds.contains(e.id)).toList();
+    try {
+      await ShootInboxLocal.save(shopId, remaining);
+      shootInbox
+        ..clear()
+        ..addAll(remaining);
+    } catch (e, st) {
+      // 로컬 정리 실패는 데이터 손실이 아니다. 멱등 upsert가 중복을 막는다.
+      debugPrint('promoteLocalShootInbox: local prune failed: $e\n$st');
+    }
+
+    if (remaining.isEmpty) _baLocalPromotionDone = true;
+    debugPrint(
+      'promoteLocalShootInbox: ${promotedIds.length} promoted, '
+      '${remaining.length} retained, $failures failed',
+    );
+  }
+
+  BaCaptureSession? findBaSession(String id) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return null;
+    for (final s in baSessions) {
+      if (s.id == normalized) return s;
+    }
+    return null;
+  }
+
+  void _upsertBaSessionLocal(BaCaptureSession session) {
+    final idx = baSessions.indexWhere(
+      (s) => s.id == session.id ||
+          (s.sessionToken == session.sessionToken &&
+              s.shopId == session.shopId),
+    );
+    if (idx >= 0) {
+      baSessions[idx] = session;
+    } else {
+      baSessions.insert(0, session);
+    }
+  }
+
+  /// 빈 카드 → 서버 세션 생성. 첫 촬영 전에도 카드가 존재할 수 있다.
+  Future<BaCaptureSession> createBaSession({String label = ''}) async {
+    final shopId = shop.id.trim();
+    if (shopId.isEmpty) throw StateError('shop required');
+    final saved = await _repository.upsertBaCaptureSession(
+      BaCaptureSession(
+        id: '',
+        shopId: shopId,
+        sessionToken: newUuidV4(),
+        authorId: session?.id,
+        label: label.trim(),
+        createdAt: DateTime.now(),
+      ),
+    );
+    _upsertBaSessionLocal(saved);
+    _notify();
+    return saved;
+  }
+
+  /// 임시 세션 사진의 스토리지 경로 세그먼트.
+  ///
+  /// `chart_photos` 버킷이 public read이므로, UUID session_token을 경로에 넣어
+  /// URL 추측을 어렵게 한다. (근본 해결인 private + signed URL은 v7.1)
+  static String baDraftStorageSegment(String sessionToken) =>
+      'ba_draft_$sessionToken';
+
+  /// 촬영본 URL을 세션 슬롯에 부착. 업로드는 카메라가 이미 완료한 상태다.
+  Future<BaCaptureSession> attachBaPhoto({
+    required BaCaptureSession target,
+    required String kind,
+    required String imageUrl,
+  }) async {
+    final isBefore = kind != 'after';
+    final url = imageUrl.trim();
+    if (url.isEmpty) throw StateError('imageUrl required');
+
+    final now = DateTime.now();
+    final saved = await _repository.upsertBaCaptureSession(
+      target.copyWith(
+        beforeImageUrl: isBefore ? url : null,
+        afterImageUrl: isBefore ? null : url,
+        beforeCapturedAt: isBefore ? now : null,
+        afterCapturedAt: isBefore ? null : now,
+      ),
+    );
+    _upsertBaSessionLocal(saved);
+    _notify();
+    return saved;
+  }
+
+  /// "완료" — 삭제가 아니라 후순위화. 🔴 경고는 그대로 남는다.
+  Future<BaCaptureSession> deferBaSession(BaCaptureSession target) async {
+    final saved = await _repository.upsertBaCaptureSession(
+      target.copyWith(deferredAt: DateTime.now()),
+    );
+    _upsertBaSessionLocal(saved);
+    _notify();
+    return saved;
+  }
+
+  Future<void> discardBaSession(BaCaptureSession target) async {
+    await _repository.deleteBaCaptureSession(target.id);
+    baSessions.removeWhere((s) => s.id == target.id);
+    _notify();
+  }
+
+  /// 🟢 판정 — 세션을 고객 차트에 연결해 관리 케이스 피드로 이관한다.
+  ///
+  /// 차트가 지정되지 않으면 오늘 회차를 재사용하거나 새로 생성한다.
+  Future<CustomerChart> bindBaSessionToChart({
+    required BaCaptureSession target,
+    required String customerId,
+    String? chartId,
+  }) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) throw StateError('customerId required');
+
+    final chart = chartId != null && chartId.trim().isNotEmpty
+        ? (findChartById(chartId) ??
+            await ensureTodayShootChart(customerId: cid))
+        : await ensureTodayShootChart(customerId: cid);
+
+    final bound = await _repository.bindBaCaptureSessionToChart(
+      sessionId: target.id,
+      customerId: cid,
+      chartId: chart.id,
+    );
+
+    // 차트 로컬 미러 — 서버 RPC가 이미 반영했으므로 화면 상태만 맞춘다.
+    final idx = charts.indexWhere((c) => c.id == chart.id);
+    if (idx >= 0) {
+      charts[idx] = charts[idx].copyWith(
+        beforeImageUrl: bound.beforeImageUrl ?? charts[idx].beforeImageUrl,
+        afterImageUrl: bound.afterImageUrl ?? charts[idx].afterImageUrl,
+      );
+    }
+
+    // linked 세션은 캐러셀 대상이 아니므로 목록에서 제거한다.
+    baSessions.removeWhere((s) => s.id == target.id);
+    _notify();
+    return findChartById(chart.id) ?? chart;
+  }
+
+  /// 관리 케이스 피드 원본 — B/A 두 장이 모두 완비된 자기 샵 차트만, 최신순.
+  List<CustomerChart> managementCaseCharts() {
+    final out = charts
+        .where((c) => c.hasBeforeImage && c.hasAfterImage)
+        .toList()
+      ..sort((a, b) {
+        final at = a.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bt = b.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final byDate = bt.compareTo(at);
+        return byDate != 0 ? byDate : b.id.compareTo(a.id);
+      });
+    return out;
   }
 
   /// 세션 고객의 스마트 회원권 지갑 (다중 샵).

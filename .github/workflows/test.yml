@@ -28,4 +28,6 @@ jobs:
         run: flutter test
 
       - name: Run golden tests
-        run: flutter test test/home_dashboard_v54_golden_test.dart
+        run: |
+          flutter test test/home_dashboard_v54_golden_test.dart
+          flutter test test/my_feed_v70_golden_test.dart

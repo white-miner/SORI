@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../models/ba_capture_session.dart';
 import '../models/care_diary_note.dart';
 import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
@@ -4069,6 +4070,7 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   static final List<CareScheduleEntry> _careSchedules = [];
+  static final List<BaCaptureSession> _baSessions = [];
   static final List<VisitSession> _visitSessions = [];
   static final List<CareProgramTemplate> _careProgramTemplates = [];
   static final List<VisitOperationTimer> _visitOperationTimers = [];
@@ -4220,6 +4222,66 @@ class MemorySoriRepository implements SoriRepository {
     final idx = _careSchedules.indexWhere((e) => e.id == entryId);
     if (idx < 0) return;
     _careSchedules[idx] = _careSchedules[idx].copyWith(status: status);
+  }
+
+  @override
+  Future<List<BaCaptureSession>> loadBaCaptureSessions(
+    String shopId, {
+    bool draftOnly = true,
+  }) async {
+    final sid = shopId.trim();
+    return _baSessions
+        .where((s) {
+          if (s.shopId != sid) return false;
+          if (draftOnly && s.status != BaCaptureStatus.draft) return false;
+          return true;
+        })
+        .toList()
+      ..sort(BaCaptureSession.carouselOrder);
+  }
+
+  @override
+  Future<BaCaptureSession> upsertBaCaptureSession(
+    BaCaptureSession session,
+  ) async {
+    // shop_id + session_token unique 제약을 인메모리에서도 동일하게 재현한다.
+    final byToken = _baSessions.indexWhere(
+      (s) => s.shopId == session.shopId &&
+          s.sessionToken == session.sessionToken,
+    );
+    if (byToken >= 0) {
+      final merged = session.copyWith(id: _baSessions[byToken].id);
+      _baSessions[byToken] = merged;
+      return merged;
+    }
+    _baSessions.add(session);
+    return session;
+  }
+
+  @override
+  Future<BaCaptureSession> bindBaCaptureSessionToChart({
+    required String sessionId,
+    required String customerId,
+    required String chartId,
+  }) async {
+    final idx = _baSessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) {
+      throw StateError('ba_capture_session $sessionId not found');
+    }
+    // 차트 미러링은 SoriStore가 담당한다 (updateCustomerChartFields와 동일 규약).
+    final bound = _baSessions[idx].copyWith(
+      customerId: customerId,
+      chartId: chartId,
+      status: BaCaptureStatus.linked,
+      linkedAt: DateTime.now(),
+    );
+    _baSessions[idx] = bound;
+    return bound;
+  }
+
+  @override
+  Future<void> deleteBaCaptureSession(String sessionId) async {
+    _baSessions.removeWhere((s) => s.id == sessionId);
   }
 }
 

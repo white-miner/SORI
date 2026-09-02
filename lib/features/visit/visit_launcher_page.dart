@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/ba_capture_session.dart';
 import '../../models/customer.dart';
+import '../../models/customer_chart.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../views/admin_chart_writer_page.dart';
+import '../../views/before_after_compare_page.dart';
+import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
-import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
 import '../operation/models/clinical_environment_brief.dart';
 import '../operation/models/consultation_deep_mode.dart';
@@ -19,11 +22,12 @@ import '../operation/shop_clinical_trend_service.dart';
 import '../operation/visit_timer_store.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
-import '../operation/widgets/volume_glass_theme.dart';
 import '../../views/smart_guide_camera_page.dart';
 import 'ba_recall_cache.dart';
 import 'consultation_track.dart';
 import 'home_dashboard_controller.dart';
+import 'home_visual_tokens.dart';
+import 'management_case_paginator.dart';
 import 'today_agenda.dart';
 import 'models/care_timer_entry_mode.dart';
 import 'visit_existing_customer_picker_page.dart';
@@ -33,12 +37,19 @@ import '../operation/widgets/care_timer_fullscreen_page.dart';
 import 'widgets/active_session_strip.dart';
 import 'report/visit_end_pipeline.dart';
 import 'widgets/visit_report_send_sheet.dart';
+import 'widgets/ba_capture_carousel.dart';
 import 'widgets/home_hero_card.dart';
 import 'widgets/home_preset_quick_pick.dart';
+import 'widgets/home_quick_action_row.dart';
+import 'widgets/home_scheduler_strip.dart';
 import 'widgets/home_toolbox_row.dart';
+import 'widgets/management_case_card.dart';
 import 'widgets/quick_calculator_sheet.dart';
 
-/// PRD v5.1 — 원장 GNB 홈(Operation Desk): flip timer · ENV · walk-in.
+/// PRD v7.0 — 원장 홈 상단 탭.
+enum HomeTab { myFeed, myAsset, timer }
+
+/// PRD v7.0 — 원장 GNB 홈: My Feed / My Asset / Timer 3탭 셸.
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -49,11 +60,19 @@ class VisitLauncherPage extends StatefulWidget {
 }
 
 class _VisitLauncherPageState extends State<VisitLauncherPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _loading = true;
   ShopClimateContext? _climate;
   ClinicalTrendSnapshot? _trends;
   final HomeDashboardController _homeCtrl = HomeDashboardController();
+
+  late final TabController _tabs;
+  final ScrollController _feedScroll = ScrollController();
+  final ManagementCasePaginator _casePager = ManagementCasePaginator();
+
+  /// Q3(a) — 🟢 확정 애니메이션이 진행 중인 세션. 320ms 후 목록에서 사라진다.
+  String? _baTransferringId;
+  bool _baBusy = false;
 
   VisitStore get visit => widget.store.visit;
 
@@ -63,6 +82,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _tabs = TabController(length: HomeTab.values.length, vsync: this)
+      ..addListener(_onVisit);
+    _feedScroll.addListener(_onFeedScroll);
     visit.addListener(_onVisit);
     widget.store.addListener(_onVisit);
     VisitTimerStore.instance.addListener(_onVisit);
@@ -75,6 +97,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     visit.removeListener(_onVisit);
     widget.store.removeListener(_onVisit);
     VisitTimerStore.instance.removeListener(_onVisit);
+    _feedScroll.dispose();
+    _tabs.dispose();
     _homeCtrl.dispose();
     super.dispose();
   }
@@ -85,12 +109,25 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       visit.ensureLoaded(force: force),
       widget.store.refreshCareScheduleEntries(force: force),
       widget.store.hydrateVisitTimer(),
+      widget.store.refreshBaSessions(),
       _loadClimate(),
       _loadTrends(),
     ]);
     if (!mounted) return;
     _autoWarmNextCustomer();
+    _casePager.reset();
+    _casePager.loadMore(widget.store.managementCaseCharts());
     setState(() => _loading = false);
+  }
+
+  void _onFeedScroll() {
+    if (!_feedScroll.hasClients || !_casePager.hasMore) return;
+    final position = _feedScroll.position;
+    // 잔여 3건 지점에서 미리 당겨온다 (카드 1장 ≈ 화면 절반).
+    if (position.pixels < position.maxScrollExtent - 900) return;
+    if (_casePager.loadMore(widget.store.managementCaseCharts()) > 0) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadClimate() async {
@@ -457,98 +494,156 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     await _load(force: true);
   }
 
+  // ── PRD v7.0 ③ B/A 캐러셀 ──────────────────────────────────────────
+
+  Future<void> _captureBaPhoto(BaCaptureSession? session, String kind) async {
+    if (_baBusy) return;
+    setState(() => _baBusy = true);
+    try {
+      final target = session ?? await widget.store.createBaSession();
+      if (!mounted) return;
+
+      final isBefore = kind != 'after';
+      final result = await SmartGuideCameraPage.open(
+        context,
+        shopId: target.shopId,
+        // public 버킷이므로 UUID 토큰 경로로 URL 추측을 어렵게 한다.
+        customerId: SoriStore.baDraftStorageSegment(target.sessionToken),
+        kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
+        ghostBeforeUrl: isBefore ? null : target.ghostBeforeUrl,
+      );
+      if (result == null || !mounted) return;
+
+      await widget.store.attachBaPhoto(
+        target: target,
+        kind: isBefore ? 'before' : 'after',
+        imageUrl: result.url,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _toast('촬영 저장 실패: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _baBusy = false);
+    }
+  }
+
+  Future<void> _deferBaSession(BaCaptureSession session) async {
+    try {
+      await widget.store.deferBaSession(session);
+    } catch (e) {
+      if (mounted) _toast('처리 실패: $e', error: true);
+    }
+  }
+
+  /// 🟢 이관 — 고객을 고르고, 320ms 확정 애니메이션 후 목록에서 제거한다.
+  Future<void> _bindBaSession(BaCaptureSession session) async {
+    if (_baBusy) return;
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(
+        builder: (_) => VisitExistingCustomerPickerPage(store: widget.store),
+      ),
+    );
+    if (customer == null || !mounted) return;
+
+    setState(() {
+      _baBusy = true;
+      _baTransferringId = session.id;
+    });
+    try {
+      final chart = await widget.store.bindBaSessionToChart(
+        target: session,
+        customerId: customer.id,
+      );
+      // 카드가 슬라이드 아웃되는 동안 기다렸다가 피드 최상단에 꽂는다.
+      await Future<void>.delayed(HomeVisualTokens.baTransferDuration);
+      if (!mounted) return;
+      _casePager.prepend(chart);
+      _toast('${customer.name} · ${chart.visitNumber}회 케이스로 이관');
+    } catch (e) {
+      if (!mounted) return;
+      _toast('고객 연결 실패: $e', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _baBusy = false;
+          _baTransferringId = null;
+        });
+      }
+    }
+  }
+
+  // ── PRD v7.0 ④ 관리 케이스 ─────────────────────────────────────────
+
+  Future<void> _toggleCaseBookmark(CustomerChart chart) async {
+    try {
+      await widget.store.toggleCaseBookmark(chart.id);
+    } catch (e) {
+      if (mounted) _toast('보관함 처리 실패: $e', error: true);
+    }
+  }
+
+  Future<void> _openCaseCompare(CustomerChart chart) async {
+    final customer = widget.store.findCustomer(chart.customerId);
+    await openBeforeAfterComparePage(
+      context: context,
+      customerName: customer?.name ?? '고객',
+      charts: widget.store.chartsForCustomer(chart.customerId),
+    );
+  }
+
+  void _openSchedulerSheet() {
+    final entries = HomeSchedulerStrip.todayEntries(widget.store);
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.white,
+        showDragHandle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => _SchedulerSheet(entries: entries),
+      ),
+    );
+  }
+
+  void _toast(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: error ? SoriTokens.systemRed : SoriTokens.primary,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final snap = _agendaSnapshot();
-    final heroSession = snap.activeSessions.firstOrNull ??
-        widget.store.activeVisitSession;
     final careRunning = VisitTimerStore.instance.isCareRunning;
 
     return ColoredBox(
       color: _groupedBg,
       child: Stack(
         children: [
-          RefreshIndicator(
-            color: SoriTokens.primary,
-            onRefresh: () => _load(force: true),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
+          Column(
+            children: [
+              _HomeTabBar(controller: _tabs, careRunning: careRunning),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : TabBarView(
+                        controller: _tabs,
+                        children: [
+                          _buildMyFeed(careRunning),
+                          const _ComingSoonPane(
+                            title: 'My Asset',
+                            subtitle: '샵 자산 대시보드는 다음 스프린트에서 열립니다',
+                            icon: Icons.donut_large_rounded,
+                          ),
+                          _buildTimerPane(careRunning),
+                        ],
+                      ),
               ),
-              slivers: [
-                if (_loading)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else ...[
-                  SliverToBoxAdapter(
-                    child: ListenableBuilder(
-                      listenable: _homeCtrl,
-                      builder: (context, _) => HomeHeroCard(
-                        store: widget.store,
-                        controller: _homeCtrl,
-                        careRunning: careRunning,
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: ListenableBuilder(
-                      listenable: _homeCtrl,
-                      builder: (context, _) => HomeToolboxRow(
-                        controller: _homeCtrl,
-                        careRunning: careRunning,
-                        climate: _climate,
-                        onTimerTap: () {
-                          _homeCtrl.selectTimerTool();
-                          unawaited(_openTimerStandalone());
-                        },
-                        onWeatherTap: () => _openClinicalSheet(),
-                      ),
-                    ),
-                  ),
-                  if (careRunning)
-                    SliverToBoxAdapter(
-                      child: ActiveSessionStrip(
-                        store: widget.store,
-                        session: heroSession,
-                        onTap: heroSession != null
-                            ? () => _openCareTimerFullscreen(heroSession)
-                            : _openTimerStandalone,
-                      ),
-                    ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: _WalkInSection(
-                        onNewCustomer: _startNewCustomerFlow,
-                        onReturningCustomer: _startReturningCustomerFlow,
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: _CareStartButton(onTap: _openCareStart),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: HomePresetQuickPick(
-                      timerStore: VisitTimerStore.instance,
-                      onSlotSelected: (slot) {
-                        unawaited(
-                          VisitTimerStore.instance.toggleHomePresetSlot(slot),
-                        );
-                      },
-                      onConfigureSlot: (slot) {
-                        unawaited(_openTimerStandalone());
-                      },
-                    ),
-                  ),
-                ],
-                const SliverToBoxAdapter(child: SizedBox(height: 48)),
-              ],
-            ),
+            ],
           ),
           if (_homeCtrl.calculatorOpen)
             Positioned(
@@ -565,6 +660,366 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMyFeed(bool careRunning) {
+    final drafts = widget.store.baCarouselSessions;
+    final cases = _casePager.items;
+
+    return RefreshIndicator(
+      color: SoriTokens.primary,
+      onRefresh: () => _load(force: true),
+      child: CustomScrollView(
+        controller: _feedScroll,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: ListenableBuilder(
+              listenable: _homeCtrl,
+              builder: (context, _) => HomeHeroCard(
+                store: widget.store,
+                controller: _homeCtrl,
+                careRunning: careRunning,
+                schedulerStrip: HomeSchedulerStrip(
+                  store: widget.store,
+                  onTap: _openSchedulerSheet,
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: HomeQuickActionRow(
+                onNewCustomer: _startNewCustomerFlow,
+                onReturningCustomer: _startReturningCustomerFlow,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: BaCaptureCarousel(
+              sessions: drafts,
+              transferringId: _baTransferringId,
+              onCapture: _captureBaPhoto,
+              onBind: _bindBaSession,
+              onDefer: _deferBaSession,
+            ),
+          ),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 22, 16, 10),
+              child: Text(
+                '관리 케이스',
+                style: TextStyle(
+                  fontSize: HomeVisualTokens.sectionLabelSize,
+                  fontWeight: FontWeight.w700,
+                  color: HomeVisualTokens.sectionLabelColor,
+                ),
+              ),
+            ),
+          ),
+          if (cases.isEmpty)
+            const SliverToBoxAdapter(child: _EmptyCaseFeed())
+          else
+            SliverList.builder(
+              itemCount: cases.length,
+              itemBuilder: (context, index) {
+                final chart = cases[index];
+                return ManagementCaseCard(
+                  chart: chart,
+                  bookmarked: widget.store.isChartBookmarked(chart.id),
+                  onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
+                  onExpand: () => unawaited(_openCaseCompare(chart)),
+                );
+              },
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 48)),
+        ],
+      ),
+    );
+  }
+
+  /// Q1(b) — v5.4 자산 3종을 시각 스펙 변경 없이 이 탭으로 모았다.
+  Widget _buildTimerPane(bool careRunning) {
+    final snap = _agendaSnapshot();
+    final heroSession = snap.activeSessions.firstOrNull ??
+        widget.store.activeVisitSession;
+
+    return RefreshIndicator(
+      color: SoriTokens.primary,
+      onRefresh: () => _load(force: true),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: ListenableBuilder(
+              listenable: _homeCtrl,
+              builder: (context, _) => HomeToolboxRow(
+                controller: _homeCtrl,
+                careRunning: careRunning,
+                climate: _climate,
+                onTimerTap: () {
+                  _homeCtrl.selectTimerTool();
+                  unawaited(_openTimerStandalone());
+                },
+                onWeatherTap: () => _openClinicalSheet(),
+              ),
+            ),
+          ),
+          if (careRunning)
+            SliverToBoxAdapter(
+              child: ActiveSessionStrip(
+                store: widget.store,
+                session: heroSession,
+                onTap: heroSession != null
+                    ? () => _openCareTimerFullscreen(heroSession)
+                    : _openTimerStandalone,
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+              child: _CareStartButton(onTap: _openCareStart),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: HomePresetQuickPick(
+              timerStore: VisitTimerStore.instance,
+              onSlotSelected: (slot) {
+                unawaited(
+                  VisitTimerStore.instance.toggleHomePresetSlot(slot),
+                );
+              },
+              onConfigureSlot: (slot) {
+                unawaited(_openTimerStandalone());
+              },
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 48)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeTabBar extends StatelessWidget {
+  const _HomeTabBar({required this.controller, required this.careRunning});
+
+  final TabController controller;
+  final bool careRunning;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: HomeVisualTokens.tabBarHeight,
+      child: TabBar(
+        controller: controller,
+        labelColor: HomeVisualTokens.tabActiveColor,
+        unselectedLabelColor: HomeVisualTokens.tabInactiveColor,
+        indicatorColor: HomeVisualTokens.tabActiveColor,
+        indicatorSize: TabBarIndicatorSize.label,
+        indicatorWeight: 2,
+        dividerColor: Colors.transparent,
+        labelStyle: const TextStyle(
+          fontSize: HomeVisualTokens.tabLabelSize,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: HomeVisualTokens.tabLabelSize,
+          fontWeight: FontWeight.w600,
+        ),
+        tabs: [
+          const Tab(text: 'My Feed'),
+          const Tab(text: 'My Asset'),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Timer'),
+                // 케어 진행 중임을 탭 밖에서도 알 수 있게 한다.
+                if (careRunning) ...[
+                  const SizedBox(width: 5),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: HomeVisualTokens.careGreen,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComingSoonPane extends StatelessWidget {
+  const _ComingSoonPane({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 34, color: HomeVisualTokens.dateIconColor),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: HomeVisualTokens.dateTextColor,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: HomeVisualTokens.dateIconColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyCaseFeed extends StatelessWidget {
+  const _EmptyCaseFeed();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+      child: Column(
+        children: [
+          Icon(
+            Icons.photo_library_outlined,
+            size: 30,
+            color: HomeVisualTokens.dateIconColor,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            '완성된 B/A 케이스가 아직 없습니다',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: HomeVisualTokens.dateTextColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '위 B/A 등록에서 Before·After를 찍고 고객에 연결해 보세요',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: HomeVisualTokens.dateIconColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SchedulerSheet extends StatelessWidget {
+  const _SchedulerSheet({required this.entries});
+
+  final List<CareScheduleEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '오늘 일정',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            if (entries.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  '등록된 일정이 없습니다',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: HomeVisualTokens.dateIconColor,
+                  ),
+                ),
+              )
+            else
+              ...entries.map(
+                (e) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: HomeVisualTokens.memoDotSize,
+                        height: HomeVisualTokens.memoDotSize,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: HomeVisualTokens.memoActiveFill,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          HomeSchedulerStrip.labelFor(e),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (e.note.trim().isNotEmpty)
+                        Flexible(
+                          child: Text(
+                            e.note.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: HomeVisualTokens.dateIconColor,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -603,129 +1058,6 @@ class _CareStartButton extends StatelessWidget {
           child: const Text(
             '케어 시작',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WalkInSection extends StatelessWidget {
-  const _WalkInSection({
-    required this.onNewCustomer,
-    required this.onReturningCustomer,
-  });
-
-  final VoidCallback onNewCustomer;
-  final VoidCallback onReturningCustomer;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _WalkInCard(
-            title: '신규 고객',
-            subtitle: 'Before · 동의서',
-            icon: Icons.person_add_alt_1_rounded,
-            variant: _WalkInVariant.newCustomer,
-            onTap: onNewCustomer,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _WalkInCard(
-            title: '재방문 고객',
-            subtitle: 'B/A 회상 · 재방문',
-            icon: Icons.history_rounded,
-            variant: _WalkInVariant.returning,
-            onTap: onReturningCustomer,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-enum _WalkInVariant { newCustomer, returning }
-
-class _WalkInCard extends StatelessWidget {
-  const _WalkInCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-    required this.variant,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-  final _WalkInVariant variant;
-
-  @override
-  Widget build(BuildContext context) {
-    final isNew = variant == _WalkInVariant.newCustomer;
-    final bg = isNew
-        ? const Color(0xFF34C759)
-        : const Color(0xFF1C1C1E);
-    final iconColor = isNew ? Colors.white : Colors.white;
-    final titleColor = isNew ? Colors.white : Colors.white;
-    final subtitleColor = isNew
-        ? Colors.white.withValues(alpha: 0.85)
-        : Colors.white.withValues(alpha: 0.72);
-
-    return Material(
-      color: bg,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: isNew
-                ? VolumeGlassTheme.volumeShadow(
-                    tint: VisitGlassTokens.care,
-                    alpha: 0.12,
-                  )
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 22, color: iconColor),
-                const SizedBox(height: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: titleColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.3,
-                    color: subtitleColor,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

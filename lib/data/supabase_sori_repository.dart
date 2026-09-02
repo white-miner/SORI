@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/ai_reply.dart';
+import '../models/ba_capture_session.dart';
 import '../models/care_diary_note.dart';
 import '../models/chart_db_columns.dart';
 import '../models/case_timeline_entry.dart';
@@ -5277,6 +5278,94 @@ class SupabaseSoriRepository implements SoriRepository {
           .update({'status': status.dbValue}).eq('id', id);
     } catch (e, st) {
       debugPrint('updateCareScheduleStatus failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<BaCaptureSession>> loadBaCaptureSessions(
+    String shopId, {
+    bool draftOnly = true,
+  }) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      var query = _db.from('ba_capture_sessions').select().eq('shop_id', sid);
+      if (draftOnly) {
+        query = query.eq('status', BaCaptureStatus.draft.dbValue);
+      }
+      final rows = await query.order('created_at', ascending: false);
+      return (rows as List)
+          .map(
+            (e) => BaCaptureSession.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      debugPrint('loadBaCaptureSessions failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  @override
+  Future<BaCaptureSession> upsertBaCaptureSession(
+    BaCaptureSession session,
+  ) async {
+    final payload = session.toMap()
+      // is_complete는 generated column이므로 절대 write 하지 않는다.
+      ..remove('is_complete')
+      ..remove('updated_at');
+    final rawId = payload['id']?.toString().trim() ?? '';
+    if (rawId.isEmpty || !isUuidV4(rawId)) {
+      payload.remove('id');
+    }
+    try {
+      final row = await _db
+          .from('ba_capture_sessions')
+          .upsert(payload, onConflict: 'shop_id,session_token')
+          .select()
+          .single();
+      return BaCaptureSession.fromMap(Map<String, dynamic>.from(row));
+    } catch (e, st) {
+      debugPrint('upsertBaCaptureSession failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<BaCaptureSession> bindBaCaptureSessionToChart({
+    required String sessionId,
+    required String customerId,
+    required String chartId,
+  }) async {
+    try {
+      final row = await _db.rpc(
+        'bind_ba_session_to_chart',
+        params: {
+          'p_session_id': sessionId.trim(),
+          'p_customer_id': customerId.trim(),
+          'p_chart_id': chartId.trim(),
+        },
+      );
+      if (row is Map) {
+        return BaCaptureSession.fromMap(Map<String, dynamic>.from(row));
+      }
+      throw StateError('bind_ba_session_to_chart returned ${row.runtimeType}');
+    } catch (e, st) {
+      debugPrint('bindBaCaptureSessionToChart failed: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteBaCaptureSession(String sessionId) async {
+    final id = sessionId.trim();
+    if (id.isEmpty) return;
+    try {
+      await _db.from('ba_capture_sessions').delete().eq('id', id);
+    } catch (e, st) {
+      debugPrint('deleteBaCaptureSession failed: $e\n$st');
       rethrow;
     }
   }

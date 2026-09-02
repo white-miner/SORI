@@ -11,18 +11,23 @@ import 'countdown_flip_zone.dart';
 import 'memo_stack_display.dart';
 import 'memo_time_slot_editor.dart';
 
-/// PRD v5.4 — home hero card (date, calendar, flip, memo stack).
+/// PRD v7.0 — home hero card (date, calendar, flip clock, scheduler strip).
 class HomeHeroCard extends StatefulWidget {
   const HomeHeroCard({
     super.key,
     required this.store,
     required this.controller,
     this.careRunning = false,
+    this.schedulerStrip,
   });
 
   final SoriStore store;
   final HomeDashboardController controller;
   final bool careRunning;
+
+  /// v7.0 My Feed에서는 스케줄러 스트립이 메모 스택 자리를 대체한다.
+  /// 미지정 시 v5.4 메모 스택으로 폴백한다.
+  final Widget? schedulerStrip;
 
   @override
   State<HomeHeroCard> createState() => _HomeHeroCardState();
@@ -197,11 +202,12 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                   },
                 ),
                 const SizedBox(height: 14),
-                MemoStackDisplay(
-                  entries: widget.store.careScheduleEntries,
-                  expanded: ctrl.memoStackExpanded,
-                  onToggleExpand: ctrl.toggleMemoStack,
-                ),
+                widget.schedulerStrip ??
+                    MemoStackDisplay(
+                      entries: widget.store.careScheduleEntries,
+                      expanded: ctrl.memoStackExpanded,
+                      onToggleExpand: ctrl.toggleMemoStack,
+                    ),
                 if (widget.careRunning) ...[
                   const SizedBox(height: 10),
                   Row(

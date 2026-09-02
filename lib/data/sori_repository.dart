@@ -1,4 +1,5 @@
 import '../models/ai_reply.dart';
+import '../models/ba_capture_session.dart';
 import '../models/care_diary_note.dart';
 import '../models/case_timeline_entry.dart';
 import '../models/community_case_item.dart';
@@ -860,6 +861,24 @@ abstract class SoriRepository {
     String entryId,
     CareScheduleStatus status,
   );
+
+  /// PRD v7.0 — B/A 임시 촬영 세션 (108). My Feed 캐러셀 SSOT.
+  Future<List<BaCaptureSession>> loadBaCaptureSessions(
+    String shopId, {
+    bool draftOnly = true,
+  });
+
+  /// `session_token` 멱등 upsert — 로컬 큐 승격 재실행 시 중복을 만들지 않는다.
+  Future<BaCaptureSession> upsertBaCaptureSession(BaCaptureSession session);
+
+  /// `bind_ba_session_to_chart` RPC — 차트 반영과 상태 전이를 원자적으로 수행.
+  Future<BaCaptureSession> bindBaCaptureSessionToChart({
+    required String sessionId,
+    required String customerId,
+    required String chartId,
+  });
+
+  Future<void> deleteBaCaptureSession(String sessionId);
 
   /// Visit OS — on-site session SSOT (097).
   Future<List<VisitSession>> loadVisitSessions(

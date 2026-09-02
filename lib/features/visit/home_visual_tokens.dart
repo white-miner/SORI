@@ -76,4 +76,66 @@ abstract final class HomeVisualTokens {
   static const stackedOffsetH = 16.0;
   static const stackedOffsetV = 20.0;
   static const stackedAddCircle = 32.0;
+
+  // ── PRD v7.0 — My Feed ───────────────────────────────────────────────
+
+  static const tabBarHeight = 44.0;
+  static const tabLabelSize = 14.0;
+  static const tabActiveColor = Color(0xFF111111);
+  static const tabInactiveColor = Color(0xFF8E8E93);
+
+  static const sectionLabelSize = 13.0;
+  static const sectionLabelColor = Color(0xFF111111);
+  static const sectionGutter = 16.0;
+
+  /// 스케줄러 스트립 — 일정 없을 때의 비활성 dot.
+  static const memoIdleFill = Color(0xFFC7C7CC);
+
+  /// Q2(a) — 신규 고객은 보라(진입), 케어 시작 Green은 Timer 탭 전용.
+  static const quickNewFill = Color(0xFF8B5CF6);
+  static const quickReturningFill = Color(0xFFFFFFFF);
+  static const quickReturningBorder = Color(0xFFE5E5EA);
+  static const quickActionHeight = 52.0;
+  static const quickActionRadius = 16.0;
+  static const quickActionGap = 10.0;
+  static const quickActionTextSize = 14.0;
+  static const quickActionIconSize = 18.0;
+  static const quickNewShadow = BoxShadow(
+    color: Color(0x1F8B5CF6),
+    blurRadius: 16,
+    offset: Offset(0, 6),
+  );
+
+  static const baCarouselHeight = 132.0;
+  static const baCardW = 148.0;
+  static const baCardH = 112.0;
+  static const baCardRadius = 16.0;
+  static const baCardGap = 10.0;
+  static const baSlotGap = 2.0;
+  static const baDotSize = 8.0;
+  static const baDotRed = Color(0xFFFF3B30);
+  static const baDotGreen = Color(0xFF34C759);
+  static const baAddCircle = 36.0;
+  static const baLabelSize = 11.0;
+  static const baSlotFill = Color(0xFFEDEFF3);
+
+  /// Q3(a) — 🟢는 이 시간 동안만 렌더링되는 이관 확정 전이 상태.
+  static const baTransferDuration = Duration(milliseconds: 320);
+  static const baTransferCurve = Curves.easeOutCubic;
+
+  static const caseCardRadius = 20.0;
+  static const caseCardFill = Color(0xFFFFFFFF);
+  static const caseCardGap = 12.0;
+  static const caseCardShadow = BoxShadow(
+    color: Color(0x0A000000),
+    blurRadius: 30,
+    offset: Offset(0, 8),
+  );
+  static const caseHeaderSize = 14.0;
+  static const caseVisitSize = 12.0;
+  static const casePillFill = Color(0x73000000);
+  static const casePillTextSize = 11.0;
+  static const caseCaptionSize = 12.0;
+  static const caseCaptionColor = Color(0xFF8E8E93);
+  static const caseFeedPageSize = 10;
 }
