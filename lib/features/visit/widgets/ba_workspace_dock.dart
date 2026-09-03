@@ -22,6 +22,7 @@ class BaWorkspaceDock extends StatelessWidget {
     required this.bindSide,
     required this.onBind,
     required this.onBindSide,
+    required this.onAcceptTo,
     required this.onDragStarted,
     required this.onDragEnded,
   });
@@ -32,6 +33,7 @@ class BaWorkspaceDock extends StatelessWidget {
   final BaCompareBindSide bindSide;
   final ValueChanged<VisitPhotoSlot> onBind;
   final ValueChanged<BaCompareBindSide> onBindSide;
+  final void Function(BaCompareBindSide side, VisitPhotoSlot slot) onAcceptTo;
   final ValueChanged<VisitPhotoSlot> onDragStarted;
   final VoidCallback onDragEnded;
 
@@ -49,10 +51,7 @@ class BaWorkspaceDock extends StatelessWidget {
             color: BaWorkspaceColors.before,
             active: bindSide == BaCompareBindSide.left,
             onTap: () => onBindSide(BaCompareBindSide.left),
-            onAccept: (s) {
-              onBindSide(BaCompareBindSide.left);
-              onBind(s);
-            },
+            onAccept: (s) => onAcceptTo(BaCompareBindSide.left, s),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -60,6 +59,7 @@ class BaWorkspaceDock extends StatelessWidget {
               slots: slots,
               left: left,
               right: right,
+              bindSide: bindSide,
               onBind: onBind,
               onDragStarted: onDragStarted,
               onDragEnded: onDragEnded,
@@ -73,10 +73,7 @@ class BaWorkspaceDock extends StatelessWidget {
             color: BaWorkspaceColors.after,
             active: bindSide == BaCompareBindSide.right,
             onTap: () => onBindSide(BaCompareBindSide.right),
-            onAccept: (s) {
-              onBindSide(BaCompareBindSide.right);
-              onBind(s);
-            },
+            onAccept: (s) => onAcceptTo(BaCompareBindSide.right, s),
           ),
         ],
       ),
@@ -114,6 +111,16 @@ class _BaSlotWellState extends State<BaSlotWell>
     vsync: this,
     duration: const Duration(milliseconds: 180),
   );
+
+  @override
+  void didUpdateWidget(BaSlotWell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.slot?.key != oldWidget.slot?.key && widget.active) {
+      _pulse.forward(from: 0).then((_) {
+        if (mounted) _pulse.reverse();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -202,6 +209,7 @@ class _FilmStrip extends StatefulWidget {
     required this.slots,
     required this.left,
     required this.right,
+    required this.bindSide,
     required this.onBind,
     required this.onDragStarted,
     required this.onDragEnded,
@@ -210,6 +218,7 @@ class _FilmStrip extends StatefulWidget {
   final List<VisitPhotoSlot> slots;
   final VisitPhotoSlot? left;
   final VisitPhotoSlot? right;
+  final BaCompareBindSide bindSide;
   final ValueChanged<VisitPhotoSlot> onBind;
   final ValueChanged<VisitPhotoSlot> onDragStarted;
   final VoidCallback onDragEnded;
@@ -267,15 +276,17 @@ class _FilmStripState extends State<_FilmStrip> {
                 return LongPressDraggable<VisitPhotoSlot>(
                   data: slot,
                   hapticFeedbackOnStart: true,
+                  dragAnchorStrategy: pointerDragAnchorStrategy,
+                  feedbackOffset: const Offset(
+                    -BaDragGhost.feedbackSize / 2,
+                    -BaDragGhost.feedbackSize / 2,
+                  ),
                   onDragStarted: () => widget.onDragStarted(slot),
                   onDragEnd: (_) => widget.onDragEnded(),
                   onDraggableCanceled: (_, _) => widget.onDragEnded(),
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: Transform.scale(
-                      scale: 1.35,
-                      child: _FilmThumb(slot: slot, ring: ring, size: _thumb),
-                    ),
+                  feedback: BaDragGhost(
+                    slot: slot,
+                    bindSide: widget.bindSide,
                   ),
                   childWhenDragging: Opacity(
                     opacity: 0.35,
@@ -366,7 +377,67 @@ class _Chevron extends StatelessWidget {
   }
 }
 
-/// 드래그 중 화면 중앙 자석 프리뷰.
+/// 손가락을 따라다니는 대형 드래그 고스트. 활성 슬롯 색 링.
+class BaDragGhost extends StatelessWidget {
+  const BaDragGhost({
+    super.key,
+    required this.slot,
+    required this.bindSide,
+    this.emphasized = false,
+    this.size = feedbackSize,
+  });
+
+  static const double feedbackSize = 220;
+
+  final VisitPhotoSlot slot;
+  final BaCompareBindSide bindSide;
+  final bool emphasized;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = bindSide == BaCompareBindSide.left
+        ? BaWorkspaceColors.before
+        : BaWorkspaceColors.after;
+    final scale = emphasized ? 1.06 : 1.0;
+    return Material(
+      color: Colors.transparent,
+      elevation: 12,
+      shadowColor: Colors.black54,
+      borderRadius: BorderRadius.circular(28),
+      child: AnimatedScale(
+        scale: scale,
+        duration: const Duration(milliseconds: 120),
+        child: Container(
+          key: const Key('ba-drag-ghost'),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: color, width: 4),
+            color: const Color(0xFF1C1C1E),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.35),
+                blurRadius: 24,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ChartImagePane(
+            url: slot.url,
+            fallbackLabel: slot.storyLabel,
+            tone: SoriTokens.textSecondary,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 하위 호환. 드래그 고스트와 같은 비주얼.
 class BaMagnetPreview extends StatelessWidget {
   const BaMagnetPreview({
     super.key,
@@ -379,32 +450,6 @@ class BaMagnetPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = bindSide == BaCompareBindSide.left
-        ? BaWorkspaceColors.before
-        : BaWorkspaceColors.after;
-    return DragTarget<VisitPhotoSlot>(
-      onWillAcceptWithDetails: (_) => true,
-      onAcceptWithDetails: (_) {},
-      builder: (context, candidate, _) {
-        return IgnorePointer(
-          child: Container(
-            width: 128,
-            height: 128,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: color, width: 3),
-              color: const Color(0xFF1C1C1E),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: ChartImagePane(
-              url: slot.url,
-              fallbackLabel: slot.storyLabel,
-              tone: SoriTokens.textSecondary,
-              fit: BoxFit.cover,
-            ),
-          ),
-        );
-      },
-    );
+    return BaDragGhost(slot: slot, bindSide: bindSide);
   }
 }

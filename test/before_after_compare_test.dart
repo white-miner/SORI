@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/features/visit/widgets/ba_workspace_dock.dart';
@@ -151,78 +152,39 @@ void main() {
       expect(find.text('서비스 메뉴'), findsNothing);
     });
 
-    testWidgets('가로·세로 모두 사이드 패널 없이 사진이 화면을 채운다', (tester) async {
-      await pumpViewer(
-        tester,
-        size: const Size(932, 430),
-        initialChartId: 'face-4',
-      );
+    testWidgets('검은 매트에 조종석이 있고 사진은 여백 안에 담긴다', (tester) async {
+      for (final size in const [Size(430, 932), Size(932, 430)]) {
+        await pumpViewer(
+          tester,
+          size: size,
+          initialChartId: 'face-4',
+        );
 
-      expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
-      expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
-      expect(find.byType(BaWorkspaceDock), findsOneWidget);
+        expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
+        expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
+        expect(find.byKey(const Key('ba-compare-drop-zone')), findsOneWidget);
+        expect(find.byType(BaWorkspaceDock), findsOneWidget);
 
-      final stage = tester.getRect(
-        find.byKey(const Key('ba-compare-photo-stage')),
-      );
-      final screen = tester.getSize(find.byType(BeforeAfterComparePage));
-      expect(stage.left, closeTo(0, 1));
-      expect(stage.top, closeTo(0, 1));
-      expect(stage.width, closeTo(screen.width, 1));
-      expect(stage.height, closeTo(screen.height, 1));
+        final stage = tester.getRect(
+          find.byKey(const Key('ba-compare-photo-stage')),
+        );
+        final screen = tester.getSize(find.byType(BeforeAfterComparePage));
+        final dock = tester.getRect(find.byType(BaWorkspaceDock));
+        final yRail = tester.getRect(find.byKey(const Key('ba-compare-pan-up')));
+        final zoom = tester.getRect(find.byKey(const Key('ba-compare-zoom-in')));
+
+        expect(stage.left, greaterThan(40));
+        expect(stage.right, lessThan(screen.width - 40));
+        expect(stage.top, greaterThan(40));
+        expect(dock.top, greaterThanOrEqualTo(stage.bottom - 2));
+        expect(yRail.right, lessThanOrEqualTo(stage.left + 8));
+        expect(zoom.left, greaterThanOrEqualTo(stage.right - 8));
+        expect(stage.height, greaterThan(size.height * 0.4));
+        expect(tester.takeException(), isNull);
+      }
     });
 
-    testWidgets('세로 모드에서는 우측 패널이 없다', (tester) async {
-      await pumpViewer(
-        tester,
-        size: const Size(430, 932),
-        initialChartId: 'face-4',
-      );
-
-      expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
-      expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
-    });
-
-    testWidgets('가로에서 사진 스테이지가 화면 높이의 대부분을 쓴다', (tester) async {
-      await pumpViewer(
-        tester,
-        size: const Size(932, 430),
-        initialChartId: 'face-4',
-      );
-
-      final stage = tester.getSize(
-        find.byKey(const Key('ba-compare-photo-stage')),
-      );
-      expect(stage.height, greaterThan(400));
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('세로 모드에서는 우측 패널이 없다', (tester) async {
-      await pumpViewer(
-        tester,
-        size: const Size(430, 932),
-        initialChartId: 'face-4',
-      );
-
-      expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
-      expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
-    });
-
-    testWidgets('가로에서 사진 스테이지가 화면 높이의 대부분을 쓴다', (tester) async {
-      await pumpViewer(
-        tester,
-        size: const Size(932, 430),
-        initialChartId: 'face-4',
-      );
-
-      final stage = tester.getSize(
-        find.byKey(const Key('ba-compare-photo-stage')),
-      );
-      expect(stage.height, greaterThan(400));
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('슬라이더는 피드와 같이 전면 드래그이고 핀치 뷰어가 없다', (tester) async {
+    testWidgets('슬라이더는 전면 드래그이고 메인 사진만 contain 이다', (tester) async {
       await pumpViewer(
         tester,
         size: const Size(430, 932),
@@ -237,11 +199,23 @@ void main() {
       expect(slider.dragHandleOnly, isFalse);
       expect(slider.borderRadius, BorderRadius.zero);
 
-      final panes = tester.widgetList<ChartImagePane>(
-        find.byType(ChartImagePane),
+      final stagePanes = tester.widgetList<ChartImagePane>(
+        find.descendant(
+          of: find.byType(BeforeAfterSlider),
+          matching: find.byType(ChartImagePane),
+        ),
       );
-      expect(panes, isNotEmpty);
-      expect(panes.every((p) => p.fit == BoxFit.cover), isTrue);
+      expect(stagePanes, isNotEmpty);
+      expect(stagePanes.every((p) => p.fit == BoxFit.contain), isTrue);
+
+      final dockPanes = tester.widgetList<ChartImagePane>(
+        find.descendant(
+          of: find.byType(BaWorkspaceDock),
+          matching: find.byType(ChartImagePane),
+        ),
+      );
+      expect(dockPanes, isNotEmpty);
+      expect(dockPanes.every((p) => p.fit == BoxFit.cover), isTrue);
     });
 
     testWidgets('하단은 스토리 스택이고 썸네일 탭은 오른쪽 슬롯에 붙는다', (tester) async {
@@ -260,6 +234,39 @@ void main() {
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
       expect(dock.left?.key, 'face-4|before');
       expect(dock.right?.key, 'face-1|before');
+    });
+
+    testWidgets('필름을 중앙에 드롭하면 큰 고스트가 따라오고 활성 슬롯에 들어간다', (
+      tester,
+    ) async {
+      await pumpViewer(
+        tester,
+        size: const Size(430, 932),
+        initialChartId: 'face-4',
+      );
+
+      final thumb = find.byKey(const Key('ba-story-thumb-face-1|after'));
+      final start = tester.getCenter(thumb);
+      final dest = tester.getCenter(find.byKey(const Key('ba-compare-drop-zone')));
+
+      final gesture = await tester.startGesture(start);
+      await tester.pump(kLongPressTimeout);
+      await tester.pump();
+
+      expect(find.byType(BaDragGhost), findsWidgets);
+      expect(
+        tester.widget<BaDragGhost>(find.byType(BaDragGhost).first).size,
+        BaDragGhost.feedbackSize,
+      );
+
+      await gesture.moveTo(dest);
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
+      expect(dock.right?.key, 'face-1|after');
+      expect(dock.left?.key, 'face-4|before');
     });
 
     testWidgets('썸네일을 롱프레스 후 손을 떼면 같은 슬롯이 바인딩된다', (tester) async {

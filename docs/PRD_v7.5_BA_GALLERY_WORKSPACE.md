@@ -9,7 +9,7 @@
 
 현행 비교 페이지는 사진 위에 드롭다운·모드 칩·스토리 스택을 얹은 **뷰어**다. 와이어프레임은 그 반대다. 사진이 바닥이고, 고객·케어·슬롯·필름이 손으로 만지는 **작업대**다.
 
-가로 78/22 사이드 패널은 폐기한다. 세로·가로 모두 같은 오버레이 문법이다.
+가로 78/22 사이드 패널은 폐기한다. **풀블리드 `BoxFit.cover` + 사진 위 오버레이도 폐기한다.** 사진은 `BoxFit.contain`으로 검은 매트 안에 담고, 헤더·좌우 레일·하단 독은 그 여백(조종석)에 둔다.
 
 슬라이더 지터를 막기 위해 `InteractiveViewer`는 다시 넣지 않는다. 줌은 버튼 스텝(0.5 / 1 / 1.5 / 2). Y 이동은 합성 사진 하나의 `panY`다.
 
@@ -18,14 +18,13 @@
 ## §1 위젯 트리
 
 ```
-Stack
-  0  ComparePhotoBody     BoxFit.cover + AnimatedScale + Translate(panY)
-  1  Before / After 라벨  Positioned top 16 — 줌 밖
-  2  Y 스탭 · 줌 스탭     좌/우 중앙
-  3  프로필 · 모드 아이콘  우측
-  4  뒤로 · 케어 필 · ⋮    상단
-  5  자석 프리뷰           드래그 중만, 중앙
-  6  Before웰 | 필름 | After웰
+SafeArea > Column
+  TopChrome                 뒤로 · 케어 필 · ⋮
+  Expanded > Row
+    Y rail ~52
+    Photo DropZone          contain + 라벨. 드래그 중 중앙 타깃
+    Right rail ~84          프로필 · 모드 · 줌
+  BaWorkspaceDock           Before웰 | 필름 | After웰
 ```
 
 ---
@@ -34,9 +33,10 @@ Stack
 
 - `_bindSide`: `left`(Before, `SoriTokens.cameraYellow`) | `right`(After, `SoriTokens.alignEmerald`).
 - 웰 탭: 비활성이면 활성화. 이미 활성이면 `ScaleTransition` 1.0→1.1→1.0.
-- 필름: `LongPressDraggable<VisitPhotoSlot>`.
+- 필름: `LongPressDraggable<VisitPhotoSlot>`. 피드백은 `BaDragGhost` 220dp.
+- 메인 사진 영역 전체 = `ba-compare-drop-zone`. 중앙 드롭은 활성 슬롯으로 라우팅.
 - `DragTarget` 웰: 그 슬롯에 바인딩.
-- 웰 밖 드롭: 활성 슬롯에 바인딩 (자석).
+- 웰 밖·중앙 드롭: 활성 슬롯에 바인딩 (자석).
 - 드롭 시 `HapticFeedback.lightImpact()`.
 - 메인 뷰어와 웰 썸네일은 같은 `_left` / `_right`.
 
