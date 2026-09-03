@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:screenshot/screenshot.dart';
@@ -22,7 +21,7 @@ import '../widgets/before_after_slider.dart';
 import '../widgets/sori_crm_status_avatar.dart';
 import 'before_after_compare_sheet.dart';
 
-/// B/A 갤러리 워크스페이스. 사진은 contain, 조작은 검은 매트(헤더·레일·독).
+/// B/A 갤러리 워크스페이스. 헤더·독 사이 풀폭 사진, 하단은 스냅 다이얼.
 class BeforeAfterComparePage extends StatefulWidget {
   const BeforeAfterComparePage({
     super.key,
@@ -63,8 +62,6 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
   int _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
   double _panY = 0;
   bool _careOpen = false;
-  VisitPhotoSlot? _dragging;
-  bool _dropAccepted = false;
 
   @override
   void initState() {
@@ -133,38 +130,10 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
         _right = slot;
       }
     });
-    HapticFeedback.lightImpact();
   }
 
   void _setBindSide(BaCompareBindSide side) {
     setState(() => _bindSide = side);
-  }
-
-  void _acceptTo(BaCompareBindSide side, VisitPhotoSlot slot) {
-    _dropAccepted = true;
-    setState(() {
-      _bindSide = side;
-      if (side == BaCompareBindSide.left) {
-        _left = slot;
-      } else {
-        _right = slot;
-      }
-      _dragging = null;
-    });
-    HapticFeedback.lightImpact();
-  }
-
-  void _onDragStarted(VisitPhotoSlot slot) {
-    _dropAccepted = false;
-    setState(() => _dragging = slot);
-  }
-
-  void _onDragEnded() {
-    final slot = _dragging;
-    final accepted = _dropAccepted;
-    _dropAccepted = false;
-    setState(() => _dragging = null);
-    if (!accepted && slot != null) _bind(slot);
   }
 
   void _zoomIn() {
@@ -345,38 +314,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
                       onMore: _openMore,
                     ),
                   ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 52,
-                          child: Center(
-                            child: _YStepper(
-                              enabled: _zoom > 1,
-                              onUp: () => _nudgeY(28),
-                              onDown: () => _nudgeY(-28),
-                            ),
-                          ),
-                        ),
-                        Expanded(child: _buildPhotoDropZone()),
-                        SizedBox(
-                          width: 84,
-                          child: _RightRail(
-                            name: _customerName,
-                            customer: _customer,
-                            charts: _charts,
-                            useSlider: _useSlider,
-                            zoom: _zoom,
-                            onProfile: _pickCustomer,
-                            onToggleMode: () =>
-                                setState(() => _useSlider = !_useSlider),
-                            onZoomIn: _zoomIn,
-                            onZoomOut: _zoomOut,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  Expanded(child: _buildPhotoStage()),
                   BaWorkspaceDock(
                     key: const Key('ba-compare-story-strip'),
                     slots: _scopedSlots,
@@ -385,9 +323,6 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
                     bindSide: _bindSide,
                     onBind: _bind,
                     onBindSide: _setBindSide,
-                    onAcceptTo: _acceptTo,
-                    onDragStarted: _onDragStarted,
-                    onDragEnded: _onDragEnded,
                   ),
                 ],
               ),
@@ -395,76 +330,75 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
     );
   }
 
-  Widget _buildPhotoDropZone() {
-    return DragTarget<VisitPhotoSlot>(
-      key: const Key('ba-compare-drop-zone'),
-      onWillAcceptWithDetails: (_) => true,
-      onAcceptWithDetails: (d) => _acceptTo(_bindSide, d.data),
-      builder: (context, candidate, _) {
-        final hovering = candidate.isNotEmpty;
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0B),
-            border: hovering
-                ? Border.all(
-                    color: _bindSide == BaCompareBindSide.left
-                        ? BaWorkspaceColors.before
-                        : BaWorkspaceColors.after,
-                    width: 2,
-                  )
-                : null,
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Screenshot(
-                controller: _shot,
-                child: _left != null && _right != null
-                    ? _ComparePhotoBody(
-                        key: const Key('ba-compare-photo-stage'),
-                        left: _left!,
-                        right: _right!,
-                        useSlider: _useSlider,
-                        zoom: _zoom,
-                        panY: _panY,
-                        onPanDelta: _nudgeY,
-                      )
-                    : const ColoredBox(color: Color(0xFF0A0A0B)),
+  Widget _buildPhotoStage() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Screenshot(
+          controller: _shot,
+          child: _left != null && _right != null
+              ? _ComparePhotoBody(
+                  key: const Key('ba-compare-photo-stage'),
+                  left: _left!,
+                  right: _right!,
+                  useSlider: _useSlider,
+                  zoom: _zoom,
+                  panY: _panY,
+                  onPanDelta: _nudgeY,
+                )
+              : const ColoredBox(color: Color(0xFF0A0A0B)),
+        ),
+        if (_left != null && _right != null) ...[
+          const Positioned(
+            top: 16,
+            left: 16,
+            child: IgnorePointer(
+              child: _ViewportCornerTag(
+                key: Key('ba-compare-label-before'),
+                text: 'Before',
               ),
-              if (_left != null && _right != null) ...[
-                const Positioned(
-                  top: 16,
-                  left: 16,
-                  child: IgnorePointer(
-                    child: _ViewportCornerTag(
-                      key: Key('ba-compare-label-before'),
-                      text: 'Before',
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  top: 16,
-                  right: 16,
-                  child: IgnorePointer(
-                    child: _ViewportCornerTag(
-                      key: Key('ba-compare-label-after'),
-                      text: 'After',
-                    ),
-                  ),
-                ),
-              ],
-              if (_dragging != null || hovering)
-                IgnorePointer(
-                  child: ColoredBox(
-                    color: Colors.black.withValues(
-                      alpha: hovering ? 0.28 : 0.10,
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-        );
-      },
+          const Positioned(
+            top: 16,
+            right: 16,
+            child: IgnorePointer(
+              child: _ViewportCornerTag(
+                key: Key('ba-compare-label-after'),
+                text: 'After',
+              ),
+            ),
+          ),
+        ],
+        Positioned(
+          left: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: _YStepper(
+              enabled: _zoom > 1,
+              onUp: () => _nudgeY(28),
+              onDown: () => _nudgeY(-28),
+            ),
+          ),
+        ),
+        Positioned(
+          right: 8,
+          top: 8,
+          bottom: 8,
+          child: _RightRail(
+            name: _customerName,
+            customer: _customer,
+            charts: _charts,
+            useSlider: _useSlider,
+            zoom: _zoom,
+            onProfile: _pickCustomer,
+            onToggleMode: () => setState(() => _useSlider = !_useSlider),
+            onZoomIn: _zoomIn,
+            onZoomOut: _zoomOut,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -516,7 +450,7 @@ class _ComparePhotoBody extends StatelessWidget {
       url: slot.url,
       fallbackLabel: slot.shortLabel,
       tone: SoriTokens.textSecondary,
-      fit: BoxFit.contain,
+      fit: BoxFit.cover,
     );
   }
 
@@ -864,23 +798,28 @@ class _RightRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ProfileCluster(
-          name: name,
-          customer: customer,
-          charts: charts,
-          useSlider: useSlider,
-          onProfile: onProfile,
-          onToggleMode: onToggleMode,
-        ),
-        const Spacer(),
-        _ZoomStepper(
-          zoom: zoom,
-          onZoomIn: onZoomIn,
-          onZoomOut: onZoomOut,
-        ),
-      ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.topCenter,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ProfileCluster(
+            name: name,
+            customer: customer,
+            charts: charts,
+            useSlider: useSlider,
+            onProfile: onProfile,
+            onToggleMode: onToggleMode,
+          ),
+          const SizedBox(height: 12),
+          _ZoomStepper(
+            zoom: zoom,
+            onZoomIn: onZoomIn,
+            onZoomOut: onZoomOut,
+          ),
+        ],
+      ),
     );
   }
 }

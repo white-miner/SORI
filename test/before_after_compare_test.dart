@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/features/visit/widgets/ba_workspace_dock.dart';
@@ -133,6 +132,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump();
     }
 
     testWidgets('피드에서 연 4회차가 진입 즉시 왼쪽 B · 오른쪽 A 다', (tester) async {
@@ -152,7 +152,7 @@ void main() {
       expect(find.text('서비스 메뉴'), findsNothing);
     });
 
-    testWidgets('검은 매트에 조종석이 있고 사진은 여백 안에 담긴다', (tester) async {
+    testWidgets('헤더·독 사이 사진은 화면 너비를 꽉 채운다', (tester) async {
       for (final size in const [Size(430, 932), Size(932, 430)]) {
         await pumpViewer(
           tester,
@@ -162,29 +162,26 @@ void main() {
 
         expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
         expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
-        expect(find.byKey(const Key('ba-compare-drop-zone')), findsOneWidget);
+        expect(find.byKey(const Key('ba-compare-drop-zone')), findsNothing);
         expect(find.byType(BaWorkspaceDock), findsOneWidget);
+        expect(find.byType(BaSnapDial), findsOneWidget);
 
         final stage = tester.getRect(
           find.byKey(const Key('ba-compare-photo-stage')),
         );
         final screen = tester.getSize(find.byType(BeforeAfterComparePage));
         final dock = tester.getRect(find.byType(BaWorkspaceDock));
-        final yRail = tester.getRect(find.byKey(const Key('ba-compare-pan-up')));
-        final zoom = tester.getRect(find.byKey(const Key('ba-compare-zoom-in')));
 
-        expect(stage.left, greaterThan(40));
-        expect(stage.right, lessThan(screen.width - 40));
+        expect(stage.left, closeTo(0, 1));
+        expect(stage.width, closeTo(screen.width, 1));
         expect(stage.top, greaterThan(40));
         expect(dock.top, greaterThanOrEqualTo(stage.bottom - 2));
-        expect(yRail.right, lessThanOrEqualTo(stage.left + 8));
-        expect(zoom.left, greaterThanOrEqualTo(stage.right - 8));
         expect(stage.height, greaterThan(size.height * 0.4));
         expect(tester.takeException(), isNull);
       }
     });
 
-    testWidgets('슬라이더는 전면 드래그이고 메인 사진만 contain 이다', (tester) async {
+    testWidgets('슬라이더는 전면 드래그이고 메인 사진은 cover 다', (tester) async {
       await pumpViewer(
         tester,
         size: const Size(430, 932),
@@ -206,7 +203,7 @@ void main() {
         ),
       );
       expect(stagePanes, isNotEmpty);
-      expect(stagePanes.every((p) => p.fit == BoxFit.contain), isTrue);
+      expect(stagePanes.every((p) => p.fit == BoxFit.cover), isTrue);
 
       final dockPanes = tester.widgetList<ChartImagePane>(
         find.descendant(
@@ -218,7 +215,7 @@ void main() {
       expect(dockPanes.every((p) => p.fit == BoxFit.cover), isTrue);
     });
 
-    testWidgets('하단은 스토리 스택이고 썸네일 탭은 오른쪽 슬롯에 붙는다', (tester) async {
+    testWidgets('하단은 스냅 다이얼이고 한 칸 스냅이 오른쪽 슬롯에 붙는다', (tester) async {
       await pumpViewer(
         tester,
         size: const Size(430, 932),
@@ -226,63 +223,39 @@ void main() {
       );
 
       expect(find.byType(BaWorkspaceDock), findsOneWidget);
-      expect(find.text('1회차 B'), findsWidgets);
+      expect(find.byType(BaSnapDial), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('ba-story-thumb-face-1|before')));
-      await tester.pump();
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
 
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
       expect(dock.left?.key, 'face-4|before');
-      expect(dock.right?.key, 'face-1|before');
+      expect(dock.right?.key, 'face-4|before');
     });
 
-    testWidgets('필름을 중앙에 드롭하면 큰 고스트가 따라오고 활성 슬롯에 들어간다', (
-      tester,
-    ) async {
+    testWidgets('중앙에 스냅된 썸네일은 1.5배로 커지고 활성 슬롯에 붙는다', (tester) async {
       await pumpViewer(
         tester,
         size: const Size(430, 932),
         initialChartId: 'face-4',
       );
+      await tester.pumpAndSettle();
 
-      final thumb = find.byKey(const Key('ba-story-thumb-face-1|after'));
-      final start = tester.getCenter(thumb);
-      final dest = tester.getCenter(find.byKey(const Key('ba-compare-drop-zone')));
-
-      final gesture = await tester.startGesture(start);
-      await tester.pump(kLongPressTimeout);
-      await tester.pump();
-
-      expect(find.byType(BaDragGhost), findsWidgets);
-      expect(
-        tester.widget<BaDragGhost>(find.byType(BaDragGhost).first).size,
-        BaDragGhost.feedbackSize,
+      final centered = find.ancestor(
+        of: find.byKey(const Key('ba-story-thumb-face-4|after')),
+        matching: find.byType(BaDialCell),
       );
+      expect(tester.widget<BaDialCell>(centered).scale, closeTo(1.5, 0.08));
 
-      await gesture.moveTo(dest);
-      await tester.pump();
-      await gesture.up();
-      await tester.pump();
+      await tester.drag(
+        find.byKey(const Key('ba-story-strip-list')),
+        Offset(BaSnapDial.stride, 0),
+      );
+      await tester.pumpAndSettle();
 
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
-      expect(dock.right?.key, 'face-1|after');
+      expect(dock.right?.key, 'face-4|before');
       expect(dock.left?.key, 'face-4|before');
-    });
-
-    testWidgets('썸네일을 롱프레스 후 손을 떼면 같은 슬롯이 바인딩된다', (tester) async {
-      await pumpViewer(
-        tester,
-        size: const Size(430, 932),
-        initialChartId: 'face-4',
-      );
-
-      await tester.longPress(
-        find.byKey(const Key('ba-story-thumb-face-1|after')),
-      );
-      await tester.pump();
-
-      final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
-      expect(dock.right?.key, 'face-1|after');
     });
 
     testWidgets('연결 슬롯을 왼쪽으로 바꾸면 썸네일이 왼쪽을 교체한다', (tester) async {
@@ -293,12 +266,12 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('ba-well-before')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('ba-story-thumb-face-1|after')));
-      await tester.pump();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
 
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
-      expect(dock.left?.key, 'face-1|after');
+      expect(dock.left?.key, 'face-4|after');
       expect(dock.right?.key, 'face-4|after');
     });
 
