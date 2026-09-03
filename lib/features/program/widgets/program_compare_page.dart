@@ -67,7 +67,9 @@ class _ProgramComparePageState extends State<ProgramComparePage> {
       store: widget.store,
       quote: q,
     );
-    if (done && mounted) Navigator.of(context).pop();
+    if (done && mounted) {
+      Navigator.of(context).pop(ProgramConsultResult.accepted);
+    }
   }
 
   @override
@@ -89,7 +91,9 @@ class _ProgramComparePageState extends State<ProgramComparePage> {
           children: [
             _TopBar(
               title: quote.isCrossCategory ? '다른 카테고리입니다' : '구성 비교',
-              onClose: () => Navigator.of(context).pop(),
+              onClose: () => Navigator.of(context).pop(
+                ProgramConsultResult.closed,
+              ),
             ),
             Expanded(
               child: AnimatedSwitcher(

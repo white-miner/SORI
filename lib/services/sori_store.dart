@@ -6354,7 +6354,12 @@ class SoriStore implements Listenable {
   final List<ProgramPromotion> programPromotions = [];
   final List<ProgramQuote> programQuotes = [];
   final List<ProgramCustomerCoupon> programCoupons = [];
+  final List<ProgramMembership> programMemberships = [];
+  final List<ProgramAcceptOutboxItem> programAcceptOutbox = [];
   bool programRemoteReady = true;
+  bool lastAcceptOffline = false;
+  List<ProgramMembership> lastMembershipDeductChoices = const [];
+  static const _programOutboxPrefsKey = 'sori_program_accept_outbox';
 
   List<ProgramCategoryBoard> get programBoards {
     final cats = programCategories.where((c) => c.isActive).toList()
@@ -6372,6 +6377,17 @@ class SoriStore implements Listenable {
     final now = DateTime.now();
     return programPromotions.where((p) => p.isLiveAt(now)).toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  /// S3 — 접힌 앵커 아래 한 줄. 전체(global) 혜택만, 배너 없이 캡션 톤.
+  String get globalPromoCaption {
+    final titles = liveProgramPromotions
+        .where((p) => p.scope == ProgramPromoScope.global)
+        .map((p) => p.title.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (titles.isEmpty) return '';
+    return titles.join(' · ');
   }
 
   /// C6/S2 — 이 패키지에 실제로 붙일 수 있는 혜택만. 전용 혜택이 남의 견적에 새지 않는다.
@@ -6442,10 +6458,12 @@ class SoriStore implements Listenable {
   Future<void> refreshProgramBoard() async {
     final shopId = shop.id.trim();
     if (shopId.isEmpty) return;
+    await _hydrateProgramOutbox();
     try {
       final snap = await _repository.loadProgramBoard(shopId);
       programRemoteReady = true;
       _applyProgramSnapshot(snap);
+      await flushProgramAcceptOutbox();
     } catch (e, st) {
       if (isMissingSchemaError(e)) {
         programRemoteReady = false;
@@ -6462,6 +6480,22 @@ class SoriStore implements Listenable {
   }
 
   void _applyProgramSnapshot(ProgramBoardSnapshot snap) {
+    final keepQuotes = programQuotes.where((q) {
+      final inSnap = snap.quotes.any((s) => s.id == q.id);
+      if (inSnap) return false;
+      final queued = programAcceptOutbox.any((o) => o.quoteId == q.id);
+      return queued ||
+          (q.status == ProgramQuoteStatus.abandoned && q.isVisibleLeadAt());
+    }).toList();
+    final keepMemberships = programMemberships.where((m) {
+      return !snap.memberships.any((s) => s.id == m.id) &&
+          programAcceptOutbox.any((o) => o.quoteId == m.sourceQuoteId);
+    }).toList();
+    final keepCoupons = programCoupons.where((c) {
+      return !snap.coupons.any((s) => s.id == c.id) &&
+          programAcceptOutbox.any((o) => o.quoteId == c.issuedQuoteId);
+    }).toList();
+
     programCategories
       ..clear()
       ..addAll(snap.categories);
@@ -6473,10 +6507,17 @@ class SoriStore implements Listenable {
       ..addAll(snap.promotions);
     programQuotes
       ..clear()
-      ..addAll(snap.quotes);
+      ..addAll(snap.quotes)
+      ..addAll(keepQuotes);
     programCoupons
       ..clear()
-      ..addAll(snap.coupons);
+      ..addAll(snap.coupons)
+      ..addAll(keepCoupons);
+    programMemberships
+      ..clear()
+      ..addAll(snap.memberships)
+      ..addAll(keepMemberships);
+    _importJsonbMemberships();
   }
 
   Future<ProgramCategory> upsertProgramCategory(ProgramCategory category) async {
@@ -6632,18 +6673,73 @@ class SoriStore implements Listenable {
     return saved;
   }
 
-  /// 견적 수락 → 회원권 발급 + 미래가치 쿠폰 + 수기 결제 기록. 고객 id 가 비면 거부한다.
+  /// R3 — 단건 스냅샷을 유지한 채 비교 대상을 붙인다.
+  Future<ProgramQuote> attachQuotePeer({
+    required ProgramQuote quote,
+    required ProgramPackage right,
+  }) async {
+    final rightName = programCategoryName(right.categoryId) ?? '';
+    final next = quote.copyWith(
+      right: right.toSnapshot(categoryName: rightName),
+      rightPackageId: right.id,
+    );
+    return _persistQuote(_repriceQuote(next));
+  }
+
+  /// R9 — 수락하지 않고 닫으면 이탈 리드로 남긴다. 지우지 않는다.
+  Future<ProgramQuote?> abandonProgramQuote(String quoteId) async {
+    final quote = findProgramQuote(quoteId);
+    if (quote == null) return null;
+    if (quote.status == ProgramQuoteStatus.accepted) return quote;
+    if (quote.status == ProgramQuoteStatus.abandoned) return quote;
+    return _persistQuote(quote.copyWith(status: ProgramQuoteStatus.abandoned));
+  }
+
+  ProgramMembership? findProgramMembership(String id) {
+    final n = id.trim();
+    if (n.isEmpty) return null;
+    for (final m in programMemberships) {
+      if (m.id == n) return m;
+    }
+    return null;
+  }
+
+  List<ProgramMembership> usableMembershipsFor(
+    String customerId, {
+    String? careName,
+  }) {
+    final cid = customerId.trim();
+    final care = careName?.trim() ?? '';
+    final rows = programMemberships
+        .where((m) => m.customerId == cid && m.isUsable)
+        .toList();
+    if (care.isEmpty) {
+      rows.sort(ProgramMembership.deductOrder);
+      return rows;
+    }
+    final matched = rows
+        .where((m) => CustomerMembership.matchesService(m.serviceName, care))
+        .toList()
+      ..sort(ProgramMembership.deductOrder);
+    return matched;
+  }
+
+  /// 견적 수락 → 회원권 원장 + jsonb 미러 + 쿠폰. 네트워크가 없어도 로컬을 먼저 닫는다 (R9).
   Future<Customer> acceptProgramQuote({
     required ProgramQuote quote,
     required String customerId,
     ProgramPaymentStatus paymentStatus = ProgramPaymentStatus.unpaid,
     int paidKrw = 0,
     ProgramPaymentMethod method = ProgramPaymentMethod.cash,
+    String? supersedeMembershipId,
   }) async {
     final cid = customerId.trim();
     if (cid.isEmpty) throw StateError('customerId required');
     final customer = findCustomer(cid);
     if (customer == null) throw StateError('customer not found');
+
+    lastAcceptOffline = false;
+    _importJsonbMemberships();
 
     final promos = ProgramPricing.stacked(
       quote.promotionIds,
@@ -6654,44 +6750,6 @@ class SoriStore implements Listenable {
       promos,
     );
     final paid = quote.payableKrw;
-    final ticket = CustomerMembership(
-      id: newUuidV4(),
-      serviceName: quote.chosen.name,
-      totalVisits: visits,
-      paidAmount: paid,
-      perSessionValue: ProgramPricing.unitPrice(paid, visits),
-    );
-
-    var remoteAccepted = false;
-    ProgramAcceptResult? result;
-    if (_repository.isRemote && programRemoteReady) {
-      try {
-        result = await _repository.acceptProgramQuote(
-          quoteId: quote.id,
-          customerId: cid,
-          paymentStatus: paymentStatus,
-          paidKrw: paidKrw,
-          method: method,
-        );
-        remoteAccepted = true;
-      } catch (e) {
-        if (!isMissingSchemaError(e)) rethrow;
-        programRemoteReady = false;
-      }
-    } else {
-      try {
-        result = await _repository.acceptProgramQuote(
-          quoteId: quote.id,
-          customerId: cid,
-          paymentStatus: paymentStatus,
-          paidKrw: paidKrw,
-          method: method,
-        );
-      } catch (e) {
-        debugPrint('acceptProgramQuote local: $e');
-      }
-    }
-
     final settled = paidKrw >= paid && paidKrw > 0
         ? ProgramPaymentStatus.paid
         : paidKrw > 0
@@ -6706,33 +6764,425 @@ class SoriStore implements Listenable {
       paymentMethod: paidKrw > 0 ? method : null,
       paidAt: settled.isSettled ? DateTime.now() : null,
     );
-    final qidx = programQuotes.indexWhere((q) => q.id == accepted.id);
-    if (qidx >= 0) {
-      programQuotes[qidx] = accepted;
-    } else {
-      programQuotes.insert(0, accepted);
-    }
+    final existingForQuote = programMemberships
+        .where((m) => m.sourceQuoteId == accepted.id && m.customerId == cid)
+        .toList();
+    final mid = existingForQuote.isNotEmpty
+        ? existingForQuote.first.id
+        : newUuidV4();
+    var membership = ProgramMembership(
+      id: mid,
+      shopId: shop.id,
+      customerId: cid,
+      sourceQuoteId: accepted.id,
+      serviceName: accepted.chosen.name,
+      totalVisits: visits,
+      paidKrw: paid,
+      perSessionKrw: ProgramPricing.unitPrice(paid, visits),
+      createdAt: existingForQuote.isNotEmpty
+          ? existingForQuote.first.createdAt
+          : DateTime.now(),
+    );
 
+    _putQuote(accepted);
+    _putMembership(membership);
+    if (supersedeMembershipId != null &&
+        supersedeMembershipId.trim().isNotEmpty) {
+      _applySupersedeLocal(
+        fromId: supersedeMembershipId.trim(),
+        replacement: membership,
+      );
+    }
     _absorbIssuedCoupons(
-      result: result,
+      result: null,
       quote: accepted,
       customerId: cid,
       promos: promos,
     );
+    _mirrorMemberships(cid);
 
-    if (remoteAccepted) {
-      final mirrored = customer
-          .copyWith(memberships: [...customer.memberships, ticket])
-          .withSyncedMembershipMirrors();
-      _mergeCustomer(mirrored);
-      _notify();
-      return mirrored;
+    ProgramAcceptResult? result;
+    var synced = false;
+    if (_repository.isRemote && programRemoteReady) {
+      try {
+        result = await _repository.acceptProgramQuote(
+          quoteId: quote.id,
+          customerId: cid,
+          paymentStatus: paymentStatus,
+          paidKrw: paidKrw,
+          method: method,
+        );
+        synced = true;
+      } catch (e) {
+        if (isMissingSchemaError(e)) {
+          programRemoteReady = false;
+          await _persistAcceptLocally(
+            quote: accepted,
+            membership: membership,
+            customerId: cid,
+          );
+        } else {
+          lastAcceptOffline = true;
+          await _enqueueAcceptOutbox(
+            ProgramAcceptOutboxItem(
+              quoteId: accepted.id,
+              customerId: cid,
+              paymentStatus: paymentStatus,
+              paidKrw: paidKrw,
+              method: method,
+            ),
+          );
+        }
+      }
+    } else if (_repository.isRemote) {
+      lastAcceptOffline = true;
+      await _enqueueAcceptOutbox(
+        ProgramAcceptOutboxItem(
+          quoteId: accepted.id,
+          customerId: cid,
+          paymentStatus: paymentStatus,
+          paidKrw: paidKrw,
+          method: method,
+        ),
+      );
+    } else {
+      try {
+        result = await _repository.acceptProgramQuote(
+          quoteId: quote.id,
+          customerId: cid,
+          paymentStatus: paymentStatus,
+          paidKrw: paidKrw,
+          method: method,
+        );
+        synced = true;
+      } catch (e) {
+        debugPrint('acceptProgramQuote local: $e');
+      }
     }
 
-    return saveCustomerMemberships(
-      customerId: cid,
-      memberships: [...customer.memberships, ticket],
+    if (result != null) {
+      _absorbIssuedCoupons(
+        result: result,
+        quote: accepted,
+        customerId: cid,
+        promos: promos,
+      );
+      final remoteId = result.membershipId?.trim() ?? '';
+      if (remoteId.isNotEmpty && remoteId != membership.id) {
+        programMemberships.removeWhere((m) => m.id == membership.id);
+        membership = ProgramMembership(
+          id: remoteId,
+          shopId: membership.shopId,
+          customerId: membership.customerId,
+          sourceQuoteId: membership.sourceQuoteId,
+          serviceName: membership.serviceName,
+          totalVisits: membership.totalVisits,
+          usedVisits: membership.usedVisits,
+          paidKrw: membership.paidKrw,
+          perSessionKrw: membership.perSessionKrw,
+          status: membership.status,
+          createdAt: membership.createdAt,
+        );
+        _putMembership(membership);
+      }
+    }
+
+    if (synced && _repository.isRemote) {
+      await _persistAcceptLocally(
+        quote: accepted,
+        membership: membership,
+        customerId: cid,
+      );
+    }
+
+    _mirrorMemberships(cid);
+    final saved = findCustomer(cid) ?? customer;
+    _notify();
+    return saved;
+  }
+
+  void _putQuote(ProgramQuote quote) {
+    final idx = programQuotes.indexWhere((q) => q.id == quote.id);
+    if (idx >= 0) {
+      programQuotes[idx] = quote;
+    } else {
+      programQuotes.insert(0, quote);
+    }
+  }
+
+  void _putMembership(ProgramMembership membership) {
+    final idx = programMemberships.indexWhere((m) => m.id == membership.id);
+    if (idx >= 0) {
+      programMemberships[idx] = membership;
+    } else {
+      programMemberships.add(membership);
+    }
+  }
+
+  void _applySupersedeLocal({
+    required String fromId,
+    required ProgramMembership replacement,
+  }) {
+    final idx = programMemberships.indexWhere((m) => m.id == fromId);
+    if (idx < 0) return;
+    final from = programMemberships[idx];
+    if (!from.isUsable && from.status != ProgramMembershipStatus.active) return;
+    programMemberships[idx] = from.copyWith(
+      status: ProgramMembershipStatus.superseded,
+      supersededBy: replacement.id,
+      creditAppliedKrw: from.remainingValueKrw,
     );
+  }
+
+  Future<void> _persistAcceptLocally({
+    required ProgramQuote quote,
+    required ProgramMembership membership,
+    required String customerId,
+  }) async {
+    try {
+      await _repository.upsertProgramQuote(quote);
+    } catch (e) {
+      debugPrint('persist accept quote: $e');
+    }
+    for (final row in programMemberships.where((m) => m.customerId == customerId)) {
+      try {
+        await _repository.upsertProgramMembership(row);
+      } catch (e) {
+        debugPrint('persist accept membership: $e');
+      }
+    }
+    for (final coupon in programCoupons.where((c) => c.issuedQuoteId == quote.id)) {
+      try {
+        await _repository.upsertProgramCoupon(coupon);
+      } catch (e) {
+        debugPrint('persist accept coupon: $e');
+      }
+    }
+    final customer = findCustomer(customerId);
+    if (customer == null || !_repository.isRemote) return;
+    try {
+      await _repository.upsertCustomer(customer);
+    } catch (e) {
+      debugPrint('persist accept customer: $e');
+    }
+  }
+
+  Future<void> _enqueueAcceptOutbox(ProgramAcceptOutboxItem item) async {
+    programAcceptOutbox.removeWhere((e) => e.quoteId == item.quoteId);
+    programAcceptOutbox.add(item);
+    await _persistProgramOutbox();
+  }
+
+  Future<void> _hydrateProgramOutbox() async {
+    if (programAcceptOutbox.isNotEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_programOutboxPrefsKey);
+      if (raw == null || raw.trim().isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      programAcceptOutbox
+        ..clear()
+        ..addAll(
+          decoded.whereType<Map>().map(
+            (e) => ProgramAcceptOutboxItem.fromMap(
+              Map<String, dynamic>.from(e),
+            ),
+          ),
+        );
+    } catch (e) {
+      debugPrint('hydrate program outbox: $e');
+    }
+  }
+
+  Future<void> _persistProgramOutbox() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _programOutboxPrefsKey,
+        jsonEncode(programAcceptOutbox.map((e) => e.toMap()).toList()),
+      );
+    } catch (e) {
+      debugPrint('persist program outbox: $e');
+    }
+  }
+
+  /// 연결이 돌아오면 같은 인자로 1건만 다시 보낸다.
+  Future<void> flushProgramAcceptOutbox() async {
+    if (programAcceptOutbox.isEmpty) return;
+    if (_repository.isRemote && !programRemoteReady) return;
+    final pending = [...programAcceptOutbox];
+    for (final item in pending) {
+      final quote = findProgramQuote(item.quoteId);
+      final membership = programMemberships
+          .where((m) => m.sourceQuoteId == item.quoteId)
+          .firstOrNull;
+      try {
+        if (quote != null && membership != null) {
+          await _persistAcceptLocally(
+            quote: quote,
+            membership: membership,
+            customerId: item.customerId,
+          );
+        } else {
+          await _repository.acceptProgramQuote(
+            quoteId: item.quoteId,
+            customerId: item.customerId,
+            paymentStatus: item.paymentStatus,
+            paidKrw: item.paidKrw,
+            method: item.method,
+          );
+        }
+        programAcceptOutbox.removeWhere((e) => e.quoteId == item.quoteId);
+      } catch (e) {
+        if (isMissingSchemaError(e)) {
+          programRemoteReady = false;
+        }
+        debugPrint('flush program outbox: $e');
+        break;
+      }
+    }
+    await _persistProgramOutbox();
+    _notify();
+  }
+
+  void _importJsonbMemberships() {
+    for (final customer in customers) {
+      for (final ticket in customer.memberships) {
+        if (ticket.id.trim().isEmpty) continue;
+        if (programMemberships.any((m) => m.id == ticket.id)) continue;
+        programMemberships.add(
+          ProgramMembership(
+            id: ticket.id,
+            shopId: shop.id,
+            customerId: customer.id,
+            serviceName: ticket.serviceName,
+            totalVisits: ticket.totalVisits < 1 ? 1 : ticket.totalVisits,
+            usedVisits: ticket.usedVisits,
+            paidKrw: ticket.paidAmount,
+            perSessionKrw: ticket.perSessionValue,
+            expiresAt: ticket.expiresAt,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+    }
+  }
+
+  void _mirrorMemberships(String customerId) {
+    final cid = customerId.trim();
+    final current = findCustomer(cid);
+    if (current == null) return;
+    final tickets = programMemberships
+        .where(
+          (m) =>
+              m.customerId == cid &&
+              m.status == ProgramMembershipStatus.active,
+        )
+        .map((m) => m.toCustomerTicket())
+        .toList();
+    _mergeCustomer(
+      current.copyWith(memberships: tickets).withSyncedMembershipMirrors(),
+    );
+  }
+
+  Future<void> _syncProgramMembershipsFromJsonb({
+    required String customerId,
+    required List<CustomerMembership> memberships,
+  }) async {
+    final cid = customerId.trim();
+    final existing = programMemberships.where((m) => m.customerId == cid).toList();
+    final seen = <String>{};
+    for (final ticket in memberships) {
+      final id = ticket.id.trim().isEmpty ? newUuidV4() : ticket.id.trim();
+      seen.add(id);
+      final prev = existing.where((m) => m.id == id).firstOrNull;
+      final row = ProgramMembership(
+        id: id,
+        shopId: shop.id,
+        customerId: cid,
+        sourceQuoteId: prev?.sourceQuoteId,
+        serviceName: ticket.serviceName,
+        totalVisits: ticket.totalVisits < 1 ? 1 : ticket.totalVisits,
+        usedVisits: ticket.usedVisits,
+        paidKrw: ticket.paidAmount,
+        perSessionKrw: ticket.perSessionValue,
+        status: prev?.status ?? ProgramMembershipStatus.active,
+        expiresAt: ticket.expiresAt,
+        createdAt: prev?.createdAt ?? DateTime.now(),
+      );
+      _putMembership(row);
+      try {
+        await _repository.upsertProgramMembership(row);
+      } catch (e) {
+        debugPrint('sync membership from jsonb: $e');
+      }
+    }
+    for (final prev in existing) {
+      if (seen.contains(prev.id)) continue;
+      if (prev.status != ProgramMembershipStatus.active) continue;
+      final voided = prev.copyWith(status: ProgramMembershipStatus.voided);
+      _putMembership(voided);
+      try {
+        await _repository.upsertProgramMembership(voided);
+      } catch (e) {
+        debugPrint('void membership from jsonb: $e');
+      }
+    }
+  }
+
+  /// E1 — 소진분을 빼고 환불 상태로 닫는다. jsonb 미러는 활성 행만 남긴다.
+  Future<ProgramMembership> refundProgramMembership({
+    required String membershipId,
+    ProgramRefundBasis basis = ProgramRefundBasis.packageUnit,
+    int? listUnitKrw,
+  }) async {
+    final current = findProgramMembership(membershipId);
+    if (current == null) throw StateError('membership not found');
+    if (current.status != ProgramMembershipStatus.active) {
+      throw StateError('membership is not active');
+    }
+    final next = current.copyWith(
+      status: ProgramMembershipStatus.refunded,
+      refundedKrw: current.refundAmount(basis: basis, listUnitKrw: listUnitKrw),
+      refundedAt: DateTime.now(),
+      refundBasis: basis,
+    );
+    return _persistMembership(next);
+  }
+
+  /// E2 — 잔여 가치를 신규 회원권에 넘기고 원본을 닫는다.
+  Future<ProgramMembership> supersedeProgramMembership({
+    required String fromId,
+    required ProgramMembership replacement,
+  }) async {
+    final from = findProgramMembership(fromId);
+    if (from == null) throw StateError('membership not found');
+    _putMembership(replacement);
+    _applySupersedeLocal(fromId: fromId, replacement: replacement);
+    final closed = findProgramMembership(fromId) ?? from;
+    await _persistMembership(closed, notify: false);
+    return _persistMembership(replacement);
+  }
+
+  Future<ProgramMembership> _persistMembership(
+    ProgramMembership membership, {
+    bool notify = true,
+  }) async {
+    var saved = membership;
+    try {
+      saved = await _repository.upsertProgramMembership(membership);
+    } catch (e) {
+      if (!isMissingSchemaError(e)) {
+        debugPrint('persist membership: $e');
+      } else {
+        programRemoteReady = false;
+      }
+    }
+    _putMembership(saved);
+    _mirrorMemberships(saved.customerId);
+    if (notify) _notify();
+    return saved;
   }
 
   /// S7 — 서버가 쿠폰을 돌려주면 그걸 쓰고, 아니면 로컬에서 같은 규칙으로 찍는다.
@@ -7233,6 +7683,11 @@ class SoriStore implements Listenable {
         .copyWith(memberships: memberships)
         .withSyncedMembershipMirrors();
 
+    await _syncProgramMembershipsFromJsonb(
+      customerId: customerId,
+      memberships: memberships,
+    );
+
     if (!_repository.isRemote) {
       _mergeCustomer(updated);
       _notify();
@@ -7448,6 +7903,7 @@ class SoriStore implements Listenable {
       '시술 후 자극이 적었어요',
     ],
     bool deductMembership = true,
+    String? membershipId,
   }) {
     final index = charts.indexWhere((c) => c.id == chartId);
     if (index < 0) {
@@ -7459,7 +7915,11 @@ class SoriStore implements Listenable {
     charts[index] = opened;
 
     if (deductMembership && !alreadyChecked) {
-      _deductMembershipVisit(opened.customerId, opened.careName);
+      _deductMembershipVisit(
+        opened.customerId,
+        opened.careName,
+        membershipId: membershipId,
+      );
     } else {
       lastMembershipDeducted = false;
       lastVisitFeedback = null;
@@ -7483,53 +7943,67 @@ class SoriStore implements Listenable {
     return opened;
   }
 
+  /// E7 — 매칭되는 회원권 중 만료 임박 → 잔여 적은 순 → 오래된 순.
+  /// 2장 이상이면 [lastMembershipDeductChoices]에 후보를 남기고, [membershipId]가 있으면 그 장만 깎는다.
+  bool deductProgramMembership({
+    required String customerId,
+    required String careName,
+    String? membershipId,
+  }) {
+    return _deductMembershipVisit(
+      customerId,
+      careName,
+      membershipId: membershipId,
+    );
+  }
+
   /// 방문 확인 시 careName과 매칭되는 회원권 1회 차감.
-  bool _deductMembershipVisit(String customerId, String careName) {
+  bool _deductMembershipVisit(
+    String customerId,
+    String careName, {
+    String? membershipId,
+  }) {
     final custIndex = customers.indexWhere((c) => c.id == customerId);
     if (custIndex < 0) {
       lastMembershipDeducted = false;
       lastVisitFeedback = null;
+      lastMembershipDeductChoices = const [];
       return false;
     }
-    final c = customers[custIndex].withSyncedMembershipMirrors();
-    if (!c.isMembershipCustomer) {
-      lastMembershipDeducted = false;
-      lastVisitFeedback = null;
-      return false;
-    }
-
+    _importJsonbMemberships();
     if (careName.trim().isEmpty) {
       lastMembershipDeducted = false;
       lastVisitFeedback = '진행 서비스가 없어 회원권을 차감하지 않았습니다.';
+      lastMembershipDeductChoices = const [];
       return false;
     }
 
-    for (var i = 0; i < c.memberships.length; i++) {
-      final m = c.memberships[i];
-      if (!CustomerMembership.matchesService(m.serviceName, careName)) {
-        continue;
-      }
-      if (m.remainingVisits <= 0) {
-        lastMembershipDeducted = false;
-        lastVisitFeedback = '${m.serviceName} 회원권 잔여 횟수가 없습니다.';
-        return false;
-      }
-      final updated = m.copyWith(usedVisits: m.usedVisits + 1);
-      final nextMemberships = List<CustomerMembership>.from(c.memberships)
-        ..[i] = updated;
-      customers[custIndex] = c
-          .copyWith(memberships: nextMemberships)
-          .withSyncedMembershipMirrors();
-      lastMembershipDeducted = true;
+    final matched = usableMembershipsFor(customerId, careName: careName);
+    lastMembershipDeductChoices = matched;
+    if (matched.isEmpty) {
+      lastMembershipDeducted = false;
       lastVisitFeedback =
-          '${m.serviceName} 회원권 1회 차감 (잔여 ${updated.remainingVisits}회)';
-      return true;
+          '진행 서비스($careName)와 일치하는 회원권이 없어 차감하지 않았습니다.';
+      return false;
     }
 
-    lastMembershipDeducted = false;
+    final preferred = membershipId?.trim() ?? '';
+    final chosen = preferred.isNotEmpty
+        ? matched.where((m) => m.id == preferred).firstOrNull ?? matched.first
+        : matched.first;
+    if (chosen.remainingVisits <= 0) {
+      lastMembershipDeducted = false;
+      lastVisitFeedback = '${chosen.serviceName} 회원권 잔여 횟수가 없습니다.';
+      return false;
+    }
+    final updated = chosen.copyWith(usedVisits: chosen.usedVisits + 1);
+    _putMembership(updated);
+    _mirrorMemberships(customerId);
+    lastMembershipDeducted = true;
     lastVisitFeedback =
-        '진행 서비스($careName)와 일치하는 회원권이 없어 차감하지 않았습니다.';
-    return false;
+        '${updated.serviceName} 회원권 1회 차감 (잔여 ${updated.remainingVisits}회)';
+    unawaited(_persistMembership(updated, notify: false));
+    return true;
   }
 
   CustomerReview acceptReview(String reviewId) {

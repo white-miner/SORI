@@ -4297,6 +4297,7 @@ class MemorySoriRepository implements SoriRepository {
   final List<ProgramPromotion> _programPromotions = [];
   final List<ProgramQuote> _programQuotes = [];
   final List<ProgramCustomerCoupon> _programCoupons = [];
+  final List<ProgramMembership> _programMemberships = [];
   String? _programSeedShopId;
 
   void _ensureProgramSeed(String shopId) {
@@ -4321,12 +4322,16 @@ class MemorySoriRepository implements SoriRepository {
   Future<ProgramBoardSnapshot> loadProgramBoard(String shopId) async {
     _ensureProgramSeed(shopId);
     final sid = shopId.trim();
+    final now = DateTime.now();
     return ProgramBoardSnapshot(
       categories: _programCategories.where((c) => c.shopId == sid).toList(),
       packages: _programPackages.where((p) => p.shopId == sid).toList(),
       promotions: _programPromotions.where((p) => p.shopId == sid).toList(),
-      quotes: _programQuotes.where((q) => q.shopId == sid).toList(),
+      quotes: _programQuotes
+          .where((q) => q.shopId == sid && q.isVisibleLeadAt(now))
+          .toList(),
       coupons: _programCoupons.where((c) => c.shopId == sid).toList(),
+      memberships: _programMemberships.where((m) => m.shopId == sid).toList(),
     );
   }
 
@@ -4346,6 +4351,27 @@ class MemorySoriRepository implements SoriRepository {
       _programCoupons[idx] = saved;
     } else {
       _programCoupons.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<List<ProgramMembership>> loadProgramMemberships(String shopId) async {
+    final sid = shopId.trim();
+    return _programMemberships.where((m) => m.shopId == sid).toList();
+  }
+
+  @override
+  Future<ProgramMembership> upsertProgramMembership(
+    ProgramMembership membership,
+  ) async {
+    final id = _assignedId(membership.id);
+    final saved = membership.copyWith(id: id);
+    final idx = _programMemberships.indexWhere((m) => m.id == saved.id);
+    if (idx >= 0) {
+      _programMemberships[idx] = saved;
+    } else {
+      _programMemberships.add(saved);
     }
     return saved;
   }
@@ -4463,6 +4489,18 @@ class MemorySoriRepository implements SoriRepository {
     if (cid.isEmpty) throw StateError('customerId required');
 
     final quote = _programQuotes[idx];
+    final already = _programMemberships
+        .where((m) => m.sourceQuoteId == quoteId && m.customerId == cid)
+        .toList();
+    if (quote.status == ProgramQuoteStatus.accepted && already.isNotEmpty) {
+      return ProgramAcceptResult(
+        quote: quote,
+        membershipId: already.first.id,
+        coupons: _programCoupons
+            .where((c) => c.issuedQuoteId == quoteId)
+            .toList(),
+      );
+    }
     final settled = paidKrw >= quote.payableKrw && paidKrw > 0
         ? ProgramPaymentStatus.paid
         : paidKrw > 0
@@ -4479,23 +4517,60 @@ class MemorySoriRepository implements SoriRepository {
     );
     _programQuotes[idx] = accepted;
 
-    // S7 — 미래가치는 회원권 횟수가 아니라 쿠폰 행으로 떨어진다.
     final catalog = {for (final p in _programPromotions) p.id: p};
-    final issued = <ProgramCustomerCoupon>[];
-    for (final pid in accepted.promotionIds) {
-      final promo = catalog[pid];
-      if (promo == null || !promo.kind.isFutureCredit) continue;
-      final coupon = ProgramCustomerCoupon.fromPromotion(
-        id: newUuidV4(),
-        promo: promo,
-        customerId: cid,
-        quoteId: accepted.id,
-      );
-      _programCoupons.add(coupon);
-      issued.add(coupon);
+    final promos = [
+      for (final pid in accepted.promotionIds)
+        if (catalog[pid] != null) catalog[pid]!,
+    ];
+    final visits = ProgramPricing.membershipVisits(
+      accepted.chosen.visitCount,
+      promos,
+    );
+    final mid = already.isNotEmpty ? already.first.id : newUuidV4();
+    final membership = ProgramMembership(
+      id: mid,
+      shopId: accepted.shopId,
+      customerId: cid,
+      sourceQuoteId: accepted.id,
+      serviceName: accepted.chosen.name,
+      totalVisits: visits,
+      paidKrw: accepted.payableKrw,
+      perSessionKrw: ProgramPricing.unitPrice(accepted.payableKrw, visits),
+      createdAt: DateTime.now(),
+    );
+    final midx = _programMemberships.indexWhere((m) => m.id == mid);
+    if (midx >= 0) {
+      _programMemberships[midx] = membership;
+    } else {
+      _programMemberships.add(membership);
     }
 
-    return ProgramAcceptResult(quote: accepted, coupons: issued);
+    // S7 — 미래가치는 회원권 횟수가 아니라 쿠폰 행으로 떨어진다.
+    final issued = <ProgramCustomerCoupon>[];
+    if (_programCoupons.every((c) => c.issuedQuoteId != accepted.id)) {
+      for (final pid in accepted.promotionIds) {
+        final promo = catalog[pid];
+        if (promo == null || !promo.kind.isFutureCredit) continue;
+        final coupon = ProgramCustomerCoupon.fromPromotion(
+          id: newUuidV4(),
+          promo: promo,
+          customerId: cid,
+          quoteId: accepted.id,
+        );
+        _programCoupons.add(coupon);
+        issued.add(coupon);
+      }
+    } else {
+      issued.addAll(
+        _programCoupons.where((c) => c.issuedQuoteId == accepted.id),
+      );
+    }
+
+    return ProgramAcceptResult(
+      quote: accepted,
+      membershipId: mid,
+      coupons: issued,
+    );
   }
 }
 

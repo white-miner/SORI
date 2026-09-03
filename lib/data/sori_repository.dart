@@ -914,6 +914,13 @@ abstract class SoriRepository {
     ProgramCustomerCoupon coupon,
   );
 
+  /// PRD v7.2 — 회원권 원장 (115). jsonb 는 읽기 미러다.
+  Future<List<ProgramMembership>> loadProgramMemberships(String shopId);
+
+  Future<ProgramMembership> upsertProgramMembership(
+    ProgramMembership membership,
+  );
+
   /// Visit OS — on-site session SSOT (097).
   Future<List<VisitSession>> loadVisitSessions(
     String shopId, {

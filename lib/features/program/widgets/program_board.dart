@@ -13,6 +13,7 @@ class ProgramCategoryCard extends StatelessWidget {
     required this.selectedIds,
     required this.onToggleExpand,
     required this.onToggleCheck,
+    this.globalPromoCaption = '',
   });
 
   final ProgramCategoryBoard board;
@@ -20,6 +21,9 @@ class ProgramCategoryCard extends StatelessWidget {
   final List<String> selectedIds;
   final VoidCallback onToggleExpand;
   final ValueChanged<ProgramPackage> onToggleCheck;
+
+  /// R5 — scope=global 혜택 1줄. 배너·색 강조 없이 캡션만.
+  final String globalPromoCaption;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +110,22 @@ class ProgramCategoryCard extends StatelessWidget {
                           visitCount: anchor.visitCount,
                           walkInPriceKrw: anchor.walkInPriceKrw,
                         ),
+                        if (globalPromoCaption.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              globalPromoCaption,
+                              key: const Key('program-global-promo-caption'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: HomeVisualTokens.dateIconColor,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

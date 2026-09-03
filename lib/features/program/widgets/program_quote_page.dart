@@ -62,7 +62,9 @@ class _ProgramQuotePageState extends State<ProgramQuotePage> {
       store: widget.store,
       quote: q,
     );
-    if (done && mounted) Navigator.of(context).pop();
+    if (done && mounted) {
+      Navigator.of(context).pop(ProgramConsultResult.accepted);
+    }
   }
 
   @override
@@ -85,7 +87,9 @@ class _ProgramQuotePageState extends State<ProgramQuotePage> {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).pop(
+                      ProgramConsultResult.closed,
+                    ),
                     icon: const Icon(Icons.close_rounded),
                   ),
                   const Expanded(
@@ -108,6 +112,25 @@ class _ProgramQuotePageState extends State<ProgramQuotePage> {
                 padding: const EdgeInsets.only(bottom: 8),
                 children: [
                   ProgramPackageSummary(side: quote.chosen),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: OutlinedButton(
+                      key: const Key('program-quote-add-compare'),
+                      onPressed: () => Navigator.of(context).pop(
+                        ProgramConsultResult.addCompare,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: HomeVisualTokens.programCloserFill,
+                        side: const BorderSide(
+                          color: HomeVisualTokens.programCloserFill,
+                        ),
+                      ),
+                      child: const Text(
+                        '비교 대상 추가',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

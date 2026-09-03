@@ -183,4 +183,64 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('program-coupon-badge')), findsWidgets);
   });
+
+  testWidgets('접힌 앵커 아래에 전체 혜택 캡션이 한 줄 있다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: VisitLauncherPage(store: SoriStore()))),
+    );
+    await _settle(tester);
+    await tester.tap(find.text('Program'));
+    await _settle(tester);
+
+    expect(find.byKey(const Key('program-global-promo-caption')), findsWidgets);
+    final caption = tester.widget<Text>(
+      find.byKey(const Key('program-global-promo-caption')).first,
+    );
+    expect(caption.maxLines, 1);
+    expect(caption.style?.color, HomeVisualTokens.dateIconColor);
+    expect(caption.style?.fontSize, 11);
+  });
+
+  testWidgets('단건에서 비교 대상을 추가하면 첫 스냅샷이 유지된다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = SoriStore();
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: VisitLauncherPage(store: store))),
+    );
+    await _settle(tester);
+    await tester.tap(find.text('Program'));
+    await _settle(tester);
+    await tester.tap(find.text('윤곽 관리'));
+    await tester.pump(HomeVisualTokens.programExpandDuration);
+
+    await tester.tap(
+      find.byKey(const Key('program-check-${ProgramDemoSeed.pkgA}')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('program-dock-proceed')));
+    await tester.pump(HomeVisualTokens.programExpandDuration);
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(find.byType(ProgramQuotePage), findsOneWidget);
+    await tester.tap(find.byKey(const Key('program-quote-add-compare')));
+    await tester.pump(HomeVisualTokens.programExpandDuration);
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(find.textContaining('비교할 패키지를'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('program-check-${ProgramDemoSeed.pkgB}')),
+    );
+    await tester.pump(HomeVisualTokens.programExpandDuration);
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(find.text('3,000,000'), findsWidgets);
+    final frozen = store.programQuotes.where((q) => !q.isSingle);
+    expect(frozen, isNotEmpty);
+    expect(frozen.first.left.listPriceKrw, 3000000);
+  });
 }

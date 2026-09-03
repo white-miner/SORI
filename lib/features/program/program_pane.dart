@@ -7,6 +7,7 @@ import 'program_edit_page.dart';
 import 'widgets/program_board.dart';
 import 'widgets/program_compare_page.dart';
 import 'widgets/program_quote_page.dart';
+import 'widgets/program_slot_replace_sheet.dart';
 
 /// PRD v7.1 — 홈 2번 탭. 고객을 향하는 Presentation 모드가 기본이다.
 class ProgramPane extends StatefulWidget {
@@ -22,6 +23,8 @@ class _ProgramPaneState extends State<ProgramPane>
     with AutomaticKeepAliveClientMixin {
   String? _expandedCategoryId;
   final List<String> _selectedIds = [];
+  String? _frozenQuoteId;
+  var _pickingPeer = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -51,17 +54,30 @@ class _ProgramPaneState extends State<ProgramPane>
     });
   }
 
-  void _toggleCheck(ProgramPackage package) {
-    setState(() {
-      if (_selectedIds.contains(package.id)) {
-        _selectedIds.remove(package.id);
-        return;
-      }
-      if (_selectedIds.length >= 2) {
-        _selectedIds.removeAt(0);
-      }
-      _selectedIds.add(package.id);
-    });
+  Future<void> _toggleCheck(ProgramPackage package) async {
+    if (_selectedIds.contains(package.id)) {
+      setState(() => _selectedIds.remove(package.id));
+      return;
+    }
+    if (_pickingPeer && _frozenQuoteId != null && _selectedIds.length == 1) {
+      setState(() => _selectedIds.add(package.id));
+      await _openFrozenCompare();
+      return;
+    }
+    if (_selectedIds.length >= 2) {
+      final drop = await showProgramSlotReplaceSheet(
+        context: context,
+        leftName: store.findProgramPackage(_selectedIds[0])?.name ?? '',
+        rightName: store.findProgramPackage(_selectedIds[1])?.name ?? '',
+        incomingName: package.name,
+      );
+      if (!mounted || drop == null) return;
+      setState(() {
+        _selectedIds[drop] = package.id;
+      });
+      return;
+    }
+    setState(() => _selectedIds.add(package.id));
   }
 
   bool get _crossCategory {
@@ -73,6 +89,12 @@ class _ProgramPaneState extends State<ProgramPane>
   }
 
   Future<void> _openSelected() async {
+    if (_pickingPeer) {
+      if (_selectedIds.length == 2) {
+        await _openFrozenCompare();
+      }
+      return;
+    }
     if (_selectedIds.isEmpty) return;
     final left = store.findProgramPackage(_selectedIds[0]);
     if (left == null) return;
@@ -82,8 +104,30 @@ class _ProgramPaneState extends State<ProgramPane>
     if (_selectedIds.length > 1 && right == null) return;
     final quote = await store.presentProgramQuote(left: left, right: right);
     if (!mounted) return;
-    await Navigator.of(context).push(
-      PageRouteBuilder<void>(
+    await _pushConsult(quote);
+  }
+
+  Future<void> _openFrozenCompare() async {
+    final quoteId = _frozenQuoteId;
+    if (quoteId == null || _selectedIds.length != 2) return;
+    final existing = store.findProgramQuote(quoteId);
+    final left = store.findProgramPackage(_selectedIds[0]);
+    final right = store.findProgramPackage(_selectedIds[1]);
+    if (left == null || right == null) return;
+    final quote = existing == null
+        ? await store.presentProgramQuote(left: left, right: right)
+        : await store.attachQuotePeer(quote: existing, right: right);
+    if (!mounted) return;
+    setState(() {
+      _pickingPeer = false;
+      _frozenQuoteId = null;
+    });
+    await _pushConsult(quote);
+  }
+
+  Future<void> _pushConsult(ProgramQuote quote) async {
+    final result = await Navigator.of(context).push<ProgramConsultResult>(
+      PageRouteBuilder<ProgramConsultResult>(
         transitionDuration: HomeVisualTokens.programExpandDuration,
         reverseTransitionDuration: HomeVisualTokens.programExpandDuration,
         pageBuilder: (context, animation, _) {
@@ -99,6 +143,23 @@ class _ProgramPaneState extends State<ProgramPane>
         },
       ),
     );
+    if (!mounted) return;
+    if (result == ProgramConsultResult.addCompare) {
+      setState(() {
+        _frozenQuoteId = quote.id;
+        _pickingPeer = true;
+        if (_selectedIds.isEmpty) {
+          _selectedIds.add(quote.chosen.id);
+        }
+        if (_selectedIds.length > 1) {
+          _selectedIds.removeRange(1, _selectedIds.length);
+        }
+      });
+      return;
+    }
+    if (result != ProgramConsultResult.accepted) {
+      await store.abandonProgramQuote(quote.id);
+    }
   }
 
   Future<void> _openEdit() async {
@@ -178,6 +239,7 @@ class _ProgramPaneState extends State<ProgramPane>
                         board: board,
                         expanded: board.category.id == _expandedCategoryId,
                         selectedIds: _selectedIds,
+                        globalPromoCaption: store.globalPromoCaption,
                         onToggleExpand: () =>
                             _toggleExpand(board.category.id),
                         onToggleCheck: _toggleCheck,
@@ -204,6 +266,7 @@ class _ProgramPaneState extends State<ProgramPane>
                 onClearRight: () => setState(() {
                   if (_selectedIds.length > 1) _selectedIds.removeAt(1);
                 }),
+                pickingPeer: _pickingPeer,
                 onProceed: _openSelected,
               ),
             ),
@@ -262,12 +325,14 @@ class _CompareDock extends StatelessWidget {
     required this.onClearLeft,
     required this.onClearRight,
     required this.onProceed,
+    this.pickingPeer = false,
   });
 
   final String leftName;
   final String rightName;
   final bool crossCategory;
   final bool compareEnabled;
+  final bool pickingPeer;
   final VoidCallback onClearLeft;
   final VoidCallback onClearRight;
   final VoidCallback onProceed;
@@ -285,12 +350,14 @@ class _CompareDock extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!compareEnabled)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '비교하려면 하나를 더 고르세요',
+                    pickingPeer
+                        ? '비교할 패키지를 하나 더 고르세요'
+                        : '비교하려면 하나를 더 고르세요',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -316,13 +383,30 @@ class _CompareDock extends StatelessWidget {
               ),
             Row(
               children: [
-                Expanded(child: _NameChip(name: leftName, onClear: onClearLeft)),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: HomeVisualTokens.programExpandDuration,
+                    switchInCurve: HomeVisualTokens.programExpandCurve,
+                    switchOutCurve: HomeVisualTokens.programExpandCurve,
+                    child: _NameChip(
+                      key: ValueKey('left-$leftName'),
+                      name: leftName,
+                      onClear: onClearLeft,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _NameChip(
-                    name: rightName.isEmpty ? '하나를 더 고르세요' : rightName,
-                    onClear: rightName.isEmpty ? null : onClearRight,
-                    placeholder: rightName.isEmpty,
+                  child: AnimatedSwitcher(
+                    duration: HomeVisualTokens.programExpandDuration,
+                    switchInCurve: HomeVisualTokens.programExpandCurve,
+                    switchOutCurve: HomeVisualTokens.programExpandCurve,
+                    child: _NameChip(
+                      key: ValueKey('right-$rightName'),
+                      name: rightName.isEmpty ? '하나를 더 고르세요' : rightName,
+                      onClear: rightName.isEmpty ? null : onClearRight,
+                      placeholder: rightName.isEmpty,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -355,6 +439,7 @@ class _CompareDock extends StatelessWidget {
 
 class _NameChip extends StatelessWidget {
   const _NameChip({
+    super.key,
     required this.name,
     this.onClear,
     this.placeholder = false,

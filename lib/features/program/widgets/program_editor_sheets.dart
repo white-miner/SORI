@@ -111,6 +111,7 @@ class _SheetChrome extends StatelessWidget {
               SizedBox(
                 height: HomeVisualTokens.programDockH,
                 child: FilledButton(
+                  key: const Key('program-edit-sheet-save'),
                   onPressed: saveEnabled ? onSave : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: HomeVisualTokens.programCloserFill,
@@ -237,12 +238,11 @@ class _PackageSheetState extends State<_PackageSheet> {
         : '${widget.existing!.walkInPriceKrw}',
   );
   late String _accent = ProgramAccent.normalize(widget.existing?.accentHex);
-  late final List<TextEditingController> _lines = [
+  late final List<_LineDraft> _lines = [
     if (widget.existing != null && widget.existing!.lines.isNotEmpty)
-      for (final line in widget.existing!.lines)
-        TextEditingController(text: line.label)
+      for (final line in widget.existing!.lines) _LineDraft.fromLine(line)
     else
-      TextEditingController(),
+      _LineDraft(),
   ];
 
   @override
@@ -281,12 +281,14 @@ class _PackageSheetState extends State<_PackageSheet> {
   int get _unit => ProgramPricing.unitPrice(_listPrice, _visitCount);
 
   void _addLine() {
-    setState(() => _lines.add(TextEditingController()));
+    setState(() => _lines.add(_LineDraft()));
   }
 
   void _removeLine(int index) {
     if (_lines.length <= 1) {
-      _lines.first.clear();
+      _lines.first.label.clear();
+      _lines.first.minutes.clear();
+      _lines.first.kind = ProgramLineKind.step;
       setState(() {});
       return;
     }
@@ -302,14 +304,16 @@ class _PackageSheetState extends State<_PackageSheet> {
     final parsedLines = <ProgramPackageLine>[];
     var sort = 0;
     for (final c in _lines) {
-      final label = c.text.trim();
+      final label = c.label.text.trim();
       if (label.isEmpty) continue;
+      final mins = int.tryParse(c.minutes.text);
       parsedLines.add(
         ProgramPackageLine(
           id: newUuidV4(),
           packageId: pkgId,
-          kind: ProgramLineKind.perk,
+          kind: c.kind,
           label: label,
+          minutes: c.kind == ProgramLineKind.step ? mins : null,
           sortOrder: sort++,
         ),
       );
@@ -461,18 +465,63 @@ class _PackageSheetState extends State<_PackageSheet> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  SizedBox(
+                    width: 128,
+                    child: DropdownButtonFormField<ProgramLineKind>(
+                      key: Key('program-edit-line-kind-$i'),
+                      // ignore: deprecated_member_use
+                      value: _lines[i].kind,
+                      isExpanded: true,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        labelText: '종류',
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final k in ProgramLineKind.values)
+                          DropdownMenuItem(
+                            value: k,
+                            child: Text(
+                              k.labelKo,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _lines[i].kind = v);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       key: Key('program-edit-line-$i'),
-                      controller: _lines[i],
+                      controller: _lines[i].label,
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
-                        labelText: '항목 ${i + 1}',
+                        labelText: '내용',
                         hintText: '고주파 온열',
                       ),
                     ),
                   ),
+                  if (_lines[i].kind == ProgramLineKind.step) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 64,
+                      child: TextField(
+                        key: Key('program-edit-line-minutes-$i'),
+                        controller: _lines[i].minutes,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(labelText: '분'),
+                      ),
+                    ),
+                  ],
                   IconButton(
                     tooltip: '항목 삭제',
                     onPressed: () => _removeLine(i),
@@ -563,21 +612,109 @@ class _PromoSheetState extends State<_PromoSheet> {
   late final TextEditingController _value = TextEditingController(
     text: widget.existing == null ? '100000' : '${widget.existing!.valueKrw}',
   );
+  late final TextEditingController _extra = TextEditingController(
+    text: '${widget.existing?.extraVisits == 0 ? 1 : (widget.existing?.extraVisits ?? 1)}',
+  );
+  late final TextEditingController _percent = TextEditingController(
+    text: widget.existing == null || widget.existing!.percentOff <= 0
+        ? '10'
+        : '${widget.existing!.percentOff == widget.existing!.percentOff.roundToDouble() ? widget.existing!.percentOff.round() : widget.existing!.percentOff}',
+  );
+  late final TextEditingController _giftQty = TextEditingController(
+    text: '${widget.existing == null || widget.existing!.giftQty <= 0 ? 1 : widget.existing!.giftQty}',
+  );
   late ProgramPromoKind _kind = widget.existing?.kind ?? ProgramPromoKind.gift;
+  late ProgramPromoScope _scope =
+      widget.existing?.scope ?? ProgramPromoScope.global;
+  late String? _targetId = widget.existing?.targetId;
+  late bool _titleTouched;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleTouched =
+        widget.existing != null && widget.existing!.title.trim().isNotEmpty;
+    for (final c in [_value, _extra, _percent, _giftQty]) {
+      c.addListener(_onValue);
+    }
+  }
+
+  void _onValue() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    for (final c in [_value, _extra, _percent, _giftQty]) {
+      c.removeListener(_onValue);
+    }
     _title.dispose();
     _value.dispose();
+    _extra.dispose();
+    _percent.dispose();
+    _giftQty.dispose();
     super.dispose();
   }
 
+  String get _targetName {
+    if (_scope == ProgramPromoScope.category) {
+      return widget.store.programCategories
+              .where((c) => c.id == _targetId)
+              .map((c) => c.name)
+              .firstOrNull ??
+          '';
+    }
+    if (_scope == ProgramPromoScope.package) {
+      return widget.store.programPackages
+              .where((p) => p.id == _targetId)
+              .map((p) => p.name)
+              .firstOrNull ??
+          '';
+    }
+    return '';
+  }
+
+  String get _preview {
+    final extra = int.tryParse(_extra.text) ?? 1;
+    final pct = double.tryParse(_percent.text) ?? 0;
+    final gift = int.tryParse(_giftQty.text) ?? 1;
+    final value = int.tryParse(_value.text) ?? 0;
+    return ProgramPromoComposer.preview(
+      scope: _scope,
+      kind: _kind,
+      targetName: _targetName,
+      extraVisits: extra,
+      discountKrw: _kind == ProgramPromoKind.instantDiscount ? value : 0,
+      percentOff: _kind == ProgramPromoKind.percentDiscount ||
+              _kind == ProgramPromoKind.nextVisitCredit
+          ? pct
+          : 0,
+      giftQty: gift,
+      valueKrw: value,
+    );
+  }
+
+  void _syncTitle() {
+    if (_titleTouched && _title.text.trim().isNotEmpty) return;
+    _title.text = _preview;
+  }
+
   Future<void> _save() async {
+    _syncTitle();
     final t = _title.text.trim();
     if (t.isEmpty) return;
     final valueKrw = int.tryParse(_value.text) ?? 0;
-    final extra = _kind == ProgramPromoKind.extraSession ? 1 : 0;
+    final extra = _kind == ProgramPromoKind.extraSession
+        ? (int.tryParse(_extra.text) ?? 1).clamp(1, 99)
+        : 0;
     final discount = _kind == ProgramPromoKind.instantDiscount ? valueKrw : 0;
+    final pct = (_kind == ProgramPromoKind.percentDiscount ||
+            _kind == ProgramPromoKind.nextVisitCredit)
+        ? (double.tryParse(_percent.text) ?? 0).clamp(0, 100).toDouble()
+        : 0.0;
+    final gift = _kind == ProgramPromoKind.gift
+        ? (int.tryParse(_giftQty.text) ?? 1).clamp(1, 99)
+        : 0;
     final existing = widget.existing;
     final draft = existing == null
         ? ProgramPromotion(
@@ -588,6 +725,10 @@ class _PromoSheetState extends State<_PromoSheet> {
             valueKrw: valueKrw,
             extraVisits: extra,
             discountKrw: discount,
+            percentOff: pct,
+            giftQty: gift,
+            scope: _scope,
+            targetId: _scope == ProgramPromoScope.global ? null : _targetId,
             sortOrder: widget.store.programPromotions.length,
           )
         : existing.copyWith(
@@ -596,6 +737,11 @@ class _PromoSheetState extends State<_PromoSheet> {
             valueKrw: valueKrw,
             extraVisits: extra,
             discountKrw: discount,
+            percentOff: pct,
+            giftQty: gift,
+            scope: _scope,
+            targetId: _scope == ProgramPromoScope.global ? null : _targetId,
+            clearTarget: _scope == ProgramPromoScope.global,
           );
     await widget.store.upsertProgramPromotion(draft);
     if (mounted) Navigator.pop(context);
@@ -603,17 +749,109 @@ class _PromoSheetState extends State<_PromoSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final preview = _preview;
+    final cats = [...widget.store.programCategories]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final pkgs = [...widget.store.programPackages]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
     return _SheetChrome(
       title: widget.existing == null ? '프로모션 추가' : '프로모션 수정',
       onSave: _save,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            key: const Key('program-edit-promo-title'),
-            controller: _title,
-            decoration: const InputDecoration(labelText: '제목'),
+          Container(
+            key: const Key('program-promo-preview'),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: HomeVisualTokens.canvasBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              preview,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
+          const SizedBox(height: 16),
+          const Text(
+            '적용 범위',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final s in ProgramPromoScope.values)
+                ChoiceChip(
+                  key: Key('program-promo-scope-${s.dbValue}'),
+                  label: Text(s.labelKo),
+                  selected: _scope == s,
+                  onSelected: (_) => setState(() {
+                    _scope = s;
+                    if (s == ProgramPromoScope.global) _targetId = null;
+                    if (s == ProgramPromoScope.category &&
+                        (_targetId == null ||
+                            !cats.any((c) => c.id == _targetId))) {
+                      _targetId = cats.isEmpty ? null : cats.first.id;
+                    }
+                    if (s == ProgramPromoScope.package &&
+                        (_targetId == null ||
+                            !pkgs.any((p) => p.id == _targetId))) {
+                      _targetId = pkgs.isEmpty ? null : pkgs.first.id;
+                    }
+                  }),
+                  selectedColor: HomeVisualTokens.canvasBg,
+                  showCheckmark: false,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: HomeVisualTokens.programCloserFill,
+                    fontSize: 13,
+                  ),
+                  side: BorderSide(
+                    color: _scope == s
+                        ? HomeVisualTokens.programCloserFill
+                        : HomeVisualTokens.caseCaptionDivider,
+                  ),
+                ),
+            ],
+          ),
+          if (_scope == ProgramPromoScope.category && cats.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              key: const Key('program-promo-target-category'),
+              // ignore: deprecated_member_use
+              value: cats.any((c) => c.id == _targetId)
+                  ? _targetId
+                  : cats.first.id,
+              decoration: const InputDecoration(labelText: '카테고리'),
+              items: [
+                for (final c in cats)
+                  DropdownMenuItem(value: c.id, child: Text(c.name)),
+              ],
+              onChanged: (v) => setState(() => _targetId = v),
+            ),
+          ],
+          if (_scope == ProgramPromoScope.package && pkgs.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              key: const Key('program-promo-target-package'),
+              // ignore: deprecated_member_use
+              value: pkgs.any((p) => p.id == _targetId)
+                  ? _targetId
+                  : pkgs.first.id,
+              decoration: const InputDecoration(labelText: '패키지'),
+              items: [
+                for (final p in pkgs)
+                  DropdownMenuItem(value: p.id, child: Text(p.name)),
+              ],
+              onChanged: (v) => setState(() => _targetId = v),
+            ),
+          ],
           const SizedBox(height: 14),
           const Text(
             '종류',
@@ -631,7 +869,7 @@ class _PromoSheetState extends State<_PromoSheet> {
                   selected: _kind == kind,
                   onSelected: (_) => setState(() => _kind = kind),
                   selectedColor: HomeVisualTokens.canvasBg,
-                  labelStyle: TextStyle(
+                  labelStyle: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: HomeVisualTokens.programCloserFill,
                     fontSize: 13,
@@ -646,14 +884,85 @@ class _PromoSheetState extends State<_PromoSheet> {
             ],
           ),
           const SizedBox(height: 12),
+          if (_kind == ProgramPromoKind.extraSession)
+            TextField(
+              key: const Key('program-edit-promo-extra'),
+              controller: _extra,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: '추가 횟수'),
+              onChanged: (_) => setState(() {}),
+            )
+          else if (_kind == ProgramPromoKind.percentDiscount ||
+              _kind == ProgramPromoKind.nextVisitCredit)
+            TextField(
+              key: const Key('program-edit-promo-percent'),
+              controller: _percent,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: '할인 (%)'),
+              onChanged: (_) => setState(() {}),
+            )
+          else if (_kind == ProgramPromoKind.gift)
+            TextField(
+              key: const Key('program-edit-promo-gift-qty'),
+              controller: _giftQty,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: '증정 갯수'),
+              onChanged: (_) => setState(() {}),
+            )
+          else
+            TextField(
+              controller: _value,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: '정액 할인 (원)'),
+              onChanged: (_) => setState(() {}),
+            ),
+          const SizedBox(height: 12),
           TextField(
             controller: _value,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: const InputDecoration(labelText: '혜택 환산 (원)'),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('program-edit-promo-title'),
+            controller: _title,
+            decoration: const InputDecoration(labelText: '제목 (미리보기와 같으면 비워도 됩니다)'),
+            onChanged: (_) => _titleTouched = true,
           ),
         ],
       ),
     );
+  }
+}
+
+class _LineDraft {
+  _LineDraft({
+    this.kind = ProgramLineKind.step,
+    String label = '',
+    String minutes = '',
+  })  : label = TextEditingController(text: label),
+        minutes = TextEditingController(text: minutes);
+
+  factory _LineDraft.fromLine(ProgramPackageLine line) {
+    return _LineDraft(
+      kind: line.kind,
+      label: line.label,
+      minutes: line.minutes == null ? '' : '${line.minutes}',
+    );
+  }
+
+  ProgramLineKind kind;
+  final TextEditingController label;
+  final TextEditingController minutes;
+
+  void dispose() {
+    label.dispose();
+    minutes.dispose();
   }
 }

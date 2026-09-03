@@ -1,5 +1,6 @@
 import '../utils/db_map.dart';
 import '../utils/sori_uuid.dart';
+import 'customer_membership.dart';
 
 /// PRD v7.1 — 내부 역할. 고객 화면에는 쓰지 않는다.
 enum ProgramPackageTier {
@@ -31,6 +32,14 @@ enum ProgramLineKind {
       orElse: () => ProgramLineKind.perk,
     );
   }
+
+  /// 원장 화면 전용. dbValue 를 그대로 노출하지 않는다.
+  String get labelKo => switch (this) {
+        ProgramLineKind.step => '관리 내용',
+        ProgramLineKind.device => '사용 기기',
+        ProgramLineKind.ampoule => '제품·앰플',
+        ProgramLineKind.perk => '추가 혜택',
+      };
 }
 
 enum ProgramPromoKind {
@@ -741,6 +750,45 @@ enum ProgramPromoScope {
       };
 }
 
+/// R4 — [범위] + [종류] + [값] 조립 문장. 원장 타이핑을 이 한 줄이 대신한다.
+abstract final class ProgramPromoComposer {
+  static String preview({
+    required ProgramPromoScope scope,
+    required ProgramPromoKind kind,
+    String targetName = '',
+    int extraVisits = 1,
+    int discountKrw = 0,
+    double percentOff = 0,
+    int giftQty = 1,
+    int valueKrw = 0,
+  }) {
+    final range = switch (scope) {
+      ProgramPromoScope.global => '모든 관리 서비스',
+      ProgramPromoScope.category =>
+        targetName.trim().isEmpty ? '카테고리' : targetName.trim(),
+      ProgramPromoScope.package =>
+        targetName.trim().isEmpty ? '패키지' : targetName.trim(),
+    };
+    final benefit = switch (kind) {
+      ProgramPromoKind.percentDiscount =>
+        '${_pct(percentOff)}% 할인',
+      ProgramPromoKind.instantDiscount =>
+        '${ProgramPricing.formatKrw(discountKrw)}원 할인',
+      ProgramPromoKind.extraSession => '+${extraVisits < 1 ? 1 : extraVisits}회',
+      ProgramPromoKind.gift => giftQty > 0 ? '사은품 ${giftQty}개' : '사은품 증정',
+      ProgramPromoKind.nextVisitCredit => percentOff > 0
+          ? '다음 구매 ${_pct(percentOff)}% 할인'
+          : discountKrw > 0
+              ? '다음 구매 ${ProgramPricing.formatKrw(discountKrw)}원 할인'
+              : '다음 방문 크레딧',
+    };
+    return '$range / $benefit';
+  }
+
+  static String _pct(double n) =>
+      n == n.roundToDouble() ? '${n.round()}' : n.toStringAsFixed(1);
+}
+
 class ProgramPromotion {
   const ProgramPromotion({
     required this.id,
@@ -1090,6 +1138,16 @@ class ProgramQuote {
 
   bool get isSingle => right == null;
 
+  /// Q5(a) — 수락분은 항상, 이탈분은 90일간 리드로 남긴다. 삭제하지 않는다.
+  static const leadRetention = Duration(days: 90);
+
+  bool isVisibleLeadAt([DateTime? now]) {
+    if (status == ProgramQuoteStatus.accepted) return true;
+    final t = createdAt ?? presentedAt;
+    if (t == null) return true;
+    return (now ?? DateTime.now()).difference(t) <= leadRetention;
+  }
+
   ProgramPackageSnapshot get chosen {
     final r = right;
     if (r != null && chosenPackageId == r.id) return r;
@@ -1315,6 +1373,7 @@ class ProgramBoardSnapshot {
     this.promotions = const [],
     this.quotes = const [],
     this.coupons = const [],
+    this.memberships = const [],
   });
 
   final List<ProgramCategory> categories;
@@ -1322,6 +1381,7 @@ class ProgramBoardSnapshot {
   final List<ProgramPromotion> promotions;
   final List<ProgramQuote> quotes;
   final List<ProgramCustomerCoupon> coupons;
+  final List<ProgramMembership> memberships;
 }
 
 /// 메모리/E2E용 윤곽 디코이 산수. 운영 메뉴(`shop_menus`)와 id가 겹치지 않는다.
@@ -1535,6 +1595,257 @@ abstract final class ProgramDemoSeed {
           sortOrder: 2,
         ),
       ],
+    );
+  }
+}
+
+/// 단건 요약 / 비교 화면을 닫을 때 보드가 다음 동작을 안다.
+enum ProgramConsultResult {
+  closed,
+  accepted,
+  addCompare,
+}
+
+enum ProgramMembershipStatus {
+  active,
+  refunded,
+  superseded,
+  expired,
+  voided;
+
+  String get dbValue => name;
+
+  static ProgramMembershipStatus fromDb(String? raw) {
+    return ProgramMembershipStatus.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => ProgramMembershipStatus.active,
+    );
+  }
+}
+
+enum ProgramRefundBasis {
+  listUnit,
+  packageUnit;
+
+  String get dbValue =>
+      this == ProgramRefundBasis.listUnit ? 'list_unit' : 'package_unit';
+
+  static ProgramRefundBasis? fromDb(String? raw) {
+    return switch (raw) {
+      'list_unit' => ProgramRefundBasis.listUnit,
+      'package_unit' => ProgramRefundBasis.packageUnit,
+      _ => null,
+    };
+  }
+}
+
+/// Q2(a) — 회원권 자산. jsonb 미러의 진실 원본이다.
+class ProgramMembership {
+  const ProgramMembership({
+    required this.id,
+    required this.shopId,
+    required this.customerId,
+    required this.serviceName,
+    required this.totalVisits,
+    this.usedVisits = 0,
+    this.paidKrw = 0,
+    this.perSessionKrw = 0,
+    this.sourceQuoteId,
+    this.status = ProgramMembershipStatus.active,
+    this.refundedKrw = 0,
+    this.refundedAt,
+    this.refundBasis,
+    this.supersededBy,
+    this.creditAppliedKrw = 0,
+    this.expiresAt,
+    this.createdAt,
+  });
+
+  final String id;
+  final String shopId;
+  final String customerId;
+  final String? sourceQuoteId;
+  final String serviceName;
+  final int totalVisits;
+  final int usedVisits;
+  final int paidKrw;
+  final int perSessionKrw;
+  final ProgramMembershipStatus status;
+  final int refundedKrw;
+  final DateTime? refundedAt;
+  final ProgramRefundBasis? refundBasis;
+  final String? supersededBy;
+  final int creditAppliedKrw;
+  final DateTime? expiresAt;
+  final DateTime? createdAt;
+
+  int get remainingVisits => (totalVisits - usedVisits).clamp(0, 999);
+
+  bool get isUsable =>
+      status == ProgramMembershipStatus.active && remainingVisits > 0;
+
+  int get remainingValueKrw =>
+      (perSessionKrw > 0 ? perSessionKrw : 0) * remainingVisits;
+
+  /// E1 — 소진분은 빼고 나머지를 돌려준다.
+  int refundAmount({
+    ProgramRefundBasis basis = ProgramRefundBasis.packageUnit,
+    int? listUnitKrw,
+  }) {
+    final unit = basis == ProgramRefundBasis.listUnit
+        ? (listUnitKrw ?? perSessionKrw)
+        : perSessionKrw;
+    final left = paidKrw - unit * usedVisits;
+    return left < 0 ? 0 : left;
+  }
+
+  CustomerMembership toCustomerTicket() => CustomerMembership(
+        id: id,
+        serviceName: serviceName,
+        totalVisits: totalVisits,
+        usedVisits: usedVisits,
+        paidAmount: paidKrw,
+        perSessionValue: perSessionKrw,
+        expiresAt: expiresAt,
+      );
+
+  ProgramMembership copyWith({
+    String? id,
+    int? usedVisits,
+    ProgramMembershipStatus? status,
+    int? refundedKrw,
+    DateTime? refundedAt,
+    ProgramRefundBasis? refundBasis,
+    String? supersededBy,
+    int? creditAppliedKrw,
+    DateTime? expiresAt,
+  }) {
+    return ProgramMembership(
+      id: id ?? this.id,
+      shopId: shopId,
+      customerId: customerId,
+      sourceQuoteId: sourceQuoteId,
+      serviceName: serviceName,
+      totalVisits: totalVisits,
+      usedVisits: usedVisits ?? this.usedVisits,
+      paidKrw: paidKrw,
+      perSessionKrw: perSessionKrw,
+      status: status ?? this.status,
+      refundedKrw: refundedKrw ?? this.refundedKrw,
+      refundedAt: refundedAt ?? this.refundedAt,
+      refundBasis: refundBasis ?? this.refundBasis,
+      supersededBy: supersededBy ?? this.supersededBy,
+      creditAppliedKrw: creditAppliedKrw ?? this.creditAppliedKrw,
+      expiresAt: expiresAt ?? this.expiresAt,
+      createdAt: createdAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'shop_id': shopId,
+        'customer_id': customerId,
+        'source_quote_id': DbMap.nullIfBlank(sourceQuoteId),
+        'service_name': serviceName,
+        'total_visits': totalVisits,
+        'used_visits': usedVisits,
+        'paid_krw': paidKrw,
+        'per_session_krw': perSessionKrw,
+        'status': status.dbValue,
+        'refunded_krw': refundedKrw,
+        'refunded_at': refundedAt?.toUtc().toIso8601String(),
+        'refund_basis': refundBasis?.dbValue,
+        'superseded_by': DbMap.nullIfBlank(supersededBy),
+        'credit_applied_krw': creditAppliedKrw,
+        'expires_at': expiresAt?.toUtc().toIso8601String(),
+        if (createdAt != null)
+          'created_at': createdAt!.toUtc().toIso8601String(),
+      };
+
+  factory ProgramMembership.fromMap(Map<String, dynamic> map) {
+    return ProgramMembership(
+      id: DbMap.asText(map['id']),
+      shopId: DbMap.asText(map['shop_id'] ?? map['shopId']),
+      customerId: DbMap.asText(map['customer_id'] ?? map['customerId']),
+      sourceQuoteId:
+          DbMap.asTextOrNull(map['source_quote_id'] ?? map['sourceQuoteId']),
+      serviceName: DbMap.asText(map['service_name'] ?? map['serviceName']),
+      totalVisits: DbMap.asInt(map['total_visits'] ?? map['totalVisits'], 1),
+      usedVisits: DbMap.asInt(map['used_visits'] ?? map['usedVisits']),
+      paidKrw: DbMap.asInt(map['paid_krw'] ?? map['paidKrw']),
+      perSessionKrw: DbMap.asInt(map['per_session_krw'] ?? map['perSessionKrw']),
+      status: ProgramMembershipStatus.fromDb(
+        DbMap.asTextOrNull(map['status']),
+      ),
+      refundedKrw: DbMap.asInt(map['refunded_krw'] ?? map['refundedKrw']),
+      refundedAt: DbMap.asDateTime(map['refunded_at'] ?? map['refundedAt']),
+      refundBasis: ProgramRefundBasis.fromDb(
+        DbMap.asTextOrNull(map['refund_basis'] ?? map['refundBasis']),
+      ),
+      supersededBy:
+          DbMap.asTextOrNull(map['superseded_by'] ?? map['supersededBy']),
+      creditAppliedKrw:
+          DbMap.asInt(map['credit_applied_krw'] ?? map['creditAppliedKrw']),
+      expiresAt: DbMap.asDateTime(map['expires_at'] ?? map['expiresAt']),
+      createdAt: DbMap.asDateTime(map['created_at'] ?? map['createdAt']),
+    );
+  }
+
+  /// E7 — 만료 임박 → 잔여 적은 순 → 구매 오래된 순.
+  static int deductOrder(ProgramMembership a, ProgramMembership b) {
+    final ae = a.expiresAt;
+    final be = b.expiresAt;
+    if (ae != null && be != null) {
+      final byExp = ae.compareTo(be);
+      if (byExp != 0) return byExp;
+    } else if (ae != null) {
+      return -1;
+    } else if (be != null) {
+      return 1;
+    }
+    final byRemain = a.remainingVisits.compareTo(b.remainingVisits);
+    if (byRemain != 0) return byRemain;
+    final ac = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bc = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return ac.compareTo(bc);
+  }
+}
+
+/// R9 — 원격 수락이 실패한 견적. 연결되면 같은 인자로 다시 보낸다.
+class ProgramAcceptOutboxItem {
+  const ProgramAcceptOutboxItem({
+    required this.quoteId,
+    required this.customerId,
+    this.paymentStatus = ProgramPaymentStatus.unpaid,
+    this.paidKrw = 0,
+    this.method = ProgramPaymentMethod.cash,
+  });
+
+  final String quoteId;
+  final String customerId;
+  final ProgramPaymentStatus paymentStatus;
+  final int paidKrw;
+  final ProgramPaymentMethod method;
+
+  Map<String, dynamic> toMap() => {
+        'quote_id': quoteId,
+        'customer_id': customerId,
+        'payment_status': paymentStatus.dbValue,
+        'paid_krw': paidKrw,
+        'method': method.dbValue,
+      };
+
+  factory ProgramAcceptOutboxItem.fromMap(Map<String, dynamic> map) {
+    return ProgramAcceptOutboxItem(
+      quoteId: DbMap.asText(map['quote_id'] ?? map['quoteId']),
+      customerId: DbMap.asText(map['customer_id'] ?? map['customerId']),
+      paymentStatus: ProgramPaymentStatus.fromDb(
+        DbMap.asTextOrNull(map['payment_status'] ?? map['paymentStatus']),
+      ),
+      paidKrw: DbMap.asInt(map['paid_krw'] ?? map['paidKrw']),
+      method: ProgramPaymentMethod.fromDb(
+        DbMap.asTextOrNull(map['method']),
+      ),
     );
   }
 }

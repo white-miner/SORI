@@ -99,68 +99,9 @@ class _PromotionCloserBodyState extends State<_PromotionCloserBody> {
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.sizeOf(context).height * 0.5,
               ),
-              child: ListView.separated(
+              child: ListView(
                 shrinkWrap: true,
-                itemCount: widget.promotions.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final p = widget.promotions[index];
-                  final qty = _qty[p.id] ?? 0;
-                  return Material(
-                    key: Key('program-promo-row-${p.id}'),
-                    color: HomeVisualTokens.canvasBg,
-                    borderRadius: BorderRadius.circular(14),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 8, 14, 8),
-                      child: Row(
-                        children: [
-                          _QtyStepper(
-                            promotionId: p.id,
-                            qty: qty,
-                            onMinus: () => _setQty(p.id, qty - 1),
-                            onPlus: () => _setQty(p.id, qty + 1),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _setQty(p.id, qty == 0 ? 1 : 0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  if (p.subtitle.trim().isNotEmpty)
-                                    Text(
-                                      p.subtitle,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: HomeVisualTokens.dateIconColor,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Text(
-                            qty > 1
-                                ? '${ProgramPricing.formatKrw(p.valueKrw * qty)} 상당'
-                                : '${ProgramPricing.formatKrw(p.valueKrw)} 상당',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                children: _promoRows(),
               ),
             ),
           const SizedBox(height: 12),
@@ -183,6 +124,108 @@ class _PromotionCloserBodyState extends State<_PromotionCloserBody> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _promoRows() {
+    final global = widget.promotions
+        .where((p) => p.scope == ProgramPromoScope.global)
+        .toList();
+    final dedicated = widget.promotions
+        .where((p) => p.scope != ProgramPromoScope.global)
+        .toList();
+    final split = global.isNotEmpty && dedicated.isNotEmpty;
+    final out = <Widget>[];
+    if (split) {
+      out.add(_sectionLabel('전체 혜택'));
+      for (var i = 0; i < global.length; i++) {
+        if (i > 0) out.add(const SizedBox(height: 8));
+        out.add(_row(global[i]));
+      }
+      out.add(const SizedBox(height: 14));
+      out.add(_sectionLabel('이 패키지 전용'));
+      for (var i = 0; i < dedicated.length; i++) {
+        if (i > 0) out.add(const SizedBox(height: 8));
+        out.add(_row(dedicated[i]));
+      }
+      return out;
+    }
+    for (var i = 0; i < widget.promotions.length; i++) {
+      if (i > 0) out.add(const SizedBox(height: 8));
+      out.add(_row(widget.promotions[i]));
+    }
+    return out;
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: HomeVisualTokens.dateIconColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _row(ProgramPromotion p) {
+    final qty = _qty[p.id] ?? 0;
+    return Material(
+      key: Key('program-promo-row-${p.id}'),
+      color: HomeVisualTokens.canvasBg,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 8, 14, 8),
+        child: Row(
+          children: [
+            _QtyStepper(
+              promotionId: p.id,
+              qty: qty,
+              onMinus: () => _setQty(p.id, qty - 1),
+              onPlus: () => _setQty(p.id, qty + 1),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: InkWell(
+                onTap: () => _setQty(p.id, qty == 0 ? 1 : 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (p.subtitle.trim().isNotEmpty)
+                      Text(
+                        p.subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: HomeVisualTokens.dateIconColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Text(
+              qty > 1
+                  ? '${ProgramPricing.formatKrw(p.valueKrw * qty)} 상당'
+                  : '${ProgramPricing.formatKrw(p.valueKrw)} 상당',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

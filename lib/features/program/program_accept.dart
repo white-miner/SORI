@@ -31,10 +31,16 @@ Future<bool> acceptProgramQuoteWithCustomer({
   final couponN = store.unusedCouponCount(saved.id);
   final payLabel = decision.paymentStatus.labelKo;
   final couponTail = couponN > 0 ? ' · 쿠폰 ${couponN}장' : '';
+  final offlineTail = store.lastAcceptOffline ? ' · 오프라인 저장됨' : '';
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
+      key: store.lastAcceptOffline
+          ? const Key('program-accept-offline')
+          : const Key('program-accept-ok'),
       content: Text(
-        '${saved.name} · ${quote.chosen.name} $visits회 등록 · $payLabel$couponTail',
+        store.lastAcceptOffline
+            ? '오프라인 저장됨 · 연결되면 동기화합니다'
+            : '${saved.name} · ${quote.chosen.name} $visits회 등록 · $payLabel$couponTail$offlineTail',
       ),
       behavior: SnackBarBehavior.floating,
       backgroundColor: HomeVisualTokens.programCloserFill,

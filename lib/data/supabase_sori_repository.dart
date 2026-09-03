@@ -5648,6 +5648,18 @@ class SupabaseSoriRepository implements SoriRepository {
         }
       }
 
+      final now = DateTime.now();
+      final quotes = (quoteRows as List)
+          .map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            return ProgramQuote.fromMap(
+              map,
+              promotionIds: promosByQuote[DbMap.asText(map['id'])] ?? const [],
+            );
+          })
+          .where((q) => q.isVisibleLeadAt(now))
+          .toList();
+
       return ProgramBoardSnapshot(
         coupons: await loadProgramCoupons(sid),
         categories: (catRows as List)
@@ -5657,15 +5669,8 @@ class SupabaseSoriRepository implements SoriRepository {
         promotions: (promoRows as List)
             .map((e) => ProgramPromotion.fromMap(Map<String, dynamic>.from(e as Map)))
             .toList(),
-        quotes: (quoteRows as List)
-            .map((e) {
-              final map = Map<String, dynamic>.from(e as Map);
-              return ProgramQuote.fromMap(
-                map,
-                promotionIds: promosByQuote[DbMap.asText(map['id'])] ?? const [],
-              );
-            })
-            .toList(),
+        quotes: quotes,
+        memberships: await loadProgramMemberships(sid),
       );
     } catch (e, st) {
       debugPrint('loadProgramBoard failed: $e\n$st');
@@ -5824,6 +5829,67 @@ class SupabaseSoriRepository implements SoriRepository {
         .select()
         .single();
     return ProgramCustomerCoupon.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<List<ProgramMembership>> loadProgramMemberships(String shopId) async {
+    final sid = shopId.trim();
+    if (sid.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('program_memberships')
+          .select()
+          .eq('shop_id', sid)
+          .order('created_at', ascending: false);
+      return (rows as List)
+          .map(
+            (e) => ProgramMembership.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      if (isMissingSchemaError(e)) return const [];
+      debugPrint('loadProgramMemberships failed: $e');
+      return const [];
+    }
+  }
+
+  @override
+  Future<ProgramMembership> upsertProgramMembership(
+    ProgramMembership membership,
+  ) async {
+    final row = await _db
+        .from('program_memberships')
+        .upsert(_programPayload(membership.toMap()))
+        .select()
+        .single();
+    final saved = ProgramMembership.fromMap(Map<String, dynamic>.from(row));
+    await _mirrorCustomerMemberships(saved.customerId);
+    return saved;
+  }
+
+  /// customers.memberships jsonb 를 활성 원장과 맞춘다. 기존 화면을 깨지 않는다.
+  Future<void> _mirrorCustomerMemberships(String customerId) async {
+    final cid = customerId.trim();
+    if (cid.isEmpty) return;
+    try {
+      final rows = await _db
+          .from('program_memberships')
+          .select()
+          .eq('customer_id', cid)
+          .eq('status', 'active');
+      final tickets = (rows as List)
+          .map(
+            (e) => ProgramMembership.fromMap(
+              Map<String, dynamic>.from(e as Map),
+            ).toCustomerTicket().toJson(),
+          )
+          .toList();
+      await _db.from('customers').update({'memberships': tickets}).eq('id', cid);
+    } catch (e) {
+      debugPrint('mirror customer memberships failed: $e');
+    }
   }
 
   @override
