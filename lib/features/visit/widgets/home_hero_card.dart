@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/sori_store.dart';
-import '../../operation/widgets/care_timer_fullscreen_page.dart';
-import '../../operation/widgets/flip_clock_display.dart';
 import '../home_visual_tokens.dart';
 import '../home_dashboard_controller.dart';
 import 'calendar_expand_panel.dart';
 import 'countdown_flip_zone.dart';
+import 'home_wall_clock.dart';
 import 'memo_stack_display.dart';
 import 'memo_time_slot_editor.dart';
 
@@ -65,11 +64,6 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
             e.scheduledAt.day,
           ),
     };
-  }
-
-  int _wallClockSeconds() {
-    final now = DateTime.now();
-    return now.hour * 3600 + now.minute * 60 + now.second;
   }
 
   Future<void> _openMemoEditor([DateTime? day]) async {
@@ -177,15 +171,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                   builder: (context, constraints) {
                     final clock = isCount
                         ? CountdownFlipZone(controller: ctrl)
-                        : FlipClockDisplay(
-                            totalSeconds: _wallClockSeconds(),
-                            hero: true,
-                            homeHero: true,
-                            showSeconds: false,
-                            showCornerSeconds: true,
-                            heroTag: CareTimerFullscreenPage.flipHeroTag,
-                            style: FlipClockStyle.darkGlass,
-                          );
+                        : const HomeWallClock();
                     return ConstrainedBox(
                       constraints: const BoxConstraints(
                         minHeight: HomeVisualTokens.flipHeroZoneMinHeight,
