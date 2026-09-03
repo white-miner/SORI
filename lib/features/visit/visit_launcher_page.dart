@@ -679,6 +679,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       charts: widget.store.chartsForCustomer(chart.customerId),
       initialChartId: chart.id,
       initialCareName: chart.careName,
+      customerId: chart.customerId,
+      store: widget.store,
     );
   }
 

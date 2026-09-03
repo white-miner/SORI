@@ -1,18 +1,28 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:screenshot/screenshot.dart';
 
+import '../features/visit/visit_customer_picker_sheet.dart';
 import '../features/visit/widgets/ba_story_strip.dart';
+import '../features/visit/widgets/ba_workspace_dock.dart';
+import '../models/customer.dart';
 import '../models/customer_chart.dart';
+import '../routing/sori_router.dart';
+import '../services/customer_crm_status_resolver.dart';
+import '../services/instagram_quick_post.dart';
+import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../views/smart_guide_camera_page.dart';
 import '../widgets/before_after_slider.dart';
+import '../widgets/sori_crm_status_avatar.dart';
 import 'before_after_compare_sheet.dart';
 
-/// B/A 비교 전용 풀스크린.
-///
-/// 사진은 스테이지를 꽉 채운다. 슬라이더는 홈 피드와 같은
-/// [BeforeAfterSlider] (전면 가로 드래그, InteractiveViewer 없음).
-/// 줌은 핀치가 아니라 [+][-] 고정 배율이다.
+/// B/A 갤러리 워크스페이스. 사진은 풀블리드, 조작은 전부 오버레이.
 class BeforeAfterComparePage extends StatefulWidget {
   const BeforeAfterComparePage({
     super.key,
@@ -20,16 +30,17 @@ class BeforeAfterComparePage extends StatefulWidget {
     required this.charts,
     this.initialChartId,
     this.initialCareName,
+    this.customerId,
+    this.store,
   });
 
   final String customerName;
   final List<CustomerChart> charts;
-
-  /// 피드에서 확대 버튼을 누른 그 차트. 없으면 해당 프로그램의 첫·마지막.
   final String? initialChartId;
   final String? initialCareName;
+  final String? customerId;
+  final SoriStore? store;
 
-  /// 버튼 줌 배율. 핀치 제스처는 쓰지 않는다. 진입 기본은 1.0x.
   static const List<double> zoomSteps = [0.5, 1.0, 1.5, 2.0];
   static const int defaultZoomIndex = 1;
 
@@ -38,30 +49,48 @@ class BeforeAfterComparePage extends StatefulWidget {
 }
 
 class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
-  late final List<VisitPhotoSlot> _slots;
-  late final List<CareProgramGroup> _programs;
-  late final Map<String, CustomerChart> _chartById;
+  final _shot = ScreenshotController();
+  late String _customerName;
+  late String? _customerId;
+  late List<CustomerChart> _charts;
+  late List<VisitPhotoSlot> _slots;
+  late List<CareProgramGroup> _programs;
   late String _programKey;
   VisitPhotoSlot? _left;
   VisitPhotoSlot? _right;
   bool _useSlider = true;
   BaCompareBindSide _bindSide = BaCompareBindSide.right;
   int _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
+  double _panY = 0;
+  bool _careOpen = false;
+  VisitPhotoSlot? _dragging;
+  bool _dropAccepted = false;
 
   @override
   void initState() {
     super.initState();
-    _slots = buildVisitPhotoSlots(widget.charts);
-    _programs = groupVisitPhotoSlotsByProgram(_slots);
-    _chartById = {for (final c in widget.charts) c.id: c};
-    final seed = resolveCompareViewerSeed(
-      slots: _slots,
+    _customerName = widget.customerName;
+    _customerId = widget.customerId;
+    _charts = List<CustomerChart>.from(widget.charts);
+    _reseed(
       initialChartId: widget.initialChartId,
       initialCareName: widget.initialCareName,
+    );
+  }
+
+  void _reseed({String? initialChartId, String? initialCareName}) {
+    _slots = buildVisitPhotoSlots(_charts);
+    _programs = groupVisitPhotoSlotsByProgram(_slots);
+    final seed = resolveCompareViewerSeed(
+      slots: _slots,
+      initialChartId: initialChartId,
+      initialCareName: initialCareName,
     );
     _programKey = seed.programKey;
     _left = seed.left;
     _right = seed.right;
+    _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
+    _panY = 0;
   }
 
   List<VisitPhotoSlot> get _scopedSlots =>
@@ -69,17 +98,18 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
 
   double get _zoom => BeforeAfterComparePage.zoomSteps[_zoomIndex];
 
-  CustomerChart? _chartFor(VisitPhotoSlot? slot) {
-    if (slot == null) return null;
-    return _chartById[slot.chartId];
+  Customer? get _customer {
+    final id = _customerId;
+    final store = widget.store;
+    if (id == null || store == null) return null;
+    return store.findCustomer(id);
   }
 
-  void _swapSides() {
-    setState(() {
-      final tmp = _left;
-      _left = _right;
-      _right = tmp;
-    });
+  String get _careLabel {
+    for (final p in _programs) {
+      if (p.key == _programKey) return p.label;
+    }
+    return _programs.isEmpty ? '케어 선택' : _programs.first.label;
   }
 
   void _selectProgram(String key) {
@@ -90,20 +120,8 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
       _left = seed.left;
       _right = seed.right;
       _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
-    });
-  }
-
-  void _setLeft(VisitPhotoSlot slot) {
-    setState(() {
-      _left = slot;
-      _bindSide = BaCompareBindSide.left;
-    });
-  }
-
-  void _setRight(VisitPhotoSlot slot) {
-    setState(() {
-      _right = slot;
-      _bindSide = BaCompareBindSide.right;
+      _panY = 0;
+      _careOpen = false;
     });
   }
 
@@ -115,6 +133,38 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
         _right = slot;
       }
     });
+    HapticFeedback.lightImpact();
+  }
+
+  void _setBindSide(BaCompareBindSide side) {
+    setState(() => _bindSide = side);
+  }
+
+  void _acceptTo(BaCompareBindSide side, VisitPhotoSlot slot) {
+    _dropAccepted = true;
+    setState(() {
+      _bindSide = side;
+      if (side == BaCompareBindSide.left) {
+        _left = slot;
+      } else {
+        _right = slot;
+      }
+      _dragging = null;
+    });
+    HapticFeedback.lightImpact();
+  }
+
+  void _onDragStarted(VisitPhotoSlot slot) {
+    _dropAccepted = false;
+    setState(() => _dragging = slot);
+  }
+
+  void _onDragEnded() {
+    final slot = _dragging;
+    final accepted = _dropAccepted;
+    _dropAccepted = false;
+    setState(() => _dragging = null);
+    if (!accepted && slot != null) _bind(slot);
   }
 
   void _zoomIn() {
@@ -124,124 +174,291 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
 
   void _zoomOut() {
     if (_zoomIndex <= 0) return;
-    setState(() => _zoomIndex--);
+    setState(() {
+      _zoomIndex--;
+      if (_zoom <= 1) _panY = 0;
+    });
   }
 
-  Widget _storyStrip() {
-    return BaStoryStrip(
-      key: const Key('ba-compare-story-strip'),
-      slots: _scopedSlots,
-      left: _left,
-      right: _right,
-      bindSide: _bindSide,
-      onBind: _bind,
+  void _nudgeY(double delta) {
+    if (_zoom <= 1) {
+      if (_panY != 0) setState(() => _panY = 0);
+      return;
+    }
+    final h = MediaQuery.sizeOf(context).height;
+    final max = (_zoom - 1) * h / 2;
+    setState(() => _panY = (_panY + delta).clamp(-max, max));
+  }
+
+  Future<void> _pickCustomer() async {
+    final store = widget.store;
+    if (store == null) return;
+    final picked = await showVisitCustomerPickerSheet(context, store: store);
+    if (!mounted || picked == null) return;
+    setState(() {
+      _customerId = picked.id;
+      _customerName = picked.name;
+      _charts = store.chartsForCustomer(picked.id);
+      _reseed();
+    });
+  }
+
+  Future<void> _openMore() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _sheetTile(ctx, 'save', Icons.download_outlined, '저장하기'),
+              _sheetTile(ctx, 'feed', Icons.dynamic_feed_outlined, '피드에 추가'),
+              _sheetTile(ctx, 'share', Icons.ios_share_outlined, '공유하기'),
+              _sheetTile(ctx, 'camera', Icons.photo_camera_outlined, '촬영하기'),
+              _sheetTile(ctx, 'exit', Icons.logout_rounded, '나가기'),
+            ],
+          ),
+        );
+      },
     );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'save':
+        await _saveFrame();
+      case 'feed':
+        _toast(_feedHint());
+      case 'share':
+        await _shareFrame();
+      case 'camera':
+        await _openCamera();
+      case 'exit':
+        if (context.canPop()) {
+          context.go(AppPaths.appHome);
+        } else {
+          Navigator.of(context).maybePop();
+        }
+    }
+  }
+
+  ListTile _sheetTile(
+    BuildContext ctx,
+    String id,
+    IconData icon,
+    String label,
+  ) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: () => Navigator.pop(ctx, id),
+    );
+  }
+
+  String _feedHint() {
+    if (_left != null && _right != null && _left!.chartId == _right!.chartId) {
+      return '이 회차는 이미 홈 피드 관리 케이스에 있습니다.';
+    }
+    return '피드에는 같은 회차의 Before/After만 올라갑니다.';
+  }
+
+  Future<Uint8List?> _captureFrame() {
+    return _shot.capture(
+      pixelRatio: 2,
+      delay: const Duration(milliseconds: 16),
+    );
+  }
+
+  Future<void> _saveFrame() async {
+    if (kIsWeb) {
+      _toast('웹에서는 공유하기로 저장하세요.');
+      return;
+    }
+    final bytes = await _captureFrame();
+    if (bytes == null || !mounted) {
+      _toast('저장할 화면을 담지 못했습니다.');
+      return;
+    }
+    final perm = await PhotoManager.requestPermissionExtend();
+    if (!perm.isAuth && !perm.hasAccess) {
+      _toast('사진 보관함 권한이 필요합니다.');
+      return;
+    }
+    await PhotoManager.editor.saveImage(
+      bytes,
+      filename: 'sori_ba_${DateTime.now().millisecondsSinceEpoch}.png',
+    );
+    if (mounted) _toast('갤러리에 저장했습니다.');
+  }
+
+  Future<void> _shareFrame() async {
+    final bytes = await _captureFrame();
+    if (bytes == null || !mounted) {
+      _toast('공유할 화면을 담지 못했습니다.');
+      return;
+    }
+    await InstagramQuickPost.shareCapturedImage(bytes, fileName: 'sori_ba.png');
+  }
+
+  Future<void> _openCamera() async {
+    final store = widget.store;
+    final id = _customerId;
+    if (store == null || id == null) {
+      _toast('고객을 선택한 뒤 촬영할 수 있습니다.');
+      return;
+    }
+    await SmartGuideCameraPage.open(
+      context,
+      shopId: store.shop.id,
+      customerId: id,
+      kind: GuideCameraKind.after,
+      ghostBeforeUrl: _left?.url,
+    );
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     final empty = _slots.isEmpty;
-    final landscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final pad = MediaQuery.paddingOf(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0B),
       body: empty
-          ? SafeArea(child: _EmptyState(customerName: widget.customerName))
-          : landscape
-          ? _buildLandscape()
-          : _buildPortrait(),
-    );
-  }
-
-  /// 좌측 78%는 사진만, 우측 22%에 조작 UI를 모은다.
-  Widget _buildLandscape() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 78,
-          child: _CompareStage(
-            key: const Key('ba-compare-photo-stage'),
-            left: _left,
-            right: _right,
-            useSlider: _useSlider,
-            zoom: _zoom,
-            onZoomIn: _zoomIn,
-            onZoomOut: _zoomOut,
-            bottomBar: _storyStrip(),
-          ),
-        ),
-        Expanded(
-          flex: 22,
-          child: _SideControlPanel(
-            key: const Key('ba-compare-side-panel'),
-            customerName: widget.customerName,
-            programs: _programs,
-            programKey: _programKey,
-            slots: _scopedSlots,
-            left: _left,
-            right: _right,
-            useSlider: _useSlider,
-            bindSide: _bindSide,
-            leftChart: _chartFor(_left),
-            rightChart: _chartFor(_right),
-            onProgramChanged: _selectProgram,
-            onLeftChanged: _setLeft,
-            onRightChanged: _setRight,
-            onSwap: _swapSides,
-            onModeChanged: (v) => setState(() => _useSlider = v),
-            onBindSideChanged: (v) => setState(() => _bindSide = v),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPortrait() {
-    final padding = MediaQuery.paddingOf(context);
-    return _CompareStage(
-      key: const Key('ba-compare-photo-stage'),
-      left: _left,
-      right: _right,
-      useSlider: _useSlider,
-      zoom: _zoom,
-      onZoomIn: _zoomIn,
-      onZoomOut: _zoomOut,
-      topBar: Padding(
-        padding: EdgeInsets.fromLTRB(8, padding.top + 4, 8, 0),
-        child: _TopGlassBar(
-          customerName: widget.customerName,
-          programs: _programs,
-          programKey: _programKey,
-          left: _left,
-          right: _right,
-          slots: _scopedSlots,
-          onProgramChanged: _selectProgram,
-          onLeftChanged: _setLeft,
-          onRightChanged: _setRight,
-          onSwap: _swapSides,
-        ),
-      ),
-      bottomBar: Padding(
-        padding: EdgeInsets.fromLTRB(0, 0, 0, padding.bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: _BottomGlassBar(
-                useSlider: _useSlider,
-                onModeChanged: (v) => setState(() => _useSlider = v),
-                left: _left,
-                right: _right,
-                bindSide: _bindSide,
-                onBindSideChanged: (v) => setState(() => _bindSide = v),
-              ),
+          ? SafeArea(child: _EmptyState(customerName: _customerName))
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  key: const Key('ba-compare-photo-stage'),
+                  child: Screenshot(
+                    controller: _shot,
+                    child: _left != null && _right != null
+                        ? _ComparePhotoBody(
+                            left: _left!,
+                            right: _right!,
+                            useSlider: _useSlider,
+                            zoom: _zoom,
+                            panY: _panY,
+                            onPanDelta: _nudgeY,
+                          )
+                        : const ColoredBox(color: Color(0xFF0A0A0B)),
+                  ),
+                ),
+                if (_left != null && _right != null) ...[
+                  const Positioned(
+                    top: 16,
+                    left: 16,
+                    child: IgnorePointer(
+                      child: _ViewportCornerTag(
+                        key: Key('ba-compare-label-before'),
+                        text: 'Before',
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    top: 16,
+                    right: 16,
+                    child: IgnorePointer(
+                      child: _ViewportCornerTag(
+                        key: Key('ba-compare-label-after'),
+                        text: 'After',
+                      ),
+                    ),
+                  ),
+                ],
+                Positioned(
+                  left: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _YStepper(
+                      enabled: _zoom > 1,
+                      onUp: () => _nudgeY(28),
+                      onDown: () => _nudgeY(-28),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _ZoomStepper(
+                      zoom: _zoom,
+                      onZoomIn: _zoomIn,
+                      onZoomOut: _zoomOut,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  top: pad.top + 64,
+                  child: _ProfileCluster(
+                    name: _customerName,
+                    customer: _customer,
+                    charts: _charts,
+                    useSlider: _useSlider,
+                    onProfile: _pickCustomer,
+                    onToggleMode: () =>
+                        setState(() => _useSlider = !_useSlider),
+                  ),
+                ),
+                Positioned(
+                  top: pad.top + 6,
+                  left: 8,
+                  right: 8,
+                  child: _TopChrome(
+                    careLabel: _careLabel,
+                    careOpen: _careOpen,
+                    programs: _programs,
+                    programKey: _programKey,
+                    onBack: () => Navigator.of(context).maybePop(),
+                    onToggleCare: () => setState(() => _careOpen = !_careOpen),
+                    onSelectCare: _selectProgram,
+                    onMore: _openMore,
+                  ),
+                ),
+                if (_dragging != null)
+                  Positioned.fill(
+                    child: DragTarget<VisitPhotoSlot>(
+                      onWillAcceptWithDetails: (_) => true,
+                      onAcceptWithDetails: (d) => _acceptTo(_bindSide, d.data),
+                      builder: (context, candidate, _) {
+                        final slot = candidate.isNotEmpty
+                            ? candidate.first
+                            : _dragging;
+                        if (slot == null) return const SizedBox.shrink();
+                        return Center(
+                          child: BaMagnetPreview(
+                            slot: slot,
+                            bindSide: _bindSide,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: pad.bottom,
+                  child: BaWorkspaceDock(
+                    key: const Key('ba-compare-story-strip'),
+                    slots: _scopedSlots,
+                    left: _left,
+                    right: _right,
+                    bindSide: _bindSide,
+                    onBind: _bind,
+                    onBindSide: _setBindSide,
+                    onDragStarted: _onDragStarted,
+                    onDragEnded: _onDragEnded,
+                  ),
+                ),
+              ],
             ),
-            _storyStrip(),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -252,6 +469,8 @@ Future<void> openBeforeAfterComparePage({
   required List<CustomerChart> charts,
   String? initialChartId,
   String? initialCareName,
+  String? customerId,
+  SoriStore? store,
 }) {
   return Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute<void>(
@@ -261,90 +480,11 @@ Future<void> openBeforeAfterComparePage({
         charts: charts,
         initialChartId: initialChartId,
         initialCareName: initialCareName,
+        customerId: customerId,
+        store: store,
       ),
     ),
   );
-}
-
-class _CompareStage extends StatelessWidget {
-  const _CompareStage({
-    super.key,
-    required this.left,
-    required this.right,
-    required this.useSlider,
-    required this.zoom,
-    required this.onZoomIn,
-    required this.onZoomOut,
-    this.topBar,
-    this.bottomBar,
-  });
-
-  final VisitPhotoSlot? left;
-  final VisitPhotoSlot? right;
-  final bool useSlider;
-  final double zoom;
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-  final Widget? topBar;
-  final Widget? bottomBar;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          child: left != null && right != null
-              ? _ComparePhotoBody(
-                  left: left!,
-                  right: right!,
-                  useSlider: useSlider,
-                  zoom: zoom,
-                )
-              : const ColoredBox(color: Color(0xFF0A0A0B)),
-        ),
-        if (left != null && right != null) ...[
-          const Positioned(
-            top: 16,
-            left: 16,
-            child: IgnorePointer(
-              child: _ViewportCornerTag(
-                key: Key('ba-compare-label-before'),
-                text: 'Before',
-              ),
-            ),
-          ),
-          const Positioned(
-            top: 16,
-            right: 16,
-            child: IgnorePointer(
-              child: _ViewportCornerTag(
-                key: Key('ba-compare-label-after'),
-                text: 'After',
-              ),
-            ),
-          ),
-        ],
-        Positioned(
-          right: 8,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: _ZoomStepper(
-              zoom: zoom,
-              onZoomIn: onZoomIn,
-              onZoomOut: onZoomOut,
-            ),
-          ),
-        ),
-        if (topBar != null)
-          Positioned(top: 0, left: 0, right: 0, child: topBar!),
-        if (bottomBar != null)
-          Positioned(bottom: 0, left: 0, right: 0, child: bottomBar!),
-      ],
-    );
-  }
 }
 
 class _ComparePhotoBody extends StatelessWidget {
@@ -353,12 +493,16 @@ class _ComparePhotoBody extends StatelessWidget {
     required this.right,
     required this.useSlider,
     required this.zoom,
+    required this.panY,
+    required this.onPanDelta,
   });
 
   final VisitPhotoSlot left;
   final VisitPhotoSlot right;
   final bool useSlider;
   final double zoom;
+  final double panY;
+  final ValueChanged<double> onPanDelta;
 
   Widget _pane(VisitPhotoSlot slot) {
     return ChartImagePane(
@@ -396,13 +540,21 @@ class _ComparePhotoBody extends StatelessWidget {
               );
 
         return ClipRect(
-          child: AnimatedScale(
-            key: const Key('ba-compare-photo-scale'),
-            scale: zoom,
-            alignment: Alignment.center,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            child: photo,
+          child: Transform.translate(
+            offset: Offset(0, panY),
+            child: AnimatedScale(
+              key: const Key('ba-compare-photo-scale'),
+              scale: zoom,
+              alignment: Alignment.center,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              child: GestureDetector(
+                onVerticalDragUpdate: zoom > 1
+                    ? (d) => onPanDelta(d.delta.dy)
+                    : null,
+                child: photo,
+              ),
+            ),
           ),
         );
       },
@@ -412,633 +564,6 @@ class _ComparePhotoBody extends StatelessWidget {
 
 class _ViewportCornerTag extends StatelessWidget {
   const _ViewportCornerTag({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassChip(text: text);
-  }
-}
-
-class _ZoomStepper extends StatelessWidget {
-  const _ZoomStepper({
-    required this.zoom,
-    required this.onZoomIn,
-    required this.onZoomOut,
-  });
-
-  final double zoom;
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-
-  String get _label {
-    if (zoom == zoom.roundToDouble()) return '${zoom.toInt()}x';
-    return '${zoom}x';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = BeforeAfterComparePage.zoomSteps;
-    final atMin = zoom <= steps.first;
-    final atMax = zoom >= steps.last;
-    return Material(
-      color: Colors.black.withValues(alpha: 0.55),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ZoomIconButton(
-              key: const Key('ba-compare-zoom-in'),
-              icon: Icons.add,
-              tooltip: '확대',
-              onPressed: atMax ? null : onZoomIn,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                _label,
-                key: const Key('ba-compare-zoom-label'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            _ZoomIconButton(
-              key: const Key('ba-compare-zoom-out'),
-              icon: Icons.remove,
-              tooltip: '축소',
-              onPressed: atMin ? null : onZoomOut,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ZoomIconButton extends StatelessWidget {
-  const _ZoomIconButton({
-    super.key,
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      color: Colors.white,
-      disabledColor: Colors.white24,
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-    );
-  }
-}
-
-class _SideControlPanel extends StatelessWidget {
-  const _SideControlPanel({
-    super.key,
-    required this.customerName,
-    required this.programs,
-    required this.programKey,
-    required this.slots,
-    required this.left,
-    required this.right,
-    required this.useSlider,
-    required this.bindSide,
-    required this.leftChart,
-    required this.rightChart,
-    required this.onProgramChanged,
-    required this.onLeftChanged,
-    required this.onRightChanged,
-    required this.onSwap,
-    required this.onModeChanged,
-    required this.onBindSideChanged,
-  });
-
-  final String customerName;
-  final List<CareProgramGroup> programs;
-  final String programKey;
-  final List<VisitPhotoSlot> slots;
-  final VisitPhotoSlot? left;
-  final VisitPhotoSlot? right;
-  final bool useSlider;
-  final BaCompareBindSide bindSide;
-  final CustomerChart? leftChart;
-  final CustomerChart? rightChart;
-  final ValueChanged<String> onProgramChanged;
-  final ValueChanged<VisitPhotoSlot> onLeftChanged;
-  final ValueChanged<VisitPhotoSlot> onRightChanged;
-  final VoidCallback onSwap;
-  final ValueChanged<bool> onModeChanged;
-  final ValueChanged<BaCompareBindSide> onBindSideChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final focus = rightChart ?? leftChart;
-    return ColoredBox(
-      color: const Color(0xFF141416),
-      child: SafeArea(
-        left: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                  color: Colors.white,
-                  tooltip: '닫기',
-                  visualDensity: VisualDensity.compact,
-                ),
-                Expanded(
-                  child: Text(
-                    '$customerName · B/A 비교',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _DarkSelect<String>(
-              label: '서비스 메뉴',
-              value: programs.any((p) => p.key == programKey)
-                  ? programKey
-                  : (programs.isEmpty ? null : programs.first.key),
-              items: [for (final p in programs) (value: p.key, label: p.label)],
-              onChanged: onProgramChanged,
-            ),
-            const SizedBox(height: 10),
-            _DarkSelect<String>(
-              label: '왼쪽',
-              value: left?.key,
-              items: [
-                for (final s in slots) (value: s.key, label: s.shortLabel),
-              ],
-              onChanged: (key) {
-                final match = slots.where((s) => s.key == key);
-                if (match.isNotEmpty) onLeftChanged(match.first);
-              },
-            ),
-            Center(
-              child: IconButton(
-                onPressed: onSwap,
-                icon: const Icon(Icons.swap_vert_rounded, size: 20),
-                color: Colors.white70,
-                tooltip: '좌우 바꾸기',
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
-            _DarkSelect<String>(
-              label: '오른쪽',
-              value: right?.key,
-              items: [
-                for (final s in slots) (value: s.key, label: s.shortLabel),
-              ],
-              onChanged: (key) {
-                final match = slots.where((s) => s.key == key);
-                if (match.isNotEmpty) onRightChanged(match.first);
-              },
-            ),
-            const SizedBox(height: 12),
-            _ModeToggle(useSlider: useSlider, onChanged: onModeChanged),
-            const SizedBox(height: 8),
-            _BindSideToggle(bindSide: bindSide, onChanged: onBindSideChanged),
-            if (left != null && right != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '${left!.shortLabel}  ↔  ${right!.shortLabel}',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-            if (focus != null && focus.treatmentSummary.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                '시술 요약',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.55),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                focus.treatmentSummary.trim(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.4,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopGlassBar extends StatelessWidget {
-  const _TopGlassBar({
-    required this.customerName,
-    required this.programs,
-    required this.programKey,
-    required this.left,
-    required this.right,
-    required this.slots,
-    required this.onProgramChanged,
-    required this.onLeftChanged,
-    required this.onRightChanged,
-    required this.onSwap,
-  });
-
-  final String customerName;
-  final List<CareProgramGroup> programs;
-  final String programKey;
-  final VisitPhotoSlot? left;
-  final VisitPhotoSlot? right;
-  final List<VisitPhotoSlot> slots;
-  final ValueChanged<String> onProgramChanged;
-  final ValueChanged<VisitPhotoSlot> onLeftChanged;
-  final ValueChanged<VisitPhotoSlot> onRightChanged;
-  final VoidCallback onSwap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassPanel(
-      padding: const EdgeInsets.fromLTRB(6, 6, 10, 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                color: Colors.white,
-                tooltip: '닫기',
-              ),
-              Expanded(
-                child: Text(
-                  '$customerName · B/A 비교',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          _DarkSelect<String>(
-            label: '서비스 메뉴',
-            value: programs.any((p) => p.key == programKey)
-                ? programKey
-                : (programs.isEmpty ? null : programs.first.key),
-            items: [for (final p in programs) (value: p.key, label: p.label)],
-            onChanged: onProgramChanged,
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: _DarkSelect<String>(
-                  label: '왼쪽',
-                  value: left?.key,
-                  items: [
-                    for (final s in slots) (value: s.key, label: s.shortLabel),
-                  ],
-                  onChanged: (key) {
-                    final match = slots.where((s) => s.key == key);
-                    if (match.isNotEmpty) onLeftChanged(match.first);
-                  },
-                ),
-              ),
-              IconButton(
-                onPressed: onSwap,
-                icon: const Icon(Icons.swap_horiz_rounded, size: 20),
-                color: Colors.white70,
-                tooltip: '좌우 바꾸기',
-                visualDensity: VisualDensity.compact,
-              ),
-              Expanded(
-                child: _DarkSelect<String>(
-                  label: '오른쪽',
-                  value: right?.key,
-                  items: [
-                    for (final s in slots) (value: s.key, label: s.shortLabel),
-                  ],
-                  onChanged: (key) {
-                    final match = slots.where((s) => s.key == key);
-                    if (match.isNotEmpty) onRightChanged(match.first);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BottomGlassBar extends StatelessWidget {
-  const _BottomGlassBar({
-    required this.useSlider,
-    required this.onModeChanged,
-    required this.left,
-    required this.right,
-    required this.bindSide,
-    required this.onBindSideChanged,
-  });
-
-  final bool useSlider;
-  final ValueChanged<bool> onModeChanged;
-  final VisitPhotoSlot? left;
-  final VisitPhotoSlot? right;
-  final BaCompareBindSide bindSide;
-  final ValueChanged<BaCompareBindSide> onBindSideChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassPanel(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ModeToggle(useSlider: useSlider, onChanged: onModeChanged),
-          const SizedBox(height: 8),
-          _BindSideToggle(bindSide: bindSide, onChanged: onBindSideChanged),
-          if (left != null && right != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              '${left!.shortLabel}  ↔  ${right!.shortLabel}',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _BindSideToggle extends StatelessWidget {
-  const _BindSideToggle({required this.bindSide, required this.onChanged});
-
-  final BaCompareBindSide bindSide;
-  final ValueChanged<BaCompareBindSide> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          '연결',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.65),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _ModeChip(
-            key: const Key('ba-compare-bind-left'),
-            label: '왼쪽',
-            icon: Icons.chevron_left_rounded,
-            selected: bindSide == BaCompareBindSide.left,
-            onTap: () => onChanged(BaCompareBindSide.left),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: _ModeChip(
-            key: const Key('ba-compare-bind-right'),
-            label: '오른쪽',
-            icon: Icons.chevron_right_rounded,
-            selected: bindSide == BaCompareBindSide.right,
-            onTap: () => onChanged(BaCompareBindSide.right),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ModeToggle extends StatelessWidget {
-  const _ModeToggle({required this.useSlider, required this.onChanged});
-
-  final bool useSlider;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ModeChip(
-            label: '슬라이더',
-            icon: Icons.compare_arrows,
-            selected: useSlider,
-            onTap: () => onChanged(true),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: _ModeChip(
-            label: '나란히',
-            icon: Icons.view_column_outlined,
-            selected: !useSlider,
-            onTap: () => onChanged(false),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? Colors.white : Colors.white.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: selected ? SoriTokens.textPrimary : Colors.white,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? SoriTokens.textPrimary : Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DarkSelect<T> extends StatelessWidget {
-  const _DarkSelect({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  final String label;
-  final T? value;
-  final List<({T value, String label})> items;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final keys = items.map((e) => e.value).toSet();
-    final selected = value != null && keys.contains(value) ? value : null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: Colors.white.withValues(alpha: 0.65),
-          ),
-        ),
-        const SizedBox(height: 2),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<T>(
-              value: selected,
-              isExpanded: true,
-              hint: const Text(
-                '선택',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              dropdownColor: const Color(0xFF1C1C1E),
-              icon: Icon(
-                Icons.expand_more_rounded,
-                color: Colors.white.withValues(alpha: 0.8),
-                size: 18,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-              items: [
-                for (final item in items)
-                  DropdownMenuItem(
-                    value: item.value,
-                    child: Text(item.label, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GlassPanel extends StatelessWidget {
-  const _GlassPanel({required this.child, this.padding});
-
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          ),
-          child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassChip extends StatelessWidget {
-  const _GlassChip({required this.text});
 
   final String text;
 
@@ -1061,6 +586,334 @@ class _GlassChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChromePlate extends StatelessWidget {
+  const _ChromePlate({required this.child, this.radius = 12});
+
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(radius),
+      child: child,
+    );
+  }
+}
+
+class _YStepper extends StatelessWidget {
+  const _YStepper({
+    required this.enabled,
+    required this.onUp,
+    required this.onDown,
+  });
+
+  final bool enabled;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChromePlate(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: const Key('ba-compare-pan-up'),
+            onPressed: enabled ? onUp : null,
+            icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 22),
+            color: Colors.white,
+            disabledColor: Colors.white24,
+            tooltip: '위로',
+          ),
+          IconButton(
+            key: const Key('ba-compare-pan-down'),
+            onPressed: enabled ? onDown : null,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 22),
+            color: Colors.white,
+            disabledColor: Colors.white24,
+            tooltip: '아래로',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ZoomStepper extends StatelessWidget {
+  const _ZoomStepper({
+    required this.zoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  final double zoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  String get _label {
+    if (zoom == zoom.roundToDouble()) return '${zoom.toInt()}x';
+    return '${zoom}x';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = BeforeAfterComparePage.zoomSteps;
+    return _ChromePlate(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              key: const Key('ba-compare-zoom-in'),
+              onPressed: zoom >= steps.last ? null : onZoomIn,
+              icon: const Icon(Icons.add, size: 18),
+              color: Colors.white,
+              disabledColor: Colors.white24,
+              tooltip: '확대',
+              visualDensity: VisualDensity.compact,
+            ),
+            Text(
+              _label,
+              key: const Key('ba-compare-zoom-label'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            IconButton(
+              key: const Key('ba-compare-zoom-out'),
+              onPressed: zoom <= steps.first ? null : onZoomOut,
+              icon: const Icon(Icons.remove, size: 18),
+              color: Colors.white,
+              disabledColor: Colors.white24,
+              tooltip: '축소',
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopChrome extends StatelessWidget {
+  const _TopChrome({
+    required this.careLabel,
+    required this.careOpen,
+    required this.programs,
+    required this.programKey,
+    required this.onBack,
+    required this.onToggleCare,
+    required this.onSelectCare,
+    required this.onMore,
+  });
+
+  final String careLabel;
+  final bool careOpen;
+  final List<CareProgramGroup> programs;
+  final String programKey;
+  final VoidCallback onBack;
+  final VoidCallback onToggleCare;
+  final ValueChanged<String> onSelectCare;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            _ChromePlate(
+              radius: 12,
+              child: IconButton(
+                key: const Key('ba-compare-back'),
+                onPressed: onBack,
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  color: Colors.white,
+                ),
+                tooltip: '돌아가기',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ChromePlate(
+                radius: 22,
+                child: InkWell(
+                  key: const Key('ba-compare-care-pill'),
+                  onTap: onToggleCare,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            careLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          careOpen
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _ChromePlate(
+              radius: 12,
+              child: IconButton(
+                key: const Key('ba-compare-more'),
+                onPressed: onMore,
+                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+                tooltip: '더 보기',
+              ),
+            ),
+          ],
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: careOpen
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _ChromePlate(
+                    radius: 16,
+                    child: Column(
+                      children: [
+                        for (final p in programs)
+                          ListTile(
+                            dense: true,
+                            title: Text(
+                              p.label,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: p.key == programKey
+                                    ? FontWeight.w800
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                            onTap: () => onSelectCare(p.key),
+                          ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileCluster extends StatelessWidget {
+  const _ProfileCluster({
+    required this.name,
+    required this.customer,
+    required this.charts,
+    required this.useSlider,
+    required this.onProfile,
+    required this.onToggleMode,
+  });
+
+  final String name;
+  final Customer? customer;
+  final List<CustomerChart> charts;
+  final bool useSlider;
+  final VoidCallback onProfile;
+  final VoidCallback onToggleMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = customer == null
+        ? null
+        : CustomerCrmStatusResolver.resolve(customer!, charts);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          key: const Key('ba-compare-profile'),
+          onTap: onProfile,
+          customBorder: const CircleBorder(),
+          child: Column(
+            children: [
+              if (visual != null)
+                SoriCrmStatusAvatar(
+                  name: name,
+                  visual: visual,
+                  radius: 26,
+                  animateWhenVisible: false,
+                )
+              else
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: const Color(0xFF1C1C1E),
+                  child: Text(
+                    name.isEmpty ? '?' : name.characters.first,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: 72,
+                child: Text(
+                  '$name 님',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ChromePlate(
+          radius: 12,
+          child: IconButton(
+            key: const Key('ba-compare-mode'),
+            onPressed: onToggleMode,
+            icon: Icon(
+              useSlider ? Icons.compare : Icons.view_column_outlined,
+              color: Colors.white,
+            ),
+            tooltip: useSlider ? '나란히' : '슬라이더',
+          ),
+        ),
+      ],
     );
   }
 }

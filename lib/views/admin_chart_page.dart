@@ -118,6 +118,8 @@ class _AdminChartPageState extends State<AdminChartPage> {
       charts: _timeline,
       initialChartId: _timeline.isEmpty ? null : _timeline.first.id,
       initialCareName: _timeline.isEmpty ? null : _timeline.first.careName,
+      customerId: customer.id,
+      store: widget.store,
     );
   }
 

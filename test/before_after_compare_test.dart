@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sori/features/visit/widgets/ba_story_strip.dart';
+import 'package:sori/features/visit/widgets/ba_workspace_dock.dart';
 import 'package:sori/models/customer_chart.dart';
 import 'package:sori/views/before_after_compare_page.dart';
 import 'package:sori/views/before_after_compare_sheet.dart';
@@ -142,12 +142,16 @@ void main() {
         initialCareName: '스페셜 웨딩케어',
       );
 
-      expect(find.text('4회차 · B  ↔  4회차 · A'), findsOneWidget);
-      expect(find.text('1회차 · B  ↔  4회차 · A'), findsNothing);
-      expect(find.text('서비스 메뉴'), findsWidgets);
+      final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
+      expect(dock.left?.chartId, 'face-4');
+      expect(dock.left?.kind, 'before');
+      expect(dock.right?.chartId, 'face-4');
+      expect(dock.right?.kind, 'after');
+      expect(find.text('스페셜 웨딩케어'), findsOneWidget);
+      expect(find.text('서비스 메뉴'), findsNothing);
     });
 
-    testWidgets('가로 모드에서는 사진 스테이지와 우측 패널이 나란히 있다', (tester) async {
+    testWidgets('가로·세로 모두 사이드 패널 없이 사진이 화면을 채운다', (tester) async {
       await pumpViewer(
         tester,
         size: const Size(932, 430),
@@ -155,26 +159,42 @@ void main() {
       );
 
       expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
-      expect(find.byKey(const Key('ba-compare-side-panel')), findsOneWidget);
+      expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
+      expect(find.byType(BaWorkspaceDock), findsOneWidget);
 
       final stage = tester.getRect(
         find.byKey(const Key('ba-compare-photo-stage')),
       );
-      final panel = tester.getRect(
-        find.byKey(const Key('ba-compare-side-panel')),
-      );
       final screen = tester.getSize(find.byType(BeforeAfterComparePage));
-
       expect(stage.left, closeTo(0, 1));
       expect(stage.top, closeTo(0, 1));
+      expect(stage.width, closeTo(screen.width, 1));
       expect(stage.height, closeTo(screen.height, 1));
-      expect(stage.width / screen.width, inInclusiveRange(0.74, 0.82));
-      expect(panel.left, greaterThan(stage.right - 1));
-      expect(panel.width / screen.width, inInclusiveRange(0.18, 0.26));
+    });
 
-      // 조작 UI는 패널 안에 있고 사진 위를 덮지 않는다.
-      final toggle = tester.getRect(find.text('슬라이더').first);
-      expect(toggle.left, greaterThanOrEqualTo(panel.left - 1));
+    testWidgets('세로 모드에서는 우측 패널이 없다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(430, 932),
+        initialChartId: 'face-4',
+      );
+
+      expect(find.byKey(const Key('ba-compare-photo-stage')), findsOneWidget);
+      expect(find.byKey(const Key('ba-compare-side-panel')), findsNothing);
+    });
+
+    testWidgets('가로에서 사진 스테이지가 화면 높이의 대부분을 쓴다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(932, 430),
+        initialChartId: 'face-4',
+      );
+
+      final stage = tester.getSize(
+        find.byKey(const Key('ba-compare-photo-stage')),
+      );
+      expect(stage.height, greaterThan(400));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('세로 모드에서는 우측 패널이 없다', (tester) async {
@@ -231,13 +251,15 @@ void main() {
         initialChartId: 'face-4',
       );
 
-      expect(find.byType(BaStoryStrip), findsOneWidget);
+      expect(find.byType(BaWorkspaceDock), findsOneWidget);
       expect(find.text('1회차 B'), findsWidgets);
 
       await tester.tap(find.byKey(const Key('ba-story-thumb-face-1|before')));
       await tester.pump();
 
-      expect(find.text('4회차 · B  ↔  1회차 · B'), findsOneWidget);
+      final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
+      expect(dock.left?.key, 'face-4|before');
+      expect(dock.right?.key, 'face-1|before');
     });
 
     testWidgets('썸네일을 롱프레스 후 손을 떼면 같은 슬롯이 바인딩된다', (tester) async {
@@ -252,7 +274,8 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('4회차 · B  ↔  1회차 · A'), findsOneWidget);
+      final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
+      expect(dock.right?.key, 'face-1|after');
     });
 
     testWidgets('연결 슬롯을 왼쪽으로 바꾸면 썸네일이 왼쪽을 교체한다', (tester) async {
@@ -262,12 +285,14 @@ void main() {
         initialChartId: 'face-4',
       );
 
-      await tester.tap(find.byKey(const Key('ba-compare-bind-left')));
+      await tester.tap(find.byKey(const Key('ba-well-before')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('ba-story-thumb-face-1|after')));
       await tester.pump();
 
-      expect(find.text('1회차 · A  ↔  4회차 · A'), findsOneWidget);
+      final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
+      expect(dock.left?.key, 'face-1|after');
+      expect(dock.right?.key, 'face-4|after');
     });
 
     testWidgets('돋보기 버튼은 0.5x까지 줄고 기본은 1x 다', (tester) async {
@@ -344,7 +369,7 @@ void main() {
       expect(afterAt().dx, closeTo(pinnedAfter.dx, 0.5));
       expect(afterAt().dy, closeTo(pinnedAfter.dy, 0.5));
 
-      await tester.tap(find.text('나란히'));
+      await tester.tap(find.byKey(const Key('ba-compare-mode')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('ba-compare-zoom-out')));
       await tester.pump();
@@ -366,6 +391,36 @@ void main() {
       );
     });
 
+    testWidgets('더보기 시트에 저장·피드·공유·촬영·나가기가 있다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(430, 932),
+        initialChartId: 'face-4',
+      );
+
+      await tester.tap(find.byKey(const Key('ba-compare-more')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('저장하기'), findsOneWidget);
+      expect(find.text('피드에 추가'), findsOneWidget);
+      expect(find.text('공유하기'), findsOneWidget);
+      expect(find.text('촬영하기'), findsOneWidget);
+      expect(find.text('나가기'), findsOneWidget);
+    });
+
+    testWidgets('케어 필을 열면 아코디언으로 다른 시술이 보인다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(430, 932),
+        initialChartId: 'face-4',
+      );
+
+      await tester.tap(find.byKey(const Key('ba-compare-care-pill')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('테라노바 에너지 복부관리'), findsOneWidget);
+    });
+
     testWidgets('나란히 모드에도 InteractiveViewer 가 없다', (tester) async {
       await pumpViewer(
         tester,
@@ -373,7 +428,7 @@ void main() {
         initialChartId: 'face-4',
       );
 
-      await tester.tap(find.text('나란히'));
+      await tester.tap(find.byKey(const Key('ba-compare-mode')));
       await tester.pump();
 
       expect(find.byType(InteractiveViewer), findsNothing);
