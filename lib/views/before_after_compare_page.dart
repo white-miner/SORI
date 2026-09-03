@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../features/visit/widgets/ba_story_strip.dart';
 import '../models/customer_chart.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
@@ -9,9 +10,9 @@ import 'before_after_compare_sheet.dart';
 
 /// B/A 비교 전용 풀스크린.
 ///
-/// 세로는 사진 위에 글래스 컨트롤을 얹고, 가로는 사진을 좌측 70~75%에 단독
-/// 배치한 뒤 모든 조작을 우측 패널로 보낸다. 선택은 서비스 메뉴 → 회차 B/A
-/// 의 2 depth. 피드에서 넘긴 [initialChartId]가 있으면 그 차트 사진부터 연다.
+/// 사진은 스테이지를 꽉 채운다. 슬라이더는 홈 피드와 같은
+/// [BeforeAfterSlider] (전면 가로 드래그, InteractiveViewer 없음).
+/// 줌은 핀치가 아니라 [+][-] 고정 배율이다.
 class BeforeAfterComparePage extends StatefulWidget {
   const BeforeAfterComparePage({
     super.key,
@@ -28,6 +29,9 @@ class BeforeAfterComparePage extends StatefulWidget {
   final String? initialChartId;
   final String? initialCareName;
 
+  /// 버튼 줌 배율. 핀치 제스처는 쓰지 않는다.
+  static const List<double> zoomSteps = [1.0, 1.5, 2.0];
+
   @override
   State<BeforeAfterComparePage> createState() => _BeforeAfterComparePageState();
 }
@@ -40,6 +44,8 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
   VisitPhotoSlot? _left;
   VisitPhotoSlot? _right;
   bool _useSlider = true;
+  BaCompareBindSide _bindSide = BaCompareBindSide.right;
+  int _zoomIndex = 0;
 
   @override
   void initState() {
@@ -57,10 +63,10 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
     _right = seed.right;
   }
 
-  List<VisitPhotoSlot> get _scopedSlots => slotsForProgram(
-        slots: _slots,
-        programKey: _programKey,
-      );
+  List<VisitPhotoSlot> get _scopedSlots =>
+      slotsForProgram(slots: _slots, programKey: _programKey);
+
+  double get _zoom => BeforeAfterComparePage.zoomSteps[_zoomIndex];
 
   CustomerChart? _chartFor(VisitPhotoSlot? slot) {
     if (slot == null) return null;
@@ -77,15 +83,58 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
 
   void _selectProgram(String key) {
     if (key == _programKey) return;
-    final seed = resolveCompareViewerSeed(
-      slots: _slots,
-      initialCareName: key,
-    );
+    final seed = resolveCompareViewerSeed(slots: _slots, initialCareName: key);
     setState(() {
       _programKey = seed.programKey;
       _left = seed.left;
       _right = seed.right;
+      _zoomIndex = 0;
     });
+  }
+
+  void _setLeft(VisitPhotoSlot slot) {
+    setState(() {
+      _left = slot;
+      _bindSide = BaCompareBindSide.left;
+    });
+  }
+
+  void _setRight(VisitPhotoSlot slot) {
+    setState(() {
+      _right = slot;
+      _bindSide = BaCompareBindSide.right;
+    });
+  }
+
+  void _bind(VisitPhotoSlot slot) {
+    setState(() {
+      if (_bindSide == BaCompareBindSide.left) {
+        _left = slot;
+      } else {
+        _right = slot;
+      }
+    });
+  }
+
+  void _zoomIn() {
+    if (_zoomIndex >= BeforeAfterComparePage.zoomSteps.length - 1) return;
+    setState(() => _zoomIndex++);
+  }
+
+  void _zoomOut() {
+    if (_zoomIndex <= 0) return;
+    setState(() => _zoomIndex--);
+  }
+
+  Widget _storyStrip() {
+    return BaStoryStrip(
+      key: const Key('ba-compare-story-strip'),
+      slots: _scopedSlots,
+      left: _left,
+      right: _right,
+      bindSide: _bindSide,
+      onBind: _bind,
+    );
   }
 
   @override
@@ -99,26 +148,30 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
       body: empty
           ? SafeArea(child: _EmptyState(customerName: widget.customerName))
           : landscape
-              ? _buildLandscape()
-              : SafeArea(child: _buildPortrait()),
+          ? _buildLandscape()
+          : _buildPortrait(),
     );
   }
 
-  /// 좌측 73%는 사진만, 우측 27%에 조작 UI를 전부 모은다.
+  /// 좌측 78%는 사진만, 우측 22%에 조작 UI를 모은다.
   Widget _buildLandscape() {
     return Row(
       children: [
         Expanded(
-          flex: 73,
+          flex: 78,
           child: _CompareStage(
             key: const Key('ba-compare-photo-stage'),
             left: _left,
             right: _right,
             useSlider: _useSlider,
+            zoom: _zoom,
+            onZoomIn: _zoomIn,
+            onZoomOut: _zoomOut,
+            bottomBar: _storyStrip(),
           ),
         ),
         Expanded(
-          flex: 27,
+          flex: 22,
           child: _SideControlPanel(
             key: const Key('ba-compare-side-panel'),
             customerName: widget.customerName,
@@ -128,14 +181,15 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
             left: _left,
             right: _right,
             useSlider: _useSlider,
+            bindSide: _bindSide,
             leftChart: _chartFor(_left),
             rightChart: _chartFor(_right),
             onProgramChanged: _selectProgram,
-            onLeftChanged: (v) => setState(() => _left = v),
-            onRightChanged: (v) => setState(() => _right = v),
+            onLeftChanged: _setLeft,
+            onRightChanged: _setRight,
             onSwap: _swapSides,
             onModeChanged: (v) => setState(() => _useSlider = v),
-            onPick: (slot) => setState(() => _right = slot),
+            onBindSideChanged: (v) => setState(() => _bindSide = v),
           ),
         ),
       ],
@@ -143,30 +197,49 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
   }
 
   Widget _buildPortrait() {
+    final padding = MediaQuery.paddingOf(context);
     return _CompareStage(
       key: const Key('ba-compare-photo-stage'),
       left: _left,
       right: _right,
       useSlider: _useSlider,
-      topBar: _TopGlassBar(
-        customerName: widget.customerName,
-        programs: _programs,
-        programKey: _programKey,
-        left: _left,
-        right: _right,
-        slots: _scopedSlots,
-        onProgramChanged: _selectProgram,
-        onLeftChanged: (v) => setState(() => _left = v),
-        onRightChanged: (v) => setState(() => _right = v),
-        onSwap: _swapSides,
+      zoom: _zoom,
+      onZoomIn: _zoomIn,
+      onZoomOut: _zoomOut,
+      topBar: Padding(
+        padding: EdgeInsets.fromLTRB(8, padding.top + 4, 8, 0),
+        child: _TopGlassBar(
+          customerName: widget.customerName,
+          programs: _programs,
+          programKey: _programKey,
+          left: _left,
+          right: _right,
+          slots: _scopedSlots,
+          onProgramChanged: _selectProgram,
+          onLeftChanged: _setLeft,
+          onRightChanged: _setRight,
+          onSwap: _swapSides,
+        ),
       ),
-      bottomBar: _BottomGlassBar(
-        useSlider: _useSlider,
-        onModeChanged: (v) => setState(() => _useSlider = v),
-        slots: _scopedSlots,
-        left: _left,
-        right: _right,
-        onPick: (slot) => setState(() => _right = slot),
+      bottomBar: Padding(
+        padding: EdgeInsets.fromLTRB(0, 0, 0, padding.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _BottomGlassBar(
+                useSlider: _useSlider,
+                onModeChanged: (v) => setState(() => _useSlider = v),
+                left: _left,
+                right: _right,
+                bindSide: _bindSide,
+                onBindSideChanged: (v) => setState(() => _bindSide = v),
+              ),
+            ),
+            _storyStrip(),
+          ],
+        ),
       ),
     );
   }
@@ -198,6 +271,9 @@ class _CompareStage extends StatelessWidget {
     required this.left,
     required this.right,
     required this.useSlider,
+    required this.zoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
     this.topBar,
     this.bottomBar,
   });
@@ -205,56 +281,68 @@ class _CompareStage extends StatelessWidget {
   final VisitPhotoSlot? left;
   final VisitPhotoSlot? right;
   final bool useSlider;
+  final double zoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
   final Widget? topBar;
   final Widget? bottomBar;
 
   @override
   Widget build(BuildContext context) {
-    final overlay = topBar != null || bottomBar != null;
     return Stack(
       fit: StackFit.expand,
+      clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          child: Padding(
-            // 가로 모드에서는 상·하 바를 비우므로 사진이 스테이지를 채운다.
-            padding: overlay
-                ? const EdgeInsets.fromLTRB(8, 118, 8, 96)
-                : const EdgeInsets.all(8),
-            child: left != null && right != null
-                ? _ZoomableCompareBody(
-                    left: left!,
-                    right: right!,
-                    useSlider: useSlider,
-                  )
-                : const SizedBox.shrink(),
+          child: left != null && right != null
+              ? _ComparePhotoBody(
+                  left: left!,
+                  right: right!,
+                  useSlider: useSlider,
+                  zoom: zoom,
+                )
+              : const ColoredBox(color: Color(0xFF0A0A0B)),
+        ),
+        Positioned(
+          right: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: _ZoomStepper(
+              zoom: zoom,
+              onZoomIn: onZoomIn,
+              onZoomOut: onZoomOut,
+            ),
           ),
         ),
         if (topBar != null)
-          Positioned(top: 8, left: 8, right: 8, child: topBar!),
+          Positioned(top: 0, left: 0, right: 0, child: topBar!),
         if (bottomBar != null)
-          Positioned(bottom: 8, left: 8, right: 8, child: bottomBar!),
+          Positioned(bottom: 0, left: 0, right: 0, child: bottomBar!),
       ],
     );
   }
 }
 
-class _ZoomableCompareBody extends StatelessWidget {
-  const _ZoomableCompareBody({
+class _ComparePhotoBody extends StatelessWidget {
+  const _ComparePhotoBody({
     required this.left,
     required this.right,
     required this.useSlider,
+    required this.zoom,
   });
 
   final VisitPhotoSlot left;
   final VisitPhotoSlot right;
   final bool useSlider;
+  final double zoom;
 
   Widget _pane(VisitPhotoSlot slot) {
     return ChartImagePane(
       url: slot.url,
       fallbackLabel: slot.shortLabel,
       tone: SoriTokens.textSecondary,
-      fit: BoxFit.contain,
+      fit: BoxFit.cover,
     );
   }
 
@@ -262,75 +350,144 @@ class _ZoomableCompareBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-
-        if (useSlider) {
-          return InteractiveViewer(
-            minScale: 1,
-            maxScale: 4,
-            panEnabled: true,
-            clipBehavior: Clip.none,
-            boundaryMargin: const EdgeInsets.all(120),
-            child: SizedBox(
-              width: w,
-              height: h,
-              child: BeforeAfterSlider(
+        final photo = useSlider
+            ? BeforeAfterSlider(
                 height: h,
                 maxHeight: h,
-                dragHandleOnly: true,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.zero,
                 before: _pane(left),
                 after: _pane(right),
-              ),
-            ),
-          );
-        }
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _SidePane(label: left.label, child: _pane(left)),
+                  ),
+                  const ColoredBox(
+                    color: Color(0xFF0A0A0B),
+                    child: SizedBox(width: 2),
+                  ),
+                  Expanded(
+                    child: _SidePane(label: right.label, child: _pane(right)),
+                  ),
+                ],
+              );
 
-        return Row(
-          children: [
-            Expanded(
-              child: _ZoomPane(label: left.label, child: _pane(left)),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _ZoomPane(label: right.label, child: _pane(right)),
-            ),
-          ],
+        return ClipRect(
+          child: AnimatedScale(
+            scale: zoom,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: photo,
+          ),
         );
       },
     );
   }
 }
 
-class _ZoomPane extends StatelessWidget {
-  const _ZoomPane({required this.label, required this.child});
+class _SidePane extends StatelessWidget {
+  const _SidePane({required this.label, required this.child});
 
   final String label;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          InteractiveViewer(
-            minScale: 1,
-            maxScale: 4,
-            panEnabled: true,
-            clipBehavior: Clip.none,
-            boundaryMargin: const EdgeInsets.all(80),
-            child: child,
-          ),
-          Positioned(
-            left: 10,
-            top: 10,
-            child: _GlassChip(text: label),
-          ),
-        ],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Positioned(left: 10, top: 10, child: _GlassChip(text: label)),
+      ],
+    );
+  }
+}
+
+class _ZoomStepper extends StatelessWidget {
+  const _ZoomStepper({
+    required this.zoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  final double zoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  String get _label {
+    if (zoom == zoom.roundToDouble()) return '${zoom.toInt()}x';
+    return '${zoom}x';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = BeforeAfterComparePage.zoomSteps;
+    final atMin = zoom <= steps.first;
+    final atMax = zoom >= steps.last;
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ZoomIconButton(
+              key: const Key('ba-compare-zoom-in'),
+              icon: Icons.add,
+              tooltip: '확대',
+              onPressed: atMax ? null : onZoomIn,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                _label,
+                key: const Key('ba-compare-zoom-label'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            _ZoomIconButton(
+              key: const Key('ba-compare-zoom-out'),
+              icon: Icons.remove,
+              tooltip: '축소',
+              onPressed: atMin ? null : onZoomOut,
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _ZoomIconButton extends StatelessWidget {
+  const _ZoomIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      color: Colors.white,
+      disabledColor: Colors.white24,
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
     );
   }
 }
@@ -345,6 +502,7 @@ class _SideControlPanel extends StatelessWidget {
     required this.left,
     required this.right,
     required this.useSlider,
+    required this.bindSide,
     required this.leftChart,
     required this.rightChart,
     required this.onProgramChanged,
@@ -352,7 +510,7 @@ class _SideControlPanel extends StatelessWidget {
     required this.onRightChanged,
     required this.onSwap,
     required this.onModeChanged,
-    required this.onPick,
+    required this.onBindSideChanged,
   });
 
   final String customerName;
@@ -362,6 +520,7 @@ class _SideControlPanel extends StatelessWidget {
   final VisitPhotoSlot? left;
   final VisitPhotoSlot? right;
   final bool useSlider;
+  final BaCompareBindSide bindSide;
   final CustomerChart? leftChart;
   final CustomerChart? rightChart;
   final ValueChanged<String> onProgramChanged;
@@ -369,7 +528,7 @@ class _SideControlPanel extends StatelessWidget {
   final ValueChanged<VisitPhotoSlot> onRightChanged;
   final VoidCallback onSwap;
   final ValueChanged<bool> onModeChanged;
-  final ValueChanged<VisitPhotoSlot> onPick;
+  final ValueChanged<BaCompareBindSide> onBindSideChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -378,135 +537,110 @@ class _SideControlPanel extends StatelessWidget {
       color: const Color(0xFF141416),
       child: SafeArea(
         left: false,
-        child: Padding(
+        child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    color: Colors.white,
-                    tooltip: '닫기',
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  Expanded(
-                    child: Text(
-                      '$customerName · B/A 비교',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _DarkSelect<String>(
-                label: '서비스 메뉴',
-                value: programs.any((p) => p.key == programKey)
-                    ? programKey
-                    : (programs.isEmpty ? null : programs.first.key),
-                items: [
-                  for (final p in programs)
-                    (value: p.key, label: p.label),
-                ],
-                onChanged: onProgramChanged,
-              ),
-              const SizedBox(height: 10),
-              _DarkSelect<String>(
-                label: '왼쪽',
-                value: left?.key,
-                items: [
-                  for (final s in slots) (value: s.key, label: s.shortLabel),
-                ],
-                onChanged: (key) {
-                  final match = slots.where((s) => s.key == key);
-                  if (match.isNotEmpty) onLeftChanged(match.first);
-                },
-              ),
-              Center(
-                child: IconButton(
-                  onPressed: onSwap,
-                  icon: const Icon(Icons.swap_vert_rounded, size: 20),
-                  color: Colors.white70,
-                  tooltip: '좌우 바꾸기',
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                  color: Colors.white,
+                  tooltip: '닫기',
                   visualDensity: VisualDensity.compact,
                 ),
-              ),
-              _DarkSelect<String>(
-                label: '오른쪽',
-                value: right?.key,
-                items: [
-                  for (final s in slots) (value: s.key, label: s.shortLabel),
-                ],
-                onChanged: (key) {
-                  final match = slots.where((s) => s.key == key);
-                  if (match.isNotEmpty) onRightChanged(match.first);
-                },
-              ),
-              const SizedBox(height: 12),
-              _ModeToggle(useSlider: useSlider, onChanged: onModeChanged),
-              if (left != null && right != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '${left!.shortLabel}  ↔  ${right!.shortLabel}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
+                Expanded(
+                  child: Text(
+                    '$customerName · B/A 비교',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView(
-                  children: [
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final slot in slots)
-                          _SlotChip(
-                            slot: slot,
-                            active: left?.key == slot.key ||
-                                right?.key == slot.key,
-                            onTap: () => onPick(slot),
-                          ),
-                      ],
-                    ),
-                    if (focus != null &&
-                        focus.treatmentSummary.trim().isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        '시술 요약',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white.withValues(alpha: 0.55),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        focus.treatmentSummary.trim(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.4,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ],
+            ),
+            const SizedBox(height: 8),
+            _DarkSelect<String>(
+              label: '서비스 메뉴',
+              value: programs.any((p) => p.key == programKey)
+                  ? programKey
+                  : (programs.isEmpty ? null : programs.first.key),
+              items: [for (final p in programs) (value: p.key, label: p.label)],
+              onChanged: onProgramChanged,
+            ),
+            const SizedBox(height: 10),
+            _DarkSelect<String>(
+              label: '왼쪽',
+              value: left?.key,
+              items: [
+                for (final s in slots) (value: s.key, label: s.shortLabel),
+              ],
+              onChanged: (key) {
+                final match = slots.where((s) => s.key == key);
+                if (match.isNotEmpty) onLeftChanged(match.first);
+              },
+            ),
+            Center(
+              child: IconButton(
+                onPressed: onSwap,
+                icon: const Icon(Icons.swap_vert_rounded, size: 20),
+                color: Colors.white70,
+                tooltip: '좌우 바꾸기',
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            _DarkSelect<String>(
+              label: '오른쪽',
+              value: right?.key,
+              items: [
+                for (final s in slots) (value: s.key, label: s.shortLabel),
+              ],
+              onChanged: (key) {
+                final match = slots.where((s) => s.key == key);
+                if (match.isNotEmpty) onRightChanged(match.first);
+              },
+            ),
+            const SizedBox(height: 12),
+            _ModeToggle(useSlider: useSlider, onChanged: onModeChanged),
+            const SizedBox(height: 8),
+            _BindSideToggle(bindSide: bindSide, onChanged: onBindSideChanged),
+            if (left != null && right != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${left!.shortLabel}  ↔  ${right!.shortLabel}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
                 ),
               ),
             ],
-          ),
+            if (focus != null && focus.treatmentSummary.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                '시술 요약',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha: 0.55),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                focus.treatmentSummary.trim(),
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -572,9 +706,7 @@ class _TopGlassBar extends StatelessWidget {
             value: programs.any((p) => p.key == programKey)
                 ? programKey
                 : (programs.isEmpty ? null : programs.first.key),
-            items: [
-              for (final p in programs) (value: p.key, label: p.label),
-            ],
+            items: [for (final p in programs) (value: p.key, label: p.label)],
             onChanged: onProgramChanged,
           ),
           const SizedBox(height: 6),
@@ -585,8 +717,7 @@ class _TopGlassBar extends StatelessWidget {
                   label: '왼쪽',
                   value: left?.key,
                   items: [
-                    for (final s in slots)
-                      (value: s.key, label: s.shortLabel),
+                    for (final s in slots) (value: s.key, label: s.shortLabel),
                   ],
                   onChanged: (key) {
                     final match = slots.where((s) => s.key == key);
@@ -606,8 +737,7 @@ class _TopGlassBar extends StatelessWidget {
                   label: '오른쪽',
                   value: right?.key,
                   items: [
-                    for (final s in slots)
-                      (value: s.key, label: s.shortLabel),
+                    for (final s in slots) (value: s.key, label: s.shortLabel),
                   ],
                   onChanged: (key) {
                     final match = slots.where((s) => s.key == key);
@@ -627,18 +757,18 @@ class _BottomGlassBar extends StatelessWidget {
   const _BottomGlassBar({
     required this.useSlider,
     required this.onModeChanged,
-    required this.slots,
     required this.left,
     required this.right,
-    required this.onPick,
+    required this.bindSide,
+    required this.onBindSideChanged,
   });
 
   final bool useSlider;
   final ValueChanged<bool> onModeChanged;
-  final List<VisitPhotoSlot> slots;
   final VisitPhotoSlot? left;
   final VisitPhotoSlot? right;
-  final ValueChanged<VisitPhotoSlot> onPick;
+  final BaCompareBindSide bindSide;
+  final ValueChanged<BaCompareBindSide> onBindSideChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -648,6 +778,8 @@ class _BottomGlassBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _ModeToggle(useSlider: useSlider, onChanged: onModeChanged),
+          const SizedBox(height: 8),
+          _BindSideToggle(bindSide: bindSide, onChanged: onBindSideChanged),
           if (left != null && right != null) ...[
             const SizedBox(height: 8),
             Text(
@@ -659,25 +791,51 @@ class _BottomGlassBar extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 32,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: slots.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
-              itemBuilder: (_, index) {
-                final slot = slots[index];
-                return _SlotChip(
-                  slot: slot,
-                  active: left?.key == slot.key || right?.key == slot.key,
-                  onTap: () => onPick(slot),
-                );
-              },
-            ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+class _BindSideToggle extends StatelessWidget {
+  const _BindSideToggle({required this.bindSide, required this.onChanged});
+
+  final BaCompareBindSide bindSide;
+  final ValueChanged<BaCompareBindSide> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          '연결',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.65),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ModeChip(
+            key: const Key('ba-compare-bind-left'),
+            label: '왼쪽',
+            icon: Icons.chevron_left_rounded,
+            selected: bindSide == BaCompareBindSide.left,
+            onTap: () => onChanged(BaCompareBindSide.left),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _ModeChip(
+            key: const Key('ba-compare-bind-right'),
+            label: '오른쪽',
+            icon: Icons.chevron_right_rounded,
+            selected: bindSide == BaCompareBindSide.right,
+            onTap: () => onChanged(BaCompareBindSide.right),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -716,6 +874,7 @@ class _ModeToggle extends StatelessWidget {
 
 class _ModeChip extends StatelessWidget {
   const _ModeChip({
+    super.key,
     required this.label,
     required this.icon,
     required this.selected,
@@ -761,38 +920,6 @@ class _ModeChip extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SlotChip extends StatelessWidget {
-  const _SlotChip({
-    required this.slot,
-    required this.active,
-    required this.onTap,
-  });
-
-  final VisitPhotoSlot slot;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      label: Text(
-        slot.shortLabel,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: active ? SoriTokens.textPrimary : Colors.white,
-        ),
-      ),
-      onPressed: onTap,
-      backgroundColor:
-          active ? Colors.white : Colors.white.withValues(alpha: 0.14),
-      side: BorderSide.none,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 }
@@ -856,10 +983,7 @@ class _DarkSelect<T> extends StatelessWidget {
                 for (final item in items)
                   DropdownMenuItem(
                     value: item.value,
-                    child: Text(
-                      item.label,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(item.label, overflow: TextOverflow.ellipsis),
                   ),
               ],
               onChanged: (v) {
@@ -891,10 +1015,7 @@ class _GlassPanel extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           ),
-          child: Padding(
-            padding: padding ?? EdgeInsets.zero,
-            child: child,
-          ),
+          child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
         ),
       ),
     );

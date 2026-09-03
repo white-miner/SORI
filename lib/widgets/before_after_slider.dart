@@ -65,10 +65,7 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: SoriTokens.primary,
-                width: 2,
-              ),
+              border: Border.all(color: SoriTokens.primary, width: 2),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.18),
@@ -105,10 +102,7 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
           fit: StackFit.expand,
           children: [
             widget.after,
-            ClipRect(
-              clipper: _LeftClipper(split),
-              child: widget.before,
-            ),
+            ClipRect(clipper: _LeftClipper(split), child: widget.before),
             if (widget.dragHandleOnly)
               _buildHandle(split, w)
             else
@@ -124,10 +118,7 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: SoriTokens.primary,
-                        width: 2,
-                      ),
+                      border: Border.all(color: SoriTokens.primary, width: 2),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.18),
@@ -273,9 +264,7 @@ class ChartImagePane extends StatelessWidget {
         if (progress == null) return child;
         return ColoredBox(
           color: tone.withValues(alpha: 0.12),
-          child: const Center(
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         );
       },
       errorBuilder: (context, error, stackTrace) {
@@ -309,22 +298,33 @@ class _Placeholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: tone.withValues(alpha: 0.14),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40, color: tone),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tight = constraints.maxHeight < 88 || constraints.maxWidth < 88;
+          if (tight) {
+            return Center(
+              child: Icon(
+                icon,
+                size: (constraints.biggest.shortestSide * 0.36).clamp(12, 22),
                 color: tone,
               ),
+            );
+          }
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 40, color: tone),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w800, color: tone),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

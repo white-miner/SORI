@@ -30,6 +30,9 @@ class VisitPhotoSlot {
   }
 
   String get shortLabel => '$visitNumber회차 · ${kind == 'before' ? 'B' : 'A'}';
+
+  /// 스토리 스택 하단 라벨. 중점은 드롭다운용 [shortLabel]에 남긴다.
+  String get storyLabel => '$visitNumber회차 ${kind == 'before' ? 'B' : 'A'}';
 }
 
 /// 한 고객의 서비스 메뉴(1 depth) 아래 회차 사진(2 depth).
@@ -47,11 +50,7 @@ class CareProgramGroup {
 
 /// 뷰어 진입 시 왼쪽/오른쪽/프로그램의 초기값.
 class CompareViewerSeed {
-  const CompareViewerSeed({
-    required this.programKey,
-    this.left,
-    this.right,
-  });
+  const CompareViewerSeed({required this.programKey, this.left, this.right});
 
   final String programKey;
   final VisitPhotoSlot? left;
@@ -175,8 +174,8 @@ CompareViewerSeed resolveCompareViewerSeed({
   final programKey = hinted != null
       ? hinted.programKey
       : (initialCareName != null
-          ? normalizeCareProgramKey(initialCareName)
-          : slots.first.programKey);
+            ? normalizeCareProgramKey(initialCareName)
+            : slots.first.programKey);
 
   final scoped = slotsForProgram(slots: slots, programKey: programKey);
   final pool = scoped.isNotEmpty ? scoped : slots;
@@ -188,7 +187,8 @@ CompareViewerSeed resolveCompareViewerSeed({
     return CompareViewerSeed(
       programKey: scopeKey,
       left: before ?? hinted,
-      right: after ??
+      right:
+          after ??
           (before != null && pool.length > 1
               ? pool.lastWhere((s) => s.key != before.key, orElse: () => before)
               : hinted),
