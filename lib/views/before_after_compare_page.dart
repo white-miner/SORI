@@ -29,8 +29,9 @@ class BeforeAfterComparePage extends StatefulWidget {
   final String? initialChartId;
   final String? initialCareName;
 
-  /// 버튼 줌 배율. 핀치 제스처는 쓰지 않는다.
-  static const List<double> zoomSteps = [1.0, 1.5, 2.0];
+  /// 버튼 줌 배율. 핀치 제스처는 쓰지 않는다. 진입 기본은 1.0x.
+  static const List<double> zoomSteps = [0.5, 1.0, 1.5, 2.0];
+  static const int defaultZoomIndex = 1;
 
   @override
   State<BeforeAfterComparePage> createState() => _BeforeAfterComparePageState();
@@ -45,7 +46,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
   VisitPhotoSlot? _right;
   bool _useSlider = true;
   BaCompareBindSide _bindSide = BaCompareBindSide.right;
-  int _zoomIndex = 0;
+  int _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
 
   @override
   void initState() {
@@ -88,7 +89,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
       _programKey = seed.programKey;
       _left = seed.left;
       _right = seed.right;
-      _zoomIndex = 0;
+      _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
     });
   }
 
@@ -303,6 +304,28 @@ class _CompareStage extends StatelessWidget {
                 )
               : const ColoredBox(color: Color(0xFF0A0A0B)),
         ),
+        if (left != null && right != null) ...[
+          const Positioned(
+            top: 16,
+            left: 16,
+            child: IgnorePointer(
+              child: _ViewportCornerTag(
+                key: Key('ba-compare-label-before'),
+                text: 'Before',
+              ),
+            ),
+          ),
+          const Positioned(
+            top: 16,
+            right: 16,
+            child: IgnorePointer(
+              child: _ViewportCornerTag(
+                key: Key('ba-compare-label-after'),
+                text: 'After',
+              ),
+            ),
+          ),
+        ],
         Positioned(
           right: 8,
           top: 0,
@@ -356,28 +379,27 @@ class _ComparePhotoBody extends StatelessWidget {
                 height: h,
                 maxHeight: h,
                 borderRadius: BorderRadius.zero,
+                showCornerTags: false,
                 before: _pane(left),
                 after: _pane(right),
               )
             : Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: _SidePane(label: left.label, child: _pane(left)),
-                  ),
+                  Expanded(child: _pane(left)),
                   const ColoredBox(
                     color: Color(0xFF0A0A0B),
                     child: SizedBox(width: 2),
                   ),
-                  Expanded(
-                    child: _SidePane(label: right.label, child: _pane(right)),
-                  ),
+                  Expanded(child: _pane(right)),
                 ],
               );
 
         return ClipRect(
           child: AnimatedScale(
+            key: const Key('ba-compare-photo-scale'),
             scale: zoom,
+            alignment: Alignment.center,
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             child: photo,
@@ -388,21 +410,14 @@ class _ComparePhotoBody extends StatelessWidget {
   }
 }
 
-class _SidePane extends StatelessWidget {
-  const _SidePane({required this.label, required this.child});
+class _ViewportCornerTag extends StatelessWidget {
+  const _ViewportCornerTag({super.key, required this.text});
 
-  final String label;
-  final Widget child;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        child,
-        Positioned(left: 10, top: 10, child: _GlassChip(text: label)),
-      ],
-    );
+    return _GlassChip(text: text);
   }
 }
 

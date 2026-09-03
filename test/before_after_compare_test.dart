@@ -270,13 +270,32 @@ void main() {
       expect(find.text('1회차 · A  ↔  4회차 · A'), findsOneWidget);
     });
 
-    testWidgets('돋보기 버튼은 1x → 1.5x → 2x 로만 움직인다', (tester) async {
+    testWidgets('돋보기 버튼은 0.5x까지 줄고 기본은 1x 다', (tester) async {
       await pumpViewer(
         tester,
         size: const Size(430, 932),
         initialChartId: 'face-4',
       );
 
+      expect(find.text('1x'), findsOneWidget);
+      expect(find.text('0.5x'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('ba-compare-zoom-out')));
+      await tester.pump();
+      expect(find.text('0.5x'), findsOneWidget);
+
+      final scaled = tester.widget<AnimatedScale>(
+        find.byKey(const Key('ba-compare-photo-scale')),
+      );
+      expect(scaled.scale, 0.5);
+      expect(scaled.alignment, Alignment.center);
+
+      await tester.tap(find.byKey(const Key('ba-compare-zoom-out')));
+      await tester.pump();
+      expect(find.text('0.5x'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('ba-compare-zoom-in')));
+      await tester.pump();
       expect(find.text('1x'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('ba-compare-zoom-in')));
@@ -290,10 +309,61 @@ void main() {
       await tester.tap(find.byKey(const Key('ba-compare-zoom-in')));
       await tester.pump();
       expect(find.text('2x'), findsOneWidget);
+    });
 
+    testWidgets('줌해도 Before/After 라벨은 뷰포트 모서리에 고정된다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(932, 430),
+        initialChartId: 'face-4',
+      );
+
+      final beforeKey = find.byKey(const Key('ba-compare-label-before'));
+      final afterKey = find.byKey(const Key('ba-compare-label-after'));
+      final stage = tester.getRect(
+        find.byKey(const Key('ba-compare-photo-stage')),
+      );
+
+      Offset beforeAt() => tester.getTopLeft(beforeKey);
+      Offset afterAt() => tester.getTopRight(afterKey);
+
+      expect(beforeAt().dx, closeTo(stage.left + 16, 1));
+      expect(beforeAt().dy, closeTo(stage.top + 16, 1));
+      expect(afterAt().dx, closeTo(stage.right - 16, 1));
+      expect(afterAt().dy, closeTo(stage.top + 16, 1));
+
+      final pinnedBefore = beforeAt();
+      final pinnedAfter = afterAt();
+
+      await tester.tap(find.byKey(const Key('ba-compare-zoom-in')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(beforeAt().dx, closeTo(pinnedBefore.dx, 0.5));
+      expect(beforeAt().dy, closeTo(pinnedBefore.dy, 0.5));
+      expect(afterAt().dx, closeTo(pinnedAfter.dx, 0.5));
+      expect(afterAt().dy, closeTo(pinnedAfter.dy, 0.5));
+
+      await tester.tap(find.text('나란히'));
+      await tester.pump();
       await tester.tap(find.byKey(const Key('ba-compare-zoom-out')));
       await tester.pump();
-      expect(find.text('1.5x'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('ba-compare-zoom-out')));
+      await tester.pump();
+      expect(find.text('0.5x'), findsOneWidget);
+
+      expect(beforeAt().dx, closeTo(pinnedBefore.dx, 0.5));
+      expect(beforeAt().dy, closeTo(pinnedBefore.dy, 0.5));
+      expect(afterAt().dx, closeTo(pinnedAfter.dx, 0.5));
+      expect(afterAt().dy, closeTo(pinnedAfter.dy, 0.5));
+      expect(
+        tester
+            .widget<AnimatedScale>(
+              find.byKey(const Key('ba-compare-photo-scale')),
+            )
+            .alignment,
+        Alignment.center,
+      );
     });
 
     testWidgets('나란히 모드에도 InteractiveViewer 가 없다', (tester) async {

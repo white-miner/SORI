@@ -15,6 +15,7 @@ class BeforeAfterSlider extends StatefulWidget {
     this.maxHeight = 520,
     this.dragHandleOnly = false,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
+    this.showCornerTags = true,
   });
 
   final Widget before;
@@ -30,6 +31,9 @@ class BeforeAfterSlider extends StatefulWidget {
 
   /// 홈 피드 몰입형은 [BorderRadius.zero]로 각진 Edge-to-Edge.
   final BorderRadius borderRadius;
+
+  /// false면 코너 태그를 그리지 않는다. 비교 뷰어는 줌 바깥에 고정 라벨을 둔다.
+  final bool showCornerTags;
 
   @override
   State<BeforeAfterSlider> createState() => _BeforeAfterSliderState();
@@ -144,16 +148,18 @@ class _BeforeAfterSliderState extends State<BeforeAfterSlider> {
                 color: Colors.white.withValues(alpha: 0.95),
               ),
             ),
-            const Positioned(
-              left: 10,
-              top: 10,
-              child: _CornerTag(label: 'Before'),
-            ),
-            const Positioned(
-              right: 10,
-              top: 10,
-              child: _CornerTag(label: 'After'),
-            ),
+            if (widget.showCornerTags) ...[
+              const Positioned(
+                left: 10,
+                top: 10,
+                child: _CornerTag(label: 'Before'),
+              ),
+              const Positioned(
+                right: 10,
+                top: 10,
+                child: _CornerTag(label: 'After'),
+              ),
+            ],
           ],
         );
 
