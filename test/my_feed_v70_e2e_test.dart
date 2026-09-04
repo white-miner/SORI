@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sori/features/operation/widgets/care_timer_floating_bar.dart';
+import 'package:sori/features/operation/widgets/care_timer_fullscreen_page.dart';
 import 'package:sori/features/operation/widgets/flip_clock_display.dart';
 import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
@@ -171,7 +173,9 @@ void main() {
     }
   });
 
-  testWidgets('Q1(b) — Timer 탭에 v5.4 자산 3종이 그대로 살아 있다', (tester) async {
+  testWidgets('Q1(b) — Timer 탭 Standby에 시계·컨트롤·고객연결이 임베딩된다', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -185,8 +189,14 @@ void main() {
     await _settle(tester);
 
     expect(find.byType(HomeToolboxRow), findsOneWidget);
+    expect(find.byKey(const Key('home-timer-stage')), findsOneWidget);
+    expect(find.byType(FlipClockDisplay), findsWidgets);
+    expect(find.byType(CareTimerFloatingBar), findsOneWidget);
     expect(find.text('케어 시작'), findsOneWidget);
     expect(find.byType(HomePresetQuickPick), findsOneWidget);
+    expect(find.byKey(const Key('home-timer-customer-bind')), findsOneWidget);
+    expect(find.text('고객 차트 연결'), findsOneWidget);
+    expect(find.byType(CareTimerFullscreenPage), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

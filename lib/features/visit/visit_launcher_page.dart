@@ -45,9 +45,12 @@ import 'widgets/home_hero_card.dart';
 import 'widgets/home_preset_quick_pick.dart';
 import 'widgets/home_quick_action_row.dart';
 import 'widgets/home_scheduler_strip.dart';
+import 'widgets/home_timer_customer_bind.dart';
+import 'widgets/home_timer_stage.dart';
 import 'widgets/home_toolbox_row.dart';
 import 'widgets/management_case_card.dart';
 import 'widgets/quick_calculator_sheet.dart';
+import '../operation/widgets/care_timer_preset_editor_page.dart';
 
 /// PRD v7.0 — 원장 홈 상단 탭.
 enum HomeTab { myFeed, program, timer }
@@ -79,6 +82,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
 
   /// 상담 중 즐겨찾기한 레퍼런스만 빠르게 훑기 위한 필터.
   bool _caseBookmarkOnly = false;
+
+  /// Timer 탭 — 고객 차트 CRM 바인딩 (스탠바이).
+  bool _timerChartBindEnabled = false;
+  String? _timerBoundCustomerId;
 
   VisitStore get visit => widget.store.visit;
 
@@ -368,14 +375,65 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   Future<void> _openTimerStandalone() async {
+    // 툴박스 타이머 = 탭 내 스테이지 포커스. 풀스크린은 확대 버튼만.
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openCareStart() async {
+    // 케어 시작 = 탭 본문에서 카운트다운. 화면 전환 없음.
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    final slot = timerStore.homeSelectedPresetSlot ??
+        timerStore.selectedPresetSlot;
+    final preset = timerStore.presetAt(slot);
+    if (preset.isEmpty) {
+      if (mounted) {
+        _toast('프리셋을 먼저 선택하거나 설정하세요', error: true);
+      }
+      return;
+    }
+    timerStore.selectPresetSlot(slot);
+    if (timerStore.isCareArmed) {
+      await timerStore.startCare(presetSlot: slot);
+    } else if (!timerStore.isCareRunning) {
+      await timerStore.bindPreset(presetSlot: slot);
+      await timerStore.startCare(presetSlot: slot);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _endCareInTab() async {
+    final timerStore = VisitTimerStore.instance;
+    if (timerStore.active?.isStandalone ?? false) {
+      await timerStore.finishStandaloneCare();
+    } else if (timerStore.isCareRunning || timerStore.isCareArmed) {
+      await timerStore.endCare();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openFullscreenGlance({VisitSession? session}) async {
     final timerStore = VisitTimerStore.instance;
     await timerStore.ensureStandaloneTimer();
     if (!mounted) return;
+    final bound = session ??
+        (_agendaSnapshot().activeSessions.firstOrNull ??
+            widget.store.activeVisitSession);
     await CareTimerFullscreenPage.open(
       context,
       store: widget.store,
+      session: bound,
       presetSlot: timerStore.selectedPresetSlot,
       entryMode: CareTimerEntryMode.standalone,
+      onCareEnd: bound == null ? null : () => _handleCareEnd(bound),
+      onVisitEnd: bound == null
+          ? null
+          : () async {
+              await _endVisit(bound);
+              if (mounted) Navigator.of(context).pop();
+            },
       onPopHome: () {
         if (mounted) setState(() {});
       },
@@ -383,28 +441,29 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     if (mounted) setState(() {});
   }
 
-  Future<void> _openCareStart() async {
-    final timerStore = VisitTimerStore.instance;
-    await timerStore.ensureStandaloneTimer();
-    final quick = timerStore.isPathCEligible;
-    final mode = quick
-        ? CareTimerEntryMode.careStartQuick
-        : CareTimerEntryMode.careStartManual;
-    if (quick) {
-      final slot = timerStore.homeSelectedPresetSlot!;
-      await timerStore.bindPreset(presetSlot: slot);
-    }
-    if (!mounted) return;
-    await CareTimerFullscreenPage.open(
-      context,
-      store: widget.store,
-      presetSlot: timerStore.selectedPresetSlot,
-      entryMode: mode,
-      onPopHome: () {
-        if (mounted) setState(() {});
-      },
+  Future<void> _openPresetEditor(int slot) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CareTimerPresetEditorPage(
+          store: widget.store,
+          initialSlot: slot,
+        ),
+      ),
     );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _pickTimerCustomer() async {
+    final picked = await showVisitCustomerPickerSheet(
+      context,
+      store: widget.store,
+      allowQuickCreate: true,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _timerChartBindEnabled = true;
+      _timerBoundCustomerId = picked.id;
+    });
   }
 
   Future<void> _handlePresetSelected(VisitSession session, int slot) async {
@@ -420,35 +479,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     await timerStore.bindPreset(presetSlot: slot);
     if (!mounted) return;
     setState(() {});
-    await CareTimerFullscreenPage.open(
-      context,
-      store: widget.store,
-      session: session,
-      presetSlot: slot,
-      onCareEnd: () => _handleCareEnd(session),
-      onVisitEnd: () async {
-        await _endVisit(session);
-        if (mounted) Navigator.of(context).pop();
-      },
-    );
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _openCareTimerFullscreen(VisitSession session) async {
-    final slot = VisitTimerStore.instance.selectedPresetSlot;
-    await CareTimerFullscreenPage.open(
-      context,
-      store: widget.store,
-      session: session,
-      presetSlot: slot,
-      entryMode: CareTimerEntryMode.standalone,
-      onCareEnd: () => _handleCareEnd(session),
-      onVisitEnd: () async {
-        await _endVisit(session);
-        if (mounted) Navigator.of(context).pop();
-      },
-    );
-    if (mounted) setState(() {});
+    // 방문 세션 바인딩 후 탭 내 실행 — 풀스크린은 확대만.
   }
 
   Future<void> _handleCareEnd(VisitSession session) async {
@@ -832,11 +863,14 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     );
   }
 
-  /// Q1(b) — v5.4 자산 3종을 시각 스펙 변경 없이 이 탭으로 모았다.
+  /// Timer 탭 Standby — 툴박스 + 플립시계/컨트롤/칩 + 프리셋 + 고객 차트 연결.
   Widget _buildTimerPane(bool careRunning) {
     final snap = _agendaSnapshot();
     final heroSession = snap.activeSessions.firstOrNull ??
         widget.store.activeVisitSession;
+    final boundCustomer = _timerBoundCustomerId == null
+        ? null
+        : widget.store.findCustomer(_timerBoundCustomerId!);
 
     return RefreshIndicator(
       color: SoriTokens.primary,
@@ -869,15 +903,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   child: ActiveSessionStrip(
                     store: widget.store,
                     session: heroSession,
-                    onTap: heroSession != null
-                        ? () => _openCareTimerFullscreen(heroSession)
-                        : _openTimerStandalone,
+                    onTap: () {},
                   ),
                 ),
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-                  child: _CareStartButton(onTap: _openCareStart),
+                child: HomeTimerStage(
+                  onExpandFullscreen: () =>
+                      unawaited(_openFullscreenGlance(session: heroSession)),
+                  onCareStart: () => unawaited(_openCareStart()),
+                  onCareEnd: () => unawaited(_endCareInTab()),
                 ),
               ),
               SliverToBoxAdapter(
@@ -889,7 +923,24 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                     );
                   },
                   onConfigureSlot: (slot) {
-                    unawaited(_openTimerStandalone());
+                    unawaited(_openPresetEditor(slot));
+                  },
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: HomeTimerCustomerBind(
+                  store: widget.store,
+                  enabled: _timerChartBindEnabled,
+                  customer: boundCustomer,
+                  onEnabledChanged: (v) {
+                    setState(() {
+                      _timerChartBindEnabled = v;
+                      if (!v) _timerBoundCustomerId = null;
+                    });
+                  },
+                  onPickCustomer: () => unawaited(_pickTimerCustomer()),
+                  onClear: () {
+                    setState(() => _timerBoundCustomerId = null);
                   },
                 ),
               ),
@@ -1146,46 +1197,6 @@ class _SchedulerSheet extends StatelessWidget {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CareStartButton extends StatelessWidget {
-  const _CareStartButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x1F34C759),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: FilledButton(
-          onPressed: onTap,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF34C759),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-          child: const Text(
-            '케어 시작',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
         ),
       ),
     );
