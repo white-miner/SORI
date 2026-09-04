@@ -24,6 +24,10 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Prepare env asset
+        run: |
+          if [ ! -f .env ]; then cp .env.example .env; fi
+
       - name: Run unit & widget tests
         run: flutter test
 
