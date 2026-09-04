@@ -263,6 +263,8 @@ class VisitTimerLiveSnapshot {
     required this.currentStepRemainingSeconds,
     required this.currentStepLabel,
     required this.isOvertime,
+    required this.planRemainingSeconds,
+    required this.overtimeElapsedSeconds,
   });
 
   final int totalSeconds;
@@ -271,6 +273,22 @@ class VisitTimerLiveSnapshot {
   final int currentStepRemainingSeconds;
   final String currentStepLabel;
   final bool isOvertime;
+  final int planRemainingSeconds;
+  final int overtimeElapsedSeconds;
+
+  /// 중앙 플립시계. 플랜이 남으면 잔여, 소진되면 추가 시간 카운트업.
+  int get displaySeconds =>
+      isOvertime ? overtimeElapsedSeconds : planRemainingSeconds;
+
+  String get remainingLabel => isOvertime ? '추가 시간' : '종료까지 남은 시간';
+
+  static int plannedSecondsOf(VisitOperationTimer timer) {
+    var planned = 0;
+    for (final step in timer.templateSnapshot) {
+      planned += step.seconds;
+    }
+    return planned;
+  }
 
   static VisitTimerLiveSnapshot compute(
     VisitOperationTimer timer, {
@@ -297,6 +315,7 @@ class VisitTimerLiveSnapshot {
     var stepRemaining = 0;
     var stepLabel = '';
     var overtime = timer.status == VisitTimerStatus.careOvertime;
+    var planRemaining = 0;
 
     if (timer.status == VisitTimerStatus.care &&
         timer.currentStepIndex < timer.templateSnapshot.length) {
@@ -307,10 +326,26 @@ class VisitTimerLiveSnapshot {
         final elapsed = tick.difference(stepStart).inSeconds;
         stepRemaining = (step.seconds - elapsed).clamp(0, step.seconds);
       }
+      planRemaining = stepRemaining;
+      for (var i = timer.currentStepIndex + 1;
+          i < timer.templateSnapshot.length;
+          i++) {
+        planRemaining += timer.templateSnapshot[i].seconds;
+      }
     } else if (timer.status == VisitTimerStatus.careOvertime) {
       stepLabel = '오버타임';
       overtime = true;
+    } else if (timer.templateSnapshot.isNotEmpty &&
+        timer.careStartedAt == null) {
+      for (final step in timer.templateSnapshot) {
+        planRemaining += step.seconds;
+      }
     }
+
+    final planned = plannedSecondsOf(timer);
+    final overtimeElapsed = overtime
+        ? (care - planned).clamp(0, 86400)
+        : 0;
 
     return VisitTimerLiveSnapshot(
       totalSeconds: total.clamp(0, 86400),
@@ -319,6 +354,8 @@ class VisitTimerLiveSnapshot {
       currentStepRemainingSeconds: stepRemaining,
       currentStepLabel: stepLabel,
       isOvertime: overtime,
+      planRemainingSeconds: planRemaining.clamp(0, 86400),
+      overtimeElapsedSeconds: overtimeElapsed,
     );
   }
 
@@ -331,6 +368,12 @@ class VisitTimerLiveSnapshot {
       return '${h}h ${rm.toString().padLeft(2, '0')}m';
     }
     return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String formatKoreanClock(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '${m}분 ${s.toString().padLeft(2, '0')}초';
   }
 
   String buildReportBlock() {

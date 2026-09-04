@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// PO v5.2 — circular control cluster for care timer fullscreen.
+/// PO v5.2 / v7.6 — circular control cluster for care timer fullscreen.
 class CareTimerFloatingBar extends StatelessWidget {
   const CareTimerFloatingBar({
     super.key,
@@ -11,9 +11,12 @@ class CareTimerFloatingBar extends StatelessWidget {
     required this.onTogglePlay,
     required this.onToggleMute,
     required this.onToggleImmersive,
+    this.onSkipNext,
     this.vertical = false,
     this.onCollapse,
     this.showCollapse = false,
+    this.enabled = true,
+    this.canSkip = false,
   });
 
   final bool isPlaying;
@@ -23,17 +26,31 @@ class CareTimerFloatingBar extends StatelessWidget {
   final VoidCallback onTogglePlay;
   final VoidCallback onToggleMute;
   final VoidCallback onToggleImmersive;
+  final VoidCallback? onSkipNext;
   final bool vertical;
   final VoidCallback? onCollapse;
   final bool showCollapse;
+  final bool enabled;
+  final bool canSkip;
 
   @override
   Widget build(BuildContext context) {
     final buttons = <Widget>[
       _ControlDot(
         icon: Icons.stop_rounded,
-        onTap: onStop,
+        onTap: enabled ? onStop : null,
         tooltip: '일시정지',
+      ),
+      _ControlDot(
+        icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+        onTap: enabled ? onTogglePlay : null,
+        tooltip: isPlaying ? '일시정지' : '재생',
+      ),
+      _ControlDot(
+        key: const Key('care-skip-next'),
+        icon: Icons.skip_next_rounded,
+        onTap: enabled && canSkip ? onSkipNext : null,
+        tooltip: '다음 스텝',
       ),
       if (showCollapse && onCollapse != null)
         _ControlDot(
@@ -41,11 +58,6 @@ class CareTimerFloatingBar extends StatelessWidget {
           onTap: onCollapse!,
           tooltip: '바 숨기기',
         ),
-      _ControlDot(
-        icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-        onTap: onTogglePlay,
-        tooltip: isPlaying ? '일시정지' : '재생',
-      ),
       _ControlDot(
         icon: isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
         onTap: onToggleMute,
@@ -95,13 +107,14 @@ class CareTimerFloatingBar extends StatelessWidget {
 
 class _ControlDot extends StatelessWidget {
   const _ControlDot({
+    super.key,
     required this.icon,
     required this.onTap,
     required this.tooltip,
   });
 
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String tooltip;
 
   @override
@@ -109,7 +122,7 @@ class _ControlDot extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: const Color(0xFF111111),
+        color: onTap == null ? const Color(0xFF9A9A9E) : const Color(0xFF111111),
         shape: const CircleBorder(),
         child: InkWell(
           onTap: onTap,

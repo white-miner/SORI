@@ -144,8 +144,12 @@ class VisitTimerStore extends ChangeNotifier {
           active!.status == VisitTimerStatus.careOvertime);
 
   bool get canTogglePlayback =>
-      isCareArmed ||
-      (active?.status == VisitTimerStatus.care && !isOvertime);
+      isCareRunning;
+
+  bool get canSkipStep =>
+      active != null &&
+      active!.status == VisitTimerStatus.care &&
+      active!.currentStepIndex < active!.templateSnapshot.length;
 
   bool get isOvertime =>
       active?.status == VisitTimerStatus.careOvertime;
@@ -438,7 +442,7 @@ class VisitTimerStore extends ChangeNotifier {
   }
 
   Future<void> pauseCare() async {
-    if (active == null || active!.status != VisitTimerStatus.care) return;
+    if (active == null || !isCareRunning) return;
     if (carePaused) return;
     carePaused = true;
     _pauseAnchor = DateTime.now();
@@ -461,17 +465,19 @@ class VisitTimerStore extends ChangeNotifier {
   }
 
   Future<void> toggleCarePlayback() async {
-    if (isCareArmed) {
-      await playCare();
-      return;
+    if (!isCareRunning) return;
+    if (carePaused) {
+      await resumeCare();
+    } else {
+      await pauseCare();
     }
-    if (active?.status == VisitTimerStatus.care) {
-      if (carePaused) {
-        await resumeCare();
-      } else {
-        await pauseCare();
-      }
-    }
+  }
+
+  /// 현재 스텝 잔여를 버리고 다음 컬러 블록으로 강제 전환.
+  Future<void> skipToNextStep() async {
+    if (!canSkipStep) return;
+    await _completeCurrentStep(silent: false);
+    notifyListeners();
   }
 
   Future<void> startCare({int? presetSlot}) async {
@@ -566,11 +572,7 @@ class VisitTimerStore extends ChangeNotifier {
 
   int _computeOvertimeSeconds(VisitOperationTimer timer, {DateTime? now}) {
     final snap = VisitTimerLiveSnapshot.compute(timer, now: now);
-    var planned = 0;
-    for (final step in timer.templateSnapshot) {
-      planned += step.seconds;
-    }
-    return (snap.careSeconds - planned).clamp(0, 86400);
+    return snap.overtimeElapsedSeconds;
   }
 
   void selectPresetSlot(int slot) {
@@ -631,15 +633,7 @@ class VisitTimerStore extends ChangeNotifier {
     final timer = active;
     if (timer == null || timer.status != VisitTimerStatus.care) return;
     if (timer.currentStepIndex >= timer.templateSnapshot.length) {
-      if (timer.status != VisitTimerStatus.careOvertime) {
-        active = timer.copyWith(
-          status: VisitTimerStatus.careOvertime,
-          updatedAt: DateTime.now(),
-        );
-        await _persist(active!);
-        await _logEvent('care_plan_complete', {});
-        if (!silent) _announcePlanCompleteIfNeeded();
-      }
+      await _enterOvertime(silent: silent);
       return;
     }
 
@@ -648,6 +642,17 @@ class VisitTimerStore extends ChangeNotifier {
     final step = timer.templateSnapshot[timer.currentStepIndex];
     final elapsed = DateTime.now().difference(stepStart).inSeconds;
     if (elapsed < step.seconds) return;
+
+    await _completeCurrentStep(silent: silent);
+  }
+
+  Future<void> _completeCurrentStep({required bool silent}) async {
+    final timer = active;
+    if (timer == null || timer.status != VisitTimerStatus.care) return;
+    if (timer.currentStepIndex >= timer.templateSnapshot.length) {
+      await _enterOvertime(silent: silent);
+      return;
+    }
 
     await _finalizeCurrentStep(DateTime.now());
     final nextIndex = timer.currentStepIndex + 1;
@@ -671,6 +676,20 @@ class VisitTimerStore extends ChangeNotifier {
       await _logEvent('step_completed', {'index': timer.currentStepIndex});
       if (!silent) _announceNextStepIfNeeded(nextIndex);
     }
+  }
+
+  Future<void> _enterOvertime({required bool silent}) async {
+    final timer = active;
+    if (timer == null || timer.status == VisitTimerStatus.careOvertime) {
+      return;
+    }
+    active = timer.copyWith(
+      status: VisitTimerStatus.careOvertime,
+      updatedAt: DateTime.now(),
+    );
+    await _persist(active!);
+    await _logEvent('care_plan_complete', {});
+    if (!silent) _announcePlanCompleteIfNeeded();
   }
 
   Future<void> _finalizeCurrentStep(DateTime endedAt) async {

@@ -91,6 +91,8 @@ String formatReportDuration(int seconds) {
     currentStepRemainingSeconds: 0,
     currentStepLabel: '',
     isOvertime: false,
+    planRemainingSeconds: 0,
+    overtimeElapsedSeconds: 0,
   );
   return snap.formatDuration(seconds);
 }

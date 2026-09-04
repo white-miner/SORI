@@ -82,6 +82,113 @@ void main() {
       expect(snap.isOvertime, isTrue);
       expect(snap.currentStepLabel, '오버타임');
     });
+
+    test('plan remaining is current leftover plus later steps', () {
+      final careStart = DateTime(2026, 8, 31, 11, 0, 0);
+      final timer = VisitOperationTimer(
+        id: 't4',
+        visitSessionId: 's4',
+        shopId: 'shop1',
+        careStartedAt: careStart,
+        currentStepIndex: 0,
+        currentStepStartedAt: careStart,
+        templateSnapshot: const [
+          CareProgramStep(label: '클렌징', minutes: 10),
+          CareProgramStep(label: '마사지', minutes: 15),
+        ],
+        status: VisitTimerStatus.care,
+      );
+
+      final snap = VisitTimerLiveSnapshot.compute(
+        timer,
+        now: careStart.add(const Duration(minutes: 3)),
+      );
+
+      expect(snap.planRemainingSeconds, 7 * 60 + 15 * 60);
+      expect(snap.displaySeconds, snap.planRemainingSeconds);
+      expect(snap.remainingLabel, '종료까지 남은 시간');
+      expect(snap.isOvertime, isFalse);
+    });
+
+    test('overtime counts up after plan remaining hits zero', () {
+      final careStart = DateTime(2026, 8, 31, 12, 0, 0);
+      const planned = 10 * 60;
+      final timer = VisitOperationTimer(
+        id: 't5',
+        visitSessionId: 's5',
+        shopId: 'shop1',
+        careStartedAt: careStart,
+        templateSnapshot: const [
+          CareProgramStep(label: '클렌징', minutes: 10),
+        ],
+        status: VisitTimerStatus.careOvertime,
+      );
+
+      final snap = VisitTimerLiveSnapshot.compute(
+        timer,
+        now: careStart.add(Duration(seconds: planned + 12)),
+      );
+
+      expect(snap.isOvertime, isTrue);
+      expect(snap.planRemainingSeconds, 0);
+      expect(snap.overtimeElapsedSeconds, 12);
+      expect(snap.displaySeconds, 12);
+      expect(snap.remainingLabel, '추가 시간');
+      expect(snap.formatKoreanClock(12), '0분 12초');
+    });
+  });
+
+  group('VisitTimerStore skip', () {
+    test('skipToNextStep discards remaining and opens the next block', () async {
+      final store = VisitTimerStore.instance;
+      final start = DateTime.now();
+      store.carePaused = false;
+      store.active = VisitOperationTimer(
+        id: 'skip-1',
+        visitSessionId: '',
+        shopId: '',
+        careStartedAt: start,
+        currentStepIndex: 0,
+        currentStepStartedAt: start,
+        templateSnapshot: const [
+          CareProgramStep(label: '클렌징', minutes: 10),
+          CareProgramStep(label: '마사지', minutes: 5),
+        ],
+        status: VisitTimerStatus.care,
+      );
+
+      expect(store.canSkipStep, isTrue);
+      await store.skipToNextStep();
+
+      expect(store.active!.currentStepIndex, 1);
+      expect(store.active!.status, VisitTimerStatus.care);
+      expect(store.isCareRunning, isTrue);
+    });
+
+    test('skip on last step enters overtime and keeps running', () async {
+      final store = VisitTimerStore.instance;
+      final start = DateTime.now();
+      store.carePaused = false;
+      store.active = VisitOperationTimer(
+        id: 'skip-2',
+        visitSessionId: '',
+        shopId: '',
+        careStartedAt: start,
+        currentStepIndex: 1,
+        currentStepStartedAt: start,
+        templateSnapshot: const [
+          CareProgramStep(label: '클렌징', minutes: 10),
+          CareProgramStep(label: '마사지', minutes: 5),
+        ],
+        status: VisitTimerStatus.care,
+      );
+
+      await store.skipToNextStep();
+
+      expect(store.active!.status, VisitTimerStatus.careOvertime);
+      expect(store.isCareRunning, isTrue);
+      expect(store.canSkipStep, isFalse);
+    });
   });
 
   group('VisitTimerStore preset slots', () {

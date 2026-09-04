@@ -95,9 +95,9 @@ void main() {
         id: 'timer-1',
         visitSessionId: session.id,
         shopId: 'shop-test',
-        careStartedAt: DateTime(2026, 9, 1, 10, 5),
+        careStartedAt: DateTime.now(),
         currentStepIndex: 0,
-        currentStepStartedAt: DateTime(2026, 9, 1, 10, 5),
+        currentStepStartedAt: DateTime.now(),
         templateSnapshot: timer.presets.first.steps,
         status: VisitTimerStatus.care,
       );
@@ -152,6 +152,29 @@ void main() {
 
       expect(find.text('타이머 리스트'), findsNothing);
       expect(find.text('케어 종료'), findsOneWidget);
+    });
+
+    testWidgets('shows remaining banner and skip next control', (tester) async {
+      await pumpPage(tester);
+
+      expect(find.byKey(const Key('care-remaining-label')), findsOneWidget);
+      expect(find.text('종료까지 남은 시간'), findsWidgets);
+      expect(find.byKey(const Key('care-skip-next')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('care-skip-next')));
+      await tester.pump();
+
+      expect(timer.active?.currentStepIndex, 1);
+    });
+
+    testWidgets('overtime banner switches to extra time', (tester) async {
+      timer.active = timer.active!.copyWith(
+        status: VisitTimerStatus.careOvertime,
+        currentStepIndex: 2,
+      );
+      await pumpPage(tester);
+
+      expect(find.text('추가 시간'), findsWidgets);
     });
   });
 }

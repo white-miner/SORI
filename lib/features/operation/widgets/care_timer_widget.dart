@@ -191,12 +191,10 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
   ) {
     if (snap == null) return 0;
     if (active?.status == VisitTimerStatus.care) {
-      return snap.currentStepRemainingSeconds > 0
-          ? snap.currentStepRemainingSeconds
-          : snap.careSeconds;
+      return snap.displaySeconds;
     }
     if (active?.status == VisitTimerStatus.careOvertime) {
-      return snap.careSeconds;
+      return snap.displaySeconds;
     }
     return snap.totalSeconds;
   }
@@ -210,7 +208,7 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
       VisitTimerStatus.consulting => '차트 작성',
       VisitTimerStatus.prep => '베드 준비',
       VisitTimerStatus.care => snap.currentStepLabel,
-      VisitTimerStatus.careOvertime => '케어 종료 대기',
+      VisitTimerStatus.careOvertime => '추가 시간',
       VisitTimerStatus.postCare => '케어 완료',
       VisitTimerStatus.done => '방문 종료',
       _ => '상담',
@@ -223,7 +221,10 @@ class _CareTimerWidgetState extends State<CareTimerWidget> {
   ) {
     if (snap == null) return '상담 시작을 눌러 차트 작성을 시작하세요';
     if (active?.status == VisitTimerStatus.careOvertime) {
-      return '프리셋 완료 · 정성 시간 기록 중';
+      return snap.formatKoreanClock(snap.overtimeElapsedSeconds);
+    }
+    if (active?.status == VisitTimerStatus.care) {
+      return snap.remainingLabel;
     }
     return '전체 ${snap.formatDuration(snap.totalSeconds)}';
   }
