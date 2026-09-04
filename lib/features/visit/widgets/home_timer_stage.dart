@@ -3,26 +3,30 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../visit_kernel/models/preset_slot_tint.dart';
 import '../../operation/care_timer_tts_service.dart';
 import '../../operation/visit_timer_store.dart';
 import '../../operation/widgets/care_stacked_segment_bar.dart';
 import '../../operation/widgets/care_timer_floating_bar.dart';
+import '../../operation/widgets/care_timer_step_list.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
 import '../home_visual_tokens.dart';
 
-/// Timer 탭 Standby / Live — 풀스크린과 동일 엔진, 탭 본문에 직접 임베딩.
+/// Timer 탭 Standby / Live — PO image_21 / image_22 위젯 트리.
 class HomeTimerStage extends StatefulWidget {
   const HomeTimerStage({
     super.key,
     required this.onExpandFullscreen,
     required this.onCareStart,
     required this.onCareEnd,
+    required this.onOpenPresetEditor,
   });
 
   final VoidCallback onExpandFullscreen;
   final VoidCallback onCareStart;
   final VoidCallback onCareEnd;
+  final ValueChanged<int> onOpenPresetEditor;
 
   @override
   State<HomeTimerStage> createState() => _HomeTimerStageState();
@@ -54,8 +58,8 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
   }
 
   void _syncWallTick() {
-    final live = _timer.isCareRunning || _timer.isCareArmed;
-    if (live) {
+    // 케어 실행 중만 스토어 틱. 스탠바이는 시스템 시각 1초 틱.
+    if (_timer.isCareRunning) {
       _wallTick?.cancel();
       _wallTick = null;
       return;
@@ -70,15 +74,47 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
     return now.hour * 3600 + now.minute * 60 + now.second;
   }
 
-  int _standbyPlanSeconds() {
-    final slot = _timer.homeSelectedPresetSlot ?? _timer.selectedPresetSlot;
-    final preset = _timer.presetAt(slot);
-    if (preset.isEmpty) return _wallClockSeconds();
-    var total = 0;
-    for (final s in preset.steps) {
-      total += s.seconds;
+  Future<void> _pickProgram() async {
+    final presets = _timer.presets.where((p) => !p.isEmpty).toList();
+    if (presets.isEmpty) {
+      widget.onOpenPresetEditor(0);
+      return;
     }
-    return total;
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                '코스 변경',
+                style: GoogleFonts.nunito(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final p in presets)
+              ListTile(
+                title: Text(p.name.trim().isEmpty ? '슬롯 ${p.slotIndex + 1}' : p.name),
+                onTap: () => Navigator.pop(ctx, p.slotIndex),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    _timer.selectPresetSlot(picked);
+    await _timer.selectHomePresetSlot(picked);
+    if (_timer.isCareArmed || _timer.isCareRunning) {
+      await _timer.bindPreset(presetSlot: picked);
+      if (_timer.isCareRunning) {
+        await _timer.startCare(presetSlot: picked);
+      }
+    }
+    setState(() {});
   }
 
   @override
@@ -96,21 +132,20 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
     final isRunning = _timer.isCareRunning;
     final isPaused = _timer.carePaused;
     final isOvertime = _timer.isOvertime;
-    final live = isArmed || isRunning;
 
-    final careSeconds = live
-        ? (snap?.displaySeconds ?? 0)
-        : (preset.isEmpty ? _wallClockSeconds() : _standbyPlanSeconds());
+    // 1) Standby = 시스템 시각. 카운트다운은 케어 실행 중만.
+    final careSeconds =
+        isRunning ? (snap?.displaySeconds ?? 0) : _wallClockSeconds();
 
     final stepRemaining = snap?.currentStepRemainingSeconds ?? 0;
     final currentIndex = active?.currentStepIndex ?? 0;
-    final stepLabel = live
-        ? (isArmed
-            ? '케어 시작을 눌러 첫 스텝을 여세요'
-            : (snap?.currentStepLabel.isNotEmpty == true
-                ? '현재: ${snap!.currentStepLabel}'
-                : null))
-        : (preset.isEmpty ? '대기 · 실시간' : preset.name);
+    final courseTitle = preset.name.trim().isEmpty
+        ? (isRunning ? '케어 프로그램' : '대기')
+        : preset.name.trim();
+
+    final stepHeadline = isRunning && snap?.currentStepLabel.isNotEmpty == true
+        ? '현재: ${snap!.currentStepLabel}'
+        : courseTitle;
 
     final remainingLabel =
         isOvertime ? '추가 시간' : (snap?.remainingLabel ?? '종료까지 남은 시간');
@@ -124,6 +159,15 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 4) 실행 중: 뒤로가기(<) + 코스 드롭다운(v) 타이틀 바
+          if (isRunning) ...[
+            _HomeTimerTitleBar(
+              title: courseTitle,
+              onBack: widget.onCareEnd,
+              onPickProgram: () => unawaited(_pickProgram()),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (steps.isNotEmpty) ...[
             _StageCard(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -145,27 +189,27 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
           _StageCard(
             child: Column(
               children: [
-                if (stepLabel != null && stepLabel.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      stepLabel,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF8E8E93),
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    stepHeadline,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1C1C1E),
                     ),
                   ),
+                ),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: FlipClockDisplay(
                     totalSeconds: careSeconds,
                     hero: true,
-                    showSeconds: false,
-                    showCornerSeconds: true,
-                    stepLabel: live ? remainingLabel : null,
+                    // Standby: HH:MM:SS 시스템 시각 / Running: HH:MM + corner SS
+                    showSeconds: !isRunning,
+                    showCornerSeconds: isRunning,
+                    stepLabel: isRunning ? remainingLabel : null,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -193,36 +237,105 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              if (!isRunning)
-                Expanded(
-                  child: _CareStartButton(onTap: widget.onCareStart),
-                ),
-              if (!isRunning && (isArmed || isOvertime || active != null))
-                const SizedBox(width: 8),
-              if (isRunning || isArmed)
-                Expanded(
-                  child: _CareEndButton(onTap: widget.onCareEnd),
-                ),
+          if (!isRunning)
+            _CareStartButton(onTap: widget.onCareStart)
+          else
+            _CareEndButton(onTap: widget.onCareEnd),
+          // 2) 실행 중: 잔여 + 스텝 타임라인 리스트
+          if (isRunning) ...[
+            if (remainingValue != null) ...[
+              const SizedBox(height: 10),
+              _RemainingBanner(
+                label: remainingLabel,
+                value: remainingValue,
+                overtime: isOvertime,
+              ),
             ],
-          ),
-          if (live && remainingValue != null) ...[
-            const SizedBox(height: 10),
-            _RemainingBanner(
-              label: remainingLabel,
-              value: remainingValue,
-              overtime: isOvertime,
-            ),
-          ],
-          if (isOvertime) ...[
-            const SizedBox(height: 8),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: CareOvertimeStackChip(),
-            ),
+            if (steps.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              CareTimerStepList(
+                key: const Key('home-timer-step-list'),
+                steps: steps,
+                currentIndex: currentIndex,
+                isRunning: isRunning,
+              ),
+            ],
+            if (isOvertime) ...[
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: CareOvertimeStackChip(),
+              ),
+            ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// 실행 화면 타이틀 바 — 뒤로(<) + 코스 드롭다운(v).
+class _HomeTimerTitleBar extends StatelessWidget {
+  const _HomeTimerTitleBar({
+    required this.title,
+    required this.onBack,
+    required this.onPickProgram,
+  });
+
+  final String title;
+  final VoidCallback onBack;
+  final VoidCallback onPickProgram;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('home-timer-title-bar'),
+      color: HomeVisualTokens.heroCardFill,
+      borderRadius: BorderRadius.circular(HomeVisualTokens.heroCardRadius),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: SizedBox(
+          height: 48,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: '스탠바이로',
+                  onPressed: onBack,
+                  icon: const Icon(Icons.chevron_left_rounded, size: 28),
+                ),
+              ),
+              GestureDetector(
+                onTap: onPickProgram,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1C1C1E),
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.expand_more_rounded,
+                      size: 22,
+                      color: Color(0xFF1C1C1E),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -290,6 +403,7 @@ class _CareStartButton extends StatelessWidget {
   }
 }
 
+/// 3) 케어 종료 — iOS System Red.
 class _CareEndButton extends StatelessWidget {
   const _CareEndButton({required this.onTap});
 
@@ -298,12 +412,15 @@ class _CareEndButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      key: const Key('home-timer-care-end'),
+      width: double.infinity,
       height: 52,
-      child: OutlinedButton(
+      child: FilledButton(
         onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF1C1C1E),
-          side: const BorderSide(color: Color(0xFFD1D1D6)),
+        style: FilledButton.styleFrom(
+          backgroundColor: PresetSlotTint.iosRed,
+          foregroundColor: Colors.white,
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -311,7 +428,7 @@ class _CareEndButton extends StatelessWidget {
         child: Text(
           '케어 종료',
           style: GoogleFonts.nunito(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -333,13 +450,13 @@ class _RemainingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent =
+        overtime ? const Color(0xFFFF9500) : PresetSlotTint.iosRed;
     return Container(
       key: const Key('home-timer-remaining-banner'),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: overtime
-            ? const Color(0xFFFFF4E5)
-            : const Color(0xFFF2F2F7),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -350,7 +467,7 @@ class _RemainingBanner extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF8E8E93),
+                color: const Color(0xFF3A3A3C),
               ),
             ),
           ),
@@ -359,9 +476,7 @@ class _RemainingBanner extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: overtime
-                  ? const Color(0xFFFF9500)
-                  : const Color(0xFF1C1C1E),
+              color: accent,
             ),
           ),
         ],

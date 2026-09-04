@@ -37,7 +37,6 @@ import 'visit_existing_customer_picker_page.dart';
 import 'visit_new_customer_form_page.dart';
 import 'visit_session_view_page.dart';
 import '../operation/widgets/care_timer_fullscreen_page.dart';
-import 'widgets/active_session_strip.dart';
 import 'report/visit_end_pipeline.dart';
 import 'widgets/visit_report_send_sheet.dart';
 import 'widgets/ba_capture_carousel.dart';
@@ -871,6 +870,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final boundCustomer = _timerBoundCustomerId == null
         ? null
         : widget.store.findCustomer(_timerBoundCustomerId!);
+    final timerStore = VisitTimerStore.instance;
 
     return RefreshIndicator(
       color: SoriTokens.primary,
@@ -898,35 +898,30 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   ),
                 ),
               ),
-              if (careRunning)
-                SliverToBoxAdapter(
-                  child: ActiveSessionStrip(
-                    store: widget.store,
-                    session: heroSession,
-                    onTap: () {},
-                  ),
-                ),
+              // ActiveSessionStrip 제거 — 실행 중 타이틀 바는 HomeTimerStage 내부.
               SliverToBoxAdapter(
                 child: HomeTimerStage(
                   onExpandFullscreen: () =>
                       unawaited(_openFullscreenGlance(session: heroSession)),
                   onCareStart: () => unawaited(_openCareStart()),
                   onCareEnd: () => unawaited(_endCareInTab()),
+                  onOpenPresetEditor: (slot) =>
+                      unawaited(_openPresetEditor(slot)),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: HomePresetQuickPick(
-                  timerStore: VisitTimerStore.instance,
-                  onSlotSelected: (slot) {
-                    unawaited(
-                      VisitTimerStore.instance.toggleHomePresetSlot(slot),
-                    );
-                  },
-                  onConfigureSlot: (slot) {
-                    unawaited(_openPresetEditor(slot));
-                  },
+              // 5) 스탠바이에서만 다중 프리셋 리스트 노출 (실행 중은 스텝 타임라인).
+              if (!careRunning)
+                SliverToBoxAdapter(
+                  child: HomePresetQuickPick(
+                    timerStore: timerStore,
+                    onSlotSelected: (slot) {
+                      unawaited(timerStore.toggleHomePresetSlot(slot));
+                    },
+                    onConfigureSlot: (slot) {
+                      unawaited(_openPresetEditor(slot));
+                    },
+                  ),
                 ),
-              ),
               SliverToBoxAdapter(
                 child: HomeTimerCustomerBind(
                   store: widget.store,

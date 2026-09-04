@@ -197,6 +197,8 @@ void main() {
     expect(find.byKey(const Key('home-timer-customer-bind')), findsOneWidget);
     expect(find.text('고객 차트 연결'), findsOneWidget);
     expect(find.byType(CareTimerFullscreenPage), findsNothing);
+    // 스탠바이: 상태줄(ActiveSessionStrip) / 타이틀바 없음
+    expect(find.byKey(const Key('home-timer-title-bar')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
