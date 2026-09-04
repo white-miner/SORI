@@ -841,57 +841,70 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     return RefreshIndicator(
       color: SoriTokens.primary,
       onRefresh: () => _load(force: true),
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: ClampingScrollPhysics(),
-        ),
-        slivers: [
-          SliverToBoxAdapter(
-            child: ListenableBuilder(
-              listenable: _homeCtrl,
-              builder: (context, _) => HomeToolboxRow(
-                controller: _homeCtrl,
-                careRunning: careRunning,
-                climate: _climate,
-                onTimerTap: () {
-                  _homeCtrl.selectTimerTool();
-                  unawaited(_openTimerStandalone());
-                },
-                onWeatherTap: () => _openClinicalSheet(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 720;
+          final body = CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: ListenableBuilder(
+                  listenable: _homeCtrl,
+                  builder: (context, _) => HomeToolboxRow(
+                    controller: _homeCtrl,
+                    careRunning: careRunning,
+                    climate: _climate,
+                    onTimerTap: () {
+                      _homeCtrl.selectTimerTool();
+                      unawaited(_openTimerStandalone());
+                    },
+                    onWeatherTap: () => _openClinicalSheet(),
+                  ),
+                ),
               ),
-            ),
-          ),
-          if (careRunning)
-            SliverToBoxAdapter(
-              child: ActiveSessionStrip(
-                store: widget.store,
-                session: heroSession,
-                onTap: heroSession != null
-                    ? () => _openCareTimerFullscreen(heroSession)
-                    : _openTimerStandalone,
+              if (careRunning)
+                SliverToBoxAdapter(
+                  child: ActiveSessionStrip(
+                    store: widget.store,
+                    session: heroSession,
+                    onTap: heroSession != null
+                        ? () => _openCareTimerFullscreen(heroSession)
+                        : _openTimerStandalone,
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                  child: _CareStartButton(onTap: _openCareStart),
+                ),
               ),
+              SliverToBoxAdapter(
+                child: HomePresetQuickPick(
+                  timerStore: VisitTimerStore.instance,
+                  onSlotSelected: (slot) {
+                    unawaited(
+                      VisitTimerStore.instance.toggleHomePresetSlot(slot),
+                    );
+                  },
+                  onConfigureSlot: (slot) {
+                    unawaited(_openTimerStandalone());
+                  },
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 48)),
+            ],
+          );
+          if (!wide) return body;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: body,
             ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-              child: _CareStartButton(onTap: _openCareStart),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: HomePresetQuickPick(
-              timerStore: VisitTimerStore.instance,
-              onSlotSelected: (slot) {
-                unawaited(
-                  VisitTimerStore.instance.toggleHomePresetSlot(slot),
-                );
-              },
-              onConfigureSlot: (slot) {
-                unawaited(_openTimerStandalone());
-              },
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 48)),
-        ],
+          );
+        },
       ),
     );
   }

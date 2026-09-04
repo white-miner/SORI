@@ -54,7 +54,7 @@ class CareTimerFullscreenPage extends StatefulWidget {
     VoidCallback? onVisitEnd,
     VoidCallback? onPopHome,
   }) {
-    return Navigator.of(context).push<void>(
+    return Navigator.of(context, rootNavigator: true).push<void>(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 420),
         reverseTransitionDuration: const Duration(milliseconds: 360),
@@ -281,8 +281,12 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
     final programTitle = preset.name.trim().isEmpty
         ? '케어 프로그램 선택'
         : preset.name.trim();
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape = size.width > size.height;
+    // 웹/태블릿 가로: 세로 떠다니는 레일 대신 중앙 컬럼(max 640).
+    // 진짜 몰입 가로만 좌·우 3단을 쓴다.
+    final useImmersiveLandscape = isLandscape && _immersiveClock;
+    final useCenteredStage = !useImmersiveLandscape;
 
     final careSeconds = snap?.displaySeconds ?? 0;
     final isArmed = timer.isCareArmed;
@@ -295,6 +299,57 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
     final remainingText = snap == null
         ? '0분 00초'
         : snap.formatKoreanClock(snap.displaySeconds);
+
+    final stage = useImmersiveLandscape
+        ? _LandscapeBody(
+            steps: preset.steps,
+            tint: tint,
+            careSeconds: careSeconds,
+            isArmed: isArmed,
+            isRunning: isRunning,
+            isPaused: isPaused,
+            currentIndex: currentIndex,
+            stepRemaining: stepRemaining,
+            isOvertime: timer.isOvertime,
+            isPlaying: isPlaying,
+            isMuted: _ttsMuted,
+            immersive: _immersiveClock,
+            floatingBarHidden: _floatingBarHidden,
+            controlsEnabled: isRunning,
+            canSkip: timer.canSkipStep,
+            remainingLabel: remainingLabel,
+            remainingText: remainingText,
+            onTogglePlayback: () => timer.toggleCarePlayback(),
+            onToggleMute: _toggleTts,
+            onToggleImmersive: _toggleImmersive,
+            onHideFloatingBar: _hideFloatingBar,
+            onShowFloatingBar: _showFloatingBar,
+            onSkipNext: () => timer.skipToNextStep(),
+            onStop: () => timer.pauseCare(),
+            stepLabel: snap?.currentStepLabel,
+          )
+        : _PortraitBody(
+            steps: preset.steps,
+            tint: tint,
+            careSeconds: careSeconds,
+            isArmed: isArmed,
+            isRunning: isRunning,
+            isPaused: isPaused,
+            currentIndex: currentIndex,
+            stepRemaining: stepRemaining,
+            isOvertime: timer.isOvertime,
+            isPlaying: isPlaying,
+            isMuted: _ttsMuted,
+            immersive: _immersiveClock,
+            controlsEnabled: isRunning,
+            canSkip: timer.canSkipStep,
+            onTogglePlayback: () => timer.toggleCarePlayback(),
+            onToggleMute: _toggleTts,
+            onToggleImmersive: _toggleImmersive,
+            onSkipNext: () => timer.skipToNextStep(),
+            onStop: () => timer.pauseCare(),
+            stepLabel: snap?.currentStepLabel,
+          );
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
@@ -309,7 +364,7 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
                 if (!_immersiveClock)
                   _TopBar(
                     title: programTitle,
-                    onClose: () => Navigator.of(context).pop(),
+                    onClose: () => Navigator.of(context).maybePop(),
                     onPickProgram: _pickProgram,
                     onOpenSettings: _openPresetEditor,
                   ),
@@ -321,77 +376,47 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
                       16,
                       _immersiveClock ? 0 : 12,
                     ),
-                    child: isLandscape
-                        ? _LandscapeBody(
-                            steps: preset.steps,
-                            tint: tint,
-                            careSeconds: careSeconds,
-                            isArmed: isArmed,
-                            isRunning: isRunning,
-                            isPaused: isPaused,
-                            currentIndex: currentIndex,
-                            stepRemaining: stepRemaining,
-                            isOvertime: timer.isOvertime,
-                            isPlaying: isPlaying,
-                            isMuted: _ttsMuted,
-                            immersive: _immersiveClock,
-                            floatingBarHidden: _floatingBarHidden,
-                            controlsEnabled: isRunning,
-                            canSkip: timer.canSkipStep,
-                            remainingLabel: remainingLabel,
-                            remainingText: remainingText,
-                            onTogglePlayback: () => timer.toggleCarePlayback(),
-                            onToggleMute: _toggleTts,
-                            onToggleImmersive: _toggleImmersive,
-                            onHideFloatingBar: _hideFloatingBar,
-                            onShowFloatingBar: _showFloatingBar,
-                            onSkipNext: () => timer.skipToNextStep(),
-                            onStop: () => timer.pauseCare(),
-                            stepLabel: snap?.currentStepLabel,
+                    child: useCenteredStage
+                        ? Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 640),
+                              child: stage,
+                            ),
                           )
-                        : _PortraitBody(
-                            steps: preset.steps,
-                            tint: tint,
-                            careSeconds: careSeconds,
-                            isArmed: isArmed,
-                            isRunning: isRunning,
-                            isPaused: isPaused,
-                            currentIndex: currentIndex,
-                            stepRemaining: stepRemaining,
-                            isOvertime: timer.isOvertime,
-                            isPlaying: isPlaying,
-                            isMuted: _ttsMuted,
-                            immersive: _immersiveClock,
-                            controlsEnabled: isRunning,
-                            canSkip: timer.canSkipStep,
-                            onTogglePlayback: () => timer.toggleCarePlayback(),
-                            onToggleMute: _toggleTts,
-                            onToggleImmersive: _toggleImmersive,
-                            onSkipNext: () => timer.skipToNextStep(),
-                            onStop: () => timer.pauseCare(),
-                            stepLabel: snap?.currentStepLabel,
-                          ),
+                        : stage,
                   ),
                 ),
                 if (!_immersiveClock)
-                  _BottomActions(
-                    entryMode: widget.entryMode,
-                    timer: active,
-                    snap: snap,
-                    showCareEnd: _showCareEndButton,
-                    showCareStart: _showCareStartButton,
-                    onCareStart: _handleCareStart,
-                    onCareEnd: _cancelAndPopHome,
-                    onVisitEnd: widget.onVisitEnd,
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: _BottomActions(
+                        entryMode: widget.entryMode,
+                        timer: active,
+                        snap: snap,
+                        showCareEnd: _showCareEndButton,
+                        showCareStart: _showCareStartButton,
+                        onCareStart: _handleCareStart,
+                        onCareEnd: _cancelAndPopHome,
+                        onVisitEnd: widget.onVisitEnd,
+                      ),
+                    ),
                   ),
               ],
             ),
-            if (_immersiveClock && _showCareEndButton && !isLandscape)
+            if (_immersiveClock && _showCareEndButton && !useImmersiveLandscape)
               Positioned(
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _CareEndButton(onPressed: _cancelAndPopHome),
+                child: Align(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: _CareEndButton(onPressed: _cancelAndPopHome),
+                  ),
+                ),
               ),
           ],
         ),
@@ -674,59 +699,48 @@ class _LandscapeBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controls = CareTimerFloatingBar(
+      isPlaying: isPlaying,
+      isMuted: isMuted,
+      isImmersive: immersive,
+      enabled: controlsEnabled,
+      canSkip: canSkip,
+      onStop: onStop,
+      onTogglePlay: onTogglePlayback,
+      onToggleMute: onToggleMute,
+      onToggleImmersive: onToggleImmersive,
+      onSkipNext: onSkipNext,
+    );
+
     return Stack(
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!floatingBarHidden)
-              GestureDetector(
-                onVerticalDragEnd: (details) {
-                  final v = details.primaryVelocity ?? 0;
-                  if (v > 240) onHideFloatingBar();
-                },
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: CareTimerFloatingBar(
-                    vertical: true,
-                    isPlaying: isPlaying,
-                    isMuted: isMuted,
-                    isImmersive: immersive,
-                    enabled: controlsEnabled,
-                    canSkip: canSkip,
-                    showCollapse: true,
-                    onStop: onStop,
-                    onTogglePlay: onTogglePlayback,
-                    onToggleMute: onToggleMute,
-                    onToggleImmersive: onToggleImmersive,
-                    onSkipNext: onSkipNext,
-                    onCollapse: onHideFloatingBar,
-                  ),
-                ),
-              ),
-            if (!floatingBarHidden) const SizedBox(width: 12),
             Expanded(
+              flex: 5,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (stepLabel != null &&
                       stepLabel!.isNotEmpty &&
                       !immersive)
-                    Text(
-                      isArmed
-                          ? '케어 시작을 눌러 첫 스텝을 여세요'
-                          : '현재: $stepLabel',
-                      style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF8E8E93),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        isArmed
+                            ? '케어 시작을 눌러 첫 스텝을 여세요'
+                            : '현재: $stepLabel',
+                        style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF8E8E93),
+                        ),
                       ),
                     ),
-                  if (!immersive) const SizedBox(height: 12),
                   Expanded(
                     child: Center(
                       child: AnimatedScale(
-                        scale: immersive ? 1.22 : 1.0,
+                        scale: immersive ? 1.12 : 1.0,
                         duration: const Duration(milliseconds: 380),
                         curve: Curves.easeOutCubic,
                         child: _MainFlipClock(
@@ -737,32 +751,47 @@ class _LandscapeBody extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (!floatingBarHidden) ...[
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onVerticalDragEnd: (details) {
+                        final v = details.primaryVelocity ?? 0;
+                        if (v > 240) onHideFloatingBar();
+                      },
+                      child: controls,
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Align(
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _LandscapeRemainingPill(
-                    label: remainingLabel,
-                    text: remainingText,
-                    overtime: isOvertime,
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 120,
+              child: Align(
+                alignment: Alignment.center,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _LandscapeRemainingPill(
+                        label: remainingLabel,
+                        text: remainingText,
+                        overtime: isOvertime,
+                      ),
+                      const SizedBox(height: 12),
+                      CareStackedSegmentBar(
+                        steps: steps,
+                        tint: tint,
+                        currentIndex: currentIndex,
+                        isArmed: isArmed,
+                        isRunning: isRunning,
+                        isPaused: isPaused,
+                        stepRemainingSeconds: stepRemaining,
+                        expandList: true,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  CareStackedSegmentBar(
-                    steps: steps,
-                    tint: tint,
-                    currentIndex: currentIndex,
-                    isArmed: isArmed,
-                    isRunning: isRunning,
-                    isPaused: isPaused,
-                    stepRemainingSeconds: stepRemaining,
-                    vertical: true,
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -770,9 +799,9 @@ class _LandscapeBody extends StatelessWidget {
         if (floatingBarHidden)
           Positioned(
             left: 0,
-            top: 0,
+            right: 0,
             bottom: 0,
-            width: 72,
+            height: 48,
             child: GestureDetector(
               key: const Key('care-swipe-rail'),
               behavior: HitTestBehavior.translucent,
@@ -780,6 +809,12 @@ class _LandscapeBody extends StatelessWidget {
                 final v = details.primaryVelocity ?? 0;
                 if (v < -240) onShowFloatingBar();
               },
+              child: const Center(
+                child: Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
             ),
           ),
       ],

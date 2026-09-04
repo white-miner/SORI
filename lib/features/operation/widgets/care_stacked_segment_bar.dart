@@ -18,6 +18,7 @@ class CareStackedSegmentBar extends StatefulWidget {
     required this.isPaused,
     required this.stepRemainingSeconds,
     this.vertical = false,
+    this.expandList = false,
     this.onAddTap,
   });
 
@@ -29,6 +30,8 @@ class CareStackedSegmentBar extends StatefulWidget {
   final bool isPaused;
   final int stepRemainingSeconds;
   final bool vertical;
+  /// 가로 웹/태블릿: 겹치는 스택 대신 간격 있는 칩 리스트.
+  final bool expandList;
   final VoidCallback? onAddTap;
 
   @override
@@ -77,6 +80,34 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
     final queue = <int>[
       for (var i = start; i < widget.steps.length; i++) i,
     ].take(4).toList();
+
+    if (widget.expandList) {
+      return Column(
+        key: const Key('care-segment-list'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < queue.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _StackedChip(
+              key: ValueKey('list-chip-${queue[i]}'),
+              timeLabel: _timeFor(queue[i]),
+              color: _stepColor(queue[i]),
+              isFront: i == 0,
+              compact: false,
+              fullWidth: true,
+            ),
+          ],
+          if (widget.onAddTap != null) ...[
+            const SizedBox(height: 8),
+            _CircleIconButton(
+              icon: Icons.add_rounded,
+              onTap: widget.onAddTap!,
+            ),
+          ],
+        ],
+      );
+    }
 
     final stack = SizedBox(
       width: widget.vertical ? 92 : null,
@@ -180,12 +211,14 @@ class _StackedChip extends StatefulWidget {
     required this.color,
     required this.isFront,
     required this.compact,
+    this.fullWidth = false,
   });
 
   final String timeLabel;
   final Color color;
   final bool isFront;
   final bool compact;
+  final bool fullWidth;
 
   @override
   State<_StackedChip> createState() => _StackedChipState();
@@ -225,9 +258,11 @@ class _StackedChipState extends State<_StackedChip>
 
   @override
   Widget build(BuildContext context) {
-    final w = widget.compact
-        ? HomeVisualTokens.stackedBackW
-        : HomeVisualTokens.stackedFrontW;
+    final w = widget.fullWidth
+        ? double.infinity
+        : (widget.compact
+              ? HomeVisualTokens.stackedBackW
+              : HomeVisualTokens.stackedFrontW);
     final h = widget.compact
         ? HomeVisualTokens.stackedBackH
         : HomeVisualTokens.stackedFrontH;

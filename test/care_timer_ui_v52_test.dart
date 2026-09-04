@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sori/features/operation/widgets/care_stacked_segment_bar.dart';
 import 'package:sori/features/operation/widgets/care_timer_fullscreen_page.dart';
+import 'package:sori/features/operation/widgets/flip_clock_display.dart';
 import 'package:sori/features/visit/models/care_timer_entry_mode.dart';
 import 'package:sori/features/operation/visit_timer_store.dart';
 import 'package:sori/services/sori_store.dart';
@@ -60,6 +61,33 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.text('05:00'), findsOneWidget);
+    });
+
+    testWidgets('expandList renders spaced chips without stack overlap', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CareStackedSegmentBar(
+              steps: steps,
+              tint: PresetSlotTint.orange,
+              currentIndex: 0,
+              isArmed: false,
+              isRunning: true,
+              isPaused: false,
+              stepRemainingSeconds: 9 * 60,
+              expandList: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('care-segment-list')), findsOneWidget);
+      expect(find.text('09:00'), findsOneWidget);
+      expect(find.text('05:00'), findsOneWidget);
+      expect(find.text('03:00'), findsOneWidget);
     });
   });
 
@@ -176,5 +204,36 @@ void main() {
 
       expect(find.text('추가 시간'), findsWidgets);
     });
+
+    testWidgets('넓은 가로에서도 중앙 스테이지로 붙고 세로 레일이 없다', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CareTimerFullscreenPage(
+            store: store,
+            session: session,
+            presetSlot: 0,
+            entryMode: CareTimerEntryMode.careStartManual,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 웹 가로는 세로 떠다니는 컨트롤이 아니라 시계 아래 Row.
+      expect(find.byTooltip('바 숨기기'), findsNothing);
+      expect(find.byKey(const Key('care-skip-next')), findsOneWidget);
+      expect(find.byType(CareStackedSegmentBar), findsOneWidget);
+
+      final skip = tester.getCenter(find.byKey(const Key('care-skip-next')));
+      final clock = tester.getCenter(find.byType(FlipClockDisplay));
+      expect(skip.dy, greaterThan(clock.dy));
+      expect((skip.dx - clock.dx).abs(), lessThan(220));
+    });
   });
 }
+
