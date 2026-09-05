@@ -8,7 +8,6 @@ import '../../operation/care_timer_tts_service.dart';
 import '../../operation/visit_timer_store.dart';
 import '../../operation/widgets/care_stacked_segment_bar.dart';
 import '../../operation/widgets/care_timer_floating_bar.dart';
-import '../../operation/widgets/care_timer_step_list.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
 import '../home_visual_tokens.dart';
@@ -171,17 +170,17 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
           if (steps.isNotEmpty) ...[
             _StageCard(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: CareStackedSegmentBar(
-                  steps: steps,
-                  tint: tint,
-                  currentIndex: currentIndex,
-                  isArmed: isArmed,
-                  isRunning: isRunning,
-                  isPaused: isPaused,
-                  stepRemainingSeconds: stepRemaining,
-                ),
+              child: CareStackedSegmentBar(
+                steps: steps,
+                tint: tint,
+                currentIndex: currentIndex,
+                isArmed: isArmed,
+                isRunning: isRunning,
+                isPaused: isPaused,
+                stepRemainingSeconds: stepRemaining,
+                isOvertime: isOvertime,
+                overtimeSeconds: snap?.overtimeElapsedSeconds ?? 0,
+                onAddTap: () => widget.onOpenPresetEditor(slot),
               ),
             ),
             const SizedBox(height: 10),
@@ -249,22 +248,6 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
                 label: remainingLabel,
                 value: remainingValue,
                 overtime: isOvertime,
-              ),
-            ],
-            if (steps.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              CareTimerStepList(
-                key: const Key('home-timer-step-list'),
-                steps: steps,
-                currentIndex: currentIndex,
-                isRunning: isRunning,
-              ),
-            ],
-            if (isOvertime) ...[
-              const SizedBox(height: 8),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: CareOvertimeStackChip(),
               ),
             ],
           ],

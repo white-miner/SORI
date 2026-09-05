@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
 
 import '../../visit/home_visual_tokens.dart';
+import 'care_timer_step_list.dart';
 
-/// PO v5.2 — stacked segment queue (front chip = active step).
+/// 가로로 펼쳐진 스텝 칩 + 우측 레이어 아이콘.
+/// 겹침 Stack이 아니라 Row/ListView로 모든 칩이 보이고, 레이어 탭은 아코디언이다.
 class CareStackedSegmentBar extends StatefulWidget {
   const CareStackedSegmentBar({
     super.key,
@@ -20,6 +23,9 @@ class CareStackedSegmentBar extends StatefulWidget {
     this.vertical = false,
     this.expandList = false,
     this.onAddTap,
+    this.onLayersTap,
+    this.isOvertime = false,
+    this.overtimeSeconds = 0,
   });
 
   final List<CareProgramStep> steps;
@@ -30,22 +36,31 @@ class CareStackedSegmentBar extends StatefulWidget {
   final bool isPaused;
   final int stepRemainingSeconds;
   final bool vertical;
-  /// 가로 웹/태블릿: 겹치는 스택 대신 간격 있는 칩 리스트.
+  /// 호환용. 레이아웃은 항상 가로 칩 전개.
   final bool expandList;
   final VoidCallback? onAddTap;
+  final VoidCallback? onLayersTap;
+  final bool isOvertime;
+  final int overtimeSeconds;
 
   @override
   State<CareStackedSegmentBar> createState() => _CareStackedSegmentBarState();
 }
 
 class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
-  int? _lastIndex;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.isRunning || widget.expandList;
+  }
 
   @override
   void didUpdateWidget(covariant CareStackedSegmentBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentIndex != widget.currentIndex) {
-      _lastIndex = oldWidget.currentIndex;
+    if (!oldWidget.isRunning && widget.isRunning) {
+      _expanded = true;
     }
   }
 
@@ -57,137 +72,77 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
   String _timeFor(int index) {
     if (index >= widget.steps.length) return '00:00';
     final step = widget.steps[index];
-    final isFront = index == widget.currentIndex;
-    if (isFront &&
+    final isCurrent = index == widget.currentIndex;
+    if (isCurrent &&
         widget.isRunning &&
         !widget.isPaused &&
         widget.stepRemainingSeconds > 0) {
       return _formatMmSs(widget.stepRemainingSeconds);
     }
-    if (index < widget.currentIndex && widget.isRunning) {
+    if (widget.isRunning && index < widget.currentIndex) {
       return '00:00';
     }
     return _formatPlanned(step.minutes);
   }
 
+  void _onLayersPressed() {
+    HapticFeedback.mediumImpact();
+    setState(() => _expanded = !_expanded);
+    widget.onLayersTap?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.steps.isEmpty) return const SizedBox.shrink();
-
-    final start = widget.isArmed
-        ? 0
-        : widget.currentIndex.clamp(0, widget.steps.length - 1);
-    final queue = <int>[
-      for (var i = start; i < widget.steps.length; i++) i,
-    ].take(4).toList();
-
-    if (widget.expandList) {
-      return Column(
-        key: const Key('care-segment-list'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < queue.length; i++) ...[
-            if (i > 0) const SizedBox(height: 8),
-            _StackedChip(
-              key: ValueKey('list-chip-${queue[i]}'),
-              timeLabel: _timeFor(queue[i]),
-              color: _stepColor(queue[i]),
-              isFront: i == 0,
-              compact: false,
-              fullWidth: true,
-            ),
-          ],
-          if (widget.onAddTap != null) ...[
-            const SizedBox(height: 8),
-            _CircleIconButton(
-              icon: Icons.add_rounded,
-              onTap: widget.onAddTap!,
-            ),
-          ],
-        ],
-      );
+    if (widget.steps.isEmpty && !widget.isOvertime) {
+      return const SizedBox.shrink();
     }
 
-    final stack = SizedBox(
-      width: widget.vertical ? 92 : null,
-      height: widget.vertical ? 200 : HomeVisualTokens.stackedFrontH + 10,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: widget.vertical
-            ? Alignment.topCenter
-            : Alignment.centerLeft,
-        children: [
-          for (var depth = queue.length - 1; depth >= 0; depth--)
-            AnimatedPositioned(
-              key: ValueKey('pos-${queue[depth]}'),
-              duration: const Duration(milliseconds: 380),
-              curve: Curves.easeOutCubic,
-              left: widget.vertical ? 0 : depth * HomeVisualTokens.stackedOffsetH,
-              top: widget.vertical ? depth * HomeVisualTokens.stackedOffsetV : 0,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 320),
-                switchInCurve: Curves.easeOutBack,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  final slide = Tween<Offset>(
-                    begin: widget.vertical
-                        ? const Offset(0, 0.35)
-                        : const Offset(-0.25, 0),
-                    end: Offset.zero,
-                  ).animate(animation);
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(position: slide, child: child),
-                  );
-                },
-                child: _StackedChip(
-                  key: ValueKey('chip-${queue[depth]}'),
-                  timeLabel: _timeFor(queue[depth]),
-                  color: _stepColor(queue[depth]),
-                  isFront: depth == 0,
-                  compact: depth > 0,
-                ),
-              ),
-            ),
-        ],
-      ),
+    final chips = <_ChipSpec>[
+      for (var i = 0; i < widget.steps.length; i++)
+        _ChipSpec(
+          keyName: 'chip-$i',
+          timeLabel: _timeFor(i),
+          color: _stepColor(i),
+          isFront: i == widget.currentIndex &&
+              (widget.isRunning || widget.isArmed),
+        ),
+      if (widget.isOvertime)
+        _ChipSpec(
+          keyName: 'chip-overtime',
+          timeLabel: '(+)${_formatMmSs(widget.overtimeSeconds)}',
+          color: PresetSlotTint.iosGreen,
+          isFront: true,
+        ),
+    ];
+
+    final rail = _ChipRail(
+      chips: chips,
+      onAddTap: widget.onAddTap,
+      layersExpanded: _expanded,
+      onLayersTap: _onLayersPressed,
     );
 
-    if (widget.vertical) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          stack,
-          if (widget.onAddTap != null) ...[
-            const SizedBox(height: 8),
-            _CircleIconButton(
-              icon: Icons.add_rounded,
-              onTap: widget.onAddTap!,
-            ),
-          ],
-          const SizedBox(height: 8),
-          Icon(
-            Icons.layers_rounded,
-            size: 22,
-            color: Colors.black.withValues(alpha: 0.35),
-          ),
-        ],
-      );
-    }
-
-    return Row(
+    return Column(
+      key: widget.expandList ? const Key('care-segment-list') : null,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: stack),
-        if (widget.onAddTap != null) ...[
-          const SizedBox(width: 8),
-          _CircleIconButton(icon: Icons.add_rounded, onTap: widget.onAddTap!),
-        ],
-        const SizedBox(width: 8),
-        Icon(
-          Icons.layers_rounded,
-          size: 22,
-          color: Colors.black.withValues(alpha: 0.35),
+        rail,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOutCubic,
+          alignment: Alignment.topCenter,
+          child: _expanded && widget.steps.isNotEmpty
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: CareTimerStepList(
+                    key: const Key('care-segment-accordion'),
+                    steps: widget.steps,
+                    currentIndex: widget.currentIndex,
+                    isRunning: widget.isRunning,
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );
@@ -204,27 +159,93 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
   }
 }
 
-class _StackedChip extends StatefulWidget {
-  const _StackedChip({
+class _ChipSpec {
+  const _ChipSpec({
+    required this.keyName,
+    required this.timeLabel,
+    required this.color,
+    required this.isFront,
+  });
+
+  final String keyName;
+  final String timeLabel;
+  final Color color;
+  final bool isFront;
+}
+
+class _ChipRail extends StatelessWidget {
+  const _ChipRail({
+    required this.chips,
+    required this.onAddTap,
+    required this.layersExpanded,
+    required this.onLayersTap,
+  });
+
+  final List<_ChipSpec> chips;
+  final VoidCallback? onAddTap;
+  final bool layersExpanded;
+  final VoidCallback onLayersTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const Key('care-segment-rail'),
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: HomeVisualTokens.stackedFrontH + 6,
+            child: ListView.separated(
+              key: const Key('care-segment-h-list'),
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: chips.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final spec = chips[index];
+                return Align(
+                  alignment: Alignment.center,
+                  child: _SegmentChip(
+                    key: ValueKey(spec.keyName),
+                    timeLabel: spec.timeLabel,
+                    color: spec.color,
+                    isFront: spec.isFront,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        if (onAddTap != null) ...[
+          const SizedBox(width: 8),
+          _CircleIconButton(icon: Icons.add_rounded, onTap: onAddTap!),
+        ],
+        const SizedBox(width: 4),
+        _LayersButton(
+          expanded: layersExpanded,
+          onTap: onLayersTap,
+        ),
+      ],
+    );
+  }
+}
+
+class _SegmentChip extends StatefulWidget {
+  const _SegmentChip({
     super.key,
     required this.timeLabel,
     required this.color,
     required this.isFront,
-    required this.compact,
-    this.fullWidth = false,
   });
 
   final String timeLabel;
   final Color color;
   final bool isFront;
-  final bool compact;
-  final bool fullWidth;
 
   @override
-  State<_StackedChip> createState() => _StackedChipState();
+  State<_SegmentChip> createState() => _SegmentChipState();
 }
 
-class _StackedChipState extends State<_StackedChip>
+class _SegmentChipState extends State<_SegmentChip>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
@@ -239,7 +260,7 @@ class _StackedChipState extends State<_StackedChip>
   }
 
   @override
-  void didUpdateWidget(covariant _StackedChip oldWidget) {
+  void didUpdateWidget(covariant _SegmentChip oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isFront && !_pulse.isAnimating) {
       _pulse.repeat(reverse: true);
@@ -258,15 +279,13 @@ class _StackedChipState extends State<_StackedChip>
 
   @override
   Widget build(BuildContext context) {
-    final w = widget.fullWidth
-        ? double.infinity
-        : (widget.compact
-              ? HomeVisualTokens.stackedBackW
-              : HomeVisualTokens.stackedFrontW);
-    final h = widget.compact
-        ? HomeVisualTokens.stackedBackH
-        : HomeVisualTokens.stackedFrontH;
-    final fontSize = widget.compact ? 13.0 : 17.0;
+    final w = widget.isFront
+        ? HomeVisualTokens.stackedFrontW
+        : HomeVisualTokens.stackedBackW;
+    final h = widget.isFront
+        ? HomeVisualTokens.stackedFrontH
+        : HomeVisualTokens.stackedBackH;
+    final fontSize = widget.isFront ? 17.0 : 13.0;
 
     return AnimatedBuilder(
       animation: _pulse,
@@ -330,6 +349,28 @@ class _CircleIconButton extends StatelessWidget {
           height: size,
           child: Icon(icon, size: 20, color: const Color(0xFF111111)),
         ),
+      ),
+    );
+  }
+}
+
+class _LayersButton extends StatelessWidget {
+  const _LayersButton({required this.expanded, required this.onTap});
+
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: const Key('care-segment-layers'),
+      tooltip: expanded ? '스텝 접기' : '스텝 펼치기',
+      visualDensity: VisualDensity.compact,
+      onPressed: onTap,
+      icon: Icon(
+        Icons.layers_rounded,
+        size: 22,
+        color: Colors.black.withValues(alpha: expanded ? 0.72 : 0.45),
       ),
     );
   }

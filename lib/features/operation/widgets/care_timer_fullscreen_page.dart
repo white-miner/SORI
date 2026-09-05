@@ -15,7 +15,6 @@ import '../visit_timer_store.dart';
 import 'care_timer_preset_editor_page.dart';
 import 'care_stacked_segment_bar.dart';
 import 'care_timer_floating_bar.dart';
-import 'care_timer_step_list.dart';
 import 'flip_clock_display.dart';
 import 'volume_glass_theme.dart';
 
@@ -565,6 +564,7 @@ class _PortraitBody extends StatelessWidget {
               isRunning: isRunning,
               isPaused: isPaused,
               stepRemainingSeconds: stepRemaining,
+              isOvertime: isOvertime,
             ),
           ),
           const SizedBox(height: 12),
@@ -622,21 +622,7 @@ class _PortraitBody extends StatelessWidget {
             ),
           ),
         ),
-        if (!immersive) ...[
-          const SizedBox(height: 12),
-          CareTimerStepList(
-            steps: steps,
-            currentIndex: currentIndex,
-            isRunning: isRunning,
-          ),
-        ],
-        if (isOvertime && !immersive) ...[
-          const SizedBox(height: 8),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: CareOvertimeStackChip(),
-          ),
-        ],
+        if (!immersive) const SizedBox(height: 4),
       ],
     );
   }
@@ -787,6 +773,7 @@ class _LandscapeBody extends StatelessWidget {
                         isRunning: isRunning,
                         isPaused: isPaused,
                         stepRemainingSeconds: stepRemaining,
+                        isOvertime: isOvertime,
                         expandList: true,
                       ),
                     ],

@@ -40,6 +40,7 @@ void main() {
 
       expect(find.text('09:42'), findsOneWidget);
       expect(find.byIcon(Icons.layers_rounded), findsOneWidget);
+      expect(find.byKey(const Key('care-segment-layers')), findsOneWidget);
     });
 
     testWidgets('updates label when current index advances', (tester) async {
@@ -60,12 +61,10 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('05:00'), findsOneWidget);
+      expect(find.text('05:00'), findsWidgets);
     });
 
-    testWidgets('expandList renders spaced chips without stack overlap', (
-      tester,
-    ) async {
+    testWidgets('가로 Row로 칩이 겹치지 않고 모두 보인다', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -85,9 +84,51 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const Key('care-segment-list')), findsOneWidget);
-      expect(find.text('09:00'), findsOneWidget);
-      expect(find.text('05:00'), findsOneWidget);
-      expect(find.text('03:00'), findsOneWidget);
+      expect(find.byKey(const Key('care-segment-h-list')), findsOneWidget);
+      expect(find.byKey(const Key('care-segment-rail')), findsOneWidget);
+      expect(find.byKey(const ValueKey('chip-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('chip-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('chip-2')), findsOneWidget);
+
+      final first = tester.getRect(find.byKey(const ValueKey('chip-0')));
+      final second = tester.getRect(find.byKey(const ValueKey('chip-1')));
+      expect(second.left, greaterThan(first.right - 1));
+    });
+
+    testWidgets('레이어 아이콘 탭이면 아코디언이 접히고 다시 펼쳐진다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CareStackedSegmentBar(
+              steps: steps,
+              tint: PresetSlotTint.orange,
+              currentIndex: 0,
+              isArmed: false,
+              isRunning: true,
+              isPaused: false,
+              stepRemainingSeconds: 9 * 60,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('타임라인'), findsOneWidget);
+      expect(find.text('클렌징'), findsWidgets);
+
+      await tester.ensureVisible(find.byKey(const Key('care-segment-layers')));
+      await tester.tap(find.byKey(const Key('care-segment-layers')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.byKey(const Key('care-segment-accordion')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('care-segment-layers')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.byKey(const Key('care-segment-accordion')), findsOneWidget);
+      expect(find.text('타임라인'), findsOneWidget);
     });
   });
 
