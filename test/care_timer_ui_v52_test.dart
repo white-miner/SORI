@@ -137,10 +137,16 @@ void main() {
       );
       await tester.pump();
 
+      expect(find.byKey(const Key('care-segment-accordion')), findsNothing);
+
+      await tester.ensureVisible(find.byKey(const Key('care-segment-layers')));
+      await tester.tap(find.byKey(const Key('care-segment-layers')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 320));
+
       expect(find.text('타임라인'), findsOneWidget);
       expect(find.text('클렌징'), findsWidgets);
 
-      await tester.ensureVisible(find.byKey(const Key('care-segment-layers')));
       await tester.tap(find.byKey(const Key('care-segment-layers')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 320));

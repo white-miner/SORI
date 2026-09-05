@@ -56,15 +56,12 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
   @override
   void initState() {
     super.initState();
-    _expanded = widget.isRunning || widget.expandList;
+    _expanded = widget.expandList;
   }
 
   @override
   void didUpdateWidget(covariant CareStackedSegmentBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isRunning && widget.isRunning) {
-      _expanded = true;
-    }
   }
 
   Color _stepColor(int index) {

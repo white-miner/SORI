@@ -41,7 +41,6 @@ import 'report/visit_end_pipeline.dart';
 import 'widgets/visit_report_send_sheet.dart';
 import 'widgets/ba_capture_carousel.dart';
 import 'widgets/home_hero_card.dart';
-import 'widgets/home_preset_quick_pick.dart';
 import 'widgets/home_quick_action_row.dart';
 import 'widgets/home_scheduler_strip.dart';
 import 'widgets/home_timer_customer_bind.dart';
@@ -892,7 +891,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final boundCustomer = _timerBoundCustomerId == null
         ? null
         : widget.store.findCustomer(_timerBoundCustomerId!);
-    final timerStore = VisitTimerStore.instance;
 
     return RefreshIndicator(
       color: SoriTokens.primary,
@@ -957,19 +955,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                       unawaited(_openPresetEditor(slot)),
                 ),
               ),
-              // 5) 스탠바이에서만 다중 프리셋 리스트 노출 (실행 중은 스텝 타임라인).
-              if (!careRunning)
-                SliverToBoxAdapter(
-                  child: HomePresetQuickPick(
-                    timerStore: timerStore,
-                    onSlotSelected: (slot) {
-                      unawaited(timerStore.toggleHomePresetSlot(slot));
-                    },
-                    onConfigureSlot: (slot) {
-                      unawaited(_openPresetEditor(slot));
-                    },
-                  ),
-                ),
               SliverToBoxAdapter(
                 child: HomeTimerCustomerBind(
                   store: widget.store,

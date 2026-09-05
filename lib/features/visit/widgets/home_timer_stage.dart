@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
 import '../../operation/care_timer_tts_service.dart';
 import '../../operation/visit_timer_store.dart';
 import '../../operation/widgets/care_stacked_segment_bar.dart';
 import '../../operation/widgets/care_timer_floating_bar.dart';
+import '../../operation/widgets/care_timer_step_list.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
 import '../../../widgets/press_bounce.dart';
@@ -34,44 +36,39 @@ class HomeTimerStage extends StatefulWidget {
 
 class _HomeTimerStageState extends State<HomeTimerStage> {
   VisitTimerStore get _timer => VisitTimerStore.instance;
-  Timer? _wallTick;
   bool _muted = CareTimerTtsService.isMuted;
 
   @override
   void initState() {
     super.initState();
     _timer.addListener(_onStore);
-    _syncWallTick();
   }
 
   @override
   void dispose() {
     _timer.removeListener(_onStore);
-    _wallTick?.cancel();
     super.dispose();
   }
 
   void _onStore() {
-    if (!mounted) return;
-    _syncWallTick();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
-  void _syncWallTick() {
-    // 케어 실행 중만 스토어 틱. 스탠바이는 시스템 시각 1초 틱.
-    if (_timer.isCareRunning) {
-      _wallTick?.cancel();
-      _wallTick = null;
-      return;
+  /// 중앙 플립시계 = 현재 구간 타임. 총시간·벽시계는 넣지 않는다.
+  int _stepClockSeconds({
+    required bool isRunning,
+    required bool isOvertime,
+    required int currentIndex,
+    required List<CareProgramStep> steps,
+  }) {
+    final snap = _timer.liveSnapshot;
+    if (isOvertime) return snap?.overtimeElapsedSeconds ?? 0;
+    if (isRunning) return snap?.currentStepRemainingSeconds ?? 0;
+    if (currentIndex >= 0 && currentIndex < steps.length) {
+      return steps[currentIndex].seconds;
     }
-    _wallTick ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  int _wallClockSeconds() {
-    final now = DateTime.now();
-    return now.hour * 3600 + now.minute * 60 + now.second;
+    if (steps.isNotEmpty) return steps.first.seconds;
+    return 0;
   }
 
   Future<void> _swapProgram(int slot) async {
@@ -102,11 +99,13 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
     final isPaused = _timer.carePaused;
     final isOvertime = _timer.isOvertime;
 
-    // 1) Standby = 시스템 시각. 카운트다운은 케어 실행 중만.
-    final careSeconds =
-        isRunning ? (snap?.displaySeconds ?? 0) : _wallClockSeconds();
-
     final stepRemaining = snap?.currentStepRemainingSeconds ?? 0;
+    final careSeconds = _stepClockSeconds(
+      isRunning: isRunning,
+      isOvertime: isOvertime,
+      currentIndex: active?.currentStepIndex ?? 0,
+      steps: steps,
+    );
     final currentIndex = active?.currentStepIndex ?? 0;
     final courseTitle = preset.name.trim().isEmpty
         ? (isRunning ? '케어 프로그램' : '대기')
@@ -115,12 +114,6 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
     final stepHeadline = isRunning && snap?.currentStepLabel.isNotEmpty == true
         ? '현재: ${snap!.currentStepLabel}'
         : courseTitle;
-
-    final remainingLabel =
-        isOvertime ? '추가 시간' : (snap?.remainingLabel ?? '종료까지 남은 시간');
-    final remainingValue = snap == null
-        ? null
-        : snap.formatKoreanClock(snap.displaySeconds);
 
     return Padding(
       key: const Key('home-timer-stage'),
@@ -173,12 +166,15 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: FlipClockDisplay(
+                    key: const Key('home-timer-step-clock'),
                     totalSeconds: careSeconds,
                     hero: true,
-                    // Standby: HH:MM:SS 시스템 시각 / Running: HH:MM + corner SS
-                    showSeconds: !isRunning,
-                    showCornerSeconds: isRunning,
-                    stepLabel: isRunning ? remainingLabel : null,
+                    showSeconds: true,
+                    showCornerSeconds: false,
+                    style: FlipClockStyle.darkGlass,
+                    stepLabel: isOvertime
+                        ? '추가 시간'
+                        : (isRunning ? '현재 구간' : null),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -215,16 +211,15 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
             PressBounce(child: _CareStartButton(onTap: widget.onCareStart))
           else
             PressBounce(child: _CareEndButton(onTap: widget.onCareEnd)),
-          // 2) 실행 중: 잔여 + 스텝 타임라인 리스트
-          if (isRunning) ...[
-            if (remainingValue != null) ...[
-              const SizedBox(height: 10),
-              _RemainingBanner(
-                label: remainingLabel,
-                value: remainingValue,
-                overtime: isOvertime,
-              ),
-            ],
+          if (steps.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            CareTimerStepList(
+              key: const Key('home-timer-step-list'),
+              steps: steps,
+              currentIndex: currentIndex,
+              isRunning: isRunning,
+              onStepTap: (i) => unawaited(_timer.jumpToStep(i)),
+            ),
           ],
         ],
       ),
@@ -459,54 +454,6 @@ class _CareEndButton extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _RemainingBanner extends StatelessWidget {
-  const _RemainingBanner({
-    required this.label,
-    required this.value,
-    required this.overtime,
-  });
-
-  final String label;
-  final String value;
-  final bool overtime;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent =
-        overtime ? const Color(0xFFFF9500) : PresetSlotTint.iosRed;
-    return Container(
-      key: const Key('home-timer-remaining-banner'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.nunito(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF3A3A3C),
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.nunito(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: accent,
-            ),
-          ),
-        ],
       ),
     );
   }

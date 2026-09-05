@@ -15,6 +15,7 @@ import '../visit_timer_store.dart';
 import 'care_timer_preset_editor_page.dart';
 import 'care_stacked_segment_bar.dart';
 import 'care_timer_floating_bar.dart';
+import 'care_timer_step_list.dart';
 import 'flip_clock_display.dart';
 import 'volume_glass_theme.dart';
 
@@ -287,11 +288,20 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
     final useImmersiveLandscape = isLandscape && _immersiveClock;
     final useCenteredStage = !useImmersiveLandscape;
 
-    final careSeconds = snap?.displaySeconds ?? 0;
     final isArmed = timer.isCareArmed;
     final isRunning = timer.isCareRunning;
     final isPaused = timer.carePaused;
     final currentIndex = active?.currentStepIndex ?? 0;
+    final standbySteps = active?.templateSnapshot.isNotEmpty == true
+        ? active!.templateSnapshot
+        : preset.steps;
+    final careSeconds = timer.isOvertime
+        ? (snap?.overtimeElapsedSeconds ?? 0)
+        : isRunning
+            ? (snap?.currentStepRemainingSeconds ?? 0)
+            : (currentIndex >= 0 && currentIndex < standbySteps.length
+                ? standbySteps[currentIndex].seconds
+                : (standbySteps.isNotEmpty ? standbySteps.first.seconds : 0));
     final stepRemaining = snap?.currentStepRemainingSeconds ?? 0;
     final isPlaying = isRunning && !isPaused;
     final remainingLabel = snap?.remainingLabel ?? '종료까지 남은 시간';
@@ -601,7 +611,7 @@ class _PortraitBody extends StatelessWidget {
                         careSeconds: careSeconds,
                         large: immersive,
                         remainingLabel:
-                            isOvertime ? '추가 시간' : '종료까지 남은 시간',
+                            isOvertime ? '추가 시간' : '현재 구간',
                       ),
                     ),
                   ),
@@ -623,7 +633,15 @@ class _PortraitBody extends StatelessWidget {
             ),
           ),
         ),
-        if (!immersive) const SizedBox(height: 4),
+        if (!immersive && steps.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          CareTimerStepList(
+            steps: steps,
+            currentIndex: currentIndex,
+            isRunning: isRunning,
+            onStepTap: (i) => VisitTimerStore.instance.jumpToStep(i),
+          ),
+        ],
       ],
     );
   }
@@ -830,11 +848,11 @@ class _MainFlipClock extends StatelessWidget {
       child: FlipClockDisplay(
         totalSeconds: careSeconds,
         hero: true,
-        showSeconds: false,
-        showCornerSeconds: true,
+        showSeconds: true,
+        showCornerSeconds: false,
         heroTag: CareTimerFullscreenPage.flipHeroTag,
         style: FlipClockStyle.darkGlass,
-        stepLabel: remainingLabel ?? '종료까지 남은 시간',
+        stepLabel: remainingLabel ?? '현재 구간',
         compact: !large,
       ),
     );

@@ -193,7 +193,8 @@ void main() {
     expect(find.byType(FlipClockDisplay), findsWidgets);
     expect(find.byType(CareTimerFloatingBar), findsOneWidget);
     expect(find.text('케어 시작'), findsOneWidget);
-    expect(find.byType(HomePresetQuickPick), findsOneWidget);
+    expect(find.byType(HomePresetQuickPick), findsNothing);
+    expect(find.byKey(const Key('home-timer-step-clock')), findsOneWidget);
     expect(find.byKey(const Key('home-timer-customer-bind')), findsOneWidget);
     expect(find.text('고객 차트 연결'), findsOneWidget);
     expect(find.byType(CareTimerFullscreenPage), findsNothing);

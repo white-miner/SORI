@@ -30,10 +30,16 @@ void main() {
 
     expect(find.byKey(const Key('home-timer-stage')), findsOneWidget);
     expect(find.byType(FlipClockDisplay), findsOneWidget);
+    expect(find.byKey(const Key('home-timer-step-clock')), findsOneWidget);
     expect(find.byType(CareTimerFloatingBar), findsOneWidget);
     expect(find.text('케어 시작'), findsOneWidget);
     expect(find.byIcon(Icons.stop_rounded), findsNothing);
     expect(find.byKey(const Key('home-timer-title-bar')), findsOneWidget);
+    final clock = tester.widget<FlipClockDisplay>(
+      find.byKey(const Key('home-timer-step-clock')),
+    );
+    expect(clock.style, FlipClockStyle.darkGlass);
+    expect(clock.showSeconds, isTrue);
   });
 
   testWidgets('케어 종료 버튼은 System Red다', (tester) async {

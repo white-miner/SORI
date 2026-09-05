@@ -98,6 +98,18 @@ abstract final class CareTimerTtsService {
 
   static Future<void> announceCareStart() => speak('케어를 시작합니다.');
 
+  static Future<void> announceStepStart(String stepLabel) {
+    final name = stepLabel.trim();
+    if (name.isEmpty) return announceNextStep();
+    return speak('$name${_objectParticle(name)} 시작합니다.');
+  }
+
+  static String _objectParticle(String word) {
+    final last = word.runes.last;
+    if (last < 0xAC00 || last > 0xD7A3) return '를';
+    return ((last - 0xAC00) % 28 == 0) ? '를' : '을';
+  }
+
   static Future<void> announceNextStep() => speak('다음 케어를 진행합니다.');
 
   static Future<void> announceCarePlanComplete() => speak('케어가 종료되었습니다.');

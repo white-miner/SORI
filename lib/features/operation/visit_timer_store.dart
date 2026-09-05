@@ -320,7 +320,10 @@ class VisitTimerStore extends ChangeNotifier {
     if (carePaused || CareTimerTtsService.isMuted) return;
     if (_ttsLastStepAnnounced >= stepIndex) return;
     _ttsLastStepAnnounced = stepIndex;
-    unawaited(CareTimerTtsService.announceNextStep());
+    final label = stepIndex < active!.templateSnapshot.length
+        ? active!.templateSnapshot[stepIndex].label
+        : '';
+    unawaited(CareTimerTtsService.announceStepStart(label));
   }
 
   void _announcePlanCompleteIfNeeded() {
@@ -505,11 +508,9 @@ class VisitTimerStore extends ChangeNotifier {
     _ensureTicking();
     await _persist(active!);
     notifyListeners();
-    if (index == 0) {
-      _announceCareStartIfNeeded();
-    } else {
-      _announceNextStepIfNeeded(index);
-    }
+    final label = steps[index].label;
+    _ttsLastStepAnnounced = index;
+    unawaited(CareTimerTtsService.announceStepStart(label));
   }
 
   Future<void> startCare({int? presetSlot}) async {
