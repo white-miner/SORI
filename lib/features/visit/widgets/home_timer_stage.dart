@@ -187,6 +187,7 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
                     enabled: isRunning,
                     canSkip: _timer.canSkipStep,
                     onTogglePlay: () {
+                      unawaited(CareTimerTtsService.primeFromUserGesture());
                       if (!isRunning) {
                         widget.onCareStart();
                       } else {
@@ -200,7 +201,10 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
                       });
                     },
                     onToggleImmersive: widget.onExpandFullscreen,
-                    onSkipNext: () => unawaited(_timer.skipToNextStep()),
+                    onSkipNext: () {
+                      unawaited(CareTimerTtsService.primeFromUserGesture());
+                      unawaited(_timer.skipToNextStep());
+                    },
                   ),
                 ),
               ],
@@ -218,7 +222,10 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
               steps: steps,
               currentIndex: currentIndex,
               isRunning: isRunning,
-              onStepTap: (i) => unawaited(_timer.jumpToStep(i)),
+              onStepTap: (i) {
+                unawaited(CareTimerTtsService.primeFromUserGesture());
+                unawaited(_timer.jumpToStep(i));
+              },
             ),
           ],
         ],

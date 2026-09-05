@@ -1,5 +1,7 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sori/features/operation/care_timer_tts_service.dart';
 import 'package:sori/features/operation/visit_timer_store.dart';
 import 'package:sori/visit_kernel/models/care_program_template.dart';
 import 'package:sori/visit_kernel/models/preset_slot_tint.dart';
@@ -135,6 +137,60 @@ void main() {
       expect(snap.displaySeconds, 12);
       expect(snap.remainingLabel, '추가 시간');
       expect(snap.formatKoreanClock(12), '0분 12초');
+    });
+  });
+
+  group('VisitTimerStore tick', () {
+    test('periodic tick notifies listeners so flip clock can refresh', () {
+      fakeAsync((async) {
+        final store = VisitTimerStore.instance;
+        CareTimerTtsService.setMuted(true);
+        store.carePaused = false;
+        final started = DateTime.now();
+        store.active = VisitOperationTimer(
+          id: 'tick-1',
+          visitSessionId: '',
+          shopId: '',
+          careStartedAt: started,
+          currentStepIndex: 0,
+          currentStepStartedAt: started,
+          templateSnapshot: const [
+            CareProgramStep(label: '클렌징', minutes: 10),
+          ],
+          status: VisitTimerStatus.care,
+        );
+
+        var notifications = 0;
+        void listener() => notifications++;
+        store.addListener(listener);
+
+        // jumpToStep starts the 1s ticker.
+        store.jumpToStep(0);
+        async.flushMicrotasks();
+        final baseline = notifications;
+
+        async.elapse(const Duration(seconds: 3));
+        async.flushMicrotasks();
+
+        expect(
+          notifications,
+          greaterThanOrEqualTo(baseline + 3),
+          reason: 'Timer.periodic must invoke _onTick() each second',
+        );
+
+        store.removeListener(listener);
+        store.active = VisitOperationTimer(
+          id: 'tick-1',
+          visitSessionId: '',
+          shopId: '',
+          status: VisitTimerStatus.done,
+        );
+        // Idle/done path stops ticker on next tick.
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        store.active = null;
+        CareTimerTtsService.setMuted(false);
+      });
     });
   });
 

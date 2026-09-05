@@ -463,6 +463,7 @@ class VisitTimerStore extends ChangeNotifier {
     );
     carePaused = false;
     _pauseAnchor = null;
+    _ensureTicking();
     await _persist(active!);
     notifyListeners();
   }
@@ -537,7 +538,7 @@ class VisitTimerStore extends ChangeNotifier {
     _pauseAnchor = null;
     _resetTtsMarkers(active!.visitSessionId);
     _announceCareStartIfNeeded();
-    _ensureTicking();
+    _ensureTicking(force: true);
     notifyListeners();
   }
 
@@ -554,6 +555,9 @@ class VisitTimerStore extends ChangeNotifier {
     );
     await _persist(active!);
     await _logEvent('care_ended', {});
+    if (!CareTimerTtsService.isMuted) {
+      unawaited(CareTimerTtsService.announceCareEnd());
+    }
     notifyListeners();
   }
 
@@ -642,8 +646,15 @@ class VisitTimerStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _ensureTicking() {
-    _tickTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => _onTick);
+  void _ensureTicking({bool force = false}) {
+    // 반드시 _onTick()을 호출해야 한다. tear-off만 반환하면 UI가 동결된다.
+    if (force) {
+      _tickTimer?.cancel();
+      _tickTimer = null;
+    }
+    _tickTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      unawaited(_onTick());
+    });
   }
 
   void _stopTicking() {
@@ -655,10 +666,12 @@ class VisitTimerStore extends ChangeNotifier {
     if (active == null ||
         active!.status == VisitTimerStatus.done ||
         active!.status == VisitTimerStatus.idle) {
+      _stopTicking();
       return;
     }
     if (carePaused) return;
     await _advanceStepsIfNeeded();
+    // 잔여초는 DateTime.now() 기반 — 매 초 UI 재빌드가 필수.
     notifyListeners();
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -130,6 +132,7 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
 
   Future<void> _cancelAndPopHome() async {
     _autoPhase = CareAutoStartPhase.cancelled;
+    await CareTimerTtsService.primeFromUserGesture();
     if (timer.isCareRunning || timer.isCareArmed) {
       if (timer.active?.isStandalone ?? false) {
         await timer.finishStandaloneCare();
@@ -143,6 +146,7 @@ class _CareTimerFullscreenPageState extends State<CareTimerFullscreenPage> {
   }
 
   Future<void> _handleCareStart() async {
+    await CareTimerTtsService.primeFromUserGesture();
     if (timer.isCareArmed) {
       await timer.startCare(presetSlot: widget.presetSlot);
     } else {
@@ -639,7 +643,10 @@ class _PortraitBody extends StatelessWidget {
             steps: steps,
             currentIndex: currentIndex,
             isRunning: isRunning,
-            onStepTap: (i) => VisitTimerStore.instance.jumpToStep(i),
+            onStepTap: (i) {
+              unawaited(CareTimerTtsService.primeFromUserGesture());
+              unawaited(VisitTimerStore.instance.jumpToStep(i));
+            },
           ),
         ],
       ],

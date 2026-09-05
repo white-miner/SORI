@@ -20,6 +20,7 @@ import '../operation/models/shop_climate_context.dart';
 import '../operation/models/visit_biometrics.dart';
 import '../operation/shop_climate_service.dart';
 import '../operation/shop_clinical_trend_service.dart';
+import '../operation/care_timer_tts_service.dart';
 import '../operation/visit_timer_store.dart';
 import '../operation/widgets/clinical_assistant_sheet.dart';
 import '../operation/widgets/consultation_widget_board.dart';
@@ -401,6 +402,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   Future<void> _openCareStart() async {
+    // 웹 브라우저 autoplay 정책 — 터치 제스처 안에서 TTS/Audio를 먼저 활성화.
+    await CareTimerTtsService.primeFromUserGesture();
     // 케어 시작 = 탭 본문에서 카운트다운. 화면 전환 없음.
     final timerStore = VisitTimerStore.instance;
     await timerStore.ensureStandaloneTimer();
@@ -424,6 +427,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   Future<void> _endCareInTab() async {
+    await CareTimerTtsService.primeFromUserGesture();
     final timerStore = VisitTimerStore.instance;
     if (timerStore.active?.isStandalone ?? false) {
       await timerStore.finishStandaloneCare();
