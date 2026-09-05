@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
+import '../../../widgets/press_bounce.dart';
 
 /// PO v5.2 — expandable step list under care timer (portrait).
 class CareTimerStepList extends StatefulWidget {
@@ -11,11 +12,13 @@ class CareTimerStepList extends StatefulWidget {
     required this.steps,
     required this.currentIndex,
     required this.isRunning,
+    this.onStepTap,
   });
 
   final List<CareProgramStep> steps;
   final int currentIndex;
   final bool isRunning;
+  final ValueChanged<int>? onStepTap;
 
   @override
   State<CareTimerStepList> createState() => _CareTimerStepListState();
@@ -93,6 +96,9 @@ class _CareTimerStepListState extends State<CareTimerStepList> {
                         isActive:
                             widget.isRunning && i == widget.currentIndex,
                         isDone: widget.isRunning && i < widget.currentIndex,
+                        onTap: widget.onStepTap == null
+                            ? null
+                            : () => widget.onStepTap!(i),
                       ),
                       if (i < widget.steps.length - 1)
                         const SizedBox(height: 8),
@@ -116,6 +122,7 @@ class _StepRow extends StatelessWidget {
     required this.color,
     required this.isActive,
     required this.isDone,
+    this.onTap,
   });
 
   final int minutes;
@@ -123,13 +130,18 @@ class _StepRow extends StatelessWidget {
   final Color color;
   final bool isActive;
   final bool isDone;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final time =
         '${minutes.toString().padLeft(2, '0')}:${isDone ? '00' : '00'}';
 
-    return Row(
+    return PressBounce(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
       children: [
         Container(
           width: 64,
@@ -172,6 +184,8 @@ class _StepRow extends StatelessWidget {
           ),
         ),
       ],
+        ),
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
 
+import '../../../widgets/press_bounce.dart';
 import '../../visit/home_visual_tokens.dart';
 import 'care_timer_step_list.dart';
 
@@ -24,6 +25,7 @@ class CareStackedSegmentBar extends StatefulWidget {
     this.expandList = false,
     this.onAddTap,
     this.onLayersTap,
+    this.onStepTap,
     this.isOvertime = false,
     this.overtimeSeconds = 0,
   });
@@ -40,6 +42,7 @@ class CareStackedSegmentBar extends StatefulWidget {
   final bool expandList;
   final VoidCallback? onAddTap;
   final VoidCallback? onLayersTap;
+  final ValueChanged<int>? onStepTap;
   final bool isOvertime;
   final int overtimeSeconds;
 
@@ -105,6 +108,7 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
           color: _stepColor(i),
           isFront: i == widget.currentIndex &&
               (widget.isRunning || widget.isArmed),
+          stepIndex: i,
         ),
       if (widget.isOvertime)
         _ChipSpec(
@@ -117,9 +121,10 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
 
     final rail = _ChipRail(
       chips: chips,
-      onAddTap: widget.onAddTap,
+      onSettingsTap: widget.onAddTap,
       layersExpanded: _expanded,
       onLayersTap: _onLayersPressed,
+      onStepTap: widget.onStepTap,
     );
 
     return Column(
@@ -140,6 +145,7 @@ class _CareStackedSegmentBarState extends State<CareStackedSegmentBar> {
                     steps: widget.steps,
                     currentIndex: widget.currentIndex,
                     isRunning: widget.isRunning,
+                    onStepTap: widget.onStepTap,
                   ),
                 )
               : const SizedBox.shrink(),
@@ -165,26 +171,30 @@ class _ChipSpec {
     required this.timeLabel,
     required this.color,
     required this.isFront,
+    this.stepIndex,
   });
 
   final String keyName;
   final String timeLabel;
   final Color color;
   final bool isFront;
+  final int? stepIndex;
 }
 
 class _ChipRail extends StatelessWidget {
   const _ChipRail({
     required this.chips,
-    required this.onAddTap,
+    required this.onSettingsTap,
     required this.layersExpanded,
     required this.onLayersTap,
+    this.onStepTap,
   });
 
   final List<_ChipSpec> chips;
-  final VoidCallback? onAddTap;
+  final VoidCallback? onSettingsTap;
   final bool layersExpanded;
   final VoidCallback onLayersTap;
+  final ValueChanged<int>? onStepTap;
 
   @override
   Widget build(BuildContext context) {
@@ -204,20 +214,31 @@ class _ChipRail extends StatelessWidget {
                 final spec = chips[index];
                 return Align(
                   alignment: Alignment.center,
-                  child: _SegmentChip(
-                    key: ValueKey(spec.keyName),
-                    timeLabel: spec.timeLabel,
-                    color: spec.color,
-                    isFront: spec.isFront,
+                  child: PressBounce(
+                    child: _SegmentChip(
+                      key: ValueKey(spec.keyName),
+                      timeLabel: spec.timeLabel,
+                      color: spec.color,
+                      isFront: spec.isFront,
+                      onTap: spec.stepIndex == null
+                          ? null
+                          : () => onStepTap?.call(spec.stepIndex!),
+                    ),
                   ),
                 );
               },
             ),
           ),
         ),
-        if (onAddTap != null) ...[
+        if (onSettingsTap != null) ...[
           const SizedBox(width: 8),
-          _CircleIconButton(icon: Icons.add_rounded, onTap: onAddTap!),
+          PressBounce(
+            child: _CircleIconButton(
+              icon: Icons.tune_rounded,
+              tooltip: '프리셋 설정',
+              onTap: onSettingsTap!,
+            ),
+          ),
         ],
         const SizedBox(width: 4),
         _LayersButton(
@@ -235,11 +256,13 @@ class _SegmentChip extends StatefulWidget {
     required this.timeLabel,
     required this.color,
     required this.isFront,
+    this.onTap,
   });
 
   final String timeLabel;
   final Color color;
   final bool isFront;
+  final VoidCallback? onTap;
 
   @override
   State<_SegmentChip> createState() => _SegmentChipState();
@@ -293,24 +316,31 @@ class _SegmentChipState extends State<_SegmentChip>
         final scale = widget.isFront ? 1.0 + _pulse.value * 0.05 : 1.0;
         return Transform.scale(
           scale: scale,
-          child: Container(
-            width: w,
-            height: h,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: widget.color,
+          child: Material(
+            color: widget.color,
+            borderRadius: BorderRadius.circular(h / 2),
+            elevation: 0,
+            child: InkWell(
+              onTap: widget.onTap,
               borderRadius: BorderRadius.circular(h / 2),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.color.withValues(
-                    alpha: widget.isFront ? 0.45 : 0.22,
-                  ),
-                  blurRadius: widget.isFront ? 16 : 8,
-                  offset: const Offset(0, 4),
+              child: Container(
+                width: w,
+                height: h,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.color.withValues(
+                        alpha: widget.isFront ? 0.45 : 0.22,
+                      ),
+                      blurRadius: widget.isFront ? 16 : 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
+                child: child,
+              ),
             ),
-            child: child,
           ),
         );
       },
@@ -328,26 +358,34 @@ class _SegmentChipState extends State<_SegmentChip>
 }
 
 class _CircleIconButton extends StatelessWidget {
-  const _CircleIconButton({required this.icon, required this.onTap});
+  const _CircleIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final size = HomeVisualTokens.stackedAddCircle;
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Icon(icon, size: 20, color: const Color(0xFF111111)),
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.12),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, size: 20, color: const Color(0xFF111111)),
+          ),
         ),
       ),
     );
@@ -362,15 +400,17 @@ class _LayersButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      key: const Key('care-segment-layers'),
-      tooltip: expanded ? '스텝 접기' : '스텝 펼치기',
-      visualDensity: VisualDensity.compact,
-      onPressed: onTap,
-      icon: Icon(
-        Icons.layers_rounded,
-        size: 22,
-        color: Colors.black.withValues(alpha: expanded ? 0.72 : 0.45),
+    return PressBounce(
+      child: IconButton(
+        key: const Key('care-segment-layers'),
+        tooltip: expanded ? '스텝 접기' : '스텝 펼치기',
+        visualDensity: VisualDensity.compact,
+        onPressed: onTap,
+        icon: Icon(
+          Icons.layers_rounded,
+          size: 22,
+          color: Colors.black.withValues(alpha: expanded ? 0.72 : 0.45),
+        ),
       ),
     );
   }

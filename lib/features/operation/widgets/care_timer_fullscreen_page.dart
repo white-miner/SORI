@@ -565,6 +565,7 @@ class _PortraitBody extends StatelessWidget {
               isPaused: isPaused,
               stepRemainingSeconds: stepRemaining,
               isOvertime: isOvertime,
+              onStepTap: (i) => VisitTimerStore.instance.jumpToStep(i),
             ),
           ),
           const SizedBox(height: 12),
@@ -775,6 +776,8 @@ class _LandscapeBody extends StatelessWidget {
                         stepRemainingSeconds: stepRemaining,
                         isOvertime: isOvertime,
                         expandList: true,
+                        onStepTap: (i) =>
+                            VisitTimerStore.instance.jumpToStep(i),
                       ),
                     ],
                   ),

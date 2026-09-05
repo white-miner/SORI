@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../widgets/press_bounce.dart';
+
 class QuickCalculatorSheet extends StatefulWidget {
   const QuickCalculatorSheet({super.key});
 
@@ -161,7 +163,8 @@ class _Key extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    return PressBounce(
+      child: Material(
       color: accent ? const Color(0xFFF4F6F9) : const Color(0xFF111111),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
@@ -180,6 +183,7 @@ class _Key extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

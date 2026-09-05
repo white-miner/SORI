@@ -480,6 +480,38 @@ class VisitTimerStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 컬러 칩 / 타임라인 탭 — 해당 스텝으로 즉시 점프 후 카운트다운.
+  Future<void> jumpToStep(int index) async {
+    if (index < 0) return;
+    await ensureStandaloneTimer();
+    if (active == null) return;
+    if (active!.templateSnapshot.isEmpty) {
+      await bindPreset(presetSlot: selectedPresetSlot);
+    }
+    final steps = active?.templateSnapshot ?? const [];
+    if (index >= steps.length) return;
+
+    final now = DateTime.now();
+    active = active!.copyWith(
+      currentStepIndex: index,
+      currentStepStartedAt: now,
+      careStartedAt: active!.careStartedAt ?? now,
+      clearCareEndedAt: true,
+      status: VisitTimerStatus.care,
+      updatedAt: now,
+    );
+    carePaused = false;
+    _pauseAnchor = null;
+    _ensureTicking();
+    await _persist(active!);
+    notifyListeners();
+    if (index == 0) {
+      _announceCareStartIfNeeded();
+    } else {
+      _announceNextStepIfNeeded(index);
+    }
+  }
+
   Future<void> startCare({int? presetSlot}) async {
     if (active == null) return;
     final slot = presetSlot ?? selectedPresetSlot;

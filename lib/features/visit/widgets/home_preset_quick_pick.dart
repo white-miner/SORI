@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
+import '../../../widgets/press_bounce.dart';
 import '../../operation/visit_timer_store.dart';
 import '../home_visual_tokens.dart';
 
@@ -139,7 +140,8 @@ class _PresetQuickRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chipColor = tint.color;
-    return Material(
+    return PressBounce(
+      child: Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -201,6 +203,7 @@ class _PresetQuickRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

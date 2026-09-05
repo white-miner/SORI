@@ -32,6 +32,8 @@ void main() {
     expect(find.byType(FlipClockDisplay), findsOneWidget);
     expect(find.byType(CareTimerFloatingBar), findsOneWidget);
     expect(find.text('케어 시작'), findsOneWidget);
+    expect(find.byIcon(Icons.stop_rounded), findsNothing);
+    expect(find.byKey(const Key('home-timer-title-bar')), findsOneWidget);
   });
 
   testWidgets('케어 종료 버튼은 System Red다', (tester) async {

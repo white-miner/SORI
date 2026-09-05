@@ -67,6 +67,7 @@ class HomeDashboardController extends ChangeNotifier {
       return;
     }
     _cancelCount(silent: true);
+    calculatorOpen = false;
     activeTool = HomeToolboxTool.count;
     heroMode = HomeHeroMode.countSetup;
     countTotalSeconds = 0;
@@ -76,9 +77,15 @@ class HomeDashboardController extends ChangeNotifier {
   }
 
   void selectTimerTool() {
+    resetToTimerStandby();
+  }
+
+  /// 타이머 아이콘 — 계산기/카운트 등 부가기능을 모두 닫고 스탠바이.
+  void resetToTimerStandby() {
     _cancelCount(silent: true);
-    activeTool = HomeToolboxTool.timer;
     calculatorOpen = false;
+    activeTool = HomeToolboxTool.timer;
+    heroMode = HomeHeroMode.wallClock;
     notifyListeners();
   }
 

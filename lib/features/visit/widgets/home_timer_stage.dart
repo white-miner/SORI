@@ -10,6 +10,7 @@ import '../../operation/widgets/care_stacked_segment_bar.dart';
 import '../../operation/widgets/care_timer_floating_bar.dart';
 import '../../operation/widgets/flip_clock_display.dart';
 import '../../operation/widgets/volume_glass_theme.dart';
+import '../../../widgets/press_bounce.dart';
 import '../home_visual_tokens.dart';
 
 /// Timer 탭 Standby / Live — PO image_21 / image_22 위젯 트리.
@@ -73,47 +74,16 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
     return now.hour * 3600 + now.minute * 60 + now.second;
   }
 
-  Future<void> _pickProgram() async {
-    final presets = _timer.presets.where((p) => !p.isEmpty).toList();
-    if (presets.isEmpty) {
-      widget.onOpenPresetEditor(0);
-      return;
-    }
-    final picked = await showModalBottomSheet<int>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                '코스 변경',
-                style: GoogleFonts.nunito(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            for (final p in presets)
-              ListTile(
-                title: Text(p.name.trim().isEmpty ? '슬롯 ${p.slotIndex + 1}' : p.name),
-                onTap: () => Navigator.pop(ctx, p.slotIndex),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (picked == null || !mounted) return;
-    _timer.selectPresetSlot(picked);
-    await _timer.selectHomePresetSlot(picked);
+  Future<void> _swapProgram(int slot) async {
+    _timer.selectPresetSlot(slot);
+    await _timer.selectHomePresetSlot(slot);
     if (_timer.isCareArmed || _timer.isCareRunning) {
-      await _timer.bindPreset(presetSlot: picked);
+      await _timer.bindPreset(presetSlot: slot);
       if (_timer.isCareRunning) {
-        await _timer.startCare(presetSlot: picked);
+        await _timer.startCare(presetSlot: slot);
       }
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override
@@ -158,15 +128,14 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 4) 실행 중: 뒤로가기(<) + 코스 드롭다운(v) 타이틀 바
-          if (isRunning) ...[
-            _HomeTimerTitleBar(
-              title: courseTitle,
-              onBack: widget.onCareEnd,
-              onPickProgram: () => unawaited(_pickProgram()),
-            ),
-            const SizedBox(height: 10),
-          ],
+          _HomeTimerTitleBar(
+            title: courseTitle,
+            showBack: isRunning,
+            onBack: widget.onCareEnd,
+            onSwap: (picked) => unawaited(_swapProgram(picked)),
+            onOpenEditor: () => widget.onOpenPresetEditor(slot),
+          ),
+          const SizedBox(height: 10),
           if (steps.isNotEmpty) ...[
             _StageCard(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -181,6 +150,7 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
                 isOvertime: isOvertime,
                 overtimeSeconds: snap?.overtimeElapsedSeconds ?? 0,
                 onAddTap: () => widget.onOpenPresetEditor(slot),
+                onStepTap: (i) => unawaited(_timer.jumpToStep(i)),
               ),
             ),
             const SizedBox(height: 10),
@@ -220,8 +190,13 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
                     isImmersive: false,
                     enabled: isRunning,
                     canSkip: _timer.canSkipStep,
-                    onStop: () => unawaited(_timer.pauseCare()),
-                    onTogglePlay: () => unawaited(_timer.toggleCarePlayback()),
+                    onTogglePlay: () {
+                      if (!isRunning) {
+                        widget.onCareStart();
+                      } else {
+                        unawaited(_timer.toggleCarePlayback());
+                      }
+                    },
                     onToggleMute: () {
                       setState(() {
                         _muted = !_muted;
@@ -237,9 +212,9 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
           ),
           const SizedBox(height: 12),
           if (!isRunning)
-            _CareStartButton(onTap: widget.onCareStart)
+            PressBounce(child: _CareStartButton(onTap: widget.onCareStart))
           else
-            _CareEndButton(onTap: widget.onCareEnd),
+            PressBounce(child: _CareEndButton(onTap: widget.onCareEnd)),
           // 2) 실행 중: 잔여 + 스텝 타임라인 리스트
           if (isRunning) ...[
             if (remainingValue != null) ...[
@@ -257,68 +232,137 @@ class _HomeTimerStageState extends State<HomeTimerStage> {
   }
 }
 
-/// 실행 화면 타이틀 바 — 뒤로(<) + 코스 드롭다운(v).
-class _HomeTimerTitleBar extends StatelessWidget {
+/// 타이틀 바 — 뒤로(<) + 케어명 아코디언 퀵 스왑.
+class _HomeTimerTitleBar extends StatefulWidget {
   const _HomeTimerTitleBar({
     required this.title,
+    required this.showBack,
     required this.onBack,
-    required this.onPickProgram,
+    required this.onSwap,
+    required this.onOpenEditor,
   });
 
   final String title;
+  final bool showBack;
   final VoidCallback onBack;
-  final VoidCallback onPickProgram;
+  final ValueChanged<int> onSwap;
+  final VoidCallback onOpenEditor;
+
+  @override
+  State<_HomeTimerTitleBar> createState() => _HomeTimerTitleBarState();
+}
+
+class _HomeTimerTitleBarState extends State<_HomeTimerTitleBar> {
+  var _open = false;
 
   @override
   Widget build(BuildContext context) {
+    final presets = VisitTimerStore.instance.presets
+        .where((p) => !p.isEmpty)
+        .toList();
+
     return Material(
       key: const Key('home-timer-title-bar'),
       color: HomeVisualTokens.heroCardFill,
       borderRadius: BorderRadius.circular(HomeVisualTokens.heroCardRadius),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: SizedBox(
-          height: 48,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  tooltip: '스탠바이로',
-                  onPressed: onBack,
-                  icon: const Icon(Icons.chevron_left_rounded, size: 28),
-                ),
-              ),
-              GestureDetector(
-                onTap: onPickProgram,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 220),
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.nunito(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1C1C1E),
-                        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (widget.showBack)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: PressBounce(
+                      child: IconButton(
+                        tooltip: '스탠바이로',
+                        onPressed: widget.onBack,
+                        icon: const Icon(Icons.chevron_left_rounded, size: 28),
                       ),
                     ),
-                    const Icon(
-                      Icons.expand_more_rounded,
-                      size: 22,
-                      color: Color(0xFF1C1C1E),
+                  ),
+                PressBounce(
+                  child: InkWell(
+                    onTap: () {
+                      if (presets.isEmpty) {
+                        widget.onOpenEditor();
+                        return;
+                      }
+                      setState(() => _open = !_open);
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 220),
+                            child: Text(
+                              widget.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.nunito(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF1C1C1E),
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _open
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            size: 22,
+                            color: const Color(0xFF1C1C1E),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOutCubic,
+            alignment: Alignment.topCenter,
+            child: _open
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: Column(
+                      children: [
+                        for (final p in presets)
+                          PressBounce(
+                            child: ListTile(
+                              dense: true,
+                              title: Text(
+                                p.name.trim().isEmpty
+                                    ? '슬롯 ${p.slotIndex + 1}'
+                                    : p.name,
+                                style: GoogleFonts.nunito(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              onTap: () {
+                                setState(() => _open = false);
+                                widget.onSwap(p.slotIndex);
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }

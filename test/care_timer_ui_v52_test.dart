@@ -43,6 +43,30 @@ void main() {
       expect(find.byKey(const Key('care-segment-layers')), findsOneWidget);
     });
 
+    testWidgets('칩을 탭하면 onStepTap이 해당 인덱스로 호출된다', (tester) async {
+      var jumped = -1;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CareStackedSegmentBar(
+              steps: steps,
+              tint: PresetSlotTint.orange,
+              currentIndex: 0,
+              isArmed: false,
+              isRunning: true,
+              isPaused: false,
+              stepRemainingSeconds: 9 * 60,
+              onStepTap: (i) => jumped = i,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('chip-1')));
+      await tester.pump();
+      expect(jumped, 1);
+    });
+
     testWidgets('updates label when current index advances', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

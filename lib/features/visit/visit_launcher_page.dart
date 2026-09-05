@@ -46,6 +46,7 @@ import 'widgets/home_quick_action_row.dart';
 import 'widgets/home_scheduler_strip.dart';
 import 'widgets/home_timer_customer_bind.dart';
 import 'widgets/home_timer_stage.dart';
+import 'widgets/countdown_flip_zone.dart';
 import 'widgets/home_toolbox_row.dart';
 import 'widgets/management_case_card.dart';
 import 'widgets/quick_calculator_sheet.dart';
@@ -100,6 +101,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     visit.addListener(_onVisit);
     widget.store.addListener(_onVisit);
     VisitTimerStore.instance.addListener(_onVisit);
+    _homeCtrl.addListener(_onHomeCtrl);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -109,6 +111,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     visit.removeListener(_onVisit);
     widget.store.removeListener(_onVisit);
     VisitTimerStore.instance.removeListener(_onVisit);
+    _homeCtrl.removeListener(_onHomeCtrl);
     _feedScroll.dispose();
     _tabs.dispose();
     _homeCtrl.dispose();
@@ -212,6 +215,24 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
 
   void _onVisit() {
     if (mounted) setState(() {});
+  }
+
+  void _onHomeCtrl() {
+    if (!mounted) return;
+    // 부가 툴은 Timer 탭 안에서만 켠다. 다른 탭으로 나가지 않는다.
+    if (_tabs.index != HomeTab.timer.index &&
+        (_homeCtrl.calculatorOpen ||
+            _homeCtrl.activeTool == HomeToolboxTool.count)) {
+      _tabs.animateTo(HomeTab.timer.index);
+    }
+    setState(() {});
+  }
+
+  void _resetTimerToolbox() {
+    _homeCtrl.resetToTimerStandby();
+    if (_tabs.index != HomeTab.timer.index) {
+      _tabs.animateTo(HomeTab.timer.index);
+    }
   }
 
   TodayAgendaSnapshot _agendaSnapshot() {
@@ -755,6 +776,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                     ? const Center(child: CircularProgressIndicator())
                     : TabBarView(
                         controller: _tabs,
+                        physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildMyFeed(careRunning),
                           ProgramPane(store: widget.store),
@@ -890,15 +912,41 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                     controller: _homeCtrl,
                     careRunning: careRunning,
                     climate: _climate,
-                    onTimerTap: () {
-                      _homeCtrl.selectTimerTool();
-                      unawaited(_openTimerStandalone());
-                    },
+                    onTimerTap: _resetTimerToolbox,
                     onWeatherTap: () => _openClinicalSheet(),
                   ),
                 ),
               ),
-              // ActiveSessionStrip 제거 — 실행 중 타이틀 바는 HomeTimerStage 내부.
+              if (_homeCtrl.activeTool == HomeToolboxTool.count)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Material(
+                      key: const Key('timer-count-overlay'),
+                      color: HomeVisualTokens.heroCardFill,
+                      borderRadius: BorderRadius.circular(
+                        HomeVisualTokens.heroCardRadius,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              '카운트',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF8E8E93),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            CountdownFlipZone(controller: _homeCtrl),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: HomeTimerStage(
                   onExpandFullscreen: () =>

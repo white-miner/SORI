@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../operation/models/shop_climate_context.dart';
+import '../../../widgets/press_bounce.dart';
 import '../home_dashboard_controller.dart';
 import '../home_visual_tokens.dart';
 
@@ -118,7 +119,8 @@ class _ToolIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return PressBounce(
+      child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
@@ -154,6 +156,7 @@ class _ToolIcon extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

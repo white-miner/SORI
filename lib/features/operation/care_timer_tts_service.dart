@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
-/// PRD UT-1 / v5.2 — Korean care timer voice prompts (Native tablet TTS).
+/// PRD UT-1 / v5.2 — Korean care timer voice prompts.
 abstract final class CareTimerTtsService {
   static FlutterTts? _tts;
   static bool _ready = false;
@@ -20,45 +20,47 @@ abstract final class CareTimerTtsService {
     if (_ready && _tts != null) return;
     final tts = FlutterTts();
     await tts.setLanguage('ko-KR');
-    await tts.setSpeechRate(0.46);
-    await tts.setPitch(1.08);
+    // 차분한 20대 후반 여성: 조금 느리고 피치는 살짝 높게.
+    await tts.setSpeechRate(0.40);
+    await tts.setPitch(1.14);
     await tts.setVolume(1.0);
-    if (!kIsWeb) {
-      try {
-        final voicesRaw = await tts.getVoices;
-        if (voicesRaw is List) {
-          Map<String, String>? picked;
-          for (final v in voicesRaw) {
-            if (v is! Map) continue;
-            final name = '${v['name'] ?? ''}'.toLowerCase();
-            final locale = '${v['locale'] ?? ''}'.toLowerCase();
-            if (!locale.contains('ko')) continue;
-            if (name.contains('yuna') ||
-                name.contains('female') ||
-                name.contains('woman')) {
-              picked = Map<String, String>.from(
-                v.map((k, val) => MapEntry('$k', '$val')),
-              );
-              break;
-            }
-            picked ??= Map<String, String>.from(
+    try {
+      final voicesRaw = await tts.getVoices;
+      if (voicesRaw is List) {
+        Map<String, String>? picked;
+        for (final v in voicesRaw) {
+          if (v is! Map) continue;
+          final name = '${v['name'] ?? ''}'.toLowerCase();
+          final locale = '${v['locale'] ?? ''}'.toLowerCase();
+          if (!locale.contains('ko')) continue;
+          if (name.contains('yuna') ||
+              name.contains('heami') ||
+              name.contains('sunhi') ||
+              name.contains('female') ||
+              name.contains('woman') ||
+              name.contains('neural')) {
+            picked = Map<String, String>.from(
               v.map((k, val) => MapEntry('$k', '$val')),
             );
+            break;
           }
-          if (picked != null) {
-            await tts.setVoice(picked);
-          }
+          picked ??= Map<String, String>.from(
+            v.map((k, val) => MapEntry('$k', '$val')),
+          );
         }
-      } catch (e) {
-        debugPrint('CareTimerTts voice pick skipped: $e');
+        if (picked != null) {
+          await tts.setVoice(picked);
+        }
       }
+    } catch (e) {
+      debugPrint('CareTimerTts voice pick skipped: $e');
     }
     _tts = tts;
     _ready = true;
   }
 
   static Future<void> speak(String text) async {
-    if (text.trim().isEmpty || _muted || kIsWeb) return;
+    if (text.trim().isEmpty || _muted) return;
     try {
       await _ensureReady();
       final tts = _tts;
@@ -71,10 +73,13 @@ abstract final class CareTimerTtsService {
   }
 
   static Future<void> announceCareStartIntro() async =>
-      speakAndWait('케어를 시작합니다');
+      speakAndWait('케어를 시작합니다.');
 
-  static Future<void> speakAndWait(String text, {Duration timeout = const Duration(seconds: 5)}) async {
-    if (text.trim().isEmpty || _muted || kIsWeb) return;
+  static Future<void> speakAndWait(
+    String text, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    if (text.trim().isEmpty || _muted) return;
     try {
       await _ensureReady();
       final tts = _tts;
@@ -91,12 +96,9 @@ abstract final class CareTimerTtsService {
     }
   }
 
-  static Future<void> announceCareStart() =>
-      speak('케어를 시작합니다');
+  static Future<void> announceCareStart() => speak('케어를 시작합니다.');
 
-  static Future<void> announceNextStep() =>
-      speak('다음 케어를 진행합니다');
+  static Future<void> announceNextStep() => speak('다음 케어를 진행합니다.');
 
-  static Future<void> announceCarePlanComplete() =>
-      speak('케어가 종료되었습니다');
+  static Future<void> announceCarePlanComplete() => speak('케어가 종료되었습니다.');
 }

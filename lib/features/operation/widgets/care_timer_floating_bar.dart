@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// PO v5.2 / v7.6 — circular control cluster for care timer fullscreen.
+import '../../../widgets/press_bounce.dart';
+
+/// 케어 타이머 컨트롤 — 재생/일시정지 토글 + 다음 + 음소거 + 확대.
 class CareTimerFloatingBar extends StatelessWidget {
   const CareTimerFloatingBar({
     super.key,
     required this.isPlaying,
     required this.isMuted,
     required this.isImmersive,
-    required this.onStop,
     required this.onTogglePlay,
     required this.onToggleMute,
     required this.onToggleImmersive,
@@ -17,12 +18,13 @@ class CareTimerFloatingBar extends StatelessWidget {
     this.showCollapse = false,
     this.enabled = true,
     this.canSkip = false,
+    @Deprecated('정지 버튼은 제거됨. 재생/일시정지 토글을 사용한다.')
+    this.onStop,
   });
 
   final bool isPlaying;
   final bool isMuted;
   final bool isImmersive;
-  final VoidCallback onStop;
   final VoidCallback onTogglePlay;
   final VoidCallback onToggleMute;
   final VoidCallback onToggleImmersive;
@@ -32,18 +34,14 @@ class CareTimerFloatingBar extends StatelessWidget {
   final bool showCollapse;
   final bool enabled;
   final bool canSkip;
+  final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
     final buttons = <Widget>[
       _ControlDot(
-        icon: Icons.stop_rounded,
-        onTap: enabled ? onStop : null,
-        tooltip: '일시정지',
-      ),
-      _ControlDot(
         icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-        onTap: enabled ? onTogglePlay : null,
+        onTap: onTogglePlay,
         tooltip: isPlaying ? '일시정지' : '재생',
       ),
       _ControlDot(
@@ -119,17 +117,21 @@ class _ControlDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: onTap == null ? const Color(0xFF9A9A9E) : const Color(0xFF111111),
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Icon(icon, color: Colors.white, size: 20),
+    return PressBounce(
+      enabled: onTap != null,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color:
+              onTap == null ? const Color(0xFF9A9A9E) : const Color(0xFF111111),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
           ),
         ),
       ),
