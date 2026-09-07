@@ -16,7 +16,9 @@ import '../home_visual_tokens.dart';
 ///    카드를 탭하면 뷰어로 열린다.
 ///
 /// 카드 순서: [B/A 촬영 고정 슬롯] → [🔴 미완성] → [🟢 완성].
-class BaCaptureCarousel extends StatelessWidget {
+enum BaCarouselFilter { all, incomplete, complete }
+
+class BaCaptureCarousel extends StatefulWidget {
   const BaCaptureCarousel({
     super.key,
     required this.sessions,
@@ -56,10 +58,34 @@ class BaCaptureCarousel extends StatelessWidget {
   final String? transferringId;
 
   @override
+  State<BaCaptureCarousel> createState() => _BaCaptureCarouselState();
+}
+
+class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
+  BaCarouselFilter _filter = BaCarouselFilter.all;
+
+  List<BaCaptureSession> get _visible {
+    switch (_filter) {
+      case BaCarouselFilter.all:
+        return widget.sessions;
+      case BaCarouselFilter.incomplete:
+        return widget.sessions.where((s) => !s.isComplete).toList();
+      case BaCarouselFilter.complete:
+        return widget.sessions.where((s) => s.isComplete).toList();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final incomplete = incompleteCount ??
-        (sessions.where((s) => !s.isComplete).length +
-            (pending == null ? 0 : 1));
+    final incomplete = widget.incompleteCount ??
+        (widget.sessions.where((s) => !s.isComplete).length +
+            (widget.pending == null ? 0 : 1));
+    final visible = _visible;
+    final emptyHint = _filter == BaCarouselFilter.all || visible.isNotEmpty
+        ? null
+        : (_filter == BaCarouselFilter.incomplete
+            ? '미완성 촬영이 없습니다'
+            : '완성된 촬영이 없습니다');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +108,30 @@ class BaCaptureCarousel extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              if (offlineDraft)
+              _FilterChip(
+                key: const Key('ba-filter-all'),
+                label: '전체',
+                selected: _filter == BaCarouselFilter.all,
+                onTap: () => setState(() => _filter = BaCarouselFilter.all),
+              ),
+              const SizedBox(width: 4),
+              _FilterChip(
+                key: const Key('ba-filter-incomplete'),
+                label: '🔴',
+                selected: _filter == BaCarouselFilter.incomplete,
+                onTap: () =>
+                    setState(() => _filter = BaCarouselFilter.incomplete),
+              ),
+              const SizedBox(width: 4),
+              _FilterChip(
+                key: const Key('ba-filter-complete'),
+                label: '🟢',
+                selected: _filter == BaCarouselFilter.complete,
+                onTap: () =>
+                    setState(() => _filter = BaCarouselFilter.complete),
+              ),
+              const SizedBox(width: 8),
+              if (widget.offlineDraft)
                 const Padding(
                   padding: EdgeInsets.only(right: 8),
                   child: Text(
@@ -106,39 +155,103 @@ class BaCaptureCarousel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(
               horizontal: HomeVisualTokens.sectionGutter,
             ),
-            itemCount: sessions.length + 1,
+            itemCount: visible.length + 1 + (emptyHint == null ? 0 : 1),
             separatorBuilder: (_, _) =>
                 const SizedBox(width: HomeVisualTokens.baCardGap),
             itemBuilder: (context, index) {
               // 헌법 1 — 첫 칸은 언제나 이 고정 슬롯 하나뿐이다. 촬영본이
               // 있어도 고객을 연결하기 전까지 여기 머문다.
               if (index == 0) {
-                final p = pending;
+                final p = widget.pending;
                 return _BaCard(
                   key: const Key('ba-fixed-capture-slot'),
                   session: p,
                   fixedSlot: true,
                   transferring: false,
-                  onCapture: (kind) => onCapture(null, kind),
-                  onBind: p == null ? null : () => onBind(p),
+                  onCapture: (kind) => widget.onCapture(null, kind),
+                  onBind: p == null ? null : () => widget.onBind(p),
                   onDefer: null,
                   onOpen: null,
                 );
               }
-              final session = sessions[index - 1];
+              if (emptyHint != null && index == 1) {
+                return _FilterEmptyHint(message: emptyHint);
+              }
+              final session = visible[index - 1];
               return _BaCard(
                 session: session,
                 fixedSlot: false,
-                transferring: session.id == transferringId,
-                onCapture: (kind) => onCapture(session, kind),
-                onBind: () => onBind(session),
-                onDefer: () => onDefer(session),
-                onOpen: () => onOpen(session),
+                transferring: session.id == widget.transferringId,
+                onCapture: (kind) => widget.onCapture(session, kind),
+                onBind: () => widget.onBind(session),
+                onDefer: () => widget.onDefer(session),
+                onOpen: () => widget.onOpen(session),
               );
             },
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : HomeVisualTokens.dateTextColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterEmptyHint extends StatelessWidget {
+  const _FilterEmptyHint({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('ba-filter-empty'),
+      width: 160,
+      child: Center(
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: HomeVisualTokens.dateIconColor,
+          ),
+        ),
+      ),
     );
   }
 }
