@@ -14,13 +14,21 @@ abstract final class Env {
       String.fromEnvironment('OPENAI_API_KEY');
   static const String _siteFromDefine = String.fromEnvironment('SITE_URL');
 
-  static String get supabaseUrl =>
-      _normalizeUrl(_urlFromDefine.isNotEmpty
-          ? _urlFromDefine
-          : _dotenv('SUPABASE_URL'));
+  static String get supabaseUrl {
+    final raw = _urlFromDefine.isNotEmpty
+        ? _urlFromDefine
+        : _dotenv('SUPABASE_URL');
+    final normalized = _normalizeUrl(raw);
+    if (isPlaceholderCredential(normalized)) return '';
+    return normalized;
+  }
 
-  static String get supabaseAnonKey =>
-      _keyFromDefine.isNotEmpty ? _keyFromDefine : _dotenv('SUPABASE_ANON_KEY');
+  static String get supabaseAnonKey {
+    final raw =
+        _keyFromDefine.isNotEmpty ? _keyFromDefine : _dotenv('SUPABASE_ANON_KEY');
+    if (isPlaceholderCredential(raw)) return '';
+    return raw;
+  }
 
   static String get openaiApiKey =>
       _openaiFromDefine.isNotEmpty
@@ -47,6 +55,18 @@ abstract final class Env {
 
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  /// example·플레이스홀더는 연결 성공으로 보지 않는다.
+  static bool isPlaceholderCredential(String raw) {
+    final v = raw.trim().toLowerCase();
+    if (v.isEmpty) return true;
+    return v.contains('your_project') ||
+        v.contains('your_anon') ||
+        v.contains('your-anon') ||
+        v.contains('changeme') ||
+        v.contains('example.supabase') ||
+        v.contains('sk-your-openai');
+  }
 
   static bool get hasOpenAiConfig => openaiApiKey.isNotEmpty;
 
@@ -79,27 +99,13 @@ abstract final class Env {
     }
   }
 
-  /// `.env` → `.env.example` 순으로 로드 (CI는 example 복사본 사용).
+  /// `.env`만 로드한다. example의 가짜 URL/키는 설정으로 인정하지 않는다.
+  /// CI는 `--dart-define`이 이 파일보다 우선한다.
   static Future<void> load() async {
     try {
       await dotenv.load(fileName: '.env', isOptional: true);
     } catch (e, st) {
       debugPrint('Env .env load skipped: $e\n$st');
-    }
-    final urlEmpty = (dotenv.isInitialized
-            ? (dotenv.maybeGet('SUPABASE_URL') ?? '')
-            : '')
-        .isEmpty;
-    final keyEmpty = (dotenv.isInitialized
-            ? (dotenv.maybeGet('SUPABASE_ANON_KEY') ?? '')
-            : '')
-        .isEmpty;
-    if (!dotenv.isInitialized || (urlEmpty && keyEmpty)) {
-      try {
-        await dotenv.load(fileName: '.env.example', isOptional: true);
-      } catch (e, st) {
-        debugPrint('Env .env.example load skipped: $e\n$st');
-      }
     }
   }
 }

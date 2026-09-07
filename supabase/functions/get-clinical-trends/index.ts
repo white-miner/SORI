@@ -248,10 +248,45 @@ async function writeSnapshot(
   );
 }
 
+async function requireCaller(req: Request): Promise<Response | null> {
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!bearer) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (serviceKey && bearer === serviceKey) return null;
+  if (!url || !anon) {
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const client = createClient(url, anon, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const denied = await requireCaller(req);
+  if (denied) return denied;
 
   try {
     const body = req.method === "POST" ? await req.json() : {};

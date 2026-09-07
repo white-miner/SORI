@@ -6,11 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
-import 'config/env.dart';
-import 'data/repository_factory.dart';
-import 'services/sori_auth_coordinator.dart';
+import 'services/app_bootstrap.dart';
 import 'services/sori_store.dart';
-import 'services/supabase_client.dart';
 import 'views/my_app.dart';
 import 'widgets/app_scroll_behavior.dart';
 
@@ -97,21 +94,4 @@ Future<void> main() async {
 }
 
 /// Env → Supabase → bootstrap → Auth. UI는 이미 표시된 상태.
-Future<void> _warmStart(SoriStore store) async {
-  try {
-    await Env.load();
-    await SoriSupabase.initialize();
-    store.bindRepository(createSoriRepository());
-    await Future.wait<void>([
-      store.bootstrap(),
-      SoriAuthCoordinator.instance.start(),
-    ]);
-  } catch (e, st) {
-    debugPrint('warmStart failed: $e\n$st');
-  } finally {
-    // coordinator hydrate가 이미 false로 내렸을 수 있음 — 미로그인 콜드스타트 정리
-    if (store.authHydrating && store.session == null) {
-      store.setAuthHydrating(false);
-    }
-  }
-}
+Future<void> _warmStart(SoriStore store) => AppBootstrap.connect(store);

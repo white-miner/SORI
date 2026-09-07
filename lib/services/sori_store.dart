@@ -117,6 +117,9 @@ class SoriStore implements Listenable {
   bool isLoading = false;
   bool bootstrapComplete = false;
   bool bootstrapFailed = false;
+
+  /// 원격 대신 샘플을 보여줄 때 배너 문구. null이면 연결됨.
+  String? backendNotice;
   bool authHydrating = false;
   String? lastError;
   String? authError;
@@ -718,9 +721,27 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// 설정 없음·연결 실패. 시드는 유지하되 샘플임을 숨기지 않는다.
+  void markSampleBackend(String message) {
+    backendNotice = message;
+    bootstrapFailed = true;
+    bootstrapComplete = true;
+    isLoading = false;
+    lastError = message;
+    _notify();
+  }
+
+  void clearSampleBackend() {
+    if (backendNotice == null && !bootstrapFailed) return;
+    backendNotice = null;
+    bootstrapFailed = false;
+    _notify();
+  }
+
   /// 네트워크 장애 후 원격 Repository로 재시도.
   Future<void> retryBootstrap() async {
     lastError = null;
+    backendNotice = null;
     bootstrapFailed = false;
     _notify();
     bindRepository(createSoriRepository());

@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routing/sori_router.dart';
+import '../services/app_bootstrap.dart';
 import '../services/sori_auth_service.dart';
 import '../services/sori_store.dart';
 import '../theme/app_theme.dart';
@@ -170,10 +171,11 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          '서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.',
-                          style: TextStyle(
+                          _store.backendNotice ??
+                              '서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: SoriTokens.warningText,
@@ -186,7 +188,7 @@ class _StoreErrorHostState extends State<_StoreErrorHost> {
                             : () async {
                                 final messenger =
                                     ScaffoldMessenger.of(context);
-                                await _store.retryBootstrap();
+                                await AppBootstrap.connect(_store);
                                 if (!mounted) return;
                                 if (!_store.bootstrapFailed) {
                                   messenger.showSnackBar(
