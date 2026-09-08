@@ -341,9 +341,9 @@ void main() {
       Offset beforeAt() => tester.getTopLeft(beforeKey);
       Offset afterAt() => tester.getTopRight(afterKey);
 
-      expect(beforeAt().dx, closeTo(stage.left + 56, 1));
+      expect(beforeAt().dx, closeTo(stage.left + 16, 1));
       expect(beforeAt().dy, closeTo(stage.top + 16, 1));
-      expect(afterAt().dx, closeTo(stage.right - 88, 1));
+      expect(afterAt().dx, closeTo(stage.right - 16, 1));
       expect(afterAt().dy, closeTo(stage.top + 16, 1));
 
       final pinnedBefore = beforeAt();
@@ -422,6 +422,69 @@ void main() {
 
       expect(find.byType(InteractiveViewer), findsNothing);
       expect(find.byType(BeforeAfterSlider), findsNothing);
+    });
+
+    testWidgets('줌은 우측 중앙, 프로필은 좌하단, 모드 버튼은 우하단이다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(430, 932),
+        initialChartId: 'face-4',
+      );
+
+      Positioned positionedOf(Key key) {
+        return tester.widget<Positioned>(
+          find
+              .ancestor(
+                of: find.byKey(key),
+                matching: find.byType(Positioned),
+              )
+              .first,
+        );
+      }
+
+      final y = positionedOf(const Key('ba-compare-pan-up'));
+      final zoom = positionedOf(const Key('ba-compare-zoom-in'));
+      final profile = positionedOf(const Key('ba-compare-profile'));
+      final mode = positionedOf(const Key('ba-compare-mode'));
+
+      expect(y.left, 8);
+      expect(y.top, 0);
+      expect(y.bottom, 0);
+      expect(zoom.right, 8);
+      expect(zoom.top, 0);
+      expect(zoom.bottom, 0);
+      expect(profile.left, 8);
+      expect(profile.bottom, 8);
+      expect(mode.right, 8);
+      expect(mode.bottom, 8);
+      expect(find.byKey(const Key('ba-compare-layout-short')), findsNothing);
+      expect(find.byKey(const Key('ba-compare-wide-frame')), findsNothing);
+    });
+
+    testWidgets('짧은 가로는 사진 높이를 남기고 넓은 가로는 가운데 프레임이다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(932, 430),
+        initialChartId: 'face-4',
+      );
+      expect(find.byKey(const Key('ba-compare-layout-short')), findsOneWidget);
+      expect(find.byKey(const Key('ba-compare-wide-frame')), findsNothing);
+      final shortStage = tester.getRect(
+        find.byKey(const Key('ba-compare-photo-stage')),
+      );
+      expect(shortStage.height, greaterThan(430 * 0.45));
+      expect(tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock)).compact, isTrue);
+
+      await pumpViewer(
+        tester,
+        size: const Size(1280, 800),
+        initialChartId: 'face-4',
+      );
+      expect(find.byKey(const Key('ba-compare-wide-frame')), findsOneWidget);
+      expect(find.byKey(const Key('ba-compare-layout-short')), findsNothing);
+      final frame = tester.getSize(find.byKey(const Key('ba-compare-wide-frame')));
+      expect(frame.width, lessThanOrEqualTo(1100));
+      expect(tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock)).compact, isFalse);
     });
   });
 }

@@ -24,6 +24,7 @@ class BaWorkspaceDock extends StatelessWidget {
     required this.bindSide,
     required this.onBind,
     required this.onBindSide,
+    this.compact = false,
   });
 
   final List<VisitPhotoSlot> slots;
@@ -33,9 +34,12 @@ class BaWorkspaceDock extends StatelessWidget {
   final ValueChanged<VisitPhotoSlot> onBind;
   final ValueChanged<BaCompareBindSide> onBindSide;
 
+  /// 짧은 가로에서만 높이를 줄인다. 스냅·바인딩 로직은 그대로다.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final dock = Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -69,6 +73,20 @@ class BaWorkspaceDock extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (!compact) return dock;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          height: 96,
+          width: constraints.maxWidth,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(width: constraints.maxWidth, child: dock),
+          ),
+        );
+      },
     );
   }
 }

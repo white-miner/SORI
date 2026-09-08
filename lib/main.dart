@@ -71,12 +71,16 @@ Future<void> main() async {
         ),
       );
     }
-    unawaited(
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]),
-    );
+    // 네이티브만 세로 고정. 웹은 이 API가 회전을 막지 못하므로 호출하지 않는다.
+    // 브라우저가 가로로 바뀌면 BeforeAfterComparePage가 짧은 가로·넓은 가로를 나눠 그린다.
+    if (!kIsWeb) {
+      unawaited(
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]),
+      );
+    }
 
     // Seed 스냅샷으로 UI를 먼저 띄우고, 네트워크·Auth는 백그라운드.
     final store = SoriStore.instance;

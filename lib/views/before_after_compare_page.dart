@@ -43,11 +43,42 @@ class BeforeAfterComparePage extends StatefulWidget {
   static const List<double> zoomSteps = [0.5, 1.0, 1.5, 2.0];
   static const int defaultZoomIndex = 1;
 
+  /// 태블릿·PC 가로. 폰 가로(높이 짧음)와 나눈다.
+  static const double wideLandscapeMinWidth = 900;
+  static const double shortLandscapeMaxHeight = 520;
+
   @override
   State<BeforeAfterComparePage> createState() => _BeforeAfterComparePageState();
 }
 
-class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
+class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _customerName = widget.customerName;
+    _customerId = widget.customerId;
+    _charts = List<CustomerChart>.from(widget.charts);
+    _reseed(
+      initialChartId: widget.initialChartId,
+      initialCareName: widget.initialCareName,
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // 회전 직후 한 프레임 더 그려 히트 영역이 옛 세로 좌표에 남지 않게 한다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
   final _shot = ScreenshotController();
   late String _customerName;
   late String? _customerId;
@@ -62,18 +93,6 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
   int _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
   double _panY = 0;
   bool _careOpen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _customerName = widget.customerName;
-    _customerId = widget.customerId;
-    _charts = List<CustomerChart>.from(widget.charts);
-    _reseed(
-      initialChartId: widget.initialChartId,
-      initialCareName: widget.initialCareName,
-    );
-  }
 
   void _reseed({String? initialChartId, String? initialCareName}) {
     _slots = buildVisitPhotoSlots(_charts);
@@ -290,44 +309,80 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  bool get _shortLandscape {
+    final size = MediaQuery.sizeOf(context);
+    return MediaQuery.orientationOf(context) == Orientation.landscape &&
+        size.height < BeforeAfterComparePage.shortLandscapeMaxHeight;
+  }
+
+  bool get _wideLandscape {
+    final size = MediaQuery.sizeOf(context);
+    return MediaQuery.orientationOf(context) == Orientation.landscape &&
+        size.width >= BeforeAfterComparePage.wideLandscapeMinWidth &&
+        size.height >= BeforeAfterComparePage.shortLandscapeMaxHeight;
+  }
+
   @override
   Widget build(BuildContext context) {
     final empty = _slots.isEmpty;
+    final short = !empty && _shortLandscape;
+    final wide = !empty && _wideLandscape;
+
+    final column = Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(8, short ? 2 : 4, 8, short ? 2 : 8),
+          child: _TopChrome(
+            careLabel: _careLabel,
+            careOpen: _careOpen,
+            programs: _programs,
+            programKey: _programKey,
+            compact: short,
+            onBack: () => Navigator.of(context).maybePop(),
+            onToggleCare: () => setState(() => _careOpen = !_careOpen),
+            onSelectCare: _selectProgram,
+            onMore: _openMore,
+          ),
+        ),
+        Expanded(child: _buildPhotoStage()),
+        BaWorkspaceDock(
+          key: const Key('ba-compare-story-strip'),
+          slots: _scopedSlots,
+          left: _left,
+          right: _right,
+          bindSide: _bindSide,
+          onBind: _bind,
+          onBindSide: _setBindSide,
+          compact: short,
+        ),
+      ],
+    );
+
+    Widget body = column;
+    if (wide) {
+      body = ColoredBox(
+        color: const Color(0xFF0A0A0B),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            key: const Key('ba-compare-wide-frame'),
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: column,
+          ),
+        ),
+      );
+    } else if (short) {
+      body = KeyedSubtree(
+        key: const Key('ba-compare-layout-short'),
+        child: column,
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0B),
       body: empty
           ? SafeArea(child: _EmptyState(customerName: _customerName))
-          : SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    child: _TopChrome(
-                      careLabel: _careLabel,
-                      careOpen: _careOpen,
-                      programs: _programs,
-                      programKey: _programKey,
-                      onBack: () => Navigator.of(context).maybePop(),
-                      onToggleCare: () =>
-                          setState(() => _careOpen = !_careOpen),
-                      onSelectCare: _selectProgram,
-                      onMore: _openMore,
-                    ),
-                  ),
-                  Expanded(child: _buildPhotoStage()),
-                  BaWorkspaceDock(
-                    key: const Key('ba-compare-story-strip'),
-                    slots: _scopedSlots,
-                    left: _left,
-                    right: _right,
-                    bindSide: _bindSide,
-                    onBind: _bind,
-                    onBindSide: _setBindSide,
-                  ),
-                ],
-              ),
-            ),
+          : SafeArea(child: body),
     );
   }
 
@@ -353,7 +408,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
         if (hasPhoto) ...[
           const Positioned(
             top: 16,
-            left: 56,
+            left: 16,
             child: IgnorePointer(
               child: _ViewportCornerTag(
                 key: Key('ba-compare-label-before'),
@@ -363,7 +418,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
           ),
           const Positioned(
             top: 16,
-            right: 88,
+            right: 16,
             child: IgnorePointer(
               child: _ViewportCornerTag(
                 key: Key('ba-compare-label-after'),
@@ -386,18 +441,32 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
         ),
         Positioned(
           right: 8,
-          top: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: _ZoomStepper(
+              zoom: _zoom,
+              onZoomIn: _zoomIn,
+              onZoomOut: _zoomOut,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 8,
           bottom: 8,
-          child: _RightRail(
+          child: _ProfileCluster(
             name: _customerName,
             customer: _customer,
             charts: _charts,
-            useSlider: _useSlider,
-            zoom: _zoom,
             onProfile: _pickCustomer,
-            onToggleMode: () => setState(() => _useSlider = !_useSlider),
-            onZoomIn: _zoomIn,
-            onZoomOut: _zoomOut,
+          ),
+        ),
+        Positioned(
+          right: 8,
+          bottom: 8,
+          child: _ModeToggleButton(
+            useSlider: _useSlider,
+            onToggle: () => setState(() => _useSlider = !_useSlider),
           ),
         ),
       ],
@@ -677,6 +746,7 @@ class _TopChrome extends StatelessWidget {
     required this.careOpen,
     required this.programs,
     required this.programKey,
+    required this.compact,
     required this.onBack,
     required this.onToggleCare,
     required this.onSelectCare,
@@ -687,6 +757,7 @@ class _TopChrome extends StatelessWidget {
   final bool careOpen;
   final List<CareProgramGroup> programs;
   final String programKey;
+  final bool compact;
   final VoidCallback onBack;
   final VoidCallback onToggleCare;
   final ValueChanged<String> onSelectCare;
@@ -704,6 +775,9 @@ class _TopChrome extends StatelessWidget {
               child: IconButton(
                 key: const Key('ba-compare-back'),
                 onPressed: onBack,
+                visualDensity: compact
+                    ? VisualDensity.compact
+                    : VisualDensity.standard,
                 icon: const Icon(
                   Icons.chevron_left_rounded,
                   color: Colors.white,
@@ -720,9 +794,9 @@ class _TopChrome extends StatelessWidget {
                   onTap: onToggleCare,
                   borderRadius: BorderRadius.circular(22),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: compact ? 6 : 12,
                     ),
                     child: Row(
                       children: [
@@ -758,6 +832,9 @@ class _TopChrome extends StatelessWidget {
               child: IconButton(
                 key: const Key('ba-compare-more'),
                 onPressed: onMore,
+                visualDensity: compact
+                    ? VisualDensity.compact
+                    : VisualDensity.standard,
                 icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
                 tooltip: '더 보기',
               ),
@@ -799,50 +876,64 @@ class _TopChrome extends StatelessWidget {
   }
 }
 
-class _RightRail extends StatelessWidget {
-  const _RightRail({
+class _ProfileCluster extends StatelessWidget {
+  const _ProfileCluster({
     required this.name,
     required this.customer,
     required this.charts,
-    required this.useSlider,
-    required this.zoom,
     required this.onProfile,
-    required this.onToggleMode,
-    required this.onZoomIn,
-    required this.onZoomOut,
   });
 
   final String name;
   final Customer? customer;
   final List<CustomerChart> charts;
-  final bool useSlider;
-  final double zoom;
   final VoidCallback onProfile;
-  final VoidCallback onToggleMode;
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
 
   @override
   Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.topCenter,
+    final visual = customer == null
+        ? null
+        : CustomerCrmStatusResolver.resolve(customer!, charts);
+    return InkWell(
+      key: const Key('ba-compare-profile'),
+      onTap: onProfile,
+      customBorder: const CircleBorder(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _ProfileCluster(
-            name: name,
-            customer: customer,
-            charts: charts,
-            useSlider: useSlider,
-            onProfile: onProfile,
-            onToggleMode: onToggleMode,
-          ),
-          const SizedBox(height: 12),
-          _ZoomStepper(
-            zoom: zoom,
-            onZoomIn: onZoomIn,
-            onZoomOut: onZoomOut,
+          if (visual != null)
+            SoriCrmStatusAvatar(
+              name: name,
+              visual: visual,
+              radius: 26,
+              animateWhenVisible: false,
+            )
+          else
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: const Color(0xFF1C1C1E),
+              child: Text(
+                name.isEmpty ? '?' : name.characters.first,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: 72,
+            child: Text(
+              '$name 님',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -850,88 +941,25 @@ class _RightRail extends StatelessWidget {
   }
 }
 
-class _ProfileCluster extends StatelessWidget {
-  const _ProfileCluster({
-    required this.name,
-    required this.customer,
-    required this.charts,
-    required this.useSlider,
-    required this.onProfile,
-    required this.onToggleMode,
-  });
+class _ModeToggleButton extends StatelessWidget {
+  const _ModeToggleButton({required this.useSlider, required this.onToggle});
 
-  final String name;
-  final Customer? customer;
-  final List<CustomerChart> charts;
   final bool useSlider;
-  final VoidCallback onProfile;
-  final VoidCallback onToggleMode;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    final visual = customer == null
-        ? null
-        : CustomerCrmStatusResolver.resolve(customer!, charts);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkWell(
-          key: const Key('ba-compare-profile'),
-          onTap: onProfile,
-          customBorder: const CircleBorder(),
-          child: Column(
-            children: [
-              if (visual != null)
-                SoriCrmStatusAvatar(
-                  name: name,
-                  visual: visual,
-                  radius: 26,
-                  animateWhenVisible: false,
-                )
-              else
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFF1C1C1E),
-                  child: Text(
-                    name.isEmpty ? '?' : name.characters.first,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-              SizedBox(
-                width: 72,
-                child: Text(
-                  '$name 님',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return _ChromePlate(
+      radius: 12,
+      child: IconButton(
+        key: const Key('ba-compare-mode'),
+        onPressed: onToggle,
+        icon: Icon(
+          useSlider ? Icons.compare : Icons.view_column_outlined,
+          color: Colors.white,
         ),
-        const SizedBox(height: 8),
-        _ChromePlate(
-          radius: 12,
-          child: IconButton(
-            key: const Key('ba-compare-mode'),
-            onPressed: onToggleMode,
-            icon: Icon(
-              useSlider ? Icons.compare : Icons.view_column_outlined,
-              color: Colors.white,
-            ),
-            tooltip: useSlider ? '나란히' : '슬라이더',
-          ),
-        ),
-      ],
+        tooltip: useSlider ? '나란히' : '슬라이더',
+      ),
     );
   }
 }
