@@ -100,6 +100,16 @@ void main() {
       expect(seed.right?.kind, 'after');
     });
 
+    test('사진이 한 장이면 After를 같은 사진으로 채우지 않는다', () {
+      final slots = buildVisitPhotoSlots([
+        _chart(id: 'solo', visit: 1, care: '수분', after: ''),
+      ]);
+      expect(slots, hasLength(1));
+      final seed = resolveCompareViewerSeed(slots: slots);
+      expect(seed.left?.key, slots.first.key);
+      expect(seed.right, isNull);
+    });
+
     test('스토리 라벨은 중점 없이 회차와 B/A 만 붙인다', () {
       final slot = buildVisitPhotoSlots(_mixed).first;
       expect(slot.shortLabel, '1회차 · B');
@@ -226,11 +236,11 @@ void main() {
       expect(find.byType(BaSnapDial), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.chevron_left));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 320));
 
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
       expect(dock.left?.key, 'face-4|before');
-      expect(dock.right?.key, 'face-4|before');
+      expect(dock.right?.key, isNot(dock.left?.key));
     });
 
     testWidgets('중앙에 스냅된 썸네일은 1.5배로 커지고 활성 슬롯에 붙는다', (tester) async {
@@ -239,7 +249,7 @@ void main() {
         size: const Size(430, 932),
         initialChartId: 'face-4',
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 320));
 
       final centered = find.ancestor(
         of: find.byKey(const Key('ba-story-thumb-face-4|after')),
@@ -251,11 +261,10 @@ void main() {
         find.byKey(const Key('ba-story-strip-list')),
         Offset(BaSnapDial.stride, 0),
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 320));
 
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
-      expect(dock.right?.key, 'face-4|before');
-      expect(dock.left?.key, 'face-4|before');
+      expect(dock.left?.key, isNot(dock.right?.key));
     });
 
     testWidgets('연결 슬롯을 왼쪽으로 바꾸면 썸네일이 왼쪽을 교체한다', (tester) async {
@@ -266,13 +275,13 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('ba-well-before')));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.tap(find.byIcon(Icons.chevron_right));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 400));
 
       final dock = tester.widget<BaWorkspaceDock>(find.byType(BaWorkspaceDock));
       expect(dock.left?.key, 'face-4|after');
-      expect(dock.right?.key, 'face-4|after');
+      expect(dock.right?.key, isNot('face-4|after'));
     });
 
     testWidgets('돋보기 버튼은 0.5x까지 줄고 기본은 1x 다', (tester) async {
@@ -332,9 +341,9 @@ void main() {
       Offset beforeAt() => tester.getTopLeft(beforeKey);
       Offset afterAt() => tester.getTopRight(afterKey);
 
-      expect(beforeAt().dx, closeTo(stage.left + 16, 1));
+      expect(beforeAt().dx, closeTo(stage.left + 56, 1));
       expect(beforeAt().dy, closeTo(stage.top + 16, 1));
-      expect(afterAt().dx, closeTo(stage.right - 16, 1));
+      expect(afterAt().dx, closeTo(stage.right - 88, 1));
       expect(afterAt().dy, closeTo(stage.top + 16, 1));
 
       final pinnedBefore = beforeAt();

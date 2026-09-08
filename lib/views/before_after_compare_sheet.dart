@@ -184,14 +184,18 @@ CompareViewerSeed resolveCompareViewerSeed({
   if (hinted != null) {
     final before = slotOf(slots: pool, chartId: chartId, kind: 'before');
     final after = slotOf(slots: pool, chartId: chartId, kind: 'after');
+    final left = before ?? hinted;
     return CompareViewerSeed(
       programKey: scopeKey,
-      left: before ?? hinted,
-      right:
-          after ??
-          (before != null && pool.length > 1
-              ? pool.lastWhere((s) => s.key != before.key, orElse: () => before)
-              : hinted),
+      left: left,
+      right: _otherThan(
+        left,
+        after ??
+            (pool.length > 1
+                ? pool.lastWhere((s) => s.key != left.key, orElse: () => left)
+                : null),
+        pool,
+      ),
     );
   }
 
@@ -202,9 +206,9 @@ CompareViewerSeed resolveCompareViewerSeed({
       break;
     }
   }
-  VisitPhotoSlot lastAfter = pool.last;
+  VisitPhotoSlot? lastAfter;
   for (final slot in pool.reversed) {
-    if (slot.kind == 'after') {
+    if (slot.kind == 'after' && slot.key != firstBefore.key) {
       lastAfter = slot;
       break;
     }
@@ -213,6 +217,19 @@ CompareViewerSeed resolveCompareViewerSeed({
   return CompareViewerSeed(
     programKey: scopeKey,
     left: firstBefore,
-    right: lastAfter,
+    right: _otherThan(firstBefore, lastAfter, pool),
   );
+}
+
+/// 사진이 한 장이면 After를 같은 장으로 채우지 않는다.
+VisitPhotoSlot? _otherThan(
+  VisitPhotoSlot left,
+  VisitPhotoSlot? candidate,
+  List<VisitPhotoSlot> pool,
+) {
+  if (candidate != null && candidate.key != left.key) return candidate;
+  for (final slot in pool) {
+    if (slot.key != left.key) return slot;
+  }
+  return null;
 }

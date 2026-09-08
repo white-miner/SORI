@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -95,86 +97,137 @@ class BaSlotWell extends StatefulWidget {
 
 class _BaSlotWellState extends State<BaSlotWell>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 180),
-  );
+  late final AnimationController _orbit;
+
+  @override
+  void initState() {
+    super.initState();
+    _orbit = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    if (widget.active) _orbit.repeat();
+  }
 
   @override
   void didUpdateWidget(BaSlotWell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.slot?.key != oldWidget.slot?.key && widget.active) {
-      _pulse.forward(from: 0).then((_) {
-        if (mounted) _pulse.reverse();
-      });
+    if (widget.active && !_orbit.isAnimating) {
+      _orbit.repeat();
+    } else if (!widget.active && _orbit.isAnimating) {
+      _orbit
+        ..stop()
+        ..value = 0;
     }
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
+    _orbit.dispose();
     super.dispose();
-  }
-
-  Future<void> _handleTap() async {
-    if (widget.active) {
-      await _pulse.forward(from: 0);
-      await _pulse.reverse();
-    }
-    widget.onTap();
   }
 
   @override
   Widget build(BuildContext context) {
-    final border = widget.active
-        ? widget.color
-        : Colors.white.withValues(alpha: 0.28);
     return GestureDetector(
-      onTap: _handleTap,
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: 1,
-          end: 1.1,
-        ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeOut)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.label,
-              style: TextStyle(
-                color: widget.active
-                    ? widget.color
-                    : Colors.white.withValues(alpha: 0.8),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
+      onTap: widget.onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.label,
+            style: TextStyle(
+              color: widget.active
+                  ? widget.color
+                  : Colors.white.withValues(alpha: 0.8),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 4),
-            Container(
-              width: BaSlotWell.size,
-              height: BaSlotWell.size,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: border,
-                  width: widget.active ? 3 : 1.5,
-                ),
-                color: const Color(0xFF1C1C1E),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: widget.slot == null
-                  ? const ColoredBox(color: Color(0xFF1C1C1E))
-                  : ChartImagePane(
-                      url: widget.slot!.url,
-                      fallbackLabel: widget.slot!.storyLabel,
-                      tone: SoriTokens.textSecondary,
-                      fit: BoxFit.cover,
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: BaSlotWell.size,
+            height: BaSlotWell.size,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: widget.active
+                          ? widget.color.withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.28),
+                      width: widget.active ? 2 : 1.5,
                     ),
+                    color: const Color(0xFF1C1C1E),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: widget.slot == null
+                      ? const ColoredBox(color: Color(0xFF1C1C1E))
+                      : ChartImagePane(
+                          url: widget.slot!.url,
+                          fallbackLabel: widget.slot!.storyLabel,
+                          tone: SoriTokens.textSecondary,
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                if (widget.active)
+                  IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _orbit,
+                      builder: (context, _) {
+                        return CustomPaint(
+                          painter: _OrbitBorderPainter(
+                            color: widget.color,
+                            turn: _orbit.value,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+}
+
+class _OrbitBorderPainter extends CustomPainter {
+  const _OrbitBorderPainter({required this.color, required this.turn});
+
+  final Color color;
+  final double turn;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(
+      rect.deflate(1.5),
+      const Radius.circular(16),
+    );
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..shader = SweepGradient(
+        transform: GradientRotation(turn * math.pi * 2),
+        colors: [
+          color.withValues(alpha: 0.05),
+          color,
+          Colors.white,
+          color,
+          color.withValues(alpha: 0.05),
+        ],
+        stops: const [0.0, 0.42, 0.5, 0.58, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbitBorderPainter oldDelegate) {
+    return oldDelegate.turn != turn || oldDelegate.color != color;
   }
 }
 
@@ -274,6 +327,12 @@ class _BaSnapDialState extends State<BaSnapDial> {
     if (i == _centerIndex) return;
     _centerIndex = i;
     HapticFeedback.selectionClick();
+  }
+
+  void _bindSettled() {
+    if (_suppressBind || !_ready || widget.slots.isEmpty) return;
+    final i = _indexFromOffset();
+    _centerIndex = i;
     widget.onBind(widget.slots[i]);
   }
 
@@ -330,7 +389,14 @@ class _BaSnapDialState extends State<BaSnapDial> {
                   0.0,
                   viewport,
                 );
-                return ListView.builder(
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollEndNotification) {
+                      _bindSettled();
+                    }
+                    return false;
+                  },
+                  child: ListView.builder(
                   key: const Key('ba-story-strip-list'),
                   controller: _scroll,
                   scrollDirection: Axis.horizontal,
@@ -358,6 +424,7 @@ class _BaSnapDialState extends State<BaSnapDial> {
                       child: _dialThumb(index),
                     );
                   },
+                ),
                 );
               },
             ),

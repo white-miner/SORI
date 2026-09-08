@@ -126,7 +126,8 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
     setState(() {
       if (_bindSide == BaCompareBindSide.left) {
         _left = slot;
-      } else {
+        if (_right?.key == slot.key) _right = null;
+      } else if (_left?.key != slot.key) {
         _right = slot;
       }
     });
@@ -331,27 +332,28 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
   }
 
   Widget _buildPhotoStage() {
+    final hasPhoto = _left != null || _right != null;
     return Stack(
       fit: StackFit.expand,
       children: [
         Screenshot(
           controller: _shot,
-          child: _left != null && _right != null
+          child: hasPhoto
               ? _ComparePhotoBody(
                   key: const Key('ba-compare-photo-stage'),
-                  left: _left!,
-                  right: _right!,
-                  useSlider: _useSlider,
+                  left: _left,
+                  right: _right,
+                  useSlider: _useSlider && _left != null && _right != null,
                   zoom: _zoom,
                   panY: _panY,
                   onPanDelta: _nudgeY,
                 )
               : const ColoredBox(color: Color(0xFF0A0A0B)),
         ),
-        if (_left != null && _right != null) ...[
+        if (hasPhoto) ...[
           const Positioned(
             top: 16,
-            left: 16,
+            left: 56,
             child: IgnorePointer(
               child: _ViewportCornerTag(
                 key: Key('ba-compare-label-before'),
@@ -361,7 +363,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage> {
           ),
           const Positioned(
             top: 16,
-            right: 16,
+            right: 88,
             child: IgnorePointer(
               child: _ViewportCornerTag(
                 key: Key('ba-compare-label-after'),
@@ -438,8 +440,8 @@ class _ComparePhotoBody extends StatelessWidget {
     required this.onPanDelta,
   });
 
-  final VisitPhotoSlot left;
-  final VisitPhotoSlot right;
+  final VisitPhotoSlot? left;
+  final VisitPhotoSlot? right;
   final bool useSlider;
   final double zoom;
   final double panY;
@@ -454,33 +456,56 @@ class _ComparePhotoBody extends StatelessWidget {
     );
   }
 
+  Widget _sidePane(VisitPhotoSlot? slot, {required String missing}) {
+    if (slot == null) {
+      return ColoredBox(
+        color: const Color(0xFF141416),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              missing,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return _pane(slot);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final h = constraints.maxHeight;
-        final photo = useSlider
+        final photo = useSlider && left != null && right != null
             ? BeforeAfterSlider(
                 height: h,
                 maxHeight: h,
                 borderRadius: BorderRadius.zero,
                 showCornerTags: false,
-                before: _pane(left),
-                after: _pane(right),
+                before: _pane(left!),
+                after: _pane(right!),
               )
             : Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _pane(left)),
+                  Expanded(child: _sidePane(left, missing: 'Before 사진을 등록하세요')),
                   const ColoredBox(
                     color: Color(0xFF0A0A0B),
                     child: SizedBox(width: 2),
                   ),
-                  Expanded(child: _pane(right)),
+                  Expanded(child: _sidePane(right, missing: 'After 사진을 등록하세요')),
                 ],
               );
 
-        return ClipRect(
+        final framed = ClipRect(
           child: Transform.translate(
             offset: Offset(0, panY),
             child: AnimatedScale(
@@ -489,14 +514,15 @@ class _ComparePhotoBody extends StatelessWidget {
               alignment: Alignment.center,
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
-              child: GestureDetector(
-                onVerticalDragUpdate: zoom > 1
-                    ? (d) => onPanDelta(d.delta.dy)
-                    : null,
-                child: photo,
-              ),
+              child: photo,
             ),
           ),
+        );
+        if (zoom <= 1) return framed;
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: (d) => onPanDelta(d.delta.dy),
+          child: framed,
         );
       },
     );
