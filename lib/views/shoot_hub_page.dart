@@ -11,6 +11,18 @@ import '../features/visit/visit_session_page.dart';
 import '../visit_kernel/theme/visit_glass_tokens.dart';
 import 'smart_guide_camera_page.dart';
 
+/// 촬영 탭을 열었을 때 허브를 건너뛰고 곧바로 카메라를 띄울지 정한다.
+///
+/// 아무것도 진행 중이 아니면 탭 한 번이 곧 촬영이다. 이어 찍을 게 남아 있으면
+/// 허브를 먼저 보여 줘야 사용자가 그걸 고를 수 있다.
+bool shouldAutoOpenCamera({
+  required bool hasActiveSession,
+  required bool hasInbox,
+  required bool hasAfterWaiting,
+}) {
+  return !hasActiveSession && !hasInbox && !hasAfterWaiting;
+}
+
 /// 원장 GNB 중앙 「촬영」허브 — C1~C3.
 class ShootHubPage extends StatefulWidget {
   const ShootHubPage({super.key, required this.store});
@@ -28,6 +40,8 @@ class _ShootHubPageState extends State<ShootHubPage> {
   bool _busy = false;
   String? _tempSessionToken;
   String? _tempSessionBeforeUrl;
+  bool _tabActive = false;
+  bool _autoShootPending = false;
 
   SoriStore get store => widget.store;
 
@@ -38,6 +52,34 @@ class _ShootHubPageState extends State<ShootHubPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(store.refreshShootInbox());
       unawaited(store.refreshVisitSessions());
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 셸은 탭을 IndexedStack에 살려 둔다. 비활성 가지는 TickerMode가 꺼져 있어서
+    // 이 값이 켜지는 순간이 곧 "촬영 탭을 눌렀다"는 신호다.
+    final active = TickerMode.of(context);
+    if (active == _tabActive) return;
+    _tabActive = active;
+    if (active) _scheduleAutoShoot();
+  }
+
+  void _scheduleAutoShoot() {
+    if (_autoShootPending || _busy) return;
+    _autoShootPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _autoShootPending = false;
+      if (!mounted || !_tabActive || _busy) return;
+      await store.refreshShootInbox();
+      if (!mounted || !_tabActive || _busy) return;
+      final go = shouldAutoOpenCamera(
+        hasActiveSession: store.activeVisitSession != null,
+        hasInbox: store.shootInbox.isNotEmpty,
+        hasAfterWaiting: _afterWaiting.isNotEmpty,
+      );
+      if (go) await _shootUnbound(kind: GuideCameraKind.before);
     });
   }
 
@@ -417,13 +459,39 @@ class _ShootHubPageState extends State<ShootHubPage> {
                 ],
                 const SizedBox(height: 4),
                 const Text(
-                  '고객 선택 → Before. 케어가 끝나면 After 대기 칩을 탭하세요. 순서는 상관 없습니다.',
+                  '바로 찍고 나중에 고객에게 연결하세요. 고객을 먼저 고르고 싶으면 아래에서 찾으면 됩니다.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.4,
                     color: SoriTokens.textSecondary,
                   ),
                 ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  key: const Key('shoot-now-before'),
+                  onPressed: _busy
+                      ? null
+                      : () => _shootUnbound(kind: GuideCameraKind.before),
+                  icon: const Icon(Icons.photo_camera_rounded),
+                  label: const Text(
+                    '지금 바로 Before 촬영',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                if (_tempSessionBeforeUrl != null) ...[
+                  const SizedBox(height: 8),
+                  FilledButton.tonalIcon(
+                    key: const Key('shoot-now-after'),
+                    onPressed: _busy
+                        ? null
+                        : () => _shootUnbound(kind: GuideCameraKind.after),
+                    icon: const Icon(Icons.compare_arrows_rounded),
+                    label: const Text(
+                      '같은 임시 세션 After 촬영',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
                 if (waiting.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Text(
@@ -559,27 +627,6 @@ class _ShootHubPageState extends State<ShootHubPage> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 20),
-                OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _shootUnbound(kind: GuideCameraKind.before),
-                  icon: const Icon(Icons.person_add_alt_1_outlined),
-                  label: const Text(
-                    '신규 · 임시 Before 촬영',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _busy || _tempSessionBeforeUrl == null
-                      ? null
-                      : () => _shootUnbound(kind: GuideCameraKind.after),
-                  child: const Text(
-                    '같은 임시 세션 After 촬영',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
               ],
             ),
             if (_busy)

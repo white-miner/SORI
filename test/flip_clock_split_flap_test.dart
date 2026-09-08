@@ -53,6 +53,33 @@ void main() {
     expect(kSplitFlapHingeThickness, 3.0);
   });
 
+  testWidgets('절반을 넘기기 전에는 새 숫자가 아래 카드에 미리 보이지 않는다', (tester) async {
+    Widget clock(int seconds) => MaterialApp(
+          home: Scaffold(
+            body: FlipClockDisplay(
+              totalSeconds: seconds,
+              style: FlipClockStyle.darkGlass,
+              showSeconds: true,
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(clock(0));
+    expect(find.text('1'), findsNothing);
+
+    await tester.pumpWidget(clock(1));
+    // t < 0.5 — 위·아래·플랩이 모두 이전 숫자라 겹쳐 보이지 않는다.
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.text('1'), findsNothing);
+
+    // t > 0.5 — 아래 카드와 플랩이 함께 새 숫자로 넘어간다.
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(find.text('1'), findsWidgets);
+
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsWidgets);
+  });
+
   testWidgets('구석 초도 같은 스플릿플랩으로 접힌다', (tester) async {
     Widget clock(int seconds) => MaterialApp(
           home: Scaffold(

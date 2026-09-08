@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../services/chart_photo_compressor.dart';
 import '../services/chart_photo_storage.dart';
+import '../services/guide_body_align.dart';
 import '../services/guide_camera_session.dart';
 import '../services/guide_camera_zoom_memory.dart';
 import '../services/guide_face_align.dart';
@@ -71,6 +72,16 @@ enum GuidePreset {
   bool get usesFaceAlign =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
+  /// MediaPipe 포즈 정렬 — 복부/하체/전신. 이 프리셋을 고를 때만 모델을 받는다.
+  GuideBodyTarget? get bodyTarget => switch (this) {
+        GuidePreset.face || GuidePreset.decollete => null,
+        GuidePreset.abdomen => GuideBodyTarget.abdomen,
+        GuidePreset.lowerBody => GuideBodyTarget.lowerBody,
+        GuidePreset.fullBody => GuideBodyTarget.fullBody,
+      };
+
+  bool get usesBodyAlign => bodyTarget != null;
+
   IconData get materialIcon => switch (this) {
         GuidePreset.face => Icons.face_retouching_natural,
         GuidePreset.decollete => Icons.portrait,
@@ -133,6 +144,7 @@ class SmartGuideCameraPage extends StatefulWidget {
 class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   late final GuideCameraSession _session;
   late final GuideFaceAlign _faceAlign;
+  late final GuideBodyAlign _bodyAlign;
   GuideCaptureMode _mode = GuideCaptureMode.selfFront;
   GuidePreset _preset = GuidePreset.face;
   bool _ghostOn = true;
@@ -155,6 +167,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   bool _autoShootEnabled = false;
   StreamSubscription<GuideDeviceAttitude?>? _attitudeSub;
   StreamSubscription<GuideFacePose>? _poseSub;
+  StreamSubscription<GuideBodyPose>? _bodyPoseSub;
+  GuideBodyPose _bodyPose = GuideBodyPose.none;
+  final _bodyProbe = _BodyAlignProbe();
+  bool _bodyLoading = false;
   Timer? _timer;
   Timer? _autoShootHoldTimer;
   Timer? _zoomSaveTimer;
@@ -166,6 +182,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   }
 
   bool get _faceAlignActive => _preset.usesFaceAlign;
+  bool get _bodyAlignActive => _preset.usesBodyAlign;
 
   /// 카메라/ML 준비 전에는 하단 조작 비활성.
   bool get _controlsLocked =>
@@ -178,6 +195,8 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     super.initState();
     _session = createGuideCameraSession();
     _faceAlign = createGuideFaceAlign();
+    // 객체만 만든다. 모델 다운로드는 몸 프리셋을 고를 때 prepare()에서 시작한다.
+    _bodyAlign = createGuideBodyAlign();
     if (_isAfter && !_canGhost) {
       _ghostOn = false;
     }
@@ -191,7 +210,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _zoomSaveTimer?.cancel();
     _attitudeSub?.cancel();
     _poseSub?.cancel();
+    _bodyPoseSub?.cancel();
     _faceAlign.dispose();
+    _bodyAlign.dispose();
     unawaited(_session.stop());
     super.dispose();
   }
@@ -257,6 +278,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
       await _poseSub?.cancel();
       _poseSub = _faceAlign.poses.listen(_onFacePose);
+      await _bodyPoseSub?.cancel();
+      _bodyPoseSub = _bodyAlign.poses.listen(_onBodyPose);
+      if (_bodyAlignActive) unawaited(_startBodyAlign());
 
       if (needMl) {
         await prepareMl;
@@ -285,6 +309,56 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         _error = '카메라를 열 수 없어요. 브라우저 카메라 권한을 확인해 주세요.\n$e';
       });
     }
+  }
+
+  /// 몸 프리셋을 고른 순간에만 모델을 받는다 — 얼굴만 찍는 동안은 부르지 않는다.
+  Future<void> _startBodyAlign() async {
+    if (!mounted) return;
+    setState(() => _bodyLoading = true);
+    try {
+      await _bodyAlign.prepare();
+      final video = _session.mlVideoHandle;
+      if (video != null) await _bodyAlign.start(video);
+    } catch (e) {
+      debugPrint('body align start failed: $e');
+    } finally {
+      if (mounted) setState(() => _bodyLoading = false);
+    }
+  }
+
+  Future<void> _stopBodyAlign() async {
+    await _bodyAlign.stop();
+    if (!mounted) return;
+    setState(() {
+      _bodyLoading = false;
+      _bodyPose = GuideBodyPose.none;
+      _bodyProbe.reset();
+    });
+  }
+
+  void _onBodyPose(GuideBodyPose next) {
+    if (!mounted) return;
+    final target = _preset.bodyTarget;
+    if (target == null) return;
+    _bodyProbe.add(next, target, _viewfinderSize, mirrored: _faceMirrored);
+    setState(() => _bodyPose = next);
+  }
+
+  /// 프로토타입 단계 안내 — 아직 정렬 판정은 하지 않는다.
+  String? get _bodyHintText {
+    if (!_bodyAlignActive) return null;
+    if (_bodyLoading) return '포즈 AI 준비 중';
+    final target = _preset.bodyTarget!;
+    if (!_bodyPose.detected) return '몸 전체가 화면에 들어오게 서 주세요';
+    if (!_bodyPose.hasPointsFor(target)) {
+      return switch (target) {
+        GuideBodyTarget.abdomen => '어깨·골반이 화면에 다 보이게',
+        GuideBodyTarget.lowerBody => '골반·발목이 화면에 다 보이게',
+        GuideBodyTarget.fullBody => '어깨·발목이 화면에 다 보이게',
+      };
+    }
+    return '인식 ${_bodyProbe.detectRatePercent}% · 흔들림 '
+        '${_bodyProbe.jitterPx.toStringAsFixed(1)}px';
   }
 
   bool get _faceMirrored => _mode == GuideCaptureMode.selfFront;
@@ -493,8 +567,17 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     setState(() {
       _preset = p;
       _facePose = GuideFacePose.none;
+      _bodyPose = GuideBodyPose.none;
+      _bodyProbe.reset();
     });
     if (!_session.isRunning) return;
+    if (p.usesBodyAlign) {
+      await _faceAlign.stop();
+      if (mounted) setState(() => _mlLoading = false);
+      await _startBodyAlign();
+      return;
+    }
+    await _stopBodyAlign();
     if (p.usesFaceAlign) {
       setState(() => _mlLoading = true);
       try {
@@ -641,8 +724,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _cancelAutoShootSchedule();
     _zoomSaveTimer?.cancel();
     await _poseSub?.cancel();
+    await _bodyPoseSub?.cancel();
     await _attitudeSub?.cancel();
     await _faceAlign.stop();
+    await _bodyAlign.stop();
     await _session.stop();
     if (mounted) Navigator.pop(context);
   }
@@ -660,6 +745,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
         // 시스템 백/제스처로 이탈 시에도 트랙 즉시 해제
         if (didPop) {
           unawaited(_faceAlign.stop());
+          unawaited(_bodyAlign.stop());
           unawaited(_session.stop());
         }
       },
@@ -710,7 +796,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onAutoShootToggle: _toggleAutoShoot,
           onShutter: _onShutterPressed,
           onFlip: () => unawaited(_toggleCameraFacing()),
-          faceHint: _faceHintText,
+          faceHint: _bodyAlignActive ? _bodyHintText : _faceHintText,
           faceAligned: _faceAligned && !_mlLoading,
         ),
       ],
@@ -750,7 +836,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     onAutoShootToggle: _toggleAutoShoot,
                     onShutter: _onShutterPressed,
                     onFlip: () => unawaited(_toggleCameraFacing()),
-                    faceHint: _faceHintText,
+                    faceHint: _bodyAlignActive ? _bodyHintText : _faceHintText,
                     faceAligned: _faceAligned && !_mlLoading,
                     compact: true,
                   ),
@@ -863,7 +949,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       aligned: _faceAligned,
                     ),
                   )
-                else
+                else ...[
                   IgnorePointer(
                     ignoring: true,
                     child: CustomPaint(
@@ -871,6 +957,34 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       child: const SizedBox.expand(),
                     ),
                   ),
+                  // 1단계 프로토타입 — 인식 좌표를 점으로 찍어 흔들림을 눈으로 본다.
+                  if (_preset.bodyTarget case final target?)
+                    IgnorePointer(
+                      ignoring: true,
+                      child: CustomPaint(
+                        key: const Key('body-landmark-probe'),
+                        painter: _BodyLandmarkProbePainter(
+                          pose: _bodyPose,
+                          target: target,
+                          mirrored: _faceMirrored,
+                        ),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  if (_bodyAlignActive)
+                    Positioned(
+                      left: 12,
+                      top: 12,
+                      child: IgnorePointer(
+                        ignoring: true,
+                        child: _BodyProbeReadout(
+                          loading: _bodyLoading,
+                          pose: _bodyPose,
+                          probe: _bodyProbe,
+                        ),
+                      ),
+                    ),
+                ],
                 // Roll bar — face/body only; decollete uses distance+center lock.
                 if (_preset != GuidePreset.decollete)
                   IgnorePointer(
@@ -1650,13 +1764,8 @@ class _DecolleteGuidePainter extends CustomPainter {
     final h = size.height;
     final cx = w / 2;
 
-    // Clinical upper-body proportions (shorter oval head, natural trapezius):
-    // head ~22% of frame height, shoulders ~ mid frame, décolleté below.
+    // 상반신 비율 — 안전 영역과 어깨 수평선의 기준이다.
     final headTop = h * 0.08;
-    final headH = h * 0.22;
-    final headBottom = headTop + headH;
-    final headW = w * 0.26;
-    final neckBottom = headBottom + h * 0.05;
     final shoulderY = h * 0.42;
     final shoulderLeft = w * 0.10;
     final shoulderRight = w * 0.90;
@@ -1679,80 +1788,15 @@ class _DecolleteGuidePainter extends CustomPainter {
 
     final strokeColor =
         aligned ? guideColor : Colors.white.withValues(alpha: 0.4);
-    final stroke = Paint()
-      ..color = strokeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = aligned ? 2.6 : 1.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
 
-    // Round head oval (stroke only)
-    final headRect = Rect.fromCenter(
-      center: Offset(cx, headTop + headH * 0.52),
-      width: headW,
-      height: headH,
-    );
-    canvas.drawOval(headRect, stroke);
-
-    // Neck column
-    final neckHalf = w * 0.055;
-    canvas.drawLine(
-      Offset(cx - neckHalf, headBottom - h * 0.01),
-      Offset(cx - neckHalf * 0.95, neckBottom),
-      stroke,
-    );
-    canvas.drawLine(
-      Offset(cx + neckHalf, headBottom - h * 0.01),
-      Offset(cx + neckHalf * 0.95, neckBottom),
-      stroke,
-    );
-
-    // Trapezius → shoulder line (soft S-curves, aesthetic upper body)
-    final leftShoulder = Path()
-      ..moveTo(cx - neckHalf * 0.95, neckBottom)
-      ..cubicTo(
-        cx - w * 0.12,
-        neckBottom + h * 0.01,
-        cx - w * 0.22,
-        shoulderY - h * 0.02,
-        shoulderLeft,
-        shoulderY,
-      );
-    final rightShoulder = Path()
-      ..moveTo(cx + neckHalf * 0.95, neckBottom)
-      ..cubicTo(
-        cx + w * 0.12,
-        neckBottom + h * 0.01,
-        cx + w * 0.22,
-        shoulderY - h * 0.02,
-        shoulderRight,
-        shoulderY,
-      );
-    canvas.drawPath(leftShoulder, stroke);
-    canvas.drawPath(rightShoulder, stroke);
-
-    // Clavicle / shoulder span (level guide)
+    // 머리·목·어깨 손그림은 그리지 않는다. 어깨 수평선만 남겨 수평을 잡는다.
     canvas.drawLine(
       Offset(shoulderLeft, shoulderY),
       Offset(shoulderRight, shoulderY),
-      stroke,
-    );
-
-    // Soft décolleté hem (upper chest arc) — stroke only
-    final bust = Path()
-      ..moveTo(shoulderLeft + w * 0.06, shoulderY + h * 0.02)
-      ..quadraticBezierTo(
-        cx,
-        torsoBottom,
-        shoulderRight - w * 0.06,
-        shoulderY + h * 0.02,
-      );
-    canvas.drawPath(
-      bust,
       Paint()
-        ..color = strokeColor.withValues(alpha: aligned ? 0.95 : 0.55)
+        ..color = strokeColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 2.2 : 1.3
+        ..strokeWidth = aligned ? 2.6 : 1.5
         ..strokeCap = StrokeCap.round,
     );
 
@@ -1974,44 +2018,6 @@ class _CircularFaceAlignPainter extends CustomPainter {
     }
   }
 
-  void _drawGhostFace(Canvas canvas, Offset center, double outerR) {
-    final stroke = Paint()
-      ..color = SoriTokens.ghostImage.withValues(alpha: 0.22)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-
-    // Oval face silhouette inside outer guide — stroke only (no fill).
-    final faceR = outerR * 0.72;
-    final faceRect = Rect.fromCenter(
-      center: center.translate(0, outerR * 0.02),
-      width: faceR * 1.55,
-      height: faceR * 1.95,
-    );
-    canvas.drawOval(faceRect, stroke);
-
-    // Eyes
-    final eyeY = faceRect.top + faceRect.height * 0.42;
-    final eyeDx = faceRect.width * 0.22;
-    final eyeR = faceR * 0.09;
-    canvas.drawCircle(Offset(center.dx - eyeDx, eyeY), eyeR, stroke);
-    canvas.drawCircle(Offset(center.dx + eyeDx, eyeY), eyeR, stroke);
-
-    // Nose bridge
-    canvas.drawLine(
-      Offset(center.dx, eyeY + eyeR * 1.2),
-      Offset(center.dx, faceRect.top + faceRect.height * 0.58),
-      stroke,
-    );
-
-    // Mouth arc
-    final mouthRect = Rect.fromCenter(
-      center: Offset(center.dx, faceRect.top + faceRect.height * 0.70),
-      width: faceR * 0.55,
-      height: faceR * 0.22,
-    );
-    canvas.drawArc(mouthRect, 0.15, math.pi - 0.3, false, stroke);
-  }
-
   @override
   void paint(Canvas canvas, Size size) {
     final targetCenter = _targetCenter(size);
@@ -2028,9 +2034,7 @@ class _CircularFaceAlignPainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.38),
     );
 
-    // Ghost silhouette under guide rings
-    _drawGhostFace(canvas, targetCenter, outerR);
-
+    // 얼굴 윤곽 그림은 그리지 않는다. 정렬은 정적 링과 추적 원만으로 한다.
     if (drawTrack && pose.detected) {
       final trackCenter = pose.faceCenterPx(size, mirrored: mirrored);
       final trackR = pose.faceRadiusPx(size);
@@ -2153,6 +2157,280 @@ class _BodyGuidePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BodyGuidePainter oldDelegate) {
     return oldDelegate.preset != preset;
+  }
+}
+
+/// 포즈 인식 안정성 측정기 — 1단계 프로토타입 보고용.
+///
+/// 정렬 판정에는 쓰지 않는다. 실기기에서 인식률·흔들림을 숫자로 보고
+/// 그 결과로 허용 오차를 정하기 위한 계측기다.
+class _BodyAlignProbe {
+  static const int windowSize = 60;
+
+  final List<bool> _detected = [];
+  final List<double> _jitter = [];
+  final List<double> _visibility = [];
+  Offset? _lastCenter;
+
+  void reset() {
+    _detected.clear();
+    _jitter.clear();
+    _visibility.clear();
+    _lastCenter = null;
+  }
+
+  void add(
+    GuideBodyPose pose,
+    GuideBodyTarget target,
+    Size frameSize, {
+    bool mirrored = false,
+  }) {
+    final usable = pose.hasPointsFor(target);
+    _push(_detected, usable);
+    if (!usable) {
+      _lastCenter = null;
+      return;
+    }
+    _push(_visibility, pose.averageVisibility);
+    final center = pose.centerPx(target, frameSize, mirrored: mirrored);
+    if (center == null) return;
+    final prev = _lastCenter;
+    if (prev != null) _push(_jitter, (center - prev).distance);
+    _lastCenter = center;
+  }
+
+  int get samples => _detected.length;
+
+  int get detectRatePercent {
+    if (_detected.isEmpty) return 0;
+    final ok = _detected.where((v) => v).length;
+    return (ok * 100 / _detected.length).round();
+  }
+
+  double get jitterPx => _mean(_jitter);
+
+  double get jitterMaxPx =>
+      _jitter.isEmpty ? 0 : _jitter.reduce((a, b) => a > b ? a : b);
+
+  int get visibilityPercent => (_mean(_visibility) * 100).round();
+
+  static double _mean(List<double> values) {
+    if (values.isEmpty) return 0;
+    var sum = 0.0;
+    for (final v in values) {
+      sum += v;
+    }
+    return sum / values.length;
+  }
+
+  static void _push<T>(List<T> list, T value) {
+    list.add(value);
+    if (list.length > windowSize) list.removeAt(0);
+  }
+}
+
+/// 인식된 랜드마크를 점으로 찍는다. 얼굴 페인터와 무관한 별도 레이어다.
+class _BodyLandmarkProbePainter extends CustomPainter {
+  _BodyLandmarkProbePainter({
+    required this.pose,
+    required this.target,
+    required this.mirrored,
+  });
+
+  final GuideBodyPose pose;
+  final GuideBodyTarget target;
+  final bool mirrored;
+
+  static Color _visibilityColor(double v) {
+    if (v >= 0.8) return const Color(0xFF3DDC84);
+    if (v >= GuideBodyPose.visibilityThreshold) return const Color(0xFFFFC845);
+    return const Color(0xFFFF5A5A);
+  }
+
+  void _line(Canvas canvas, Offset? a, Offset? b, Color color) {
+    if (a == null || b == null) return;
+    canvas.drawLine(
+      a,
+      b,
+      Paint()
+        ..color = color.withValues(alpha: 0.7)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  Offset? _mid(GuideBodyLandmark? a, GuideBodyLandmark? b, Size size) {
+    if (a == null || b == null) return null;
+    return Offset.lerp(
+      a.toPx(size, mirrored: mirrored),
+      b.toPx(size, mirrored: mirrored),
+      0.5,
+    );
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!pose.detected) return;
+
+    final shoulderMid = _mid(pose.leftShoulder, pose.rightShoulder, size);
+    final hipMid = _mid(pose.leftHip, pose.rightHip, size);
+    final ankleMid = _mid(pose.leftAnkle, pose.rightAnkle, size);
+
+    const skeleton = Color(0xFF7CD4FD);
+    _line(
+      canvas,
+      pose.leftShoulder?.toPx(size, mirrored: mirrored),
+      pose.rightShoulder?.toPx(size, mirrored: mirrored),
+      skeleton,
+    );
+    _line(
+      canvas,
+      pose.leftHip?.toPx(size, mirrored: mirrored),
+      pose.rightHip?.toPx(size, mirrored: mirrored),
+      skeleton,
+    );
+    _line(
+      canvas,
+      pose.leftAnkle?.toPx(size, mirrored: mirrored),
+      pose.rightAnkle?.toPx(size, mirrored: mirrored),
+      skeleton,
+    );
+    _line(canvas, shoulderMid, hipMid, skeleton);
+    _line(canvas, hipMid, ankleMid, skeleton);
+
+    for (final (label, point) in pose.labeled) {
+      final p = point.toPx(size, mirrored: mirrored);
+      canvas.drawCircle(
+        p,
+        6,
+        Paint()..color = Colors.black.withValues(alpha: 0.55),
+      );
+      canvas.drawCircle(
+        p,
+        4,
+        Paint()..color = _visibilityColor(point.visibility),
+      );
+      _label(canvas, p + const Offset(9, -7), label);
+    }
+
+    // 이 프리셋이 실제로 쓰는 중심 — 정렬 판정의 기준이 될 값이다.
+    final center = pose.centerPx(target, size, mirrored: mirrored);
+    if (center != null) {
+      final cross = Paint()
+        ..color = SoriTokens.cameraYellow
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+        center - const Offset(14, 0),
+        center + const Offset(14, 0),
+        cross,
+      );
+      canvas.drawLine(
+        center - const Offset(0, 14),
+        center + const Offset(0, 14),
+        cross,
+      );
+    }
+
+    // 크기 기준(세로 거리)을 왼쪽 눈금으로 — 거리 변화가 눈에 보이게.
+    final span = pose.scalePx(target, size);
+    if (span != null && span > 0 && center != null) {
+      final x = 22.0;
+      final top = center.dy - span / 2;
+      final bottom = center.dy + span / 2;
+      final bar = Paint()
+        ..color = SoriTokens.cameraYellow.withValues(alpha: 0.85)
+        ..strokeWidth = 2;
+      canvas.drawLine(Offset(x, top), Offset(x, bottom), bar);
+      canvas.drawLine(Offset(x - 6, top), Offset(x + 6, top), bar);
+      canvas.drawLine(Offset(x - 6, bottom), Offset(x + 6, bottom), bar);
+      _label(
+        canvas,
+        Offset(x + 10, (top + bottom) / 2 - 8),
+        '${span.round()}px',
+      );
+    }
+  }
+
+  void _label(Canvas canvas, Offset at, String text) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          shadows: [Shadow(color: Colors.black, blurRadius: 3)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, at);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BodyLandmarkProbePainter oldDelegate) {
+    return oldDelegate.pose != pose ||
+        oldDelegate.target != target ||
+        oldDelegate.mirrored != mirrored;
+  }
+}
+
+/// 프로토타입 계측 결과 패널 — 실기기에서 이 숫자를 보고 허용 오차를 정한다.
+class _BodyProbeReadout extends StatelessWidget {
+  const _BodyProbeReadout({
+    required this.loading,
+    required this.pose,
+    required this.probe,
+  });
+
+  final bool loading;
+  final GuideBodyPose pose;
+  final _BodyAlignProbe probe;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = loading
+        ? const ['포즈 모델 받는 중']
+        : [
+            '인식 ${probe.detectRatePercent}% (${probe.samples}프레임)',
+            '흔들림 평균 ${probe.jitterPx.toStringAsFixed(1)}px · '
+                '최대 ${probe.jitterMaxPx.toStringAsFixed(1)}px',
+            '신뢰도 ${probe.visibilityPercent}%',
+            if (pose.shoulderTiltDegrees case final tilt?)
+              '어깨 기울기 ${tilt.toStringAsFixed(1)}°',
+          ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '포즈 인식 시험 중',
+            style: TextStyle(
+              color: SoriTokens.cameraYellow,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          for (final line in lines)
+            Text(
+              line,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

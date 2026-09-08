@@ -618,10 +618,12 @@ class _SplitFlapDigitState extends State<_SplitFlapDigit>
         final t = _ctrl.value;
         final flipping = _from != null && _to != null && (t > 0 || _ctrl.isAnimating);
         final topDigit = flipping ? _from! : _shown;
-        final bottomDigit = flipping ? _to! : _shown;
+        // 아래 카드는 플랩이 90°를 넘긴 뒤에 바뀐다. 먼저 바꾸면 위는 옛 숫자,
+        // 아래는 새 숫자가 절반 구간 내내 같이 보인다.
         final flapDigit = !flipping
             ? _shown
             : (t < 0.5 ? _from! : _to!);
+        final bottomDigit = flipping ? flapDigit : _shown;
         final flapAngle = !flipping ? 0.0 : _flapAngle(t);
 
         return _glassShell(

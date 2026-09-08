@@ -240,7 +240,10 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                     Positioned.fill(
                       child: Row(
                         children: List.generate(_count, (i) {
-                          final selected = visual == i;
+                          // 색은 스프링이 멈추길 기다리지 않는다. 손가락으로 끄는
+                          // 중에만 알약 위치를 따르고, 그 밖에는 누른 탭이 곧 정답이다.
+                          final selected =
+                              (_dragging ? visual : widget.currentIndex) == i;
                           return Expanded(
                             child: IgnorePointer(
                               child: Column(
