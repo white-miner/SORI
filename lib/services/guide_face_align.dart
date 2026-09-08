@@ -176,9 +176,6 @@ class GuideFacePose {
   static const decolleteSnapPositionTolerancePx = 22.0;
   static const decolleteSnapScaleToleranceRatio = 0.14;
 
-  // 화면의 데콜테 정렬은 GuideBodyPose(어깨)가 맡는다. 아래는 얼굴 추정
-  // 비교용으로 남겨 둔다 — 허용오차 숫자는 몸 쪽과 같다.
-
   Offset decolleteTargetCenterPx(Size frameSize) => Offset(
         frameSize.width * decolleteGuideCenterX,
         frameSize.height * decolleteGuideCenterY,

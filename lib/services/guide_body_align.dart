@@ -65,21 +65,6 @@ class GuideBodyPose {
   /// 테스트·폴백용 3:4 프레임.
   static const referenceFrame = Size(360, 480);
 
-  /// 데콜테 정적 목표 — 예전 얼굴 추정과 같은 화면 좌표·허용오차.
-  static const decolleteGuideCenterX = 0.5;
-  static const decolleteGuideCenterY = 0.38;
-  static const decolleteTargetRadiusNorm = 0.40;
-  static const decolleteCenterAlignTolerancePx = 15.0;
-  static const decolleteScaleAlignToleranceRatio = 0.10;
-  static const decolleteSnapPositionTolerancePx = 22.0;
-  static const decolleteSnapScaleToleranceRatio = 0.14;
-
-  /// 어깨 중점을 목 쪽으로 올리는 정규화 오프셋.
-  static const decolleteNeckLiftNorm = 0.04;
-
-  /// 어깨가 프레임 폭의 50%일 때 정적 링(0.40)과 크기가 같아진다.
-  static const decolleteRingFromShoulderScale = 0.80;
-
   /// 라벨 붙은 지점 — 디버그 점 찍기와 통계에 쓴다.
   List<(String, GuideBodyLandmark)> get labeled => [
         if (leftShoulder != null) ('어깨L', leftShoulder!),
@@ -125,13 +110,8 @@ class GuideBodyPose {
     final hip = _mid(leftHip, rightHip);
     final ankle = _mid(leftAnkle, rightAnkle);
     return switch (target) {
-      // 어깨 중점, 목 쪽으로 살짝 위.
-      GuideBodyTarget.decollete => shoulder == null
-          ? null
-          : Offset(
-              shoulder.dx,
-              (shoulder.dy - decolleteNeckLiftNorm).clamp(0.0, 1.0),
-            ),
+      // 좌우 어깨 중점 — 데콜테는 이 두 점만 화면에 찍는다.
+      GuideBodyTarget.decollete => shoulder,
       // 어깨 중점과 골반 중점의 중간.
       GuideBodyTarget.abdomen => _between(shoulder, hip),
       // 골반 중점.
@@ -171,76 +151,7 @@ class GuideBodyPose {
   double? scalePx(GuideBodyTarget target, Size frameSize) {
     final s = scaleNorm(target);
     if (s == null) return null;
-    if (target == GuideBodyTarget.decollete) {
-      return s * frameSize.width;
-    }
     return s * frameSize.height;
-  }
-
-  Offset decolleteTargetCenterPx(Size frameSize) => Offset(
-        frameSize.width * decolleteGuideCenterX,
-        frameSize.height * decolleteGuideCenterY,
-      );
-
-  double decolleteTargetRadiusPx(Size frameSize) =>
-      math.min(frameSize.width, frameSize.height) * decolleteTargetRadiusNorm;
-
-  /// 동적 링 반지름 — 어깨 폭으로 카메라 거리를 읽는다.
-  double decolleteDynamicRadiusPx(Size frameSize) {
-    final span = scalePx(GuideBodyTarget.decollete, frameSize);
-    if (span == null || span <= 0) return 0;
-    return span * decolleteRingFromShoulderScale;
-  }
-
-  bool isDecolletePositionAligned(Size frameSize, {bool mirrored = false}) {
-    final center = centerPx(
-      GuideBodyTarget.decollete,
-      frameSize,
-      mirrored: mirrored,
-    );
-    if (center == null) return false;
-    return (center - decolleteTargetCenterPx(frameSize)).distance <=
-        decolleteCenterAlignTolerancePx;
-  }
-
-  bool isDecolleteScaleAligned(Size frameSize) {
-    final targetR = decolleteTargetRadiusPx(frameSize);
-    final dynR = decolleteDynamicRadiusPx(frameSize);
-    if (targetR <= 0 || dynR <= 0) return false;
-    final err = (dynR - targetR).abs() / targetR;
-    return err <= decolleteScaleAlignToleranceRatio;
-  }
-
-  bool computeDecolleteAligned(Size frameSize, {bool mirrored = false}) {
-    return isDecolletePositionAligned(frameSize, mirrored: mirrored) &&
-        isDecolleteScaleAligned(frameSize);
-  }
-
-  bool isDecolleteInSnapZone(Size frameSize, {bool mirrored = false}) {
-    final center = centerPx(
-      GuideBodyTarget.decollete,
-      frameSize,
-      mirrored: mirrored,
-    );
-    if (center == null) return false;
-    final posOk = (center - decolleteTargetCenterPx(frameSize)).distance <=
-        decolleteSnapPositionTolerancePx;
-    final targetR = decolleteTargetRadiusPx(frameSize);
-    final dynR = decolleteDynamicRadiusPx(frameSize);
-    if (targetR <= 0 || dynR <= 0) return false;
-    final scaleOk =
-        ((dynR - targetR).abs() / targetR) <= decolleteSnapScaleToleranceRatio;
-    return posOk && scaleOk;
-  }
-
-  int decolleteScaleDirection(Size frameSize) {
-    final targetR = decolleteTargetRadiusPx(frameSize);
-    final dynR = decolleteDynamicRadiusPx(frameSize);
-    if (targetR <= 0 || dynR <= 0) return 0;
-    final err = (dynR - targetR) / targetR;
-    if (err > decolleteScaleAlignToleranceRatio) return -1;
-    if (err < -decolleteScaleAlignToleranceRatio) return 1;
-    return 0;
   }
 
   /// 어깨선 기울기(도). 좌우 대칭·수평 확인용.

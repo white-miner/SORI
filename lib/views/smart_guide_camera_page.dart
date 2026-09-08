@@ -68,11 +68,11 @@ enum GuidePreset {
   bool get isSelfPreset =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// MediaPipe 정렬 — 페이스. 데콜테는 어깨 확인용으로 얼굴도 당분간 병행한다.
+  /// MediaPipe 얼굴 정렬 — 페이스·데콜테 동적 원의 SSOT.
   bool get usesFaceAlign =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// MediaPipe 포즈 정렬 — 데콜테/복부/하체/전신. 이 프리셋을 고를 때만 모델을 받는다.
+  /// MediaPipe 포즈. 데콜테는 어깨 점만 얹고, 복부/하체/전신은 몸 전체.
   GuideBodyTarget? get bodyTarget => switch (this) {
         GuidePreset.face => null,
         GuidePreset.decollete => GuideBodyTarget.decollete,
@@ -346,22 +346,6 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     final target = _preset.bodyTarget;
     if (target == null) return;
     _bodyProbe.add(next, target, _viewfinderSize, mirrored: _faceMirrored);
-    if (_preset == GuidePreset.decollete) {
-      final wasAligned = _faceAligned;
-      setState(() => _bodyPose = next);
-      final aligned = next.computeDecolleteAligned(
-        _viewfinderSize,
-        mirrored: _faceMirrored,
-      );
-      if (aligned && !wasAligned) {
-        HapticFeedback.mediumImpact();
-        soriLightHaptic();
-        _scheduleAutoShootIfEnabled();
-      } else if (!aligned) {
-        _cancelAutoShootSchedule();
-      }
-      return;
-    }
     setState(() => _bodyPose = next);
   }
 
@@ -387,7 +371,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   bool get _faceAligned {
     if (_preset == GuidePreset.decollete) {
-      return _bodyPose.computeDecolleteAligned(
+      return _facePose.computeDecolleteAligned(
         _viewfinderSize,
         mirrored: _faceMirrored,
       );
@@ -400,14 +384,14 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   void _onFacePose(GuideFacePose next) {
     if (!mounted) return;
-    if (_preset == GuidePreset.decollete) {
-      setState(() => _facePose = next);
-      return;
-    }
     final wasAligned = _faceAligned;
     setState(() => _facePose = next);
-    final aligned =
-        next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
+    final aligned = _preset == GuidePreset.decollete
+        ? next.computeDecolleteAligned(
+            _viewfinderSize,
+            mirrored: _faceMirrored,
+          )
+        : next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
 
     if (aligned && !wasAligned) {
       HapticFeedback.mediumImpact();
@@ -434,7 +418,6 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (!_autoShootEnabled ||
         !_faceAlignActive ||
         _mlLoading ||
-        (_preset == GuidePreset.decollete && _bodyLoading) ||
         _busy ||
         _countdown != null) {
       return;
@@ -464,21 +447,15 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   String? get _faceHintText {
     if (_preset == GuidePreset.decollete) {
-      if (_bodyLoading) return '포즈 AI 준비 중';
-      if (!_bodyPose.detected) return '어깨가 보이게 서 주세요';
-      if (!_bodyPose.hasPointsFor(GuideBodyTarget.decollete)) {
-        return '양쪽 어깨가 화면에 다 보이게';
-      }
-      if (!_bodyPose.isDecolletePositionAligned(
+      if (_mlLoading) return 'AI 준비 중';
+      if (!_facePose.detected) return '얼굴을 찾는 중';
+      if (!_facePose.isDecolletePositionAligned(
         _viewfinderSize,
         mirrored: _faceMirrored,
       )) {
         return '촬영 거리(크기)를 맞춰 주세요';
       }
-      if (!_bodyPose.isDecolleteScaleAligned(_viewfinderSize)) {
-        final dir = _bodyPose.decolleteScaleDirection(_viewfinderSize);
-        if (dir > 0) return '조금 더 가까이 오세요';
-        if (dir < 0) return '조금 더 멀리 움직이세요';
+      if (!_facePose.isDecolleteScaleAligned(_viewfinderSize)) {
         return '촬영 거리(크기)를 맞춰 주세요';
       }
       return _autoShootEnabled ? '거리·중심 정렬됨 · 자동 촬영 대기' : '거리·중심 정렬됨';
@@ -830,7 +807,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onShutter: _onShutterPressed,
           onFlip: () => unawaited(_toggleCameraFacing()),
           faceHint: _dockHint,
-          faceAligned: _faceAligned && !_mlLoading && !_bodyLoading,
+          faceAligned: _faceAligned && !_mlLoading,
         ),
       ],
     );
@@ -870,7 +847,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     onShutter: _onShutterPressed,
                     onFlip: () => unawaited(_toggleCameraFacing()),
                     faceHint: _dockHint,
-                    faceAligned: _faceAligned && !_mlLoading && !_bodyLoading,
+                    faceAligned: _faceAligned && !_mlLoading,
                     compact: true,
                   ),
                 ),
@@ -972,16 +949,29 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                       proximityColor: _faceProximityColor,
                     ),
                   )
-                else if (_preset == GuidePreset.decollete)
+                else if (_preset == GuidePreset.decollete) ...[
                   IgnorePointer(
                     ignoring: true,
                     child: _DecolleteAlignGuideLayer(
-                      pose: _bodyPose,
+                      pose: _facePose,
                       mirrored: _mode == GuideCaptureMode.selfFront,
                       guideColor: _decolleteGuideColor,
                       aligned: _faceAligned,
                     ),
-                  )
+                  ),
+                  IgnorePointer(
+                    ignoring: true,
+                    child: CustomPaint(
+                      key: const Key('decollete-shoulder-track'),
+                      painter: _DecolleteShoulderTrackPainter(
+                        pose: _bodyPose,
+                        mirrored: _faceMirrored,
+                        color: _decolleteGuideColor,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ]
                 else ...[
                   IgnorePointer(
                     ignoring: true,
@@ -1828,7 +1818,7 @@ class _DecolleteAlignGuideLayer extends StatelessWidget {
     required this.aligned,
   });
 
-  final GuideBodyPose pose;
+  final GuideFacePose pose;
   final bool mirrored;
   final Color guideColor;
   final bool aligned;
@@ -1841,15 +1831,10 @@ class _DecolleteAlignGuideLayer extends StatelessWidget {
         final target = pose.decolleteTargetCenterPx(size);
         final targetR = pose.decolleteTargetRadiusPx(size);
         final snap = pose.isDecolleteInSnapZone(size, mirrored: mirrored);
-        final liveC = pose.centerPx(
-              GuideBodyTarget.decollete,
-              size,
-              mirrored: mirrored,
-            ) ??
-            target;
+        final faceC = pose.faceCenterPx(size, mirrored: mirrored);
         final dynR = pose.decolleteDynamicRadiusPx(size);
 
-        final displayC = (snap || aligned) ? target : liveC;
+        final displayC = (snap || aligned) ? target : faceC;
         final displayR = (snap || aligned) ? targetR : dynR;
         final animateSnap = snap || aligned;
 
@@ -1891,6 +1876,46 @@ class _DecolleteAlignGuideLayer extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// 데콜테 전용 — 포즈 모듈이 잡은 좌우 어깨만 찍는다. 동적 원은 건드리지 않는다.
+class _DecolleteShoulderTrackPainter extends CustomPainter {
+  _DecolleteShoulderTrackPainter({
+    required this.pose,
+    required this.mirrored,
+    required this.color,
+  });
+
+  final GuideBodyPose pose;
+  final bool mirrored;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final left = pose.leftShoulder;
+    final right = pose.rightShoulder;
+    if (left == null || right == null) return;
+    if (!left.isVisible || !right.isVisible) return;
+
+    final a = left.toPx(size, mirrored: mirrored);
+    final b = right.toPx(size, mirrored: mirrored);
+    final line = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(a, b, line);
+    for (final p in [a, b]) {
+      canvas.drawCircle(p, 7, Paint()..color = Colors.black.withValues(alpha: 0.45));
+      canvas.drawCircle(p, 5, Paint()..color = color);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DecolleteShoulderTrackPainter oldDelegate) {
+    return oldDelegate.pose != pose ||
+        oldDelegate.mirrored != mirrored ||
+        oldDelegate.color != color;
   }
 }
 
