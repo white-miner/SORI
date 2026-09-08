@@ -138,4 +138,72 @@ void main() {
     );
     expect(GuideBodyPose.referenceFrame, isA<Size>());
   });
+
+  group('데콜테는 어깨 폭으로 거리를 읽는다', () {
+    test('중심은 어깨 중점에서 목 쪽으로 올라간다', () {
+      final c = standing().centerNorm(GuideBodyTarget.decollete)!;
+      expect(c.dx, closeTo(0.5, 0.001));
+      expect(
+        c.dy,
+        closeTo(0.2 - GuideBodyPose.decolleteNeckLiftNorm, 0.001),
+      );
+    });
+
+    test('크기는 좌우 어깨 가로 거리이고 세로 거리 공식은 쓰지 않는다', () {
+      expect(
+        standing().scaleNorm(GuideBodyTarget.decollete),
+        closeTo(0.2, 0.001),
+      );
+    });
+
+    test('어깨가 프레임 폭의 절반이면 정적 링과 크기가 같다', () {
+      const frame = GuideBodyPose.referenceFrame;
+      final posed = GuideBodyPose(
+        detected: true,
+        leftShoulder: lm(0.25, GuideBodyPose.decolleteGuideCenterY + 0.04),
+        rightShoulder: lm(0.75, GuideBodyPose.decolleteGuideCenterY + 0.04),
+      );
+      expect(posed.hasPointsFor(GuideBodyTarget.decollete), isTrue);
+      expect(posed.isDecolletePositionAligned(frame), isTrue);
+      expect(posed.isDecolleteScaleAligned(frame), isTrue);
+      expect(posed.computeDecolleteAligned(frame), isTrue);
+      expect(posed.isDecolleteInSnapZone(frame), isTrue);
+    });
+
+    test('어깨가 너무 크면(너무 가까우면) 정렬되지 않는다', () {
+      const frame = GuideBodyPose.referenceFrame;
+      final tooClose = GuideBodyPose(
+        detected: true,
+        leftShoulder: lm(0.05, GuideBodyPose.decolleteGuideCenterY + 0.04),
+        rightShoulder: lm(0.95, GuideBodyPose.decolleteGuideCenterY + 0.04),
+      );
+      expect(tooClose.isDecolletePositionAligned(frame), isTrue);
+      expect(tooClose.isDecolleteScaleAligned(frame), isFalse);
+      expect(tooClose.decolleteScaleDirection(frame), -1);
+    });
+
+    test('어깨가 안 보이면 데콜테 판정을 하지 않는다', () {
+      expect(
+        GuideBodyPose.none.computeDecolleteAligned(
+          GuideBodyPose.referenceFrame,
+        ),
+        isFalse,
+      );
+      expect(
+        const GuideBodyPose(
+          detected: true,
+          leftHip: null,
+        ).hasPointsFor(GuideBodyTarget.decollete),
+        isFalse,
+      );
+    });
+
+    test('허용오차 숫자는 예전 얼굴 추정과 같다', () {
+      expect(GuideBodyPose.decolleteCenterAlignTolerancePx, 15);
+      expect(GuideBodyPose.decolleteScaleAlignToleranceRatio, 0.10);
+      expect(GuideBodyPose.decolleteSnapPositionTolerancePx, 22);
+      expect(GuideBodyPose.decolleteSnapScaleToleranceRatio, 0.14);
+      expect(GuideBodyPose.decolleteTargetRadiusNorm, 0.40);
+    });
+  });
 }

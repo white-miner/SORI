@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/services/guide_camera_session.dart';
 import 'package:sori/services/guide_camera_zoom_memory.dart';
+import 'package:sori/services/guide_body_align.dart';
 import 'package:sori/services/guide_face_align.dart';
 import 'package:sori/views/smart_guide_camera_page.dart';
 
@@ -14,8 +15,16 @@ void main() {
 
   test('face preset uses MediaPipe align', () {
     expect(GuidePreset.face.usesFaceAlign, isTrue);
-    expect(GuidePreset.decollete.usesFaceAlign, isFalse);
+    expect(GuidePreset.decollete.usesFaceAlign, isTrue);
     expect(GuidePreset.abdomen.usesFaceAlign, isFalse);
+  });
+
+  test('decollete and body presets load pose landmarks', () {
+    expect(GuidePreset.face.usesBodyAlign, isFalse);
+    expect(GuidePreset.decollete.bodyTarget, GuideBodyTarget.decollete);
+    expect(GuidePreset.abdomen.bodyTarget, GuideBodyTarget.abdomen);
+    expect(GuidePreset.lowerBody.bodyTarget, GuideBodyTarget.lowerBody);
+    expect(GuidePreset.fullBody.bodyTarget, GuideBodyTarget.fullBody);
   });
 
   test('guide camera uses fixed 3:4 aspect', () {

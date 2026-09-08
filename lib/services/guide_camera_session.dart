@@ -71,3 +71,18 @@ abstract class GuideCameraSession {
   /// iOS 등 requestPermission API가 필요한 환경인지.
   bool get requiresOrientationPermissionPrompt;
 }
+
+/// start()의 getUserMedia가 끝나기 전에 stop()이 오면 그 스트림을 버린다.
+class GuideCameraGeneration {
+  int _n = 0;
+
+  int get value => _n;
+
+  /// 진행 중이던 start()를 전부 무효화한다.
+  void invalidate() => _n++;
+
+  /// 이 시작 시도의 번호를 찍어 둔다.
+  int begin() => ++_n;
+
+  bool isCurrent(int token) => token == _n;
+}

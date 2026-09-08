@@ -28,6 +28,7 @@ class WebGuideCameraSession implements GuideCameraSession {
   DateTime? _lastAttitudeEmit;
   bool _orientationListening = false;
   bool? _requiresPermissionPrompt;
+  final _generation = GuideCameraGeneration();
 
   @override
   String? get viewType => _viewType;
@@ -122,7 +123,11 @@ class WebGuideCameraSession implements GuideCameraSession {
 
   @override
   Future<void> start({required bool front, double zoom = 1.7}) async {
-    await stop();
+    // 번호를 먼저 찍는다. await 앞에서 찍어야 닫기가 끼어들어도 이 시도가 낡은지 안다.
+    final myGeneration = _generation.begin();
+    await _teardown();
+    if (!_generation.isCurrent(myGeneration)) return;
+
     _mirrored = front;
     _zoomFactor = zoom.clamp(1.0, 3.0);
     _usingHardwareZoom = false;
@@ -155,6 +160,7 @@ class WebGuideCameraSession implements GuideCameraSession {
           .toDart;
     } catch (e) {
       debugPrint('getUserMedia facingMode failed, retry soft: $e');
+      if (!_generation.isCurrent(myGeneration)) return;
       final soft = {
         'audio': false,
         'video': {
@@ -166,15 +172,31 @@ class WebGuideCameraSession implements GuideCameraSession {
           await web.window.navigator.mediaDevices.getUserMedia(soft).toDart;
     }
 
-    _stream = stream;
-    final tracks = stream.getVideoTracks().toDart;
-    _videoTrack = tracks.isNotEmpty ? tracks.first : null;
+    if (!_generation.isCurrent(myGeneration)) {
+      _discardStream(stream);
+      _discardVideo(video);
+      return;
+    }
 
     video.srcObject = stream;
     await video.play().toDart;
 
+    if (!_generation.isCurrent(myGeneration)) {
+      _discardStream(stream);
+      _discardVideo(video);
+      return;
+    }
+
+    _stream = stream;
+    final tracks = stream.getVideoTracks().toDart;
+    _videoTrack = tracks.isNotEmpty ? tracks.first : null;
     _video = video;
     await _applyZoom(_zoomFactor);
+
+    if (!_generation.isCurrent(myGeneration)) {
+      await _teardown();
+      return;
+    }
 
     _viewType =
         'sori-guide-cam-${DateTime.now().microsecondsSinceEpoch}-${front ? 'f' : 'b'}';
@@ -305,6 +327,11 @@ class WebGuideCameraSession implements GuideCameraSession {
   /// 트랙·DOM을 즉시 해제 — 워밍 캐시 없음 (iOS 카메라 인디케이터 잔존 방지).
   @override
   Future<void> stop() async {
+    _generation.invalidate();
+    await _teardown();
+  }
+
+  Future<void> _teardown() async {
     _detachOrientation();
 
     final stream = _stream;
@@ -315,25 +342,30 @@ class WebGuideCameraSession implements GuideCameraSession {
     _viewType = null;
     _usingHardwareZoom = false;
 
-    if (video != null) {
+    _discardVideo(video);
+    _discardStream(stream);
+  }
+
+  void _discardStream(web.MediaStream? stream) {
+    if (stream == null) return;
+    final tracks = stream.getTracks().toDart;
+    for (final t in tracks) {
       try {
-        video.srcObject = null;
-        video.pause();
-        video.remove();
+        t.stop();
       } catch (e) {
-        debugPrint('guide camera video cleanup: $e');
+        debugPrint('guide camera track.stop: $e');
       }
     }
+  }
 
-    if (stream != null) {
-      final tracks = stream.getTracks().toDart;
-      for (final t in tracks) {
-        try {
-          t.stop();
-        } catch (e) {
-          debugPrint('guide camera track.stop: $e');
-        }
-      }
+  void _discardVideo(web.HTMLVideoElement? video) {
+    if (video == null) return;
+    try {
+      video.srcObject = null;
+      video.pause();
+      video.remove();
+    } catch (e) {
+      debugPrint('guide camera video cleanup: $e');
     }
   }
 

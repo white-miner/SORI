@@ -68,13 +68,14 @@ enum GuidePreset {
   bool get isSelfPreset =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// MediaPipe 정렬 — 페이스 + 데콜테(확장 링).
+  /// MediaPipe 정렬 — 페이스. 데콜테는 어깨 확인용으로 얼굴도 당분간 병행한다.
   bool get usesFaceAlign =>
       this == GuidePreset.face || this == GuidePreset.decollete;
 
-  /// MediaPipe 포즈 정렬 — 복부/하체/전신. 이 프리셋을 고를 때만 모델을 받는다.
+  /// MediaPipe 포즈 정렬 — 데콜테/복부/하체/전신. 이 프리셋을 고를 때만 모델을 받는다.
   GuideBodyTarget? get bodyTarget => switch (this) {
-        GuidePreset.face || GuidePreset.decollete => null,
+        GuidePreset.face => null,
+        GuidePreset.decollete => GuideBodyTarget.decollete,
         GuidePreset.abdomen => GuideBodyTarget.abdomen,
         GuidePreset.lowerBody => GuideBodyTarget.lowerBody,
         GuidePreset.fullBody => GuideBodyTarget.fullBody,
@@ -82,12 +83,13 @@ enum GuidePreset {
 
   bool get usesBodyAlign => bodyTarget != null;
 
-  IconData get materialIcon => switch (this) {
-        GuidePreset.face => Icons.face_retouching_natural,
-        GuidePreset.decollete => Icons.portrait,
-        GuidePreset.abdomen => Icons.accessibility_new,
-        GuidePreset.lowerBody => Icons.directions_walk,
-        GuidePreset.fullBody => Icons.woman_outlined,
+  /// 시안 viewBox(0..160) 기준 강조 구간. 데콜테는 얼굴을 빼 목~어깨만.
+  (double, double) get highlightZoneY => switch (this) {
+        GuidePreset.face => (2, 40),
+        GuidePreset.decollete => (30, 72),
+        GuidePreset.abdomen => (44, 100),
+        GuidePreset.lowerBody => (99, 158),
+        GuidePreset.fullBody => (2, 158),
       };
 }
 
@@ -248,8 +250,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       _error = null;
       _viewType = null;
       _facePose = GuideFacePose.none;
+      _bodyPose = GuideBodyPose.none;
+      _bodyProbe.reset();
     });
     await _faceAlign.stop();
+    await _bodyAlign.stop();
 
     // 카메라 스트림과 CDN 모델 로드를 병렬로 — 오버레이로 대기 UX 제공
     final prepareMl = needMl
@@ -341,6 +346,22 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     final target = _preset.bodyTarget;
     if (target == null) return;
     _bodyProbe.add(next, target, _viewfinderSize, mirrored: _faceMirrored);
+    if (_preset == GuidePreset.decollete) {
+      final wasAligned = _faceAligned;
+      setState(() => _bodyPose = next);
+      final aligned = next.computeDecolleteAligned(
+        _viewfinderSize,
+        mirrored: _faceMirrored,
+      );
+      if (aligned && !wasAligned) {
+        HapticFeedback.mediumImpact();
+        soriLightHaptic();
+        _scheduleAutoShootIfEnabled();
+      } else if (!aligned) {
+        _cancelAutoShootSchedule();
+      }
+      return;
+    }
     setState(() => _bodyPose = next);
   }
 
@@ -352,6 +373,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (!_bodyPose.detected) return '몸 전체가 화면에 들어오게 서 주세요';
     if (!_bodyPose.hasPointsFor(target)) {
       return switch (target) {
+        GuideBodyTarget.decollete => '어깨가 화면에 다 보이게',
         GuideBodyTarget.abdomen => '어깨·골반이 화면에 다 보이게',
         GuideBodyTarget.lowerBody => '골반·발목이 화면에 다 보이게',
         GuideBodyTarget.fullBody => '어깨·발목이 화면에 다 보이게',
@@ -365,7 +387,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   bool get _faceAligned {
     if (_preset == GuidePreset.decollete) {
-      return _facePose.computeDecolleteAligned(
+      return _bodyPose.computeDecolleteAligned(
         _viewfinderSize,
         mirrored: _faceMirrored,
       );
@@ -378,14 +400,14 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   void _onFacePose(GuideFacePose next) {
     if (!mounted) return;
+    if (_preset == GuidePreset.decollete) {
+      setState(() => _facePose = next);
+      return;
+    }
     final wasAligned = _faceAligned;
     setState(() => _facePose = next);
-    final aligned = _preset == GuidePreset.decollete
-        ? next.computeDecolleteAligned(
-            _viewfinderSize,
-            mirrored: _faceMirrored,
-          )
-        : next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
+    final aligned =
+        next.computeAligned(_viewfinderSize, mirrored: _faceMirrored);
 
     if (aligned && !wasAligned) {
       HapticFeedback.mediumImpact();
@@ -412,6 +434,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (!_autoShootEnabled ||
         !_faceAlignActive ||
         _mlLoading ||
+        (_preset == GuidePreset.decollete && _bodyLoading) ||
         _busy ||
         _countdown != null) {
       return;
@@ -433,17 +456,29 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     _autoShootHoldTimer = null;
   }
 
+  String? get _dockHint {
+    if (_preset == GuidePreset.decollete) return _faceHintText;
+    if (_bodyAlignActive) return _bodyHintText;
+    return _faceHintText;
+  }
+
   String? get _faceHintText {
     if (_preset == GuidePreset.decollete) {
-      if (_mlLoading) return 'AI 준비 중';
-      if (!_facePose.detected) return '얼굴을 찾는 중';
-      if (!_facePose.isDecolletePositionAligned(
+      if (_bodyLoading) return '포즈 AI 준비 중';
+      if (!_bodyPose.detected) return '어깨가 보이게 서 주세요';
+      if (!_bodyPose.hasPointsFor(GuideBodyTarget.decollete)) {
+        return '양쪽 어깨가 화면에 다 보이게';
+      }
+      if (!_bodyPose.isDecolletePositionAligned(
         _viewfinderSize,
         mirrored: _faceMirrored,
       )) {
         return '촬영 거리(크기)를 맞춰 주세요';
       }
-      if (!_facePose.isDecolleteScaleAligned(_viewfinderSize)) {
+      if (!_bodyPose.isDecolleteScaleAligned(_viewfinderSize)) {
+        final dir = _bodyPose.decolleteScaleDirection(_viewfinderSize);
+        if (dir > 0) return '조금 더 가까이 오세요';
+        if (dir < 0) return '조금 더 멀리 움직이세요';
         return '촬영 거리(크기)를 맞춰 주세요';
       }
       return _autoShootEnabled ? '거리·중심 정렬됨 · 자동 촬영 대기' : '거리·중심 정렬됨';
@@ -571,13 +606,6 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       _bodyProbe.reset();
     });
     if (!_session.isRunning) return;
-    if (p.usesBodyAlign) {
-      await _faceAlign.stop();
-      if (mounted) setState(() => _mlLoading = false);
-      await _startBodyAlign();
-      return;
-    }
-    await _stopBodyAlign();
     if (p.usesFaceAlign) {
       setState(() => _mlLoading = true);
       try {
@@ -592,6 +620,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     } else {
       await _faceAlign.stop();
       if (mounted) setState(() => _mlLoading = false);
+    }
+    if (p.usesBodyAlign) {
+      await _startBodyAlign();
+    } else {
+      await _stopBodyAlign();
     }
   }
 
@@ -796,8 +829,8 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onAutoShootToggle: _toggleAutoShoot,
           onShutter: _onShutterPressed,
           onFlip: () => unawaited(_toggleCameraFacing()),
-          faceHint: _bodyAlignActive ? _bodyHintText : _faceHintText,
-          faceAligned: _faceAligned && !_mlLoading,
+          faceHint: _dockHint,
+          faceAligned: _faceAligned && !_mlLoading && !_bodyLoading,
         ),
       ],
     );
@@ -836,8 +869,8 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     onAutoShootToggle: _toggleAutoShoot,
                     onShutter: _onShutterPressed,
                     onFlip: () => unawaited(_toggleCameraFacing()),
-                    faceHint: _bodyAlignActive ? _bodyHintText : _faceHintText,
-                    faceAligned: _faceAligned && !_mlLoading,
+                    faceHint: _dockHint,
+                    faceAligned: _faceAligned && !_mlLoading && !_bodyLoading,
                     compact: true,
                   ),
                 ),
@@ -943,7 +976,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                   IgnorePointer(
                     ignoring: true,
                     child: _DecolleteAlignGuideLayer(
-                      pose: _facePose,
+                      pose: _bodyPose,
                       mirrored: _mode == GuideCaptureMode.selfFront,
                       guideColor: _decolleteGuideColor,
                       aligned: _faceAligned,
@@ -1136,7 +1169,7 @@ class _CameraDock extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
                 SizedBox(
-                  height: 48,
+                  height: 52,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -1392,11 +1425,8 @@ class _PresetIconButton extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  static const _inactive = SoriTokens.inactiveGray;
-
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? SoriTokens.cameraYellow : _inactive;
     return Semantics(
       button: true,
       label: preset.label,
@@ -1406,11 +1436,11 @@ class _PresetIconButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
           width: 48,
-          height: 44,
+          height: 48,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(preset.materialIcon, size: 28, color: fg),
+              GuidePresetZoneIcon(preset: preset, selected: selected),
               const SizedBox(height: 4),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
@@ -1426,6 +1456,122 @@ class _PresetIconButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 같은 사람 실루엣 + 촬영 부위만 강조. 시안 viewBox 80×160.
+class GuidePresetZoneIcon extends StatelessWidget {
+  const GuidePresetZoneIcon({
+    super.key,
+    required this.preset,
+    required this.selected,
+  });
+
+  final GuidePreset preset;
+  final bool selected;
+
+  static const double width = 18;
+  static const double height = 32;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(width, height),
+      painter: _PresetZonePainter(preset: preset, selected: selected),
+    );
+  }
+}
+
+class _PresetZonePainter extends CustomPainter {
+  _PresetZonePainter({required this.preset, required this.selected});
+
+  final GuidePreset preset;
+  final bool selected;
+
+  static const _viewW = 80.0;
+  static const _viewH = 160.0;
+
+  static Path silhouette() {
+    final p = Path();
+    p.addOval(Rect.fromCircle(center: const Offset(40, 22), radius: 16));
+    p.addRect(const Rect.fromLTRB(34, 36, 46, 46));
+    p
+      ..moveTo(20, 46)
+      ..quadraticBezierTo(18, 44, 20, 44)
+      ..lineTo(60, 44)
+      ..quadraticBezierTo(62, 44, 60, 46)
+      ..lineTo(58, 60)
+      ..quadraticBezierTo(60, 78, 56, 96)
+      ..lineTo(52, 100)
+      ..lineTo(28, 100)
+      ..lineTo(24, 96)
+      ..quadraticBezierTo(20, 78, 22, 60)
+      ..close();
+    p
+      ..moveTo(25, 100)
+      ..lineTo(37, 100)
+      ..lineTo(36, 156)
+      ..quadraticBezierTo(36, 160, 32, 160)
+      ..lineTo(28, 160)
+      ..quadraticBezierTo(25, 160, 25, 156)
+      ..close();
+    p
+      ..moveTo(43, 100)
+      ..lineTo(55, 100)
+      ..lineTo(56, 156)
+      ..quadraticBezierTo(56, 160, 52, 160)
+      ..lineTo(48, 160)
+      ..quadraticBezierTo(45, 160, 44, 156)
+      ..close();
+    return p;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = math.min(size.width / _viewW, size.height / _viewH);
+    final dx = (size.width - _viewW * scale) / 2;
+    final dy = (size.height - _viewH * scale) / 2;
+    canvas
+      ..save()
+      ..translate(dx, dy)
+      ..scale(scale);
+
+    final body = silhouette();
+    final stroke = Paint()
+      ..color = Colors.white.withValues(alpha: selected ? 0.38 : 0.28)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(body, stroke);
+
+    final (y0, y1) = preset.highlightZoneY;
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, y0, _viewW, y1 - y0));
+    final accent = selected
+        ? SoriTokens.cameraYellow
+        : SoriTokens.cameraYellow.withValues(alpha: 0.42);
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = accent.withValues(alpha: selected ? 0.92 : 0.55)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.restore();
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _PresetZonePainter oldDelegate) {
+    return oldDelegate.preset != preset || oldDelegate.selected != selected;
   }
 }
 
@@ -1682,7 +1828,7 @@ class _DecolleteAlignGuideLayer extends StatelessWidget {
     required this.aligned,
   });
 
-  final GuideFacePose pose;
+  final GuideBodyPose pose;
   final bool mirrored;
   final Color guideColor;
   final bool aligned;
@@ -1695,10 +1841,15 @@ class _DecolleteAlignGuideLayer extends StatelessWidget {
         final target = pose.decolleteTargetCenterPx(size);
         final targetR = pose.decolleteTargetRadiusPx(size);
         final snap = pose.isDecolleteInSnapZone(size, mirrored: mirrored);
-        final faceC = pose.faceCenterPx(size, mirrored: mirrored);
+        final liveC = pose.centerPx(
+              GuideBodyTarget.decollete,
+              size,
+              mirrored: mirrored,
+            ) ??
+            target;
         final dynR = pose.decolleteDynamicRadiusPx(size);
 
-        final displayC = (snap || aligned) ? target : faceC;
+        final displayC = (snap || aligned) ? target : liveC;
         final displayR = (snap || aligned) ? targetR : dynR;
         final animateSnap = snap || aligned;
 
