@@ -73,7 +73,9 @@ void main() {
 
         // SS가 시계 위젯의 경계 안에 완전히 들어와야 한다.
         final clockRect = tester.getRect(find.byType(FlipClockDisplay));
-        final ssRect = tester.getRect(find.text('38'));
+        final ssRect = tester.getRect(
+          find.byKey(const Key('dark-glass-corner-seconds')),
+        );
 
         expect(ssRect.right, lessThanOrEqualTo(clockRect.right + 0.5));
         expect(ssRect.bottom, lessThanOrEqualTo(clockRect.bottom + 0.5));
@@ -106,7 +108,8 @@ void main() {
           ),
         );
         await tester.pump();
-        return tester.getRect(find.text('0'));
+        // 스플릿플랩은 한 타일에 위·아래 두 장을 그린다. 첫 타일만 잰다.
+        return tester.getRect(find.byKey(const Key('dark-glass-digit')).first);
       }
 
       final without = await digitsRect(withSeconds: false);
@@ -165,9 +168,10 @@ void main() {
       );
       await tester.pump();
 
-      // '38' 을 감싼 조상 중에 어두운 그라디언트 배경이 있어야 한다.
+      // 초 숫자를 감싼 조상 중에 어두운 그라디언트 배경이 있어야 한다.
+      final cornerDigit = find.byKey(const Key('dark-glass-corner-digit')).first;
       final panel = find
-          .ancestor(of: find.text('38'), matching: find.byType(Container))
+          .ancestor(of: cornerDigit, matching: find.byType(Container))
           .evaluate()
           .map((e) => e.widget as Container)
           .where((c) => c.decoration is BoxDecoration)
@@ -182,7 +186,7 @@ void main() {
       }
 
       // 글자는 패널 위에서 흰색이다.
-      final ss = tester.widget<Text>(find.text('38'));
+      final ss = tester.widget<Text>(cornerDigit);
       expect(ss.style!.color!.computeLuminance(), greaterThan(0.7));
     });
   });

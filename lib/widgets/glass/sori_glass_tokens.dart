@@ -54,6 +54,34 @@ abstract final class SoriGlassTokens {
           Colors.white.withValues(alpha: pressed ? 0.90 : 0.82),
       };
 
+  /// 하단 탭바 전용. l3Overlay(0.82)는 뒤가 안 비쳐 불투명한 흰 바로 보인다.
+  /// 모달과 값을 공유하면 모달까지 같이 투명해지므로 여기만 따로 둔다.
+  static Color navBarFill({bool pressed = false}) =>
+      Colors.white.withValues(alpha: pressed ? 0.68 : 0.58);
+
+  /// 선택 알약. 그림자를 짧게 둬야 탭바 가장자리에서 잘리지 않는다.
+  static BoxDecoration navHighlightDecoration({required double radius}) {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: 0.52),
+          Colors.white.withValues(alpha: 0.24),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.60)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 14,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    );
+  }
+
   static BoxDecoration pseudoChipDecoration({
     required double radius,
     SoriGlassSemantic semantic = SoriGlassSemantic.neutral,

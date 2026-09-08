@@ -164,6 +164,7 @@ void main() {
 
     testWidgets('헤더·독 사이 사진은 화면 너비를 꽉 채운다', (tester) async {
       for (final size in const [Size(430, 932), Size(932, 430)]) {
+        final landscape = size.width > size.height;
         await pumpViewer(
           tester,
           size: size,
@@ -184,11 +185,57 @@ void main() {
 
         expect(stage.left, closeTo(0, 1));
         expect(stage.width, closeTo(screen.width, 1));
-        expect(stage.top, greaterThan(40));
+        // 가로는 크롬이 사진 위에 떠서 사진이 맨 위부터 시작한다.
+        if (landscape) {
+          expect(stage.top, closeTo(0, 1));
+          expect(
+            find.byKey(const Key('ba-compare-chrome-overlay')),
+            findsOneWidget,
+          );
+        } else {
+          expect(stage.top, greaterThan(40));
+          expect(
+            find.byKey(const Key('ba-compare-chrome-overlay')),
+            findsNothing,
+          );
+        }
         expect(dock.top, greaterThanOrEqualTo(stage.bottom - 2));
         expect(stage.height, greaterThan(size.height * 0.4));
         expect(tester.takeException(), isNull);
       }
+    });
+
+    testWidgets('가로는 사진 폭을 세로에 묶어 위아래 크롭을 줄인다', (tester) async {
+      await pumpViewer(
+        tester,
+        size: const Size(932, 430),
+        initialChartId: 'face-4',
+      );
+
+      final stage = tester.getRect(
+        find.byKey(const Key('ba-compare-photo-stage')),
+      );
+      final frame = tester.getRect(
+        find.byKey(const Key('ba-compare-photo-frame')),
+      );
+
+      expect(frame.height, closeTo(stage.height, 1));
+      expect(frame.width, lessThan(stage.width));
+      expect(frame.width, closeTo(stage.height * 3 / 4, 1));
+      expect(frame.center.dx, closeTo(stage.center.dx, 1));
+
+      await pumpViewer(
+        tester,
+        size: const Size(430, 932),
+        initialChartId: 'face-4',
+      );
+      final portraitStage = tester.getRect(
+        find.byKey(const Key('ba-compare-photo-stage')),
+      );
+      final portraitFrame = tester.getRect(
+        find.byKey(const Key('ba-compare-photo-frame')),
+      );
+      expect(portraitFrame.width, closeTo(portraitStage.width, 1));
     });
 
     testWidgets('슬라이더는 전면 드래그이고 메인 사진은 cover 다', (tester) async {
@@ -341,10 +388,11 @@ void main() {
       Offset beforeAt() => tester.getTopLeft(beforeKey);
       Offset afterAt() => tester.getTopRight(afterKey);
 
+      // 가로는 크롬이 사진 위에 떠 있어 라벨이 그 아래로 내려간다.
       expect(beforeAt().dx, closeTo(stage.left + 16, 1));
-      expect(beforeAt().dy, closeTo(stage.top + 16, 1));
+      expect(beforeAt().dy, closeTo(stage.top + 64, 1));
       expect(afterAt().dx, closeTo(stage.right - 16, 1));
-      expect(afterAt().dy, closeTo(stage.top + 16, 1));
+      expect(afterAt().dy, closeTo(stage.top + 64, 1));
 
       final pinnedBefore = beforeAt();
       final pinnedAfter = afterAt();

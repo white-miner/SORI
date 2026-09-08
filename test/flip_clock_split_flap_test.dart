@@ -21,9 +21,61 @@ void main() {
     for (final text in mains) {
       expect(text.style?.fontWeight, kDarkGlassDigitWeight);
     }
-    final corner = tester.widget<Text>(find.byKey(const Key('dark-glass-corner-digit')));
-    expect(corner.style?.fontWeight, kDarkGlassDigitWeight);
+    final corners = tester.widgetList<Text>(
+      find.byKey(const Key('dark-glass-corner-digit')),
+    );
+    expect(corners, isNotEmpty);
+    for (final text in corners) {
+      expect(text.style?.fontWeight, kDarkGlassDigitWeight);
+    }
     expect(kDarkGlassDigitWeight, FontWeight.w700);
+  });
+
+  testWidgets('힌지 라인은 3px 두께다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: FlipClockDisplay(
+            totalSeconds: 65,
+            style: FlipClockStyle.darkGlass,
+          ),
+        ),
+      ),
+    );
+
+    final hinges = tester.widgetList<Container>(
+      find.byKey(const Key('split-flap-hinge')),
+    );
+    expect(hinges, isNotEmpty);
+    for (final hinge in hinges) {
+      expect(hinge.constraints?.maxHeight, kSplitFlapHingeThickness);
+    }
+    expect(kSplitFlapHingeThickness, 3.0);
+  });
+
+  testWidgets('구석 초도 같은 스플릿플랩으로 접힌다', (tester) async {
+    Widget clock(int seconds) => MaterialApp(
+          home: Scaffold(
+            body: FlipClockDisplay(
+              totalSeconds: seconds,
+              style: FlipClockStyle.darkGlass,
+              showCornerSeconds: true,
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(clock(65));
+    expect(find.byKey(const Key('split-flap-leaf')), findsNothing);
+
+    // 분은 그대로고 초만 바뀐다 → 접히는 건 구석 초 타일뿐이다.
+    await tester.pumpWidget(clock(66));
+    await tester.pump(const Duration(milliseconds: 210));
+
+    final leaf = tester.widget<Transform>(find.byKey(const Key('split-flap-leaf')));
+    expect(leaf.transform.storage[5].abs(), lessThan(0.2));
+
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('split-flap-leaf')), findsNothing);
   });
 
   testWidgets('숫자가 바뀌면 50% 지점에서 윗조각이 접혀 있고 끝나면 새 숫자로 고정된다',

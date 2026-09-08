@@ -16,6 +16,9 @@ enum FlipClockStyle {
 /// 다크 글래스 시·분·초 숫자 굵기. 구석 초와 메인 타일이 이 값을 공유한다.
 const FontWeight kDarkGlassDigitWeight = FontWeight.w700;
 
+/// 타일 가운데 힌지 선 두께. 구석 초 타일도 같은 값을 쓴다.
+const double kSplitFlapHingeThickness = 3.0;
+
 /// PRD v4.7 — Soft UI flip-clock with digit flip animation.
 class FlipClockDisplay extends StatelessWidget {
   const FlipClockDisplay({
@@ -180,7 +183,9 @@ class FlipClockDisplay extends StatelessWidget {
     // 밀려 화면을 벗어난다. 오른쪽에 SS 자리만큼 여백을 미리 떼어 두고
     // Stack의 크기를 그 여백 포함으로 확정한 뒤, 그 안에 SS를 고정한다.
     final ssSize = digitHeight * cornerSsScale;
-    final ssBoxW = ssSize * _ssBoxWidthRatio;
+    final ssTileW = ssSize * _ssTileWidthRatio;
+    final ssTileGap = ssSize * _ssTileGapRatio;
+    final ssBoxW = ssTileW * 2 + ssTileGap;
     final ssBoxH = ssSize * _ssBoxHeightRatio;
     final gutter = ssBoxW + ssSize * _ssGapRatio;
 
@@ -199,6 +204,9 @@ class FlipClockDisplay extends StatelessWidget {
           child: _CornerSeconds(
             seconds: seconds,
             fontSize: ssSize,
+            tileWidth: ssTileW,
+            tileHeight: ssBoxH,
+            tileGap: ssTileGap,
             darkGlass: _darkGlass,
           ),
         ),
@@ -206,8 +214,9 @@ class FlipClockDisplay extends StatelessWidget {
     );
   }
 
-  /// SS 두 자리(tabular) + 패널 여백. 폰트가 바뀌어도 FittedBox가 흡수한다.
-  static const _ssBoxWidthRatio = 1.72;
+  /// SS 타일 두 장 + 사이 간격. 합이 예전 배지 폭(1.72)과 같아야 시계가 안 밀린다.
+  static const _ssTileWidthRatio = 0.80;
+  static const _ssTileGapRatio = 0.12;
   static const _ssBoxHeightRatio = 1.38;
   static const _ssGapRatio = 0.16;
   static const _ssBottomInsetRatio = 0.10;
@@ -218,68 +227,72 @@ class FlipClockDisplay extends StatelessWidget {
 
 /// HH:MM 우측 하단에 얹히는 초(SS) 패널.
 ///
-/// 시/분 타일과 같은 다크 글래스를 깔아야 한다. 배경 없이 흰 글자만 두면
-/// 밝은 히어로 카드 위에서 초가 통째로 사라진다.
+/// 다크 글래스에서는 시/분과 같은 스플릿플랩 타일 두 장이다. 배지 하나에
+/// 두 자리를 넣고 글자만 갈아 끼우면 초만 안 접히는 시계가 된다.
 class _CornerSeconds extends StatelessWidget {
   const _CornerSeconds({
     required this.seconds,
     required this.fontSize,
+    required this.tileWidth,
+    required this.tileHeight,
+    required this.tileGap,
     required this.darkGlass,
   });
 
+  static const Key digitKey = Key('dark-glass-corner-digit');
+  static const Key panelKey = Key('dark-glass-corner-seconds');
+
   final int seconds;
   final double fontSize;
+  final double tileWidth;
+  final double tileHeight;
+  final double tileGap;
   final bool darkGlass;
 
   @override
   Widget build(BuildContext context) {
-    final radius = fontSize * 0.34;
-    final text = FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        key: const Key('dark-glass-corner-digit'),
-        seconds.toString().padLeft(2, '0'),
-        maxLines: 1,
-        softWrap: false,
-        style: GoogleFonts.nunito(
-          fontSize: fontSize,
-          fontWeight: kDarkGlassDigitWeight,
-          fontFeatures: const [FontFeature.tabularFigures()],
-          color: darkGlass
-              ? Colors.white.withValues(alpha: 0.92)
-              : SemanticSignalTheme.heroTextColor.withValues(alpha: 0.55),
-          height: 1,
-        ),
-      ),
-    );
+    final value = seconds.toString().padLeft(2, '0');
 
     if (!darkGlass) {
-      return Align(alignment: Alignment.bottomRight, child: text);
+      return Align(
+        key: panelKey,
+        alignment: Alignment.bottomRight,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            key: digitKey,
+            value,
+            maxLines: 1,
+            softWrap: false,
+            style: GoogleFonts.nunito(
+              fontSize: fontSize,
+              fontWeight: kDarkGlassDigitWeight,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: SemanticSignalTheme.heroTextColor.withValues(alpha: 0.55),
+              height: 1,
+            ),
+          ),
+        ),
+      );
     }
 
-    return Container(
-      alignment: Alignment.center,
-      padding: EdgeInsets.symmetric(horizontal: fontSize * 0.20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF2C2C2E), Color(0xFF1C1C1E)],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return Row(
+      key: panelKey,
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        for (var i = 0; i < value.length; i++) ...[
+          if (i > 0) SizedBox(width: tileGap),
+          _SplitFlapDigit(
+            digit: value[i],
+            height: tileHeight,
+            width: tileWidth,
+            fontSize: fontSize,
+            radius: fontSize * 0.30,
+            digitKey: digitKey,
           ),
         ],
-      ),
-      child: text,
+      ],
     );
   }
 }
@@ -522,6 +535,7 @@ class _SplitFlapDigit extends StatefulWidget {
     required this.width,
     required this.fontSize,
     required this.radius,
+    this.digitKey = const Key('dark-glass-digit'),
   });
 
   static const Duration flipDuration = Duration(milliseconds: 420);
@@ -531,6 +545,7 @@ class _SplitFlapDigit extends StatefulWidget {
   final double width;
   final double fontSize;
   final double radius;
+  final Key digitKey;
 
   @override
   State<_SplitFlapDigit> createState() => _SplitFlapDigitState();
@@ -640,9 +655,10 @@ class _SplitFlapDigitState extends State<_SplitFlapDigit>
               Positioned(
                 left: 6,
                 right: 6,
-                top: widget.height * 0.5 - 0.5,
+                top: widget.height * 0.5 - kSplitFlapHingeThickness / 2,
                 child: Container(
-                  height: 1,
+                  key: const Key('split-flap-hinge'),
+                  height: kSplitFlapHingeThickness,
                   color: Colors.black.withValues(alpha: 0.55),
                 ),
               ),
@@ -744,7 +760,7 @@ class _SplitFlapDigitState extends State<_SplitFlapDigit>
     return Center(
       child: Text(
         digit,
-        key: const Key('dark-glass-digit'),
+        key: widget.digitKey,
         style: GoogleFonts.nunito(
           fontSize: widget.fontSize,
           fontWeight: kDarkGlassDigitWeight,

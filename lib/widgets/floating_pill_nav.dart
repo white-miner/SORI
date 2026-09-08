@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ class FloatingPillNav extends StatefulWidget {
 }
 
 class _FloatingPillNavState extends State<FloatingPillNav>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const int _count = 5;
   static const double _barH = 64;
   static const double _radius = 32;
@@ -38,6 +39,9 @@ class _FloatingPillNavState extends State<FloatingPillNav>
   static const double _vInset = 6;
 
   late final AnimationController _spring;
+
+  /// 탭이 바뀔 때 알약 위를 스치는 하이라이트 + 짧은 스케일 반동.
+  late final AnimationController _sheen;
   double _barWidth = 0;
   double _highlightLeft = 0;
   bool _laidOut = false;
@@ -72,6 +76,11 @@ class _FloatingPillNavState extends State<FloatingPillNav>
         _highlightLeft = _spring.value;
         // 하이라이트만 리페인트 — 전체 setState 금지
       });
+    _sheen = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+      value: 1,
+    );
   }
 
   @override
@@ -87,6 +96,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
   @override
   void dispose() {
     _spring.dispose();
+    _sheen.dispose();
     super.dispose();
   }
 
@@ -97,6 +107,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
     }
     final target = _leftForIndex(index);
     _spring.stop();
+    _sheen.forward(from: 0);
     final sim = SpringSimulation(
       const SpringDescription(mass: 0.85, stiffness: 220, damping: 18),
       _highlightLeft,
@@ -201,12 +212,13 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             height: _barH,
             child: SoriGlassOverlay(
               borderRadius: BorderRadius.circular(_radius),
+              fill: SoriGlassTokens.navBarFill(),
               child: Stack(
                 clipBehavior: Clip.hardEdge,
                 children: [
                   if (_laidOut && _highlightW > 0)
                     AnimatedBuilder(
-                      animation: _spring,
+                      animation: Listenable.merge([_spring, _sheen]),
                       builder: (context, _) {
                         final left = _dragging
                             ? _highlightLeft
@@ -218,12 +230,9 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                           top: _vInset,
                           bottom: _vInset,
                           width: _highlightW,
-                          child: DecoratedBox(
-                            decoration: SoriGlassTokens.pseudoChipDecoration(
-                              radius: 24,
-                              semantic: SoriGlassSemantic.neutral,
-                              active: true,
-                            ),
+                          child: _GlassHighlight(
+                            key: const Key('nav-glass-highlight'),
+                            sheen: _sheen.value,
                           ),
                         );
                       },
@@ -283,6 +292,56 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// 선택 알약. 가짜 그라데이션이 아니라 실제로 뒤를 한 번 더 흐리게 만든다.
+class _GlassHighlight extends StatelessWidget {
+  const _GlassHighlight({super.key, required this.sheen});
+
+  static const double radius = 24;
+
+  /// 0이면 막 눌린 순간, 1이면 정지 상태.
+  final double sheen;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = sheen.clamp(0.0, 1.0);
+    // 눌린 직후 살짝 부풀었다가 제자리로 돌아온다.
+    final bounce = 1 + 0.06 * math.sin(t * math.pi);
+    // 빛줄기가 알약을 가로질러 지나간다.
+    final sweep = -1 + t * 2.4;
+
+    return Transform.scale(
+      scale: bounce,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: DecoratedBox(
+            decoration: SoriGlassTokens.navHighlightDecoration(radius: radius),
+            child: t >= 1
+                ? const SizedBox.expand()
+                : DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(radius),
+                      gradient: LinearGradient(
+                        begin: Alignment(sweep - 0.6, -1),
+                        end: Alignment(sweep + 0.6, 1),
+                        colors: [
+                          Colors.white.withValues(alpha: 0),
+                          Colors.white.withValues(alpha: 0.55 * (1 - t)),
+                          Colors.white.withValues(alpha: 0),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+          ),
+        ),
       ),
     );
   }

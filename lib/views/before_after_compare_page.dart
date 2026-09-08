@@ -328,23 +328,32 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
     final short = !empty && _shortLandscape;
     final wide = !empty && _wideLandscape;
 
+    final landscape = short || wide;
+    final topChrome = Padding(
+      padding: EdgeInsets.fromLTRB(8, short ? 2 : 4, 8, short ? 2 : 8),
+      child: _TopChrome(
+        careLabel: _careLabel,
+        careOpen: _careOpen,
+        programs: _programs,
+        programKey: _programKey,
+        compact: short,
+        onBack: () => Navigator.of(context).maybePop(),
+        onToggleCare: () => setState(() => _careOpen = !_careOpen),
+        onSelectCare: _selectProgram,
+        onMore: _openMore,
+      ),
+    );
+
     final column = Column(
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(8, short ? 2 : 4, 8, short ? 2 : 8),
-          child: _TopChrome(
-            careLabel: _careLabel,
-            careOpen: _careOpen,
-            programs: _programs,
-            programKey: _programKey,
-            compact: short,
-            onBack: () => Navigator.of(context).maybePop(),
-            onToggleCare: () => setState(() => _careOpen = !_careOpen),
-            onSelectCare: _selectProgram,
-            onMore: _openMore,
+        // 가로는 세로 공간이 짧다. 크롬이 한 줄을 더 먹으면 사진이 그만큼 잘린다.
+        if (!landscape) topChrome,
+        Expanded(
+          child: _buildPhotoStage(
+            landscape: landscape,
+            overlayChrome: landscape ? topChrome : null,
           ),
         ),
-        Expanded(child: _buildPhotoStage()),
         BaWorkspaceDock(
           key: const Key('ba-compare-story-strip'),
           slots: _scopedSlots,
@@ -386,8 +395,13 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
     );
   }
 
-  Widget _buildPhotoStage() {
+  Widget _buildPhotoStage({
+    required bool landscape,
+    Widget? overlayChrome,
+  }) {
     final hasPhoto = _left != null || _right != null;
+    // 크롬이 사진 위에 뜨면 라벨은 그 아래로 내려야 겹치지 않는다.
+    final labelTop = overlayChrome == null ? 16.0 : 64.0;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -401,25 +415,26 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
                   useSlider: _useSlider && _left != null && _right != null,
                   zoom: _zoom,
                   panY: _panY,
+                  landscape: landscape,
                   onPanDelta: _nudgeY,
                 )
               : const ColoredBox(color: Color(0xFF0A0A0B)),
         ),
         if (hasPhoto) ...[
-          const Positioned(
-            top: 16,
+          Positioned(
+            top: labelTop,
             left: 16,
-            child: IgnorePointer(
+            child: const IgnorePointer(
               child: _ViewportCornerTag(
                 key: Key('ba-compare-label-before'),
                 text: 'Before',
               ),
             ),
           ),
-          const Positioned(
-            top: 16,
+          Positioned(
+            top: labelTop,
             right: 16,
-            child: IgnorePointer(
+            child: const IgnorePointer(
               child: _ViewportCornerTag(
                 key: Key('ba-compare-label-after'),
                 text: 'After',
@@ -469,6 +484,20 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
             onToggle: () => setState(() => _useSlider = !_useSlider),
           ),
         ),
+        if (overlayChrome != null)
+          Positioned(
+            key: const Key('ba-compare-chrome-overlay'),
+            top: 0,
+            left: 0,
+            right: 0,
+            child: GestureDetector(
+              // 크롬 위 가로 드래그가 아래 비교 슬라이더를 끌고 가면 안 된다.
+              behavior: HitTestBehavior.deferToChild,
+              onHorizontalDragStart: (_) {},
+              onHorizontalDragUpdate: (_) {},
+              child: SafeArea(bottom: false, child: overlayChrome),
+            ),
+          ),
       ],
     );
   }
@@ -506,14 +535,19 @@ class _ComparePhotoBody extends StatelessWidget {
     required this.useSlider,
     required this.zoom,
     required this.panY,
+    required this.landscape,
     required this.onPanDelta,
   });
+
+  /// 인물 사진 한 장이 차지해야 할 가로:세로. 가로모드 필러박스 기준이다.
+  static const double portraitAspect = 3 / 4;
 
   final VisitPhotoSlot? left;
   final VisitPhotoSlot? right;
   final bool useSlider;
   final double zoom;
   final double panY;
+  final bool landscape;
   final ValueChanged<double> onPanDelta;
 
   Widget _pane(VisitPhotoSlot slot) {
@@ -553,7 +587,16 @@ class _ComparePhotoBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final h = constraints.maxHeight;
-        final photo = useSlider && left != null && right != null
+        final slider = useSlider && left != null && right != null;
+        // 가로는 박스가 넓고 낮다. cover로 채우면 인물의 위아래가 잘려 나간다.
+        // 사진이 쓸 폭을 세로 길이에 맞춰 묶고 남는 좌우는 여백으로 둔다.
+        final photoWidth = landscape
+            ? (h *
+                    _ComparePhotoBody.portraitAspect *
+                    (slider ? 1 : 2))
+                .clamp(0.0, constraints.maxWidth)
+            : constraints.maxWidth;
+        final photo = slider
             ? BeforeAfterSlider(
                 height: h,
                 maxHeight: h,
@@ -574,6 +617,13 @@ class _ComparePhotoBody extends StatelessWidget {
                 ],
               );
 
+        final sized = SizedBox(
+          key: const Key('ba-compare-photo-frame'),
+          width: photoWidth,
+          height: h,
+          child: photo,
+        );
+
         final framed = ClipRect(
           child: Transform.translate(
             offset: Offset(0, panY),
@@ -583,7 +633,7 @@ class _ComparePhotoBody extends StatelessWidget {
               alignment: Alignment.center,
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
-              child: photo,
+              child: Center(child: sized),
             ),
           ),
         );
