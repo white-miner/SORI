@@ -11,16 +11,59 @@ import '../features/visit/visit_session_page.dart';
 import '../visit_kernel/theme/visit_glass_tokens.dart';
 import 'smart_guide_camera_page.dart';
 
-/// 촬영 탭을 열었을 때 허브를 건너뛰고 곧바로 카메라를 띄울지 정한다.
-///
-/// 아무것도 진행 중이 아니면 탭 한 번이 곧 촬영이다. 이어 찍을 게 남아 있으면
-/// 허브를 먼저 보여 줘야 사용자가 그걸 고를 수 있다.
-bool shouldAutoOpenCamera({
-  required bool hasActiveSession,
-  required bool hasInbox,
-  required bool hasAfterWaiting,
-}) {
-  return !hasActiveSession && !hasInbox && !hasAfterWaiting;
+/// 같은 sessionToken 의 Before/After 한 묶음.
+class ShootInboxSession {
+  const ShootInboxSession({
+    required this.token,
+    this.before,
+    this.after,
+  });
+
+  final String token;
+  final ShootInboxItem? before;
+  final ShootInboxItem? after;
+
+  bool get hasBefore => before != null;
+  bool get hasAfter => after != null;
+
+  /// 고객 연결에 쓸 대표 항목 (Before 우선).
+  ShootInboxItem? get primary => before ?? after;
+}
+
+/// 미연결 큐를 세션 단위로 묶는다. 토큰이 없는 항목은 단독 세션.
+List<ShootInboxSession> groupShootInboxSessions(List<ShootInboxItem> inbox) {
+  final order = <String>[];
+  final map = <String, List<ShootInboxItem>>{};
+  for (final item in inbox) {
+    final token = item.sessionToken.trim().isEmpty
+        ? 'legacy-${item.id}'
+        : item.sessionToken.trim();
+    if (!map.containsKey(token)) {
+      order.add(token);
+      map[token] = [];
+    }
+    map[token]!.add(item);
+  }
+
+  return [
+    for (final token in order)
+      () {
+        ShootInboxItem? before;
+        ShootInboxItem? after;
+        for (final item in map[token]!) {
+          if (item.isBefore) {
+            before ??= item;
+          } else if (item.isAfter) {
+            after ??= item;
+          }
+        }
+        return ShootInboxSession(
+          token: token,
+          before: before,
+          after: after,
+        );
+      }(),
+  ];
 }
 
 /// 원장 GNB 중앙 「촬영」허브 — C1~C3.
@@ -38,10 +81,6 @@ class _ShootHubPageState extends State<ShootHubPage> {
   String _query = '';
   Customer? _selected;
   bool _busy = false;
-  String? _tempSessionToken;
-  String? _tempSessionBeforeUrl;
-  bool _tabActive = false;
-  bool _autoShootPending = false;
 
   SoriStore get store => widget.store;
 
@@ -52,34 +91,6 @@ class _ShootHubPageState extends State<ShootHubPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(store.refreshShootInbox());
       unawaited(store.refreshVisitSessions());
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 셸은 탭을 IndexedStack에 살려 둔다. 비활성 가지는 TickerMode가 꺼져 있어서
-    // 이 값이 켜지는 순간이 곧 "촬영 탭을 눌렀다"는 신호다.
-    final active = TickerMode.of(context);
-    if (active == _tabActive) return;
-    _tabActive = active;
-    if (active) _scheduleAutoShoot();
-  }
-
-  void _scheduleAutoShoot() {
-    if (_autoShootPending || _busy) return;
-    _autoShootPending = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _autoShootPending = false;
-      if (!mounted || !_tabActive || _busy) return;
-      await store.refreshShootInbox();
-      if (!mounted || !_tabActive || _busy) return;
-      final go = shouldAutoOpenCamera(
-        hasActiveSession: store.activeVisitSession != null,
-        hasInbox: store.shootInbox.isNotEmpty,
-        hasAfterWaiting: _afterWaiting.isNotEmpty,
-      );
-      if (go) await _shootUnbound(kind: GuideCameraKind.before);
     });
   }
 
@@ -116,6 +127,9 @@ class _ShootHubPageState extends State<ShootHubPage> {
 
   List<({Customer customer, CustomerChart chart})> get _afterWaiting =>
       store.shootAfterWaiting().take(20).toList();
+
+  List<ShootInboxSession> get _sessions =>
+      groupShootInboxSessions(store.shootInbox);
 
   Future<void> _shootExisting({
     required Customer customer,
@@ -159,18 +173,6 @@ class _ShootHubPageState extends State<ShootHubPage> {
           afterImageUrl: result.url,
         );
       }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.kind == GuideCameraKind.before
-                ? '${customer.name} · ${chart.visitNumber}회 Before 저장'
-                : '${customer.name} · ${chart.visitNumber}회 After 저장',
-          ),
-          backgroundColor: SoriTokens.primary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -185,13 +187,24 @@ class _ShootHubPageState extends State<ShootHubPage> {
     }
   }
 
-  Future<void> _shootUnbound({required GuideCameraKind kind}) async {
+  /// 미연결 촬영. 라벨 팝업·스낵바 없이 큐에만 넣고 바로 허브로 돌아온다.
+  ///
+  /// Before는 항상 새 세션. After는 [sessionToken]/[ghostBeforeUrl]로
+  /// 짝 Before에 묶인다.
+  Future<void> _shootUnbound({
+    required GuideCameraKind kind,
+    String? sessionToken,
+    String? ghostBeforeUrl,
+  }) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      _tempSessionToken ??=
-          'sess-${DateTime.now().millisecondsSinceEpoch}';
-      final ghost = kind == GuideCameraKind.after ? _tempSessionBeforeUrl : null;
+      final token = kind == GuideCameraKind.before
+          ? 'sess-${DateTime.now().millisecondsSinceEpoch}'
+          : (sessionToken ??
+              'sess-${DateTime.now().millisecondsSinceEpoch}');
+      final ghost =
+          kind == GuideCameraKind.after ? ghostBeforeUrl : null;
 
       final result = await SmartGuideCameraPage.open(
         context,
@@ -200,47 +213,8 @@ class _ShootHubPageState extends State<ShootHubPage> {
         kind: kind,
         ghostBeforeUrl: ghost,
       );
+      // 촬영 없이 닫으면 아무 팝업도 없이 허브로만 돌아온다.
       if (!mounted || result == null) return;
-
-      final labelCtrl = TextEditingController(
-        text: kind == GuideCameraKind.before ? '신규' : '신규 After',
-      );
-      final label = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: SoriTokens.surfaceElevated,
-          title: const Text(
-            '임시 라벨',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-          ),
-          content: TextField(
-            controller: labelCtrl,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: '예: 1번 베드, 김○○',
-              hintStyle: TextStyle(color: SoriTokens.textQuaternary),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, ''),
-              child: const Text('건너뛰기'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, labelCtrl.text.trim()),
-              child: const Text(
-                '저장',
-                style: TextStyle(
-                  color: SoriTokens.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-      labelCtrl.dispose();
 
       await store.enqueueShootInboxItem(
         ShootInboxItem(
@@ -248,20 +222,10 @@ class _ShootHubPageState extends State<ShootHubPage> {
           shopId: store.shop.id,
           kind: result.kind == GuideCameraKind.before ? 'before' : 'after',
           imageUrl: result.url,
-          label: (label ?? '').trim().isEmpty ? '미등록' : label!.trim(),
-          sessionToken: _tempSessionToken!,
+          label: '미등록',
+          sessionToken: token,
           createdAt: DateTime.now(),
           ghostBeforeUrl: ghost,
-        ),
-      );
-      if (result.kind == GuideCameraKind.before) {
-        _tempSessionBeforeUrl = result.url;
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('미연결 큐에 저장했어요. 나중에 고객에게 연결하세요.'),
-          behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
@@ -278,23 +242,26 @@ class _ShootHubPageState extends State<ShootHubPage> {
     }
   }
 
-  Future<void> _bindInbox(ShootInboxItem item) async {
+  Future<void> _bindSession(ShootInboxSession session) async {
+    final primary = session.primary;
+    if (primary == null) return;
     final customer = await _pickCustomerForBind();
     if (customer == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      await store.bindShootInboxToCustomer(
-        inboxId: item.id,
-        customerId: customer.id,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${customer.name} 차트에 연결했어요'),
-          backgroundColor: SoriTokens.primary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (session.before != null) {
+        await store.bindShootInboxToCustomer(
+          inboxId: session.before!.id,
+          customerId: customer.id,
+        );
+      }
+      if (session.after != null &&
+          store.shootInbox.any((e) => e.id == session.after!.id)) {
+        await store.bindShootInboxToCustomer(
+          inboxId: session.after!.id,
+          customerId: customer.id,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -306,6 +273,14 @@ class _ShootHubPageState extends State<ShootHubPage> {
       );
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _dismissSession(ShootInboxSession session) async {
+    for (final item in [session.before, session.after]) {
+      if (item != null) {
+        await store.dismissShootInboxItem(item.id);
+      }
     }
   }
 
@@ -378,7 +353,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
   @override
   Widget build(BuildContext context) {
     final waiting = _afterWaiting;
-    final inbox = store.shootInbox;
+    final sessions = _sessions;
     final bottom = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
@@ -478,20 +453,6 @@ class _ShootHubPageState extends State<ShootHubPage> {
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                if (_tempSessionBeforeUrl != null) ...[
-                  const SizedBox(height: 8),
-                  FilledButton.tonalIcon(
-                    key: const Key('shoot-now-after'),
-                    onPressed: _busy
-                        ? null
-                        : () => _shootUnbound(kind: GuideCameraKind.after),
-                    icon: const Icon(Icons.compare_arrows_rounded),
-                    label: const Text(
-                      '같은 임시 세션 After 촬영',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ],
                 if (waiting.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Text(
@@ -523,23 +484,41 @@ class _ShootHubPageState extends State<ShootHubPage> {
                     ),
                   ),
                 ],
-                if (inbox.isNotEmpty) ...[
+                if (sessions.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Text(
-                    '미연결 · ${inbox.length}',
+                    '미연결 · ${sessions.length}',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  for (final item in inbox)
-                    _InboxTile(
-                      item: item,
-                      onBind: () => _bindInbox(item),
-                      onDismiss: () =>
-                          unawaited(store.dismissShootInboxItem(item.id)),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '빈 After 칸을 누르면 짝 사진을 찍어요. 사진을 길게 누르면 고객에게 연결합니다.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: SoriTokens.textTertiary,
                     ),
+                  ),
+                  // Before | After 가 한 줄의 2열. 썸네일은 예전 48px의 ~2.5배 이상.
+                  for (final session in sessions) ...[
+                    const SizedBox(height: 10),
+                    _SessionPairCard(
+                      session: session,
+                      onShootAfter: session.hasBefore && !session.hasAfter
+                          ? () => _shootUnbound(
+                                kind: GuideCameraKind.after,
+                                sessionToken: session.token,
+                                ghostBeforeUrl: session.before!.imageUrl,
+                              )
+                          : null,
+                      onBind: () => unawaited(_bindSession(session)),
+                      onDismiss: () =>
+                          unawaited(_dismissSession(session)),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 18),
                 TextField(
@@ -711,66 +690,154 @@ class _WaitingChip extends StatelessWidget {
   }
 }
 
-class _InboxTile extends StatelessWidget {
-  const _InboxTile({
-    required this.item,
+/// Before | After 페어 한 칸. 빈 After 는 카메라 진입 슬롯.
+class _SessionPairCard extends StatelessWidget {
+  const _SessionPairCard({
+    required this.session,
+    required this.onShootAfter,
     required this.onBind,
     required this.onDismiss,
   });
 
-  final ShootInboxItem item;
+  final ShootInboxSession session;
+  final VoidCallback? onShootAfter;
   final VoidCallback onBind;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Material(
       color: SoriTokens.surface,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            item.imageUrl,
-            width: 48,
-            height: 48,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              width: 48,
-              height: 48,
-              color: SoriTokens.surfaceOverlay,
-              child: const Icon(Icons.image_not_supported_outlined),
-            ),
-          ),
-        ),
-        title: Text(
-          '${item.label} · ${item.isBefore ? 'Before' : 'After'}',
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: const Text(
-          '고객 미연결',
-          style: TextStyle(fontSize: 12, color: SoriTokens.textTertiary),
-        ),
-        trailing: Wrap(
-          spacing: 4,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextButton(
-              onPressed: onBind,
-              child: const Text(
-                '연결',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: SoriTokens.primary,
+            Row(
+              children: [
+                const Spacer(),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: onDismiss,
+                  icon: const Icon(Icons.close, size: 18),
                 ),
-              ),
+              ],
             ),
-            IconButton(
-              onPressed: onDismiss,
-              icon: const Icon(Icons.close, size: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _PairSlot(
+                    label: 'Before',
+                    imageUrl: session.before?.imageUrl,
+                    emptyIcon: Icons.image_outlined,
+                    onTap: session.before != null ? onBind : null,
+                    onLongPress: session.before != null ? onBind : null,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _PairSlot(
+                    label: 'After',
+                    imageUrl: session.after?.imageUrl,
+                    emptyIcon: Icons.add_a_photo_outlined,
+                    showPlus: session.after == null,
+                    onTap: session.after != null
+                        ? onBind
+                        : onShootAfter,
+                    onLongPress: session.after != null ? onBind : null,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PairSlot extends StatelessWidget {
+  const _PairSlot({
+    required this.label,
+    required this.emptyIcon,
+    this.imageUrl,
+    this.showPlus = false,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  final String label;
+  final String? imageUrl;
+  final IconData emptyIcon;
+  final bool showPlus;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = imageUrl != null && imageUrl!.isNotEmpty;
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: 3 / 4,
+          child: Material(
+            color: filled
+                ? Colors.transparent
+                : SoriTokens.surfaceOverlay,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              child: filled
+                  ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(Icons.broken_image_outlined),
+                      ),
+                    )
+                  : Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            emptyIcon,
+                            size: 28,
+                            color: SoriTokens.textTertiary,
+                          ),
+                          if (showPlus) ...[
+                            const SizedBox(height: 4),
+                            Icon(
+                              Icons.add_rounded,
+                              size: 18,
+                              color: SoriTokens.primary.withValues(alpha: 0.9),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: SoriTokens.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
