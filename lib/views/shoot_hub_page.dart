@@ -31,6 +31,7 @@ class ShootInboxSession {
 }
 
 /// 미연결 큐를 세션 단위로 묶는다. 토큰이 없는 항목은 단독 세션.
+/// 세션당 Before·After는 각각 최대 1장만 남긴다 (1:1).
 List<ShootInboxSession> groupShootInboxSessions(List<ShootInboxItem> inbox) {
   final order = <String>[];
   final map = <String, List<ShootInboxItem>>{};
@@ -64,6 +65,17 @@ List<ShootInboxSession> groupShootInboxSessions(List<ShootInboxItem> inbox) {
         );
       }(),
   ];
+}
+
+/// 미연결 썸네일용 촬영 시각. 예: `09.10 14:30`
+String formatShootInboxStamp(DateTime? at) {
+  if (at == null) return '';
+  final t = at.toLocal();
+  final mm = t.month.toString().padLeft(2, '0');
+  final dd = t.day.toString().padLeft(2, '0');
+  final hh = t.hour.toString().padLeft(2, '0');
+  final min = t.minute.toString().padLeft(2, '0');
+  return '$mm.$dd $hh:$min';
 }
 
 /// 원장 GNB 중앙 「촬영」허브 — C1~C3.
@@ -216,6 +228,17 @@ class _ShootHubPageState extends State<ShootHubPage> {
       // 촬영 없이 닫으면 아무 팝업도 없이 허브로만 돌아온다.
       if (!mounted || result == null) return;
 
+      // 1:1 — 같은 세션에 After가 이미 있으면 새 장으로 덮지 않고 교체한다.
+      if (result.kind == GuideCameraKind.after) {
+        final stale = store.shootInbox
+            .where((e) => e.sessionToken == token && e.isAfter)
+            .map((e) => e.id)
+            .toList();
+        for (final id in stale) {
+          await store.dismissShootInboxItem(id);
+        }
+      }
+
       await store.enqueueShootInboxItem(
         ShootInboxItem(
           id: 'inbox-${DateTime.now().microsecondsSinceEpoch}',
@@ -282,6 +305,11 @@ class _ShootHubPageState extends State<ShootHubPage> {
         await store.dismissShootInboxItem(item.id);
       }
     }
+  }
+
+  /// 슬롯 하나만 지운다. After만 지우면 빈 카메라 슬롯으로 돌아간다.
+  Future<void> _dismissSlot(ShootInboxItem item) async {
+    await store.dismissShootInboxItem(item.id);
   }
 
   Future<Customer?> _pickCustomerForBind() async {
@@ -515,8 +543,14 @@ class _ShootHubPageState extends State<ShootHubPage> {
                               )
                           : null,
                       onBind: () => unawaited(_bindSession(session)),
-                      onDismiss: () =>
+                      onDismissSession: () =>
                           unawaited(_dismissSession(session)),
+                      onDismissBefore: session.before != null
+                          ? () => unawaited(_dismissSlot(session.before!))
+                          : null,
+                      onDismissAfter: session.after != null
+                          ? () => unawaited(_dismissSlot(session.after!))
+                          : null,
                     ),
                   ],
                 ],
@@ -696,13 +730,17 @@ class _SessionPairCard extends StatelessWidget {
     required this.session,
     required this.onShootAfter,
     required this.onBind,
-    required this.onDismiss,
+    required this.onDismissSession,
+    this.onDismissBefore,
+    this.onDismissAfter,
   });
 
   final ShootInboxSession session;
   final VoidCallback? onShootAfter;
   final VoidCallback onBind;
-  final VoidCallback onDismiss;
+  final VoidCallback onDismissSession;
+  final VoidCallback? onDismissBefore;
+  final VoidCallback? onDismissAfter;
 
   @override
   Widget build(BuildContext context) {
@@ -710,7 +748,7 @@ class _SessionPairCard extends StatelessWidget {
       color: SoriTokens.surface,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+        padding: const EdgeInsets.fromLTRB(8, 4, 4, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -718,14 +756,15 @@ class _SessionPairCard extends StatelessWidget {
               children: [
                 const Spacer(),
                 IconButton(
+                  tooltip: '세션 전체 삭제',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 32,
                     minHeight: 32,
                   ),
-                  onPressed: onDismiss,
-                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: onDismissSession,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
                 ),
               ],
             ),
@@ -734,23 +773,23 @@ class _SessionPairCard extends StatelessWidget {
                 Expanded(
                   child: _PairSlot(
                     label: 'Before',
-                    imageUrl: session.before?.imageUrl,
+                    item: session.before,
                     emptyIcon: Icons.image_outlined,
                     onTap: session.before != null ? onBind : null,
                     onLongPress: session.before != null ? onBind : null,
+                    onDelete: onDismissBefore,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: _PairSlot(
                     label: 'After',
-                    imageUrl: session.after?.imageUrl,
+                    item: session.after,
                     emptyIcon: Icons.add_a_photo_outlined,
                     showPlus: session.after == null,
-                    onTap: session.after != null
-                        ? onBind
-                        : onShootAfter,
+                    onTap: session.after != null ? onBind : onShootAfter,
                     onLongPress: session.after != null ? onBind : null,
+                    onDelete: onDismissAfter,
                   ),
                 ),
               ],
@@ -766,66 +805,98 @@ class _PairSlot extends StatelessWidget {
   const _PairSlot({
     required this.label,
     required this.emptyIcon,
-    this.imageUrl,
+    this.item,
     this.showPlus = false,
     this.onTap,
     this.onLongPress,
+    this.onDelete,
   });
 
   final String label;
-  final String? imageUrl;
+  final ShootInboxItem? item;
   final IconData emptyIcon;
   final bool showPlus;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final filled = imageUrl != null && imageUrl!.isNotEmpty;
+    final filled = item != null && item!.imageUrl.isNotEmpty;
+    final stamp = formatShootInboxStamp(item?.createdAt);
+
     return Column(
       children: [
         AspectRatio(
           aspectRatio: 3 / 4,
           child: Material(
-            color: filled
-                ? Colors.transparent
-                : SoriTokens.surfaceOverlay,
+            color: filled ? Colors.transparent : SoriTokens.surfaceOverlay,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap,
-              onLongPress: onLongPress,
-              child: filled
-                  ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                      errorBuilder: (_, _, _) => const Center(
-                        child: Icon(Icons.broken_image_outlined),
-                      ),
-                    )
-                  : Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            emptyIcon,
-                            size: 28,
-                            color: SoriTokens.textTertiary,
-                          ),
-                          if (showPlus) ...[
-                            const SizedBox(height: 4),
-                            Icon(
-                              Icons.add_rounded,
-                              size: 18,
-                              color: SoriTokens.primary.withValues(alpha: 0.9),
+            child: filled
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Positioned.fill(
+                          child: InkWell(
+                            onTap: onTap,
+                            onLongPress: onLongPress,
+                            child: Image.network(
+                              item!.imageUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (_, _, _) => const Center(
+                                child: Icon(Icons.broken_image_outlined),
+                              ),
                             ),
+                          ),
+                        ),
+                        if (stamp.isNotEmpty)
+                          Positioned(
+                            left: 6,
+                            top: 6,
+                            right: 36,
+                            child: IgnorePointer(
+                              child: Align(
+                                alignment: Alignment.topLeft,
+                                child: _StampBadge(text: stamp),
+                              ),
+                            ),
+                          ),
+                        if (onDelete != null)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: _SlotDeleteButton(onTap: onDelete!),
+                          ),
+                      ],
+                    )
+                  : InkWell(
+                      onTap: onTap,
+                      onLongPress: onLongPress,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              emptyIcon,
+                              size: 28,
+                              color: SoriTokens.textTertiary,
+                            ),
+                            if (showPlus) ...[
+                              const SizedBox(height: 4),
+                              Icon(
+                                Icons.add_rounded,
+                                size: 18,
+                                color:
+                                    SoriTokens.primary.withValues(alpha: 0.9),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
-            ),
           ),
         ),
         const SizedBox(height: 4),
@@ -838,6 +909,61 @@ class _PairSlot extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 사진 위 촬영 시각 — 밝고 어두운 배경 모두에서 읽히게 어두운 칩.
+class _StampBadge extends StatelessWidget {
+  const _StampBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SlotDeleteButton extends StatelessWidget {
+  const _SlotDeleteButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: const SizedBox(
+          width: 28,
+          height: 28,
+          child: Icon(Icons.close_rounded, size: 16, color: Colors.white),
+        ),
+      ),
     );
   }
 }
