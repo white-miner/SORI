@@ -13,10 +13,10 @@ import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
 import '../widgets/margin_scroll_forwarder.dart';
 import '../widgets/sori_logo.dart';
+import '../widgets/unified_compose_sheet.dart';
 import 'app_settings_page.dart';
 import 'case_archive_page.dart';
 import 'message_history_page.dart';
-import 'post_first_creation_page.dart';
 
 /// 로그인 후 5탭 앱 셸 — [StatefulShellRoute] 로 하단바 고정.
 class AppShellPage extends StatefulWidget {
@@ -228,7 +228,23 @@ class _AppShellPageState extends State<AppShellPage> {
                     : null,
                 badgeCount: _notificationBadgeCount(session),
                 onNotifications: _openNotifications,
-                onPostFirst: () => PostFirstCreationPage.open(context),
+                onPostFirst: () {
+                  final director =
+                      _store.session?.activeMode == UserRole.director;
+                  showQuickComposeSheet(
+                    context,
+                    store: _store,
+                    isDirector: director,
+                    onDirectorOnly: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('원장 전용 기능입니다. 원장 모드로 전환해 주세요.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  );
+                },
                 onArchive: _openArchive,
                 onSettings: _openSettings,
               );

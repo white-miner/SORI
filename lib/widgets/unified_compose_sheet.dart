@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../models/omni_compose_category.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_bottom_sheet.dart';
+import '../views/post_first_creation_page.dart';
 
 enum UnifiedComposeCategory {
   whisper,
@@ -18,7 +20,71 @@ enum UnifiedComposeCategory {
       };
 }
 
-/// PO: FAB → 4 category chips → existing composer sheets.
+/// PRD v7.8 C6 — 빠른 등록 시트 (전후·세미나·팁·멘토) → Omni 짧 폼.
+Future<void> showQuickComposeSheet(
+  BuildContext context, {
+  required SoriStore store,
+  required bool isDirector,
+  required VoidCallback onDirectorOnly,
+}) {
+  return showSoriSolidBottomSheet<void>(
+    context: context,
+    enableDrag: true,
+    isScrollControlled: true,
+    builder: (ctx) => SoriSheetFrame(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '빠른 등록',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '카테고리를 고르면 짧은 작성 화면으로 이동합니다.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final cat in OmniComposeCategory.quickComposeCategories)
+                _ComposeCategoryChip(
+                  key: Key('quick-compose-${cat.name}'),
+                  label: cat.label,
+                  onTap: () async {
+                    if (!isDirector) {
+                      Navigator.pop(ctx);
+                      onDirectorOnly();
+                      return;
+                    }
+                    Navigator.pop(ctx);
+                    await PostFirstCreationPage.open(
+                      context,
+                      store: store,
+                      initialCategory: cat,
+                    );
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Legacy FAB → 4 category chips → existing composer sheets.
 Future<void> showUnifiedComposeSheet(
   BuildContext context, {
   required SoriStore store,
@@ -94,6 +160,7 @@ class _ComposeCategoryChip extends StatelessWidget {
   const _ComposeCategoryChip({
     required this.label,
     required this.onTap,
+    super.key,
   });
 
   final String label;

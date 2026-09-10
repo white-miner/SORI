@@ -24,15 +24,24 @@ class PostFirstCreationPage extends StatefulWidget {
     super.key,
     this.store,
     this.editTarget,
+    this.initialCategory,
   });
 
   final SoriStore? store;
   final PostViewData? editTarget;
+  final OmniComposeCategory? initialCategory;
 
-  static Future<void> open(BuildContext context, {SoriStore? store}) {
+  static Future<void> open(
+    BuildContext context, {
+    SoriStore? store,
+    OmniComposeCategory? initialCategory,
+  }) {
     return pushRootPage<void>(
       context,
-      PostFirstCreationPage(store: store),
+      PostFirstCreationPage(
+        store: store,
+        initialCategory: initialCategory,
+      ),
     );
   }
 
@@ -53,7 +62,7 @@ class PostFirstCreationPage extends StatefulWidget {
 
 class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
   late final SoriStore _store;
-  OmniComposeCategory _category = OmniComposeCategory.whisper;
+  late OmniComposeCategory _category;
   bool _submitting = false;
   bool _aiLoading = false;
 
@@ -82,6 +91,7 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
   void initState() {
     super.initState();
     _store = widget.store ?? SoriStore.instance;
+    _category = widget.initialCategory ?? OmniComposeCategory.whisper;
     _prefillFromEditTarget();
   }
 
@@ -101,6 +111,8 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
     };
     switch (_category) {
       case OmniComposeCategory.whisper:
+      case OmniComposeCategory.mentorAsk:
+      case OmniComposeCategory.mentorOffer:
         _whisperBody.text = data.bodyText;
       case OmniComposeCategory.baShare:
         _baBody.text = data.bodyText;
@@ -127,6 +139,8 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
           }
         }
       case OmniComposeCategory.reviewMarket:
+      case OmniComposeCategory.tipDevice:
+      case OmniComposeCategory.tipProduct:
         final p = data.post;
         _reviewTitle.text = p?.title ?? '';
         _reviewBody.text = data.bodyText;
@@ -232,6 +246,8 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
 
     switch (_category) {
       case OmniComposeCategory.whisper:
+      case OmniComposeCategory.mentorAsk:
+      case OmniComposeCategory.mentorOffer:
         if (_whisperBody.text.trim().isEmpty) {
           _snack('제목이나 내용을 입력해 주세요.');
           return;
@@ -264,6 +280,8 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
           return;
         }
       case OmniComposeCategory.reviewMarket:
+      case OmniComposeCategory.tipDevice:
+      case OmniComposeCategory.tipProduct:
         if (_reviewTitle.text.trim().isEmpty &&
             _reviewBody.text.trim().isEmpty) {
           _snack('제목이나 내용을 입력해 주세요.');
@@ -279,12 +297,20 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
         switch (_category) {
           case OmniComposeCategory.whisper:
             await _submitWhisper();
+          case OmniComposeCategory.mentorAsk:
+            await _submitMentor(ask: true);
+          case OmniComposeCategory.mentorOffer:
+            await _submitMentor(ask: false);
           case OmniComposeCategory.baShare:
             await _submitBa();
           case OmniComposeCategory.seminar:
             await _submitSeminar();
           case OmniComposeCategory.reviewMarket:
             await _submitReviewMarket();
+          case OmniComposeCategory.tipDevice:
+            await _submitTipDevice();
+          case OmniComposeCategory.tipProduct:
+            await _submitTipProduct();
         }
       }
     } catch (e) {
@@ -298,14 +324,21 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
     final data = widget.editTarget!;
     switch (_category) {
       case OmniComposeCategory.whisper:
+      case OmniComposeCategory.mentorAsk:
+      case OmniComposeCategory.mentorOffer:
       case OmniComposeCategory.reviewMarket:
+      case OmniComposeCategory.tipDevice:
+      case OmniComposeCategory.tipProduct:
         if (data.post == null) {
           _snack('수정할 게시물을 찾을 수 없습니다.');
           return;
         }
+        final useWhisperBody = _category == OmniComposeCategory.whisper ||
+            _category == OmniComposeCategory.mentorAsk ||
+            _category == OmniComposeCategory.mentorOffer;
         final ok = await _store.updateCommunityPostContent(
           postId: data.post!.id,
-          body: _category == OmniComposeCategory.whisper
+          body: useWhisperBody
               ? _whisperBody.text.trim()
               : _reviewBody.text.trim(),
           title: _reviewTitle.text.trim(),
@@ -512,6 +545,72 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
     Navigator.of(context).pop();
   }
 
+  Future<void> _submitTipDevice() async {
+    final title = _reviewTitle.text.trim();
+    final body = _reviewBody.text.trim();
+    final post = await _store.createCommunityPost(
+      postType: CommunityPostType.deviceReview,
+      title: title,
+      body: body.isEmpty ? title : body,
+      imageBytesList: _reviewPhoto == null ? null : [_reviewPhoto!],
+      deviceReview: DeviceReviewDraft(
+        deviceName: title.isEmpty ? '기기' : title,
+      ),
+    );
+    if (!mounted) return;
+    if (post == null) {
+      _snack(_store.lastError?.trim().isNotEmpty == true
+          ? _store.lastError!
+          : '기기 리뷰 게시에 실패했습니다.');
+      return;
+    }
+    _snack('기기 리뷰를 등록했습니다', error: false);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _submitTipProduct() async {
+    final title = _reviewTitle.text.trim();
+    final body = _reviewBody.text.trim();
+    final post = await _store.createCommunityPost(
+      postType: CommunityPostType.marketplace,
+      title: title,
+      body: body.isEmpty ? title : body,
+      imageBytesList: _reviewPhoto == null ? null : [_reviewPhoto!],
+      styleTags: const ['제품리뷰'],
+    );
+    if (!mounted) return;
+    if (post == null) {
+      _snack(_store.lastError?.trim().isNotEmpty == true
+          ? _store.lastError!
+          : '제품 리뷰 게시에 실패했습니다.');
+      return;
+    }
+    _snack('제품 리뷰를 등록했습니다', error: false);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _submitMentor({required bool ask}) async {
+    final body = _whisperBody.text.trim();
+    final tags = ask
+        ? const ['멘토링', '요청', '조언구함']
+        : const ['멘토링', '지원', '조언'];
+    final post = await _store.createCommunityPost(
+      postType: CommunityPostType.whisper,
+      body: body,
+      imageBytesList: _whisperPhoto == null ? null : [_whisperPhoto!],
+      styleTags: tags,
+    );
+    if (!mounted) return;
+    if (post == null) {
+      _snack(_store.lastError?.trim().isNotEmpty == true
+          ? _store.lastError!
+          : '멘토 글 게시에 실패했습니다.');
+      return;
+    }
+    _snack(ask ? '멘토 요청을 등록했습니다' : '멘토 지원을 등록했습니다', error: false);
+    Navigator.of(context).pop();
+  }
+
   InputDecoration _field(String label, {String? hint, int minLines = 1}) {
     return InputDecoration(
       labelText: label,
@@ -588,7 +687,7 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final cat in OmniComposeCategory.values)
+                for (final cat in OmniComposeCategory.formCategories)
                   ChoiceChip(
                     key: Key('omni-cat-${cat.name}'),
                     label: Text(cat.label),
@@ -626,9 +725,21 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
   Widget _buildForm() {
     return switch (_category) {
       OmniComposeCategory.whisper => _whisperForm(),
+      OmniComposeCategory.mentorAsk => _mentorForm(ask: true),
+      OmniComposeCategory.mentorOffer => _mentorForm(ask: false),
       OmniComposeCategory.baShare => _baForm(),
       OmniComposeCategory.seminar => _seminarForm(),
-      OmniComposeCategory.reviewMarket => _reviewForm(),
+      OmniComposeCategory.reviewMarket => _reviewForm(showPrice: true),
+      OmniComposeCategory.tipDevice => _reviewForm(
+          showPrice: false,
+          titleHint: '기기명',
+          bodyHint: '사용 소감·장단점을 적어 주세요',
+        ),
+      OmniComposeCategory.tipProduct => _reviewForm(
+          showPrice: false,
+          titleHint: '제품명',
+          bodyHint: '사용 소감·추천 포인트를 적어 주세요',
+        ),
     };
   }
 
@@ -642,6 +753,35 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
           minLines: 5,
           maxLines: 10,
           decoration: _field('본문', hint: '지금 나누고 싶은 이야기를 적어 주세요', minLines: 5),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => _pickPhoto(
+            onPicked: (b) => setState(() => _whisperPhoto = b),
+          ),
+          icon: const Icon(Icons.photo_outlined),
+          label: Text(_whisperPhoto == null ? '사진 첨부' : '사진 1장 선택됨'),
+        ),
+      ],
+    );
+  }
+
+  Widget _mentorForm({required bool ask}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          key: const Key('omni-mentor-body'),
+          controller: _whisperBody,
+          minLines: 5,
+          maxLines: 10,
+          decoration: _field(
+            '본문',
+            hint: ask
+                ? '궁금한 점·고민을 짧게 적어 주세요'
+                : '도움 줄 수 있는 경험·조언을 적어 주세요',
+            minLines: 5,
+          ),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -796,26 +936,36 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
     );
   }
 
-  Widget _reviewForm() {
+  Widget _reviewForm({
+    bool showPrice = true,
+    String titleHint = '기기명 또는 매물명',
+    String bodyHint = '',
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: _reviewTitle,
-          decoration: _field('제목', hint: '기기명 또는 매물명'),
+          decoration: _field('제목', hint: titleHint),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _reviewPrice,
-          keyboardType: TextInputType.number,
-          decoration: _field('가격', hint: '중고 판매가 (선택)'),
-        ),
+        if (showPrice) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reviewPrice,
+            keyboardType: TextInputType.number,
+            decoration: _field('가격', hint: '중고 판매가 (선택)'),
+          ),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _reviewBody,
           minLines: 4,
           maxLines: 8,
-          decoration: _field('본문', minLines: 4),
+          decoration: _field(
+            '본문',
+            hint: bodyHint.isEmpty ? null : bodyHint,
+            minLines: 4,
+          ),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
