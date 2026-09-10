@@ -29,6 +29,7 @@ import '../widgets/sori_logo.dart';
 import '../widgets/shop_trust_score_card.dart';
 import 'home_explore_tab.dart';
 import 'seminar_class_detail_page.dart';
+import 'community/region_nearby_map_section.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
 class UnifiedHomeFeedPage extends StatefulWidget {
@@ -498,8 +499,9 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           scrollController: _scrollForTab(1),
         ),
         _SimpleFeedTab(
+          store: store,
           title: '우리 지역',
-          subtitle: '부스터 적용 사례가 상단에 고정됩니다.',
+          subtitle: '내 주변 샵을 지도로 보고, 아래는 우리 동네 게시물이에요.',
           feed: localFeed,
           loading: loading,
           buildCard: _feedCard,
@@ -675,6 +677,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
 /// 우리 지역 — KeepAlive 세로 피드.
 class _SimpleFeedTab extends StatefulWidget {
   const _SimpleFeedTab({
+    required this.store,
     required this.title,
     required this.subtitle,
     required this.feed,
@@ -683,6 +686,7 @@ class _SimpleFeedTab extends StatefulWidget {
     this.scrollController,
   });
 
+  final SoriStore store;
   final String title;
   final String subtitle;
   final List<CommunityCaseItem> feed;
@@ -752,6 +756,25 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
                       fontWeight: FontWeight.w500,
                       color: SoriTokens.textSecondary,
                       height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  RegionNearbyMapSection(store: widget.store),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '우리 동네 게시물',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '같은 동네 사람들이 올린 글이에요. (전국 추천과 분리)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: SoriTokens.textSecondary,
                     ),
                   ),
                 ],

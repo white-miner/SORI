@@ -47,16 +47,20 @@ function num(v: unknown): number {
 
 function categoryKeywords(category: string): string[] {
   const c = category.trim();
-  if (c.includes("네일")) return ["네일", "손톱"];
-  if (c.includes("바버") || c.includes("이발")) return ["바버", "이발", "남성전문"];
-  if (c.includes("타투")) return ["타투", "문신"];
-  if (c.includes("미용")) return ["미용", "헤어", "두발"];
-  // 에스테틱 기본
-  return ["피부", "에스테틱", "마사지", "체형", "미용", "네일", "왁싱"];
+  if (c === '전체' || c.toLowerCase() === 'all') return [];
+  if (c.includes('네일')) return ['네일', '손톱'];
+  if (c.includes('바버') || c.includes('이발')) return ['바버', '이발', '남성전문'];
+  if (c.includes('타투')) return ['타투', '문신'];
+  if (c.includes('반영구')) return ['반영구', '반영구화장', '눈썹문신', '아이라인'];
+  if (c.includes('미용')) return ['미용', '헤어', '두발'];
+  if (c.includes('피부') || c.includes('에스테틱')) {
+    return ['피부', '에스테틱', '마사지', '체형', '왁싱'];
+  }
+  return ['피부', '에스테틱', '마사지', '체형', '미용', '네일', '왁싱'];
 }
 
-function matchesCategory(item: Record<string, unknown>, keywords: string[]): boolean {
-  const blob = [
+function storeBlob(item: Record<string, unknown>): string {
+  return [
     item.indsLclsNm,
     item.indsMclsNm,
     item.indsSclsNm,
@@ -66,37 +70,76 @@ function matchesCategory(item: Record<string, unknown>, keywords: string[]): boo
     item.indutyLclasNm,
     item.indutyMlsfcNm,
     item.indutySclasNm,
+    item.ksicNm,
   ]
-    .map((x) => String(x ?? ""))
-    .join(" ");
-  if (!blob.trim()) return true; // 업종명 없으면 반경 전체 카운트에 포함
+    .map((x) => String(x ?? ''))
+    .join(' ');
+}
+
+function matchesCategory(item: Record<string, unknown>, keywords: string[]): boolean {
+  if (keywords.length === 0) return true;
+  const blob = storeBlob(item);
+  if (!blob.trim()) return true;
   return keywords.some((k) => blob.includes(k));
 }
 
+function chipKeyForStore(item: Record<string, unknown>): string {
+  const blob = storeBlob(item);
+  if (/네일|손톱/.test(blob)) return 'nail';
+  if (/바버|이발|남성전문/.test(blob)) return 'barber';
+  if (/반영구/.test(blob)) return 'semi_permanent';
+  if (/타투|문신/.test(blob)) return 'tattoo';
+  if (/미용|헤어|두발/.test(blob)) return 'hair';
+  if (/피부|에스테틱|마사지|체형|왁싱/.test(blob)) return 'skin';
+  return 'other';
+}
+
+function storeLatLng(item: Record<string, unknown>): { lat: number; lng: number } | null {
+  const lat = num(item.lat ?? item.y ?? item.ycord ?? item.cy);
+  const lng = num(item.lon ?? item.lng ?? item.x ?? item.xcord ?? item.cx);
+  if (Math.abs(lat) < 0.01 || Math.abs(lng) < 0.01) return null;
+  if (lat < 33 || lat > 39 || lng < 124 || lng > 132) return null;
+  return { lat, lng };
+}
+
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+type StoreItemOut = {
+  name: string;
+  category_label: string;
+  chip_key: string;
+  lat: number;
+  lng: number;
+  distance_m: number;
+  address: string;
+};
+
 function extractStoreItems(payload: unknown): Record<string, unknown>[] {
-  if (!payload || typeof payload !== "object") return [];
+  if (!payload || typeof payload !== 'object') return [];
   const root = payload as Record<string, unknown>;
-  // sdsc2 JSON 변형 대응
   const body = (root.body ?? root.response ?? root) as Record<string, unknown>;
   const items =
     body.items ??
     (body.body as Record<string, unknown> | undefined)?.items ??
     root.items;
   if (Array.isArray(items)) {
-    return items.filter((x) => x && typeof x === "object") as Record<
-      string,
-      unknown
-    >[];
+    return items.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
   }
-  if (items && typeof items === "object") {
+  if (items && typeof items === 'object') {
     const item = (items as Record<string, unknown>).item;
     if (Array.isArray(item)) {
-      return item.filter((x) => x && typeof x === "object") as Record<
-        string,
-        unknown
-      >[];
+      return item.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
     }
-    if (item && typeof item === "object") return [item as Record<string, unknown>];
+    if (item && typeof item === 'object') return [item as Record<string, unknown>];
   }
   return [];
 }
@@ -112,14 +155,15 @@ async function fetchStores(opts: {
   totalInRadius: number;
   sameCategoryCount: number;
   sampleNames: string[];
+  items: StoreItemOut[];
   error?: string;
 }> {
   const keywords = categoryKeywords(opts.category);
   const url =
-    `https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius` +
-    `?serviceKey=${encodeURIComponent(opts.key)}` +
-    `&pageNo=1&numOfRows=100&radius=${opts.radiusM}` +
-    `&cx=${opts.lng}&cy=${opts.lat}&type=json`;
+    https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius +
+    ?serviceKey= +
+    &pageNo=1&numOfRows=100&radius= +
+    &cx=&cy=&type=json;
 
   try {
     const res = await fetch(url);
@@ -133,20 +177,44 @@ async function fetchStores(opts: {
         totalInRadius: 0,
         sameCategoryCount: 0,
         sampleNames: [],
-        error: `store_non_json status=${res.status}`,
+        items: [],
+        error: store_non_json status=,
       };
     }
-    const items = extractStoreItems(payload);
-    const matched = items.filter((it) => matchesCategory(it, keywords));
+    const rawItems = extractStoreItems(payload);
+    const matched = rawItems.filter((it) => matchesCategory(it, keywords));
     const names = matched
-      .map((it) => String(it.bizesNm ?? it.bizesNm ?? it.storeNm ?? it.name ?? ""))
+      .map((it) => String(it.bizesNm ?? it.storeNm ?? it.name ?? ''))
       .filter((n) => n.length > 0)
       .slice(0, 5);
+
+    const mapped: StoreItemOut[] = [];
+    for (const it of rawItems) {
+      const ll = storeLatLng(it);
+      if (!ll) continue;
+      const name = String(it.bizesNm ?? it.storeNm ?? it.name ?? '').trim();
+      if (!name) continue;
+      const categoryLabel = String(
+        it.indsSclsNm ?? it.indsMclsNm ?? it.indsLclsNm ?? it.sclsNm ?? '',
+      ).trim();
+      mapped.push({
+        name,
+        category_label: categoryLabel,
+        chip_key: chipKeyForStore(it),
+        lat: ll.lat,
+        lng: ll.lng,
+        distance_m: haversineM(opts.lat, opts.lng, ll.lat, ll.lng),
+        address: String(it.rdnmAdr ?? it.lnoAdr ?? it.addr ?? '').trim(),
+      });
+    }
+    mapped.sort((a, b) => a.distance_m - b.distance_m);
+
     return {
       ok: true,
-      totalInRadius: items.length,
+      totalInRadius: rawItems.length,
       sameCategoryCount: matched.length,
       sampleNames: names,
+      items: mapped.slice(0, 80),
     };
   } catch (e) {
     return {
@@ -154,6 +222,7 @@ async function fetchStores(opts: {
       totalInRadius: 0,
       sameCategoryCount: 0,
       sampleNames: [],
+      items: [],
       error: String(e),
     };
   }
@@ -506,6 +575,15 @@ Deno.serve(async (req) => {
         totalInRadius: 0,
         sameCategoryCount: 0,
         sampleNames: [] as string[],
+        items: [] as {
+          name: string;
+          category_label: string;
+          chip_key: string;
+          lat: number;
+          lng: number;
+          distance_m: number;
+          address: string;
+        }[],
         error: "missing_SBIZ_STORE_SERVICE_KEY",
       };
 
@@ -549,6 +627,7 @@ Deno.serve(async (req) => {
         total_in_radius: stores.totalInRadius,
         same_category_count: stores.sameCategoryCount,
         sample_names: stores.sampleNames,
+        items: stores.items ?? [],
         error: stores.error ?? null,
       },
       population: {

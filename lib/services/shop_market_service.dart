@@ -20,6 +20,7 @@ class ShopMarketInsight {
     required this.totalInRadius,
     required this.sameCategoryCount,
     required this.sampleNames,
+    this.storeItems = const [],
     required this.storesError,
     required this.populationOk,
     required this.admCd,
@@ -30,6 +31,8 @@ class ShopMarketInsight {
     required this.ages,
     required this.populationError,
     required this.storesPer1kPop,
+    this.centerLatitude,
+    this.centerLongitude,
   });
 
   final bool ok;
@@ -44,6 +47,7 @@ class ShopMarketInsight {
   final int totalInRadius;
   final int sameCategoryCount;
   final List<String> sampleNames;
+  final List<ShopMarketStoreItem> storeItems;
   final String? storesError;
 
   final bool populationOk;
@@ -56,6 +60,9 @@ class ShopMarketInsight {
   final String? populationError;
 
   final double? storesPer1kPop;
+  /// fetch에 사용한 중심 좌표 (맵용 Expand).
+  final double? centerLatitude;
+  final double? centerLongitude;
 
   factory ShopMarketInsight.unavailable({String reason = 'unavailable'}) {
     return ShopMarketInsight(
@@ -70,6 +77,7 @@ class ShopMarketInsight {
       totalInRadius: 0,
       sameCategoryCount: 0,
       sampleNames: const [],
+      storeItems: const [],
       storesError: reason,
       populationOk: false,
       admCd: null,
@@ -127,6 +135,11 @@ class ShopMarketInsight {
         for (final n in (stores['sample_names'] as List? ?? const []))
           if ('$n'.trim().isNotEmpty) '$n'.trim(),
       ],
+      storeItems: [
+        for (final raw in (stores['items'] as List? ?? const []))
+          if (raw is Map)
+            ShopMarketStoreItem.fromMap(Map<String, dynamic>.from(raw)),
+      ],
       storesError: stores['error']?.toString(),
       populationOk: pop['ok'] == true,
       admCd: pop['adm_cd']?.toString(),
@@ -137,6 +150,8 @@ class ShopMarketInsight {
       ages: ages,
       populationError: pop['error']?.toString(),
       storesPer1kPop: (map['stores_per_1k_pop'] as num?)?.toDouble(),
+      centerLatitude: (map['latitude'] as num?)?.toDouble(),
+      centerLongitude: (map['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -144,6 +159,38 @@ class ShopMarketInsight {
     if (v is int) return v;
     if (v is num) return v.round();
     return int.tryParse('$v') ?? fallback;
+  }
+}
+
+class ShopMarketStoreItem {
+  const ShopMarketStoreItem({
+    required this.name,
+    required this.categoryLabel,
+    required this.chipKey,
+    required this.latitude,
+    required this.longitude,
+    required this.distanceM,
+    required this.address,
+  });
+
+  final String name;
+  final String categoryLabel;
+  final String chipKey;
+  final double latitude;
+  final double longitude;
+  final int distanceM;
+  final String address;
+
+  factory ShopMarketStoreItem.fromMap(Map<String, dynamic> map) {
+    return ShopMarketStoreItem(
+      name: '${map['name'] ?? ''}'.trim(),
+      categoryLabel: '${map['category_label'] ?? ''}'.trim(),
+      chipKey: '${map['chip_key'] ?? 'other'}'.trim(),
+      latitude: (map['lat'] as num?)?.toDouble() ?? 0,
+      longitude: (map['lng'] as num?)?.toDouble() ?? 0,
+      distanceM: ShopMarketInsight._asInt(map['distance_m']),
+      address: '${map['address'] ?? ''}'.trim(),
+    );
   }
 }
 
