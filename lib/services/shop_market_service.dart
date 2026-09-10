@@ -172,15 +172,19 @@ class ShopMarketService {
 
   static const _ttl = Duration(hours: 6);
 
+  /// [fallbackAddress]: 샵에 주소/좌표가 없을 때 경영 프로필 주소 등.
+  /// 서울 묵시 폴백 없이, 주소 resolve 실패 시 shop_coords_missing.
   Future<ShopMarketInsight> fetch({
     required Shop shop,
     required String category,
     String? admCd,
+    String? fallbackAddress,
     int radiusM = 500,
   }) async {
     final sid = shop.id.trim();
+    final fb = fallbackAddress?.trim() ?? '';
     final key =
-        '$sid|${category.trim()}|${admCd?.trim() ?? ''}|$radiusM';
+        '$sid|${category.trim()}|${admCd?.trim() ?? ''}|$fb|$radiusM';
     if (_cache != null &&
         _cacheKey == key &&
         _cacheAt != null &&
@@ -188,24 +192,73 @@ class ShopMarketService {
       return _cache!;
     }
 
-    var resolved = shop;
-    if (shop.latitude == null || shop.longitude == null) {
-      resolved = await ShopGeocodingService.instance.ensureShopCoordinates(shop);
+    var working = shop;
+    final shopAddr = working.address?.trim() ?? '';
+    if (shopAddr.isEmpty && fb.isNotEmpty) {
+      working = working.copyWith(address: fb);
     }
-    final lat = resolved.latitude;
-    final lng = resolved.longitude;
-    if (lat == null || lng == null) {
-      return ShopMarketInsight.unavailable(reason: 'shop_coords_missing');
+    final addr = (working.address?.trim().isNotEmpty ?? false)
+        ? working.address!.trim()
+        : fb;
+
+    var effectiveAdm = admCd?.trim() ?? '';
+    final needCoords = working.latitude == null ||
+        working.longitude == null ||
+        working.latitude!.abs() < 0.01;
+    final needAdm = effectiveAdm.isEmpty;
+
+    if (addr.isNotEmpty && (needCoords || needAdm)) {
+      final n = await resolveNeighborhoodFromAddress(addr);
+      if (n != null) {
+        if (needCoords && n.latitude.abs() > 0.01 && n.longitude.abs() > 0.01) {
+          working = working.copyWith(
+            latitude: n.latitude,
+            longitude: n.longitude,
+            address: working.address ?? addr,
+          );
+        }
+        if (needAdm && n.isLinked) {
+          effectiveAdm = n.admCd;
+        }
+      }
+    }
+
+    final stillNeedCoords = working.latitude == null ||
+        working.longitude == null ||
+        working.latitude!.abs() < 0.01;
+    if (stillNeedCoords && addr.isNotEmpty) {
+      // ensureShopCoordinates는 실패 시 서울 폴백 → ZONE3에는 쓰지 않음
+      final local = await ShopGeocodingService.instance.resolveNeighborhood(addr);
+      if (local != null &&
+          local.latitude.abs() > 0.01 &&
+          local.longitude.abs() > 0.01) {
+        working = working.copyWith(
+          latitude: local.latitude,
+          longitude: local.longitude,
+          address: working.address ?? addr,
+        );
+        if (effectiveAdm.isEmpty && local.isLinked) {
+          effectiveAdm = local.admCd;
+        }
+      }
+    }
+
+    final lat = working.latitude;
+    final lng = working.longitude;
+    if (lat == null || lng == null || lat.abs() < 0.01 || lng.abs() < 0.01) {
+      return ShopMarketInsight.unavailable(
+        reason: addr.isEmpty ? 'address_required' : 'shop_coords_missing',
+      );
     }
 
     final locationLabel = () {
-      final addr = resolved.address?.trim() ?? '';
-      if (addr.isNotEmpty) {
-        final parts = addr.split(RegExp(r'\s+'));
+      final a = working.address?.trim() ?? addr;
+      if (a.isNotEmpty) {
+        final parts = a.split(RegExp(r'\s+'));
         if (parts.length >= 2) return parts[1];
         return parts.first;
       }
-      return resolved.name.trim().isEmpty ? '매장' : resolved.name.trim();
+      return working.name.trim().isEmpty ? '매장' : working.name.trim();
     }();
 
     try {
@@ -217,7 +270,7 @@ class ShopMarketService {
               'shop_id': sid,
               'latitude': lat,
               'longitude': lng,
-              'adm_cd': admCd?.trim() ?? '',
+              'adm_cd': effectiveAdm,
               'category': category.trim().isEmpty ? '에스테틱' : category.trim(),
               'radius_m': radiusM,
               'location_label': locationLabel,
@@ -247,6 +300,33 @@ class ShopMarketService {
       debugPrint('get-shop-market failed: $e');
       return ShopMarketInsight.unavailable(reason: e.toString());
     }
+  }
+
+  /// UI용 쉬운 말. 기술 reason은 숨기되 디버그는 로그에.
+  static String friendlyReason(String? raw) {
+    final r = (raw ?? '').toLowerCase();
+    if (r.contains('address_required')) {
+      return '샵 주소를 먼저 적어 주세요';
+    }
+    if (r.contains('shop_coords_missing') || r.contains('coords')) {
+      return '주소를 확인하지 못했어요. 도로명·지번을 조금 더 자세히 적어 주세요';
+    }
+    if (r.contains('adm_cd')) {
+      return '동네 연결이 필요해요. 주소로 「우리 동네 연결하기」를 눌러 주세요';
+    }
+    if (r.contains('missing_sbiz') || r.contains('sbiz')) {
+      return '상가 공공데이터 키가 아직 연결되지 않았어요';
+    }
+    if (r.contains('missing_mois') || r.contains('mois')) {
+      return '인구 공공데이터 키가 아직 연결되지 않았어요';
+    }
+    if (r.contains('timeout') || r.contains('timed out')) {
+      return '응답이 늦어요. 잠시 후 다시 시도해 주세요';
+    }
+    if (r.contains('functionexception') || r.contains('not found')) {
+      return '상권 서비스를 잠시 불러오지 못했어요';
+    }
+    return '잠시 후 다시 시도해 주세요';
   }
 
   /// 주소 → 행정동 자동 연결. Edge(카카오 시크릿) 우선, 로컬 dotenv 폴백.

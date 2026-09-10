@@ -299,9 +299,25 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
       shop: widget.store.shop,
       category: _profile.category,
       admCd: _profile.admCd.trim().isEmpty ? null : _profile.admCd.trim(),
+      fallbackAddress: _profile.address.trim().isEmpty
+          ? null
+          : _profile.address.trim(),
     );
     if (!mounted) return;
+
+    // resolve로 얻은 admCd를 프로필에 남겨 다음부터 인구 조회가 빨라지게.
+    var profile = _profile;
+    final gotAdm = insight.admCd?.trim() ?? '';
+    if (gotAdm.isNotEmpty && profile.admCd.trim().isEmpty) {
+      profile = profile.copyWith(admCd: gotAdm);
+      final sid = _shopId;
+      if (sid.isNotEmpty) {
+        unawaited(BizProfileStore.save(sid, profile));
+      }
+    }
+
     setState(() {
+      _profile = profile;
       _market = insight;
       _marketLoading = false;
     });
@@ -483,7 +499,9 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                 _Zone3Section(
                   market: _market,
                   loading: _marketLoading,
-                  hasAdmCd: _profile.admCd.trim().isNotEmpty,
+                  hasAdmCd: _profile.admCd.trim().isNotEmpty ||
+                      (_market?.admCd?.trim().isNotEmpty ?? false) ||
+                      (_market?.populationOk ?? false),
                   onRefresh: _loadMarket,
                   onEditProfile: _openOnboarding,
                 ),
@@ -979,8 +997,7 @@ class _Zone3Section extends StatelessWidget {
                 const SizedBox(height: 8),
                 if (!market!.storesOk)
                   Text(
-                    '근처 샵 정보를 잠시 못 가져왔어요'
-                    '${market!.storesError == null ? '' : ' · ${market!.storesError}'}',
+                    ShopMarketService.friendlyReason(market!.storesError),
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF6B7280),
@@ -1047,8 +1064,7 @@ class _Zone3Section extends StatelessWidget {
                   )
                 else if (!market!.populationOk)
                   Text(
-                    '인구를 불러오지 못했어요'
-                    '${market!.populationError == null ? '' : ' · ${market!.populationError}'}',
+                    ShopMarketService.friendlyReason(market!.populationError),
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF6B7280),
