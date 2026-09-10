@@ -27,9 +27,10 @@ import '../widgets/proactive_mentoring_manage_sheet.dart';
 import '../widgets/fan_sponsor_credits.dart';
 import '../widgets/sori_logo.dart';
 import '../widgets/shop_trust_score_card.dart';
+import '../utils/region_feed_filter.dart';
+import 'community/region_nearby_map_section.dart';
 import 'home_explore_tab.dart';
 import 'seminar_class_detail_page.dart';
-import 'community/region_nearby_map_section.dart';
 
 /// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
 class UnifiedHomeFeedPage extends StatefulWidget {
@@ -52,6 +53,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   ScrollController? _recommendScrollController;
   ScrollController? _exploreScrollController;
   ScrollController? _localScrollController;
+
+  /// 우리 지역 맵·피드 공통 반경 (PRD v7.8 C3).
+  double _regionRadiusKm = 1.0;
+  double? _regionCenterLat;
+  double? _regionCenterLng;
 
   SoriStore get store => widget.store;
 
@@ -149,9 +155,23 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   List<UnifiedFeedItem> get _recommendFeed =>
       UnifiedFeedEngine.recommendItems(store);
 
-  List<CommunityCaseItem> get _localFeed => store.interleavedCaseFeed(
-        viewerId: store.session?.id,
-      );
+  List<CommunityCaseItem> get _localFeed {
+    final base = store.interleavedCaseFeed(
+      viewerId: store.session?.id,
+    );
+    return RegionFeedFilter.byRadiusKm(
+      base,
+      centerLat: _regionCenterLat ?? store.shop.latitude,
+      centerLng: _regionCenterLng ?? store.shop.longitude,
+      radiusKm: _regionRadiusKm,
+    );
+  }
+
+  String _regionRadiusLabel(double km) {
+    if (km < 1) return '${(km * 1000).round()}m';
+    if (km == km.roundToDouble()) return '${km.toInt()}km';
+    return '${km}km';
+  }
 
   CommunityCaseItem? _caseItemFor(PostViewData data) {
     if (data.caseItem != null) return data.caseItem;
@@ -501,11 +521,30 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
         _SimpleFeedTab(
           store: store,
           title: '우리 지역',
-          subtitle: '내 주변 샵을 지도로 보고, 아래는 우리 동네 게시물이에요.',
+          subtitle:
+              '지도 반경 ${_regionRadiusLabel(_regionRadiusKm)} 안 샵·게시물만 보여요.',
           feed: localFeed,
           loading: loading,
           buildCard: _feedCard,
           scrollController: _scrollForTab(2),
+          regionRadiusKm: _regionRadiusKm,
+          onRegionRadiusChanged: (km) {
+            setState(() => _regionRadiusKm = km);
+          },
+          onRegionCenterChanged: (lat, lng) {
+            setState(() {
+              _regionCenterLat = lat;
+              _regionCenterLng = lng;
+            });
+          },
+          regionCenterReady: (() {
+            final lat = _regionCenterLat ?? store.shop.latitude;
+            final lng = _regionCenterLng ?? store.shop.longitude;
+            return lat != null &&
+                lng != null &&
+                lat.abs() > 0.01 &&
+                lng.abs() > 0.01;
+          })(),
         ),
       ],
     );
@@ -684,6 +723,10 @@ class _SimpleFeedTab extends StatefulWidget {
     required this.loading,
     required this.buildCard,
     this.scrollController,
+    this.regionRadiusKm = 1.0,
+    this.onRegionRadiusChanged,
+    this.onRegionCenterChanged,
+    this.regionCenterReady = false,
   });
 
   final SoriStore store;
@@ -693,6 +736,10 @@ class _SimpleFeedTab extends StatefulWidget {
   final bool loading;
   final Widget Function(CommunityCaseItem item, int index) buildCard;
   final ScrollController? scrollController;
+  final double regionRadiusKm;
+  final ValueChanged<double>? onRegionRadiusChanged;
+  final void Function(double? lat, double? lng)? onRegionCenterChanged;
+  final bool regionCenterReady;
 
   @override
   State<_SimpleFeedTab> createState() => _SimpleFeedTabState();
@@ -759,7 +806,12 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
                     ),
                   ),
                   const SizedBox(height: 14),
-                  RegionNearbyMapSection(store: widget.store),
+                  RegionNearbyMapSection(
+                    store: widget.store,
+                    radiusKm: widget.regionRadiusKm,
+                    onRadiusChanged: widget.onRegionRadiusChanged,
+                    onCenterChanged: widget.onRegionCenterChanged,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     '우리 동네 게시물',
@@ -770,9 +822,11 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    '같은 동네 사람들이 올린 글이에요. (전국 추천과 분리)',
-                    style: TextStyle(
+                  Text(
+                    widget.regionCenterReady
+                        ? '지도와 같은 반경 안 · 좌표 있는 샵 글만 모아요'
+                        : '주소를 잡으면 근처 글만 보여 드려요',
+                    style: const TextStyle(
                       fontSize: 12,
                       color: SoriTokens.textSecondary,
                     ),
@@ -789,17 +843,20 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
               ),
             )
           else if (shown.isEmpty)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
                 child: Padding(
-                  padding: EdgeInsets.all(28),
+                  padding: const EdgeInsets.all(28),
                   child: Text(
-                    '아직 공유된 B/A 피드가 없어요.',
+                    widget.regionCenterReady
+                        ? '이 반경 안에 공유된 B/A가 아직 없어요.\n반경을 넓혀 보거나 나중에 다시 확인해 주세요.'
+                        : '샵 주소(또는 위치)가 있으면\n근처 게시물만 모아 보여 드려요.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: SoriTokens.textSecondary,
                       fontWeight: FontWeight.w600,
+                      height: 1.4,
                     ),
                   ),
                 ),

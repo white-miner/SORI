@@ -8,9 +8,19 @@ import '../../theme/sori_tokens.dart';
 
 /// PRD v7.8 C2 — 우리 지역 상단 4:3 맵 + 업종·반경 칩.
 class RegionNearbyMapSection extends StatefulWidget {
-  const RegionNearbyMapSection({super.key, required this.store});
+  const RegionNearbyMapSection({
+    super.key,
+    required this.store,
+    this.radiusKm = 1.0,
+    this.onRadiusChanged,
+    this.onCenterChanged,
+  });
 
   final SoriStore store;
+  final double radiusKm;
+  final ValueChanged<double>? onRadiusChanged;
+  /// 맵이 잡은 중심 (위도, 경도). 없으면 null 콜백.
+  final void Function(double? lat, double? lng)? onCenterChanged;
 
   @override
   State<RegionNearbyMapSection> createState() => _RegionNearbyMapSectionState();
@@ -30,17 +40,26 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   static const _radiiKm = <double>[0.5, 1.0, 2.0];
 
   String _chip = 'all';
-  double _radiusKm = 1.0;
   bool _loading = true;
   String? _error;
   ShopMarketInsight? _insight;
   ShopMarketStoreItem? _selected;
   LatLng? _center;
 
+  double get _radiusKm => widget.radiusKm;
+
   @override
   void initState() {
     super.initState();
     _reload();
+  }
+
+  @override
+  void didUpdateWidget(covariant RegionNearbyMapSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.radiusKm != widget.radiusKm) {
+      _reload();
+    }
   }
 
   Future<void> _reload() async {
@@ -78,6 +97,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         _error = '내 위치·주소를 아직 몰라요. 샵 주소나 경영 프로필 주소를 넣어 주세요.';
       }
     });
+    widget.onCenterChanged?.call(center?.latitude, center?.longitude);
   }
 
   List<ShopMarketStoreItem> get _filtered {
@@ -150,8 +170,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                   selected: _radiusKm == km,
                   onSelected: (_) {
                     if (_radiusKm == km) return;
-                    setState(() => _radiusKm = km);
-                    _reload();
+                    widget.onRadiusChanged?.call(km);
                   },
                   selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
                   labelStyle: const TextStyle(
