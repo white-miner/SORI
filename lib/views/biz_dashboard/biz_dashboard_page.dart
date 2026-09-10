@@ -1479,7 +1479,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '임대료 + 관리비 + 보험 등, 손님 없어도 나가는 돈의
+              '임대료 + 관리비 + 보험 등, 손님 없어도 나가는 돈',
               style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
             ),
             const SizedBox(height: 8),
@@ -1523,7 +1523,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '사장 본인 인건비로 계산에 넣습니다. (이게 있어야 ‘진짜 이익’이 보입니다)',
+              '사장 본인 인건비로 계산에 넣습니다. (이게 있어야 진짜 이익이 보입니다)',
               style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
             ),
             const SizedBox(height: 8),
