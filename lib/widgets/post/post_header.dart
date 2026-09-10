@@ -69,20 +69,24 @@ class PostHeader extends StatelessWidget {
                       const OfficialBadge(compact: true),
                     ],
                     if (data.communityLabel != null) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: dense ? 14 : 16,
-                        color: SoriTokens.textTertiary,
-                      ),
-                      Flexible(
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: dense ? 6 : 8,
+                          vertical: dense ? 2 : 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
                         child: Text(
                           data.communityLabel!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: dense ? 11.5 : 12.5,
-                            fontWeight: FontWeight.w700,
+                            fontSize: dense ? 10 : 11,
+                            fontWeight: FontWeight.w800,
                             color: SoriTokens.textSecondary,
                           ),
                         ),

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../features/habit/insights_pulse_strip.dart';
 import '../features/habit/top_mentor_strip.dart';
+import '../models/recommend_feed_category.dart';
 import '../models/community_case_item.dart';
 import '../models/post_engagement_bindings.dart';
 import '../models/shop.dart';
@@ -667,6 +668,19 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               ),
             ),
           ),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(
+                '전후 · 세미나 · 리뷰 · 멘토 — 전국에서 오늘 올라온 글',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+            ),
+          ),
           if (widget.loading)
             const SliverFillRemaining(
               hasScrollBody: false,
@@ -695,15 +709,48 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => FeedScrollRow(
-                    child: widget.buildItem(shown[index], index),
-                  ),
-                  childCount: shown.length,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: true,
-                ),
+              sliver: Builder(
+                builder: (context) {
+                  final rows = <({String? section, UnifiedFeedItem? item})>[];
+                  String? lastSection;
+                  for (final item in shown) {
+                    final section =
+                        RecommendFeedCategory.daySectionLabel(item.sortAt);
+                    if (section != lastSection) {
+                      rows.add((section: section, item: null));
+                      lastSection = section;
+                    }
+                    rows.add((section: null, item: item));
+                  }
+                  return SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final row = rows[index];
+                        if (row.section != null) {
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                            child: Text(
+                              row.section!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: SoriTokens.textSecondary,
+                              ),
+                            ),
+                          );
+                        }
+                        final item = row.item!;
+                        final feedIndex = shown.indexOf(item);
+                        return FeedScrollRow(
+                          child: widget.buildItem(item, feedIndex),
+                        );
+                      },
+                      childCount: rows.length,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                    ),
+                  );
+                },
               ),
             ),
         ],

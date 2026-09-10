@@ -1,3 +1,4 @@
+import '../../models/recommend_feed_category.dart';
 import '../../models/community_case_item.dart';
 import '../../models/community_post.dart';
 import '../../models/customer_chart.dart';
@@ -143,13 +144,14 @@ class PostViewData {
   }
 
   factory PostViewData.fromUnifiedFeedItem(UnifiedFeedItem item) {
+    final cat = RecommendFeedCategory.fromUnified(item);
     return switch (item.kind) {
-      UnifiedFeedKind.ba => _fromBa(item),
-      UnifiedFeedKind.seminar => _fromSeminar(item),
-      UnifiedFeedKind.whisper => _fromPost(item, 'Whisper'),
-      UnifiedFeedKind.interior => _fromPost(item, '샵 인테리어'),
-      UnifiedFeedKind.deviceReview => _fromPost(item, '기기리뷰'),
-      UnifiedFeedKind.marketplace => _fromMarketplace(item),
+      UnifiedFeedKind.ba => _fromBa(item, cat),
+      UnifiedFeedKind.seminar => _fromSeminar(item, cat),
+      UnifiedFeedKind.whisper => _fromPost(item, cat.label),
+      UnifiedFeedKind.interior => _fromPost(item, cat.label),
+      UnifiedFeedKind.deviceReview => _fromPost(item, cat.label),
+      UnifiedFeedKind.marketplace => _fromMarketplace(item, cat),
     };
   }
 
@@ -164,7 +166,10 @@ class PostViewData {
   factory PostViewData.fromCaseItem(CommunityCaseItem item) =>
       _fromCaseItem(item);
 
-  static PostViewData _fromBa(UnifiedFeedItem item) {
+  static PostViewData _fromBa(
+    UnifiedFeedItem item,
+    RecommendFeedCategory cat,
+  ) {
     final c = item.caseItem!;
     final chart = c.chart;
     final mentoring = c.hasActiveMentoring;
@@ -184,11 +189,11 @@ class PostViewData {
       sortAt: item.sortAt,
       authorName: c.displayAuthorNickname,
       affiliation: c.displayShopAffiliation,
-      categoryLabel: mentoring ? '멘토링' : 'B/A',
+      categoryLabel: cat.label,
       bodyText: body,
       timeLabel: formatRelativeTime(item.sortAt),
       avatarUrl: _firstNonEmpty([c.authorAvatarUrl, c.shop.profileImageUrl ?? '']),
-      communityLabel: mentoring ? '멘토링' : 'B/A',
+      communityLabel: cat.label,
       thumbnailUrl: chart.afterImageUrl ?? chart.beforeImageUrl,
       isBoosted: item.isBoosted || c.isBoosted,
       hasActiveMentoring: mentoring,
@@ -244,7 +249,10 @@ class PostViewData {
     );
   }
 
-  static PostViewData _fromSeminar(UnifiedFeedItem item) {
+  static PostViewData _fromSeminar(
+    UnifiedFeedItem item,
+    RecommendFeedCategory cat,
+  ) {
     final s = item.seminar!;
     return PostViewData(
       id: s.id,
@@ -252,10 +260,10 @@ class PostViewData {
       sortAt: item.sortAt,
       authorName: '세미나',
       affiliation: s.location.trim(),
-      categoryLabel: '세미나',
+      categoryLabel: cat.label,
       bodyText: s.title.trim().ifEmpty(s.description),
       timeLabel: formatRelativeTime(item.sortAt),
-      communityLabel: '세미나',
+      communityLabel: cat.label,
       thumbnailUrl: s.additionalImages.isNotEmpty ? s.additionalImages.first : null,
       mediaSlides: s.additionalImages.isNotEmpty
           ? s.additionalImages
@@ -309,15 +317,17 @@ class PostViewData {
     );
   }
 
-  static PostViewData _fromMarketplace(UnifiedFeedItem item) {
+  static PostViewData _fromMarketplace(
+    UnifiedFeedItem item,
+    RecommendFeedCategory cat,
+  ) {
     final p = item.post!;
-    final used = item.isMarketplaceUsed;
     final listing = p.listing;
     final price = listing != null ? '${listing.price}원 · ' : '';
     final device = listing?.deviceName.trim() ?? p.title.trim();
     return _postBase(
       p,
-      used ? '중고거래' : '제품리뷰',
+      cat.label,
       PostViewKind.marketplace,
       sortAt: item.sortAt,
       isBoosted: item.isBoosted,

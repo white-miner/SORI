@@ -1,3 +1,4 @@
+import '../models/recommend_feed_category.dart';
 import '../models/community_post.dart';
 import '../models/unified_feed_item.dart';
 import '../widgets/post/post_view_data.dart';
@@ -83,15 +84,7 @@ abstract final class UnifiedFeedEngine {
   }
 
   static String gridCategoryLabel(UnifiedFeedItem item) {
-    return switch (item.kind) {
-      UnifiedFeedKind.ba => 'B/A',
-      UnifiedFeedKind.seminar => '세미나',
-      UnifiedFeedKind.whisper => 'Whisper',
-      UnifiedFeedKind.interior => '인테리어',
-      UnifiedFeedKind.deviceReview => '기기리뷰',
-      UnifiedFeedKind.marketplace =>
-        item.isMarketplaceUsed ? '중고' : '제품',
-    };
+    return RecommendFeedCategory.fromUnified(item).label;
   }
 
   static String _baImage(UnifiedFeedItem item) {
