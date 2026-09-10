@@ -805,44 +805,70 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
   }
 
   Widget _buildDetailBody(CustomerChart selected) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: _buildFeedShareBar(selected),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: _editing
-                ? _buildEditScroll(selected)
-                : _buildReadDocument(selected),
-          ),
-        ),
-      ],
+    // U3: 피드 공유는 최상단이 아니라 읽기 문서 하단으로 이동.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: _editing
+          ? _buildEditScroll(selected)
+          : _buildReadDocument(selected),
     );
   }
 
   Widget _buildEditScroll(CustomerChart selected) {
     return ListView(
       children: [
-        _buildMetaPane(selected, expand: false),
-        const SizedBox(height: 12),
         _buildCompactBaSection(selected),
+        const SizedBox(height: 12),
+        _buildMetaPane(selected, expand: false),
       ],
     );
   }
 
+  /// U3 읽기 순서: B/A → 이용 서비스 → 결제 → 기록 → 피드 공유 → 하단 버튼.
   Widget _buildReadDocument(CustomerChart chart) {
     final nextVisit = _nextVisitFor(chart);
+    final care = chart.careName.trim().isEmpty
+        ? '시술명 없음'
+        : chart.careName.trim();
 
     return ListView(
       children: [
+        _buildCompactBaSection(chart),
+        const SizedBox(height: 12),
         _docSection(
-          title: '상담 차트',
-          icon: Icons.chat_bubble_outline_rounded,
+          title: '이용 서비스',
+          icon: Icons.spa_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _docField(label: '시술명', value: care),
+              const SizedBox(height: 10),
+              _docField(
+                label: '회차',
+                value: '${chart.visitNumber}회차',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _docSection(
+          title: '결제',
+          icon: Icons.payments_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 차트 row에 금액 컬럼 없음 → 금액 줄 숨김 (0/null 표기 금지).
+              _docField(
+                label: '선불권 차감',
+                value: chart.visitChecked ? '차감됨' : '미차감',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _docSection(
+          title: '기록',
+          icon: Icons.notes_rounded,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -876,17 +902,8 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                   value: chart.directorInsight.trim(),
                 ),
               ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _docSection(
-          title: '관리 계획',
-          icon: Icons.event_note_outlined,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
               if (chart.homeCarePrescriptions.isNotEmpty) ...[
+                const SizedBox(height: 12),
                 const Text(
                   '홈케어 처방',
                   style: TextStyle(
@@ -913,26 +930,19 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
                       )
                       .toList(),
                 ),
-                const SizedBox(height: 12),
               ],
+              const SizedBox(height: 12),
               _docField(
                 label: '다음 방문',
                 value: nextVisit == null
                     ? '예약 없음'
                     : _nextVisitLabel(nextVisit.scheduledAt),
               ),
-              if (chart.careName.trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _docField(
-                  label: '시술명',
-                  value: chart.careName.trim(),
-                ),
-              ],
             ],
           ),
         ),
         const SizedBox(height: 12),
-        _buildCompactBaSection(chart),
+        _buildFeedShareBar(chart),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: () => setState(() => _editing = true),

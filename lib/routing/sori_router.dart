@@ -5,13 +5,13 @@ import '../models/session_user.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../views/admin_chart_page.dart';
 import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
 import '../features/crm_today/care_schedule_lead_page.dart';
 import '../views/care_report_page.dart';
 import '../views/customer_care_page.dart';
 import '../views/customer_review_dashboard_page.dart';
+import '../views/customer_chart/customer_chart_page.dart';
 import '../views/customer_review_page.dart';
 import '../views/customer_profile_page.dart';
 import '../features/visit/visit_launcher_page.dart';
@@ -257,7 +257,7 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
                     path: ':customerId',
                     builder: (context, state) {
                       final id = state.pathParameters['customerId'] ?? '';
-                      return AdminChartPage(
+                      return CustomerChartPage(
                         store: store,
                         customerId: Uri.decodeComponent(id),
                       );
