@@ -29,6 +29,7 @@ import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import 'ai_shop_report_page.dart';
+import 'biz_dashboard/biz_dashboard_page.dart';
 import 'chart_customer_picker_sheet.dart';
 import 'seminar_class_open_page.dart';
 import 'seminar_feedback_inbox_page.dart';
@@ -85,6 +86,8 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
 
   CustomerChart? _chartById(String id) => store.findChartById(id);
 
+  /// Deprecated Feed 탭 롤백용. UI에서 미연결.
+  // ignore: unused_element
   List<CustomerChart> get _baCases {
     final out = <CustomerChart>[];
     for (final chart in store.charts) {
@@ -453,7 +456,6 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
     final session = store.session;
     final shopName =
         shop.name.trim().isEmpty ? 'Sori 에스테틱' : shop.name.trim();
-    final cases = _baCases;
     final isOwner = session?.activeMode == UserRole.director;
     final coverUrl = (shop.coverImageUrl ?? '').trim();
 
@@ -530,7 +532,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     controller: _tabController,
                     labels: const [
                       'Home',
-                      'Feed',
+                      '경영',
                       'Shop',
                       'Asset',
                       'Seminar',
@@ -551,11 +553,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 isOwner: isOwner,
                 onOpenSeminarTab: () => _tabController.animateTo(4),
               ),
-              _ServiceGroupedFeedTab(
-                cases: cases,
-                store: store,
-                onOpenCasesTab: () => onSelectTab?.call(0),
-              ),
+              DirectorBizTabBody(store: store, isOwner: isOwner),
               ShopInlineInfoTab(store: store, isOwner: isOwner),
               ShopAssetTabBody(store: store, isOwner: isOwner),
               MySeminarTabBody(store: store, isOwner: isOwner),
@@ -1160,8 +1158,11 @@ class _DirectorAvatarButtonState extends State<_DirectorAvatarButton> {
   }
 }
 
-/// Feed 탭 — careName별 동적 가로 섹션 (Weverse 스타일).
+/// Deprecated: Feed 탭 제거(2026-09, PRD v7.6). 홈·커뮤니티 추천과 중복.
+/// 롤백용으로 클래스만 유지 — UI 탭에는 연결하지 않는다.
+@Deprecated('Feed tab removed — use Community 추천 / Home feed')
 class _ServiceGroupedFeedTab extends StatefulWidget {
+  // ignore: unused_element_parameter
   const _ServiceGroupedFeedTab({
     required this.cases,
     required this.store,
