@@ -160,10 +160,16 @@ async function fetchStores(opts: {
 }> {
   const keywords = categoryKeywords(opts.category);
   const url =
-    https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius +
-    ?serviceKey= +
-    &pageNo=1&numOfRows=100&radius= +
-    &cx=&cy=&type=json;
+    "https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius" +
+    "?serviceKey=" +
+    encodeURIComponent(opts.key) +
+    "&pageNo=1&numOfRows=100&radius=" +
+    opts.radiusM +
+    "&cx=" +
+    opts.lng +
+    "&cy=" +
+    opts.lat +
+    "&type=json";
 
   try {
     const res = await fetch(url);
@@ -178,7 +184,7 @@ async function fetchStores(opts: {
         sameCategoryCount: 0,
         sampleNames: [],
         items: [],
-        error: store_non_json status=,
+        error: "store_non_json status=" + res.status,
       };
     }
     const rawItems = extractStoreItems(payload);
