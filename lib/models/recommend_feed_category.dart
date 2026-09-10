@@ -67,4 +67,27 @@ enum RecommendFeedCategory {
     if (diff < 7) return '이번 주';
     return '이전';
   }
+
+  /// 탐색 탭 칩 순서 (PRD 초안 7종 + 기존 소스).
+  static const List<RecommendFeedCategory> exploreCategories = [
+    baCase,
+    seminar,
+    tipDevice,
+    tipProduct,
+    news,
+    mentorAsk,
+    mentorOffer,
+    whisper,
+    interior,
+    usedMarket,
+  ];
+
+  /// [filter] null = 전체.
+  static bool matchesExploreFilter(
+    UnifiedFeedItem item,
+    RecommendFeedCategory? filter,
+  ) {
+    if (filter == null) return true;
+    return fromUnified(item) == filter;
+  }
 }

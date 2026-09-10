@@ -4,6 +4,7 @@ import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/shop.dart';
 import 'package:sori/models/community_case_item.dart';
 import 'package:sori/models/subscription.dart';
+import 'package:sori/models/unified_feed_item.dart';
 import 'package:sori/utils/home_explore_search.dart';
 
 void main() {
@@ -85,7 +86,7 @@ void main() {
       expect(HomeExploreSearch.isSearchablePost(interior), isTrue);
     });
 
-    test('scoreCase and scoreDirector accept tokens', () {
+    test('scoreUnified on ba case', () {
       final item = CommunityCaseItem(
         chart: const CustomerChart(
           id: 'c1',
@@ -97,15 +98,9 @@ void main() {
         ),
         shop: const Shop(id: 's1', name: '강남샵', naverPlaceUrl: ''),
       );
+      final feed = UnifiedFeedItem.ba(item);
       final tokens = HomeExploreSearch.tokens('테라노바');
-      expect(HomeExploreSearch.scoreCase(item, tokens), greaterThan(0));
-
-      const director = DiscoverDirector(
-        shopId: 's1',
-        shopName: '테라노바 클리닉',
-        nickname: '김원장',
-      );
-      expect(HomeExploreSearch.scoreDirector(director, tokens), greaterThan(0));
+      expect(HomeExploreSearch.scoreUnified(feed, tokens), greaterThan(0));
     });
   });
 }

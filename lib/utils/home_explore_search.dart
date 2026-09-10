@@ -1,6 +1,8 @@
 import '../models/community_case_item.dart';
 import '../models/community_post.dart';
 import '../models/subscription.dart';
+import '../models/unified_feed_item.dart';
+import '../services/unified_feed_engine.dart';
 
 /// 홈 탐색 검색 토큰·랭킹.
 abstract final class HomeExploreSearch {
@@ -68,6 +70,44 @@ abstract final class HomeExploreSearch {
       tagsDevice: [device, post.title, ...post.styleTags].join(' '),
       body: post.body,
     );
+  }
+
+  /// C5 — 통합 피드(추천과 동일 소스) 검색.
+  static int scoreUnified(UnifiedFeedItem item, List<String> tokens) {
+    if (tokens.isEmpty) return 0;
+    final title = UnifiedFeedEngine.gridTitle(item);
+    final subtitle = UnifiedFeedEngine.gridSubtitle(item);
+    final author = UnifiedFeedEngine.gridAuthorName(item);
+    final category = UnifiedFeedEngine.gridCategoryLabel(item);
+    switch (item.kind) {
+      case UnifiedFeedKind.ba:
+        final c = item.caseItem;
+        if (c == null) return -1;
+        return scoreCase(c, tokens);
+      case UnifiedFeedKind.seminar:
+        final s = item.seminar;
+        return scoreHaystacks(
+          tokens: tokens,
+          exactName: s?.title ?? title,
+          tagsDevice: [category, s?.location ?? ''].join(' '),
+          body: [s?.description ?? '', subtitle].join(' '),
+        );
+      case UnifiedFeedKind.whisper:
+      case UnifiedFeedKind.interior:
+      case UnifiedFeedKind.deviceReview:
+      case UnifiedFeedKind.marketplace:
+        final p = item.post;
+        if (p != null) {
+          final base = scorePost(p, tokens);
+          if (base >= 0) return base;
+        }
+        return scoreHaystacks(
+          tokens: tokens,
+          exactName: author,
+          tagsDevice: [category, title].join(' '),
+          body: subtitle,
+        );
+    }
   }
 
   static int scoreDirector(DiscoverDirector d, List<String> tokens) {
