@@ -116,8 +116,8 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
         const SizedBox(height: 6),
         Text(
           _profile.isComplete
-              ? '온보딩 완료 · 월·년 매출로 ZONE 1·2를 계산합니다.'
-              : '3분 온보딩 후 시간당 수익·진짜 영업이익·BEP를 볼 수 있어요.',
+              ? '내 숫자가 준비됐어요. 월·년 매출만 넣으면 수익이 계산됩니다.'
+              : '주소와 평소 쓰는 숫자만 적으면, 시간당 수익·진짜 이익을 쉽게 보여 드려요.',
           style: const TextStyle(
             fontSize: 13,
             color: Color(0xFF6B7280),
@@ -166,7 +166,7 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
           ),
           icon: const Icon(Icons.insights_rounded, size: 20),
           label: Text(
-            _profile.isComplete ? '경영 대시보드 열기' : '온보딩 · 대시보드 열기',
+            _profile.isComplete ? '내 경영 숫자 보기' : '3분만에 시작하기',
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
@@ -400,7 +400,7 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
           TextButton(
             onPressed: _openOnboarding,
             child: Text(
-              _profile.isComplete ? '프로필 수정' : '온보딩',
+              _profile.isComplete ? '내 샵 정보 바꾸기' : '내 샵 정보 입력',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -413,16 +413,17 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
               children: [
                 if (!_profile.isComplete)
                   _HintBanner(
-                    text: '온보딩 5문항을 완료하면 시간당 수익·BEP가 계산됩니다.',
+                    text:
+                        '주소와 고정비·목표 월급만 적으면 바로 계산됩니다. 상권 용어는 몰라도 괜찮아요.',
                     actionLabel: '시작',
                     onAction: _openOnboarding,
                   ),
                 if (_profile.isComplete && monthRev == null)
                   _HintBanner(
-                    text: '이번 달 매출을 입력하면 ZONE 1·2가 채워집니다.',
+                    text: '이번 달 매출을 넣으면 시간당 수익·진짜 이익이 채워집니다.',
                   ),
                 const Text(
-                  '내 매출 (수동 입력)',
+                  '내 매출 (손으로 적기)',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -430,7 +431,7 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  '월·년 매출은 직접 입력합니다. 차트 결제 자동합산은 이후 단계입니다.',
+                  '이번 달·올해 매출만 적어 주세요. (나중에 차트에서 자동으로 합칠 수 있어요)',
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF6B7280),
@@ -905,20 +906,21 @@ class _Zone3Section extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'ZONE 3 · 상권 · 인구',
+                'ZONE 3 · 우리 동네 살펴보기',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
             ),
             TextButton(
               onPressed: loading ? null : onRefresh,
-              child: const Text('새로고침'),
+              child: const Text('다시 보기'),
             ),
           ],
         ),
         const SizedBox(height: 4),
         const Text(
-          '공공데이터 기반 · 추정치 · 개별 점포 실매출 아님',
-          style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          '근처 비슷한 샵이 몇 곳인지, 동네에 사람이 얼마나 사는지 참고용으로 보여 줍니다.\n'
+          '(공식 통계 · 추정치 · 내 샵 실매출이 아닙니다)',
+          style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
         ),
         const SizedBox(height: 10),
         if (loading)
@@ -928,7 +930,7 @@ class _Zone3Section extends StatelessWidget {
           )
         else if (market == null)
           _HintBanner(
-            text: '온보딩·샵 좌표가 있으면 상권·인구를 불러옵니다.',
+            text: '샵 주소를 연결하면 근처 샵·동네 인구를 불러옵니다.',
             actionLabel: '불러오기',
             onAction: onRefresh,
           )
@@ -947,7 +949,7 @@ class _Zone3Section extends StatelessWidget {
                 Row(
                   children: [
                     const Text(
-                      '반경 내 점포',
+                      '내 근처 비슷한 샵',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -977,7 +979,7 @@ class _Zone3Section extends StatelessWidget {
                 const SizedBox(height: 8),
                 if (!market!.storesOk)
                   Text(
-                    '상가정보 조회 실패'
+                    '근처 샵 정보를 잠시 못 가져왔어요'
                     '${market!.storesError == null ? '' : ' · ${market!.storesError}'}',
                     style: const TextStyle(
                       fontSize: 13,
@@ -986,12 +988,12 @@ class _Zone3Section extends StatelessWidget {
                   )
                 else ...[
                   Text(
-                    '반경 ${market!.radiusM}m · 전체 ${market!.totalInRadius}곳',
+                    '걸어서 ${market!.radiusM}m 안 · 등록 점포 ${market!.totalInRadius}곳',
                     style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '동종(참고) ${market!.sameCategoryCount}곳',
+                    '나와 비슷한 업종 약 ${market!.sameCategoryCount}곳',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -1029,7 +1031,7 @@ class _Zone3Section extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '행정동 인구 (성·연령)',
+                  '우리 동네에 사는 사람',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -1038,13 +1040,14 @@ class _Zone3Section extends StatelessWidget {
                 const SizedBox(height: 8),
                 if (!hasAdmCd)
                   _HintBanner(
-                    text: '인구 조회에는 행정동 코드(행정기관코드)가 필요합니다. 프로필에서 입력해 주세요.',
-                    actionLabel: '입력',
+                    text:
+                        '주소만 적고 「우리 동네 연결하기」를 누르면 인구를 볼 수 있어요. 코드는 몰라도 됩니다.',
+                    actionLabel: '주소로 연결',
                     onAction: onEditProfile,
                   )
                 else if (!market!.populationOk)
                   Text(
-                    '인구 조회 실패'
+                    '인구를 불러오지 못했어요'
                     '${market!.populationError == null ? '' : ' · ${market!.populationError}'}',
                     style: const TextStyle(
                       fontSize: 13,
@@ -1054,9 +1057,10 @@ class _Zone3Section extends StatelessWidget {
                 else ...[
                   Text(
                     [
-                      if ((market!.dongName ?? '').isNotEmpty) market!.dongName!,
+                      if ((market!.dongName ?? '').isNotEmpty)
+                        '${market!.dongName} 기준',
                       if (market!.statsYm.isNotEmpty)
-                        '기준 ${market!.statsYm}',
+                        '통계 ${market!.statsYm}',
                     ].join(' · '),
                     style: const TextStyle(
                       fontSize: 12,
@@ -1113,7 +1117,7 @@ class _Zone3Section extends StatelessWidget {
                   if (market!.storesPer1kPop != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      '동종 점포 / 인구 천명 ≈ ${market!.storesPer1kPop}',
+                      '주민 1,000명당 비슷한 샵 ≈ ${market!.storesPer1kPop}곳',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1123,7 +1127,7 @@ class _Zone3Section extends StatelessWidget {
                 ],
                 const SizedBox(height: 6),
                 const Text(
-                  '출처: 행정안전부 행정동별 성/연령별 주민등록 인구수',
+                  '출처: 행정안전부 주민등록 인구 통계',
                   style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
                 ),
               ],
@@ -1131,8 +1135,8 @@ class _Zone3Section extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           const _ZonePlaceholder(
-            title: '상권 매출 백분위 · Alpha',
-            subtitle: '추정매출 데이터셋 연결 후 (후속) — 지금은 경쟁·인구만',
+            title: '우리 동네 매출 비교',
+            subtitle: '곧 연결 예정 · 지금은 근처 샵·동네 인구만 볼 수 있어요',
           ),
         ],
       ],
@@ -1178,7 +1182,7 @@ class _ZonePlaceholder extends StatelessWidget {
   }
 }
 
-/// 온보딩 5문항 바텀시트.
+/// 온보딩 — 초보 원장용 쉬운 말 + 주소로 동네 자동 연결.
 class _BizOnboardingSheet extends StatefulWidget {
   const _BizOnboardingSheet({required this.initial});
 
@@ -1198,6 +1202,10 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
   late final TextEditingController _days;
   late final TextEditingController _hours;
 
+  String _dongLabel = '';
+  bool _linking = false;
+  bool _showAdvancedCode = false;
+
   @override
   void initState() {
     super.initState();
@@ -1208,6 +1216,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
     }
     _address = TextEditingController(text: i.address);
     _admCd = TextEditingController(text: i.admCd);
+    _dongLabel = i.admCd.trim().isEmpty ? '' : '동네 코드가 저장되어 있어요';
     _fixed = TextEditingController(
       text: i.monthlyFixedCostKrw > 0 ? '${i.monthlyFixedCostKrw}' : '',
     );
@@ -1236,24 +1245,90 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
   double? _double(String s) =>
       double.tryParse(s.replaceAll(',', '.').trim());
 
-  void _submit() {
+  Future<void> _linkNeighborhood() async {
+    final addr = _address.text.trim();
+    if (addr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('먼저 샵 주소를 적어 주세요')),
+      );
+      return;
+    }
+    setState(() => _linking = true);
+    try {
+      final n =
+          await ShopMarketService.instance.resolveNeighborhoodFromAddress(addr);
+      if (!mounted) return;
+      if (n == null || !n.isLinked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('주소를 찾지 못했어요. 도로명이나 지번을 조금 더 자세히 적어 주세요'),
+          ),
+        );
+        return;
+      }
+      setState(() {
+        _admCd.text = n.admCd;
+        _dongLabel = n.dongName.isEmpty ? '동네 연결 완료' : '${n.dongName}으로 연결했어요';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            n.dongName.isEmpty
+                ? '우리 동네를 연결했어요'
+                : '「${n.dongName}」동네로 연결했어요',
+          ),
+          backgroundColor: SoriTokens.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _linking = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    var adm = _admCd.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final addr = _address.text.trim();
+    if (adm.isEmpty && addr.isNotEmpty) {
+      setState(() => _linking = true);
+      try {
+        final n = await ShopMarketService.instance
+            .resolveNeighborhoodFromAddress(addr);
+        if (n != null && n.isLinked) {
+          adm = n.admCd;
+          _admCd.text = adm;
+          _dongLabel =
+              n.dongName.isEmpty ? '동네 연결 완료' : '${n.dongName}으로 연결했어요';
+        }
+      } finally {
+        if (mounted) setState(() => _linking = false);
+      }
+    }
+
     final fixed = _int(_fixed.text) ?? 0;
     final owner = _int(_ownerPay.text) ?? 0;
     final days = _int(_days.text) ?? 0;
     final hours = _double(_hours.text) ?? 0;
     final material = _double(_material.text) ?? 15;
-    if (_category.trim().isEmpty || fixed <= 0 || owner <= 0 || days <= 0 || hours <= 0) {
+    if (_category.trim().isEmpty ||
+        fixed <= 0 ||
+        owner <= 0 ||
+        days <= 0 ||
+        hours <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('업종·고정비·목표소득·영업일을 확인해 주세요')),
+        const SnackBar(
+          content: Text('업종 · 고정비 · 목표 월급 · 영업일을 모두 채워 주세요'),
+        ),
       );
       return;
     }
+    if (!mounted) return;
     Navigator.pop(
       context,
       ShopBizProfile(
         category: _category,
-        address: _address.text.trim(),
-        admCd: _admCd.text.replaceAll(RegExp(r'[^0-9]'), ''),
+        address: addr,
+        admCd: adm,
         monthlyFixedCostKrw: fixed,
         materialRatePct: material.clamp(0, 90),
         targetOwnerPayKrw: owner,
@@ -1266,6 +1341,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final linked = _admCd.text.trim().isNotEmpty;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: SingleChildScrollView(
@@ -1273,20 +1349,29 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              '경영 온보딩 · 5문항',
+              '내 샵 경영 시작하기',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             const Text(
-              '이 값만으로 ZONE 1·2가 계산됩니다. 공공데이터는 주소로 나중에 연결됩니다.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              '어려운 용어는 몰라도 됩니다. 평소 장사할 때 감으로 아는 숫자만 적어 주세요.\n'
+              '주소만 있으면 「우리 동네」인구·근처 샵 정보를 알아서 붙입니다.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+                height: 1.45,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
+            const Text(
+              '① 무슨 샵인가요?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
               value: _category,
               decoration: const InputDecoration(
-                labelText: '1. 업종',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -1298,60 +1383,167 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
                 if (v != null) setState(() => _category = v);
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
+            const Text(
+              '② 샵 주소는 어디인가요?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '예: 경북 경주시 ○○로 12 / 경주시 성건동 123',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _address,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _linkNeighborhood(),
               decoration: const InputDecoration(
-                labelText: '1b. 주소 (좌표·상권용 · 선택)',
+                hintText: '도로명 또는 지번 주소',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _admCd,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: '1c. 행정동 코드 (인구 API · 10자리 권장)',
-                hintText: '예: 1111051500',
-                border: OutlineInputBorder(),
-                isDense: true,
+            const SizedBox(height: 8),
+            FilledButton.tonalIcon(
+              onPressed: _linking ? null : _linkNeighborhood,
+              icon: _linking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.location_on_outlined, size: 18),
+              label: Text(
+                _linking ? '동네 찾는 중…' : '주소로 우리 동네 연결하기',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            const SizedBox(height: 12),
+            if (linked) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF059669),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _dongLabel.isEmpty ? '우리 동네 연결 완료' : _dongLabel,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF065F46),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () =>
+                  setState(() => _showAdvancedCode = !_showAdvancedCode),
+              child: Text(
+                _showAdvancedCode ? '코드 입력 숨기기' : '연결이 안 될 때만 · 코드 직접 입력',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            if (_showAdvancedCode) ...[
+              TextField(
+                controller: _admCd,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: '동네 코드 (자동으로 채워집니다)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+            const SizedBox(height: 18),
+            const Text(
+              '③ 한 달에 나가는 고정비는?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '임대료 + 관리비 + 보험 등, 손님 없어도 나가는 돈의
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _fixed,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
-                labelText: '2. 월 고정비 합계 (원)',
+                hintText: '예: 2000000',
+                suffixText: '원',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
+            const Text(
+              '④ 재료비는 매출의 몇 %쯤?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '잘 모르겠으면 15 정도를 넣어도 됩니다. 나중에 바꿀 수 있어요.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _material,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: '3. 평균 재료비율 (%)',
+                hintText: '예: 15',
+                suffixText: '%',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
+            const Text(
+              '⑤ 내가 가져가고 싶은 월급은?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '사장 본인 인건비로 계산에 넣습니다. (이게 있어야 ‘진짜 이익’이 보입니다)',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _ownerPay,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
-                labelText: '4. 목표 월 소득 = 대표 인건비 (원)',
+                hintText: '예: 3000000',
+                suffixText: '원',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
+            const Text(
+              '⑥ 일주일에 며칠, 하루에 몇 시간 일하나요?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -1360,7 +1552,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
-                      labelText: '5. 주 영업일',
+                      labelText: '주 며칠',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -1373,7 +1565,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: '일 영업시간',
+                      labelText: '하루 몇 시간',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -1381,16 +1573,16 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             FilledButton(
-              onPressed: _submit,
+              onPressed: _linking ? null : _submit,
               style: FilledButton.styleFrom(
                 backgroundColor: SoriTokens.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text(
-                '저장하고 계산하기',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              child: Text(
+                _linking ? '잠시만요…' : '저장하고 내 숫자 보기',
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ],

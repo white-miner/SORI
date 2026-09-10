@@ -248,4 +248,47 @@ class ShopMarketService {
       return ShopMarketInsight.unavailable(reason: e.toString());
     }
   }
+
+  /// 주소 → 행정동 자동 연결. Edge(카카오 시크릿) 우선, 로컬 dotenv 폴백.
+  Future<ShopNeighborhood?> resolveNeighborhoodFromAddress(String address) async {
+    final trimmed = address.trim();
+    if (trimmed.isEmpty) return null;
+
+    try {
+      final client = Supabase.instance.client;
+      final res = await client.functions
+          .invoke(
+            'get-shop-market',
+            body: {
+              'action': 'resolve_address',
+              'address': trimmed,
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+      Map<String, dynamic>? map;
+      final data = res.data;
+      if (data is Map<String, dynamic>) {
+        map = data;
+      } else if (data is Map) {
+        map = Map<String, dynamic>.from(data);
+      }
+      if (map != null && map['ok'] == true) {
+        final adm = '${map['adm_cd'] ?? ''}'.trim();
+        if (adm.isNotEmpty) {
+          return ShopNeighborhood(
+            latitude: (map['latitude'] as num?)?.toDouble() ?? 0,
+            longitude: (map['longitude'] as num?)?.toDouble() ?? 0,
+            dongName: '${map['dong_name'] ?? ''}'.trim(),
+            admCd: adm,
+            displayLabel: '${map['display_label'] ?? map['dong_name'] ?? adm}'
+                .trim(),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('resolve_address edge failed: $e');
+    }
+
+    return ShopGeocodingService.instance.resolveNeighborhood(trimmed);
+  }
 }

@@ -1,5 +1,6 @@
 // PRD v7.6 Phase 3a — 상가정보 + 행정동 인구 → 경영 ZONE 3
-// Secrets: SBIZ_STORE_SERVICE_KEY, MOIS_POP_SERVICE_KEY
+// Secrets: SBIZ_STORE_SERVICE_KEY, MOIS_POP_SERVICE_KEY, KAKAO_REST_API_KEY
+// action=resolve_address → 주소만으로 행정동 코드 자동 연결
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -9,6 +10,9 @@ const corsHeaders = {
 };
 
 interface MarketBody {
+  /** resolve_address | market(default) */
+  action?: string;
+  address?: string;
   shop_id?: string;
   latitude?: number;
   longitude?: number;
@@ -389,6 +393,79 @@ async function fetchPopulation(opts: {
   };
 }
 
+async function resolveAddressWithKakao(address: string): Promise<{
+  ok: boolean;
+  latitude?: number;
+  longitude?: number;
+  adm_cd?: string;
+  dong_name?: string;
+  display_label?: string;
+  error?: string;
+}> {
+  const key = Deno.env.get("KAKAO_REST_API_KEY")?.trim() ?? "";
+  if (!key) {
+    return { ok: false, error: "missing_KAKAO_REST_API_KEY" };
+  }
+  const trimmed = address.trim();
+  if (!trimmed) return { ok: false, error: "empty_address" };
+
+  try {
+    const searchUrl =
+      `https://dapi.kakao.com/v2/local/search/address.json` +
+      `?query=${encodeURIComponent(trimmed)}`;
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `KakaoAK ${key}` },
+    });
+    const searchJson = await searchRes.json();
+    const doc = searchJson?.documents?.[0];
+    if (!doc) return { ok: false, error: "address_not_found" };
+
+    const lat = Number(doc.y);
+    const lng = Number(doc.x);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return { ok: false, error: "bad_coords" };
+    }
+
+    let admCd = String(doc.address?.h_code ?? "").trim();
+    let dongName = String(doc.address?.region_3depth_name ?? "").trim();
+
+    if (!admCd) {
+      const regionUrl =
+        `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json` +
+        `?x=${lng}&y=${lat}`;
+      const regionRes = await fetch(regionUrl, {
+        headers: { Authorization: `KakaoAK ${key}` },
+      });
+      const regionJson = await regionRes.json();
+      const docs = regionJson?.documents ?? [];
+      const h = docs.find((d: { region_type?: string }) => d.region_type === "H") ??
+        docs[0];
+      admCd = String(h?.code ?? "").trim();
+      dongName = String(h?.region_3depth_name ?? dongName).trim();
+    }
+
+    if (!admCd) {
+      return {
+        ok: false,
+        latitude: lat,
+        longitude: lng,
+        error: "adm_cd_not_found",
+      };
+    }
+
+    return {
+      ok: true,
+      latitude: lat,
+      longitude: lng,
+      adm_cd: admCd,
+      dong_name: dongName,
+      display_label: dongName || admCd,
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -396,6 +473,15 @@ Deno.serve(async (req) => {
 
   try {
     const body = (await req.json()) as MarketBody;
+
+    if ((body.action ?? "").trim() === "resolve_address") {
+      const resolved = await resolveAddressWithKakao(body.address ?? "");
+      return jsonResponse({
+        ...resolved,
+        fetched_at: new Date().toISOString(),
+      });
+    }
+
     const lat = body.latitude ?? 35.8562;
     const lng = body.longitude ?? 129.2247;
     const radiusM = Math.min(Math.max(body.radius_m ?? 500, 100), 2000);
