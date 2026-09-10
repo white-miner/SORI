@@ -1271,6 +1271,9 @@ class SupabaseSoriRepository implements SoriRepository {
       rethrow;
     }
 
+    // P1 Expand: URL 컬럼 → chart_photo_records 이중 기록 (실패해도 저장 유지)
+    await _dualWriteChartPhotoUrls(chart);
+
     // 회원권 차감은 차트 저장 성공 후에만. 실패 시 차감분 롤백.
     var membershipDeducted = false;
     var feedbackMessage = '';
@@ -1517,7 +1520,98 @@ class SupabaseSoriRepository implements SoriRepository {
     };
 
     final row = await _updateChartRow(chartId: id, payload: payload);
-    return CustomerChart.fromMap(row);
+    final chart = CustomerChart.fromMap(row);
+
+    // P1 Expand: 슈팅허브 등 URL 패치 경로 이중 기록
+    if (beforeImageUrl != null ||
+        (afterImageUrl != null && !clearAfterImageUrl)) {
+      if (beforeImageUrl != null) {
+        final u = chart.beforeImageUrl?.trim() ?? '';
+        if (u.isNotEmpty) {
+          await insertChartPhotoRecord(
+            chartId: chart.id,
+            phase: 'before',
+            url: u,
+            shopId: chart.shopId,
+          );
+        }
+      }
+      if (afterImageUrl != null && !clearAfterImageUrl) {
+        final u = chart.afterImageUrl?.trim() ?? '';
+        if (u.isNotEmpty) {
+          await insertChartPhotoRecord(
+            chartId: chart.id,
+            phase: 'after',
+            url: u,
+            shopId: chart.shopId,
+          );
+        }
+      }
+    }
+
+    return chart;
+  }
+
+  /// P1 — `chart_photo_records` 멱등 upsert. 실패해도 호출부에 전파하지 않는다.
+  Future<void> insertChartPhotoRecord({
+    required String chartId,
+    required String phase,
+    required String url,
+    String? shopId,
+    int sortOrder = 0,
+  }) async {
+    final cid = chartId.trim();
+    final phaseKey = phase.trim();
+    final photoUrl = url.trim();
+    if (cid.isEmpty || !isUuidV4(cid)) return;
+    if (photoUrl.isEmpty) return;
+    if (phaseKey != 'before' &&
+        phaseKey != 'after' &&
+        phaseKey != 'progress') {
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      'chart_id': cid,
+      'phase': phaseKey,
+      'url': photoUrl,
+      'sort_order': sortOrder,
+      if (shopId != null &&
+          shopId.trim().isNotEmpty &&
+          isUuidV4(shopId.trim()))
+        'shop_id': shopId.trim(),
+    };
+
+    try {
+      await _db.from('chart_photo_records').upsert(
+            payload,
+            onConflict: 'chart_id,phase,url',
+            ignoreDuplicates: true,
+          );
+    } catch (e, st) {
+      debugPrint('insertChartPhotoRecord skipped: $e\n$st');
+    }
+  }
+
+  Future<void> _dualWriteChartPhotoUrls(CustomerChart chart) async {
+    final before = chart.beforeImageUrl?.trim() ?? '';
+    final after = chart.afterImageUrl?.trim() ?? '';
+    if (before.isNotEmpty) {
+      await insertChartPhotoRecord(
+        chartId: chart.id,
+        phase: 'before',
+        url: before,
+        shopId: chart.shopId,
+      );
+    }
+    if (after.isNotEmpty) {
+      await insertChartPhotoRecord(
+        chartId: chart.id,
+        phase: 'after',
+        url: after,
+        shopId: chart.shopId,
+      );
+    }
   }
 
   @override
@@ -5354,7 +5448,28 @@ class SupabaseSoriRepository implements SoriRepository {
         },
       );
       if (row is Map) {
-        return BaCaptureSession.fromMap(Map<String, dynamic>.from(row));
+        final session =
+            BaCaptureSession.fromMap(Map<String, dynamic>.from(row));
+        // P1 Expand: BA 바인드 후 URL 이중 기록 (멱등 upsert)
+        final before = session.beforeImageUrl?.trim() ?? '';
+        final after = session.afterImageUrl?.trim() ?? '';
+        if (before.isNotEmpty) {
+          await insertChartPhotoRecord(
+            chartId: chartId,
+            phase: 'before',
+            url: before,
+            shopId: session.shopId,
+          );
+        }
+        if (after.isNotEmpty) {
+          await insertChartPhotoRecord(
+            chartId: chartId,
+            phase: 'after',
+            url: after,
+            shopId: session.shopId,
+          );
+        }
+        return session;
       }
       throw StateError('bind_ba_session_to_chart returned ${row.runtimeType}');
     } catch (e, st) {
