@@ -3,15 +3,22 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../services/biz_profile_store.dart';
+import '../../services/region_content_bookmark_store.dart';
 import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../shop_settings_page.dart';
 import 'region_map_center.dart';
+import 'region_map_content_pins.dart';
+
+/// Quiet Local Canvas (C.S1) — Carto light raster · no client API key.
+const _kRegionMapTileUrl =
+    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
+const _kRegionMapTileSubdomains = ['a', 'b', 'c', 'd'];
 
 /// PRD v7.8 C2 — 우리 지역 상단 4:3 맵 + 업종·반경 칩.
-/// Phase C.1 — 우측 상단 `현재 위치로 보기` (탭 후 1회 GPS · 거부 시 Shop/Biz 유지).
+/// C.1 GPS · C.2 저장함 · C.S1 light tile.
 class RegionNearbyMapSection extends StatefulWidget {
   const RegionNearbyMapSection({
     super.key,
@@ -54,6 +61,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   String? _error;
   ShopMarketInsight? _insight;
   ShopMarketStoreItem? _selected;
+  RegionMapPin? _selectedPin;
+  List<RegionMapPin> _contentPins = const [];
   /// Shop/Biz·지오코딩 기준 중심 (GPS 실패해도 유지).
   LatLng? _baseCenter;
   /// 탭으로 잡은 GPS 중심. 디스크에 저장하지 않음.
@@ -89,12 +98,18 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _loading = true;
       _error = null;
       _selected = null;
+      _selectedPin = null;
       _gpsCenter = null;
       _gpsBanner = _GpsBanner.none;
     });
     final shop = widget.store.shop;
     final biz = await BizProfileStore.load(shop.id);
     final bizAddr = biz.address.trim();
+    // Content pins need feed caches; ignore failures.
+    await Future.wait([
+      widget.store.refreshCommunityPosts(force: true),
+      widget.store.refreshCommunityHotCases(),
+    ]);
     final insight = await ShopMarketService.instance.fetch(
       shop: shop,
       category: '전체',
@@ -111,9 +126,20 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     final center =
         resolved == null ? null : LatLng(resolved.lat, resolved.lng);
 
+    var pins = const <RegionMapPin>[];
+    if (center != null) {
+      pins = await RegionMapContentPins.loadNear(
+        store: widget.store,
+        centerLat: center.latitude,
+        centerLng: center.longitude,
+        radiusKm: _radiusKm,
+      );
+    }
+
     setState(() {
       _insight = insight;
       _baseCenter = center;
+      _contentPins = pins;
       _loading = false;
       if (center == null) {
         _error = '우리 지역의 글을 보려면 샵 주소를 등록해 주세요.';
@@ -165,7 +191,142 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           // attach 전이면 다음 프레임 build의 initialCenter로 표시.
         }
         widget.onCenterChanged?.call(lat, lng);
+        final pins = await RegionMapContentPins.loadNear(
+          store: widget.store,
+          centerLat: lat,
+          centerLng: lng,
+          radiusKm: _radiusKm,
+        );
+        if (!mounted) return;
+        setState(() {
+          _contentPins = pins;
+          _selectedPin = null;
+        });
     }
+  }
+
+  Future<void> _openSavedSheet() async {
+    await RegionContentBookmarkStore.instance.refresh();
+    if (!mounted) return;
+    final items = RegionContentBookmarkStore.instance.items;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: SoriTokens.surface,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '저장한 지역 콘텐츠',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '글·세미나 상세에서 저장한 항목만 모아요.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 28),
+                    child: Text(
+                      '아직 저장한 글·세미나가 없어요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: SoriTokens.textSecondary),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(ctx).height * 0.45,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final b = items[i];
+                        final title = _bookmarkTitle(b);
+                        final kindLabel = b.kind == RegionContentKind.post
+                            ? '글'
+                            : '세미나';
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            b.kind == RegionContentKind.post
+                                ? Icons.article_outlined
+                                : Icons.event_outlined,
+                            color: SoriTokens.primary,
+                          ),
+                          title: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(kindLabel),
+                          trailing: IconButton(
+                            tooltip: '저장 해제',
+                            icon: const Icon(Icons.bookmark_remove_outlined),
+                            onPressed: () async {
+                              await RegionContentBookmarkStore.instance
+                                  .toggle(b.kind, b.targetId);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) await _openSavedSheet();
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _bookmarkTitle(RegionContentBookmark b) {
+    final store = widget.store;
+    if (b.kind == RegionContentKind.post) {
+      for (final p in store.communityPosts) {
+        if (p.id == b.targetId) {
+          final t = p.title.trim();
+          if (t.isNotEmpty) return t;
+          final body = p.body.trim();
+          if (body.isNotEmpty) {
+            return body.length > 40 ? '${body.substring(0, 40)}…' : body;
+          }
+        }
+      }
+      return '저장한 글';
+    }
+    for (final s in store.openSeminarClassesForFeed) {
+      if (s.id == b.targetId) {
+        final t = s.title.trim();
+        if (t.isNotEmpty) return t;
+      }
+    }
+    for (final s in store.seminarClasses) {
+      if (s.id == b.targetId) {
+        final t = s.title.trim();
+        if (t.isNotEmpty) return t;
+      }
+    }
+    return '저장한 세미나';
   }
 
   void _onMapEvent(MapEvent event) {
@@ -237,6 +398,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                     onSelected: (_) => setState(() {
                       _chip = c.key;
                       _selected = null;
+                      _selectedPin = null;
                     }),
                     selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
                     labelStyle: TextStyle(
@@ -339,8 +501,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               '반경 ${_radiusKm < 1 ? '${(_radiusKm * 1000).round()}m' : '${_radiusKm}km'} · '
-              '표시 ${_filtered.length}곳'
-              '${_insight == null ? '' : ' (전체 ${_insight!.totalInRadius}곳 중)'}',
+              '상권 ${_filtered.length}곳 · 글/세미나 ${_contentPins.length}'
+              '${_insight == null ? '' : ' (상권 전체 ${_insight!.totalInRadius})'}',
               style: const TextStyle(
                 fontSize: 12,
                 color: SoriTokens.textSecondary,
@@ -348,7 +510,26 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               ),
             ),
           ),
-        if (_selected != null) _SelectedCard(item: _selected!),
+        if (_selectedPin != null)
+          _ContentPinCard(
+            pin: _selectedPin!,
+            bookmarked: RegionContentBookmarkStore.instance.isBookmarked(
+              _selectedPin!.kind == RegionMapPinKind.post
+                  ? RegionContentKind.post
+                  : RegionContentKind.seminar,
+              _selectedPin!.id,
+            ),
+            onToggleSave: () async {
+              final kind = _selectedPin!.kind == RegionMapPinKind.post
+                  ? RegionContentKind.post
+                  : RegionContentKind.seminar;
+              await RegionContentBookmarkStore.instance
+                  .toggle(kind, _selectedPin!.id);
+              if (mounted) setState(() {});
+            },
+          )
+        else if (_selected != null)
+          _SelectedCard(item: _selected!),
         const SizedBox(height: 4),
         const Text(
           '출처: 소상공인시장진흥공단 상가(상권)정보 · 추정·참고용',
@@ -368,7 +549,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             color: Color(0xFFF3F4F6),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
-          _GpsFab(busy: _gpsBusy, onPressed: _onGpsTap),
+          _MapControlColumn(
+            gpsBusy: _gpsBusy,
+            onGps: _onGpsTap,
+            onSaved: _openSavedSheet,
+          ),
         ],
       );
     }
@@ -399,7 +584,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               ),
             ),
           ),
-          _GpsFab(busy: _gpsBusy, onPressed: _onGpsTap),
+          _MapControlColumn(
+            gpsBusy: _gpsBusy,
+            onGps: _onGpsTap,
+            onSaved: _openSavedSheet,
+          ),
         ],
       );
     }
@@ -423,14 +612,40 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           width: 34,
           height: 34,
           child: GestureDetector(
-            onTap: () => setState(() => _selected = s),
+            onTap: () => setState(() {
+              _selected = s;
+              _selectedPin = null;
+            }),
             child: Icon(
-              Icons.location_on,
+              Icons.storefront_outlined,
               color: _selected?.name == s.name &&
                       _selected?.distanceM == s.distanceM
                   ? const Color(0xFFDC2626)
-                  : const Color(0xFF2563EB),
-              size: 30,
+                  : const Color(0xFF94A3B8),
+              size: 26,
+            ),
+          ),
+        ),
+      for (final pin in _contentPins)
+        Marker(
+          point: LatLng(pin.latitude, pin.longitude),
+          width: 40,
+          height: 40,
+          child: GestureDetector(
+            onTap: () => setState(() {
+              _selectedPin = pin;
+              _selected = null;
+            }),
+            child: Icon(
+              pin.kind == RegionMapPinKind.post
+                  ? Icons.chat_bubble_rounded
+                  : Icons.event_rounded,
+              color: _selectedPin?.id == pin.id
+                  ? SoriTokens.primary
+                  : (pin.kind == RegionMapPinKind.post
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF0F766E)),
+              size: 32,
             ),
           ),
         ),
@@ -449,7 +664,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: _kRegionMapTileUrl,
+              subdomains: _kRegionMapTileSubdomains,
               userAgentPackageName: 'com.sori.app',
             ),
             CircleLayer(
@@ -467,53 +683,158 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             MarkerLayer(markers: markers),
           ],
         ),
-        _GpsFab(busy: _gpsBusy, onPressed: _onGpsTap),
+        _MapControlColumn(
+          gpsBusy: _gpsBusy,
+          onGps: _onGpsTap,
+          onSaved: _openSavedSheet,
+        ),
       ],
     );
   }
 }
 
-class _GpsFab extends StatelessWidget {
-  const _GpsFab({required this.busy, required this.onPressed});
+class _MapControlColumn extends StatelessWidget {
+  const _MapControlColumn({
+    required this.gpsBusy,
+    required this.onGps,
+    required this.onSaved,
+  });
 
-  final bool busy;
-  final VoidCallback onPressed;
+  final bool gpsBusy;
+  final VoidCallback onGps;
+  final VoidCallback onSaved;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
       top: 10,
       right: 10,
-      child: Material(
-        color: Colors.white,
-        elevation: 2,
-        shadowColor: Colors.black26,
-        shape: const CircleBorder(),
-        child: Semantics(
-          button: true,
-          label: '현재 위치로 보기',
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: busy ? null : onPressed,
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: Center(
-                child: busy
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(
-                        Icons.my_location_rounded,
-                        size: 22,
-                        color: SoriTokens.primary,
-                      ),
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _MapRoundButton(
+            label: '현재 위치로 보기',
+            busy: gpsBusy,
+            icon: Icons.my_location_rounded,
+            onPressed: onGps,
+          ),
+          const SizedBox(height: 8),
+          _MapRoundButton(
+            label: '저장한 지역 콘텐츠 보기',
+            busy: false,
+            icon: Icons.bookmark_rounded,
+            onPressed: onSaved,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapRoundButton extends StatelessWidget {
+  const _MapRoundButton({
+    required this.label,
+    required this.busy,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool busy;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      shadowColor: Colors.black26,
+      shape: const CircleBorder(),
+      child: Semantics(
+        button: true,
+        label: label,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: busy ? null : onPressed,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: busy
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(icon, size: 22, color: SoriTokens.primary),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ContentPinCard extends StatelessWidget {
+  const _ContentPinCard({
+    required this.pin,
+    required this.bookmarked,
+    required this.onToggleSave,
+  });
+
+  final RegionMapPin pin;
+  final bool bookmarked;
+  final VoidCallback onToggleSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final kindLabel =
+        pin.kind == RegionMapPinKind.post ? '커뮤니티 글' : '세미나';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  kindLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  pin.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: bookmarked ? '저장 해제' : '저장',
+            onPressed: onToggleSave,
+            icon: Icon(
+              bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: SoriTokens.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
