@@ -453,19 +453,22 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
         ),
         backgroundColor: const Color(0xFFF2F2F7),
         elevation: 0,
-      ),
-      floatingActionButton: showBaPill
-          ? FloatingActionButton.extended(
+        actions: [
+          if (showBaPill)
+            IconButton(
+              tooltip: _baWarm ? '과거 B/A · 즉시' : '과거 B/A 보기',
               onPressed: _openBaRecall,
-              backgroundColor: SoriTokens.primary,
-              foregroundColor: SoriTokens.onPrimary,
               icon: Icon(
                 Icons.photo_library_outlined,
-                color: _baWarm ? SoriTokens.textSecondary : SoriTokens.onPrimary,
+                color: _baWarm
+                    ? SoriTokens.semanticYellow
+                    : SoriTokens.textSecondary,
               ),
-              label: Text(_baWarm ? '과거 B/A · 즉시' : '과거 B/A'),
-            )
-          : null,
+            ),
+        ],
+      ),
+      // DESIGN LAWS: filled primary는 phase CTA 1개. B/A는 AppBar 보조.
+      floatingActionButton: null,
       body: session.isOnHold
           ? _HoldPhasePanel(
               chart: chart,

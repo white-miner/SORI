@@ -70,6 +70,18 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     if (mounted) setState(() {});
   }
 
+  /// DESIGN LAWS: filled primary 1개 — 새 방문 기록 (간편 차트 아님).
+  Future<void> _openNewVisitRecord() async {
+    final customer = _customer;
+    if (customer == null) return;
+    await openChartWriterForCustomer(
+      context,
+      store: widget.store,
+      customer: customer,
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _openChartManagement({String? chartId}) async {
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
@@ -131,6 +143,14 @@ class _CustomerChartPageState extends State<CustomerChartPage>
         _openMembershipSheet();
       case 'ba':
         _openBeforeAfterCompare();
+      case 'review':
+        final c = _customer;
+        if (c == null) return;
+        requestCustomerReviewWithQr(
+          context,
+          store: widget.store,
+          customer: c,
+        );
       case 'merge':
         final customer = _customer;
         if (customer == null) return;
@@ -210,28 +230,17 @@ class _CustomerChartPageState extends State<CustomerChartPage>
               PopupMenuItem(value: 'manage', child: Text('차트 관리')),
               PopupMenuItem(value: 'membership', child: Text('회원권 관리')),
               PopupMenuItem(value: 'ba', child: Text('B/A 비교')),
+              PopupMenuItem(value: 'review', child: Text('후기 요청')),
               PopupMenuDivider(),
               PopupMenuItem(value: 'merge', child: Text('중복 계정 병합')),
             ],
           ),
-          TextButton.icon(
-            onPressed: () => requestCustomerReviewWithQr(
-              context,
-              store: widget.store,
-              customer: customer,
-            ),
-            icon: const Icon(Icons.qr_code_2_rounded, size: 18),
-            label: const Text(
-              '후기 요청',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
         ],
         bottom: TabBar(
           controller: _tabs,
-          labelColor: SoriTokens.textPrimary,
+          labelColor: SoriTokens.brand,
           unselectedLabelColor: const Color(0xFF9CA3AF),
-          indicatorColor: SoriTokens.primary,
+          indicatorColor: SoriTokens.brand,
           indicatorWeight: 2,
           labelStyle: const TextStyle(
             fontSize: 14,
@@ -245,13 +254,13 @@ class _CustomerChartPageState extends State<CustomerChartPage>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openQuickChart,
-        backgroundColor: SoriTokens.primary,
-        foregroundColor: SoriTokens.onPrimary,
+        onPressed: _openNewVisitRecord,
+        backgroundColor: SoriTokens.brand,
+        foregroundColor: SoriTokens.onBrand,
         icon: const Icon(Icons.add_rounded),
         label: const Text(
           '새 방문 기록',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: Column(
@@ -301,7 +310,7 @@ class _SummaryBar extends StatelessWidget {
     final remain = summary.remainingCredit;
     final days = summary.daysSinceLast;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: SoriTokens.surface,
         borderRadius: BorderRadius.circular(12),
@@ -358,16 +367,16 @@ class _SummaryCell extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: SoriTokens.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textSecondary,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Color(0xFF9CA3AF),
             ),
