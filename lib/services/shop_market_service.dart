@@ -64,7 +64,11 @@ class ShopMarketInsight {
   final double? centerLatitude;
   final double? centerLongitude;
 
-  factory ShopMarketInsight.unavailable({String reason = 'unavailable'}) {
+  factory ShopMarketInsight.unavailable({
+    String reason = 'unavailable',
+    double? centerLatitude,
+    double? centerLongitude,
+  }) {
     return ShopMarketInsight(
       ok: false,
       locationLabel: '',
@@ -88,6 +92,8 @@ class ShopMarketInsight {
       ages: const [],
       populationError: reason,
       storesPer1kPop: null,
+      centerLatitude: centerLatitude,
+      centerLongitude: centerLongitude,
     );
   }
 
@@ -336,8 +342,14 @@ class ShopMarketService {
         if (decoded is Map<String, dynamic>) map = decoded;
       }
       if (map == null) {
-        return ShopMarketInsight.unavailable(reason: 'bad_response');
+        return ShopMarketInsight.unavailable(
+          reason: 'bad_response',
+          centerLatitude: lat,
+          centerLongitude: lng,
+        );
       }
+      map.putIfAbsent('latitude', () => lat);
+      map.putIfAbsent('longitude', () => lng);
       final insight = ShopMarketInsight.fromMap(map);
       _cache = insight;
       _cacheAt = DateTime.now();
@@ -345,7 +357,11 @@ class ShopMarketService {
       return insight;
     } catch (e) {
       debugPrint('get-shop-market failed: $e');
-      return ShopMarketInsight.unavailable(reason: e.toString());
+      return ShopMarketInsight.unavailable(
+        reason: e.toString(),
+        centerLatitude: lat,
+        centerLongitude: lng,
+      );
     }
   }
 

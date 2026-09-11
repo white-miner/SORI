@@ -1,11 +1,11 @@
 # SORI — 버그 3건 트리아지 · Perplexity 회신 잠금
 
-**Status:** Phase A **Approved** (2026-09-11) · B/C 승인 대기 · A만 구현  
+**Status:** Phase A·B·C **Approved** · 구현 완료 · 배포  
 **작성:** Cursor (2026-09-11)  
 **회신:** Perplexity (터치·B/A 카피·맵 중심·Edge Secret·GPS 웹)  
 **원 요청:** 본 문서 초안 Q1–Q3  
-**헬퍼 확인:** `showSoriSolidBottomSheet` = `useRootNavigator: true` + `isScrollControlled: true`(기본). clearance는 헬퍼가 자동 주입하지 않음 → **scroll content bottom padding**에 `kSoriFloatingNavClearance` 적용.
----
+**헬퍼 확인:** `showSoriSolidBottomSheet` = `useRootNavigator: true` + `isScrollControlled: true`(기본). clearance는 헬퍼가 자동 주입하지 않음 → **scroll content bottom padding**에 `kSoriFloatingNavClearance` 적용.  
+**Phase C 참고:** GPS CTA는 geolocator 미도입으로 **보류**(C.1). 주소·Biz 폴백·center 전달·주소 CTA 선배포.---
 
 ## 0. 코드로 이미 확정 (재조사 금지)
 
@@ -70,9 +70,9 @@
 
 | Phase | 목적 | 허용 | 금지 | ≤5 파일 초안 |
 |-------|------|------|------|----------------|
-| **A** ✅ | 스케줄 hit·시트 | 48dp 셀 높이 · `showSori*` · scroll · clearance | 셀별 탭 · Timer | `home_scheduler_strip` · `visit_launcher_page` · `home_visual_tokens` · 테스트 |
-| **B** | B/A 내리기 발견성·SSOT | unpublish+post 정리 헬퍼 · 허브 「내리기」 · 카피 | 차트 CASCADE · SQL | store 헬퍼 Expand · hub sheet · kebab/카피 · 테스트 |
-| **C** | 맵 중심 | Biz 주소 폴백 · center 실어주기 · 빈상태 CTA · (선택) GPS CTA | 가짜 서울 · REST 키 클라 노출 · SDK 교체 | `region_nearby_map_section` · fetch 호출부 · (GPS면) 작은 helper · 테스트 |
+| **A** ✅ | 스케줄 hit·시트 | 48dp 셀 높이 · `showSori*` · scroll · clearance | 셀별 탭 · Timer | done |
+| **B** ✅ | B/A 내리기 발견성·SSOT | `unpublishBaFromCommunity` · 허브 「내리기」 · kebab 카피 | 차트 CASCADE · SQL | done |
+| **C** ✅ | 맵 중심 | Biz 주소 폴백 · center 실어주기 · 주소 CTA | 가짜 서울 · REST 키 클라 · GPS(C.1) | done |
 
 **공통 비범위:** Timer/`_onTick` · Payment · 일정 CRUD · SQL 마이그레이션 · 차트 row 삭제.
 

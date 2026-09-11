@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../services/biz_profile_store.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../shop_settings_page.dart';
+import 'region_map_center.dart';
 
 /// PRD v7.8 C2 — 우리 지역 상단 4:3 맵 + 업종·반경 칩.
 class RegionNearbyMapSection extends StatefulWidget {
@@ -69,35 +72,44 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _selected = null;
     });
     final shop = widget.store.shop;
+    final biz = await BizProfileStore.load(shop.id);
+    final bizAddr = biz.address.trim();
     final insight = await ShopMarketService.instance.fetch(
       shop: shop,
       category: '전체',
-      fallbackAddress: shop.address?.trim(),
+      fallbackAddress: bizAddr.isEmpty ? null : bizAddr,
       radiusM: (_radiusKm * 1000).round(),
     );
     if (!mounted) return;
-    LatLng? center;
-    final clat = insight.centerLatitude;
-    final clng = insight.centerLongitude;
-    if (clat != null && clng != null && clat.abs() > 0.01) {
-      center = LatLng(clat, clng);
-    } else if (shop.latitude != null &&
-        shop.longitude != null &&
-        shop.latitude!.abs() > 0.01) {
-      center = LatLng(shop.latitude!, shop.longitude!);
-    }
+    final resolved = RegionMapCenter.resolve(
+      insightLat: insight.centerLatitude,
+      insightLng: insight.centerLongitude,
+      shopLat: shop.latitude,
+      shopLng: shop.longitude,
+    );
+    final center =
+        resolved == null ? null : LatLng(resolved.lat, resolved.lng);
 
     setState(() {
       _insight = insight;
       _center = center;
       _loading = false;
-      if (!insight.storesOk) {
+      if (center == null) {
+        _error = '우리 지역의 글을 보려면 샵 주소를 등록해 주세요.';
+      } else if (!insight.storesOk) {
         _error = ShopMarketService.friendlyReason(insight.storesError);
-      } else if (center == null) {
-        _error = '내 위치·주소를 아직 몰라요. 샵 주소나 경영 프로필 주소를 넣어 주세요.';
       }
     });
     widget.onCenterChanged?.call(center?.latitude, center?.longitude);
+  }
+
+  Future<void> _openAddressSettings() async {
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const ShopSettingsPage(),
+      ),
+    );
+    if (mounted) await _reload();
   }
 
   List<ShopMarketStoreItem> get _filtered {
@@ -195,13 +207,31 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         else if (_error != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF6B7280),
-                height: 1.35,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _error!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    height: 1.35,
+                  ),
+                ),
+                if (_center == null) ...[
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: _openAddressSettings,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SoriTokens.primary,
+                    ),
+                    child: const Text(
+                      '주소 입력',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ],
             ),
           )
         else
@@ -237,14 +267,25 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       );
     }
     if (center == null) {
-      return const ColoredBox(
-        color: Color(0xFFF3F4F6),
+      return ColoredBox(
+        color: const Color(0xFFF3F4F6),
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              '지도 중심을 아직 잡을 수 없어요',
-              style: TextStyle(color: SoriTokens.textSecondary),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '지도 중심을 아직 잡을 수 없어요',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: SoriTokens.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _openAddressSettings,
+                  child: const Text('주소 입력'),
+                ),
+              ],
             ),
           ),
         ),
