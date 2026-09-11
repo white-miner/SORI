@@ -578,6 +578,33 @@ class SoriStore implements Listenable {
   List<CareScheduleEntry> careScheduleEntries = [];
   List<VisitSession> visitSessions = [];
   String? activeVisitSessionId;
+
+  /// PRD v7.9 Phase 4 — 홈 내부 Timer 탭 포커스 (VisitLauncher consume).
+  bool homeTimerFocusPending = false;
+  bool homeTimerFocusStartCare = false;
+  String? homeTimerFocusVisitSessionId;
+
+  void requestHomeTimerFocus({
+    bool startCareIfReady = false,
+    String? visitSessionId,
+  }) {
+    homeTimerFocusPending = true;
+    homeTimerFocusStartCare = startCareIfReady;
+    homeTimerFocusVisitSessionId = visitSessionId?.trim();
+    _notify();
+  }
+
+  /// Returns null if none pending.
+  ({bool startCare, String? visitSessionId})? takeHomeTimerFocusRequest() {
+    if (!homeTimerFocusPending) return null;
+    final start = homeTimerFocusStartCare;
+    final vs = homeTimerFocusVisitSessionId;
+    homeTimerFocusPending = false;
+    homeTimerFocusStartCare = false;
+    homeTimerFocusVisitSessionId = null;
+    return (startCare: start, visitSessionId: vs);
+  }
+
   VisitStore? _visitStore;
   final List<CustomerChart> charts = [];
   final List<CustomerReview> reviews = [];

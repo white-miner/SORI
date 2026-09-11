@@ -44,6 +44,7 @@ import 'widgets/ba_capture_carousel.dart';
 import 'widgets/home_hero_card.dart';
 import 'widgets/home_quick_action_row.dart';
 import 'widgets/home_scheduler_strip.dart';
+import 'care_start_from_schedule.dart';
 import 'widgets/home_timer_customer_bind.dart';
 import 'widgets/home_timer_stage.dart';
 import 'widgets/countdown_flip_zone.dart';
@@ -214,7 +215,46 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   void _onVisit() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final req = widget.store.takeHomeTimerFocusRequest();
+    if (req != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        if (_tabs.index != HomeTab.timer.index) {
+          _tabs.animateTo(HomeTab.timer.index);
+        }
+        if (req.startCare) {
+          await _startCareAfterScheduleHandoff();
+        }
+        if (mounted) setState(() {});
+      });
+    }
+    setState(() {});
+  }
+
+  /// Phase 4 — 일정에서 넘긴 세션 타이머에 프리셋 케어 시작 (standalone 생성 금지).
+  Future<void> _startCareAfterScheduleHandoff() async {
+    await CareTimerTtsService.primeFromUserGesture();
+    final timerStore = VisitTimerStore.instance;
+    if (timerStore.active == null || timerStore.active!.isStandalone) {
+      return;
+    }
+    final slot =
+        timerStore.homeSelectedPresetSlot ?? timerStore.selectedPresetSlot;
+    final preset = timerStore.presetAt(slot);
+    if (preset.isEmpty) {
+      if (mounted) {
+        _toast('Timer 탭에서 프리셋을 선택한 뒤 케어를 시작하세요', error: true);
+      }
+      return;
+    }
+    timerStore.selectPresetSlot(slot);
+    if (timerStore.isCareArmed) {
+      await timerStore.startCare(presetSlot: slot);
+    } else if (!timerStore.isCareRunning) {
+      await timerStore.bindPreset(presetSlot: slot);
+      await timerStore.startCare(presetSlot: slot);
+    }
   }
 
   void _onHomeCtrl() {
@@ -843,6 +883,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                 builder: (context, _) => HomeScheduleGlance(
                   store: widget.store,
                   onTap: _openSchedulerSheet,
+                  onCareStart: (entry) {
+                    unawaited(
+                      CareStartFromSchedule.begin(
+                        context: context,
+                        store: widget.store,
+                        entry: entry,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

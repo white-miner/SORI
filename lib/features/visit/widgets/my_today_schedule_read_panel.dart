@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../services/sori_store.dart';
 import '../../../theme/sori_tokens.dart';
 import '../../../visit_kernel/models/care_schedule_entry.dart';
 import '../care_schedule_read_density.dart';
+import '../care_start_from_schedule.dart';
 import '../home_visual_tokens.dart';
 
 /// PRD v7.9 Phase 3 — 마이 오늘 일정 CRUD (note·추가·취소).
@@ -89,13 +91,31 @@ class MyTodayScheduleReadPanel extends StatelessWidget {
               ),
             )
           else
-            ...list.map((e) => _ScheduleRow(
+            ...list.asMap().entries.map((indexed) {
+              final e = indexed.value;
+              final isPrimary = indexed.key == 0;
+              return _ScheduleRow(
                   entry: e,
                   onEditNote: () => _openNoteEditor(context, e),
                   onCancel: e.status == CareScheduleStatus.scheduled
                       ? () => _cancelEntry(context, e)
                       : null,
-                )),
+                  onCareStart: isPrimary &&
+                          e.status == CareScheduleStatus.scheduled &&
+                          (e.customerId?.trim().isNotEmpty ?? false)
+                      ? () => CareStartFromSchedule.begin(
+                            context: context,
+                            store: store,
+                            entry: e,
+                            goHomeShell: () {
+                              final shell =
+                                  StatefulNavigationShell.maybeOf(context);
+                              shell?.goBranch(0);
+                            },
+                          )
+                      : null,
+                );
+            }),
         ],
       ),
     );
@@ -225,11 +245,13 @@ class _ScheduleRow extends StatelessWidget {
     required this.entry,
     required this.onEditNote,
     this.onCancel,
+    this.onCareStart,
   });
 
   final CareScheduleEntry entry;
   final VoidCallback onEditNote;
   final VoidCallback? onCancel;
+  final VoidCallback? onCareStart;
 
   @override
   Widget build(BuildContext context) {
@@ -296,6 +318,23 @@ class _ScheduleRow extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
+              if (onCareStart != null) ...[
+                FilledButton(
+                  onPressed: onCareStart,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HomeVisualTokens.careGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    '케어 시작',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               TextButton(
                 onPressed: onEditNote,
                 style: TextButton.styleFrom(

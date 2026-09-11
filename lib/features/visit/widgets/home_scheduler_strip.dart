@@ -112,11 +112,13 @@ class HomeScheduleGlance extends StatelessWidget {
     super.key,
     required this.store,
     this.onTap,
+    this.onCareStart,
     DateTime? now,
   }) : _now = now;
 
   final SoriStore store;
   final VoidCallback? onTap;
+  final ValueChanged<CareScheduleEntry>? onCareStart;
   final DateTime? _now;
 
   static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
@@ -195,7 +197,16 @@ class HomeScheduleGlance extends StatelessWidget {
               ),
             )
           else ...[
-            ...top.items.map(_todayRow),
+            ...top.items.asMap().entries.map((e) {
+              final isPrimary = e.key == 0;
+              return _todayRow(
+                e.value,
+                showCareStart: isPrimary && onCareStart != null,
+                onCareStart: isPrimary
+                    ? () => onCareStart?.call(e.value)
+                    : null,
+              );
+            }),
             if (top.overflow > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -223,7 +234,11 @@ class HomeScheduleGlance extends StatelessWidget {
     );
   }
 
-  Widget _todayRow(CareScheduleEntry e) {
+  Widget _todayRow(
+    CareScheduleEntry e, {
+    bool showCareStart = false,
+    VoidCallback? onCareStart,
+  }) {
     final note = CareScheduleReadDensity.notePreview(e);
     final name = e.customerName.trim().isEmpty ? '고객' : e.customerName.trim();
     final care = e.careLabel.trim();
@@ -268,6 +283,28 @@ class HomeScheduleGlance extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ],
+          if (showCareStart &&
+              onCareStart != null &&
+              (e.customerId?.trim().isNotEmpty ?? false)) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: onCareStart,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HomeVisualTokens.careGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  '케어 시작',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
             ),
           ],
         ],
