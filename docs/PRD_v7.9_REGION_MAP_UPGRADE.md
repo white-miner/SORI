@@ -248,7 +248,7 @@ Sheet = **자기 사각형만** hit-test. Standard preview에서 map 입력 유�
 |--------|------|
 | 이름 | **SORI Local Light** (단일 라이트 테마 · 다크는 후속) |
 | 분위기 잠금 | **B(Soft Urban) ↔ C(Monochrome Focus) 중간** — 과한 Warm Paper 베이지 지양 |
-| 코드(현재) | **C.S1 채택 A** `alidade_smooth` 키리스 URL · Stadia domain auth · 0 OSM=롤백 |
+| 코드(현재) | **A 채택 철회** · 운영 **OSM** · 비교 칩에 **D Streets Pastel** · Local Bloom 방향 |
 
 | 토큰(초안) | 예시 |
 |------------|------|
@@ -348,3 +348,4 @@ Cursor에게 “UI 개선”만 주지 말고, 아래 **결정 질문**을 요�
 | 2026-09-11 | COMPARE_LOG 보강: 도메인 auth · 핵심4≥4 · fixture 병행 · 탈락 체크 · PO 결정 문구 |
 | 2026-09-11 | C.S1 COMPARE_LOG **Ready** · 최종 보강4 · Cursor는 채택/보류 대기만 |
 | 2026-09-11 | **C.S1 채택 A** Stadia Alidade Smooth · api_key 번들 금지 · domain auth 게이트 |
+| 2026-09-11 | **A 철회** · Local Bloom · D Pastel 1순위 · 운영 OSM 복귀 |

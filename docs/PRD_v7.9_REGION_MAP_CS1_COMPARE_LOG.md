@@ -1,13 +1,23 @@
 # SORI C.S1 — 베이스맵 비교 기록 (PO 렌더링 검수)
 
-**Status:** Adopted A · **Stadia Alidade Smooth** · domain auth 필수 · Pages 게이트 확인 중  
+**Status:** A 채택 **철회** · 콘셉트 **SORI Local Bloom** · 운영 기본 = **0 OSM** · 우선 후보 **D Streets Pastel**  
 **기준:** `PRD_v7.9_REGION_MAP_CS1_BASEMAP.md` · 상위 `PRD_v7.9_REGION_MAP_UPGRADE.md`  
-**하네스:** 비교 칩 유지 · **운영 기본 = A** · 0=롤백  
-**번들 금지:** Stadia `api_key` / `--dart-define` Web 키 삽입
+**하네스:** 칩 순서 `0 · D · B · A · C · T` · Pastel/B/C는 `MAPTILER_API_KEY` + Origins  
+**번들 금지:** MapTiler/Stadia 키를 채택 전 운영 URL에 하드코딩하지 않음 · Web은 도메인 제한 키만
 
-> Cursor 주의: **타일이 뜬다 = 기술 통과 후보일 뿐.**  
-> 진짜 합격 = **SORI 콘텐츠 marker·cluster·sheet가 지도에서 가장 먼저 읽히는가.**  
-> Cursor 다음 일: 하네스 렌더 · 동일 fixture 스크린샷 · DevTools Y/N · PO 점수표 제공 · **1후보 채택/보류 대기.** 운영 URL 임의 교체 금지.
+> Cursor 주의: **타일이 뜬다 ≠ 통과.**  
+> Quiet Local만으로 부족하다면 Local Bloom: **예쁜 도시 결 + marker 2색이 먼저 읽힘.**  
+> A(Alidade)는 저채도 SaaS감으로 **보류**. D Pastel → 이후 C.S2 **SORI Local Bloom 커스텀**.
+
+### 결정 이력
+
+```
+기존: A Stadia Alidade Smooth 채택
+수정: A 채택 보류 (무채색 앱 + 무채색 지도 → 지역 생동감 부족)
+운영: OSM 기준선으로 되돌림 (재채택 전)
+새 1순위: D MapTiler Streets Pastel
+최종 목표: E SORI Local Bloom 커스텀 (C.S2)
+```
 
 ---
 
@@ -15,57 +25,86 @@
 
 | 후보 | 준비 | 웹 운영 권고 | 검수 전 확인 |
 |------|------|--------------|--------------|
-| 0 OSM | 키 없음 | 기준선만 | attribution · public tile 정책 |
-| A Alidade Smooth | `STADIA_MAPS_API_KEY` | **API key보다 Domain authentication 우선** | `white-miner.github.io` origin/referrer 승인 |
-| B Base Light | `MAPTILER_API_KEY` | Allowed HTTP Origins에 Pages 등록 | `https://white-miner.github.io` · Origin/Referer |
-| C Dataviz Light | 동일 MapTiler 키 | B와 동일 | B/C 동일 키 quota·약관 |
-| T Carto Light | 임시 | free라도 key·attribution | watermark 가능 → **정식 후보 아님** · key restriction **N/A** |
+| 0 OSM | 키 없음 | **현재 운영 기본** | attribution · public tile |
+| D Streets Pastel | `MAPTILER_API_KEY` | Allowed HTTP Origins: `https://white-miner.github.io` | **우선 활성화·검수** |
+| B Base Light | 동일 MapTiler 키 | 동일 Origins | 비교 유지 |
+| A Alidade Smooth | domain auth (키리스 URL) | Property 도메인 | **보류** · 기술만 가능 |
+| C Dataviz Light | MapTiler 키 | 동일 | 보조 비교 · 우선↓ |
+| T Carto Light | 임시 | — | 비채택 · Key restriction N/A |
 
 ### GitHub Pages origin
 
 ```
 운영:  https://white-miner.github.io
 경로:  https://white-miner.github.io/SORI/
-allowlist: https://white-miner.github.io   ← 보통 path가 아니라 origin
+allowlist: https://white-miner.github.io
 ```
 
-| 상황 | 주의 |
-|------|------|
-| Pages 기본 도메인 | `white-miner.github.io` 등록 |
-| custom domain | allowlist 추가 |
-| 로컬 | `localhost`는 **개발용 키만** |
-| Preview Pages | preview origin 별도 등록 |
-| Referrer-Policy | `no-referrer`면 Stadia domain auth 실패 가능 |
-| `--dart-define` | Web 빌드 후 **번들에 키 포함** |
-| 안전 기준 | 키 숨김이 아니라 **도메인으로 사용 제한** |
-
-DevTools Network에서 tile 요청의 `Origin` / `Referer`를 반드시 확인한다.
+MapTiler: Allowed HTTP Origins에 위 origin 등록. 키는 비교 빌드에만(도메인 제한). **채택 확정 전 운영 번들 키 삽입 최소화.**
 
 ---
 
-## 2. 후보표
+## 2. 후보표 · Local Bloom
 
-| 후보 | 타일 | Web 인증 | 상용/운영 | 비교 목적 |
-|------|------|----------|-----------|-----------|
-| 0 OSM | Raster XYZ | 없음 | **기준선 전용** | 종이 지도 문제 확인 |
-| A Alidade Smooth | Raster XYZ | Stadia domain auth 권장 | **Yes** | marker/overlay 캔버스 |
-| B Base Light | Raster/style | MapTiler origin-restricted key | **Yes** | 균형 도시 지도 |
-| C Dataviz Light | Raster/style | MapTiler origin-restricted key | **Yes** | marker/cluster 대비 |
-| T Carto Light | Raster XYZ | CARTO key 가능 | **No · 임시** | 중립 light 감각만 |
+| 후보 | 느낌 | 상용/운영 | 수정 판단 |
+|------|------|-----------|-----------|
+| 0 OSM | 종이 지도 | 기준선·임시 운영 | 기준선 |
+| A Alidade Smooth | 조용한 SaaS/데이터 | 보류 | **채택 철회** · 생동감↓ |
+| B Base Light | 밝은 도시 | 비교 | 유지 |
+| C Dataviz Light | 분석·BI | 보조 | 우선↓ |
+| **D Streets Pastel** | 예쁜 도시·파스텔 생활권 | **Yes 목표** | **새 1순위** |
+| T Carto | 중립 light | No | 비교만 |
+| E Local Bloom 커스텀 | SORI 전용 컬러 | C.S2 | **최종 목표** |
 
-키 없이 즉시 비교: **0 · T**. A/B/C는 키+도메인 설정 후.
+### SORI Local Bloom (콘셉트)
 
-**T CARTO:** 감각 비교용. `Key restriction`·상용 약관은 **N/A**로 기록하고, **운영 채택 후보의 기술 통과 조건에 포함하지 않는다.** “키 없이 무조건 쓸 수 있는 후보”로 해석하지 않는다.
+> 예쁜 도시의 결을 보여주되, 글·세미나·클러스터가 여전히 가장 먼저 읽히는 컬러풀한 커뮤니티 지도.
 
-### 렌더 전 기대 순위 (확정 아님)
+| 감정 | 지도 언어 |
+|------|-----------|
+| 화려한 | 물·공원·도로·토지사용 구분 색 |
+| 예쁜 | jewel/pastel · 날카로운 원색 금지 |
+| 매력 | 공원·물·블록이 살아 있음 |
+| 세련 | 색은 많아도 역할 분명 · marker와 비경쟁 |
+| 여성적 | 핑크 필터≠ · 코랄·라일락·세이지·아쿠아 균형 |
+| SORI | 글·세미나 신뢰 포인트가 최전면 |
 
-| 순위 | 후보 | 기대 | 탈락 가능성 |
-|-----:|------|------|-------------|
-| 1 | A Alidade Smooth | muted·POI 절제·marker 중심 | domain auth · 한글 지명 품질 |
-| 2 | B Base Light | 도시 인지 · C.S2 연결 | POI/라벨이 A보다 많을 수 있음 |
-| 3 | C Dataviz Light | marker 대비 최상 | BI/분석 지도 느낌 |
-| 비교 | T CARTO | light 최소 감각 | 운영 후보 아님 |
-| 기준선 | 0 OSM | 개선 전후 체감 | Quiet Local 채택 아님 |
+팔레트(커스텀 E용 초안): 배경 `#FCF9F5` · 건물 `#E9E4EC` · 주요도로 `#E9B29E` · 공원 `#CBE1CC` · 물 `#BFE1EC` · 라벨 `#5E5862` · 글 marker `#6D4A77` · 세미나 `#D96462` · 선택 크림 ring · cluster 단색. **마커 의미색 ≤2.**
+
+---
+
+## 2b. 점수 · Local Bloom 추가 기준
+
+| 항목 | 유지/추가 | 불합격 |
+|------|-----------|--------|
+| Marker 우선성 | 유지 | ≤3 |
+| Cluster 가독 | 유지 | ≤3 |
+| Sheet 조화 | 웜 sheet ↔ 컬러 지도 | ≤3 |
+| 정보 밀도 | 길·공원·물은 생생 · POI 과밀 금지 | ≤3 |
+| **도시 생동감** | **추가** · 3초 내 동네가 살아 있음 | ≤3 |
+| **색감 피로도** | **추가** · 컬러가 marker·sheet 압도 안 함 | ≤3 |
+
+### 점수 기입
+
+| 항목 | 0 | D Pastel | B Base | A Smooth | C Dataviz | T |
+|------|--:|--------:|-------:|---------:|----------:|--:|
+| Marker 우선성 | | | | | | |
+| Cluster 가독 | | | | | | |
+| Sheet 조화 | | | | | | |
+| 정보 밀도 | | | | | | |
+| 도시 생동감 | | | | | | |
+| 색감 피로도 | | | | | | |
+| **평균** | | | | | | |
+
+### 채택 조건 (수정 잠금)
+
+```
+평균 ≥ 4.0
+AND Marker·Cluster·Sheet·정보밀도 각각 ≥ 4
+AND 도시 생동감·색감 피로도 각각 ≥ 4
+AND 기술 Y/N (운영 후보) 전부 Yes
+AND 탈락 0개
+```
 
 ---
 
@@ -110,7 +149,7 @@ fixture·스크린샷·GitHub Pages 검수에 사용하지 않는다.
 
 ---
 
-## 4. 점수 정의 (1–5)
+## 4. 점수 정의 (상세 1–5 · 기존 항목)
 
 | 항목 | 1 | 3 | 5 | **불합격** |
 |------|---|---|---|------------|
@@ -120,37 +159,10 @@ fixture·스크린샷·GitHub Pages 검수에 사용하지 않는다.
 | Sheet 조화 | 이질 | 톤 불일치 | 한 SORI 화면 | ≤3 |
 | GPS/저장함 | 묻힘 | 보임 | 튀지 않으며 즉시 | ≤3 |
 | 정보 밀도 | POI 과다 | 일부 혼잡 | 주요 도로·물·공원·지명만 | ≤3 |
+| 도시 생동감 | 차갑·지루 | 무난 | 3초 내 동네가 살아 있음 | ≤3 |
+| 색감 피로도 | marker/sheet 압도 | 다소 산만 | 컬러 살아 있으나 경쟁 없음 | ≤3 |
 
-### 점수 기입
-
-| 항목 | 0 OSM | A Smooth | B Base | C Dataviz | T Carto |
-|------|------:|---------:|-------:|----------:|--------:|
-| Marker 우선성 | | | | | |
-| Cluster 가독 | | | | | |
-| 선택 상태 | | | | | |
-| Sheet 조화 | | | | | |
-| GPS/저장함 | | | | | |
-| 정보 밀도 | | | | | |
-| **평균** | | | | | |
-
-### 채택 조건 (잠금)
-
-```
-채택:
-- 평균 ≥ 4.0
-- AND Marker 우선성 · Cluster 가독 · Sheet 조화 · 정보 밀도 각각 ≥ 4
-- AND 기술 Y/N 필수 전부 Yes (운영 후보 A/B/C 기준 · T의 Key restriction은 N/A)
-- AND 탈락 체크 0개
-
-동점: marker/cluster 대비 → POI 최소화 → Web 안정 → 비용·약관 → C.S2 확장성
-```
-
-| 핵심 4항목 | 이유 |
-|------------|------|
-| Marker 우선성 | 콘텐츠 탐색 surface |
-| Cluster 가독 | 저줌 탐색 핵심 |
-| Sheet 조화 | UI 완성도 |
-| 정보 밀도 | OSM/종이 지도 문제의 핵심 |
+점수 기입 표는 **§2b** 사용. 채택 조건은 §2b 잠금본.
 
 ---
 
@@ -225,20 +237,18 @@ Map pan/zoom은 새 viewport에 필요한 tile 요청만 허용한다.
 
 ---
 
-## 7. PO 검수 순서 (장면별 교차 비교)
-
-후보를 하나씩 끝까지 보기보다, **장면마다 0/A/B/C/T를 교차**한다.
+## 7. PO 검수 순서 (장면별 교차 · Local Bloom)
 
 | # | 비교 방식 | 이유 |
 |---|-----------|------|
-| 1 | 모두 무마커 | 베이스맵 종이감·POI 밀도 |
-| 2 | 모두 Low + cluster | cluster 대비 공정 비교 |
-| 3 | 모두 Medium + marker | 글/세미나 대비 |
-| 4 | 모두 selected + Peek | 지도·sheet 조화 |
-| 5 | 모두 Half + filter | 위계·카드화 |
-| 6 | **A/B/C만** Web network·CORS·attribution·key restriction | 운영 후보 기술 검수 |
-| 7 | 점수 + 탈락 체크 | 평균·핵심4·기술 |
-| 8 | 채택 또는 보류 문구 | 운영 URL 변경 권한 확정 |
+| 1 | 0/D/B/A/C/T 무마커 | 생동감·POI·종이감 |
+| 2 | 모두 Low + cluster | cluster 대비 |
+| 3 | 모두 Medium + marker | 글/세미나 + 색감 피로 |
+| 4 | 모두 selected + Peek | sheet 조화 |
+| 5 | 모두 Half + filter | 위계 |
+| 6 | **D/B** (필요 시 A) Web·CORS·Origins·attribution | 운영 후보 기술 |
+| 7 | 점수 + 탈락 (생동감·피로도 포함) | 채택 조건 |
+| 8 | 채택 또는 보류 문구 | URL 변경 권한 |
 
 ---
 
@@ -246,33 +256,19 @@ Map pan/zoom은 새 viewport에 필요한 tile 요청만 허용한다.
 
 | 결정 | 복붙 문구 |
 |------|-----------|
-| **채택** | `후보 ○를 C.S1 운영 베이스맵으로 채택한다. marker 우선성, 정보 밀도, sheet 조화, Web 안정성 기준을 충족했다.` |
-| **보류** | `후보 A/B/C 모두 핵심 시각 기준 또는 Web 운영 기준을 충족하지 못했다. C.S1은 운영 URL 교체 없이 보류하고, 대체 라이트 래스터 후보를 추가 조사한다.` |
-| **기준선 유지** | `OSM Standard는 기능 기준선으로만 유지하며, Quiet Local Canvas 운영 후보로는 채택하지 않는다.` |
+| **채택 (예: D)** | `후보 D를 C.S1 운영 베이스맵으로 채택한다. Streets Pastel은 Local Bloom 방향의 도시 생동감·색감 피로도·marker 우선성 기준을 충족한다.` |
+| **A 철회 확정** | `후보 A Alidade Smooth 채택을 철회한다. 무채색 앱+지도는 지역 커뮤니티 surface의 생동감이 부족하다.` |
+| **보류** | `D/B 모두 Local Bloom 또는 Web 기준 미달. 운영은 OSM 유지, C.S2 커스텀 조사.` |
+| **기준선** | `OSM은 재채택 전 임시 운영·기능 기준선으로만 유지한다.` |
 
 | 항목 | 기입 |
 |------|------|
-| 채택 후보 | **A — Stadia Alidade Smooth** |
-| 채택·보류 문구 | `후보 A를 C.S1 운영 베이스맵으로 채택한다. Stadia Alidade Smooth는 marker 우선성, 정보 밀도, sheet 조화, Web 안정성 기준을 충족하는 Quiet Local Canvas로 채택한다.` |
-| 운영 URL 교체 승인일 | 2026-09-11 (디자인 채택) · **도메인 인증·Pages 타일 200 확인 후 확정** |
+| 현재 결정 | **A 채택 철회** · 운영 **0 OSM** · 다음 검수 **D Pastel** |
+| 채택·보류 문구 | `후보 A 채택을 철회한다. SORI Local Bloom 방향으로 D Streets Pastel을 1순위 재비교한다.` |
+| 운영 URL | OSM `tile.openstreetmap.org` (재채택 전) |
 | 서명 · 날짜 | PO · 2026-09-11 |
 
-### 운영 교체 후 필수 게이트 (하나라도 실패 → OSM 롤백 · C.S1 보류)
-
-| 확인 | 통과 | 결과 (기입) |
-|------|------|-------------|
-| Stadia Property에 `https://white-miner.github.io` 등록 | Yes | |
-| Pages에서 tile HTTP 200 | Yes | |
-| Console CORS 없음 | Yes | |
-| Attribution 전 상태 표시 | Yes | |
-| Flutter Web 번들에 `api_key` 없음 | Yes (코드 계약) | |
-| Sheet drag 중 새 tile/content API 0 | Yes | |
-| 약관/비용 적합 | Yes | |
-
-**운영 URL (키리스 · domain auth):**
-`https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png`
-
-B/C 보류 · T 비교 · 0 롤백 기준선 유지.
+MapTiler 비교 시: Allowed HTTP Origins = `https://white-miner.github.io` · 키는 비교용(도메인 제한). D 채택 확정 후에만 운영 기본 URL 교체.
 
 ---
 
@@ -280,7 +276,5 @@ B/C 보류 · T 비교 · 0 롤백 기준선 유지.
 
 | 날짜 | 내용 |
 |------|------|
-| 2026-09-11 | 초안 로그 |
-| 2026-09-11 | 키/도메인 · 채택(핵심4≥4) · fixture 병행 · 기술표 · 탈락 · PO 순서 |
-| 2026-09-11 | 최종 보강 4: tile 정상/비정상 · fixture 데이터 보호 · T Key restriction N/A · a11y/viewport · 장면 교차 검수 · Status Ready |
-| 2026-09-11 | **PO 채택 A Alidade Smooth** · 키리스 URL · domain auth 게이트 · B/C 보류 |
+| 2026-09-11 | 초안 → Ready → **A 채택** |
+| 2026-09-11 | **A 채택 철회** · Local Bloom · D Pastel 1순위 · 운영 OSM · 생동감/피로도 채택 조건 |

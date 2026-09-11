@@ -1,9 +1,9 @@
 # SORI — C.S1 Quiet Local Canvas 후보 비교 · 렌더링 검수
 
-**Status:** Adopted · **A Stadia Alidade Smooth** · domain auth · api_key 번들 금지  
+**Status:** A 채택 철회 · **SORI Local Bloom** · 운영 OSM · 우선 **D Streets Pastel** · C.S2 = Local Bloom 커스텀  
 **비교 로그 SSOT:** `PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`  
 **상위 문서:** `docs/PRD_v7.9_REGION_MAP_UPGRADE.md`  
-**작성:** 2026-09-11 · Perplexity 조사 흡수 · PO 채택 2026-09-11
+**작성:** 2026-09-11 · PO 방향 수정 동시
 
 ---
 

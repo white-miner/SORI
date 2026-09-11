@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-/// C.S1 Quiet Local Canvas 후보.
+/// C.S1 후보 — SORI Local Bloom 방향 (A 채택 철회 후).
 enum RegionMapTileId {
   osmBaseline,
   stadiaAlidadeSmooth,
   maptilerBaseLight,
   maptilerDatavizLight,
+  maptilerStreetsPastel,
   cartoLightTemp,
 }
 
@@ -40,25 +41,16 @@ class RegionMapTileSpec {
   bool get canRender => urlTemplate.isNotEmpty && (!needsKey || keyPresent);
 }
 
-/// 운영 A(Stadia)는 **domain auth 전용** — URL/번들에 api_key 금지.
+/// 운영 기본은 PO 재채택 전까지 OSM. Pastel/A는 비교만(키·도메인 필요 시).
 abstract final class RegionMapTileCatalog {
   RegionMapTileCatalog._();
 
   static const _maptilerDefine = String.fromEnvironment('MAPTILER_API_KEY');
 
-  /// C.S1 채택: Alidade Smooth (키리스 · Stadia Property 도메인 인증 필수).
-  static const RegionMapTileId productionDefault =
-      RegionMapTileId.stadiaAlidadeSmooth;
+  /// A 채택 철회 → 재선정 전 기준선.
+  static const RegionMapTileId productionDefault = RegionMapTileId.osmBaseline;
 
-  /// 롤백/기준선.
   static const RegionMapTileId rollbackBaseline = RegionMapTileId.osmBaseline;
-
-  /// Domain auth 래스터 (키 query 없음).
-  static const String stadiaAlidadeSmoothUrl =
-      'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png';
-
-  static const String stadiaAttribution =
-      '© Stadia Maps · © OpenMapTiles · © OpenStreetMap contributors';
 
   static String _env(String name, String fromDefine) {
     if (fromDefine.trim().isNotEmpty) return fromDefine.trim();
@@ -80,17 +72,19 @@ abstract final class RegionMapTileCatalog {
           label: 'OSM 기준선',
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           attribution: '© OpenStreetMap',
-          rankNote: '롤백·기준선',
+          rankNote: '운영 임시 · 기준선',
         );
       case RegionMapTileId.stadiaAlidadeSmooth:
         return const RegionMapTileSpec(
           id: RegionMapTileId.stadiaAlidadeSmooth,
           code: 'A',
           label: 'Alidade Smooth',
-          urlTemplate: stadiaAlidadeSmoothUrl,
-          attribution: stadiaAttribution,
+          urlTemplate:
+              'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png',
+          attribution:
+              '© Stadia Maps · © OpenMapTiles · © OpenStreetMap contributors',
           needsKey: false,
-          rankNote: 'C.S1 채택 · domain auth',
+          rankNote: '채택 철회 · 보류(저채도)',
         );
       case RegionMapTileId.maptilerBaseLight:
         final key = maptilerKey;
@@ -106,7 +100,7 @@ abstract final class RegionMapTileCatalog {
           needsKey: true,
           keyPresent: has,
           keyHint: 'MAPTILER_API_KEY',
-          rankNote: '보류 · 비교용',
+          rankNote: '비교 유지',
         );
       case RegionMapTileId.maptilerDatavizLight:
         final key = maptilerKey;
@@ -122,7 +116,24 @@ abstract final class RegionMapTileCatalog {
           needsKey: true,
           keyPresent: has,
           keyHint: 'MAPTILER_API_KEY',
-          rankNote: '보류 · 비교용',
+          rankNote: '보조 비교 · 우선↓',
+        );
+      case RegionMapTileId.maptilerStreetsPastel:
+        final key = maptilerKey;
+        final has = key.isNotEmpty;
+        return RegionMapTileSpec(
+          id: RegionMapTileId.maptilerStreetsPastel,
+          code: 'D',
+          label: 'Streets Pastel',
+          // MapTiler streets-v2-pastel raster.
+          urlTemplate: has
+              ? 'https://api.maptiler.com/maps/streets-v2-pastel/{z}/{x}/{y}.png?key=$key'
+              : '',
+          attribution: '© MapTiler © OpenStreetMap',
+          needsKey: true,
+          keyPresent: has,
+          keyHint: 'MAPTILER_API_KEY',
+          rankNote: 'Local Bloom 1순위 후보',
         );
       case RegionMapTileId.cartoLightTemp:
         return const RegionMapTileSpec(
@@ -134,15 +145,17 @@ abstract final class RegionMapTileCatalog {
           subdomains: ['a', 'b', 'c', 'd'],
           attribution: '© CARTO © OpenStreetMap',
           isOfficialCs1Candidate: false,
-          rankNote: '비교 기준 · 비채택',
+          rankNote: '비교 · 비채택',
         );
     }
   }
 
+  /// 비교 칩 순서: 0 · D · B · A · C · T
   static List<RegionMapTileSpec> compareSet() => [
         spec(RegionMapTileId.osmBaseline),
-        spec(RegionMapTileId.stadiaAlidadeSmooth),
+        spec(RegionMapTileId.maptilerStreetsPastel),
         spec(RegionMapTileId.maptilerBaseLight),
+        spec(RegionMapTileId.stadiaAlidadeSmooth),
         spec(RegionMapTileId.maptilerDatavizLight),
         spec(RegionMapTileId.cartoLightTemp),
       ];
@@ -150,8 +163,8 @@ abstract final class RegionMapTileCatalog {
   static void debugLogKeyPresence() {
     if (!kDebugMode) return;
     debugPrint(
-      'C.S1: production=A Alidade Smooth (domain auth, no key in URL). '
-      'maptilerCompareKey=${maptilerKey.isNotEmpty}',
+      'C.S1 Local Bloom: production=OSM until re-adopt. '
+      'maptilerKey=${maptilerKey.isNotEmpty}',
     );
   }
 }
