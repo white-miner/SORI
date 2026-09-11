@@ -24,5 +24,9 @@ void main() {
     expect(CategoryPresentationMap.composeTitle, '글 쓰기');
     expect(CategoryPresentationMap.composePublishCta, '게시하기');
     expect(CategoryPresentationMap.composeDraftCta, '임시 저장');
+    expect(CategoryPresentationMap.analytics, '경영');
+    expect(CategoryPresentationMap.dashboard, '사장 책상');
+    expect(CategoryPresentationMap.boostPromo, '홍보');
+    expect(CategoryPresentationMap.viewPost, '게시물 보기');
   });
 }
