@@ -288,8 +288,8 @@ class _DirectorInbox extends StatelessWidget {
       };
 
   String _defaultTitle(String kind) => switch (kind) {
-        'fan_boost' => 'Supporter Boost',
-        'special_supporter' => 'Special Supporter',
+        'fan_boost' => '후원 부스트',
+        'special_supporter' => '스페셜 후원',
         'whisper' =>
           CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
         'case_bookmark' => '케이스 저장',
