@@ -21,11 +21,8 @@ double soriSheetBottomPadding(BuildContext context) {
       mq.padding.bottom.clamp(0, 24);
 }
 
-/// 글래스모피즘 바텀시트 — transparent shell + [SoriGlassSurface].
-///
-/// Drag-to-dismiss: [enableDrag] defaults true. Prefer nesting scrollables
-/// under [SoriSheetFrame] so the handle / top chrome can dismiss without the
-/// scroll view stealing the gesture.
+/// 기본 modal sheet — **solid opaque** (DESIGN LAWS · list/form glass 금지).
+/// Peek용 blur가 필요하면 [showSoriGlassBottomSheet].
 Future<T?> showSoriModalBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -33,6 +30,28 @@ Future<T?> showSoriModalBottomSheet<T>({
   bool isDismissible = true,
   bool enableDrag = true,
   bool useSafeArea = false,
+}) {
+  return showSoriSolidBottomSheet<T>(
+    context: context,
+    builder: (ctx) {
+      return Padding(
+        padding: soriSheetSafePadding(ctx),
+        child: builder(ctx),
+      );
+    },
+    isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+  );
+}
+
+/// Floating Peek 전용 — BackdropFilter 1개. 긴 목록·삭제 confirm에 쓰지 말 것.
+Future<T?> showSoriGlassBottomSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = true,
+  bool isDismissible = true,
+  bool enableDrag = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,

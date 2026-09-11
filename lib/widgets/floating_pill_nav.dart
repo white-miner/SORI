@@ -1,14 +1,11 @@
-import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 import '../theme/sori_tokens.dart';
 import 'glass/sori_glass_overlay.dart';
 import 'glass/sori_glass_tokens.dart';
-
-/// Weverse-style fluid drag bottom nav — glass white bar with blur.
+/// Floating GNB — 화면당 BackdropFilter 1개(바만). 선택 알약은 blur 없음.
+/// DESIGN LAWS: glass=floating tool · nested blur 금지 · 한국어 라벨.
 class FloatingPillNav extends StatefulWidget {
   const FloatingPillNav({
     super.key,
@@ -177,7 +174,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             (Icons.people_outline, Icons.people_rounded, '고객', 1),
             (Icons.photo_camera_outlined, Icons.photo_camera_rounded, '촬영', 2),
             (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티', 3),
-            (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
+            (Icons.work_outline_rounded, Icons.work_rounded, '책상', 4),
           ]
         : const [
             (Icons.home_outlined, Icons.home_rounded, '홈', 0),
@@ -212,6 +209,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             height: _barH,
             child: SoriGlassOverlay(
               borderRadius: BorderRadius.circular(_radius),
+              tier: SoriGlassTier.l1Surface, // blur ~12 · nested 없음
               fill: SoriGlassTokens.navBarFill(),
               child: Stack(
                 clipBehavior: Clip.hardEdge,
@@ -253,7 +251,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                                     selected ? items[i].$2 : items[i].$1,
                                     size: 22,
                                     color: selected
-                                        ? SoriTokens.textCharcoal
+                                        ? SoriTokens.brand
                                         : SoriTokens.tabUnselected,
                                   ),
                                   const SizedBox(height: 2),
@@ -267,7 +265,7 @@ class _FloatingPillNavState extends State<FloatingPillNav>
                                           ? FontWeight.w800
                                           : FontWeight.w500,
                                       color: selected
-                                          ? SoriTokens.textCharcoal
+                                          ? SoriTokens.brand
                                           : SoriTokens.tabUnselected,
                                     ),
                                   ),
@@ -300,7 +298,8 @@ class _FloatingPillNavState extends State<FloatingPillNav>
   }
 }
 
-/// 선택 알약. 가짜 그라데이션이 아니라 실제로 뒤를 한 번 더 흐리게 만든다.
+/// 선택 알약 — **BackdropFilter 없음** (바 blur와 중첩 금지).
+/// press bounce 대신 짧은 sheen만 · scale ≤ 1.03.
 class _GlassHighlight extends StatelessWidget {
   const _GlassHighlight({super.key, required this.sheen});
 
@@ -312,39 +311,31 @@ class _GlassHighlight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = sheen.clamp(0.0, 1.0);
-    // 눌린 직후 살짝 부풀었다가 제자리로 돌아온다.
-    final bounce = 1 + 0.06 * math.sin(t * math.pi);
-    // 빛줄기가 알약을 가로질러 지나간다.
+    final scale = 1 + 0.03 * (1 - t);
     final sweep = -1 + t * 2.4;
 
     return Transform.scale(
-      scale: bounce,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: DecoratedBox(
-            decoration: SoriGlassTokens.navHighlightDecoration(radius: radius),
-            child: t >= 1
-                ? const SizedBox.expand()
-                : DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(radius),
-                      gradient: LinearGradient(
-                        begin: Alignment(sweep - 0.6, -1),
-                        end: Alignment(sweep + 0.6, 1),
-                        colors: [
-                          Colors.white.withValues(alpha: 0),
-                          Colors.white.withValues(alpha: 0.55 * (1 - t)),
-                          Colors.white.withValues(alpha: 0),
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ),
-                    ),
-                    child: const SizedBox.expand(),
+      scale: scale,
+      child: DecoratedBox(
+        decoration: SoriGlassTokens.navHighlightDecoration(radius: radius),
+        child: t >= 1
+            ? const SizedBox.expand()
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius),
+                  gradient: LinearGradient(
+                    begin: Alignment(sweep - 0.6, -1),
+                    end: Alignment(sweep + 0.6, 1),
+                    colors: [
+                      Colors.white.withValues(alpha: 0),
+                      Colors.white.withValues(alpha: 0.4 * (1 - t)),
+                      Colors.white.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
-          ),
-        ),
+                ),
+                child: const SizedBox.expand(),
+              ),
       ),
     );
   }

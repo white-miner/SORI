@@ -26,7 +26,9 @@
 
 | 화면/컴포넌트 | 현재 목적 | 위반 법칙 | 문제 | 개선 방향 | 우선순위 |
 |---|---|---|---|---|---|
-| AppShell + FloatingPillNav | 전역 이동 | glass 예산·CTA | AppBar cluster+GNB 동시 glass | glass 1~2로 제한, 한국어 라벨 | P0 |
+| FloatingPillNav | 전역 이동 | glass 예산 | ~~중첩 blur~~ · 선택 brand · 원장「책상」 | blur 1(바만) | P0 ✓ |
+| AppBar cluster | 셸 액션 | glass 예산 | ~~BackdropFilter~~ → opaque 92% · hit 48 | glass 0 | P0 ✓ |
+| showSoriModalBottomSheet | 공용 sheet | glass 남용 | 기본 solid · glass는 Peek 전용 API | solid default | P0 ✓ |
 | VisitLauncherPage | 홈 glance | 목적 1 | MyFeed/Program/Timer 3목적 | glance 홈 분리(타이머 SSOT 유지) | P0 |
 | HomeTimerStage | 타이머 표시 | — | UI만 손댐 | **VisitTimerStore/_onTick 금지** · chrome만 | P0 |
 | RegionNearbyMapSection | 지역 탐색 | 부분 진행 | sheet/cluster/bloom WIP | Local Bloom 완성 · Peek CTA 1 | P0 |

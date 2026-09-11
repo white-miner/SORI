@@ -19,7 +19,8 @@ class SoriGlassAppBarItem {
   final int badgeCount;
 }
 
-/// Pill glass container grouping GNB icons — visually separated from the canvas.
+/// AppBar action cluster — **blur 없음** (PillNav가 화면당 glass 1개).
+/// 반투명 fill + border만으로 floating tool 인상 유지.
 class SoriGlassAppBarCluster extends StatelessWidget {
   const SoriGlassAppBarCluster({
     super.key,
@@ -32,7 +33,9 @@ class SoriGlassAppBarCluster extends StatelessWidget {
   Widget build(BuildContext context) {
     return SoriGlassOverlay(
       borderRadius: BorderRadius.circular(999),
-      tier: SoriGlassTier.l3Overlay,
+      tier: SoriGlassTier.l2Control,
+      enableBlur: false,
+      fill: Colors.white.withValues(alpha: 0.92),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Row(
@@ -85,33 +88,23 @@ class _ClusterIconButtonState extends State<_ClusterIconButton> {
           onTap: widget.onPressed,
           onHighlightChanged: (v) => setState(() => _pressed = v),
           customBorder: const CircleBorder(),
-          hoverColor: SoriTokens.accentLink.withValues(alpha: 0.10),
-          splashColor: SoriTokens.accentLink.withValues(alpha: 0.16),
-          highlightColor: Colors.black.withValues(alpha: 0.06),
+          hoverColor: SoriTokens.brand.withValues(alpha: 0.08),
+          splashColor: SoriTokens.brand.withValues(alpha: 0.12),
+          highlightColor: SoriTokens.brand.withValues(alpha: 0.06),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            width: 40,
-            height: 40,
+            duration: Duration(milliseconds: SoriTokens.motionReleaseMs),
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: highlight
-                  ? SoriTokens.accentLink.withValues(alpha: 0.10)
+                  ? SoriTokens.brand.withValues(alpha: 0.10)
                   : Colors.transparent,
-              boxShadow: highlight
-                  ? [
-                      BoxShadow(
-                        color: SoriTokens.accentLink.withValues(alpha: 0.22),
-                        blurRadius: 10,
-                        spreadRadius: -1,
-                      ),
-                    ]
-                  : null,
             ),
             child: Icon(
               widget.icon,
               size: 22,
-              color: Colors.black87,
-              weight: 700,
+              color: highlight ? SoriTokens.brand : SoriTokens.textPrimary,
             ),
           ),
         ),
