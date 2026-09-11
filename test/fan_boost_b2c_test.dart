@@ -32,7 +32,7 @@ void main() {
 
     final result = await repo.purchaseFanBoost(
       customerId: customerId,
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: chartId,
       targetShopId: targetShop,
@@ -40,7 +40,7 @@ void main() {
     );
 
     expect(result.ok, isTrue);
-    expect(result.pointsSpent, 29);
+    expect(result.pointsSpent, 5);
     expect(result.placement?.source, 'fan_boost');
     expect(result.placement?.fanDisplayName, '민지');
     expect(result.settlementBalance, settleBefore);
@@ -50,7 +50,7 @@ void main() {
     expect(settleAfter, settleBefore);
 
     final cw = await repo.loadCustomerEchoWallet(customerId);
-    expect(cw.pointTotal, cwBefore.pointTotal - 29);
+    expect(cw.pointTotal, cwBefore.pointTotal - 5);
     expect(cw.settlementBalance, 0);
 
     final notes = await repo.loadShopNotifications(targetShop);
@@ -70,7 +70,7 @@ void main() {
     await repo.purchaseCustomerEcho(customerId: 'cust-2', amount: 55);
     final bought = await repo.purchaseFanBoost(
       customerId: 'cust-2',
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: item.chart.id,
       targetShopId: item.shop.id,
@@ -94,16 +94,16 @@ void main() {
 
   test('insufficient Fan-Boost returns gap for IAP bridge', () async {
     final repo = MemorySoriRepository();
-    // default customer free 20E < 89E
+    // default customer free 20E < 59E (7d spotlight)
     final result = await repo.purchaseFanBoost(
       customerId: 'cust-poor',
-      sku: 'boost_local_1d',
+      sku: 'boost_spotlight_7d',
       targetType: 'chart',
       targetId: 'chart-x',
       targetShopId: 'shop-x',
     );
     expect(result.ok, isFalse);
     expect(result.insufficient, isTrue);
-    expect(result.need, 89);
+    expect(result.need, 59);
   });
 }

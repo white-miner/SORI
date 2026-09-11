@@ -9,29 +9,32 @@ import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/shop.dart';
 
 void main() {
-  test('Phase 9 tokens: black/charcoal/white/emerald 4-axis', () {
-    expect(SoriTokens.background, const Color(0xFF000000));
-    expect(SoriTokens.surface, const Color(0xFF1A1A1A));
-    expect(SoriTokens.surfaceElevated, const Color(0xFF222222));
-    expect(SoriTokens.primary, const Color(0xFF00D289));
-    expect(SoriTokens.primaryDark, SoriTokens.primary);
-    expect(SoriTokens.primaryGlass, const Color(0xCC00D289));
-    expect(SoriTokens.onPrimary, const Color(0xFF0B1220));
-    expect(SoriTokens.primaryLight, const Color(0xFF10DF9A));
-    expect(SoriTokens.premium, const Color(0xFFA78BFA));
-    expect(SoriTokens.textPrimary, const Color(0xFFFFFFFF));
+  test('Soft UI tokens: off-white canvas, white surface, charcoal + brand purple',
+      () {
+    expect(SoriTokens.background, const Color(0xFFF4F6F9));
+    expect(SoriTokens.surface, const Color(0xFFFFFFFF));
+    expect(SoriTokens.surfaceElevated, const Color(0xFFFFFFFF));
+    expect(SoriTokens.primary, const Color(0xFF18181B));
+    expect(SoriTokens.primaryDark, const Color(0xFF000000));
+    expect(SoriTokens.primaryGlass, SoriTokens.glassFill);
+    expect(SoriTokens.onPrimary, const Color(0xFFFFFFFF));
+    expect(SoriTokens.primaryLight, const Color(0xFF27272A));
+    expect(SoriTokens.brand, const Color(0xFF6D4A77));
+    expect(SoriTokens.premium, SoriTokens.primaryLight);
+    expect(SoriTokens.textPrimary, SoriTokens.textCharcoal);
     expect(SoriTokens.textSecondary.a, closeTo(0xB3 / 255, 0.01));
     expect(SoriTokens.textTertiary.a, closeTo(0x73 / 255, 0.01));
   });
 
-  test('card decoration has no border or shadow', () {
+  test('card decoration uses light border and soft shadow', () {
     final d = SoriTokens.card();
-    expect(d.border, isNull);
-    expect(d.boxShadow == null || d.boxShadow!.isEmpty, isTrue);
+    expect(d.border, SoriTokens.signatureBorder);
+    expect(d.boxShadow, isNotNull);
+    expect(d.boxShadow!, isNotEmpty);
     expect(d.color, SoriTokens.surface);
   });
 
-  testWidgets('FloatingPillNav uses white active icons not accent',
+  testWidgets('FloatingPillNav selected icons use brand purple',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -48,10 +51,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     final icon = tester.widget<Icon>(find.byIcon(Icons.home_rounded));
-    expect(icon.color, SoriTokens.textPrimary);
+    expect(icon.color, SoriTokens.brand);
   });
 
-  testWidgets('더보기 link uses emerald accent', (tester) async {
+  testWidgets('더보기 link uses charcoal primary accent', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -70,7 +73,7 @@ void main() {
     expect(more.style?.color, SoriTokens.primary);
   });
 
-  testWidgets('HomeFeedCard paints surface without purple outline',
+  testWidgets('HomeFeedCard paints card() decoration on surface',
       (tester) async {
     final item = CommunityCaseItem(
       chart: CustomerChart(
@@ -119,18 +122,19 @@ void main() {
     expect(find.text('닉네임'), findsOneWidget);
     expect(find.textContaining('테스트샵'), findsOneWidget);
 
-    var foundSurface = false;
+    var foundCard = false;
     for (final el in find.byType(Container).evaluate()) {
       final w = el.widget;
       if (w is! Container) continue;
       final d = w.decoration;
       if (d is BoxDecoration && d.color == SoriTokens.surface) {
-        foundSurface = true;
-        expect(d.border, isNull);
-        expect(d.boxShadow == null || d.boxShadow!.isEmpty, isTrue);
+        foundCard = true;
+        expect(d.border, SoriTokens.signatureBorder);
+        expect(d.boxShadow, isNotNull);
+        expect(d.boxShadow!, isNotEmpty);
         break;
       }
     }
-    expect(foundSurface, isTrue);
+    expect(foundCard, isTrue);
   });
 }

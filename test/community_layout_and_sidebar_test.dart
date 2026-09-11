@@ -50,10 +50,12 @@ void main() {
     for (final label in [
       '전체',
       '세미나',
-      '기기리뷰',
+      '조용한 이야기',
+      // tip_device presentation → 현장 팁 (R3 map)
+      '현장 팁',
       '샵 인테리어',
     ]) {
-      expect(find.text(label), findsOneWidget);
+      expect(find.text(label), findsWidgets);
     }
     expect(find.byKey(const ValueKey('community_filter_mentoring')), findsOneWidget);
     final mentoringChip = tester.widget<Text>(

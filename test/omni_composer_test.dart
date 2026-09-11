@@ -62,7 +62,8 @@ void main() {
   testWidgets('initialCategory mentorAsk shows mentor form', (tester) async {
     await pumpComposer(tester, initialCategory: OmniComposeCategory.mentorAsk);
     expect(find.byKey(const Key('omni-mentor-body')), findsOneWidget);
-    expect(find.text('멘토 요청'), findsWidgets);
+    // R3: mentor_ask UI label → CategoryPresentationMap.question (= 질문)
+    expect(find.text('질문'), findsWidgets);
   });
 
   testWidgets('empty submit shows validation snackbar', (tester) async {
@@ -131,16 +132,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('빠른 등록'), findsOneWidget);
+    // Primary ≤5: baShare, seminar, tipDevice, tipProduct, mentorAsk
     expect(find.byKey(const Key('quick-compose-baShare')), findsOneWidget);
     expect(find.byKey(const Key('quick-compose-seminar')), findsOneWidget);
     expect(find.byKey(const Key('quick-compose-tipDevice')), findsOneWidget);
     expect(find.byKey(const Key('quick-compose-tipProduct')), findsOneWidget);
     expect(find.byKey(const Key('quick-compose-mentorAsk')), findsOneWidget);
-    expect(find.byKey(const Key('quick-compose-mentorOffer')), findsOneWidget);
+    // mentorOffer is behind "더 보기"
+    expect(find.byKey(const Key('quick-compose-more')), findsOneWidget);
+    expect(find.byKey(const Key('quick-compose-mentorOffer')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('quick-compose-tipDevice')));
+    await tester.tap(find.byKey(const Key('quick-compose-more')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quick-compose-mentorOffer')), findsNothing);
+    expect(find.text('멘토 지원'), findsOneWidget);
+    await tester.tap(find.text('멘토 지원'));
     await tester.pumpAndSettle();
     expect(find.byType(PostFirstCreationPage), findsOneWidget);
-    expect(find.text('기기명'), findsOneWidget);
   });
 }

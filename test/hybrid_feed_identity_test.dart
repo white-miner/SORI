@@ -52,14 +52,15 @@ void main() {
     expect(item.displayShopAffiliation, '김원장샵');
   });
 
-  test('feedSlidesForCase builds before then after', () {
+  test('feedSlidesForCase builds single B/A pair slide when both exist', () {
     final slides = feedSlidesForCase(
       beforeUrl: 'https://example.com/b.jpg',
       afterUrl: 'https://example.com/a.jpg',
     );
-    expect(slides, hasLength(2));
-    expect(slides[0].url, contains('b.jpg'));
-    expect(slides[1].url, contains('a.jpg'));
+    expect(slides, hasLength(1));
+    expect(slides.first.isBaPair, isTrue);
+    expect(slides.first.beforeUrl, contains('b.jpg'));
+    expect(slides.first.afterUrl, contains('a.jpg'));
   });
 
   test('memory hot cases include multi-shop member identity', () async {
@@ -75,7 +76,8 @@ void main() {
     expect(hit.displayShopAffiliation, '글로우핏 강남');
   });
 
-  testWidgets('HomeFeedCard renders Weverse two-line header', (tester) async {
+  testWidgets('HomeFeedCard renders two-line header without page counter',
+      (tester) async {
     final item = CommunityCaseItem(
       chart: CustomerChart(
         id: 'chart-ui-1',
@@ -123,7 +125,7 @@ void main() {
 
     expect(find.text('박지성'), findsOneWidget);
     expect(find.textContaining('NCT DREAM 클리닉'), findsOneWidget);
-    expect(find.text('1/2'), findsOneWidget);
+    expect(find.text('1/2'), findsNothing);
     expect(find.byType(FeedMediaCarousel), findsOneWidget);
     expect(find.byType(FeedExpandableCaption), findsOneWidget);
   });

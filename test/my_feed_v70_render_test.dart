@@ -537,26 +537,40 @@ void main() {
         _host(HomeSchedulerStrip(store: store, onTap: () {})),
       );
 
-      expect(find.text('오늘 예약된 일정이 없습니다'), findsOneWidget);
+      expect(find.text('오늘 예정된 일정이 없어요.'), findsOneWidget);
     });
 
-    testWidgets('일정이 2건 이상이면 +N 칩이 붙는다', (tester) async {
+    testWidgets('일정이 4건 이상이면 +N 칩이 붙는다', (tester) async {
       final store = SoriStore();
       final today = DateTime.now();
       store.careScheduleEntries = [
         CareScheduleEntry(
           id: 'e1',
           shopId: store.shop.id,
-          scheduledAt: DateTime(today.year, today.month, today.day, 12, 30),
+          scheduledAt: DateTime(today.year, today.month, today.day, 10),
           customerName: '김민정',
           careLabel: '상담예약',
         ),
         CareScheduleEntry(
           id: 'e2',
           shopId: store.shop.id,
-          scheduledAt: DateTime(today.year, today.month, today.day, 15),
+          scheduledAt: DateTime(today.year, today.month, today.day, 12, 30),
           customerName: '최진실',
           careLabel: '웨딩케어',
+        ),
+        CareScheduleEntry(
+          id: 'e3',
+          shopId: store.shop.id,
+          scheduledAt: DateTime(today.year, today.month, today.day, 14),
+          customerName: '박서연',
+          careLabel: '관리',
+        ),
+        CareScheduleEntry(
+          id: 'e4',
+          shopId: store.shop.id,
+          scheduledAt: DateTime(today.year, today.month, today.day, 16),
+          customerName: '이하늘',
+          careLabel: '리프팅',
         ),
       ];
 

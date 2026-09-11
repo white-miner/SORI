@@ -65,7 +65,7 @@ void main() {
       await repo.purchaseSoriPoints(shopId: item.shop.id, amount: 120);
       final r = await repo.purchasePointShopItem(
         shopId: item.shop.id,
-        sku: 'boost_local_2h',
+        sku: 'boost_bump_4h',
         targetType: 'chart',
         targetId: item.chart.id,
       );

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sori/theme/sori_tokens.dart';
 import 'package:sori/widgets/glass/sori_glass_app_bar_cluster.dart';
 import 'package:sori/widgets/glass/sori_glass_overlay.dart';
 
 void main() {
-  testWidgets('GNB cluster renders four dark icons inside a glass pill', (tester) async {
+  testWidgets('GNB cluster renders four charcoal icons inside a glass pill',
+      (tester) async {
     var tapped = '';
     await tester.pumpWidget(
       MaterialApp(
@@ -51,7 +53,8 @@ void main() {
     expect(find.byIcon(Icons.settings_rounded), findsOneWidget);
 
     final addIcon = tester.widget<Icon>(find.byIcon(Icons.add_rounded));
-    expect(addIcon.color, Colors.black87);
+    expect(addIcon.color, SoriTokens.textPrimary);
+    expect(addIcon.color, const Color(0xFF111111));
     expect(addIcon.size, greaterThanOrEqualTo(22));
 
     await tester.tap(find.byIcon(Icons.add_rounded));
