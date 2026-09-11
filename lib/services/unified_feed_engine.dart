@@ -1,5 +1,6 @@
 import '../models/recommend_feed_category.dart';
 import '../models/community_post.dart';
+import '../models/feed_query_config.dart';
 import '../models/unified_feed_item.dart';
 import '../widgets/post/post_view_data.dart';
 import 'sori_store.dart';
@@ -7,10 +8,26 @@ import 'sori_store.dart';
 /// SSOT helpers for home / explore / community feed slices.
 abstract final class UnifiedFeedEngine {
   /// Recommend tab — interleaved unified feed (boost slots applied in store).
-  static List<UnifiedFeedItem> recommendItems(SoriStore store) {
-    return store.unifiedCommunityFeed
+  /// [config] slices without mutating store cache (R2-1).
+  static List<UnifiedFeedItem> recommendItems(
+    SoriStore store, {
+    FeedQueryConfig config = FeedQueryConfig.community,
+  }) {
+    var items = store.unifiedCommunityFeed
         .where(store.isUnifiedFeedItemVisible)
-        .toList(growable: false);
+        .toList(growable: true);
+
+    if (!config.boostAllowed) {
+      items = items.where((e) => !e.isBoosted).toList(growable: true);
+    }
+
+    final max = config.maxRecommendItems;
+    if (max != null && items.length > max) {
+      items = items.take(max).toList(growable: false);
+    } else {
+      items = List<UnifiedFeedItem>.unmodifiable(items);
+    }
+    return items;
   }
 
   /// Explore 2-column grid — all unified types with grid-safe presentation.

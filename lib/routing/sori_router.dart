@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/feed_query_config.dart';
 import '../models/session_user.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_store.dart';
@@ -363,6 +364,7 @@ class _RoleHome extends StatelessWidget {
         return UnifiedHomeFeedPage(
           store: store,
           onSelectTab: (i) => _goShellTab(context, i),
+          surface: FeedSurface.home,
         );
       },
     );
@@ -417,10 +419,10 @@ class _RoleCommunityTab extends StatelessWidget {
       listenable: store,
       builder: (context, _) {
         // PRD v5.1 IA-1 / v5.2 Phase F — social feed on Community tab.
-        // Legacy CommunityPage pruned from GNB; UnifiedHomeFeedPage is SSOT.
         return UnifiedHomeFeedPage(
           store: store,
           onSelectTab: (i) => _goShellTab(context, i),
+          surface: FeedSurface.community,
         );
       },
     );

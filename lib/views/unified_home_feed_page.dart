@@ -6,6 +6,7 @@ import '../features/habit/insights_pulse_strip.dart';
 import '../features/habit/top_mentor_strip.dart';
 import '../models/recommend_feed_category.dart';
 import '../models/community_case_item.dart';
+import '../models/feed_query_config.dart';
 import '../models/post_engagement_bindings.dart';
 import '../models/shop.dart';
 import '../models/unified_feed_item.dart';
@@ -33,16 +34,20 @@ import 'community/region_nearby_map_section.dart';
 import 'home_explore_tab.dart';
 import 'seminar_class_detail_page.dart';
 
-/// 원장·고객 공통 통합 커뮤니티 홈 — Weverse형 미디어 아키텍처.
+/// 원장·고객 공통 통합 피드 — [FeedSurface]로 홈/커뮤니티 chrome·slice 분리 (R2).
 class UnifiedHomeFeedPage extends StatefulWidget {
   const UnifiedHomeFeedPage({
     super.key,
     required this.store,
     this.onSelectTab,
+    this.surface = FeedSurface.community,
   });
 
   final SoriStore store;
   final ValueChanged<int>? onSelectTab;
+
+  /// Default [FeedSurface.community] keeps legacy mounts behavior-preserving.
+  final FeedSurface surface;
 
   @override
   State<UnifiedHomeFeedPage> createState() => _UnifiedHomeFeedPageState();
@@ -61,6 +66,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   double? _regionCenterLng;
 
   SoriStore get store => widget.store;
+
+  FeedQueryConfig get _config => FeedQueryConfig.forSurface(widget.surface);
 
   EngagementService get _engagement => EngagementService(
         context: context,
@@ -87,7 +94,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: _tabLength, vsync: this);
     _tabs.addListener(_onTabIndexChanged);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,6 +105,13 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       store.refreshDiscoverDirectors(soft: true);
       _consumePendingInnerTab();
     });
+  }
+
+  int get _tabLength {
+    var n = 1;
+    if (_config.showExploreTab) n++;
+    if (_config.showLocalTab) n++;
+    return n;
   }
 
   @override
@@ -147,14 +161,19 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     final pending = store.pendingHomeInnerTab;
     if (pending == null) return;
     store.pendingHomeInnerTab = null;
-    final i = pending.clamp(0, 2);
+    // Home surface has recommend-only chrome — ignore explore/local jumps.
+    if (!_config.showExploreTab && !_config.showLocalTab) {
+      if (_tabs.index != 0) _tabs.animateTo(0);
+      return;
+    }
+    final i = pending.clamp(0, _tabs.length - 1);
     if (_tabs.index != i) {
       _tabs.animateTo(i);
     }
   }
 
   List<UnifiedFeedItem> get _recommendFeed =>
-      UnifiedFeedEngine.recommendItems(store);
+      UnifiedFeedEngine.recommendItems(store, config: _config);
 
   List<CommunityCaseItem> get _localFeed {
     final base = store.interleavedCaseFeed(
@@ -188,6 +207,37 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     CommunityCaseItem? caseItem,
   }) {
     final item = caseItem ?? _caseItemFor(data);
+    if (!_config.boostAllowed) {
+      final base = _engagement.bindingsFor(data);
+      return PostEngagementBindings(
+        liked: base.liked,
+        bookmarked: base.bookmarked,
+        likeCount: base.likeCount,
+        commentCount: base.commentCount,
+        onLike: base.onLike,
+        onComment: base.onComment,
+        onBookmark: base.onBookmark,
+        onMentoring: base.onMentoring,
+        onBoost: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('홈에서는 부스터를 쓰지 않아요. 커뮤니티에서 이용할 수 있어요.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        likeEnabled: base.likeEnabled,
+        commentEnabled: base.commentEnabled,
+        bookmarkEnabled: base.bookmarkEnabled,
+        mentoringEnabled: base.mentoringEnabled,
+        boostEnabled: false,
+        likeDisabledReason: base.likeDisabledReason,
+        commentDisabledReason: base.commentDisabledReason,
+        bookmarkDisabledReason: base.bookmarkDisabledReason,
+        mentoringDisabledReason: base.mentoringDisabledReason,
+        boostDisabledReason: '홈에서는 부스터를 쓰지 않아요.',
+      );
+    }
     return _engagement.bindingsForWithBoost(
       data,
       onBoostTap: () {
@@ -502,23 +552,36 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     final loading = store.unifiedFeedLoading && feed.isEmpty;
     final wide = MediaQuery.sizeOf(context).width >= 800;
     final feedScroll = _activeFeedScrollController(context);
+    final config = _config;
 
-    final feedPane = TabBarView(
-      controller: _tabs,
-      children: [
-        _RecommendFeedTab(
-          store: store,
-          feed: feed,
-          loading: loading,
-          buildItem: _buildUnifiedItem,
-          engagementBuilder: (item) =>
-              _bindingsFor(PostViewData.fromUnifiedFeedItem(item)),
-          scrollController: _scrollForTab(0),
-        ),
+    final tabChildren = <Widget>[
+      _RecommendFeedTab(
+        store: store,
+        feed: feed,
+        loading: loading,
+        buildItem: _buildUnifiedItem,
+        engagementBuilder: (item) =>
+            _bindingsFor(PostViewData.fromUnifiedFeedItem(item)),
+        scrollController: _scrollForTab(0),
+        homeGlance: config.surface == FeedSurface.home,
+      ),
+    ];
+    final labels = <String>[
+      config.surface == FeedSurface.home ? '추천 글' : '추천',
+    ];
+    if (config.showExploreTab) {
+      labels.add('탐색');
+      tabChildren.add(
         HomeExploreTab(
           store: store,
           scrollController: _scrollForTab(1),
         ),
+      );
+    }
+    if (config.showLocalTab) {
+      labels.add('우리 지역');
+      final localIndex = tabChildren.length;
+      tabChildren.add(
         _SimpleFeedTab(
           store: store,
           title: '우리 지역',
@@ -527,7 +590,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           feed: localFeed,
           loading: loading,
           buildCard: _feedCard,
-          scrollController: _scrollForTab(2),
+          scrollController: _scrollForTab(localIndex),
           regionRadiusKm: _regionRadiusKm,
           onRegionRadiusChanged: (km) {
             setState(() => _regionRadiusKm = km);
@@ -547,7 +610,12 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 lng.abs() > 0.01;
           })(),
         ),
-      ],
+      );
+    }
+
+    final feedPane = TabBarView(
+      controller: _tabs,
+      children: tabChildren,
     );
 
     final wheelWrapped = FeedScrollWheelWrapper(
@@ -569,13 +637,29 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Material(
-              color: SoriTokens.background,
-              child: SoriYoutubeTabBar(
-                controller: _tabs,
-                labels: const ['추천', '탐색', '우리 지역'],
+            if (labels.length > 1)
+              Material(
+                color: SoriTokens.background,
+                child: SoriYoutubeTabBar(
+                  controller: _tabs,
+                  labels: labels,
+                ),
+              )
+            else
+              Material(
+                color: SoriTokens.background,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    labels.first,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                ),
               ),
-            ),
             Expanded(child: expandedFeed),
           ],
         ),
@@ -593,6 +677,7 @@ class _RecommendFeedTab extends StatefulWidget {
     required this.buildItem,
     required this.engagementBuilder,
     this.scrollController,
+    this.homeGlance = false,
   });
 
   final SoriStore store;
@@ -601,6 +686,7 @@ class _RecommendFeedTab extends StatefulWidget {
   final Widget Function(UnifiedFeedItem item, int index) buildItem;
   final PostEngagementBindings Function(UnifiedFeedItem item) engagementBuilder;
   final ScrollController? scrollController;
+  final bool homeGlance;
 
   @override
   State<_RecommendFeedTab> createState() => _RecommendFeedTabState();
@@ -642,25 +728,27 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
-          SliverToBoxAdapter(
-            child: InsightsPulseStrip(store: widget.store),
-          ),
-          SliverToBoxAdapter(
-            child: TopMentorStrip(store: widget.store),
-          ),
-          SliverToBoxAdapter(
-            child: _LatestPostsStrip(
-              store: widget.store,
-              engagementBuilder: widget.engagementBuilder,
+          if (!widget.homeGlance) ...[
+            SliverToBoxAdapter(
+              child: InsightsPulseStrip(store: widget.store),
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 4)),
-          const SliverToBoxAdapter(
+            SliverToBoxAdapter(
+              child: TopMentorStrip(store: widget.store),
+            ),
+            SliverToBoxAdapter(
+              child: _LatestPostsStrip(
+                store: widget.store,
+                engagementBuilder: widget.engagementBuilder,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 4)),
+          ],
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: Text(
-                '오늘의 피드',
-                style: TextStyle(
+                widget.homeGlance ? '오늘 보면 좋은 글' : '오늘의 피드',
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: SoriTokens.textPrimary,
@@ -668,12 +756,14 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               ),
             ),
           ),
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Text(
-                '전후 · 세미나 · 리뷰 · 멘토 — 전국에서 오늘 올라온 글',
-                style: TextStyle(
+                widget.homeGlance
+                    ? '가벼운 추천만 보여 드려요. 탐색·작성은 커뮤니티에서.'
+                    : '전후 · 세미나 · 리뷰 · 멘토 — 전국에서 오늘 올라온 글',
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: SoriTokens.textSecondary,
