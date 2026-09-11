@@ -7,6 +7,7 @@ import '../models/seminar_class.dart';
 import '../models/seminar_class_detail.dart';
 import '../models/shop.dart';
 import '../pages/case_detail_page.dart';
+import '../services/region_content_bookmark_store.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/seminar_time_format.dart';
@@ -51,6 +52,8 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
   String? _error;
   late final PageController _heroController;
   int _heroIndex = 0;
+  bool _bookmarked = false;
+  bool _bookmarkBusy = false;
 
   static final _priceFmt = NumberFormat('#,###', 'ko_KR');
 
@@ -59,6 +62,39 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
     super.initState();
     _heroController = PageController();
     _load();
+    _syncBookmark();
+  }
+
+  Future<void> _syncBookmark() async {
+    await RegionContentBookmarkStore.instance.refresh();
+    if (!mounted) return;
+    setState(() {
+      _bookmarked = RegionContentBookmarkStore.instance.isBookmarked(
+        RegionContentKind.seminar,
+        widget.classId,
+      );
+    });
+  }
+
+  Future<void> _toggleBookmark() async {
+    if (_bookmarkBusy) return;
+    setState(() => _bookmarkBusy = true);
+    final next = await RegionContentBookmarkStore.instance.toggle(
+      RegionContentKind.seminar,
+      widget.classId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _bookmarked = next;
+      _bookmarkBusy = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(next ? '저장한 콘텐츠에 담았어요' : '저장을 해제했어요'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: next ? SoriTokens.semanticGreen : SoriTokens.primary,
+      ),
+    );
   }
 
   @override
@@ -272,6 +308,16 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
               ),
             ),
             actions: [
+              IconButton(
+                tooltip: _bookmarked ? '저장 해제' : '지역 콘텐츠 저장',
+                onPressed: _bookmarkBusy ? null : _toggleBookmark,
+                icon: Icon(
+                  _bookmarked
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
+                  color: _bookmarked ? SoriTokens.brand : SoriTokens.textPrimary,
+                ),
+              ),
               if (_isAuthor)
                 IconButton(
                   tooltip: '관리',

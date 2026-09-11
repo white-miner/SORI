@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../models/community_post.dart';
+import '../services/region_content_bookmark_store.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/community_comments_section.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
+import '../widgets/sori_pressable.dart';
 
 /// 탐색에서 연 커뮤니티 포스트 원본 (인테리어·케이스 공유 등).
-class ExploreCommunityPostPage extends StatelessWidget {
+/// 저장은 상세에서만 (지도 Peek 저장 금지 계약).
+class ExploreCommunityPostPage extends StatefulWidget {
   const ExploreCommunityPostPage({
     super.key,
     required this.store,
@@ -31,7 +34,56 @@ class ExploreCommunityPostPage extends StatelessWidget {
   }
 
   @override
+  State<ExploreCommunityPostPage> createState() =>
+      _ExploreCommunityPostPageState();
+}
+
+class _ExploreCommunityPostPageState extends State<ExploreCommunityPostPage> {
+  bool _bookmarked = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncBookmark();
+  }
+
+  Future<void> _syncBookmark() async {
+    await RegionContentBookmarkStore.instance.refresh();
+    if (!mounted) return;
+    setState(() {
+      _bookmarked = RegionContentBookmarkStore.instance.isBookmarked(
+        RegionContentKind.post,
+        widget.post.id,
+      );
+    });
+  }
+
+  Future<void> _toggleBookmark() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final next = await RegionContentBookmarkStore.instance.toggle(
+      RegionContentKind.post,
+      widget.post.id,
+    );
+    if (!mounted) return;
+    setState(() {
+      _bookmarked = next;
+      _busy = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(next ? '저장한 콘텐츠에 담았어요' : '저장을 해제했어요'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: next ? SoriTokens.semanticGreen : SoriTokens.primary,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final post = widget.post;
+    final store = widget.store;
     final media = post.media;
     final primary = media.isNotEmpty ? media.first : null;
     final tags = primary == null
@@ -45,6 +97,21 @@ class ExploreCommunityPostPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(post.postType.label),
         backgroundColor: SoriTokens.surface,
+        actions: [
+          SoriPressable(
+            semanticLabel: _bookmarked ? '저장 해제' : '지역 콘텐츠 저장',
+            onTap: _busy ? null : _toggleBookmark,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                _bookmarked
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
+                color: _bookmarked ? SoriTokens.brand : SoriTokens.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),

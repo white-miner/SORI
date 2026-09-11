@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/region_content_bookmark_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/sori_bottom_sheet.dart';
+import '../../widgets/sori_action_buttons.dart';
 import 'region_map_bloom.dart';
 import 'region_map_content_pins.dart';
 
@@ -27,6 +28,7 @@ class RegionMapExploreSheet extends StatelessWidget {
     this.titleForBookmark,
     this.onOpenPin,
     this.onOpenSavedAll,
+    this.onOpenBookmark,
   });
 
   final DraggableScrollableController sheetController;
@@ -41,6 +43,7 @@ class RegionMapExploreSheet extends StatelessWidget {
   final String Function(RegionContentBookmark)? titleForBookmark;
   final ValueChanged<RegionMapPin>? onOpenPin;
   final VoidCallback? onOpenSavedAll;
+  final ValueChanged<RegionContentBookmark>? onOpenBookmark;
 
   static const peek = 0.22;
   static const half = 0.50;
@@ -174,17 +177,9 @@ class RegionMapExploreSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              FilledButton(
+              SoriPrimaryButton(
+                label: cta,
                 onPressed: () => onOpenPin?.call(pin),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SoriTokens.brand,
-                  foregroundColor: SoriTokens.onBrand,
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: Text(
-                  cta,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
               ),
             ],
           ),
@@ -284,7 +279,7 @@ class RegionMapExploreSheet extends StatelessWidget {
               return ListTile(
                 leading: Icon(
                   isPost ? Icons.article_outlined : Icons.event_outlined,
-                  color: SoriTokens.primary,
+                  color: SoriTokens.brand,
                 ),
                 title: Text(
                   title,
@@ -293,6 +288,7 @@ class RegionMapExploreSheet extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text(isPost ? '글' : '세미나'),
+                onTap: () => onOpenBookmark?.call(b),
               );
             },
             childCount: items.length.clamp(0, 3),

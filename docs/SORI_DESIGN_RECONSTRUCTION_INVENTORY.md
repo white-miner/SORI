@@ -31,7 +31,7 @@
 | showSoriModalBottomSheet | 공용 sheet | glass 남용 | 기본 solid · glass는 Peek 전용 API | solid default | P0 ✓ |
 | VisitLauncherPage | 홈 glance | 목적 1 | MyFeed/Program/Timer 3목적 | glance 홈 분리(타이머 SSOT 유지) | P0 |
 | HomeTimerStage | 타이머 표시 | — | UI만 손댐 | **VisitTimerStore/_onTick 금지** · chrome만 | P0 |
-| RegionNearbyMapSection | 지역 탐색 | 부분 진행 | sheet/cluster/bloom WIP | Local Bloom 완성 · Peek CTA 1 | P0 |
+| RegionNearbyMapSection | 지역 탐색 | 상세 저장 | Peek CTA brand · 저장함→상세 · 글/세미나 상세 북마크 | P1 ✓ |
 | CustomerChartPage | 고객 맥락 | CTA 과다 | ~~후기 AppBar~~ → ⋮ · FAB=본기록 · brand · KPI 축소 | P0 ✓ |
 | VisitSessionPage | Visit 완결 | CTA 혼재 | ~~B/A FAB~~ → AppBar 보조 · phase CTA 유지 | P0 ✓ |
 | VisitSessionPage | Visit 완결 | 목적 혼재 | 다단 파이프라인 UI 과밀 | 10초 기록 UX · 계약 유지 | P0 |

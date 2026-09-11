@@ -512,6 +512,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                   titleForBookmark: _bookmarkTitle,
                   onOpenPin: _openPin,
                   onOpenSavedAll: () => _openSavedSheet(fullList: true),
+                  onOpenBookmark: _openBookmark,
                 ),
               ],
             ),
