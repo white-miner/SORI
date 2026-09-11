@@ -29,7 +29,7 @@
 | FloatingPillNav | 전역 이동 | glass 예산 | ~~중첩 blur~~ · 선택 brand · 원장「책상」 | blur 1(바만) | P0 ✓ |
 | AppBar cluster | 셸 액션 | glass 예산 | ~~BackdropFilter~~ → opaque 92% · hit 48 | glass 0 | P0 ✓ |
 | showSoriModalBottomSheet | 공용 sheet | glass 남용 | 기본 solid · glass는 Peek 전용 API | solid default | P0 ✓ |
-| VisitLauncherPage | 홈 glance | 목적 1 | MyFeed/Program/Timer 3목적 | glance 홈 분리(타이머 SSOT 유지) | P0 |
+| VisitLauncherPage | 홈 glance | 목적 1 | ~~영문 3탭~~ → 오늘/프로그램/타이머 · brand 밑줄 | glance 라벨(타이머 SSOT 유지) | P0 ✓ |
 | HomeTimerStage | 타이머 표시 | — | UI만 손댐 | **VisitTimerStore/_onTick 금지** · chrome만 | P0 |
 | RegionNearbyMapSection | 지역 탐색 | 상세 저장 | Peek CTA brand · 저장함→상세 · 글/세미나 상세 북마크 | P1 ✓ |
 | CustomerChartPage | 고객 맥락 | CTA 과다 | ~~후기 AppBar~~ → ⋮ · FAB=본기록 · brand · KPI 축소 | P0 ✓ |
@@ -40,7 +40,7 @@
 | DirectorMyPageView | 사장 책상 | 영어·위계 | 탭 한국어 · 오늘=큐→경영peek→일정 | P0 ✓ |
 | ShootHub / B/A | 촬영 | 영어 | Before/After | 한국어 + CTA 절제 | P1 |
 | BizDashboard | 경영 | 위계 | 차트·카드 과밀 | 헤드라인 1 · A/B 분리 | P1 |
-| DirectorFandomProfile | 공개 프로필 | CTA | 다중 CTA | 예약/문의 1 · 내부데이터 숨김 | P1 |
+| DirectorFandomProfile | 공개 프로필 | CTA | ~~팔로우 filled~~ → 예약/문의 brand 1 · 팔로우 secondary | 공개 전환 CTA | P1 ✓ |
 | AppSettingsPage | 설정 | — | 모드 스위치 혼재 | 저빈도 정리 | P1 |
 | Compose / Whisper | 작성 | 영어 | Whisper | 한국어 카테고리 | P1 |
 | Program / Seminar sheets | 보조 | sheet 폭증 | — | solid sheet · CTA 1 | P2 |

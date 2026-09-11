@@ -28,7 +28,7 @@ void main() {
       MaterialApp(home: Scaffold(body: VisitLauncherPage(store: SoriStore()))),
     );
     await _settle(tester);
-    await tester.tap(find.text('Program'));
+    await tester.tap(find.text('프로그램'));
     await _settle(tester);
     await tester.tap(find.text('윤곽 관리'));
     await tester.pump(HomeVisualTokens.programExpandDuration);
@@ -192,7 +192,7 @@ void main() {
       MaterialApp(home: Scaffold(body: VisitLauncherPage(store: SoriStore()))),
     );
     await _settle(tester);
-    await tester.tap(find.text('Program'));
+    await tester.tap(find.text('프로그램'));
     await _settle(tester);
 
     expect(find.byKey(const Key('program-global-promo-caption')), findsWidgets);
@@ -213,7 +213,7 @@ void main() {
       MaterialApp(home: Scaffold(body: VisitLauncherPage(store: store))),
     );
     await _settle(tester);
-    await tester.tap(find.text('Program'));
+    await tester.tap(find.text('프로그램'));
     await _settle(tester);
     await tester.tap(find.text('윤곽 관리'));
     await tester.pump(HomeVisualTokens.programExpandDuration);

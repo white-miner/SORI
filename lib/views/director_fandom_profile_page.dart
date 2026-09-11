@@ -10,9 +10,10 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/feed_ba_frame.dart';
+import '../widgets/sori_action_buttons.dart';
 import '../widgets/sori_logo.dart';
 
-/// 원장 브랜드 프로필 — 소식 · 대표 B/A · 스토리 · 예약|문의 CTA.
+/// 원장 브랜드 프로필 — 소식 · 대표 전·후 · 스토리 · 예약|문의 CTA 1.
 class DirectorFandomProfilePage extends StatefulWidget {
   const DirectorFandomProfilePage({
     super.key,
@@ -222,59 +223,18 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      final on = store.toggleFollowShop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            on ? '팔로워로 등록했어요' : '팔로우를 해제했어요',
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                    icon: Icon(
-                      following
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                    ),
-                    label: Text(
-                      following ? '팔로워 · 팔로잉' : '팔로우',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SoriTokens.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-                if (cta.showsButton) ...[
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
+                // Level 1 = 예약|문의만 filled brand. 팔로우는 secondary.
+                if (cta.showsButton)
+                  Semantics(
+                    button: true,
+                    label: cta.label,
+                    hint: cta.semanticsHint,
+                    child: SoriPrimaryButton(
+                      label: cta.label,
                       onPressed: _onCta,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: SoriTokens.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: SoriTokens.primary),
-                      ),
-                      child: Semantics(
-                        button: true,
-                        label: cta.label,
-                        hint: cta.semanticsHint,
-                        child: Text(
-                          cta.label,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
                     ),
-                  ),
-                ] else if (cta.helperText != null) ...[
-                  const SizedBox(height: 10),
+                  )
+                else if (cta.helperText != null)
                   Text(
                     cta.helperText!,
                     textAlign: TextAlign.center,
@@ -284,7 +244,21 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                const SizedBox(height: 10),
+                SoriSecondaryButton(
+                  label: following ? '팔로잉' : '팔로우',
+                  onPressed: () {
+                    final on = store.toggleFollowShop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          on ? '팔로워로 등록했어요' : '팔로우를 해제했어요',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -388,7 +362,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                     key: const Key('profile_featured_ba_manage'),
                     onPressed: _openFeaturedPicker,
                     style: TextButton.styleFrom(
-                      foregroundColor: SoriTokens.primary,
+                      foregroundColor: SoriTokens.brand,
                       visualDensity: VisualDensity.compact,
                     ),
                     child: const Text(
@@ -448,13 +422,13 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                 borderRadius: BorderRadius.zero,
                 before: ChartImagePane(
                   url: chart.beforeImageUrl,
-                  fallbackLabel: 'Before',
-                  tone: SoriTokens.primary,
+                  fallbackLabel: '전',
+                  tone: SoriTokens.brand,
                 ),
                 after: ChartImagePane(
                   url: chart.afterImageUrl,
-                  fallbackLabel: 'After',
-                  tone: SoriTokens.primary,
+                  fallbackLabel: '후',
+                  tone: SoriTokens.brand,
                 ),
               ),
             ),

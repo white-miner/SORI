@@ -57,7 +57,8 @@ import '../operation/widgets/care_timer_preset_editor_page.dart';
 /// PRD v7.0 — 원장 홈 상단 탭.
 enum HomeTab { myFeed, program, timer }
 
-/// PRD v7.1 — 원장 GNB 홈: My Feed / Program / Timer 3탭 셸.
+/// PRD v7.1 — 원장 GNB 홈: 오늘 / 프로그램 / 타이머 3탭 셸.
+/// DESIGN LAWS: 오늘=glance · 타이머 SSOT는 VisitTimerStore 유지(로직 비침).
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -245,7 +246,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final preset = timerStore.presetAt(slot);
     if (preset.isEmpty) {
       if (mounted) {
-        _toast('Timer 탭에서 프리셋을 선택한 뒤 케어를 시작하세요', error: true);
+        _toast('타이머에서 프리셋을 선택한 뒤 케어를 시작하세요', error: true);
       }
       return;
     }
@@ -1071,14 +1072,12 @@ class _HomeTabBar extends StatelessWidget {
       height: HomeVisualTokens.tabBarHeight,
       child: TabBar(
         controller: controller,
-        labelColor: HomeVisualTokens.tabActiveColor,
+        labelColor: SoriTokens.brand,
         unselectedLabelColor: HomeVisualTokens.tabInactiveColor,
-        // 전역 soriTabBarTheme은 채워진 검정 칩 indicator를 쓴다. 그대로 두면
-        // 검정 칩 위에 검정 라벨이 얹혀 선택된 탭이 통째로 까맣게 보인다.
-        // 밑줄 indicator로 덮어써 라벨이 선명한 블랙으로 읽히게 한다.
+        // brand 밑줄 — 선택 탭이 3초 안에 읽히게.
         indicator: const UnderlineTabIndicator(
           borderSide: BorderSide(
-            color: HomeVisualTokens.tabActiveColor,
+            color: SoriTokens.brand,
             width: 2,
           ),
           insets: EdgeInsets.symmetric(horizontal: 20),
@@ -1087,21 +1086,21 @@ class _HomeTabBar extends StatelessWidget {
         dividerColor: Colors.transparent,
         labelStyle: const TextStyle(
           fontSize: HomeVisualTokens.tabLabelSize,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
         unselectedLabelStyle: const TextStyle(
           fontSize: HomeVisualTokens.tabLabelSize,
           fontWeight: FontWeight.w600,
         ),
         tabs: [
-          const Tab(text: 'My Feed'),
-          const Tab(text: 'Program'),
+          const Tab(text: '오늘'),
+          const Tab(text: '프로그램'),
           Tab(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Timer'),
-                // 케어 진행 중임을 탭 밖에서도 알 수 있게 한다.
+                const Text('타이머'),
+                // 케어 진행 중 — Green semantic (완료·진행 정상).
                 if (careRunning) ...[
                   const SizedBox(width: 5),
                   Container(
@@ -1109,7 +1108,7 @@ class _HomeTabBar extends StatelessWidget {
                     height: 6,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: HomeVisualTokens.careGreen,
+                      color: SoriTokens.semanticGreen,
                     ),
                   ),
                 ],
@@ -1152,7 +1151,7 @@ class _CaseFeedHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: SoriTokens.primary,
+                color: SoriTokens.brand,
               ),
             ),
           ],
@@ -1167,7 +1166,7 @@ class _CaseFeedHeader extends StatelessWidget {
                   : Icons.bookmark_border_rounded,
               size: 20,
               color: bookmarkOnly
-                  ? SoriTokens.primary
+                  ? SoriTokens.brand
                   : HomeVisualTokens.dateIconColor,
             ),
           ),
@@ -1210,7 +1209,7 @@ class _EmptyCaseFeed extends StatelessWidget {
           Text(
             bookmarkOnly
                 ? '카드 우측 상단 책갈피를 눌러 상담용 레퍼런스를 모아 두세요'
-                : '위 B/A 등록에서 Before·After를 찍고 고객에 연결해 보세요',
+                : '위 전·후 등록에서 사진을 찍고 고객에 연결해 보세요',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,

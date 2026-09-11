@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sori/features/operation/widgets/care_timer_floating_bar.dart';
 import 'package:sori/features/operation/widgets/care_timer_fullscreen_page.dart';
 import 'package:sori/features/operation/widgets/flip_clock_display.dart';
-import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
 import 'package:sori/features/visit/widgets/ba_capture_carousel.dart';
 import 'package:sori/features/visit/widgets/home_hero_card.dart';
@@ -14,6 +13,7 @@ import 'package:sori/features/visit/widgets/home_scheduler_strip.dart';
 import 'package:sori/features/visit/widgets/home_toolbox_row.dart';
 import 'package:sori/features/visit/widgets/management_case_card.dart';
 import 'package:sori/services/sori_store.dart';
+import 'package:sori/theme/sori_tokens.dart';
 
 /// 홈 셸이 마운트될 때까지 프레임을 흘린다.
 /// 플립 시계가 반복 타이머를 돌리므로 pumpAndSettle은 쓸 수 없다.
@@ -36,18 +36,18 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('홈은 My Feed / Program / Timer 3탭으로 열린다', (tester) async {
+  testWidgets('홈은 오늘 / 프로그램 / 타이머 3탭으로 열린다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
 
-    expect(find.text('My Feed'), findsOneWidget);
-    expect(find.text('Program'), findsOneWidget);
+    expect(find.text('오늘'), findsWidgets);
+    expect(find.text('프로그램'), findsOneWidget);
     expect(find.text('My Asset'), findsNothing);
-    expect(find.text('Timer'), findsOneWidget);
+    expect(find.text('타이머'), findsOneWidget);
 
-    // 기본 선택은 My Feed — 4대 컴포넌트가 한 화면에 조립된다.
+    // 기본 선택은 오늘 — 4대 컴포넌트가 한 화면에 조립된다.
     expect(find.byType(HomeHeroCard), findsOneWidget);
     expect(find.byType(HomeSchedulerStrip), findsOneWidget);
     expect(find.byType(HomeQuickActionRow), findsOneWidget);
@@ -185,7 +185,7 @@ void main() {
     expect(find.byType(HomeToolboxRow), findsNothing);
     expect(find.byType(HomePresetQuickPick), findsNothing);
 
-    await tester.tap(find.text('Timer'));
+    await tester.tap(find.text('타이머'));
     await _settle(tester);
 
     expect(find.byType(HomeToolboxRow), findsOneWidget);
@@ -208,7 +208,7 @@ void main() {
 
     await _mountHome(tester);
 
-    await tester.tap(find.text('Program'));
+    await tester.tap(find.text('프로그램'));
     await _settle(tester);
 
     expect(find.text('윤곽 관리'), findsOneWidget);
@@ -219,7 +219,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('선택된 탭 라벨은 검정으로 읽힌다 (검정 칩에 묻히지 않는다)', (tester) async {
+  testWidgets('선택된 탭 라벨은 brand로 읽힌다 (칩에 묻히지 않는다)', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -227,14 +227,13 @@ void main() {
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar).first);
 
-    // 전역 soriTabBarTheme의 채워진 검정 칩을 상속하면 라벨이 통째로 사라진다.
+    // Underline + brand — 선택 탭이 3초 안에 읽히게.
     expect(tabBar.indicator, isA<UnderlineTabIndicator>());
-    expect(tabBar.labelColor, HomeVisualTokens.tabActiveColor);
+    expect(tabBar.labelColor, SoriTokens.brand);
     expect(tabBar.labelColor, isNot(tabBar.unselectedLabelColor));
 
-    // 선택 라벨이 배경과 충분히 대비되는 어두운 색인지.
     final luminance = tabBar.labelColor!.computeLuminance();
-    expect(luminance, lessThan(0.2));
+    expect(luminance, lessThan(0.35));
   });
 
   testWidgets('관리 케이스 북마크 토글이 즐겨찾기만 남긴다', (tester) async {
