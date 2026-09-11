@@ -186,16 +186,16 @@ class _BaPostsPaneState extends State<_BaPostsPane> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: SoriTokens.surface,
-          title: const Text('SNS consent required'),
+          title: const Text('SNS 공개 동의가 필요해요'),
           content: Text(gate.alertMessage),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: const Text('취소'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('OK'),
+              child: const Text('확인'),
             ),
           ],
         ),

@@ -182,7 +182,7 @@ abstract final class MentoringLoopService {
                     bindings.onBoost();
                   },
                   icon: const Icon(Icons.rocket_launch_outlined),
-                  label: const Text('Boost 후원'),
+                  label: const Text('홍보 후원'),
                 ),
               if (!following) ...[
                 const SizedBox(height: 8),
