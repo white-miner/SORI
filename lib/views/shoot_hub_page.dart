@@ -7,6 +7,7 @@ import '../models/customer_chart.dart';
 import '../models/shoot_inbox_item.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/sori_shell_insets.dart';
 import '../features/visit/visit_session_page.dart';
 import '../visit_kernel/theme/visit_glass_tokens.dart';
 import 'smart_guide_camera_page.dart';
@@ -382,7 +383,6 @@ class _ShootHubPageState extends State<ShootHubPage> {
   Widget build(BuildContext context) {
     final waiting = _afterWaiting;
     final sessions = _sessions;
-    final bottom = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
       color: SoriTokens.background,
@@ -391,7 +391,13 @@ class _ShootHubPageState extends State<ShootHubPage> {
         child: Stack(
           children: [
             ListView(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + bottom),
+              key: const Key('shoot-hub-list'),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                16 + SoriShellInsets.scrollBottomInset(context),
+              ),
               children: [
                 const Text(
                   '촬영',
