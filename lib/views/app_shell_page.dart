@@ -7,6 +7,7 @@ import '../models/session_user.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/glass/sori_glass_app_bar_cluster.dart';
 import '../widgets/right_sidebar.dart';
@@ -247,6 +248,29 @@ class _AppShellPageState extends State<AppShellPage> {
                 },
                 onArchive: _openArchive,
                 onSettings: _openSettings,
+                modeSwitchLabel: session.canToggleMode
+                    ? (isDirector
+                        ? CategoryPresentationMap.viewCustomerMode
+                        : CategoryPresentationMap.viewDirectorDesk)
+                    : null,
+                onModeSwitch: session.canToggleMode
+                    ? () {
+                        final wasDirector =
+                            _store.session?.activeMode == UserRole.director;
+                        _store.toggleActiveMode();
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              wasDirector
+                                  ? CategoryPresentationMap.viewCustomerMode
+                                  : CategoryPresentationMap.viewDirectorDesk,
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    : null,
               );
 
         final isFeedTab = (tab == 0 && !isDirector) || tab == 3;
@@ -540,6 +564,8 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSettings,
     this.onLogoTap,
     this.logoRefreshing = false,
+    this.modeSwitchLabel,
+    this.onModeSwitch,
   });
 
   final bool showLogo;
@@ -552,6 +578,8 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSettings;
   final VoidCallback? onLogoTap;
   final bool logoRefreshing;
+  final String? modeSwitchLabel;
+  final VoidCallback? onModeSwitch;
 
   static const double toolbarHeight = 60;
 
@@ -599,6 +627,22 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ],
+                if (modeSwitchLabel != null && onModeSwitch != null)
+                  TextButton(
+                    onPressed: onModeSwitch,
+                    style: TextButton.styleFrom(
+                      foregroundColor: SoriTokens.brand,
+                      minimumSize: const Size(48, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(
+                      modeSwitchLabel!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                 const Spacer(),
                 SoriGlassAppBarCluster(
                   items: [
