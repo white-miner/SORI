@@ -189,7 +189,7 @@ class _DirectorInbox extends StatelessWidget {
                 border: Border.all(color: SoriTokens.border),
               ),
               child: Text(
-                'Supporter 감사 Whisper 대기 $pending건',
+                '감사 인사 대기 $pending건',
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
