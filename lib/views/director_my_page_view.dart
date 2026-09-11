@@ -29,6 +29,7 @@ import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import '../features/visit/widgets/my_today_schedule_read_panel.dart';
+import '../features/visit/widgets/my_today_task_queue_panel.dart';
 import 'ai_shop_report_page.dart';
 import 'biz_dashboard/biz_dashboard_page.dart';
 import 'chart_customer_picker_sheet.dart';
@@ -943,8 +944,15 @@ class _HomeTabBody extends StatelessWidget {
       children: [
         ListenableBuilder(
           listenable: store,
-          builder: (context, _) => MyTodayScheduleReadPanel(
-            entries: store.careScheduleEntries,
+          builder: (context, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MyTodayTaskQueuePanel(store: store),
+              const SizedBox(height: 12),
+              MyTodayScheduleReadPanel(
+                entries: store.careScheduleEntries,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
