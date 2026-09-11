@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/community_post.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import 'whisper_post_card.dart';
 
 /// Home feed wrapper for public Whisper posts.
@@ -36,9 +37,9 @@ class HomeWhisperFeedCard extends StatelessWidget {
                     color: SoriTokens.primary.withValues(alpha: 0.35),
                   ),
                 ),
-                child: const Text(
-                  '전체 공개 Whisper',
-                  style: TextStyle(
+                child: Text(
+                  '전체 공개 ${CategoryPresentationMap.whisper.label}',
+                  style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     color: SoriTokens.primary,

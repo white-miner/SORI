@@ -4,6 +4,7 @@ import '../models/my_boost_gift.dart';
 import '../models/session_user.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../widgets/sponsorship_impact_summary_card.dart';
 import '../widgets/thank_you_whisper_sheet.dart';
 
@@ -289,9 +290,10 @@ class _DirectorInbox extends StatelessWidget {
   String _defaultTitle(String kind) => switch (kind) {
         'fan_boost' => 'Supporter Boost',
         'special_supporter' => 'Special Supporter',
-        'whisper' => 'Whisper',
-        'case_bookmark' => 'Case Bookmark',
-        'market_inquiry' => 'Market Inquiry',
+        'whisper' =>
+          CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
+        'case_bookmark' => '케이스 저장',
+        'market_inquiry' => '중고 문의',
         _ => '알림',
       };
 }

@@ -85,8 +85,8 @@ class _ShopPostsHubSheetState extends State<_ShopPostsHubSheet>
               labelColor: SoriTokens.primary,
               unselectedLabelColor: SoriTokens.textSecondary,
               indicatorColor: SoriTokens.primary,
-              tabs: const [
-                Tab(text: 'B/A'),
+              tabs: [
+                const Tab(text: 'B/A'),
                 Tab(text: CategoryPresentationMap.whisper.label),
               ],
             ),
@@ -313,10 +313,10 @@ class _WhisperPostsPane extends StatelessWidget {
         .where((p) => p.isWhisper && p.shopId == store.shop.id)
         .toList();
     if (posts.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '${CategoryPresentationMap.whisper.label}가 없어요.',
-          style: TextStyle(
+          style: const TextStyle(
             color: SoriTokens.textSecondary,
             fontWeight: FontWeight.w600,
           ),

@@ -10,6 +10,7 @@ import '../models/post_engagement_bindings.dart';
 import '../services/engagement_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../widgets/community_hotspot_image.dart';
 import '../widgets/community_motivation.dart';
@@ -596,7 +597,7 @@ class _CommunityEmptyState extends StatelessWidget {
     };
 
     final title = switch (filter) {
-      CommunityFeedFilter.whisper => 'Whisper',
+      CommunityFeedFilter.whisper => CategoryPresentationMap.whisper.label,
       CommunityFeedFilter.interior => '샵 인테리어',
       CommunityFeedFilter.deviceReview => '기기리뷰',
       CommunityFeedFilter.productReview => '제품리뷰',
@@ -604,7 +605,7 @@ class _CommunityEmptyState extends StatelessWidget {
       CommunityFeedFilter.seminar => '세미나',
       CommunityFeedFilter.ba => 'B/A',
       CommunityFeedFilter.mentoring => '멘토링',
-      _ => 'Community',
+      _ => '커뮤니티',
     };
 
     return Center(
@@ -634,7 +635,7 @@ class _CommunityEmptyState extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onComposeWhisper,
                 icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Whisper 남기기'),
+                label: Text('${CategoryPresentationMap.whisper.label} 남기기'),
                 style: FilledButton.styleFrom(
                   backgroundColor: SoriTokens.primary,
                 ),

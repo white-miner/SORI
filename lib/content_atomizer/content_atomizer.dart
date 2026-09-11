@@ -1,5 +1,6 @@
 import '../models/customer_chart.dart';
 import '../models/home_care_prescriptions.dart';
+import '../utils/category_presentation_map.dart';
 import '../visit_kernel/models/visit_session.dart';
 import 'atomizer_consent_gate.dart';
 import 'models/post_draft.dart';
@@ -41,7 +42,7 @@ abstract final class ContentAtomizer {
 
     return PostDraft(
       kind: PostDraftKind.whisper,
-      title: 'Whisper',
+      title: CategoryPresentationMap.whisper.label,
       body: body.trim(),
       enabled: true,
       selected: true,
