@@ -10,6 +10,7 @@ import '../../services/biz_profile_store.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../widgets/sori_action_buttons.dart';
 import 'biz_math.dart';
 
 const _kCategories = <String>[
@@ -116,8 +117,8 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
         const SizedBox(height: 6),
         Text(
           _profile.isComplete
-              ? '내 숫자가 준비됐어요. 월·년 매출만 넣으면 수익이 계산됩니다.'
-              : '주소와 평소 쓰는 숫자만 적으면, 시간당 수익·진짜 이익을 쉽게 보여 드려요.',
+              ? '이번 달 결론을 먼저 보고, 숫자는 아래에서 고칩니다.'
+              : '주소와 평소 쓰는 숫자만 적으면, 시간당 수익을 바로 보여 드려요.',
           style: const TextStyle(
             fontSize: 13,
             color: Color(0xFF6B7280),
@@ -132,43 +133,51 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
           )
         else ...[
           if (snap != null) ...[
-            _SummaryCard(
+            // Level 1 — 시간당 수익만.
+            _KpiCard(
               label: '시간당 수익',
               value: BizManualRevenueStore.formatWon(snap.hourlyYieldKrw),
+              sub: '이번 달 결론 ★',
+              emphasis: true,
+            ),
+            const SizedBox(height: 10),
+            _MoneyAbStrip(
+              aLabel: _month == null
+                  ? '미입력'
+                  : BizManualRevenueStore.formatWon(_month!),
+              aCaption: '${now.year}.${now.month} 들어온 돈(수동)',
+            ),
+            const SizedBox(height: 10),
+            _KpiCard(
+              label: '진짜 영업이익',
+              value: BizManualRevenueStore.formatWon(snap.businessProfitKrw),
+              sub: '인건비 계상 후 · ${BizMath.stageLabel(snap.stage)}',
+              valueColor: snap.businessProfitKrw < 0
+                  ? SoriTokens.systemRed
+                  : SoriTokens.textPrimary,
+            ),
+            const SizedBox(height: 10),
+          ] else ...[
+            _MoneyAbStrip(
+              aLabel: _month == null
+                  ? '미입력'
+                  : BizManualRevenueStore.formatWon(_month!),
+              aCaption: '${now.year}.${now.month} 들어온 돈(수동)',
             ),
             const SizedBox(height: 10),
             _SummaryCard(
-              label: '사업 이익 (인건비 계상 후)',
-              value: BizManualRevenueStore.formatWon(snap.businessProfitKrw),
+              label: '${now.year}년 매출',
+              value: _year == null
+                  ? '미입력'
+                  : BizManualRevenueStore.formatWon(_year!),
             ),
             const SizedBox(height: 10),
           ],
-          _SummaryCard(
-            label: '${now.year}년 ${now.month}월 매출',
-            value: _month == null
-                ? '미입력'
-                : BizManualRevenueStore.formatWon(_month!),
-          ),
-          const SizedBox(height: 10),
-          _SummaryCard(
-            label: '${now.year}년 매출',
-            value: _year == null
-                ? '미입력'
-                : BizManualRevenueStore.formatWon(_year!),
-          ),
         ],
-        const SizedBox(height: 20),
-        FilledButton.icon(
+        const SizedBox(height: 12),
+        SoriPrimaryButton(
+          label: _profile.isComplete ? '내 경영 숫자 보기' : '3분만에 시작하기',
           onPressed: _openDashboard,
-          style: FilledButton.styleFrom(
-            backgroundColor: SoriTokens.primary,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-          icon: const Icon(Icons.insights_rounded, size: 20),
-          label: Text(
-            _profile.isComplete ? '내 경영 숫자 보기' : '3분만에 시작하기',
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
         ),
       ],
     );
@@ -436,8 +445,15 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                   ),
                 if (_profile.isComplete && monthRev == null)
                   _HintBanner(
-                    text: '이번 달 매출을 넣으면 시간당 수익·진짜 이익이 채워집니다.',
+                    text: '이번 달 매출을 넣으면 시간당 수익이 채워집니다. 입력은 아래쪽에 있어요.',
                   ),
+                // Level 1 먼저 — 결론 → 입력은 Level 3.
+                if (snap != null) ...[
+                  _Zone1Section(snap: snap, monthRevenueKrw: monthRev),
+                  const SizedBox(height: 20),
+                  _Zone2Section(snap: snap),
+                  const SizedBox(height: 28),
+                ],
                 const Text(
                   '내 매출 (손으로 적기)',
                   style: TextStyle(
@@ -447,7 +463,7 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  '이번 달·올해 매출만 적어 주세요. (나중에 차트에서 자동으로 합칠 수 있어요)',
+                  'A 들어온 돈만 적어 주세요. B 선불 잔여는 Payment 연동 후 표시합니다.',
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF6B7280),
@@ -461,7 +477,7 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    labelText: '${now.year}년 ${now.month}월 매출 (원)',
+                    labelText: '${now.year}년 ${now.month}월 매출 (원) · A',
                     border: const OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -478,24 +494,11 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                FilledButton(
+                SoriPrimaryButton(
+                  label: _saving ? '저장 중…' : '매출 저장',
                   onPressed: _saving ? null : _saveRevenue,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(
-                    _saving ? '저장 중…' : '매출 저장',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
                 ),
                 const SizedBox(height: 28),
-                if (snap != null) ...[
-                  _Zone1Section(snap: snap),
-                  const SizedBox(height: 20),
-                  _Zone2Section(snap: snap),
-                  const SizedBox(height: 20),
-                ],
                 _Zone3Section(
                   market: _market,
                   loading: _marketLoading,
@@ -507,7 +510,7 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  '이후 존 (준비 중)',
+                  '이후 준비 중',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -515,11 +518,11 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
                 ),
                 const SizedBox(height: 10),
                 const _ZonePlaceholder(
-                  title: 'ZONE 4 · 고객 자산',
+                  title: '고객 자산',
                   subtitle: '재방문 · LTV — Phase 4',
                 ),
                 const _ZonePlaceholder(
-                  title: 'ZONE 5 · 캐파 · 시간',
+                  title: '캐파 · 시간',
                   subtitle: '예약 히트맵 — Phase 2',
                 ),
               ],
@@ -572,9 +575,13 @@ class _HintBanner extends StatelessWidget {
 }
 
 class _Zone1Section extends StatelessWidget {
-  const _Zone1Section({required this.snap});
+  const _Zone1Section({
+    required this.snap,
+    required this.monthRevenueKrw,
+  });
 
   final BizZone12Snapshot snap;
+  final int? monthRevenueKrw;
 
   @override
   Widget build(BuildContext context) {
@@ -583,7 +590,7 @@ class _Zone1Section extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'ZONE 1 · 경영자 헤드라인',
+          '이번 달 결론',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 10),
@@ -594,6 +601,14 @@ class _Zone1Section extends StatelessWidget {
               ? '월 ${snap.monthlyHours.toStringAsFixed(0)}시간 투입 기준'
               : '최저임금(참고) 대비 ${mult.toStringAsFixed(1)}배 · '
                   '월 ${snap.monthlyHours.toStringAsFixed(0)}시간',
+          emphasis: true,
+        ),
+        const SizedBox(height: 10),
+        _MoneyAbStrip(
+          aLabel: monthRevenueKrw == null
+              ? '미입력'
+              : BizManualRevenueStore.formatWon(monthRevenueKrw!),
+          aCaption: '들어온 돈 · 수동 입력(A)',
         ),
         const SizedBox(height: 10),
         _KpiCard(
@@ -606,11 +621,6 @@ class _Zone1Section extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _OwnerPayBar(snap: snap),
-        const SizedBox(height: 10),
-        const _ZonePlaceholder(
-          title: '상권 백분위 · Alpha',
-          subtitle: '공공데이터 연동 후 (Phase 3) · 지금은 숨기지 않고 안내만',
-        ),
         const SizedBox(height: 8),
         const Text(
           '숫자를 올리는 방법은 더 오래 일하는 게 아니라, 단가·가동률·비용 중 하나를 바꾸는 것입니다.',
@@ -668,7 +678,7 @@ class _OwnerPayBar extends StatelessWidget {
                   if (owner > 0)
                     Expanded(
                       flex: (owner / total * 1000).round().clamp(1, 1000),
-                      child: const ColoredBox(color: Color(0xFF7C3AED)),
+                      child: const ColoredBox(color: SoriTokens.brand),
                     ),
                   if (pos > 0)
                     Expanded(
@@ -695,6 +705,88 @@ class _OwnerPayBar extends StatelessWidget {
   }
 }
 
+/// A 들어온 돈(표시) · B 선불은 Payment SSOT 전이라 숫자를 만들지 않는다.
+class _MoneyAbStrip extends StatelessWidget {
+  const _MoneyAbStrip({
+    required this.aLabel,
+    required this.aCaption,
+  });
+
+  final String aLabel;
+  final String aCaption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'A · $aCaption',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  aLabel,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: SoriTokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 40,
+            color: const Color(0xFFE5E7EB),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'B · 선불 잔여',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '연동 준비',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: SoriTokens.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Zone2Section extends StatelessWidget {
   const _Zone2Section({required this.snap});
 
@@ -706,7 +798,7 @@ class _Zone2Section extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'ZONE 2 · 수익 구조',
+          '수익 구조',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 10),
@@ -732,7 +824,7 @@ class _Zone2Section extends StatelessWidget {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: step.isOwnerPay
-                                ? const Color(0xFF7C3AED)
+                                ? SoriTokens.brand
                                 : SoriTokens.textPrimary,
                           ),
                         ),
@@ -744,7 +836,7 @@ class _Zone2Section extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: step.isOwnerPay
-                              ? const Color(0xFF7C3AED)
+                              ? SoriTokens.brand
                               : (step.amountKrw < 0 && step.label != '사업 이익'
                                   ? const Color(0xFF6B7280)
                                   : SoriTokens.textPrimary),
@@ -852,39 +944,46 @@ class _KpiCard extends StatelessWidget {
     required this.value,
     required this.sub,
     this.valueColor,
+    this.emphasis = false,
   });
 
   final String label;
   final String value;
   final String sub;
   final Color? valueColor;
+  final bool emphasis;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(emphasis ? 18 : 14),
       decoration: BoxDecoration(
         color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(emphasis ? 16 : 12),
+        border: Border.all(
+          color: emphasis
+              ? SoriTokens.brand.withValues(alpha: 0.35)
+              : const Color(0xFFE5E7EB),
+          width: emphasis ? 1.5 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
+            style: TextStyle(
+              fontSize: emphasis ? 13 : 12,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF6B7280),
+              color: emphasis ? SoriTokens.brand : const Color(0xFF6B7280),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: emphasis ? 30 : 22,
               fontWeight: FontWeight.w800,
               color: valueColor ?? SoriTokens.textPrimary,
             ),
@@ -892,7 +991,11 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             sub,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF9CA3AF),
+              height: 1.35,
+            ),
           ),
         ],
       ),
@@ -924,7 +1027,7 @@ class _Zone3Section extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'ZONE 3 · 우리 동네 살펴보기',
+                '우리 동네 살펴보기',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
             ),
