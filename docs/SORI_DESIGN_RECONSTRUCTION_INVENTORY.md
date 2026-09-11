@@ -38,7 +38,7 @@
 | showSoriModalBottomSheet | 공용 sheet | glass 남용 | 리스트 sheet까지 glass | solid default · Peek만 glass | P0 |
 | UnifiedHomeFeed ×2 | 발견 | 목적 중복 | home=community | surface 역할 분리 | P0 |
 | DirectorMyPageView | 사장 책상 | 영어·위계 | 탭 한국어 · 오늘=큐→경영peek→일정 | P0 ✓ |
-| ShootHub / B/A | 촬영 | 영어 | Before/After | 한국어 + CTA 절제 | P1 |
+| ShootHub / B/A | 촬영 | 영어 | ~~Before/After~~ → 전/후 · brand CTA | 한국어 + CTA 절제 | P1 ✓ |
 | BizDashboard | 경영 | 위계 | ~~입력 우선·카드 과밀~~ → ★시간당 1 · A/B 라벨 · 입력 Level3 | 헤드라인 우선 | P1 ✓ |
 | DirectorFandomProfile | 공개 프로필 | CTA | ~~팔로우 filled~~ → 예약/문의 brand 1 · 팔로우 secondary | 공개 전환 CTA | P1 ✓ |
 | AppSettingsPage | 설정 | — | 모드 스위치 혼재 | 저빈도 정리 | P1 |

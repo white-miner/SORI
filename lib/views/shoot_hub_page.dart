@@ -470,21 +470,25 @@ class _ShootHubPageState extends State<ShootHubPage> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                FilledButton.icon(
+                  FilledButton.icon(
                   key: const Key('shoot-now-before'),
                   onPressed: _busy
                       ? null
                       : () => _shootUnbound(kind: GuideCameraKind.before),
                   icon: const Icon(Icons.photo_camera_rounded),
                   label: const Text(
-                    '지금 바로 Before 촬영',
+                    '지금 바로 전(前) 촬영',
                     style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.brand,
+                    foregroundColor: SoriTokens.onBrand,
                   ),
                 ),
                 if (waiting.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Text(
-                    'After 대기 · ${waiting.length}',
+                    '후(後) 대기 · ${waiting.length}',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
@@ -523,7 +527,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '빈 After 칸을 누르면 짝 사진을 찍어요. 사진을 길게 누르면 고객에게 연결합니다.',
+                    '빈 후(後) 칸을 누르면 짝 사진을 찍어요. 사진을 길게 누르면 고객에게 연결합니다.',
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.35,
@@ -772,7 +776,7 @@ class _SessionPairCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _PairSlot(
-                    label: 'Before',
+                    label: '전',
                     item: session.before,
                     emptyIcon: Icons.image_outlined,
                     onTap: session.before != null ? onBind : null,
@@ -783,7 +787,7 @@ class _SessionPairCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: _PairSlot(
-                    label: 'After',
+                    label: '후',
                     item: session.after,
                     emptyIcon: Icons.add_a_photo_outlined,
                     showPlus: session.after == null,
@@ -1030,12 +1034,12 @@ class _SelectedCard extends StatelessWidget {
                   onPressed: onBefore,
                   icon: const Icon(Icons.camera_enhance_outlined),
                   label: const Text(
-                    'Before',
+                    '전 촬영',
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: SoriTokens.primary,
-                    foregroundColor: SoriTokens.onPrimary,
+                    backgroundColor: SoriTokens.brand,
+                    foregroundColor: SoriTokens.onBrand,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
@@ -1046,12 +1050,12 @@ class _SelectedCard extends StatelessWidget {
                   onPressed: onAfter,
                   icon: const Icon(Icons.camera_alt_outlined),
                   label: const Text(
-                    'After',
+                    '후 촬영',
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: SoriTokens.textPrimary,
-                    side: const BorderSide(color: SoriTokens.border),
+                    foregroundColor: SoriTokens.brand,
+                    side: const BorderSide(color: SoriTokens.brand),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
