@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/whisper.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../utils/sori_bottom_sheet.dart';
 
 const _kWhisperDraftKey = 'sori_whisper_composer_draft_v1';
@@ -347,9 +348,9 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: SoriTokens.surface,
-        title: const Text(
-          'Whisper를 공유할까요?',
-          style: TextStyle(
+        title: Text(
+          '${CategoryPresentationMap.whisper.label}를 게시할까요?',
+          style: const TextStyle(
             color: SoriTokens.textPrimary,
             fontWeight: FontWeight.w800,
           ),
@@ -369,7 +370,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              '공유하기',
+              '게시하기',
               style: TextStyle(
                 color: SoriTokens.primary,
                 fontWeight: FontWeight.w800,
@@ -394,9 +395,9 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
         SnackBar(
           content: Text(
             result.recipientCount > 0
-                ? '${result.recipientCount}명에게 Whisper를 공유했어요'
+                ? '${result.recipientCount}명에게 ${CategoryPresentationMap.whisper.label}를 게시했어요'
                     '${result.truncated ? ' (상한 적용)' : ''}'
-                : 'Whisper를 공유했어요',
+                : '${CategoryPresentationMap.whisper.label}를 게시했어요',
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: SoriTokens.primary,
@@ -454,7 +455,8 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
             children: [
               const Expanded(
                 child: Text(
-                  'Whisper',
+                  // CategoryPresentationMap — internal key whisper 유지
+                  '조용한 이야기',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
@@ -653,7 +655,9 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                     ),
                   ),
                   child: Text(
-                    _savingDraft ? '저장 중…' : '임시저장',
+                    _savingDraft
+                        ? '저장 중…'
+                        : CategoryPresentationMap.composeDraftCta,
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
@@ -677,7 +681,9 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
                     ),
                   ),
                   child: Text(
-                    _sharing ? '공유 중…' : '공유하기',
+                    _sharing
+                        ? '게시 중…'
+                        : CategoryPresentationMap.composePublishCta,
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 15,

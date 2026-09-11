@@ -1,3 +1,5 @@
+import '../../utils/category_presentation_map.dart';
+
 /// Content Atomizer output — Phase 2 "The Magic".
 enum PostDraftKind {
   clinicalBa,
@@ -6,17 +8,23 @@ enum PostDraftKind {
   mentoringRequest;
 
   String get label => switch (this) {
-        PostDraftKind.clinicalBa => 'Clinical B/A',
-        PostDraftKind.whisper => 'Whisper',
-        PostDraftKind.tipCard => 'Tip Card',
-        PostDraftKind.mentoringRequest => 'Mentoring',
+        PostDraftKind.clinicalBa => '전후 케이스',
+        PostDraftKind.whisper =>
+          CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
+        PostDraftKind.tipCard =>
+          CategoryPresentationMap.labelOf('tip', fallback: '현장 팁'),
+        PostDraftKind.mentoringRequest =>
+          CategoryPresentationMap.labelOf('question', fallback: '질문'),
       };
 
   String get subtitle => switch (this) {
-        PostDraftKind.clinicalBa => '임상 Before/After 케이스',
-        PostDraftKind.whisper => '감성 일상',
-        PostDraftKind.tipCard => '홈케어 팁',
-        PostDraftKind.mentoringRequest => '멘토링 요청',
+        PostDraftKind.clinicalBa => '임상 전후 케이스',
+        PostDraftKind.whisper =>
+          CategoryPresentationMap.descriptionOf('whisper'),
+        PostDraftKind.tipCard =>
+          CategoryPresentationMap.descriptionOf('tip'),
+        PostDraftKind.mentoringRequest =>
+          CategoryPresentationMap.descriptionOf('question'),
       };
 }
 

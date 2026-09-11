@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/omni_compose_category.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../views/post_first_creation_page.dart';
 
@@ -13,9 +14,11 @@ enum UnifiedComposeCategory {
   marketplace;
 
   String get label => switch (this) {
-        UnifiedComposeCategory.whisper => 'Whisper',
+        UnifiedComposeCategory.whisper =>
+          CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
         UnifiedComposeCategory.interior => '인테리어',
-        UnifiedComposeCategory.deviceReview => '기기 리뷰',
+        UnifiedComposeCategory.deviceReview =>
+          CategoryPresentationMap.labelOf('tip_device', fallback: '현장 팁'),
         UnifiedComposeCategory.marketplace => '중고',
       };
 }
@@ -58,7 +61,7 @@ Future<void> showQuickComposeSheet(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final cat in OmniComposeCategory.quickComposeCategories)
+              for (final cat in OmniComposeCategory.quickComposePrimary)
                 _ComposeCategoryChip(
                   key: Key('quick-compose-${cat.name}'),
                   label: cat.label,
@@ -73,6 +76,53 @@ Future<void> showQuickComposeSheet(
                       context,
                       store: store,
                       initialCategory: cat,
+                    );
+                  },
+                ),
+              if (OmniComposeCategory.quickComposeMore.isNotEmpty)
+                _ComposeCategoryChip(
+                  key: const Key('quick-compose-more'),
+                  label: CategoryPresentationMap.composeMoreCategories,
+                  onTap: () async {
+                    final more = await showSoriSolidBottomSheet<OmniComposeCategory>(
+                      context: ctx,
+                      builder: (sheetCtx) => SoriSheetFrame(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              CategoryPresentationMap.composeMoreCategories,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            for (final cat
+                                in OmniComposeCategory.quickComposeMore)
+                              ListTile(
+                                title: Text(cat.label),
+                                subtitle: Text(cat.description),
+                                onTap: () => Navigator.pop(sheetCtx, cat),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (more == null) return;
+                    if (!ctx.mounted) return;
+                    if (!isDirector) {
+                      Navigator.pop(ctx);
+                      onDirectorOnly();
+                      return;
+                    }
+                    Navigator.pop(ctx);
+                    if (!context.mounted) return;
+                    await PostFirstCreationPage.open(
+                      context,
+                      store: store,
+                      initialCategory: more,
                     );
                   },
                 ),
@@ -104,9 +154,9 @@ Future<void> showUnifiedComposeSheet(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            '글쓰기',
-            style: TextStyle(
+          Text(
+            CategoryPresentationMap.composeTitle,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
               color: SoriTokens.textPrimary,

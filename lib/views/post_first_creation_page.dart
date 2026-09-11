@@ -12,6 +12,7 @@ import '../services/openai_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../utils/consent_publish_gate.dart';
 import '../utils/sori_nav.dart';
 import '../widgets/post/post_view_data.dart';
@@ -423,7 +424,7 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
       if (post == null) {
         _snack(_store.lastError?.trim().isNotEmpty == true
             ? _store.lastError!
-            : 'Whisper 게시에 실패했습니다.');
+            : '조용한 이야기 게시에 실패했습니다.');
         return;
       }
     } else {
@@ -436,7 +437,7 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
       );
     }
     if (!mounted) return;
-    _snack('Whisper를 게시했습니다', error: false);
+    _snack('조용한 이야기를 게시했습니다', error: false);
     Navigator.of(context).pop();
   }
 
@@ -611,6 +612,44 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
     Navigator.of(context).pop();
   }
 
+  Future<void> _pickMoreCategory() async {
+    final more = await showModalBottomSheet<OmniComposeCategory>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  CategoryPresentationMap.composeMoreCategories,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              for (final cat in OmniComposeCategory.formCategoriesMore)
+                ListTile(
+                  title: Text(cat.label),
+                  subtitle: Text(cat.description),
+                  trailing: _category == cat
+                      ? const Icon(Icons.check, color: SoriTokens.brand)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, cat),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (more != null && mounted) {
+      setState(() => _category = more);
+    }
+  }
+
   InputDecoration _field(String label, {String? hint, int minLines = 1}) {
     return InputDecoration(
       labelText: label,
@@ -639,7 +678,7 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         title: Text(
-          _isEditing ? '게시물 수정' : '새 게시물',
+          _isEditing ? '게시물 수정' : CategoryPresentationMap.composeTitle,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
@@ -649,8 +688,8 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
               key: const Key('omni-composer-submit'),
               onPressed: _submitting ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: SoriTokens.primary,
-                foregroundColor: SoriTokens.onPrimary,
+                backgroundColor: SoriTokens.brand,
+                foregroundColor: SoriTokens.onBrand,
                 minimumSize: const Size(72, 40),
               ),
               child: _submitting
@@ -663,7 +702,9 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
                       ),
                     )
                   : Text(
-                      _isEditing ? '저장' : '작성',
+                      _isEditing
+                          ? '저장'
+                          : CategoryPresentationMap.composePublishCta,
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
             ),
@@ -687,24 +728,45 @@ class _PostFirstCreationPageState extends State<PostFirstCreationPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final cat in OmniComposeCategory.formCategories)
+                for (final cat in OmniComposeCategory.formCategoriesPrimary)
                   ChoiceChip(
                     key: Key('omni-cat-${cat.name}'),
                     label: Text(cat.label),
                     selected: _category == cat,
                     onSelected: (_) => setState(() => _category = cat),
-                    selectedColor: SoriTokens.primary,
+                    selectedColor: SoriTokens.brand.withValues(alpha: 0.22),
+                    checkmarkColor: SoriTokens.brand,
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: _category == cat
-                          ? SoriTokens.onPrimary
+                          ? SoriTokens.brand
                           : SoriTokens.textPrimary,
                     ),
                     backgroundColor: SoriTokens.surface,
-                    side: const BorderSide(color: SoriTokens.border),
-                    showCheckmark: false,
+                    side: BorderSide(
+                      color: _category == cat
+                          ? SoriTokens.brand
+                          : SoriTokens.border,
+                    ),
+                    showCheckmark: true,
                   ),
+                ActionChip(
+                  key: const Key('omni-cat-more'),
+                  label: Text(CategoryPresentationMap.composeMoreCategories),
+                  onPressed: _pickMoreCategory,
+                  backgroundColor: SoriTokens.surface,
+                  side: const BorderSide(color: SoriTokens.border),
+                ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _category.description,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: SoriTokens.textTertiary,
+              ),
             ),
           ],
           const SizedBox(height: 16),
