@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../services/biz_profile_store.dart';
+import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
@@ -10,6 +11,7 @@ import '../shop_settings_page.dart';
 import 'region_map_center.dart';
 
 /// PRD v7.8 C2 — 우리 지역 상단 4:3 맵 + 업종·반경 칩.
+/// Phase C.1 — 우측 상단 `현재 위치로 보기` (탭 후 1회 GPS · 거부 시 Shop/Biz 유지).
 class RegionNearbyMapSection extends StatefulWidget {
   const RegionNearbyMapSection({
     super.key,
@@ -29,6 +31,8 @@ class RegionNearbyMapSection extends StatefulWidget {
   State<RegionNearbyMapSection> createState() => _RegionNearbyMapSectionState();
 }
 
+enum _GpsBanner { none, active, denied, failed }
+
 class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   static const _chips = <({String key, String label})>[
     (key: 'all', label: '전체'),
@@ -42,19 +46,34 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
   static const _radiiKm = <double>[0.5, 1.0, 2.0];
 
+  final MapController _mapController = MapController();
+
   String _chip = 'all';
   bool _loading = true;
+  bool _gpsBusy = false;
   String? _error;
   ShopMarketInsight? _insight;
   ShopMarketStoreItem? _selected;
-  LatLng? _center;
+  /// Shop/Biz·지오코딩 기준 중심 (GPS 실패해도 유지).
+  LatLng? _baseCenter;
+  /// 탭으로 잡은 GPS 중심. 디스크에 저장하지 않음.
+  LatLng? _gpsCenter;
+  _GpsBanner _gpsBanner = _GpsBanner.none;
 
   double get _radiusKm => widget.radiusKm;
+
+  LatLng? get _viewCenter => _gpsCenter ?? _baseCenter;
 
   @override
   void initState() {
     super.initState();
     _reload();
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   @override
@@ -70,6 +89,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _loading = true;
       _error = null;
       _selected = null;
+      _gpsCenter = null;
+      _gpsBanner = _GpsBanner.none;
     });
     final shop = widget.store.shop;
     final biz = await BizProfileStore.load(shop.id);
@@ -92,7 +113,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
     setState(() {
       _insight = insight;
-      _center = center;
+      _baseCenter = center;
       _loading = false;
       if (center == null) {
         _error = '우리 지역의 글을 보려면 샵 주소를 등록해 주세요.';
@@ -112,16 +133,73 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     if (mounted) await _reload();
   }
 
+  Future<void> _onGpsTap() async {
+    if (_gpsBusy) return;
+    setState(() => _gpsBusy = true);
+    final result = await RegionMapGps.oneShot();
+    if (!mounted) return;
+    setState(() => _gpsBusy = false);
+
+    switch (result.outcome) {
+      case RegionMapGpsOutcome.denied:
+        setState(() => _gpsBanner = _GpsBanner.denied);
+        // Shop/Biz 중심·null 덮어쓰기 금지.
+        return;
+      case RegionMapGpsOutcome.failed:
+        setState(() => _gpsBanner = _GpsBanner.failed);
+        return;
+      case RegionMapGpsOutcome.ok:
+        final lat = result.lat!;
+        final lng = result.lng!;
+        final point = LatLng(lat, lng);
+        final zoom =
+            _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2);
+        setState(() {
+          _gpsCenter = point;
+          _gpsBanner = _GpsBanner.active;
+          _error = null;
+        });
+        try {
+          _mapController.move(point, zoom);
+        } catch (_) {
+          // attach 전이면 다음 프레임 build의 initialCenter로 표시.
+        }
+        widget.onCenterChanged?.call(lat, lng);
+    }
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (_gpsBanner != _GpsBanner.active) return;
+    if (event is! MapEventMoveEnd) return;
+    // 프로그램 move는 활성 유지 · 사용자 pan/zoom만 해제.
+    if (event.source == MapEventSource.mapController) return;
+    setState(() => _gpsBanner = _GpsBanner.none);
+  }
+
   List<ShopMarketStoreItem> get _filtered {
     final items = _insight?.storeItems ?? const [];
     if (_chip == 'all') return items;
     return items.where((e) => e.chipKey == _chip).toList();
   }
 
+  String? get _gpsStatusText {
+    switch (_gpsBanner) {
+      case _GpsBanner.active:
+        return '현재 위치 주변을 보고 있어요.';
+      case _GpsBanner.denied:
+        return '현재 위치 없이 샵 주소 기준으로 보고 있어요.';
+      case _GpsBanner.failed:
+        return '현재 위치를 확인하지 못했어요. 샵 주소 기준으로 보여드릴게요.';
+      case _GpsBanner.none:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final mapH = width * 3 / 4; // 4:3 → height = width * 3/4
+    final gpsText = _gpsStatusText;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -133,6 +211,18 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             child: _buildMap(),
           ),
         ),
+        if (gpsText != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            gpsText,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: SoriTokens.textSecondary,
+              height: 1.35,
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -204,7 +294,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           )
-        else if (_error != null)
+        else if (_error != null && _viewCenter == null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Column(
@@ -218,20 +308,30 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                     height: 1.35,
                   ),
                 ),
-                if (_center == null) ...[
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: _openAddressSettings,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SoriTokens.primary,
-                    ),
-                    child: const Text(
-                      '주소 입력',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: _openAddressSettings,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SoriTokens.primary,
                   ),
-                ],
+                  child: const Text(
+                    '주소 입력',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
               ],
+            ),
+          )
+        else if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              _error!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+                height: 1.35,
+              ),
             ),
           )
         else
@@ -259,36 +359,48 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   }
 
   Widget _buildMap() {
-    final center = _center;
+    final center = _viewCenter;
     if (_loading && center == null) {
-      return const ColoredBox(
-        color: Color(0xFFF3F4F6),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(
+            color: Color(0xFFF3F4F6),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          _GpsFab(busy: _gpsBusy, onPressed: _onGpsTap),
+        ],
       );
     }
     if (center == null) {
-      return ColoredBox(
-        color: const Color(0xFFF3F4F6),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  '지도 중심을 아직 잡을 수 없어요',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: SoriTokens.textSecondary),
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(
+            color: const Color(0xFFF3F4F6),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '지도 중심을 아직 잡을 수 없어요',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: SoriTokens.textSecondary),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _openAddressSettings,
+                      child: const Text('주소 입력'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _openAddressSettings,
-                  child: const Text('주소 입력'),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+          _GpsFab(busy: _gpsBusy, onPressed: _onGpsTap),
+        ],
       );
     }
 
@@ -297,7 +409,13 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         point: center,
         width: 36,
         height: 36,
-        child: const Icon(Icons.my_location, color: SoriTokens.primary, size: 28),
+        child: Icon(
+          _gpsBanner == _GpsBanner.active
+              ? Icons.near_me_rounded
+              : Icons.my_location,
+          color: SoriTokens.primary,
+          size: 28,
+        ),
       ),
       for (final s in _filtered)
         Marker(
@@ -318,30 +436,85 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         ),
     ];
 
-    return FlutterMap(
-      options: MapOptions(
-        initialCenter: center,
-        initialZoom: _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2),
-      ),
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.sori.app',
-        ),
-        CircleLayer(
-          circles: [
-            CircleMarker(
-              point: center,
-              radius: _radiusKm * 1000,
-              useRadiusInMeter: true,
-              color: SoriTokens.primary.withValues(alpha: 0.08),
-              borderStrokeWidth: 1.5,
-              borderColor: SoriTokens.primary.withValues(alpha: 0.45),
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom:
+                _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2),
+            onMapEvent: _onMapEvent,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.sori.app',
             ),
+            CircleLayer(
+              circles: [
+                CircleMarker(
+                  point: center,
+                  radius: _radiusKm * 1000,
+                  useRadiusInMeter: true,
+                  color: SoriTokens.primary.withValues(alpha: 0.08),
+                  borderStrokeWidth: 1.5,
+                  borderColor: SoriTokens.primary.withValues(alpha: 0.45),
+                ),
+              ],
+            ),
+            MarkerLayer(markers: markers),
           ],
         ),
-        MarkerLayer(markers: markers),
+        _GpsFab(busy: _gpsBusy, onPressed: _onGpsTap),
       ],
+    );
+  }
+}
+
+class _GpsFab extends StatelessWidget {
+  const _GpsFab({required this.busy, required this.onPressed});
+
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 10,
+      right: 10,
+      child: Material(
+        color: Colors.white,
+        elevation: 2,
+        shadowColor: Colors.black26,
+        shape: const CircleBorder(),
+        child: Semantics(
+          button: true,
+          label: '현재 위치로 보기',
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: busy ? null : onPressed,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(
+                child: busy
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.my_location_rounded,
+                        size: 22,
+                        color: SoriTokens.primary,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
