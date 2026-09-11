@@ -23,6 +23,9 @@ abstract final class HomeVisualTokens {
   // 이 세 값이 벌어지면 히어로 카드가 통째로 허술해 보인다.
   static const dateRowMinHeight = 28.0;
 
+  /// Phase A — 주간 glance 요일 셀 세로 hit (표시 전용·탭은 카드 전체).
+  static const weekDayCellMinHeight = 48.0;
+
   static const flipDigitHeightHome = 132.0;
   static const flipDigitWidthHome = 82.0;
   static const flipColonSizeHome = 56.0;

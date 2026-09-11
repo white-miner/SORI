@@ -337,60 +337,67 @@ class _WeekDayCell extends StatelessWidget {
     final fg = isToday ? Colors.white : const Color(0xFF1C1C1E);
     final sub = isToday ? Colors.white70 : HomeVisualTokens.dateIconColor;
 
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-            border: isToday
-                ? null
-                : Border.all(color: const Color(0xFFE5E5EA)),
-          ),
-          child: Column(
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: sub,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: HomeVisualTokens.weekDayCellMinHeight,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(10),
+              border: isToday
+                  ? null
+                  : Border.all(color: const Color(0xFFE5E5EA)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: sub,
+                  ),
                 ),
-              ),
-              Text(
-                '$dayNum',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: fg,
+                Text(
+                  '$dayNum',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          height: 8,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              count.clamp(0, 3),
-              (_) => Container(
-                width: 4,
-                height: 4,
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isToday
-                      ? const Color(0xFF1C1C1E)
-                      : HomeVisualTokens.memoActiveFill,
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                count.clamp(0, 3),
+                (_) => Container(
+                  width: 4,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isToday
+                        ? const Color(0xFF1C1C1E)
+                        : HomeVisualTokens.memoActiveFill,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

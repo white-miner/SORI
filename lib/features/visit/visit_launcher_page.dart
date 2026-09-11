@@ -7,6 +7,7 @@ import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../utils/sori_bottom_sheet.dart';
 import '../../utils/supabase_schema_error.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../views/before_after_compare_page.dart';
@@ -781,14 +782,18 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   void _openSchedulerSheet() {
     final entries = HomeSchedulerStrip.todayEntries(widget.store);
     unawaited(
-      showModalBottomSheet<void>(
+      showSoriSolidBottomSheet<void>(
         context: context,
-        backgroundColor: Colors.white,
-        showDragHandle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        builder: (ctx) => SoriSheetFrame(
+          // clearance = scroll content bottom padding (not outer margin).
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            16 + kSoriFloatingNavClearance,
+          ),
+          child: _SchedulerSheet(entries: entries),
         ),
-        builder: (_) => _SchedulerSheet(entries: entries),
       ),
     );
   }
@@ -1226,72 +1231,66 @@ class _SchedulerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '오늘 일정',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            if (entries.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  '등록된 일정이 없습니다',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: HomeVisualTokens.dateIconColor,
-                  ),
-                ),
-              )
-            else
-              ...entries.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: HomeVisualTokens.memoDotSize,
-                        height: HomeVisualTokens.memoDotSize,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: HomeVisualTokens.memoActiveFill,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          HomeSchedulerStrip.labelFor(e),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (e.note.trim().isNotEmpty)
-                        Flexible(
-                          child: Text(
-                            e.note.trim(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: HomeVisualTokens.dateIconColor,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '오늘 일정',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
-      ),
+        const SizedBox(height: 12),
+        if (entries.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              '등록된 일정이 없습니다',
+              style: TextStyle(
+                fontSize: 13,
+                color: HomeVisualTokens.dateIconColor,
+              ),
+            ),
+          )
+        else
+          ...entries.map(
+            (e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: HomeVisualTokens.memoDotSize,
+                    height: HomeVisualTokens.memoDotSize,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: HomeVisualTokens.memoActiveFill,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      HomeSchedulerStrip.labelFor(e),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (e.note.trim().isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        e.note.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: HomeVisualTokens.dateIconColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
