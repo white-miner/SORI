@@ -29,6 +29,7 @@ import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
 import '../features/visit/open_shop_public_preview.dart';
+import '../features/visit/widgets/my_today_biz_peek_card.dart';
 import '../features/visit/widgets/my_today_schedule_read_panel.dart';
 import '../features/visit/widgets/my_today_task_queue_panel.dart';
 import 'ai_shop_report_page.dart';
@@ -541,12 +542,12 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                   child: SoriYoutubeTabBar(
                     controller: _tabController,
                     labels: const [
-                      'Home',
+                      '오늘',
                       '경영',
-                      'Shop',
-                      'Asset',
-                      'Seminar',
-                      'AI',
+                      '샵',
+                      '자산',
+                      '세미나',
+                      '도우미',
                     ],
                   ),
                 ),
@@ -562,6 +563,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 bio: _bio,
                 isOwner: isOwner,
                 onOpenSeminarTab: () => _tabController.animateTo(4),
+                onOpenBizTab: () => _tabController.animateTo(1),
               ),
               DirectorBizTabBody(store: store, isOwner: isOwner),
               ShopInlineInfoTab(store: store, isOwner: isOwner),
@@ -960,6 +962,7 @@ class _HomeTabBody extends StatelessWidget {
     required this.bio,
     required this.isOwner,
     required this.onOpenSeminarTab,
+    required this.onOpenBizTab,
   });
 
   final SoriStore store;
@@ -967,6 +970,7 @@ class _HomeTabBody extends StatelessWidget {
   final String bio;
   final bool isOwner;
   final VoidCallback onOpenSeminarTab;
+  final VoidCallback onOpenBizTab;
 
   @override
   Widget build(BuildContext context) {
@@ -979,6 +983,7 @@ class _HomeTabBody extends StatelessWidget {
         : bio.trim();
     final avatarUrl = (shop.profileImageUrl ?? '').trim();
 
+    // DESIGN LAWS 사장 책상: 1 업무 큐 → 2 경영 Peek ≤1 → 3 일정 · 프로필/피드 아래.
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
       children: [
@@ -989,11 +994,13 @@ class _HomeTabBody extends StatelessWidget {
             children: [
               MyTodayTaskQueuePanel(store: store),
               const SizedBox(height: 12),
+              MyTodayBizPeekCard(onOpenBiz: onOpenBizTab),
+              const SizedBox(height: 12),
               MyTodayScheduleReadPanel(store: store),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _SquircleCard(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1061,8 +1068,8 @@ class _HomeTabBody extends StatelessWidget {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
+                              minWidth: 48,
+                              minHeight: 48,
                             ),
                           ),
                         ],
@@ -1096,20 +1103,22 @@ class _HomeTabBody extends StatelessWidget {
         _SquircleCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.school_outlined, color: SoriTokens.primary),
+            leading: const Icon(Icons.school_outlined, color: SoriTokens.brand),
             title: const Text(
-              'Seminar',
+              '세미나',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: SoriTokens.textPrimary,
               ),
             ),
             subtitle: const Text(
-              '모집·신청·피드백을 Seminar 탭에서',
+              '모집·신청·피드백은 세미나 탭에서',
               style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
             ),
-            trailing: const Icon(Icons.chevron_right_rounded,
-                color: SoriTokens.textSecondary),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: SoriTokens.textSecondary,
+            ),
             onTap: onOpenSeminarTab,
           ),
         ),

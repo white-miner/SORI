@@ -36,7 +36,7 @@
 | VisitSessionPage | Visit 완결 | 목적 혼재 | 다단 파이프라인 UI 과밀 | 10초 기록 UX · 계약 유지 | P0 |
 | showSoriModalBottomSheet | 공용 sheet | glass 남용 | 리스트 sheet까지 glass | solid default · Peek만 glass | P0 |
 | UnifiedHomeFeed ×2 | 발견 | 목적 중복 | home=community | surface 역할 분리 | P0 |
-| DirectorMyPageView | 사장 책상 | 목적·영어 | 6탭 Home/Shop/AI… | 업무큐→경영peek→일정 · 한국어 | P0 |
+| DirectorMyPageView | 사장 책상 | 영어·위계 | 탭 한국어 · 오늘=큐→경영peek→일정 | P0 ✓ |
 | ShootHub / B/A | 촬영 | 영어 | Before/After | 한국어 + CTA 절제 | P1 |
 | BizDashboard | 경영 | 위계 | 차트·카드 과밀 | 헤드라인 1 · A/B 분리 | P1 |
 | DirectorFandomProfile | 공개 프로필 | CTA | 다중 CTA | 예약/문의 1 · 내부데이터 숨김 | P1 |
