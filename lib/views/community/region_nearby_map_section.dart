@@ -11,14 +11,10 @@ import '../../theme/sori_tokens.dart';
 import '../shop_settings_page.dart';
 import 'region_map_center.dart';
 import 'region_map_content_pins.dart';
-
-/// Quiet Local Canvas (C.S1) — Carto light raster · no client API key.
-const _kRegionMapTileUrl =
-    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
-const _kRegionMapTileSubdomains = ['a', 'b', 'c', 'd'];
+import 'region_map_tile_candidates.dart';
 
 /// PRD v7.8 C2 — 우리 지역 상단 4:3 맵 + 업종·반경 칩.
-/// C.1 GPS · C.2 저장함 · C.S1 light tile.
+/// C.1 GPS · C.2 저장함 · C.S1 베이스맵 비교(운영 기본=OSM 기준선).
 class RegionNearbyMapSection extends StatefulWidget {
   const RegionNearbyMapSection({
     super.key,
@@ -68,14 +64,18 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   /// 탭으로 잡은 GPS 중심. 디스크에 저장하지 않음.
   LatLng? _gpsCenter;
   _GpsBanner _gpsBanner = _GpsBanner.none;
+  RegionMapTileId _tileId = RegionMapTileCatalog.productionDefault;
 
   double get _radiusKm => widget.radiusKm;
 
   LatLng? get _viewCenter => _gpsCenter ?? _baseCenter;
 
+  RegionMapTileSpec get _tile => RegionMapTileCatalog.spec(_tileId);
+
   @override
   void initState() {
     super.initState();
+    RegionMapTileCatalog.debugLogKeyPresence();
     _reload();
   }
 
@@ -384,6 +384,44 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             ),
           ),
         ],
+        const SizedBox(height: 8),
+        _Cs1TileCompareBar(
+          selected: _tileId,
+          onSelected: (id) {
+            final next = RegionMapTileCatalog.spec(id);
+            if (!next.canRender) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${next.label} 키가 없어요. .env에 ${next.keyHint}를 넣고 로컬에서 비교하세요.',
+                  ),
+                ),
+              );
+              return;
+            }
+            setState(() => _tileId = id);
+          },
+        ),
+        if (!_tile.canRender)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              '선택 타일을 불러올 수 없어요. ${_tile.keyHint}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'C.S1 비교 · ${_tile.code} ${_tile.label} · ${_tile.rankNote}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -664,8 +702,15 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           ),
           children: [
             TileLayer(
-              urlTemplate: _kRegionMapTileUrl,
-              subdomains: _kRegionMapTileSubdomains,
+              key: ValueKey('tiles-${_tile.code}'),
+              urlTemplate: _tile.canRender
+                  ? _tile.urlTemplate
+                  : RegionMapTileCatalog.spec(
+                      RegionMapTileId.osmBaseline,
+                    ).urlTemplate,
+              subdomains: _tile.canRender
+                  ? _tile.subdomains
+                  : const <String>[],
               userAgentPackageName: 'com.sori.app',
             ),
             CircleLayer(
@@ -681,12 +726,76 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               ],
             ),
             MarkerLayer(markers: markers),
+            RichAttributionWidget(
+              attributions: [
+                TextSourceAttribution(
+                  _tile.attribution,
+                  prependCopyright: false,
+                ),
+              ],
+            ),
           ],
         ),
         _MapControlColumn(
           gpsBusy: _gpsBusy,
           onGps: _onGpsTap,
           onSaved: _openSavedSheet,
+        ),
+      ],
+    );
+  }
+}
+
+class _Cs1TileCompareBar extends StatelessWidget {
+  const _Cs1TileCompareBar({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final RegionMapTileId selected;
+  final ValueChanged<RegionMapTileId> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final specs = RegionMapTileCatalog.compareSet();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          '베이스맵 비교 (C.S1 · PO 잠금 전)',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: SoriTokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final s in specs) ...[
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text('${s.code} ${s.label}'),
+                    selected: selected == s.id,
+                    onSelected: (_) => onSelected(s.id),
+                    selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      color: selected == s.id
+                          ? SoriTokens.primary
+                          : (s.canRender
+                              ? SoriTokens.textSecondary
+                              : const Color(0xFF9CA3AF)),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
