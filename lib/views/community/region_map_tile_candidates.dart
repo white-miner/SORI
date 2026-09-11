@@ -41,14 +41,18 @@ class RegionMapTileSpec {
   bool get canRender => urlTemplate.isNotEmpty && (!needsKey || keyPresent);
 }
 
-/// 운영 기본은 PO 재채택 전까지 OSM. Pastel/A는 비교만(키·도메인 필요 시).
+/// 운영 기본: D Streets Pastel (키 없으면 OSM 롤백).
 abstract final class RegionMapTileCatalog {
   RegionMapTileCatalog._();
 
   static const _maptilerDefine = String.fromEnvironment('MAPTILER_API_KEY');
 
-  /// A 채택 철회 → 재선정 전 기준선.
-  static const RegionMapTileId productionDefault = RegionMapTileId.osmBaseline;
+  /// Local Bloom 1순위 채택. 키 부재 시 OSM으로 안전하게 폴백.
+  static RegionMapTileId get productionDefault {
+    final pastel = spec(RegionMapTileId.maptilerStreetsPastel);
+    if (pastel.canRender) return RegionMapTileId.maptilerStreetsPastel;
+    return RegionMapTileId.osmBaseline;
+  }
 
   static const RegionMapTileId rollbackBaseline = RegionMapTileId.osmBaseline;
 
@@ -133,7 +137,7 @@ abstract final class RegionMapTileCatalog {
           needsKey: true,
           keyPresent: has,
           keyHint: 'MAPTILER_API_KEY',
-          rankNote: 'Local Bloom 1순위 후보',
+          rankNote: 'C.S1 운영 채택 · Local Bloom',
         );
       case RegionMapTileId.cartoLightTemp:
         return const RegionMapTileSpec(
@@ -163,7 +167,7 @@ abstract final class RegionMapTileCatalog {
   static void debugLogKeyPresence() {
     if (!kDebugMode) return;
     debugPrint(
-      'C.S1 Local Bloom: production=OSM until re-adopt. '
+      'C.S1 Local Bloom: production=${productionDefault.name} '
       'maptilerKey=${maptilerKey.isNotEmpty}',
     );
   }

@@ -1,6 +1,6 @@
 # SORI C.S1 — 베이스맵 비교 기록 (PO 렌더링 검수)
 
-**Status:** A 채택 **철회** · 콘셉트 **SORI Local Bloom** · 운영 기본 = **0 OSM** · 우선 후보 **D Streets Pastel**  
+**Status:** **D Streets Pastel 채택** · 콘셉트 **SORI Local Bloom** · 운영 = Pastel · 롤백 = OSM · A 철회  
 **기준:** `PRD_v7.9_REGION_MAP_CS1_BASEMAP.md` · 상위 `PRD_v7.9_REGION_MAP_UPGRADE.md`  
 **하네스:** 칩 순서 `0 · D · B · A · C · T` · Pastel/B/C는 `MAPTILER_API_KEY` + Origins  
 **번들 금지:** MapTiler/Stadia 키를 채택 전 운영 URL에 하드코딩하지 않음 · Web은 도메인 제한 키만
@@ -263,12 +263,12 @@ Map pan/zoom은 새 viewport에 필요한 tile 요청만 허용한다.
 
 | 항목 | 기입 |
 |------|------|
-| 현재 결정 | **A 채택 철회** · 운영 **0 OSM** · 다음 검수 **D Pastel** |
-| 채택·보류 문구 | `후보 A 채택을 철회한다. SORI Local Bloom 방향으로 D Streets Pastel을 1순위 재비교한다.` |
-| 운영 URL | OSM `tile.openstreetmap.org` (재채택 전) |
+| 현재 결정 | **D Streets Pastel 채택** · 운영 Pastel · OSM=롤백 · A 철회 유지 |
+| 채택·보류 문구 | `후보 D를 C.S1 운영 베이스맵으로 채택한다. Streets Pastel은 Local Bloom 방향으로서 도시 생동감·색감 피로도·marker 우선성 기준을 충족한다.` |
+| 운영 URL | MapTiler `streets-v2-pastel` (+ `MAPTILER_API_KEY` · Origins) |
 | 서명 · 날짜 | PO · 2026-09-11 |
 
-MapTiler 비교 시: Allowed HTTP Origins = `https://white-miner.github.io` · 키는 비교용(도메인 제한). D 채택 확정 후에만 운영 기본 URL 교체.
+MapTiler: Allowed HTTP Origins = `https://white-miner.github.io` (+ 로컬 `http://localhost`). Pages는 GitHub Secret `MAPTILER_API_KEY` → `deploy.yml` dart-define. 키 하드코딩 금지. 키 없으면 OSM 폴백.
 
 ---
 
@@ -278,3 +278,4 @@ MapTiler 비교 시: Allowed HTTP Origins = `https://white-miner.github.io` · �
 |------|------|
 | 2026-09-11 | 초안 → Ready → **A 채택** |
 | 2026-09-11 | **A 채택 철회** · Local Bloom · D Pastel 1순위 · 운영 OSM · 생동감/피로도 채택 조건 |
+| 2026-09-11 | **D 채택** · 운영 Pastel · deploy Secret · OSM 롤백 |

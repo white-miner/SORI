@@ -57,6 +57,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAPTILER_API_KEY: ${{ secrets.MAPTILER_API_KEY }}
           SITE_URL: https://white-miner.github.io/SORI/
         run: |
           DEFINES=(
@@ -67,6 +68,12 @@ jobs:
           )
           if [ -n "$OPENAI_API_KEY" ]; then
             DEFINES+=(--dart-define="OPENAI_API_KEY=${OPENAI_API_KEY}")
+          fi
+          if [ -n "$MAPTILER_API_KEY" ]; then
+            DEFINES+=(--dart-define="MAPTILER_API_KEY=${MAPTILER_API_KEY}")
+            echo "MapTiler key present for C.S1 Pastel basemap (value not printed)."
+          else
+            echo "::warning::MAPTILER_API_KEY secret missing — region map falls back to OSM."
           fi
           flutter build web --release --base-href "/SORI/" \
             --build-name="1.0.0" \
