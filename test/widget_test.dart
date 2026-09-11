@@ -12,7 +12,6 @@ import 'package:sori/services/visit_trigger_service.dart';
 import 'package:sori/views/admin_chart_page.dart';
 import 'package:sori/views/customer_review_page.dart';
 import 'package:sori/views/entry_home_page.dart';
-import 'package:sori/views/my_app.dart';
 
 void main() {
   testWidgets('Landing shows brand slogan and Kakao login', (WidgetTester tester) async {
