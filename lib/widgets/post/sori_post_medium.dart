@@ -28,6 +28,7 @@ class SoriPostMedium extends StatelessWidget {
     this.onBoost,
     this.onShopProfile,
     this.engagement,
+    this.glanceMode = false,
   });
 
   final PostViewData data;
@@ -41,6 +42,9 @@ class SoriPostMedium extends StatelessWidget {
   final VoidCallback? onBoost;
   final VoidCallback? onShopProfile;
   final PostEngagementBindings? engagement;
+
+  /// Home surface — view CTA only; no like/comment/boost primary row.
+  final bool glanceMode;
 
   void _openOriginal(BuildContext context) {
     openPostOriginal(context, data: data, store: store);
@@ -73,7 +77,25 @@ class SoriPostMedium extends StatelessWidget {
             heroTag: data.heroTag,
             onOpenDetail: () => _openOriginal(context),
           ),
-          if (engagement != null)
+          if (glanceMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => _openOriginal(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.brand,
+                    minimumSize: const Size(48, 40),
+                  ),
+                  child: const Text(
+                    '게시물 보기',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            )
+          else if (engagement != null)
             PostEngagementActionRow(bindings: engagement!)
           else
             PostActionRow(

@@ -17,6 +17,7 @@ import '../services/sori_store.dart';
 import '../services/unified_feed_engine.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
 import '../widgets/post/sori_post_mini.dart';
@@ -522,7 +523,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     return SoriPostMedium(
       data: enriched,
       store: store,
-      engagement: engagement,
+      engagement: _config.surface == FeedSurface.home ? null : engagement,
+      glanceMode: _config.surface == FeedSurface.home,
       onShopProfile:
           item != null ? () => _openShopProfile(item.shop) : null,
     );
@@ -650,13 +652,32 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
                 color: SoriTokens.background,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    labels.first,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: SoriTokens.textPrimary,
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          labels.first,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: SoriTokens.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (config.surface == FeedSurface.home &&
+                          widget.onSelectTab != null)
+                        TextButton(
+                          onPressed: () => widget.onSelectTab!(3),
+                          style: TextButton.styleFrom(
+                            foregroundColor: SoriTokens.textSecondary,
+                            minimumSize: const Size(48, 40),
+                          ),
+                          child: Text(
+                            CategoryPresentationMap.viewPost,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
