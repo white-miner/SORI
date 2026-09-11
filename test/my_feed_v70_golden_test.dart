@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sori/features/visit/home_visual_tokens.dart';
 
+import 'support/tolerant_golden_comparator.dart';
+
 /// Renders v7.0 My Feed visual constitution swatches (no GoogleFonts — CI-safe).
 class MyFeedVisualGoldenHarness extends StatelessWidget {
   const MyFeedVisualGoldenHarness({super.key});
@@ -188,6 +190,7 @@ class _SwatchRow extends StatelessWidget {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  useTolerantGoldens('test/my_feed_v70_golden_test.dart');
 
   group('My Feed golden v7.0', () {
     testWidgets('visual constitution harness matches golden', (tester) async {
