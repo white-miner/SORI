@@ -1,10 +1,10 @@
 # SORI v7.9 — 완벽 개발 잠금 (Perplexity 회신 흡수)
 
-**Status:** **R1-1·R1-2 배포** · **R1-3 완료 후속 이동 구현**  
+**Status:** **R1 배포 완료** · **R2 홈/커뮤니티 피드 surface Expand**  
 **원 요청:** `docs/PRD_v7.9_PERFECT_DEV_MATERIALS_REQUEST.md`  
 **회신일:** 2026-09-11  
 **PO 확정:** 2026-09-11 · 1~7 Yes  
-**다음:** R2 (홈 vs 커뮤니티 피드) 별도 승인 후 · R5 Timer chrome 보류
+**다음:** R2-3 CTA/헤더(선택) · R3 Whisper 한국어 · R5 Timer chrome 보류
 
 ---
 
@@ -142,3 +142,4 @@ VisitSession 통과: *요약 한 문장 남기면 완료 가능함이 즉시 보
 | 2026-09-11 | **R1-1 구현** — 요약 히어로 · Plan 상세 접기 · CTA brand · pop/consent 계약 유지 |
 | 2026-09-11 | **R1-1 배포** `e78b994` · **R1-2** 이야기·관찰 접힘(`directorInsight` Expand) |
 | 2026-09-11 | **R1-2 배포** `ca524b1` · **R1-3** 완료 시트 → 고객 상세(primary)·다음 일정(있을 때만) · 자동 홈 금지 |
+| 2026-09-11 | **R2-1·R2-2** `FeedQueryConfig` · 고객 홈 Boost 금지·추천≤3·탐색/지역 탭 숨김 · 커뮤니티 기존 유지 |

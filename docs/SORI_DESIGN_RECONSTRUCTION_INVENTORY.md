@@ -36,7 +36,7 @@
 | VisitSessionPage | Visit 완결 | CTA 혼재 | ~~B/A FAB~~ → AppBar 보조 · phase CTA 유지 | P0 ✓ |
 | VisitSessionPage | Visit 완결 | 목적 혼재 | ~~다단 동등~~ → R1-1 요약 · R1-2 이야기/관찰 시트 · R1-3 완료 후속 | 10초 기록 UX | P0 ✓ R1 |
 | showSoriModalBottomSheet | 공용 sheet | glass 남용 | 리스트 sheet까지 glass | solid default · Peek만 glass | P0 |
-| UnifiedHomeFeed ×2 | 발견 | 목적 중복 | home=community | surface 역할 분리 | P0 |
+| UnifiedHomeFeed ×2 | 발견 | 목적 중복 | ~~동일 마운트~~ → surface config/chrome (홈 glance · 커뮤니티 plaza) | P0 ✓ R2 |
 | DirectorMyPageView | 사장 책상 | 영어·위계 | 탭 한국어 · 오늘=큐→경영peek→일정 | P0 ✓ |
 | ShootHub / B/A | 촬영 | 영어 | ~~Before/After~~ → 전/후 · brand CTA | 한국어 + CTA 절제 | P1 ✓ |
 | BizDashboard | 경영 | 위계 | ~~입력 우선·카드 과밀~~ → ★시간당 1 · A/B 라벨 · 입력 Level3 | 헤드라인 우선 | P1 ✓ |
