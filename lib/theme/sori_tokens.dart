@@ -17,6 +17,7 @@ abstract final class SoriTokens {
   static const Color surfaceOverlay = Color(0xFFF0F0F0);
 
   /// CTA, active tab, loading — deep charcoal / pure black
+  /// (레거시 호환 유지. DESIGN LAWS Purple CTA는 [brand]로 Expand.)
   static const Color primary = Color(0xFF18181B);
 
   static const Color primaryDark = Color(0xFF000000);
@@ -26,6 +27,32 @@ abstract final class SoriTokens {
   static const Color primaryLight = Color(0xFF27272A);
 
   static const Color onPrimaryLight = Color(0xFFFFFFFF);
+
+  /// DESIGN LAWS — Purple brand / primary action / 선택 / AI / 글 marker.
+  /// 기존 [primary]를 일괄 치환하지 않는다. 새 surface부터 사용.
+  static const Color brand = Color(0xFF6D4A77);
+
+  static const Color onBrand = Color(0xFFFFFFFF);
+
+  /// Blue — GPS / 지도 / 탐색 / 정보
+  static const Color semanticBlue = Color(0xFF2563EB);
+
+  /// Green — 완료 / 성공 / 정상
+  static const Color semanticGreen = Color(0xFF15803D);
+
+  /// Yellow — 확인 필요 / 미완료
+  static const Color semanticYellow = Color(0xFFCA8A04);
+
+  /// Coral — 세미나 marker / 시간 민감 (파괴는 [destructive])
+  static const Color semanticCoral = Color(0xFFD96462);
+
+  /// Map select ring (Local Bloom)
+  static const Color mapSelectRing = Color(0xFFFCF9F5);
+
+  /// Motion budgets (ms) — DESIGN LAWS §5
+  static const int motionPressMs = 90;
+  static const int motionReleaseMs = 180;
+  static const int motionMarkerMs = 140;
 
   static const Color accent = primary;
 

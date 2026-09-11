@@ -48,6 +48,10 @@ class RegionContentBookmarkStore {
   List<RegionContentBookmark> _cache = const [];
   List<RegionContentBookmark> get items => List.unmodifiable(_cache);
 
+  /// 저장함 Peek용 최근 3개.
+  List<RegionContentBookmark> recent({int limit = 3}) =>
+      _cache.take(limit).toList(growable: false);
+
   bool isBookmarked(RegionContentKind kind, String targetId) {
     final id = targetId.trim();
     if (id.isEmpty) return false;

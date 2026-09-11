@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,13 +11,19 @@ import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../utils/sori_bottom_sheet.dart';
+import '../explore_community_post_page.dart';
+import '../seminar_class_detail_page.dart';
 import '../shop_settings_page.dart';
+import 'region_map_bloom.dart';
 import 'region_map_center.dart';
+import 'region_map_clusters.dart';
 import 'region_map_content_pins.dart';
+import 'region_map_explore_sheet.dart';
 import 'region_map_tile_candidates.dart';
 
-/// PRD v7.8 C2 — 우리 지역 상단 4:3 맵 + 업종·반경 칩.
-/// C.1 GPS · C.2 저장함 · C.S1 베이스맵 비교(운영 기본=OSM 기준선).
+/// 우리지역 커뮤니티 탐색 지도 — Local Bloom · glass controls · Peek/Half sheet.
+/// Timer / Payment / Visit / 고객 좌표 비노출.
 class RegionNearbyMapSection extends StatefulWidget {
   const RegionNearbyMapSection({
     super.key,
@@ -27,7 +36,6 @@ class RegionNearbyMapSection extends StatefulWidget {
   final SoriStore store;
   final double radiusKm;
   final ValueChanged<double>? onRadiusChanged;
-  /// 맵이 잡은 중심 (위도, 경도). 없으면 null 콜백.
   final void Function(double? lat, double? lng)? onCenterChanged;
 
   @override
@@ -37,40 +45,49 @@ class RegionNearbyMapSection extends StatefulWidget {
 enum _GpsBanner { none, active, denied, failed }
 
 class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
-  static const _chips = <({String key, String label})>[
-    (key: 'all', label: '전체'),
-    (key: 'skin', label: '피부샵'),
-    (key: 'nail', label: '네일샵'),
-    (key: 'hair', label: '미용실'),
-    (key: 'barber', label: '바버샵'),
-    (key: 'tattoo', label: '타투샵'),
-    (key: 'semi_permanent', label: '반영구화장샵'),
-  ];
-
   static const _radiiKm = <double>[0.5, 1.0, 2.0];
 
   final MapController _mapController = MapController();
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
 
-  String _chip = 'all';
   bool _loading = true;
   bool _gpsBusy = false;
   String? _error;
+  String? _marketSoftError;
   ShopMarketInsight? _insight;
-  ShopMarketStoreItem? _selected;
-  RegionMapPin? _selectedPin;
+  ShopMarketStoreItem? _selectedMarket;
   List<RegionMapPin> _contentPins = const [];
-  /// Shop/Biz·지오코딩 기준 중심 (GPS 실패해도 유지).
   LatLng? _baseCenter;
-  /// 탭으로 잡은 GPS 중심. 디스크에 저장하지 않음.
   LatLng? _gpsCenter;
   _GpsBanner _gpsBanner = _GpsBanner.none;
   RegionMapTileId _tileId = RegionMapTileCatalog.productionDefault;
+  RegionMapContentFilter _filter = RegionMapContentFilter.all;
+  RegionMapSheetMode _sheetMode = RegionMapSheetMode.hidden;
+  RegionMapPin? _peekPin;
+  List<RegionMapPin> _sheetPins = const [];
+  String? _sheetTitle;
+  double _zoom = 14.2;
+  List<RegionContentBookmark> _savedPreview = const [];
 
   double get _radiusKm => widget.radiusKm;
-
   LatLng? get _viewCenter => _gpsCenter ?? _baseCenter;
-
   RegionMapTileSpec get _tile => RegionMapTileCatalog.spec(_tileId);
+
+  List<RegionMapPin> get _filteredPins {
+    switch (_filter) {
+      case RegionMapContentFilter.all:
+        return _contentPins;
+      case RegionMapContentFilter.post:
+        return _contentPins
+            .where((p) => p.kind == RegionMapPinKind.post)
+            .toList();
+      case RegionMapContentFilter.seminar:
+        return _contentPins
+            .where((p) => p.kind == RegionMapPinKind.seminar)
+            .toList();
+    }
+  }
 
   @override
   void initState() {
@@ -82,6 +99,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   @override
   void dispose() {
     _mapController.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 
@@ -97,15 +115,16 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     setState(() {
       _loading = true;
       _error = null;
-      _selected = null;
-      _selectedPin = null;
+      _marketSoftError = null;
+      _selectedMarket = null;
+      _peekPin = null;
+      _sheetMode = RegionMapSheetMode.hidden;
       _gpsCenter = null;
       _gpsBanner = _GpsBanner.none;
     });
     final shop = widget.store.shop;
     final biz = await BizProfileStore.load(shop.id);
     final bizAddr = biz.address.trim();
-    // Content pins need feed caches; ignore failures.
     await Future.wait([
       widget.store.refreshCommunityPosts(force: true),
       widget.store.refreshCommunityHotCases(),
@@ -144,7 +163,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       if (center == null) {
         _error = '우리 지역의 글을 보려면 샵 주소를 등록해 주세요.';
       } else if (!insight.storesOk) {
-        _error = ShopMarketService.friendlyReason(insight.storesError);
+        _marketSoftError = ShopMarketService.friendlyReason(insight.storesError);
       }
     });
     widget.onCenterChanged?.call(center?.latitude, center?.longitude);
@@ -152,9 +171,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
   Future<void> _openAddressSettings() async {
     await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const ShopSettingsPage(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const ShopSettingsPage()),
     );
     if (mounted) await _reload();
   }
@@ -169,7 +186,6 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     switch (result.outcome) {
       case RegionMapGpsOutcome.denied:
         setState(() => _gpsBanner = _GpsBanner.denied);
-        // Shop/Biz 중심·null 덮어쓰기 금지.
         return;
       case RegionMapGpsOutcome.failed:
         setState(() => _gpsBanner = _GpsBanner.failed);
@@ -184,12 +200,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           _gpsCenter = point;
           _gpsBanner = _GpsBanner.active;
           _error = null;
+          _zoom = zoom;
         });
         try {
           _mapController.move(point, zoom);
-        } catch (_) {
-          // attach 전이면 다음 프레임 build의 initialCenter로 표시.
-        }
+        } catch (_) {}
         widget.onCenterChanged?.call(lat, lng);
         final pins = await RegionMapContentPins.loadNear(
           store: widget.store,
@@ -200,49 +215,72 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         if (!mounted) return;
         setState(() {
           _contentPins = pins;
-          _selectedPin = null;
+          _peekPin = null;
+          _sheetMode = RegionMapSheetMode.hidden;
         });
+        // Soft GPS market re-query — 실패해도 기존 상권 유지.
+        final biz = await BizProfileStore.load(widget.store.shop.id);
+        final insight = await ShopMarketService.instance.fetch(
+          shop: widget.store.shop,
+          category: '전체',
+          fallbackAddress:
+              biz.address.trim().isEmpty ? null : biz.address.trim(),
+          radiusM: (_radiusKm * 1000).round(),
+          overrideLat: lat,
+          overrideLng: lng,
+        );
+        if (!mounted) return;
+        if (insight.storesOk) {
+          setState(() {
+            _insight = insight;
+            _marketSoftError = null;
+          });
+        } else {
+          setState(() {
+            _marketSoftError =
+                ShopMarketService.friendlyReason(insight.storesError);
+          });
+        }
     }
   }
 
-  Future<void> _openSavedSheet() async {
+  Future<void> _openSavedSheet({bool fullList = false}) async {
     await RegionContentBookmarkStore.instance.refresh();
     if (!mounted) return;
+    if (!fullList) {
+      setState(() {
+        _savedPreview = RegionContentBookmarkStore.instance.recent(limit: 3);
+        _sheetMode = RegionMapSheetMode.savedHalf;
+        _peekPin = null;
+        _selectedMarket = null;
+      });
+      return;
+    }
     final items = RegionContentBookmarkStore.instance.items;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      backgroundColor: SoriTokens.surface,
+      backgroundColor: RegionMapBloom.sheetCream,
       builder: (ctx) {
+        final bottom = soriSheetBottomPadding(ctx);
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottom),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
                   '저장한 지역 콘텐츠',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '글·세미나 상세에서 저장한 항목만 모아요.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: SoriTokens.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 12),
                 if (items.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 28),
                     child: Text(
-                      '아직 저장한 글·세미나가 없어요.',
+                      '저장한 글과 세미나가 여기에 모여요.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: SoriTokens.textSecondary),
                     ),
@@ -250,7 +288,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                 else
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.sizeOf(ctx).height * 0.45,
+                      maxHeight: MediaQuery.sizeOf(ctx).height * 0.5,
                     ),
                     child: ListView.separated(
                       shrinkWrap: true,
@@ -258,10 +296,6 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         final b = items[i];
-                        final title = _bookmarkTitle(b);
-                        final kindLabel = b.kind == RegionContentKind.post
-                            ? '글'
-                            : '세미나';
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(
@@ -271,22 +305,15 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                             color: SoriTokens.primary,
                           ),
                           title: Text(
-                            title,
+                            _bookmarkTitle(b),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          subtitle: Text(kindLabel),
-                          trailing: IconButton(
-                            tooltip: '저장 해제',
-                            icon: const Icon(Icons.bookmark_remove_outlined),
-                            onPressed: () async {
-                              await RegionContentBookmarkStore.instance
-                                  .toggle(b.kind, b.targetId);
-                              if (ctx.mounted) Navigator.pop(ctx);
-                              if (mounted) await _openSavedSheet();
-                            },
-                          ),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openBookmark(b);
+                          },
                         );
                       },
                     ),
@@ -329,18 +356,105 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     return '저장한 세미나';
   }
 
-  void _onMapEvent(MapEvent event) {
-    if (_gpsBanner != _GpsBanner.active) return;
-    if (event is! MapEventMoveEnd) return;
-    // 프로그램 move는 활성 유지 · 사용자 pan/zoom만 해제.
-    if (event.source == MapEventSource.mapController) return;
-    setState(() => _gpsBanner = _GpsBanner.none);
+  Future<void> _openBookmark(RegionContentBookmark b) async {
+    if (b.kind == RegionContentKind.seminar) {
+      await SeminarClassDetailPage.open(
+        context,
+        store: widget.store,
+        classId: b.targetId,
+      );
+      return;
+    }
+    for (final p in widget.store.communityPosts) {
+      if (p.id == b.targetId) {
+        await ExploreCommunityPostPage.open(
+          context,
+          store: widget.store,
+          post: p,
+        );
+        return;
+      }
+    }
   }
 
-  List<ShopMarketStoreItem> get _filtered {
-    final items = _insight?.storeItems ?? const [];
-    if (_chip == 'all') return items;
-    return items.where((e) => e.chipKey == _chip).toList();
+  Future<void> _openPin(RegionMapPin pin) async {
+    if (pin.kind == RegionMapPinKind.seminar) {
+      await SeminarClassDetailPage.open(
+        context,
+        store: widget.store,
+        classId: pin.id,
+      );
+      return;
+    }
+    for (final p in widget.store.communityPosts) {
+      if (p.id == pin.id) {
+        await ExploreCommunityPostPage.open(
+          context,
+          store: widget.store,
+          post: p,
+        );
+        return;
+      }
+    }
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event is MapEventMoveEnd) {
+      try {
+        _zoom = _mapController.camera.zoom;
+      } catch (_) {}
+      if (_gpsBanner == _GpsBanner.active &&
+          event.source != MapEventSource.mapController) {
+        setState(() => _gpsBanner = _GpsBanner.none);
+      } else {
+        setState(() {});
+      }
+    }
+  }
+
+  void _closeSheet() {
+    setState(() {
+      _sheetMode = RegionMapSheetMode.hidden;
+      _peekPin = null;
+      _sheetPins = const [];
+      _selectedMarket = null;
+    });
+  }
+
+  void _selectOverlay(RegionMapOverlay overlay) {
+    if (overlay.kind == RegionMapOverlayKind.cluster) {
+      final b = RegionMapClusters.boundsOf(overlay.pins);
+      if (b != null) {
+        try {
+          _mapController.move(b.center, (_zoom + 1.4).clamp(12.0, 17.0));
+        } catch (_) {}
+      }
+      setState(() {
+        _sheetMode = RegionMapSheetMode.clusterHalf;
+        _sheetPins = overlay.pins;
+        _sheetTitle = '이 지역의 이야기 ${overlay.pins.length}개';
+        _peekPin = null;
+        _selectedMarket = null;
+      });
+      return;
+    }
+    if (overlay.pins.length > 1) {
+      setState(() {
+        _sheetMode = RegionMapSheetMode.clusterHalf;
+        _sheetPins = overlay.pins;
+        _sheetTitle = '이 위치의 이야기 ${overlay.pins.length}개';
+        _peekPin = null;
+        _selectedMarket = null;
+      });
+      return;
+    }
+    final pin = overlay.sole;
+    setState(() {
+      _sheetMode = RegionMapSheetMode.markerPeek;
+      _peekPin = pin;
+      _sheetPins = const [];
+      _selectedMarket = null;
+    });
   }
 
   String? get _gpsStatusText {
@@ -358,18 +472,49 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final mapH = width * 3 / 4; // 4:3 → height = width * 3/4
+    final screenH = MediaQuery.sizeOf(context).height;
+    final mapH = (screenH * 0.52).clamp(280.0, 520.0);
     final gpsText = _gpsStatusText;
+    final stores = _insight?.storeItems ?? const <ShopMarketStoreItem>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          height: mapH.clamp(180, 420),
+          height: mapH,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: _buildMap(),
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildMapCanvas(stores),
+                _MapGlassControls(
+                  gpsBusy: _gpsBusy,
+                  gpsActive: _gpsBanner == _GpsBanner.active,
+                  onGps: _onGpsTap,
+                  onSaved: () => _openSavedSheet(),
+                ),
+                RegionMapExploreSheet(
+                  sheetController: _sheetController,
+                  mode: _sheetMode,
+                  filter: _filter,
+                  onFilterChanged: (f) {
+                    setState(() {
+                      _filter = f;
+                      // 필터는 중심 유지 · marker만 갱신 (시트 detent 유지)
+                    });
+                  },
+                  onClose: _closeSheet,
+                  selectedPin: _peekPin,
+                  clusterPins: _sheetPins,
+                  clusterTitle: _sheetTitle,
+                  savedPreview: _savedPreview,
+                  titleForBookmark: _bookmarkTitle,
+                  onOpenPin: _openPin,
+                  onOpenSavedAll: () => _openSavedSheet(fullList: true),
+                ),
+              ],
+            ),
           ),
         ),
         if (gpsText != null) ...[
@@ -384,75 +529,27 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             ),
           ),
         ],
-        const SizedBox(height: 8),
-        _Cs1TileCompareBar(
-          selected: _tileId,
-          onSelected: (id) {
-            final next = RegionMapTileCatalog.spec(id);
-            if (!next.canRender) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${next.label} 키가 없어요. .env에 ${next.keyHint}를 넣고 로컬에서 비교하세요.',
-                  ),
-                ),
-              );
-              return;
-            }
-            setState(() => _tileId = id);
-          },
-        ),
-        if (!_tile.canRender)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '선택 타일을 불러올 수 없어요. ${_tile.keyHint}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'C.S1 비교 · ${_tile.code} ${_tile.label} · ${_tile.rankNote}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: SoriTokens.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final c in _chips) ...[
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(c.label),
-                    selected: _chip == c.key,
-                    onSelected: (_) => setState(() {
-                      _chip = c.key;
-                      _selected = null;
-                      _selectedPin = null;
-                    }),
-                    selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: _chip == c.key
-                          ? SoriTokens.primary
-                          : SoriTokens.textSecondary,
+        if (kDebugMode) ...[
+          const SizedBox(height: 8),
+          _Cs1TileCompareBar(
+            selected: _tileId,
+            onSelected: (id) {
+              final next = RegionMapTileCatalog.spec(id);
+              if (!next.canRender) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${next.label} 키가 없어요. .env에 ${next.keyHint}를 넣으세요.',
                     ),
                   ),
-                ),
-              ],
-            ],
+                );
+                return;
+              }
+              setState(() => _tileId = id);
+            },
           ),
-        ),
-        const SizedBox(height: 6),
+        ],
+        const SizedBox(height: 10),
         Row(
           children: [
             const Text(
@@ -468,7 +565,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: ChoiceChip(
-                  label: Text(km < 1 ? '${(km * 1000).round()}m' : '${km.toStringAsFixed(km == km.roundToDouble() ? 0 : 1)}km'),
+                  label: Text(
+                    km < 1
+                        ? '${(km * 1000).round()}m'
+                        : '${km.toStringAsFixed(km == km.roundToDouble() ? 0 : 1)}km',
+                  ),
                   selected: _radiusKm == km,
                   onSelected: (_) {
                     if (_radiusKm == km) return;
@@ -485,7 +586,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             const Spacer(),
             TextButton(
               onPressed: _loading ? null : _reload,
-              child: const Text('다시 보기'),
+              child: const Text('다시 시도'),
             ),
           ],
         ),
@@ -522,16 +623,26 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               ],
             ),
           )
-        else if (_error != null)
+        else if (_marketSoftError != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF6B7280),
-                height: 1.35,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _marketSoftError!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B7280),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _loading ? null : _reload,
+                  child: const Text('다시 시도'),
+                ),
+              ],
             ),
           )
         else
@@ -539,8 +650,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               '반경 ${_radiusKm < 1 ? '${(_radiusKm * 1000).round()}m' : '${_radiusKm}km'} · '
-              '상권 ${_filtered.length}곳 · 글/세미나 ${_contentPins.length}'
-              '${_insight == null ? '' : ' (상권 전체 ${_insight!.totalInRadius})'}',
+              '상권 ${stores.length}곳 · 글/세미나 ${_filteredPins.length}',
               style: const TextStyle(
                 fontSize: 12,
                 color: SoriTokens.textSecondary,
@@ -548,26 +658,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               ),
             ),
           ),
-        if (_selectedPin != null)
-          _ContentPinCard(
-            pin: _selectedPin!,
-            bookmarked: RegionContentBookmarkStore.instance.isBookmarked(
-              _selectedPin!.kind == RegionMapPinKind.post
-                  ? RegionContentKind.post
-                  : RegionContentKind.seminar,
-              _selectedPin!.id,
-            ),
-            onToggleSave: () async {
-              final kind = _selectedPin!.kind == RegionMapPinKind.post
-                  ? RegionContentKind.post
-                  : RegionContentKind.seminar;
-              await RegionContentBookmarkStore.instance
-                  .toggle(kind, _selectedPin!.id);
-              if (mounted) setState(() {});
-            },
-          )
-        else if (_selected != null)
-          _SelectedCard(item: _selected!),
+        if (_selectedMarket != null) _SelectedCard(item: _selectedMarket!),
         const SizedBox(height: 4),
         const Text(
           '출처: 소상공인시장진흥공단 상가(상권)정보 · 추정·참고용',
@@ -577,59 +668,44 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     );
   }
 
-  Widget _buildMap() {
+  Widget _buildMapCanvas(List<ShopMarketStoreItem> stores) {
     final center = _viewCenter;
     if (_loading && center == null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          const ColoredBox(
-            color: Color(0xFFF3F4F6),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          _MapControlColumn(
-            gpsBusy: _gpsBusy,
-            onGps: _onGpsTap,
-            onSaved: _openSavedSheet,
-          ),
-        ],
+      return const ColoredBox(
+        color: Color(0xFFF3F4F6),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
     if (center == null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          ColoredBox(
-            color: const Color(0xFFF3F4F6),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      '지도 중심을 아직 잡을 수 없어요',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: SoriTokens.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _openAddressSettings,
-                      child: const Text('주소 입력'),
-                    ),
-                  ],
+      return ColoredBox(
+        color: const Color(0xFFF3F4F6),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '우리 지역의 글을 보려면 샵 주소를 등록해 주세요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: SoriTokens.textSecondary),
                 ),
-              ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _openAddressSettings,
+                  child: const Text('주소 입력'),
+                ),
+              ],
             ),
           ),
-          _MapControlColumn(
-            gpsBusy: _gpsBusy,
-            onGps: _onGpsTap,
-            onSaved: _openSavedSheet,
-          ),
-        ],
+        ),
       );
     }
+
+    final overlays = RegionMapClusters.build(
+      pins: _filteredPins,
+      zoom: _zoom,
+    );
 
     final markers = <Marker>[
       Marker(
@@ -640,108 +716,275 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           _gpsBanner == _GpsBanner.active
               ? Icons.near_me_rounded
               : Icons.my_location,
-          color: SoriTokens.primary,
+          color: _gpsBanner == _GpsBanner.active
+              ? RegionMapBloom.gpsActive
+              : SoriTokens.primary,
           size: 28,
         ),
       ),
-      for (final s in _filtered)
+      for (final s in stores)
         Marker(
           point: LatLng(s.latitude, s.longitude),
-          width: 34,
-          height: 34,
+          width: 28,
+          height: 28,
           child: GestureDetector(
             onTap: () => setState(() {
-              _selected = s;
-              _selectedPin = null;
+              _selectedMarket = s;
+              _sheetMode = RegionMapSheetMode.hidden;
+              _peekPin = null;
             }),
             child: Icon(
               Icons.storefront_outlined,
-              color: _selected?.name == s.name &&
-                      _selected?.distanceM == s.distanceM
-                  ? const Color(0xFFDC2626)
-                  : const Color(0xFF94A3B8),
-              size: 26,
+              color: _selectedMarket?.name == s.name &&
+                      _selectedMarket?.distanceM == s.distanceM
+                  ? SoriTokens.primary
+                  : RegionMapBloom.market,
+              size: 22,
             ),
           ),
         ),
-      for (final pin in _contentPins)
+      for (final o in overlays)
         Marker(
-          point: LatLng(pin.latitude, pin.longitude),
-          width: 40,
-          height: 40,
+          point: o.point,
+          width: o.isSingle ? 44 : 48,
+          height: o.isSingle ? 44 : 48,
           child: GestureDetector(
-            onTap: () => setState(() {
-              _selectedPin = pin;
-              _selected = null;
-            }),
-            child: Icon(
-              pin.kind == RegionMapPinKind.post
-                  ? Icons.chat_bubble_rounded
-                  : Icons.event_rounded,
-              color: _selectedPin?.id == pin.id
-                  ? SoriTokens.primary
-                  : (pin.kind == RegionMapPinKind.post
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF0F766E)),
-              size: 32,
+            onTap: () => _selectOverlay(o),
+            child: _OverlayMarker(
+              overlay: o,
+              selected: _peekPin != null &&
+                  o.isSingle &&
+                  _peekPin!.id == o.sole.id,
             ),
           ),
         ),
     ];
 
-    return Stack(
-      fit: StackFit.expand,
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2),
+        onMapEvent: _onMapEvent,
+        onTap: (_, _) => _closeSheet(),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.drag |
+              InteractiveFlag.pinchZoom |
+              InteractiveFlag.pinchMove |
+              InteractiveFlag.flingAnimation |
+              InteractiveFlag.scrollWheelZoom,
+        ),
+      ),
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom:
-                _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2),
-            onMapEvent: _onMapEvent,
-          ),
-          children: [
-            TileLayer(
-              key: ValueKey('tiles-${_tile.code}'),
-              urlTemplate: _tile.canRender
-                  ? _tile.urlTemplate
-                  : RegionMapTileCatalog.spec(
-                      RegionMapTileId.osmBaseline,
-                    ).urlTemplate,
-              subdomains: _tile.canRender
-                  ? _tile.subdomains
-                  : const <String>[],
-              userAgentPackageName: 'com.sori.app',
-            ),
-            CircleLayer(
-              circles: [
-                CircleMarker(
-                  point: center,
-                  radius: _radiusKm * 1000,
-                  useRadiusInMeter: true,
-                  color: SoriTokens.primary.withValues(alpha: 0.08),
-                  borderStrokeWidth: 1.5,
-                  borderColor: SoriTokens.primary.withValues(alpha: 0.45),
-                ),
-              ],
-            ),
-            MarkerLayer(markers: markers),
-            RichAttributionWidget(
-              attributions: [
-                TextSourceAttribution(
-                  _tile.attribution,
-                  prependCopyright: false,
-                ),
-              ],
-            ),
+        TileLayer(
+          key: ValueKey('tiles-${_tile.code}'),
+          urlTemplate: _tile.canRender
+              ? _tile.urlTemplate
+              : RegionMapTileCatalog.spec(RegionMapTileId.osmBaseline)
+                  .urlTemplate,
+          subdomains: _tile.canRender ? _tile.subdomains : const <String>[],
+          userAgentPackageName: 'com.sori.app',
+        ),
+        MarkerLayer(markers: markers),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution(_tile.attribution),
           ],
         ),
-        _MapControlColumn(
-          gpsBusy: _gpsBusy,
-          onGps: _onGpsTap,
-          onSaved: _openSavedSheet,
-        ),
       ],
+    );
+  }
+}
+
+class _OverlayMarker extends StatelessWidget {
+  const _OverlayMarker({required this.overlay, required this.selected});
+  final RegionMapOverlay overlay;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!overlay.isSingle || overlay.kind == RegionMapOverlayKind.cluster) {
+      final fill = overlay.allSeminar
+          ? RegionMapBloom.seminar
+          : RegionMapBloom.post;
+      return Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: fill,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: Text(
+          overlay.countLabel,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+    final pin = overlay.sole;
+    final isPost = pin.kind == RegionMapPinKind.post;
+    final color = isPost ? RegionMapBloom.post : RegionMapBloom.seminar;
+    return AnimatedScale(
+      scale: selected ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOut,
+      child: Container(
+        decoration: selected
+            ? BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: RegionMapBloom.selectRing, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 6,
+                  ),
+                ],
+              )
+            : null,
+        child: Icon(
+          isPost ? Icons.chat_bubble_rounded : Icons.event_rounded,
+          color: color,
+          size: 32,
+        ),
+      ),
+    );
+  }
+}
+
+/// 지도 위 floating control — ClipRRect + BackdropFilter(σ8) · 화면당 소수.
+class _MapGlassControls extends StatelessWidget {
+  const _MapGlassControls({
+    required this.gpsBusy,
+    required this.gpsActive,
+    required this.onGps,
+    required this.onSaved,
+  });
+
+  final bool gpsBusy;
+  final bool gpsActive;
+  final VoidCallback onGps;
+  final VoidCallback onSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 10,
+      right: 12,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _GlassRoundButton(
+            label: '현재 위치로 보기',
+            busy: gpsBusy,
+            active: gpsActive,
+            activeColor: RegionMapBloom.gpsActive,
+            icon: Icons.my_location_rounded,
+            onPressed: onGps,
+          ),
+          const SizedBox(height: 8),
+          _GlassRoundButton(
+            label: '저장한 지역 콘텐츠 보기',
+            busy: false,
+            active: false,
+            activeColor: SoriTokens.primary,
+            icon: Icons.bookmark_rounded,
+            onPressed: onSaved,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassRoundButton extends StatefulWidget {
+  const _GlassRoundButton({
+    required this.label,
+    required this.busy,
+    required this.active,
+    required this.activeColor,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool busy;
+  final bool active;
+  final Color activeColor;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  State<_GlassRoundButton> createState() => _GlassRoundButtonState();
+}
+
+class _GlassRoundButtonState extends State<_GlassRoundButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = widget.active
+        ? widget.activeColor.withValues(alpha: 0.22)
+        : Colors.white.withValues(alpha: 0.86);
+    final iconColor =
+        widget.active ? widget.activeColor : const Color(0xFF5E5862);
+
+    return Semantics(
+      button: true,
+      label: widget.label,
+      child: Tooltip(
+        message: widget.label,
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) {
+            setState(() => _pressed = false);
+            if (!widget.busy) widget.onPressed();
+          },
+          onTapCancel: () => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.97 : 1.0,
+            duration: Duration(milliseconds: _pressed ? 90 : 180),
+            curve: Curves.easeOut,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: fill,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF211928).withValues(alpha: 0.12),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: widget.busy
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: iconColor,
+                          ),
+                        )
+                      : Icon(widget.icon, size: 22, color: iconColor),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -762,7 +1005,7 @@ class _Cs1TileCompareBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          '베이스맵 비교 (C.S1 · 운영=D Pastel · 0=OSM 롤백)',
+          '베이스맵 비교 (debug)',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -787,9 +1030,7 @@ class _Cs1TileCompareBar extends StatelessWidget {
                       fontSize: 11,
                       color: selected == s.id
                           ? SoriTokens.primary
-                          : (s.canRender
-                              ? SoriTokens.textSecondary
-                              : const Color(0xFF9CA3AF)),
+                          : SoriTokens.textSecondary,
                     ),
                   ),
                 ),
@@ -798,153 +1039,6 @@ class _Cs1TileCompareBar extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _MapControlColumn extends StatelessWidget {
-  const _MapControlColumn({
-    required this.gpsBusy,
-    required this.onGps,
-    required this.onSaved,
-  });
-
-  final bool gpsBusy;
-  final VoidCallback onGps;
-  final VoidCallback onSaved;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: 10,
-      right: 10,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _MapRoundButton(
-            label: '현재 위치로 보기',
-            busy: gpsBusy,
-            icon: Icons.my_location_rounded,
-            onPressed: onGps,
-          ),
-          const SizedBox(height: 8),
-          _MapRoundButton(
-            label: '저장한 지역 콘텐츠 보기',
-            busy: false,
-            icon: Icons.bookmark_rounded,
-            onPressed: onSaved,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MapRoundButton extends StatelessWidget {
-  const _MapRoundButton({
-    required this.label,
-    required this.busy,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool busy;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.black26,
-      shape: const CircleBorder(),
-      child: Semantics(
-        button: true,
-        label: label,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: busy ? null : onPressed,
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Center(
-              child: busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(icon, size: 22, color: SoriTokens.primary),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ContentPinCard extends StatelessWidget {
-  const _ContentPinCard({
-    required this.pin,
-    required this.bookmarked,
-    required this.onToggleSave,
-  });
-
-  final RegionMapPin pin;
-  final bool bookmarked;
-  final VoidCallback onToggleSave;
-
-  @override
-  Widget build(BuildContext context) {
-    final kindLabel =
-        pin.kind == RegionMapPinKind.post ? '커뮤니티 글' : '세미나';
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8, bottom: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  kindLabel,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: SoriTokens.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  pin.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: bookmarked ? '저장 해제' : '저장',
-            onPressed: onToggleSave,
-            icon: Icon(
-              bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-              color: SoriTokens.primary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -974,23 +1068,11 @@ class _SelectedCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            [
-              if (item.categoryLabel.isNotEmpty) item.categoryLabel,
-              '${item.distanceM}m',
-            ].join(' · '),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-          ),
-          if (item.address.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              item.address,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            item.categoryLabel.isEmpty ? '상권' : item.categoryLabel,
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
             ),
-          ],
-          const SizedBox(height: 6),
-          const Text(
-            '개별 점포 실매출은 제공되지 않습니다. (공공·추정)',
-            style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
           ),
         ],
       ),

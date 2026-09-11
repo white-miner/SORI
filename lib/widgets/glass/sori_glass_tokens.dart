@@ -33,7 +33,7 @@ abstract final class SoriGlassTokens {
   static double blurSigma(SoriGlassTier tier) => switch (tier) {
         SoriGlassTier.l1Surface => 12,
         SoriGlassTier.l2Control => 0,
-        SoriGlassTier.l3Overlay => 24,
+        SoriGlassTier.l3Overlay => 16, // SORI_GLASS_PERFORMANCE max blur
       };
 
   static ImageFilter blurFilter(SoriGlassTier tier) {

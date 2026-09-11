@@ -1,0 +1,20 @@
+---
+description: UI 화면 작업 가드레일 — 뷰 파일 수정 시 적용
+globs:
+  - "lib/views/**"
+  - "lib/features/**"
+  - "lib/routing/**"
+---
+
+# UI 작업 규칙
+
+`docs/UI-SPEC-CUSTOMER-CHART.md` 의 U1~U4 순서를 따른다.
+
+- **읽기 API를 바꾸지 않는다.** `chartsForCustomer` · `CustomerChart` 필드 · 저장 API는 한 줄도 수정 금지.
+- **새 Supabase 쿼리를 추가하지 않는다.** 화면은 기존 Store 데이터만 읽는다.
+- **기존 화면 파일을 삭제하지 않는다.** 새 화면을 추가하고 라우트만 바꾼다. 롤백은 라우트 한 줄 되돌리기로 끝나야 한다.
+- **계산은 UI 레이어 순수 함수로.** 합계·경과일 같은 파생값을 Store 나 Repository 에 넣지 않는다.
+- **없는 데이터를 위한 빈 UI 를 만들지 않는다.** SOAP 4칸, 부위별 사진 세트는 P4·P5 이후.
+- **색·글래스·CTA는 `docs/SORI_DESIGN_LAWS.md`를 따른다.** (Purple primary · semantic color · glass=floating only). 프로토타입 전용 팔레트로 갈아타지 않는다.
+- **고객 모드 화면은 동시에 바꾸지 않는다.** 원장 화면만 먼저.
+- 각 단계 후 `flutter test test/contracts_p0_characterization_test.dart` 7개 통과 확인 + 커밋.

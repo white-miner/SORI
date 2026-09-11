@@ -1,0 +1,24 @@
+---
+description: SORI 디자인 절대 규칙 — UI/지도/글래스/색 semantic
+globs:
+  - "lib/views/**"
+  - "lib/widgets/**"
+  - "lib/features/**"
+alwaysApply: false
+---
+
+# SORI DESIGN LAWS
+
+전문: `docs/SORI_DESIGN_LAWS.md` — UI 구현 전 필독.
+
+## 즉시 적용
+
+1. 화면 목적 1개 · filled primary CTA 1개
+2. 색: Purple=브랜드/CTA/글 marker · Blue=GPS/탐색 · Green=완료 · Yellow=확인 · Red/Coral=파괴·세미나 marker
+3. 글래스 = FloatingPillNav · 지도 control · Peek/Half 상단만 (list/form 전체 glass 금지)
+4. press scale 0.97 · map pan/sheet drag/list scroll에 bounce 금지
+5. 우리지역 지도 = Local Bloom · 고객/Visit/매출/경쟁 지표 절대 비노출
+6. 스키마에 없는 상태 UI 발명 금지
+7. sheet drag ≠ tile/marker/API rebuild
+
+구현 전 `docs/SORI_DESIGN_LAWS.md` §13 10문에 답할 것.

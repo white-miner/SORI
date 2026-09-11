@@ -227,17 +227,25 @@ class ShopMarketService {
 
   /// [fallbackAddress]: 샵에 주소/좌표가 없을 때 경영 프로필 주소 등.
   /// 서울 묵시 폴백 없이, 주소 resolve 실패 시 shop_coords_missing.
+  /// [overrideLat]/[overrideLng]: GPS 등 임시 중심(캐시 키에 포함 · 실패 시 호출부가 이전 insight 유지).
   Future<ShopMarketInsight> fetch({
     required Shop shop,
     required String category,
     String? admCd,
     String? fallbackAddress,
     int radiusM = 500,
+    double? overrideLat,
+    double? overrideLng,
   }) async {
     final sid = shop.id.trim();
     final fb = fallbackAddress?.trim() ?? '';
+    final oLat = overrideLat;
+    final oLng = overrideLng;
+    final overrideKey = (oLat != null && oLng != null)
+        ? '|g${oLat.toStringAsFixed(4)},${oLng.toStringAsFixed(4)}'
+        : '';
     final key =
-        '$sid|${category.trim()}|${admCd?.trim() ?? ''}|$fb|$radiusM';
+        '$sid|${category.trim()}|${admCd?.trim() ?? ''}|$fb|$radiusM$overrideKey';
     if (_cache != null &&
         _cacheKey == key &&
         _cacheAt != null &&
@@ -294,6 +302,13 @@ class ShopMarketService {
           effectiveAdm = local.admCd;
         }
       }
+    }
+
+    if (oLat != null &&
+        oLng != null &&
+        oLat.abs() > 0.01 &&
+        oLng.abs() > 0.01) {
+      working = working.copyWith(latitude: oLat, longitude: oLng);
     }
 
     final lat = working.latitude;
@@ -387,9 +402,9 @@ class ShopMarketService {
       return '응답이 늦어요. 잠시 후 다시 시도해 주세요';
     }
     if (r.contains('functionexception') || r.contains('not found')) {
-      return '상권 서비스를 잠시 불러오지 못했어요';
+      return '이 지역의 상권 정보를 불러오지 못했어요.';
     }
-    return '잠시 후 다시 시도해 주세요';
+    return '이 지역의 상권 정보를 불러오지 못했어요.';
   }
 
   /// 주소 → 행정동 자동 연결. Edge(카카오 시크릿) 우선, 로컬 dotenv 폴백.
