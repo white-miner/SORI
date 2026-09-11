@@ -8,6 +8,7 @@ import '../../models/customer_chart.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/sori_bottom_sheet.dart';
+import '../../utils/sori_shell_insets.dart';
 import '../../utils/supabase_schema_error.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../views/before_after_compare_page.dart';
@@ -89,6 +90,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   /// Timer 탭 — 고객 차트 CRM 바인딩 (스탠바이).
   bool _timerChartBindEnabled = false;
   String? _timerBoundCustomerId;
+  final GlobalKey _timerCustomerBindKey = GlobalKey();
 
   VisitStore get visit => widget.store.visit;
 
@@ -516,6 +518,39 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// Switch On 직후, 펼쳐진 첫 actionable form block만 스크롤로 드러낸다.
+  /// Off / 자동 focus / 키보드 오픈은 하지 않는다. 전역 helper 아님.
+  void _revealTimerCustomerBindBlock() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_timerChartBindEnabled) return;
+      final root = _timerCustomerBindKey.currentContext;
+      if (root == null || !root.mounted) return;
+      final target =
+          _contextWithKey(root, const Key('home-timer-customer-add')) ?? root;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: 0.2,
+      );
+    });
+  }
+
+  BuildContext? _contextWithKey(BuildContext root, Key key) {
+    BuildContext? found;
+    void visitor(Element element) {
+      if (found != null) return;
+      if (element.widget.key == key) {
+        found = element;
+        return;
+      }
+      element.visitChildren(visitor);
+    }
+
+    root.visitChildElements(visitor);
+    return found;
   }
 
   Future<void> _pickTimerCustomer() async {
@@ -1035,6 +1070,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
               ),
               SliverToBoxAdapter(
                 child: HomeTimerCustomerBind(
+                  key: _timerCustomerBindKey,
                   store: widget.store,
                   enabled: _timerChartBindEnabled,
                   customer: boundCustomer,
@@ -1043,6 +1079,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                       _timerChartBindEnabled = v;
                       if (!v) _timerBoundCustomerId = null;
                     });
+                    if (v) _revealTimerCustomerBindBlock();
                   },
                   onPickCustomer: () => unawaited(_pickTimerCustomer()),
                   onClear: () {
@@ -1050,7 +1087,12 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   },
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 48)),
+              SliverToBoxAdapter(
+                key: const Key('home-timer-scroll-bottom-inset'),
+                child: SizedBox(
+                  height: SoriShellInsets.scrollBottomInset(context),
+                ),
+              ),
             ],
           );
           if (!wide) return body;
