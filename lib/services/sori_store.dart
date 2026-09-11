@@ -457,6 +457,25 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// PRD v7.9 Phase 3 — 일정 note/필드 upsert · 홈 glance는 동일 SSOT 재구독.
+  Future<CareScheduleEntry> updateCareScheduleEntry(
+    CareScheduleEntry entry,
+  ) async {
+    final saved = await _repository.upsertCareScheduleEntry(entry);
+    final idx = careScheduleEntries.indexWhere((e) => e.id == saved.id);
+    if (idx >= 0) {
+      final next = [...careScheduleEntries];
+      next[idx] = saved;
+      careScheduleEntries = next
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    } else {
+      careScheduleEntries = [...careScheduleEntries, saved]
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    }
+    _notify();
+    return saved;
+  }
+
   /// SORI 중앙 채널 알림톡 — mock bridge (Real API Phase CRM-1 structure).
   Future<bool> sendPlatformAlimtalk(SoriPlatformAlimtalkMessage message) async {
     try {

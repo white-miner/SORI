@@ -949,9 +949,7 @@ class _HomeTabBody extends StatelessWidget {
             children: [
               MyTodayTaskQueuePanel(store: store),
               const SizedBox(height: 12),
-              MyTodayScheduleReadPanel(
-                entries: store.careScheduleEntries,
-              ),
+              MyTodayScheduleReadPanel(store: store),
             ],
           ),
         ),
