@@ -42,7 +42,7 @@
 | BizDashboard | 경영 | 위계 | ~~입력 우선·카드 과밀~~ → ★시간당 1 · A/B 라벨 · 입력 Level3 | 헤드라인 우선 | P1 ✓ |
 | DirectorFandomProfile | 공개 프로필 | CTA | ~~팔로우 filled~~ → 예약/문의 brand 1 · 팔로우 secondary | 공개 전환 CTA | P1 ✓ |
 | AppSettingsPage | 설정 | — | 모드 스위치 혼재 | 저빈도 정리 | P1 |
-| Compose / Whisper | 작성 | 영어 | Whisper | 한국어 카테고리 | P1 |
+| Compose / Whisper | 작성 | 영어 | ~~Whisper~~ → CategoryPresentationMap `조용한 이야기` · 글 쓰기/게시하기 | P1 ✓ R3 |
 | Program / Seminar sheets | 보조 | sheet 폭증 | — | solid sheet · CTA 1 | P2 |
 | AI mock surfaces | — | 상태 발명 | mock | 계약 있는 것만 · 없으면 숨김 | P2 |
 | Deprecated CommunityPage | — | — | 레거시 | 삭제 금지 · 진입만 축소 | P3 |

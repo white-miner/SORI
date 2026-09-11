@@ -1,3 +1,4 @@
+import '../utils/category_presentation_map.dart';
 import '../utils/db_map.dart';
 import 'fan_supporter.dart';
 
@@ -151,7 +152,8 @@ class SupporterInteractionLine {
         'supporter_gift' => 'Supporter gift',
         'mentoring_purchase' => 'Premium Mentoring',
         'case_bookmark' => 'Bookmark',
-        'whisper' => 'Whisper',
+        'whisper' =>
+          CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
         _ => kind,
       };
 
