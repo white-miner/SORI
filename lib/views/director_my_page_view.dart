@@ -28,6 +28,7 @@ import '../widgets/shop_tier_badge_chip.dart';
 import '../widgets/shop_tier_progress_card.dart';
 import '../widgets/sori_insta_picker.dart';
 import '../widgets/sori_network_image.dart';
+import '../features/visit/open_shop_public_preview.dart';
 import '../features/visit/widgets/my_today_schedule_read_panel.dart';
 import '../features/visit/widgets/my_today_task_queue_panel.dart';
 import 'ai_shop_report_page.dart';
@@ -507,6 +508,13 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                     isOwner: isOwner,
                     coverUploading: _avatarUploading,
                     onCoverPick: isOwner ? _pickAndUploadCover : null,
+                    onOpenShopPreview: isOwner
+                        ? () => openShopPublicPreview(
+                              context,
+                              store,
+                              isOwner: true,
+                            )
+                        : null,
                     onOpenPosts: () =>
                         showShopPostsHubSheet(context, store: store),
                     onOpenFollowers: () => showPeopleListSheet(
@@ -584,6 +592,7 @@ class _ShopHeroCover extends StatelessWidget {
     required this.onOpenSupporters,
     required this.onOpenFollowing,
     this.onCoverPick,
+    this.onOpenShopPreview,
     this.coverUploading = false,
   });
 
@@ -599,6 +608,7 @@ class _ShopHeroCover extends StatelessWidget {
   final VoidCallback onOpenSupporters;
   final VoidCallback onOpenFollowing;
   final VoidCallback? onCoverPick;
+  final VoidCallback? onOpenShopPreview;
   final bool coverUploading;
 
   static const _fallbackCover =
@@ -711,6 +721,36 @@ class _ShopHeroCover extends StatelessWidget {
             ),
           ),
         ),
+        if (isOwner && onOpenShopPreview != null)
+          Positioned(
+            top: 0,
+            left: 12,
+            child: SafeArea(
+              bottom: false,
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.94),
+                elevation: 1,
+                shadowColor: Colors.black26,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  key: const Key('my_shop_public_preview'),
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: onOpenShopPreview,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      '내 샵 미리보기',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: SoriTokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         if (isOwner && onCoverPick != null)
           Positioned(
             right: 16,

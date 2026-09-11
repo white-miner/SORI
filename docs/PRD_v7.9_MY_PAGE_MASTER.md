@@ -892,6 +892,16 @@ v7.9에서는 자동 알림·자동 메시지·자동 상태 변경을 **feature
 
 **파일(≤5):** `profile_showcase.dart` · `profile_featured_ba_local.dart` · `director_fandom_profile_page.dart` · `profile_featured_ba_picker_sheet.dart` · `test/profile_showcase_test.dart`
 
+### 17.5 Phase 5.1 — **Approved** (2026-09-11 · 공개 프로필 진입 배선)
+
+**승인 문구:**
+
+> Phase 5.1 승인: 기존 마이/사장 책상 surface에서 `DirectorFandomProfilePage`를 원장 미리보기(`isOwner: true`)로 여는 단일 진입점을 추가한다. featured 0~5, 로컬 저장, `caseShared`·동의·이미지 필터, 예약/문의 CTA의 구현과 규칙은 변경하지 않는다. 외부 공개 화면은 기존 진입 경로가 있는 경우에만 `isOwner: false`로 유지하며, 신규 탭·공유·QR·딥링크·Timer·일정·큐·결제·경영·SQL 마이그레이션은 범위 밖이다.
+
+**진입:** 마이 히어로 `내 샵 미리보기` → `openShopPublicPreview(..., isOwner: true)` · rootNavigator push · 뒤로가기 복귀.
+
+**파일:** `open_shop_public_preview.dart` · `director_my_page_view.dart` · `test/shop_public_preview_entry_test.dart` · MASTER 본 절
+
 ---
 
 ## 14. 변경 로그 (갱신)
@@ -909,3 +919,4 @@ v7.9에서는 자동 알림·자동 메시지·자동 상태 변경을 **feature
 | 2026-09-11 | Phase 1 Acceptance **8항** 잠금 · 승인 한정 문구 · **PO 승인 대기** · `lib/` 금지 |
 | 2026-09-11 | **§5.1-A** · Phase 1 **Approved** · 홈 glance·마이 읽기 패널 구현 |
 | 2026-09-11 | **§17.4 Phase 5 Approved** · §16.4 로컬 featured·표시필터 가드 · 구현 |
+| 2026-09-11 | **§17.5 Phase 5.1 Approved** · 마이 `내 샵 미리보기` 진입 배선 |

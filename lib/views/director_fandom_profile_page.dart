@@ -385,6 +385,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                 ),
                 if (_isOwner)
                   TextButton(
+                    key: const Key('profile_featured_ba_manage'),
                     onPressed: _openFeaturedPicker,
                     style: TextButton.styleFrom(
                       foregroundColor: SoriTokens.primary,
