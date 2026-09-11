@@ -14,7 +14,10 @@ import '../../services/chart_signature_storage.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../views/chart_consent_tab.dart';
+import '../../views/chart_management_page.dart';
+import '../../views/customer_chart/customer_chart_page.dart';
 import '../../views/smart_guide_camera_page.dart';
+import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/theme/visit_glass_tokens.dart';
 import '../../visit_kernel/visit_store.dart';
@@ -27,6 +30,8 @@ import 'ba_recall_cache.dart';
 import 'ba_recall_overlay.dart';
 import 'consultation_surface_page.dart';
 import 'consultation_track.dart';
+
+enum _VisitCompleteChoice { customerDetail, nextSchedule, close }
 
 /// Visit Session — Shoot → Consult → Plan → Consent → Publish (PRD v3.1).
 class VisitSessionPage extends StatefulWidget {
@@ -595,13 +600,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
       await _setPhase(VisitPhase.done);
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('오늘의 방문이 완료되었습니다.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pop(context);
+      await _presentVisitCompleteNext(saved);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -610,6 +609,143 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  CareScheduleEntry? _upcomingScheduleFor({
+    required String customerId,
+    required CustomerChart chart,
+  }) {
+    final anchor = chart.visitCheckedAt ?? chart.createdAt ?? DateTime.now();
+    final upcoming = widget.store.careScheduleEntries
+        .where(
+          (e) =>
+              (e.customerId ?? '') == customerId &&
+              e.status == CareScheduleStatus.scheduled &&
+              !e.scheduledAt.isBefore(anchor),
+        )
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    return upcoming.isEmpty ? null : upcoming.first;
+  }
+
+  String _fmtSchedule(DateTime d) {
+    final hh = d.hour.toString().padLeft(2, '0');
+    final mm = d.minute.toString().padLeft(2, '0');
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')} $hh:$mm';
+  }
+
+  /// R1-3: Publish/동의 완료 후 다음 행동. 자동 홈 복귀 금지.
+  Future<void> _presentVisitCompleteNext(CustomerChart saved) async {
+    final customer = _customer;
+    if (!mounted || customer == null) return;
+
+    final next = _upcomingScheduleFor(
+      customerId: customer.id,
+      chart: saved,
+    );
+
+    final choice = await showModalBottomSheet<_VisitCompleteChoice>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                '기록이 마무리됐어요',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '동의와 기록 마무리가 끝난 방문입니다. 다음으로 무엇을 볼까요?',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+              if (next != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '다음 일정 ${_fmtSchedule(next.scheduledAt)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: SoriTokens.textTertiary,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.pop(ctx, _VisitCompleteChoice.customerDetail),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SoriTokens.brand,
+                  foregroundColor: SoriTokens.onBrand,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: const Text('고객 상세 보기'),
+              ),
+              if (next != null) ...[
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  onPressed: () =>
+                      Navigator.pop(ctx, _VisitCompleteChoice.nextSchedule),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SoriTokens.textPrimary,
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: const Text('다음 일정 보기'),
+                ),
+              ],
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () =>
+                    Navigator.pop(ctx, _VisitCompleteChoice.close),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    final nav = Navigator.of(context);
+    final store = widget.store;
+    final customerId = customer.id;
+    final chartId = saved.id;
+
+    // Leave VisitSession (was pushed from ShootHub). Never auto-jump to Home.
+    nav.pop();
+
+    if (choice == _VisitCompleteChoice.customerDetail) {
+      await nav.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => CustomerChartPage(
+            store: store,
+            customerId: customerId,
+          ),
+        ),
+      );
+    } else if (choice == _VisitCompleteChoice.nextSchedule) {
+      await nav.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ChartManagementPage(
+            store: store,
+            customerId: customerId,
+            initialChartId: chartId,
+          ),
+        ),
+      );
     }
   }
 
