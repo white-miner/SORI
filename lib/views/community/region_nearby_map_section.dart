@@ -762,7 +762,7 @@ class _Cs1TileCompareBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          '베이스맵 비교 (C.S1 · PO 잠금 전)',
+          '베이스맵 비교 (C.S1 · 운영=A Alidade · 0=롤백)',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,

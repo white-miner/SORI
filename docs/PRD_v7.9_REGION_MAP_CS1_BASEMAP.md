@@ -1,9 +1,9 @@
 # SORI — C.S1 Quiet Local Canvas 후보 비교 · 렌더링 검수
 
-**Status:** In progress · 비교 하네스 코드 준비 · PO 점수·키 대기 · 운영 기본 OSM  
-**상위 문서:** `docs/PRD_v7.9_REGION_MAP_UPGRADE.md` (§9 · §13 · C.S1)  
-**비교 로그:** `docs/PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`  
-**작성:** 2026-09-11 · Perplexity 조사 흡수
+**Status:** Adopted · **A Stadia Alidade Smooth** · domain auth · api_key 번들 금지  
+**비교 로그 SSOT:** `PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`  
+**상위 문서:** `docs/PRD_v7.9_REGION_MAP_UPGRADE.md`  
+**작성:** 2026-09-11 · Perplexity 조사 흡수 · PO 채택 2026-09-11
 
 ---
 
@@ -154,12 +154,17 @@ HTTPS · tile 200 · CORS · Referer · 키 비하드코딩 · Edge/domain · at
 
 ```
 시각 평균 ≥ 4.0
-AND 기술 필수 전부 통과
-AND 탈락 조건 0
+AND Marker 우선성 · Cluster 가독 · Sheet 조화 · 정보 밀도 각각 ≥ 4
+AND 기술 필수 전부 Yes (HTTPS·Tile200·CORS·Origin/Referer·Attribution·Key restriction·Drag network 0·약관)
+AND 탈락 체크 0개
 → C.S1 채택
 
 동점: marker/cluster 대비 → POI 최소화 → Web 안정 → 비용·약관 단순 → C.S2 확장성
 ```
+
+상세 점수 정의·탈락 체크·PO 순서·결정 문구 → **`docs/PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`**.
+
+> 타일이 로드된다 ≠ 통과. 디자인 QA 문서의 채택 조건을 만족해야 운영 URL을 교체한다.
 
 ---
 
@@ -202,3 +207,5 @@ Fixture: 동일 lat/lng/zoom/bearing/pitch · 글4 · 세미나2 · cluster1 · 
 | 날짜 | 내용 |
 |------|------|
 | 2026-09-11 | C.S1 후보·검수표·절차·브리프 잠금 · 운영 URL 사전 교체 금지 · Carto=임시 부채 |
+| 2026-09-11 | 채택 조건 강화(핵심4≥4) · COMPARE_LOG를 PO 검수 SSOT로 연결 |
+| 2026-09-11 | COMPARE_LOG Ready · tile 정상/비정상 · fixture 보호 · T N/A · a11y · 교차 검수 |

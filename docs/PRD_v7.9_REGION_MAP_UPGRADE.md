@@ -248,7 +248,7 @@ Sheet = **자기 사각형만** hit-test. Standard preview에서 map 입력 유�
 |--------|------|
 | 이름 | **SORI Local Light** (단일 라이트 테마 · 다크는 후속) |
 | 분위기 잠금 | **B(Soft Urban) ↔ C(Monochrome Focus) 중간** — 과한 Warm Paper 베이지 지양 |
-| 코드(현재) | Carto `light_all` **임시** · C.S1 공식 후보(A/B/C) 비교·잠금 전 · 운영 확정 아님 |
+| 코드(현재) | **C.S1 채택 A** `alidade_smooth` 키리스 URL · Stadia domain auth · 0 OSM=롤백 |
 
 | 토큰(초안) | 예시 |
 |------------|------|
@@ -345,3 +345,6 @@ Cursor에게 “UI 개선”만 주지 말고, 아래 **결정 질문**을 요�
 | 2026-09-11 | **C.1** GPS FAB + `geolocator` one-shot · 거부 시 base center 유지 |
 | 2026-09-11 | §9 시각 위계 · §13.1–13.3 C.S1 검수/금지 · §14 분업·프롬프트 · Peek 저장=부채 명시 |
 | 2026-09-11 | C.S1 전용 `PRD_v7.9_REGION_MAP_CS1_BASEMAP.md` · 후보 A/B/C 순위 · 운영 URL 사전교체 금지 |
+| 2026-09-11 | COMPARE_LOG 보강: 도메인 auth · 핵심4≥4 · fixture 병행 · 탈락 체크 · PO 결정 문구 |
+| 2026-09-11 | C.S1 COMPARE_LOG **Ready** · 최종 보강4 · Cursor는 채택/보류 대기만 |
+| 2026-09-11 | **C.S1 채택 A** Stadia Alidade Smooth · api_key 번들 금지 · domain auth 게이트 |
