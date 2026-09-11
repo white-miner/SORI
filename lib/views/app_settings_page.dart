@@ -7,12 +7,14 @@ import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/review_qr_modal.dart';
+import 'message_history_page.dart';
 import 'my_info_edit_page.dart';
 import 'shop_settings_page.dart';
 
-/// 앱 시스템 설정 — R4 IA: 계정 → 샵 공개 → 알림 → 앱 환경 → 고급.
-/// 모드 전환 toggle은 숨김(셸 결과형 action만).
+/// 앱 시스템 설정 — R4 IA: 계정 → 샵 공개 → 알림 → 고급.
+/// Stub(언어·밀도·결제)은 노출하지 않는다. 모드 toggle은 셸 결과형만.
 class AppSettingsPage extends StatelessWidget {
   const AppSettingsPage({super.key, this.store});
 
@@ -139,47 +141,24 @@ class AppSettingsPage extends StatelessWidget {
               _SettingsCard(
                 child: _SettingsTile(
                   icon: Icons.notifications_outlined,
-                  title: '알림 수신',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('알림 세부 설정은 준비 중입니다. 종 아이콘에서 확인할 수 있어요.'),
-                        behavior: SnackBarBehavior.floating,
+                  title: '알림함',
+                  onTap: () async {
+                    await s.refreshShopNotifications();
+                    if (!context.mounted) return;
+                    await pushRootPage<void>(
+                      context,
+                      Scaffold(
+                        backgroundColor: SoriTokens.background,
+                        appBar: AppBar(
+                          title: const Text('알림'),
+                          backgroundColor: SoriTokens.surface,
+                          foregroundColor: SoriTokens.textPrimary,
+                          elevation: 0,
+                        ),
+                        body: MessageHistoryPage(embedded: true, store: s),
                       ),
                     );
                   },
-                ),
-              ),
-              const SizedBox(height: 20),
-              const _SettingsSectionLabel('앱 환경'),
-              _SettingsCard(
-                child: Column(
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.language_rounded,
-                      title: '표시 언어',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('지금은 한국어만 지원해요'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                    ),
-                    _SettingsTile(
-                      icon: Icons.display_settings_outlined,
-                      title: '화면 밀도',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('화면 밀도 설정은 준비 중입니다'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -200,18 +179,6 @@ class AppSettingsPage extends StatelessWidget {
                           );
                         },
                       ),
-                    _SettingsTile(
-                      icon: Icons.payments_outlined,
-                      title: '결제 · 정산',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('결제·정산 계약이 준비되면 여기서 열려요'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                    ),
                     _SettingsTile(
                       icon: Icons.logout_rounded,
                       title: '로그아웃',

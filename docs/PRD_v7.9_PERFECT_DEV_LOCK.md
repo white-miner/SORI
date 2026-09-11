@@ -80,6 +80,12 @@ secondary: [다음 일정 보기] (일정 실제 존재 시만)
 
 R2-1 config · R2-2 chrome · R2-3 CTA/헤더.
 
+### R2-3 scope lock (AppShell compose)
+
+고객 홈 카드/피드 surface에서는 작성·반응·Boost CTA를 강조하지 않는다.  
+전역 AppShell quick compose(`+`)는 별도 제품 결정 전까지 유지한다.  
+이번 PR에서 홈 primary CTA를 새로 추가하거나 전역 셸을 리팩터링하지 않는다.
+
 ---
 
 ## R3. Whisper / Compose
