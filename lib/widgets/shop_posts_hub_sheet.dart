@@ -5,10 +5,11 @@ import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import '../utils/consent_publish_gate.dart';
 import 'ai_tool_sheet.dart';
 
-/// 마이페이지 게시물 지표 — B/A · Whisper 허브.
+/// 마이페이지 게시물 지표 — B/A · 조용한 이야기 허브.
 Future<void> showShopPostsHubSheet(
   BuildContext context, {
   required SoriStore store,
@@ -86,7 +87,7 @@ class _ShopPostsHubSheetState extends State<_ShopPostsHubSheet>
               indicatorColor: SoriTokens.primary,
               tabs: const [
                 Tab(text: 'B/A'),
-                Tab(text: 'Whisper'),
+                Tab(text: CategoryPresentationMap.whisper.label),
               ],
             ),
             Expanded(
@@ -314,7 +315,7 @@ class _WhisperPostsPane extends StatelessWidget {
     if (posts.isEmpty) {
       return const Center(
         child: Text(
-          'Whisper가 없어요.',
+          '${CategoryPresentationMap.whisper.label}가 없어요.',
           style: TextStyle(
             color: SoriTokens.textSecondary,
             fontWeight: FontWeight.w600,
@@ -335,7 +336,9 @@ class _WhisperPostsPane extends StatelessWidget {
             side: const BorderSide(color: SoriTokens.border),
           ),
           title: Text(
-            p.title.trim().isEmpty ? 'Whisper' : p.title,
+            p.title.trim().isEmpty
+                ? CategoryPresentationMap.whisper.label
+                : p.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w800),

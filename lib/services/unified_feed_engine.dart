@@ -2,6 +2,7 @@ import '../models/recommend_feed_category.dart';
 import '../models/community_post.dart';
 import '../models/feed_query_config.dart';
 import '../models/unified_feed_item.dart';
+import '../utils/category_presentation_map.dart';
 import '../widgets/post/post_view_data.dart';
 import 'sori_store.dart';
 
@@ -69,7 +70,8 @@ abstract final class UnifiedFeedEngine {
       UnifiedFeedKind.seminar => item.seminar!.title.trim().isEmpty
           ? '세미나'
           : item.seminar!.title.trim(),
-      UnifiedFeedKind.whisper => 'Whisper',
+      UnifiedFeedKind.whisper =>
+        CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
       UnifiedFeedKind.interior => '샵 인테리어',
       UnifiedFeedKind.deviceReview =>
         item.post!.title.trim().isEmpty ? '기기리뷰' : item.post!.title.trim(),

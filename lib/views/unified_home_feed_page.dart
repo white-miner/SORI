@@ -785,7 +785,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
                 child: Padding(
                   padding: EdgeInsets.all(28),
                   child: Text(
-                    '아직 피드 콘텐츠가 없어요.\nB/A · 세미나 · Whisper가 곧 올라올 예정이에요.',
+                    '아직 피드 콘텐츠가 없어요.\nB/A · 세미나 · 조용한 이야기가 곧 올라올 예정이에요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: SoriTokens.textSecondary,

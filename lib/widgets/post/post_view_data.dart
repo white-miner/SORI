@@ -6,6 +6,7 @@ import '../../models/home_feed_entry.dart';
 import '../../models/seminar_class.dart';
 import '../../models/unified_feed_item.dart';
 import '../../utils/case_persona.dart';
+import '../../utils/category_presentation_map.dart';
 import '../../utils/relative_time.dart';
 import '../feed_media_carousel.dart';
 
@@ -298,7 +299,11 @@ class PostViewData {
   }
 
   static PostViewData _fromWhisperEntry(CommunityPost p) {
-    return _postBase(p, 'Whisper', PostViewKind.whisper);
+    return _postBase(
+      p,
+      CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
+      PostViewKind.whisper,
+    );
   }
 
   static PostViewData _fromPost(UnifiedFeedItem item, String label) {
@@ -358,7 +363,7 @@ class PostViewData {
       categoryLabel: label,
       bodyText: bodyOverride ??
           (locked
-              ? '선택한 수신자에게만 공개된 Whisper입니다.'
+              ? '선택한 수신자에게만 공개된 조용한 이야기입니다.'
               : p.body.trim().ifEmpty(p.title)),
       timeLabel: formatRelativeTime(sortAt ?? p.createdAt),
       avatarUrl: p.shopAvatarUrl,

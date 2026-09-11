@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/community_post.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
 import 'author_content_actions_sheet.dart';
 import 'community_comments_section.dart';
 
@@ -43,8 +44,8 @@ class WhisperPostCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Whisper 삭제'),
-        content: const Text('이 Whisper 게시물을 삭제할까요?'),
+        title: Text('${CategoryPresentationMap.whisper.label} 삭제'),
+        content: Text('이 ${CategoryPresentationMap.whisper.label} 게시물을 삭제할까요?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -65,7 +66,11 @@ class WhisperPostCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? 'Whisper를 삭제했습니다.' : '삭제에 실패했습니다.'),
+        content: Text(
+          ok
+              ? '${CategoryPresentationMap.whisper.label}를 삭제했습니다.'
+              : '삭제에 실패했습니다.',
+        ),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -114,18 +119,18 @@ class WhisperPostCard extends StatelessWidget {
                       color: SoriTokens.primary.withValues(alpha: 0.35),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.lock_outline_rounded,
                         size: 13,
                         color: SoriTokens.primary,
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Text(
-                        'Whisper',
-                        style: TextStyle(
+                        CategoryPresentationMap.whisper.label,
+                        style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
                           color: SoriTokens.primary,
@@ -218,7 +223,7 @@ class WhisperPostCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'This Whisper is visible to selected recipients only.',
+                      '선택한 수신자에게만 보이는 조용한 이야기입니다.',
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.45,
