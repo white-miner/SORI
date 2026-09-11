@@ -40,7 +40,7 @@ Future<void> showPostKebabMenu(
   Rect? anchor,
 }) async {
   final isAuthor = PostAuthor.isAuthor(data, store);
-  final items = isAuthor ? _authorItems() : _viewerItems();
+  final items = isAuthor ? _authorItems(data) : _viewerItems();
   final wide = MediaQuery.sizeOf(context).width >= 800 && anchor != null;
 
   final action = wide
@@ -56,24 +56,27 @@ Future<void> showPostKebabMenu(
   );
 }
 
-List<PostKebabMenuItem> _authorItems() => const [
-      PostKebabMenuItem(
-        action: PostKebabAction.edit,
-        icon: Icons.edit_outlined,
-        label: '수정하기',
-      ),
-      PostKebabMenuItem(
-        action: PostKebabAction.delete,
-        icon: Icons.delete_outline_rounded,
-        label: '삭제하기',
-        destructive: true,
-      ),
-      PostKebabMenuItem(
-        action: PostKebabAction.share,
-        icon: Icons.link_rounded,
-        label: '링크 복사 / 공유하기',
-      ),
-    ];
+List<PostKebabMenuItem> _authorItems(PostViewData data) {
+  final ba = data.kind == PostViewKind.ba;
+  return [
+    const PostKebabMenuItem(
+      action: PostKebabAction.edit,
+      icon: Icons.edit_outlined,
+      label: '수정하기',
+    ),
+    PostKebabMenuItem(
+      action: PostKebabAction.delete,
+      icon: Icons.delete_outline_rounded,
+      label: ba ? '피드에서 내리기' : '삭제하기',
+      destructive: true,
+    ),
+    const PostKebabMenuItem(
+      action: PostKebabAction.share,
+      icon: Icons.link_rounded,
+      label: '링크 복사 / 공유하기',
+    ),
+  ];
+}
 
 List<PostKebabMenuItem> _viewerItems() => const [
       PostKebabMenuItem(
@@ -241,18 +244,21 @@ Future<void> _confirmAndDelete(
   required PostViewData data,
   required SoriStore store,
 }) async {
+  final ba = data.kind == PostViewKind.ba;
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: SoriTokens.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text(
-        '게시물 삭제',
-        style: TextStyle(fontWeight: FontWeight.w900),
+      title: Text(
+        ba ? '피드에서 내리기' : '게시물 삭제',
+        style: const TextStyle(fontWeight: FontWeight.w900),
       ),
-      content: const Text(
-        '이 게시물을 영구적으로 삭제하시겠습니까?',
-        style: TextStyle(height: 1.45, fontWeight: FontWeight.w600),
+      content: Text(
+        ba
+            ? '이 사례를 커뮤니티 피드에서 내릴까요? 차트와 사진은 그대로 보관됩니다.'
+            : '이 게시물을 영구적으로 삭제하시겠습니까?',
+        style: const TextStyle(height: 1.45, fontWeight: FontWeight.w600),
       ),
       actions: [
         TextButton(
@@ -262,9 +268,9 @@ Future<void> _confirmAndDelete(
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(
-            backgroundColor: SoriTokens.systemRed,
+            backgroundColor: ba ? SoriTokens.primary : SoriTokens.systemRed,
           ),
-          child: const Text('승인'),
+          child: Text(ba ? '내리기' : '승인'),
         ),
       ],
     ),
@@ -278,7 +284,11 @@ Future<void> _confirmAndDelete(
   }
   _snack(
     context,
-    ok ? '게시물을 삭제했습니다.' : (store.lastError ?? '삭제에 실패했습니다.'),
+    ok
+        ? (ba
+            ? '피드에서 내렸어요. 차트와 사진은 유지됩니다.'
+            : '게시물을 삭제했습니다.')
+        : (store.lastError ?? '삭제에 실패했습니다.'),
     error: !ok,
   );
 }

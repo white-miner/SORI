@@ -5415,24 +5415,7 @@ class SoriStore implements Listenable {
         return deleteSeminarClass(data.id);
       case PostViewKind.ba:
         final chartId = data.caseItem?.chart.id ?? data.id;
-        setManagementCaseShared(chartId, false);
-        communityHotCases.removeWhere((c) => c.chart.id == chartId);
-        CommunityPost? linked;
-        for (final p in communityPosts) {
-          if (p.sourceChartId == chartId) {
-            linked = p;
-            break;
-          }
-        }
-        if (linked != null) {
-          await removeCommunityPost(linked.id);
-        }
-        unifiedCommunityFeed.removeWhere((e) {
-          return e.caseItem?.chart.id == chartId;
-        });
-        _rebuildHomeFeedEntries();
-        _notify();
-        return true;
+        return unpublishBaFromCommunity(chartId);
       case PostViewKind.whisper:
       case PostViewKind.interior:
       case PostViewKind.deviceReview:
@@ -5444,9 +5427,44 @@ class SoriStore implements Listenable {
     }
   }
 
+  /// Phase B — 커뮤니티 공개 중단 SSOT.
+  /// `caseShared=false` + linked case_share post 정리 · 차트·사진 URL 유지.
+  Future<bool> unpublishBaFromCommunity(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return false;
+    final ok = setManagementCaseShared(id, false, cleanupCommunity: false);
+    if (!ok) return false;
+    await _cleanupBaCommunitySurface(id);
+    return true;
+  }
+
+  Future<void> _cleanupBaCommunitySurface(String chartId) async {
+    communityHotCases.removeWhere((c) => c.chart.id == chartId);
+    CommunityPost? linked;
+    for (final p in communityPosts) {
+      if (p.sourceChartId == chartId) {
+        linked = p;
+        break;
+      }
+    }
+    if (linked != null) {
+      await removeCommunityPost(linked.id);
+    }
+    unifiedCommunityFeed.removeWhere((e) {
+      return e.caseItem?.chart.id == chartId;
+    });
+    _rebuildHomeFeedEntries();
+    _notify();
+  }
+
   /// 관리 케이스 공개 공유 토글. SNS 마케팅 동의 없는 차트는 shared=true 거부.
   /// returns false if blocked by consent defense.
-  bool setManagementCaseShared(String chartId, bool shared) {
+  /// [cleanupCommunity]: false로 내리면 호출부가 post 정리를 직접 한다(unpublish helper).
+  bool setManagementCaseShared(
+    String chartId,
+    bool shared, {
+    bool cleanupCommunity = true,
+  }) {
     final index = charts.indexWhere((c) => c.id == chartId);
     if (index < 0) return false;
     final chart = charts[index];
@@ -5467,6 +5485,9 @@ class SoriStore implements Listenable {
           debugPrint('setManagementCaseShared remote failed: $e');
         }
       }());
+    }
+    if (!nextShared && cleanupCommunity) {
+      unawaited(_cleanupBaCommunitySurface(chart.id));
     }
     return true;
   }

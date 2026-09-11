@@ -105,10 +105,17 @@ class _ShopPostsHubSheetState extends State<_ShopPostsHubSheet>
   }
 }
 
-class _BaPostsPane extends StatelessWidget {
+class _BaPostsPane extends StatefulWidget {
   const _BaPostsPane({required this.store});
 
   final SoriStore store;
+
+  @override
+  State<_BaPostsPane> createState() => _BaPostsPaneState();
+}
+
+class _BaPostsPaneState extends State<_BaPostsPane> {
+  SoriStore get store => widget.store;
 
   List<CustomerChart> get _published {
     return store.charts
@@ -131,6 +138,44 @@ class _BaPostsPane extends StatelessWidget {
                   (c.afterImageUrl?.trim().isNotEmpty ?? false)),
         )
         .toList();
+  }
+
+  Future<void> _unpublish(BuildContext context, CustomerChart chart) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SoriTokens.surface,
+        title: const Text('피드에서 내리기'),
+        content: const Text(
+          '이 사례를 커뮤니티 피드에서 내릴까요? 차트와 사진은 그대로 보관됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('내리기'),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !context.mounted) return;
+    final ok = await store.unpublishBaFromCommunity(chart.id);
+    if (!mounted) return;
+    setState(() {});
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? '피드에서 내렸어요. 차트와 사진은 유지됩니다.'
+              : (store.lastError ?? '내리기에 실패했어요'),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _tryPublish(BuildContext context, CustomerChart chart) async {
@@ -202,9 +247,26 @@ class _BaPostsPane extends StatelessWidget {
           ...published.map(
             (c) => _ChartRow(
               chart: c,
-              trailing: const PillBadge(
-                label: '발행됨',
-                tone: PillTone.ok,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => _unpublish(context, c),
+                    style: TextButton.styleFrom(
+                      foregroundColor: SoriTokens.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text(
+                      '피드에서 내리기',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const PillBadge(
+                    label: '발행됨',
+                    tone: PillTone.ok,
+                  ),
+                ],
               ),
             ),
           ),
