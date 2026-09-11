@@ -34,7 +34,7 @@
 | RegionNearbyMapSection | 지역 탐색 | 상세 저장 | Peek CTA brand · 저장함→상세 · 글/세미나 상세 북마크 | P1 ✓ |
 | CustomerChartPage | 고객 맥락 | CTA 과다 | ~~후기 AppBar~~ → ⋮ · FAB=본기록 · brand · KPI 축소 | P0 ✓ |
 | VisitSessionPage | Visit 완결 | CTA 혼재 | ~~B/A FAB~~ → AppBar 보조 · phase CTA 유지 | P0 ✓ |
-| VisitSessionPage | Visit 완결 | 목적 혼재 | ~~다단 동등~~ → R1-1 요약 히어로 · 상세 접기 · 파이프라인 유지 | 10초 기록 UX | P0 ✓ R1-1 |
+| VisitSessionPage | Visit 완결 | 목적 혼재 | ~~다단 동등~~ → R1-1 요약 히어로 · R1-2 이야기/관찰 접힘 · 파이프라인 유지 | 10초+30초 UX | P0 ✓ R1-1·R1-2 |
 | showSoriModalBottomSheet | 공용 sheet | glass 남용 | 리스트 sheet까지 glass | solid default · Peek만 glass | P0 |
 | UnifiedHomeFeed ×2 | 발견 | 목적 중복 | home=community | surface 역할 분리 | P0 |
 | DirectorMyPageView | 사장 책상 | 영어·위계 | 탭 한국어 · 오늘=큐→경영peek→일정 | P0 ✓ |

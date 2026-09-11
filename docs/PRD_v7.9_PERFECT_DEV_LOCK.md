@@ -1,10 +1,10 @@
 # SORI v7.9 — 완벽 개발 잠금 (Perplexity 회신 흡수)
 
-**Status:** **PO Yes 1–7 확정** · **R1-1 chrome Expand 구현 완료** (파이프라인 교체 아님)  
+**Status:** **PO Yes 1–7 확정** · **R1-1 배포됨** · **R1-2 진행**  
 **원 요청:** `docs/PRD_v7.9_PERFECT_DEV_MATERIALS_REQUEST.md`  
 **회신일:** 2026-09-11  
 **PO 확정:** 2026-09-11 · 1~7 Yes · R1-1 승인(요약 우선 chrome)  
-**다음:** R1-2 (30초 접힘 콘텐츠) 별도 승인 후 · R1-3 완료 후 이동은 보류
+**다음:** R1-2 배포 후 R1-3 (완료 후 이동)
 
 ---
 
@@ -140,3 +140,4 @@ VisitSession 통과: *요약 한 문장 남기면 완료 가능함이 즉시 보
 | 2026-09-11 | Perplexity 회신 흡수 · 구현 금지 · PO Yes/No 대기 |
 | 2026-09-11 | PO 1–7 전부 Yes · R1-1 구현 대기 |
 | 2026-09-11 | **R1-1 구현** — 요약 히어로 · Plan 상세 접기 · CTA brand · pop/consent 계약 유지 |
+| 2026-09-11 | **R1-1 배포** `e78b994` · **R1-2** 이야기·관찰 접힘(`directorInsight` Expand) |

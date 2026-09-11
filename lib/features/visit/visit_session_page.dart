@@ -68,6 +68,7 @@ class VisitSessionPage extends StatefulWidget {
 class _VisitSessionPageState extends State<VisitSessionPage> {
   late final SignatureController _signatureController;
   late final TextEditingController _summaryCtrl;
+  late final TextEditingController _insightCtrl;
   bool _busy = false;
   bool _baWarm = false;
 
@@ -128,6 +129,9 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     _summaryCtrl = TextEditingController(
       text: _chart?.treatmentSummary.trim() ?? '',
     );
+    _insightCtrl = TextEditingController(
+      text: _chart?.directorInsight.trim() ?? '',
+    );
     widget.store.addListener(_onStore);
     _hydrateFromChart();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -140,6 +144,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     widget.store.removeListener(_onStore);
     _signatureController.dispose();
     _summaryCtrl.dispose();
+    _insightCtrl.dispose();
     super.dispose();
   }
 
@@ -206,6 +211,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
       await widget.store.updateCustomerChartFields(
         chartId: chart.id,
         treatmentSummary: treatmentSummary,
+        directorInsight: _insightCtrl.text.trim(),
         homeCarePrescriptions: homeCarePrescriptions,
       );
 
@@ -254,6 +260,10 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     if (_summaryCtrl.text.trim() != summary) {
       _summaryCtrl.text = summary;
     }
+    final insight = chart.directorInsight.trim();
+    if (_insightCtrl.text.trim() != insight) {
+      _insightCtrl.text = insight;
+    }
   }
 
   /// 요약만 차트에 반영 — visitChecked/동의/발행을 건드리지 않는다.
@@ -268,6 +278,163 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
         treatmentSummary: text,
       );
     } catch (_) {}
+  }
+
+  /// 관찰(directorInsight)만 반영 — 완료/동의 상태를 건드리지 않는다.
+  Future<void> _persistInsightOnly() async {
+    final chart = _chart;
+    if (chart == null) return;
+    final text = _insightCtrl.text.trim();
+    if (text == chart.directorInsight.trim()) return;
+    try {
+      await widget.store.updateCustomerChartFields(
+        chartId: chart.id,
+        directorInsight: text,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _openThirtySecondDetails() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 8,
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModal) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '더 자세히 남기기',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '요약은 그대로 두고, 이야기·관찰만 보조로 남깁니다.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '고객 이야기',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '고객이 원한 점이나 확인한 내용을 남겨 보세요.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: ChartInterviewChips.skinConcerns.map((c) {
+                        final selected = _concerns.contains(c);
+                        return FilterChip(
+                          label: Text(c),
+                          selected: selected,
+                          onSelected: (_) {
+                            setState(() {
+                              if (_concerns.contains(c)) {
+                                _concerns.remove(c);
+                              } else {
+                                _concerns.add(c);
+                              }
+                            });
+                            setModal(() {});
+                            unawaited(_persistConcerns());
+                          },
+                          selectedColor:
+                              VisitGlassTokens.care.withValues(alpha: 0.25),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      '관찰',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '원장이 확인한 점을 짧게 남겨 보세요.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _insightCtrl,
+                      maxLines: 3,
+                      minLines: 2,
+                      onEditingComplete: _persistInsightOnly,
+                      decoration: InputDecoration(
+                        hintText: '관찰 메모 (선택)',
+                        filled: true,
+                        fillColor: SoriTokens.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '홈케어·다음 일정은 다음 관리 단계에서 남길 수 있어요.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SoriTokens.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () {
+                          unawaited(_persistInsightOnly());
+                          Navigator.pop(ctx);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SoriTokens.brand,
+                          foregroundColor: SoriTokens.onBrand,
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('확인'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _setPhase(VisitPhase phase) async {
@@ -382,8 +549,12 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
         chartId: chart.id,
         visitNumber: chart.visitNumber,
         careName: chart.careName,
-        treatmentSummary: chart.treatmentSummary,
-        directorInsight: chart.directorInsight,
+        treatmentSummary: _summaryCtrl.text.trim().isEmpty
+            ? chart.treatmentSummary
+            : _summaryCtrl.text.trim(),
+        directorInsight: _insightCtrl.text.trim().isEmpty
+            ? chart.directorInsight
+            : _insightCtrl.text.trim(),
         concernChips: _concerns.toList(),
         firstVisitFearChips: chart.firstVisitFearChips,
         revisitFeedbackChips: chart.revisitFeedbackChips,
@@ -540,11 +711,12 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
             ),
           if (_isNewFlow)
             const _NewCustomerOnboardingBanner(),
-          // R1-1: Level 1 — 오늘의 케어 요약 (phase와 무관하게 최상단).
+          // R1-1/R1-2: 요약 히어로 · 30초 상세는 시트로 (본문 Column overflow 방지).
           _CareSummaryHero(
             controller: _summaryCtrl,
             chart: chart,
             onPersist: _persistSummaryOnly,
+            onOpenDetails: _openThirtySecondDetails,
           ),
           _PhaseRail(current: phase, onJump: _setPhase),
           Expanded(
@@ -643,11 +815,13 @@ class _CareSummaryHero extends StatefulWidget {
     required this.controller,
     required this.chart,
     required this.onPersist,
+    required this.onOpenDetails,
   });
 
   final TextEditingController controller;
   final CustomerChart? chart;
   final VoidCallback onPersist;
+  final VoidCallback onOpenDetails;
 
   @override
   State<_CareSummaryHero> createState() => _CareSummaryHeroState();
@@ -755,6 +929,26 @@ class _CareSummaryHeroState extends State<_CareSummaryHero> {
                 fontSize: 12,
                 height: 1.35,
                 color: SoriTokens.textTertiary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: widget.onOpenDetails,
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.textSecondary,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(48, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  '더 자세히 남기기',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1555,14 +1749,12 @@ class _ConsultPhase extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          firstVisit ? '고객 이야기' : '고객 이야기',
+          '고객 이야기',
           style: VisitGlassTokens.displayKpi(context).copyWith(fontSize: 20),
         ),
         const SizedBox(height: 6),
         Text(
-          firstVisit
-              ? '고객이 원한 점이나 확인한 내용을 남겨 보세요.'
-              : '고객이 원한 점이나 확인한 내용을 남겨 보세요.',
+          '상단「더 자세히 남기기」에서 이야기·관찰을 남길 수 있어요. 필요할 때만 대면 상담을 여세요.',
           style: VisitGlassTokens.bodyCalm.copyWith(
             color: SoriTokens.textSecondary,
           ),
@@ -1596,26 +1788,39 @@ class _ConsultPhase extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        Text(
-          '상태 칩',
-          style: VisitGlassTokens.captionCalm.copyWith(
-            color: VisitGlassTokens.care,
+        const SizedBox(height: 12),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            tilePadding: EdgeInsets.zero,
+            title: Text(
+              concerns.isEmpty
+                  ? '상태 칩 보조 보기'
+                  : '상태 칩 보조 보기 (${concerns.length})',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: SoriTokens.textSecondary,
+              ),
+            ),
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ChartInterviewChips.skinConcerns.map((c) {
+                  final selected = concerns.contains(c);
+                  return FilterChip(
+                    label: Text(c),
+                    selected: selected,
+                    onSelected: (_) => onToggleConcern(c),
+                    selectedColor: VisitGlassTokens.care.withValues(alpha: 0.25),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: ChartInterviewChips.skinConcerns.map((c) {
-            final selected = concerns.contains(c);
-            return FilterChip(
-              label: Text(c),
-              selected: selected,
-              onSelected: (_) => onToggleConcern(c),
-              selectedColor: VisitGlassTokens.care.withValues(alpha: 0.25),
-            );
-          }).toList(),
         ),
         const SizedBox(height: 24),
         FilledButton(

@@ -31,6 +31,7 @@ void main() {
 
     expect(find.text('오늘의 케어 요약'), findsOneWidget);
     expect(find.text('오늘 어떤 케어를 진행했나요?'), findsOneWidget);
+    expect(find.text('더 자세히 남기기'), findsWidgets);
     expect(
       find.textContaining('사진은 필요할 때 추가할 수 있어요'),
       findsWidgets,
@@ -39,5 +40,11 @@ void main() {
     expect(find.text('촬영'), findsWidgets);
     expect(find.text('상담'), findsWidgets);
     expect(find.text('계획'), findsWidgets);
+
+    // R1-2: 시트에 이야기·관찰
+    await tester.tap(find.text('더 자세히 남기기').first);
+    await tester.pumpAndSettle();
+    expect(find.text('관찰'), findsOneWidget);
+    expect(find.text('고객 이야기'), findsWidgets);
   });
 }
