@@ -122,10 +122,13 @@ class PostHeader extends StatelessWidget {
           if (data.isBoosted)
             Padding(
               padding: const EdgeInsets.only(right: 2, top: 2),
-              child: Icon(
-                Icons.local_fire_department_rounded,
-                size: dense ? 18 : 20,
-                color: SoriTokens.warningText,
+              child: Semantics(
+                label: '홍보',
+                child: Icon(
+                  Icons.local_fire_department_rounded,
+                  size: dense ? 18 : 20,
+                  color: SoriTokens.warningText,
+                ),
               ),
             ),
           _buildMoreButton(context),

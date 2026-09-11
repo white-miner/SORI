@@ -69,6 +69,23 @@ abstract final class CategoryPresentationMap {
   static const composeDraftCta = '임시 저장';
   static const composeMoreCategories = '더 보기';
 
+  /// Product chrome (UI only — analytics/event keys unchanged).
+  static const analytics = '경영';
+  static const dashboard = '사장 책상';
+  static const insights = '이번 달 흐름';
+  static const insightsAlt = '이런 변화가 보여요';
+  static const featured = '대표 사례';
+  static const save = '저장';
+  static const saved = '저장한 콘텐츠';
+  static const unpublish = '커뮤니티 공개 중단';
+  static const delete = '삭제';
+  static const more = '더 보기';
+  static const viewPost = '게시물 보기';
+  static const recommendFeed = '추천 글';
+  static const boostPromo = '홍보';
+  static const viewCustomerMode = '고객 화면으로 보기';
+  static const viewDirectorDesk = '사장 책상으로 돌아가기';
+
   static const Map<String, CategoryPresentation> _byKey = {
     'whisper': whisper,
     'tip': tip,

@@ -41,7 +41,9 @@ void main() {
         chartOpenedAt: DateTime.utc(2026, 9, 1, 3),
         currentStepStartedAt: DateTime.utc(2026, 9, 1, 3, 10),
         status: VisitTimerStatus.consulting,
+        updatedAt: DateTime.utc(2026, 9, 1, 4),
       );
+      // updated_at uses DateTime.now() when unset — pin it so two map calls match.
       expect(timer.toLocalJson(), timer.toMap());
     });
   });

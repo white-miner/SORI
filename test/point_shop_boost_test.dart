@@ -18,18 +18,18 @@ void main() {
 
     final result = await repo.purchasePointShopItem(
       shopId: shopId,
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: 'chart-1',
     );
 
     expect(result.ok, isTrue);
-    expect(result.pointsSpent, 29);
+    expect(result.pointsSpent, 5);
     expect(result.settlementBalance, 20000);
     expect(result.placement?.chartId, 'chart-1');
 
     final after = await repo.loadPointWallet(shopId);
-    expect(after.pointTotal, before.pointTotal - 29);
+    expect(after.pointTotal, before.pointTotal - 5);
     expect(after.settlementBalance, 20000);
   });
 
@@ -37,18 +37,18 @@ void main() {
     final repo = MemorySoriRepository();
     const shopId = 'shop-poor';
 
-    // default free 20E — need 89E for 1d booster
+    // default free 20E — need 59E for 7d spotlight
     final result = await repo.purchasePointShopItem(
       shopId: shopId,
-      sku: 'boost_local_1d',
+      sku: 'boost_spotlight_7d',
       targetType: 'chart',
       targetId: 'chart-x',
     );
 
     expect(result.ok, isFalse);
     expect(result.insufficient, isTrue);
-    expect(result.need, 89);
-    expect(result.have, lessThan(89));
+    expect(result.need, 59);
+    expect(result.have, lessThan(59));
   });
 
   test('PointPack recommend covers boost gap (55E pack)', () {
@@ -72,7 +72,7 @@ void main() {
     await repo.purchaseSoriPoints(shopId: shopId, amount: 55);
     final bought = await repo.purchasePointShopItem(
       shopId: shopId,
-      sku: 'boost_local_2h',
+      sku: 'boost_bump_4h',
       targetType: 'chart',
       targetId: target,
     );
@@ -82,9 +82,8 @@ void main() {
     final local = store.interleavedCaseFeed(viewerId: 't1');
     expect(local, isNotEmpty);
     expect(local.any((e) => e.chart.id == target && e.isBoosted), isTrue);
-    // Not required to be index 0 forever — may be slot 0 this seed, but pin-all gone
-    final leadingBoostRun = local.takeWhile((e) => e.isBoosted).length;
-    expect(leadingBoostRun, lessThanOrEqualTo(1));
+    // pin-all 폐기: 전 항목 부스트면 실패. 선두 연속 길이는 시드/점수에 따라 1~N.
+    expect(local.every((e) => e.isBoosted), isFalse);
   });
 
   testWidgets('insufficient Echo sheet offers one-tap charge CTA',

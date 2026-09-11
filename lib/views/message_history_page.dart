@@ -189,7 +189,7 @@ class _DirectorInbox extends StatelessWidget {
                 border: Border.all(color: SoriTokens.border),
               ),
               child: Text(
-                'Supporter 감사 Whisper 대기 $pending건',
+                '감사 인사 대기 $pending건',
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
@@ -234,7 +234,7 @@ class _DirectorInbox extends StatelessWidget {
                         if (ok) await onThankSent();
                       },
                       icon: const Icon(Icons.mail_outline_rounded, size: 18),
-                      label: const Text('Thank Whisper'),
+                      label: const Text('감사 인사 보내기'),
                     )
                   : supporter != null && supporter.hasThankYou
                       ? const Row(
@@ -247,7 +247,7 @@ class _DirectorInbox extends StatelessWidget {
                             ),
                             SizedBox(width: 4),
                             Text(
-                              'Sent',
+                              '보냄',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -288,8 +288,8 @@ class _DirectorInbox extends StatelessWidget {
       };
 
   String _defaultTitle(String kind) => switch (kind) {
-        'fan_boost' => 'Supporter Boost',
-        'special_supporter' => 'Special Supporter',
+        'fan_boost' => '후원 부스트',
+        'special_supporter' => '스페셜 후원',
         'whisper' =>
           CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
         'case_bookmark' => '케이스 저장',
@@ -356,10 +356,10 @@ class _CustomerInbox extends StatelessWidget {
                   icon: Icons.volunteer_activism_outlined,
                   iconColor: Color(0xFFF472B6),
                   title: g.hasThankYou
-                      ? 'Thank Whisper 도착'
-                      : 'My Supporter · ${g.caseTitle}',
+                      ? '감사 인사가 도착했어요'
+                      : '후원 · ${g.caseTitle}',
                   body: g.hasThankYou
-                      ? '${g.shopName}에서 감사 Whisper를 보냈어요.'
+                      ? '${g.shopName}에서 감사 인사를 보냈어요.'
                       : '${g.echoSpent}E · ${g.shopName}',
                   time: g.createdAt,
                 ),

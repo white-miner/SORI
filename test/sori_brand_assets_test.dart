@@ -3,23 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/theme/sori_brand_assets.dart';
 
 void main() {
-  test('logo switches by brightness to SVG paths', () {
+  test('logo uses single logo_sori.svg for all brightness', () {
     expect(
       SoriBrandAssets.logoForBrightness(Brightness.dark),
-      'assets/images/logo_white.svg',
+      SoriBrandAssets.logoSoriSvg,
     );
     expect(
       SoriBrandAssets.logoForBrightness(Brightness.light),
-      'assets/images/logo_black.svg',
+      SoriBrandAssets.logoSoriSvg,
     );
+    expect(SoriBrandAssets.logoSoriSvg, 'assets/images/logo_sori.svg');
   });
 
-  test('outline asset path is SVG', () {
-    expect(SoriBrandAssets.outline, 'assets/images/logo_outline.svg');
+  test('outline asset path matches logo_sori.svg', () {
+    expect(SoriBrandAssets.outline, SoriBrandAssets.logoSoriSvg);
   });
 
-  test('logo height tokens are in 44–52 band', () {
-    expect(SoriBrandAssets.logoHeight, inInclusiveRange(44, 52));
+  test('logo height tokens: GNB 34, hero 48–52 band', () {
+    expect(SoriBrandAssets.logoHeightGnb, 34);
+    expect(SoriBrandAssets.logoHeight, 48);
     expect(SoriBrandAssets.logoHeightHero, inInclusiveRange(44, 52));
   });
 }

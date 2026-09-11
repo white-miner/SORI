@@ -12,15 +12,15 @@ enum HabitRailKind {
 
   String get label => switch (this) {
         HabitRailKind.forYou => '맞춤 추천',
-        HabitRailKind.boostSpotlight => '부스트',
+        HabitRailKind.boostSpotlight => '홍보',
         HabitRailKind.sameStruggle => '같은 고민',
-        HabitRailKind.mentoringLive => '멘토링 Live',
+        HabitRailKind.mentoringLive => '멘토링 진행',
       };
 
   String get subtitle => switch (this) {
         HabitRailKind.forYou => '팔로우·티어 기반 추천',
-        HabitRailKind.boostSpotlight => '부스터 케이스',
-        HabitRailKind.sameStruggle => 'Whisper 공감',
+        HabitRailKind.boostSpotlight => '홍보 중인 케이스',
+        HabitRailKind.sameStruggle => '조용한 이야기 공감',
         HabitRailKind.mentoringLive => '조언 구하는 케이스',
       };
 }

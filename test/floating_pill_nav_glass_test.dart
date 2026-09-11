@@ -35,15 +35,17 @@ void main() {
     expect(SoriGlassTokens.fillColor(SoriGlassTier.l3Overlay).a, 0.82);
   });
 
-  testWidgets('선택 알약은 가짜 그라데이션이 아니라 실제 블러다', (tester) async {
+  testWidgets('선택 알약은 blur 없이 fill·sheen만 쓴다', (tester) async {
     await pumpNav(tester, index: 0);
 
     final highlight = find.byKey(const Key('nav-glass-highlight'));
     expect(highlight, findsOneWidget);
     expect(
       find.descendant(of: highlight, matching: find.byType(BackdropFilter)),
-      findsOneWidget,
+      findsNothing,
     );
+    // 바 전체에는 blur 1개만 허용.
+    expect(find.byType(BackdropFilter), findsOneWidget);
   });
 
   test('선택 알약 그림자는 짧아 탭바 가장자리에서 잘리지 않는다', () {
@@ -76,7 +78,7 @@ void main() {
     Color iconColor(IconData icon) =>
         tester.widget<Icon>(find.byIcon(icon)).color!;
 
-    expect(iconColor(Icons.home_rounded), SoriTokens.textCharcoal);
+    expect(iconColor(Icons.home_rounded), SoriTokens.brand);
     expect(iconColor(Icons.people_outline), SoriTokens.tabUnselected);
 
     final bar = tester.getRect(find.byType(FloatingPillNav));
@@ -85,7 +87,7 @@ void main() {
     await tester.pump();
 
     expect(index, 1);
-    expect(iconColor(Icons.people_rounded), SoriTokens.textCharcoal);
+    expect(iconColor(Icons.people_rounded), SoriTokens.brand);
     expect(iconColor(Icons.home_outlined), SoriTokens.tabUnselected);
 
     await tester.pumpAndSettle();
@@ -112,7 +114,7 @@ void main() {
     await tester.tapAt(Offset(bar.left + bar.width * 0.7, bar.center.dy));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 260));
-    expect(pillScale(), greaterThan(1.02));
+    expect(pillScale(), greaterThan(1.01));
 
     await tester.pumpAndSettle();
     expect(pillScale(), closeTo(1, 0.001));

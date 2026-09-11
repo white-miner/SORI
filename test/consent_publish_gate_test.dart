@@ -55,4 +55,38 @@ void main() {
       );
     });
   });
+
+  group('gate judgment + alertMessage frozen', () {
+    test('allowsPublish only for ok', () {
+      expect(ConsentPublishGate.ok.allowsPublish, isTrue);
+      expect(ConsentPublishGate.notSigned.allowsPublish, isFalse);
+      expect(ConsentPublishGate.offlineOnly.allowsPublish, isFalse);
+      expect(ConsentPublishGate.missingMarketing.allowsPublish, isFalse);
+    });
+
+    test('alertMessage contract unchanged', () {
+      expect(ConsentPublishGate.ok.alertMessage, '');
+      expect(
+        ConsentPublishGate.notSigned.alertMessage,
+        '고객의 정보 활용 동의서 서명이 필요합니다.',
+      );
+      expect(
+        ConsentPublishGate.offlineOnly.alertMessage,
+        '고객의 SNS 공유 동의가 필요합니다.',
+      );
+      expect(
+        ConsentPublishGate.missingMarketing.alertMessage,
+        '고객의 SNS 공유 동의가 필요합니다.',
+      );
+    });
+  });
+
+  group('badgeLabel Korean UI only', () {
+    test('Korean badge labels for each gate', () {
+      expect(ConsentPublishGate.ok.badgeLabel, 'SNS 공개 가능');
+      expect(ConsentPublishGate.notSigned.badgeLabel, '동의 대기');
+      expect(ConsentPublishGate.offlineOnly.badgeLabel, '샵 내부 전용');
+      expect(ConsentPublishGate.missingMarketing.badgeLabel, 'SNS 동의 필요');
+    });
+  });
 }

@@ -11,17 +11,24 @@ import 'package:sori/services/sori_store.dart';
 import 'package:sori/services/visit_trigger_service.dart';
 import 'package:sori/views/admin_chart_page.dart';
 import 'package:sori/views/customer_review_page.dart';
-import 'package:sori/views/my_app.dart';
+import 'package:sori/views/entry_home_page.dart';
 
 void main() {
-  testWidgets('Landing shows brand slogan and social logins', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Landing shows brand slogan and Kakao login', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: EntryHomePage(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('소통하는 리뷰, SORI'), findsOneWidget);
+    expect(find.text('소통하는 리뷰'), findsOneWidget);
     expect(find.text('카카오로 시작하기'), findsOneWidget);
-    expect(find.text('네이버로 시작하기'), findsOneWidget);
-    expect(find.text('Google로 시작하기'), findsOneWidget);
-    expect(find.text('Apple로 시작하기'), findsOneWidget);
+    // Product: Kakao-only entry (other social CTAs retired from landing).
+    expect(find.text('네이버로 시작하기'), findsNothing);
+    expect(find.text('Google로 시작하기'), findsNothing);
+    expect(find.text('Apple로 시작하기'), findsNothing);
   });
 
   testWidgets('Admin chart has no psychology CTAs', (WidgetTester tester) async {
@@ -35,13 +42,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('새 차트 작성'), findsOneWidget);
+    expect(find.text('1초 간편 차트'), findsOneWidget);
     expect(find.text('후기 수락하기'), findsNothing);
     expect(find.text('수정하기'), findsNothing);
     expect(find.text('답글 피드백 요청'), findsNothing);
   });
 
-  testWidgets('Customer review requires last-4 then shows Ikea composer',
+  testWidgets('Customer review requires Kakao then opens composer gate',
       (WidgetTester tester) async {
     final store = SoriStore();
     final opened = store.confirmVisit(chartId: 'chart-1');
@@ -57,14 +64,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('본인 확인'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '5678');
-    await tester.tap(find.text('확인'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('조립하는 후기'), findsOneWidget);
-    expect(find.text('속당김 해결'), findsOneWidget);
-    expect(find.textContaining('네이버에 리뷰'), findsOneWidget);
+    expect(find.text('카카오로 1초 로그인'), findsOneWidget);
+    expect(find.textContaining('카카오 로그인 후'), findsOneWidget);
+    expect(find.text('본인 확인'), findsNothing);
   });
 
   test('social onboarding director enables mode toggle and tutorial', () {

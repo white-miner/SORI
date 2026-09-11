@@ -118,7 +118,7 @@ class SoriGlassActionDock extends StatelessWidget {
                         enabled: boostEnabled,
                         size: chipSize,
                         loading: loading,
-                        tooltip: '부스트',
+                        tooltip: '홍보',
                         onTap: loading ? null : onBoost,
                         onLongPress: onBoostLongPress ?? onBoost,
                       ),

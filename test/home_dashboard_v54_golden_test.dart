@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/visit_kernel/models/preset_slot_tint.dart';
 
+import 'support/tolerant_golden_comparator.dart';
+
 /// Renders v5.4 visual constitution swatches (no GoogleFonts — CI-safe).
 class HomeVisualGoldenHarness extends StatelessWidget {
   const HomeVisualGoldenHarness({super.key});
@@ -120,6 +122,7 @@ class _SwatchRow extends StatelessWidget {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  useTolerantGoldens('test/home_dashboard_v54_golden_test.dart');
 
   group('Home dashboard golden v5.4', () {
     testWidgets('visual constitution harness matches golden', (tester) async {

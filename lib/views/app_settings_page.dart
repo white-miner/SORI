@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -5,10 +6,15 @@ import '../models/session_user.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/category_presentation_map.dart';
+import '../utils/sori_nav.dart';
 import '../widgets/review_qr_modal.dart';
+import 'message_history_page.dart';
 import 'my_info_edit_page.dart';
+import 'shop_settings_page.dart';
 
-/// 앱 시스템 설정 — 모드 토글 · 로그아웃 · 계정 (마이 프로필과 분리).
+/// 앱 시스템 설정 — R4 IA: 계정 → 샵 공개 → 알림 → 고급.
+/// Stub(언어·밀도·결제)은 노출하지 않는다. 모드 toggle은 셸 결과형만.
 class AppSettingsPage extends StatelessWidget {
   const AppSettingsPage({super.key, this.store});
 
@@ -43,61 +49,6 @@ class AppSettingsPage extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              const _SettingsSectionLabel('모드'),
-              _SettingsCard(
-                child: Column(
-                  children: [
-                    if (session.canToggleMode)
-                      SwitchListTile.adaptive(
-                        contentPadding: const EdgeInsets.fromLTRB(4, 0, 0, 0),
-                        secondary: const Icon(
-                          Icons.swap_horiz_rounded,
-                          color: SoriTokens.primary,
-                        ),
-                        title: Text(
-                          isDirector ? '원장 모드' : '고객 모드',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: Text(
-                          isDirector
-                              ? '고객 모드로 전환하면 팔로워 홈을 볼 수 있어요'
-                              : '원장 모드로 전환하면 샵 관리 대시보드를 열어요',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        value: isDirector,
-                        activeThumbColor: SoriTokens.primary,
-                        onChanged: (_) {
-                          s.toggleActiveMode();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isDirector ? '고객 모드로 전환' : '원장 모드로 전환',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: SoriTokens.primary,
-                            ),
-                          );
-                        },
-                      )
-                    else
-                      ListTile(
-                        leading: const Icon(
-                          Icons.lock_outline_rounded,
-                          color: SoriTokens.primary,
-                        ),
-                        title: Text(
-                          isDirector ? '원장 모드' : '고객 모드',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: const Text('이 계정은 모드 전환이 제한됩니다'),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
               const _SettingsSectionLabel('계정'),
               _SettingsCard(
                 child: Column(
@@ -135,16 +86,130 @@ class AppSettingsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const _SettingsSectionLabel('세션'),
+              const _SettingsSectionLabel('내 샵과 공개'),
+              _SettingsCard(
+                child: Column(
+                  children: [
+                    if (isDirector)
+                      _SettingsTile(
+                        icon: Icons.storefront_outlined,
+                        title: '샵 공개 · 프로필',
+                        onTap: () {
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ShopSettingsPage(),
+                            ),
+                          );
+                        },
+                      )
+                    else
+                      const ListTile(
+                        leading: Icon(
+                          Icons.storefront_outlined,
+                          color: SoriTokens.primary,
+                        ),
+                        title: Text(
+                          '샵 공개 설정',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text('원장 모드에서 관리할 수 있어요'),
+                      ),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.info_outline_rounded,
+                        color: SoriTokens.textSecondary,
+                      ),
+                      title: const Text(
+                        '모드 전환',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(
+                        session.canToggleMode
+                            ? '상단 셸의「${isDirector ? CategoryPresentationMap.viewCustomerMode : CategoryPresentationMap.viewDirectorDesk}」에서 전환해요'
+                            : '이 계정은 모드 전환이 제한됩니다',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const _SettingsSectionLabel('알림'),
               _SettingsCard(
                 child: _SettingsTile(
-                  icon: Icons.logout_rounded,
-                  title: '로그아웃',
-                  danger: true,
-                  onTap: () {
-                    s.logout();
-                    context.go(AppPaths.home);
+                  icon: Icons.notifications_outlined,
+                  title: '알림함',
+                  onTap: () async {
+                    await s.refreshShopNotifications();
+                    if (!context.mounted) return;
+                    await pushRootPage<void>(
+                      context,
+                      Scaffold(
+                        backgroundColor: SoriTokens.background,
+                        appBar: AppBar(
+                          title: const Text('알림'),
+                          backgroundColor: SoriTokens.surface,
+                          foregroundColor: SoriTokens.textPrimary,
+                          elevation: 0,
+                        ),
+                        body: MessageHistoryPage(embedded: true, store: s),
+                      ),
+                    );
                   },
+                ),
+              ),
+              const SizedBox(height: 20),
+              const _SettingsSectionLabel('고급'),
+              _SettingsCard(
+                child: Column(
+                  children: [
+                    if (kDebugMode)
+                      _SettingsTile(
+                        icon: Icons.bug_report_outlined,
+                        title: '진단 · 디버그',
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('개발 빌드 진단은 이 메뉴에서만 열려요'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                    _SettingsTile(
+                      icon: Icons.logout_rounded,
+                      title: '로그아웃',
+                      danger: true,
+                      onTap: () async {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('로그아웃'),
+                            content: const Text('이 기기에서 로그아웃할까요?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('취소'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: SoriTokens.destructive,
+                                ),
+                                child: const Text('로그아웃'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok != true) return;
+                        s.logout();
+                        if (context.mounted) context.go(AppPaths.home);
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -193,19 +258,12 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shadowColor: Colors.black.withValues(alpha: 0.03),
       child: child,
     );
   }
@@ -226,19 +284,20 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = danger ? SoriTokens.destructive : SoriTokens.primary;
     return ListTile(
-      leading: Icon(
-        icon,
-        color: danger ? SoriTokens.systemRed : SoriTokens.primary,
-      ),
+      leading: Icon(icon, color: color),
       title: Text(
         title,
         style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: danger ? SoriTokens.systemRed : SoriTokens.textPrimary,
+          fontWeight: FontWeight.w800,
+          color: danger ? SoriTokens.destructive : SoriTokens.textPrimary,
         ),
       ),
-      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: Colors.grey.shade400,
+      ),
       onTap: onTap,
     );
   }
