@@ -110,3 +110,4 @@
 | 2026-09-11 | 조사 요청 초안 |
 | 2026-09-11 | Perplexity 회신 잠금 · Phase A/B/C 승인 문구 · **구현 금지** |
 | 2026-09-11 | 최종 검토 AC 3문 · **Phase A Approved** · 헬퍼 clearance=content padding |
+| 2026-09-11 | **Phase B·C Approved·구현** · GPS CTA는 C.1(geolocator 없음) |
