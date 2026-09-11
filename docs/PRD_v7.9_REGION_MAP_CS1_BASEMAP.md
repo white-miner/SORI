@@ -52,44 +52,47 @@ Quiet Local Canvas → 조용한 배경 → 콘텐츠 마커 먼저 → sheet와
 
 ---
 
-## 2. 후보
+## 2. 후보 (Local Bloom · A 철회 후)
 
-| ID | 후보 | 방식 | 초기 판단 |
+| ID | 후보 | 방식 | 수정 판단 |
 |----|------|------|-----------|
-| **0** | OSM Standard | 현행/기준선 | 기준선만 · 채택 비권고 |
-| **A** | Stadia Alidade Smooth | 라이트 래스터 XYZ | **1순위** · 저채도·POI 적음·marker 중심 |
-| **B** | MapTiler Base Light | 래스터/벡터 | **2순위** · C.S2 확장 용이 |
-| **C** | MapTiler Dataviz Light | 라이트 스타일 | **3순위** · 대비↑ · BI 느낌 주의 |
-| D | MapTiler Streets Pastel | 파스텔 | 첫 후보 비권고 · 의미색 경쟁 |
-| E | 임의 공개 래스터 | 제3자 | 프로토타입만 · 프로덕션 비권고 |
+| **0** | OSM Standard | 현행/기준선 | **임시 운영** · 기능 기준선 |
+| **D** | MapTiler Streets Pastel | 파스텔 도시 래스터 | **1순위** · Local Bloom 방향 |
+| **B** | MapTiler Base Light | 래스터/벡터 | 비교 유지 · C.S2 확장 |
+| **A** | Stadia Alidade Smooth | 라이트 래스터 XYZ | **채택 철회·보류** · 저채도 SaaS감 |
+| **C** | MapTiler Dataviz Light | 라이트 스타일 | 보조 비교 · BI 인상 |
+| E | SORI Local Bloom 커스텀 | 커스텀 스타일 | **C.S2 최종 목표** |
+| T | Carto Light | 임시 | 비교만 · 비채택 |
 
 ### 추천 비교 세트
 
 ```
-0 OSM · A Alidade Smooth · B Base Light · C Dataviz Light
+0 OSM · D Streets Pastel · B Base Light · A Alidade Smooth · C Dataviz · T Carto
 ```
 
 ### URL 패턴 (비교용 · 키 하드코딩 금지)
 
 | 후보 | 예시 패턴 | 키 |
 |------|-----------|-----|
-| A Stadia | `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png` | 플랜·도메인·proxy/Edge 검토 |
-| B/C MapTiler | 공급자 raster XYZ / style endpoint | Edge·domain restriction |
-| 0 OSM | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | 공개 서버 정책·attribution 필수 |
+| 0 OSM | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | 공개 · attribution 필수 |
+| D Pastel | `https://api.maptiler.com/maps/streets-v2-pastel/{z}/{x}/{y}.png?key=` | MAPTILER · Origins |
+| B/C MapTiler | basic-v2 / dataviz-light raster | 동일 |
+| A Stadia | `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png` | domain auth (키리스) |
 
-키는 Flutter Web 번들 **금지**. Attribution(공급자+OSM) 항상 노출.
+키는 Flutter Web 번들 **금지**(채택·도메인 제한 전). Attribution(공급자+OSM) 항상 노출.
 
-### 토큰 적합성 (초안)
+### 토큰 적합성 (Local Bloom · 초안)
 
-| SORI 목표 | A Smooth | B Base Light | C Dataviz | D Pastel |
-|-----------|:--------:|:------------:|:---------:|:--------:|
-| 저채도 베이스 | 높음 | 높음 | 높음 | 중간 |
-| POI 최소화 | 높음 | 중간 | 높음 | 낮~중 |
-| marker 대비 | 높음 | 높음 | 매우 높음 | 중간 |
-| sheet 조화 | 높음 | 중~높 | 중간 | 높음 |
-| 길 가독성 | 높음 | 높음 | 중~높 | 매우 높음 |
-| BI 느낌 회피 | 높음 | 높음 | 중간 | 높음 |
-| C.S2 확장 | 중간 | 매우 높음 | 매우 높음 | 매우 높음 |
+| SORI 목표 | D Pastel | B Base | A Smooth | C Dataviz |
+|-----------|:--------:|:------:|:--------:|:---------:|
+| 도시 생동감 | 높음 | 중~높 | 낮음 | 중간 |
+| 색감 피로도(낮을수록 좋음) | 중 | 중 | 낮음 | 중~높 |
+| POI 최소화 | 중 | 중간 | 높음 | 높음 |
+| marker 대비 | 중~높 | 높음 | 높음 | 매우 높음 |
+| sheet 조화 | 높음 | 중~높 | 높음 | 중간 |
+| 길·동네 인지 | 높음 | 중~높 | 중간 | 중간 |
+| BI 느낌 회피 | 높음 | 높음 | 중간 | 낮음 |
+| C.S2 Local Bloom 확장 | 중간(출발점) | 높음 | 낮음 | 중간 |
 
 ---
 
