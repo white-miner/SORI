@@ -509,12 +509,26 @@ default featured = 0 허용 · 자동 미러 금지
 
 setFeatured(id): if published && consented && featured.count<5
 unsetFeatured(id): featured만 제거 · published 유지
-revokeConsent(id) / unpublish(id) / delete:
-  published=false AND featured 제거 AND 커뮤니티·프로필 미디어 동시 비노출
-
-UI 권고: 선택 모드 + 최대 5 + 길게 눌러 정렬
-  (체크박스만 / 드래그만 단독 = 비권고 · 별 아이콘은 보조)
+revokeConsent / unpublish / delete / 이미지없음:
+  커뮤니티·프로필 **표시** 동시 비노출
+  prefs ID는 자동 unset하지 않음(표시만 필터) · 원장 의도 복원 가능
 ```
+
+**로컬 저장 (Phase 5 MVP):**  
+featured 선택·순서는 **현재 기기 로컬 설정**. 서버/다기기 동기화·백업·복구는 비범위.  
+앱 데이터 삭제·재설치 시 초기화될 수 있음. 로컬 유실은 새 공개를 만들지 않으며 `caseShared`/consent를 변경하지 않음.  
+서버 동기화는 별도 계약·마이그레이션 PRD.
+
+**매 렌더 필터 (잠금):**
+
+```
+displayFeaturedCases =
+  profileFeaturedBaIds 순서 유지
+  AND chart 존재 AND caseShared AND consent AND 이미지 존재
+```
+
+UI 권고: 선택 모드 + 최대 5 + 선택 순=표시 순 (드래그 최소화).  
+관리 CTA는 **원장(isOwner)만** · 외부 방문자 노출 금지.
 
 ---
 
@@ -862,6 +876,22 @@ v7.9에서는 자동 알림·자동 메시지·자동 상태 변경을 **feature
 | 5 | 프로필 대표 B/A 0~5 · 예약\|문의 |
 | — | 고객 타임라인 · 10초 방문 기록 작업대 · 경영 ★시간당수익 |
 
+### 17.4 Phase 5 — **Approved** (2026-09-11 · 조건부 가드 잠금)
+
+**승인 문구:**
+
+> Phase 5 승인: MASTER §16.4·§17 및 UI/UX BRIEF를 준수하여, 공개 프로필에 원장이 명시 선택·정렬한 대표 B/A 쇼케이스 0~5개와 외부 예약/문의 CTA를 Expand 방식으로 추가한다. 대표 선택은 현재 기기의 샵별 로컬 설정으로만 저장하며, `caseShared`·동의·이미지 유효 조건을 매 렌더 시 재검증한다. 대표 해제는 커뮤니티 공개를 철회하지 않으며, 공개·동의 철회 또는 이미지/차트 부재는 커뮤니티 및 프로필 쇼케이스에서 비노출한다. 기존 `Shop.naverBookingOrPlaceUrl`이 유효하면 `예약하기`, 없으면 공개 전화번호의 `문의하기`, 둘 다 없으면 CTA를 숨기고 안내만 표시한다. Timer, `VisitTimerStore`, 일정·큐·결제·경영 ZONE, `caseShared`의 기존 의미, SQL 마이그레이션 및 `sori_store` 대규모 리팩터링은 범위 밖이며 수정하지 않는다.
+
+**가드 5:**
+
+1. featured = 기기 로컬 · 서버/다기기 동기화 비범위 · 재설치 시 초기화 가능 · 유실≠새공개/`caseShared`변경  
+2. 매 렌더 `displayFeatured` 재검증 · 상태 변화 시 prefs 자동 unset 금지(표시만 필터)  
+3. CTA: 유효 URL→예약하기(외부) · 없으면 전화→문의하기 · 둘 다 없으면 버튼 숨김+「예약 방법을 준비 중이에요」 · URL 열기 실패 시 가짜 예약 성공 금지  
+4. `대표 사례 관리`는 isOwner만 · 외부 방문자 노출 금지  
+5. `caseShared`/동의/featured 독립 · 대표 해제≠커뮤니티 철회
+
+**파일(≤5):** `profile_showcase.dart` · `profile_featured_ba_local.dart` · `director_fandom_profile_page.dart` · `profile_featured_ba_picker_sheet.dart` · `test/profile_showcase_test.dart`
+
 ---
 
 ## 14. 변경 로그 (갱신)
@@ -878,3 +908,4 @@ v7.9에서는 자동 알림·자동 메시지·자동 상태 변경을 **feature
 | 2026-09-11 | **UI/UX BRIEF** · §17 Phase 1 계획 · 구현 금지 |
 | 2026-09-11 | Phase 1 Acceptance **8항** 잠금 · 승인 한정 문구 · **PO 승인 대기** · `lib/` 금지 |
 | 2026-09-11 | **§5.1-A** · Phase 1 **Approved** · 홈 glance·마이 읽기 패널 구현 |
+| 2026-09-11 | **§17.4 Phase 5 Approved** · §16.4 로컬 featured·표시필터 가드 · 구현 |

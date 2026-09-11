@@ -1,17 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../features/visit/profile_showcase.dart';
+import '../features/visit/widgets/profile_featured_ba_picker_sheet.dart';
 import '../models/customer_chart.dart';
+import '../models/session_user.dart';
+import '../services/profile_featured_ba_local.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../widgets/before_after_slider.dart';
 import '../widgets/feed_ba_frame.dart';
 import '../widgets/sori_logo.dart';
 
-/// 원장 브랜드 프로필 — 소식 · B/A 케이스 · 스토리.
+/// 원장 브랜드 프로필 — 소식 · 대표 B/A · 스토리 · 예약|문의 CTA.
 class DirectorFandomProfilePage extends StatefulWidget {
-  const DirectorFandomProfilePage({super.key, required this.store});
+  const DirectorFandomProfilePage({
+    super.key,
+    required this.store,
+    this.isOwner,
+  });
 
   final SoriStore store;
+
+  /// null이면 director 세션일 때만 관리 CTA (외부 공개 URL은 명시 false).
+  final bool? isOwner;
 
   @override
   State<DirectorFandomProfilePage> createState() =>
@@ -20,11 +32,19 @@ class DirectorFandomProfilePage extends StatefulWidget {
 
 class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
   SoriStore get store => widget.store;
+  List<String> _featuredIds = const [];
+  bool _loadingFeatured = true;
+
+  bool get _isOwner {
+    if (widget.isOwner != null) return widget.isOwner!;
+    return store.session?.activeMode == UserRole.director;
+  }
 
   @override
   void initState() {
     super.initState();
     store.addListener(_onStore);
+    _loadFeatured();
   }
 
   @override
@@ -37,17 +57,20 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
     if (mounted) setState(() {});
   }
 
-  List<CustomerChart> get _cases {
-    final out = <CustomerChart>[];
-    for (final chart in store.charts) {
-      if (!chart.caseShared || !chart.isConsentSigned) continue;
-      final b = chart.beforeImageUrl?.trim() ?? '';
-      final a = chart.afterImageUrl?.trim() ?? '';
-      if (b.isEmpty && a.isEmpty) continue;
-      out.add(chart);
-    }
-    return out;
+  Future<void> _loadFeatured() async {
+    final ids = await ProfileFeaturedBaLocal.load(store.shop.id);
+    if (!mounted) return;
+    setState(() {
+      _featuredIds = ids;
+      _loadingFeatured = false;
+    });
   }
+
+  List<CustomerChart> get _displayCases =>
+      ProfileShowcase.displayFeaturedCases(
+        featuredIds: _featuredIds,
+        charts: store.charts,
+      );
 
   String get _title {
     final shopName =
@@ -57,6 +80,72 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
     return owner.contains('원장') ? '$shopName $owner' : '$shopName $owner 원장';
   }
 
+  ProfilePublicCta get _cta => ProfileShowcase.resolveCta(
+        bookingOrPlaceUrl: store.shop.naverBookingOrPlaceUrl,
+        phone: store.shop.phone,
+      );
+
+  Future<void> _onCta() async {
+    final cta = _cta;
+    if (!cta.showsButton || cta.launchUri == null) return;
+    try {
+      final ok = await launchUrl(
+        cta.launchUri!,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && mounted) {
+        _ctaFailedFallback(cta);
+      }
+    } catch (_) {
+      if (mounted) _ctaFailedFallback(cta);
+    }
+  }
+
+  void _ctaFailedFallback(ProfilePublicCta attempted) {
+    if (attempted.kind == ProfilePublicCtaKind.book) {
+      final phoneCta = ProfileShowcase.resolveCta(
+        bookingOrPlaceUrl: '',
+        phone: store.shop.phone,
+      );
+      if (phoneCta.showsButton) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('예약 페이지를 열 수 없어요. 문의하기를 이용해 주세요.'),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: '문의하기',
+              onPressed: () async {
+                final uri = phoneCta.launchUri;
+                if (uri == null) return;
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              },
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('연결에 실패했어요. 잠시 후 다시 시도해 주세요.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _openFeaturedPicker() async {
+    if (!_isOwner) return;
+    final next = await showProfileFeaturedBaPickerSheet(
+      context: context,
+      charts: store.charts,
+      initialFeaturedIds: _featuredIds,
+    );
+    if (next == null || !mounted) return;
+    await ProfileFeaturedBaLocal.save(store.shop.id, next);
+    if (!mounted) return;
+    setState(() => _featuredIds = next);
+  }
+
   @override
   Widget build(BuildContext context) {
     final following = store.isFollowingShop();
@@ -64,7 +153,10 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
         ? '오늘도 건강한 피부를 선물해 드릴게요'
         : store.todayHomecareTip.trim();
     final slides = store.gallerySlides;
-    final cases = _cases;
+    final cases = _displayCases;
+    final cta = _cta;
+    final showShowcaseSection =
+        _isOwner || cases.isNotEmpty || (_isOwner && _loadingFeatured);
 
     return Scaffold(
       backgroundColor: SoriTokens.background,
@@ -159,6 +251,40 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                     ),
                   ),
                 ),
+                if (cta.showsButton) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _onCta,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SoriTokens.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: SoriTokens.primary),
+                      ),
+                      child: Semantics(
+                        button: true,
+                        label: cta.label,
+                        hint: cta.semanticsHint,
+                        child: Text(
+                          cta.label,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else if (cta.helperText != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    cta.helperText!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -242,62 +368,104 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
                 },
               ),
             ),
-          const SizedBox(height: 22),
-          Text(
-            'B/A 케이스 모음 · ${cases.length}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          if (cases.isEmpty)
-            const Text(
-              '공유된 케이스가 없습니다',
-              style: TextStyle(color: SoriTokens.textSecondary),
-            )
-          else
-            ...cases.take(8).map((chart) {
-              final care =
-                  chart.careName.trim().isEmpty ? '관리 케어' : chart.careName;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: SoriTokens.surface,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FeedBaFrame(
-                        child: BeforeAfterSlider(
-                          aspectRatio: 1.0,
-                          maxHeight: FeedBaFrame.maxSide,
-                          borderRadius: BorderRadius.zero,
-                          before: ChartImagePane(
-                            url: chart.beforeImageUrl,
-                            fallbackLabel: 'Before',
-                            tone: SoriTokens.primary,
-                          ),
-                          after: ChartImagePane(
-                            url: chart.afterImageUrl,
-                            fallbackLabel: 'After',
-                            tone: SoriTokens.primary,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          care,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ],
+          if (showShowcaseSection) ...[
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    cases.isEmpty
+                        ? '대표 사례'
+                        : '대표 사례 · ${cases.length}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              );
-            }),
+                if (_isOwner)
+                  TextButton(
+                    onPressed: _openFeaturedPicker,
+                    style: TextButton.styleFrom(
+                      foregroundColor: SoriTokens.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text(
+                      '대표 사례 관리',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (_loadingFeatured)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (cases.isEmpty)
+              Text(
+                _isOwner
+                    ? (store.charts.any(ProfileShowcase.isShowcaseEligible)
+                        ? '대표 사례를 선택해 보세요'
+                        : '커뮤니티 공개·동의된 사례가 생기면 선택할 수 있어요')
+                    : '등록된 대표 사례가 아직 없어요',
+                style: const TextStyle(color: SoriTokens.textSecondary),
+              )
+            else
+              ...cases.map(_buildCaseCard),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCaseCard(CustomerChart chart) {
+    final care =
+        chart.careName.trim().isEmpty ? '관리 케어' : chart.careName.trim();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: SoriTokens.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FeedBaFrame(
+              child: BeforeAfterSlider(
+                aspectRatio: 1.0,
+                maxHeight: FeedBaFrame.maxSide,
+                borderRadius: BorderRadius.zero,
+                before: ChartImagePane(
+                  url: chart.beforeImageUrl,
+                  fallbackLabel: 'Before',
+                  tone: SoriTokens.primary,
+                ),
+                after: ChartImagePane(
+                  url: chart.afterImageUrl,
+                  fallbackLabel: 'After',
+                  tone: SoriTokens.primary,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                care,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
