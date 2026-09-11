@@ -1,3 +1,4 @@
+import '../utils/category_presentation_map.dart';
 import 'community_case_item.dart';
 import 'community_post.dart';
 import 'seminar_class.dart';
@@ -17,11 +18,15 @@ enum CommunityFeedFilter {
   String get label => switch (this) {
         CommunityFeedFilter.all => '전체',
         CommunityFeedFilter.ba => 'B/A',
-        CommunityFeedFilter.whisper => 'Whisper',
-        CommunityFeedFilter.seminar => '세미나',
+        CommunityFeedFilter.whisper =>
+          CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
+        CommunityFeedFilter.seminar =>
+          CategoryPresentationMap.labelOf('seminar', fallback: '세미나'),
         CommunityFeedFilter.mentoring => '멘토링',
-        CommunityFeedFilter.deviceReview => '기기리뷰',
-        CommunityFeedFilter.productReview => '제품리뷰',
+        CommunityFeedFilter.deviceReview =>
+          CategoryPresentationMap.labelOf('tip_device', fallback: '기기리뷰'),
+        CommunityFeedFilter.productReview =>
+          CategoryPresentationMap.labelOf('tip_product', fallback: '제품리뷰'),
         CommunityFeedFilter.marketplace => '중고거래',
         CommunityFeedFilter.interior => '샵 인테리어',
       };

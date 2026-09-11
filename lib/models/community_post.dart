@@ -1,3 +1,4 @@
+import '../utils/category_presentation_map.dart';
 import '../utils/db_map.dart';
 import 'shop_tier_badge.dart';
 
@@ -21,11 +22,14 @@ enum CommunityPostType {
 
   String get label => switch (this) {
         CommunityPostType.interior => '인테리어',
-        CommunityPostType.deviceReview => '기기 리뷰',
+        CommunityPostType.deviceReview =>
+          CategoryPresentationMap.labelOf('tip_device', fallback: '기기 리뷰'),
         CommunityPostType.marketplace => '중고',
         CommunityPostType.caseShare => '케이스',
-        CommunityPostType.seminar => '세미나',
-        CommunityPostType.whisper => 'Whisper',
+        CommunityPostType.seminar =>
+          CategoryPresentationMap.labelOf('seminar', fallback: '세미나'),
+        CommunityPostType.whisper =>
+          CategoryPresentationMap.labelOf('whisper', fallback: '조용한 이야기'),
       };
 
   static CommunityPostType fromDb(String? raw) {

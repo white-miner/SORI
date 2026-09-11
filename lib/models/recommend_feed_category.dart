@@ -1,3 +1,4 @@
+import '../utils/category_presentation_map.dart';
 import 'unified_feed_item.dart';
 
 /// PRD v7.8 C4 — 추천 탭 카테고리 (초안 id 고정).
@@ -15,9 +16,12 @@ enum RecommendFeedCategory {
   interior('interior', '인테리어'),
   usedMarket('used_market', '중고');
 
-  const RecommendFeedCategory(this.id, this.label);
+  const RecommendFeedCategory(this.id, this._fallbackLabel);
   final String id;
-  final String label;
+  final String _fallbackLabel;
+
+  String get label =>
+      CategoryPresentationMap.labelOf(id, fallback: _fallbackLabel);
 
   /// 통합 피드 아이템 → 카테고리 (마이그레이션 없이 파생).
   static RecommendFeedCategory fromUnified(UnifiedFeedItem item) {
