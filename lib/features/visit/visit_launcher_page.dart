@@ -838,6 +838,18 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: ListenableBuilder(
+                listenable: widget.store,
+                builder: (context, _) => HomeScheduleGlance(
+                  store: widget.store,
+                  onTap: _openSchedulerSheet,
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: HomeQuickActionRow(
                 onNewCustomer: _startNewCustomerFlow,
                 onReturningCustomer: _startReturningCustomerFlow,
