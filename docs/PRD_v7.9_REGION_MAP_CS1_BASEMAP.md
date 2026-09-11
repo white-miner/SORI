@@ -1,4 +1,4 @@
-# SORI — C.S1 Quiet Local Canvas 후보 비교 · 렌더링 검수
+# SORI — C.S1 Local Bloom 후보 비교 · 렌더링 검수
 
 **Status:** A 채택 철회 · **SORI Local Bloom** · 운영 OSM · 우선 **D Streets Pastel** · C.S2 = Local Bloom 커스텀  
 **비교 로그 SSOT:** `PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`  
@@ -9,22 +9,23 @@
 
 ## 0. 목표
 
-C.S1은 타일 URL 교체가 아니라 **SORI 글·세미나 marker / cluster / Peek sheet가 가장 먼저 읽히는 Quiet Local Canvas 1개 선정**이다.
+C.S1은 타일 URL 교체가 아니라 **예쁜 도시 결 위에서 글·세미나 marker / cluster / Peek가 먼저 읽히는 Local Bloom 베이스맵 1개 선정**이다.
 
 ```
-기존 OSM → 도로·POI·라벨이 지배 → SORI UI 묻힘
-Quiet Local Canvas → 조용한 배경 → 콘텐츠 마커 먼저 → sheet와 한 제품
+기존 Quiet Local (A) → 저채도 SaaS → 생동감 부족 → 채택 철회
+Local Bloom → 컬러 도시 캔버스 + marker 2색 → sheet는 웜 뉴트럴
+경로: D Streets Pastel 검수 → (채택 시) 운영 → C.S2 커스텀 E
 ```
 
 | 검수 질문 | 통과 |
 |-----------|------|
-| 3초: 지역·콘텐츠 존재 | 중심·클러스터·마커 즉시 |
-| 1초: SORI 마커 발견 | POI/도로보다 marker 대비 높음 |
-| 지도↔sheet 동일 제품감 | 웜 뉴트럴 sheet와 저채도 지도 충돌 없음 |
-| 길·동네 인지 | 주요 도로·공원·물·지명 유지 |
-| OSM·종이 지도 느낌 | 있으면 **탈락** |
-| 과도 감성·일러스트 | 있으면 **탈락** |
-| Web 안정 | HTTPS·CORS·Referer·attribution·키 정책 |
+| 3초: 동네가 살아 있음 | 물·공원·도로·블록이 읽힘 |
+| 1초: SORI 마커 발견 | 베이스맵보다 marker 우선 |
+| 색감 피로도 | 컬러가 marker·sheet를 압도하지 않음 |
+| 지도↔sheet | 웜 sheet ↔ 컬러 지도가 한 제품 |
+| OSM·종이 / BI 대시보드 | 있으면 **감점·탈락 후보** |
+| 핑크 필터·위성 기본 | 있으면 **탈락** |
+| Web 안정 | HTTPS·CORS·Origins·attribution·키 정책 |
 
 **분업:** Cursor = 동일 fixture 렌더·비교표·기술 결과 · PO = 스크린샷 미감 선택 · **PO 선택 전 운영 tile URL 교체 금지.**
 
@@ -174,34 +175,38 @@ AND 탈락 체크 0개
 ## 5. Cursor 브리프 (복붙)
 
 ```md
-# SORI C.S1 Quiet Local Canvas 후보 비교
+# SORI C.S1 Local Bloom 후보 비교
 
-목적: OSM을 꾸미지 말고, 글·세미나 marker + Peek가 먼저 읽히는
-저채도 라이트 베이스맵 1개 선정.
+목적: 무채색 Quiet Local이 아니라, 예쁜 도시 캔버스 위에서
+글·세미나 marker + Peek가 먼저 읽히는 베이스맵 1개 선정.
 
-후보: 0 OSM | A Stadia Alidade Smooth | B MapTiler Base Light | C MapTiler Dataviz Light
+후보: 0 OSM | D Streets Pastel | B Base Light | A Alidade Smooth | C Dataviz | T Carto
+우선: D Pastel · 운영 기본은 OSM(재채택 전)
 
-Fixture: 동일 lat/lng/zoom/bearing/pitch · 글4 · 세미나2 · cluster1 · selected1 · Peek · GPS/저장함
+Fixture: 동일 lat/lng/zoom · 글4 · 세미나2 · cluster1 · selected1 · Peek · GPS/저장함
 
-각 후보 렌더: 무마커 / 저줌+cluster / 중줌+6 / selected+Peek / Half+[전체][글][세미나]
+각 후보: 무마커 / 저줌+cluster / 중줌+6 / selected+Peek / Half+필터
+점수: Marker·Cluster·Sheet·밀도 + 도시 생동감·색감 피로도 (≥4)
 
-금지: 파스텔5색 · OSM 종이감 · ColorFilter · 베이지 overlay · 위성 기본 · 과한 POI · 그라데이션 cluster
-제출: URL·attribution·key·CORS·성능 표 + 비교표. PO 선택 전 운영 tile 교체 금지.
+금지: 지도 ColorFilter · 베이지/핑크 overlay · 위성 기본 · 마커 5색 · cluster 그라데이션 · SDK 교체 · 키 하드코딩
+제출: URL·attribution·key·CORS 표 + 점수. PO 선택 전 운영 tile 교체 금지.
 ```
 
 ---
 
-## 6. 최종 권고 (잠금 · 채택은 검수 후)
+## 6. 최종 권고 (방향 잠금 · 채택은 검수 후)
 
 | 순위 | 후보 |
 |-----:|------|
-| 1 | **Stadia Alidade Smooth** |
-| 2 | MapTiler Base Light |
-| 3 | MapTiler Dataviz Light |
-| 기준선 | OSM Standard (채택 비목표) |
+| 1 | **MapTiler Streets Pastel (D)** |
+| 2 | MapTiler Base Light (B) |
+| 보류 | Stadia Alidade Smooth (A) — 채택 철회 |
+| 보조 | MapTiler Dataviz Light (C) |
+| 임시 운영 | OSM Standard (재채택 전) |
+| 최종 목표 | E SORI Local Bloom 커스텀 (C.S2) |
 
 최종은 예시 이미지가 아니라 **SORI fixture 실렌더**로만 결정한다.  
-채택 기준 = 단독으로 예쁜가 ❌ · **SORI 마커·클러스터·sheet가 가장 잘 읽히는가** ✅.
+채택 기준 = 지도만 예쁜가 ❌ · **생동감 + marker·cluster·sheet가 함께 읽히는가** ✅.
 
 ---
 
@@ -212,3 +217,4 @@ Fixture: 동일 lat/lng/zoom/bearing/pitch · 글4 · 세미나2 · cluster1 · 
 | 2026-09-11 | C.S1 후보·검수표·절차·브리프 잠금 · 운영 URL 사전 교체 금지 · Carto=임시 부채 |
 | 2026-09-11 | 채택 조건 강화(핵심4≥4) · COMPARE_LOG를 PO 검수 SSOT로 연결 |
 | 2026-09-11 | COMPARE_LOG Ready · tile 정상/비정상 · fixture 보호 · T N/A · a11y · 교차 검수 |
+| 2026-09-11 | **A 철회** · Local Bloom · D Pastel 1순위 · 운영 OSM |
