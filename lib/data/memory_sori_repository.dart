@@ -504,6 +504,12 @@ class MemorySoriRepository implements SoriRepository {
   }) async {}
 
   @override
+  Future<void> updateChartHomeHiddenAt({
+    required String chartId,
+    required DateTime hiddenAt,
+  }) async {}
+
+  @override
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,
     String? careName,

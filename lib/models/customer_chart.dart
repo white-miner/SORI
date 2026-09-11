@@ -36,6 +36,7 @@ class CustomerChart {
     this.consentOfflineOnly = false,
     this.signatureUrl,
     this.caseShared = false,
+    this.homeHiddenAt,
     this.homeCarePrescriptions = const [],
     this.guardianPhone,
     this.infoViewConsent = false,
@@ -94,6 +95,9 @@ class CustomerChart {
 
   /// 관리 케이스 공개 공유 여부 (동의 서명 완료 차트만 true 가능).
   final bool caseShared;
+
+  /// 홈「관리 케이스」숨김 시각. null이면 홈 노출. caseShared와 무관.
+  final DateTime? homeHiddenAt;
 
   /// 홈케어 처방 태그 ID 목록.
   final List<String> homeCarePrescriptions;
@@ -303,6 +307,7 @@ class CustomerChart {
     String? signatureUrl,
     String? consentPdfUrl,
     bool? caseShared,
+    DateTime? homeHiddenAt,
     List<String>? homeCarePrescriptions,
     String? guardianPhone,
     bool? infoViewConsent,
@@ -318,6 +323,7 @@ class CustomerChart {
     bool clearSignatureUrl = false,
     bool clearConsentPdfUrl = false,
     bool clearGuardianPhone = false,
+    bool clearHomeHiddenAt = false,
   }) {
     return CustomerChart(
       id: id ?? this.id,
@@ -361,6 +367,9 @@ class CustomerChart {
       consentPdfUrl:
           clearConsentPdfUrl ? null : (consentPdfUrl ?? this.consentPdfUrl),
       caseShared: caseShared ?? this.caseShared,
+      homeHiddenAt: clearHomeHiddenAt
+          ? null
+          : (homeHiddenAt ?? this.homeHiddenAt),
       homeCarePrescriptions:
           homeCarePrescriptions ?? this.homeCarePrescriptions,
       guardianPhone: clearGuardianPhone
@@ -532,6 +541,7 @@ class CustomerChart {
       caseShared: DbMap.asBool(
         map['is_case_shared'] ?? map['case_shared'] ?? map['is_public'],
       ),
+      homeHiddenAt: DbMap.asDateTime(map['home_hidden_at']),
       homeCarePrescriptions: HomecareDictionary.sanitizeTagIds(
         DbMap.asStringList(
           map['prescription_tags'] ?? map['home_care_prescriptions'],

@@ -1473,6 +1473,20 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<void> updateChartHomeHiddenAt({
+    required String chartId,
+    required DateTime hiddenAt,
+  }) async {
+    await _updateChartRow(
+      chartId: chartId,
+      payload: {
+        'home_hidden_at': hiddenAt.toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+  }
+
+  @override
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,
     String? careName,

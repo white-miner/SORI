@@ -235,6 +235,12 @@ abstract class SoriRepository {
     required bool shared,
   });
 
+  /// 홈「관리 케이스」숨김 — home_hidden_at만. caseShared 불변.
+  Future<void> updateChartHomeHiddenAt({
+    required String chartId,
+    required DateTime hiddenAt,
+  });
+
   /// 차트 본문/사진 부분 업데이트 (수정 모드·After 패치·관리 계획).
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,

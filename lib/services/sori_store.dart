@@ -6420,9 +6420,15 @@ class SoriStore implements Listenable {
   }
 
   /// 관리 케이스 피드 원본 — B/A 두 장이 모두 완비된 자기 샵 차트만, 최신순.
+  /// `home_hidden_at`이 있으면 홈에서만 제외 (caseShared 불변).
   List<CustomerChart> managementCaseCharts() {
     final out = charts
-        .where((c) => c.hasBeforeImage && c.hasAfterImage)
+        .where(
+          (c) =>
+              c.hasBeforeImage &&
+              c.hasAfterImage &&
+              c.homeHiddenAt == null,
+        )
         .toList()
       ..sort((a, b) {
         final at = a.feedPostedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -6431,6 +6437,30 @@ class SoriStore implements Listenable {
         return byDate != 0 ? byDate : b.id.compareTo(a.id);
       });
     return out;
+  }
+
+  /// 홈「관리 케이스」숨기기 — home_hidden_at만. 멱등.
+  Future<bool> hideManagementCaseFromHome(String chartId) async {
+    final id = chartId.trim();
+    if (id.isEmpty) return false;
+    final index = charts.indexWhere((c) => c.id == id);
+    if (index < 0) return false;
+    final chart = charts[index];
+    if (chart.homeHiddenAt != null) return true;
+    final now = DateTime.now().toUtc();
+    charts[index] = chart.copyWith(homeHiddenAt: now);
+    _notify();
+    if (_repository.isRemote) {
+      try {
+        await _repository.updateChartHomeHiddenAt(
+          chartId: chart.id,
+          hiddenAt: now,
+        );
+      } catch (e) {
+        debugPrint('hideManagementCaseFromHome remote failed: $e');
+      }
+    }
+    return true;
   }
 
   // ══════════════════════════════════════════════════════════════════════

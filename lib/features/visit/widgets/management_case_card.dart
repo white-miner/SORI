@@ -9,6 +9,7 @@ import '../home_visual_tokens.dart';
 ///
 /// 과거 기록 열람이 아니라 대면 상담용 신뢰 구축 도구다. 회차·케어명·
 /// 고객 키워드가 항상 함께 보여야 하고, 이미지는 좌우 드래그로 비교된다.
+/// 「홈에서 숨기기」= home_hidden_at만 · caseShared 불변.
 class ManagementCaseCard extends StatelessWidget {
   const ManagementCaseCard({
     super.key,
@@ -16,12 +17,14 @@ class ManagementCaseCard extends StatelessWidget {
     required this.bookmarked,
     required this.onBookmark,
     required this.onExpand,
+    this.onHideFromHome,
   });
 
   final CustomerChart chart;
   final bool bookmarked;
   final VoidCallback onBookmark;
   final VoidCallback onExpand;
+  final VoidCallback? onHideFromHome;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +84,25 @@ class ManagementCaseCard extends StatelessWidget {
                     color: HomeVisualTokens.dateTextColor,
                   ),
                 ),
+                if (onHideFromHome != null)
+                  PopupMenuButton<String>(
+                    tooltip: '더보기',
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(
+                      Icons.more_horiz_rounded,
+                      size: 20,
+                      color: HomeVisualTokens.dateTextColor,
+                    ),
+                    onSelected: (value) {
+                      if (value == 'hide_home') onHideFromHome!();
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'hide_home',
+                        child: Text('홈에서 숨기기'),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),

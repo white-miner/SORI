@@ -738,6 +738,11 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     }
   }
 
+  Future<void> _hideCaseFromHome(CustomerChart chart) async {
+    await widget.store.hideManagementCaseFromHome(chart.id);
+    if (mounted) setState(_reloadCaseFeed);
+  }
+
   /// 🟢 카드 탭 — 이관된 케이스를 뷰어로 연다.
   ///
   /// 차트를 못 찾으면(로컬 폴백 등) 뷰어 대신 피드의 해당 카드로 스크롤한다.
@@ -945,6 +950,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   bookmarked: widget.store.isChartBookmarked(chart.id),
                   onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
                   onExpand: () => unawaited(_openCaseCompare(chart)),
+                  onHideFromHome: () =>
+                      unawaited(_hideCaseFromHome(chart)),
                 );
               },
             ),
