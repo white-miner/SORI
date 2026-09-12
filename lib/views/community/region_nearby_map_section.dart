@@ -12,6 +12,7 @@ import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/naver_map_links.dart';
+import '../../utils/region_shop_list_copy.dart';
 import '../../utils/sori_bottom_sheet.dart';
 import '../explore_community_post_page.dart';
 import '../seminar_class_detail_page.dart';
@@ -46,7 +47,7 @@ class RegionNearbyMapSection extends StatefulWidget {
 enum _GpsBanner { none, active, denied, failed }
 
 class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
-  static const _radiiKm = <double>[0.5, 1.0, 2.0];
+  static const _radiiKm = RegionShopListCopy.radiusStepsKm;
 
   final MapController _mapController = MapController();
   final DraggableScrollableController _sheetController =
@@ -72,6 +73,15 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   List<RegionContentBookmark> _savedPreview = const [];
 
   double get _radiusKm => widget.radiusKm;
+  double? get _nextRadiusKm =>
+      RegionShopListCopy.nextRadiusKm(_radiusKm, steps: _radiiKm);
+
+  void _widenRadius() {
+    final next = _nextRadiusKm;
+    if (next == null) return;
+    widget.onRadiusChanged?.call(next);
+  }
+
   LatLng? get _viewCenter => _gpsCenter ?? _baseCenter;
   RegionMapTileSpec get _tile => RegionMapTileCatalog.spec(_tileId);
 
@@ -665,22 +675,31 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             item: _selectedMarket!,
             region: (widget.store.shop.address ?? '').trim(),
           ),
-        if (!_loading && stores.isNotEmpty) ...[
+        if (!_loading && _error == null && _marketSoftError == null) ...[
           const SizedBox(height: 8),
-          const Text(
-            '우리 지역 업체',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          _ShopListSummary(
+            radiusKm: _radiusKm,
+            category: _insight?.category,
+            count: stores.length,
           ),
-          const SizedBox(height: 6),
-          for (var i = 0; i < stores.length; i++)
-            _MarketStoreRow(
-              item: stores[i],
-              index: i,
-              region: (widget.store.shop.address ?? '').trim(),
-              selected: _selectedMarket?.name == stores[i].name &&
-                  _selectedMarket?.distanceM == stores[i].distanceM,
-              onSelect: () => setState(() => _selectedMarket = stores[i]),
-            ),
+          if (stores.isEmpty)
+            _ShopListEmpty(
+              onWiden: _nextRadiusKm == null || widget.onRadiusChanged == null
+                  ? null
+                  : _widenRadius,
+            )
+          else ...[
+            const SizedBox(height: 6),
+            for (var i = 0; i < stores.length; i++)
+              _MarketStoreRow(
+                item: stores[i],
+                index: i,
+                region: (widget.store.shop.address ?? '').trim(),
+                selected: _selectedMarket?.name == stores[i].name &&
+                    _selectedMarket?.distanceM == stores[i].distanceM,
+                onSelect: () => setState(() => _selectedMarket = stores[i]),
+              ),
+          ],
         ],
         const SizedBox(height: 4),
         const Text(
@@ -1062,6 +1081,89 @@ class _Cs1TileCompareBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ShopListSummary extends StatelessWidget {
+  const _ShopListSummary({
+    required this.radiusKm,
+    required this.category,
+    required this.count,
+  });
+
+  final double radiusKm;
+  final String? category;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          RegionShopListCopy.headline(
+            radiusKm: radiusKm,
+            category: category,
+          ),
+          key: const Key('region-shop-list-summary'),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          RegionShopListCopy.countLine(count),
+          key: const Key('region-shop-list-count'),
+          style: const TextStyle(
+            fontSize: 12,
+            color: SoriTokens.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShopListEmpty extends StatelessWidget {
+  const _ShopListEmpty({this.onWiden});
+
+  final VoidCallback? onWiden;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('region-shop-list-empty'),
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '이 조건에서 찾은 뷰티숍이 없어요.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '반경을 넓혀서 다시 찾아보세요.',
+            style: TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (onWiden != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const Key('region-shop-widen-radius'),
+              onPressed: onWiden,
+              child: const Text('반경 넓히기'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
