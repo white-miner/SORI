@@ -22,6 +22,13 @@ abstract final class RegionShopListCopy {
 
   static String countLine(int count) => '$count곳 발견';
 
+  static const emptyTrueZeroTitle = '이 조건에서 찾은 뷰티숍이 없어요.';
+  static const emptyTrueZeroHint = '반경을 넓혀서 다시 찾아보세요.';
+  static const emptyLocationTitle = '현재 위치 기준으로 업체를 찾지 못했어요.';
+  static const emptyLocationHint = '지도 중심이나 현재 위치로 다시 찾아보세요.';
+  static const retryGpsLabel = '현재 위치 다시 사용';
+  static const searchFromMapLabel = '지도 중심으로 찾기';
+
   /// 0 이하는 미기록으로 보고 숨긴다.
   static String? distanceLabel(int meters) {
     if (meters <= 0) return null;

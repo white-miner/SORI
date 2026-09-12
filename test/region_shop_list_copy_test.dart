@@ -19,6 +19,14 @@ void main() {
     );
     expect(RegionShopListCopy.countLine(0), '0곳 발견');
     expect(RegionShopListCopy.countLine(12), '12곳 발견');
+    expect(
+      RegionShopListCopy.emptyTrueZeroTitle,
+      '이 조건에서 찾은 뷰티숍이 없어요.',
+    );
+    expect(
+      RegionShopListCopy.retryGpsLabel,
+      '현재 위치 다시 사용',
+    );
   });
 
   test('detail facts hide missing category, distance, and address', () {
@@ -53,7 +61,11 @@ void main() {
     expect(map.contains("item.categoryLabel.isEmpty ? '상권'"), isFalse);
     expect(map.contains("child: const Text('지도에서 보기')"), isTrue);
     expect(map.contains('interactionOptions: const InteractionOptions('), isTrue);
-    expect(map.contains('NaverMapLinks.uri'), isTrue);
+    expect(map.contains('AreaSearchCenter'), isTrue);
+    expect(map.contains('CircleLayer'), isTrue);
+    expect(map.contains('overrideLat: search.lat'), isTrue);
+    expect(map.contains('_buildMapCanvas(stores)'), isTrue);
+    expect(map.contains('final stores = filter.items'), isTrue);
 
     final sheet = File(
       'lib/views/community/region_map_explore_sheet.dart',
