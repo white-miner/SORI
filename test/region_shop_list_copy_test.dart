@@ -21,6 +21,17 @@ void main() {
     expect(RegionShopListCopy.countLine(12), '12곳 발견');
   });
 
+  test('detail facts hide missing category, distance, and address', () {
+    expect(RegionShopListCopy.distanceLabel(0), isNull);
+    expect(RegionShopListCopy.distanceLabel(-1), isNull);
+    expect(RegionShopListCopy.distanceLabel(180), '180m');
+    expect(RegionShopListCopy.distanceLabel(1000), '1km');
+    expect(RegionShopListCopy.distanceLabel(1500), '1.5km');
+    expect(RegionShopListCopy.visibleText(' 피부 '), '피부');
+    expect(RegionShopListCopy.visibleText(''), isNull);
+    expect(RegionShopListCopy.visibleText('  '), isNull);
+  });
+
   test('next radius follows the existing chip steps and hides at the top', () {
     expect(RegionShopListCopy.nextRadiusKm(0.5), 1.0);
     expect(RegionShopListCopy.nextRadiusKm(1), 2.0);
@@ -38,6 +49,8 @@ void main() {
     expect(map.contains('RegionShopListCopy.headline'), isTrue);
     expect(map.contains("child: const Text('반경 넓히기')"), isTrue);
     expect(map.contains('_widenRadius'), isTrue);
+    expect(map.contains('_ShopDetailFacts'), isTrue);
+    expect(map.contains("item.categoryLabel.isEmpty ? '상권'"), isFalse);
     expect(map.contains("child: const Text('지도에서 보기')"), isTrue);
     expect(map.contains('interactionOptions: const InteractionOptions('), isTrue);
     expect(map.contains('NaverMapLinks.uri'), isTrue);

@@ -22,6 +22,20 @@ abstract final class RegionShopListCopy {
 
   static String countLine(int count) => '$count곳 발견';
 
+  /// 0 이하는 미기록으로 보고 숨긴다.
+  static String? distanceLabel(int meters) {
+    if (meters <= 0) return null;
+    if (meters < 1000) return '${meters}m';
+    final km = meters / 1000;
+    if (km == km.roundToDouble()) return '${km.toInt()}km';
+    return '${km.toStringAsFixed(1)}km';
+  }
+
+  static String? visibleText(String? raw) {
+    final value = raw?.trim() ?? '';
+    return value.isEmpty ? null : value;
+  }
+
   static double? nextRadiusKm(
     double current, {
     List<double> steps = radiusStepsKm,
