@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sori/features/visit/widgets/home_scheduler_strip.dart';
+import 'package:sori/features/visit/widgets/my_today_task_queue_panel.dart';
+import 'package:sori/models/customer.dart';
+import 'package:sori/models/customer_chart.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/visit_kernel/models/care_schedule_entry.dart';
 
@@ -170,5 +173,51 @@ void main() {
     expect(src.contains('onCareStart: _startCareFromSchedule'), isTrue);
     expect(src.contains('onEmptyStart: () => unawaited(_startReturningCustomerFlow())'), isTrue);
     expect(src.contains('unawaited(_startReturningCustomerFlow())'), isTrue);
+  });
+
+  testWidgets('incomplete record queue shows existing chart resume CTA', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    store.charts.add(
+      CustomerChart(
+        id: 'ch1',
+        shopId: 'shop',
+        customerId: 'c1',
+        visitNumber: 1,
+        visitChecked: true,
+        visitCheckedAt: DateTime.now(),
+      ),
+    );
+    store.customers.add(
+      Customer(
+        id: 'c1',
+        shopId: 'shop',
+        name: '김민정',
+        phone: '010',
+        lastTreatmentDate: DateTime(2026, 1, 1),
+        treatmentType: '관리',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _host(MyTodayTaskQueuePanel(store: store)),
+    );
+
+    expect(find.text('지금 처리할 일'), findsOneWidget);
+    expect(find.textContaining('김민정'), findsOneWidget);
+    expect(find.text('시술 요약이 아직 없어요'), findsOneWidget);
+    expect(find.text('기록하기'), findsOneWidget);
+  });
+
+  test('launcher surfaces incomplete-record queue before today glance', () {
+    final src = File('lib/features/visit/visit_launcher_page.dart').readAsStringSync();
+    expect(src.contains('MyTodayTaskQueue.buildIncompleteRecordTasks'), isTrue);
+    expect(src.contains("Key('home-today-followup-queue')"), isTrue);
+    expect(src.contains('MyTodayTaskQueuePanel(store: widget.store)'), isTrue);
+    final queueAt = src.indexOf("Key('home-today-followup-queue')");
+    final glanceAt = src.indexOf('HomeScheduleGlance(');
+    expect(queueAt, greaterThan(0));
+    expect(glanceAt, greaterThan(queueAt));
   });
 }
