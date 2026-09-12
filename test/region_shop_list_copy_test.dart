@@ -22,11 +22,47 @@ void main() {
     expect(RegionShopListCopy.countLine(12), '12곳 발견');
     expect(
       RegionShopListCopy.emptyTrueZeroTitle,
-      '이 조건에서 찾은 뷰티숍이 없어요.',
+      '이 반경에 등록된 업소가 없어요',
     );
     expect(
       RegionShopListCopy.retryGpsLabel,
-      '현재 위치 다시 사용',
+      '내 위치로 찾기',
+    );
+    expect(
+      RegionShopListCopy.findMyLocationLabel,
+      '내 위치로 찾기',
+    );
+    expect(
+      RegionShopListCopy.emptySnapshotUnreadyTitle,
+      '현재 위치 주변 데이터 준비 중',
+    );
+    expect(
+      RegionShopListCopy.showGyeongjuExampleLabel,
+      '경주 예시 지역 보기',
+    );
+    expect(
+      RegionShopListCopy.emptyKind(
+        permissionDeniedOrFailed: true,
+        usingCurrentLocation: false,
+        snapshotCoversCenter: true,
+      ),
+      AreaShopEmptyKind.locationFailed,
+    );
+    expect(
+      RegionShopListCopy.emptyKind(
+        permissionDeniedOrFailed: false,
+        usingCurrentLocation: true,
+        snapshotCoversCenter: false,
+      ),
+      AreaShopEmptyKind.snapshotUnready,
+    );
+    expect(
+      RegionShopListCopy.emptyKind(
+        permissionDeniedOrFailed: false,
+        usingCurrentLocation: true,
+        snapshotCoversCenter: true,
+      ),
+      AreaShopEmptyKind.trueZero,
     );
     expect(
       RegionShopListCopy.searchBasis(AreaSearchSource.gps),
@@ -135,11 +171,20 @@ void main() {
     expect(map.contains("child: const Text('지도에서 보기')"), isTrue);
     expect(map.contains('interactionOptions: const InteractionOptions('), isTrue);
     expect(map.contains('AreaSearchCenter'), isTrue);
+    expect(map.contains('AreaSearchCenter.currentLocation'), isTrue);
+    expect(map.contains('_applyCurrentLocation'), isTrue);
+    expect(map.contains('_mapController.move(point, zoom)'), isTrue);
+    expect(map.contains('OurAreaShopSnapshot.covers'), isTrue);
+    expect(map.contains('RegionShopListCopy.emptyKind'), isTrue);
+    expect(map.contains('RegionShopListCopy.findMyLocationLabel'), isTrue);
+    expect(map.contains('region-shop-show-gyeongju-example'), isTrue);
+    expect(map.contains('region-shop-retry-gps'), isTrue);
     expect(map.contains('CircleLayer'), isTrue);
     expect(map.contains('overrideLat: search.lat'), isTrue);
     expect(map.contains('_buildMapCanvas(stores)'), isTrue);
     expect(map.contains('final stores = _visibleStores'), isTrue);
     expect(map.contains('OurAreaCategory.matches'), isTrue);
+    expect(map.contains('Geolocator.checkPermission'), isFalse);
 
     final sheet = File(
       'lib/views/community/region_map_explore_sheet.dart',

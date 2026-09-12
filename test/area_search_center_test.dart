@@ -51,6 +51,30 @@ void main() {
     expect(AreaSearchCenter.defaultLat, isNot(37.5665));
   });
 
+  test('currentLocation is the GPS search center map/list/count share', () {
+    const lat = 37.5012;
+    const lng = 127.0396;
+    final here = AreaSearchCenter.currentLocation(lat: lat, lng: lng);
+    expect(here.source, AreaSearchSource.gps);
+    expect(here.lat, lat);
+    expect(here.lng, lng);
+
+    final resolved = AreaSearchCenter.resolve(
+      gpsLat: lat,
+      gpsLng: lng,
+      mapLat: AreaSearchCenter.defaultLat,
+      mapLng: AreaSearchCenter.defaultLng,
+    );
+    expect(resolved.lat, here.lat);
+    expect(resolved.lng, here.lng);
+    expect(resolved.source, AreaSearchSource.gps);
+
+    expect(
+      AreaSearchCenter.currentLocation(lat: 0, lng: 0).source,
+      AreaSearchSource.defaultRegion,
+    );
+  });
+
   test('resolve: gps > map camera > shop > default region', () {
     expect(
       AreaSearchCenter.resolve(

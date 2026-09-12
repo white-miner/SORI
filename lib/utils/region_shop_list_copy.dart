@@ -1,5 +1,8 @@
 import 'area_search_center.dart';
 
+/// 빈 목록 원인. 위치 권한 실패와 데이터 커버리지를 섞지 않는다.
+enum AreaShopEmptyKind { locationFailed, snapshotUnready, trueZero }
+
 /// 우리 지역 업체 목록 헤더·빈 결과 카피. 반경 단계는 맵 칩과 동일하다.
 abstract final class RegionShopListCopy {
   static const radiusStepsKm = <double>[0.5, 1.0, 2.0, 3.0, 5.0, 10.0];
@@ -76,12 +79,29 @@ abstract final class RegionShopListCopy {
     return '로컬 데이터 · 기준일 없음';
   }
 
-  static const emptyTrueZeroTitle = '이 조건에서 찾은 뷰티숍이 없어요.';
+  static const emptyTrueZeroTitle = '이 반경에 등록된 업소가 없어요';
   static const emptyTrueZeroHint = '반경을 넓혀서 다시 찾아보세요.';
   static const emptyLocationTitle = '현재 위치 기준으로 업체를 찾지 못했어요.';
   static const emptyLocationHint = '현재 위치를 사용할 수 없어 지도 중심으로 찾고 있어요.';
-  static const retryGpsLabel = '현재 위치 다시 사용';
+  static const emptySnapshotUnreadyTitle = '현재 위치 주변 데이터 준비 중';
+  static const emptySnapshotUnreadyHint = '지금은 경주 지역 예시만 볼 수 있어요.';
+  static const retryGpsLabel = '내 위치로 찾기';
+  static const findMyLocationLabel = retryGpsLabel;
   static const searchFromMapLabel = '지도 중심으로 찾기';
+  static const showGyeongjuExampleLabel = '경주 예시 지역 보기';
+
+  /// GPS 실패와 스냅샷 커버리지를 구분한다. 위치 성공 + 0건은 위치 실패가 아니다.
+  static AreaShopEmptyKind emptyKind({
+    required bool permissionDeniedOrFailed,
+    required bool usingCurrentLocation,
+    required bool snapshotCoversCenter,
+  }) {
+    if (permissionDeniedOrFailed) return AreaShopEmptyKind.locationFailed;
+    if (usingCurrentLocation && !snapshotCoversCenter) {
+      return AreaShopEmptyKind.snapshotUnready;
+    }
+    return AreaShopEmptyKind.trueZero;
+  }
 
   static String searchBasis(AreaSearchSource source) {
     switch (source) {
