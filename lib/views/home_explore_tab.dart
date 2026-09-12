@@ -13,7 +13,6 @@ import '../utils/post_navigation.dart';
 import '../utils/home_explore_search.dart';
 import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
-import '../widgets/app_scroll_behavior.dart';
 import '../widgets/explore/explore_rich_info_card.dart';
 import '../widgets/glass/sori_glass_overlay.dart';
 import '../widgets/glass/sori_glass_tokens.dart';
@@ -326,21 +325,24 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             ),
           ],
           Expanded(
-            child: RefreshIndicator(
-              color: SoriTokens.primary,
-              onRefresh: () async {
-                await Future.wait([
-                  store.refreshUnifiedCommunityFeed(force: true),
-                  store.refreshDiscoverDirectors(query: _query.trim()),
-                ]);
-              },
-              child: _searching
-                  ? (_segment == _SearchSegment.posts
-                      ? _buildPostsResults(bottomInset, scrollPhysics)
-                      : _buildProfileResults(bottomInset, scrollPhysics))
-                  : (_showAllProfiles
-                      ? _buildAllProfiles(bottomInset, scrollPhysics)
-                      : _buildBrowse(bottomInset, scrollPhysics)),
+            child: SoriFeedScrollSurface(
+              controller: widget.scrollController,
+              child: RefreshIndicator(
+                color: SoriTokens.primary,
+                onRefresh: () async {
+                  await Future.wait([
+                    store.refreshUnifiedCommunityFeed(force: true),
+                    store.refreshDiscoverDirectors(query: _query.trim()),
+                  ]);
+                },
+                child: _searching
+                    ? (_segment == _SearchSegment.posts
+                        ? _buildPostsResults(bottomInset, scrollPhysics)
+                        : _buildProfileResults(bottomInset, scrollPhysics))
+                    : (_showAllProfiles
+                        ? _buildAllProfiles(bottomInset, scrollPhysics)
+                        : _buildBrowse(bottomInset, scrollPhysics)),
+              ),
             ),
           ),
         ],
@@ -359,9 +361,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       );
     }
 
-    return ScrollConfiguration(
-      behavior: const SoriScrollBehavior(),
-      child: CustomScrollView(
+    return CustomScrollView(
         key: const Key('explore-browse-scroll'),
         controller: widget.scrollController,
         physics: scrollPhysics,
@@ -427,7 +427,6 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             ),
           ),
       ],
-      ),
     );
   }
 

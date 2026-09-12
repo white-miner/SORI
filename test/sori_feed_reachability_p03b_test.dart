@@ -189,25 +189,27 @@ void main() {
     expect(_phone.height - inset, lessThanOrEqualTo(nav.top - _minClearance));
   });
 
-  test('PR #7 custom ScrollPosition is gone; PR #6 PTR keys remain', () {
+  test('P0-3b feed-local bounce symbols exist; PR #6 PTR keys remain', () {
     final physics = File(
       'lib/utils/sori_feed_scroll_physics.dart',
     ).readAsStringSync();
-    expect(physics.contains('SoriFeedScrollPosition'), isFalse);
-    expect(physics.contains('SoriFeedScrollController'), isFalse);
-    expect(physics.contains('kSoriFeedMaxOvershoot'), isFalse);
-    expect(physics.contains('void pointerScroll'), isFalse);
+    expect(physics.contains('SoriFeedScrollPosition'), isTrue);
+    expect(physics.contains('SoriFeedScrollController'), isTrue);
+    expect(physics.contains('SoriFeedScrollBehavior'), isTrue);
+    expect(physics.contains('kSoriFeedMaxOvershoot'), isTrue);
+    expect(physics.contains('void pointerScroll'), isTrue);
     expect(physics.contains('soriFeedScrollPhysics'), isTrue);
+    expect(physics.contains('buildOverscrollIndicator'), isTrue);
 
     final feed = File('lib/views/unified_home_feed_page.dart').readAsStringSync();
-    expect(feed.contains('SoriFeedScrollController'), isFalse);
-    expect(feed.contains('SoriFeedScrollBehavior'), isFalse);
+    expect(feed.contains('SoriFeedScrollController'), isTrue);
+    expect(feed.contains('SoriFeedScrollSurface'), isTrue);
     expect(feed.contains("key: const Key('feed-recommend-refresh')"), isTrue);
     expect('RefreshIndicator'.allMatches(feed).length, 1);
     expect('padding: _feedListPadding(context)'.allMatches(feed).length, 2);
 
     final explore = File('lib/views/home_explore_tab.dart').readAsStringSync();
-    expect(explore.contains('SoriFeedScrollBehavior'), isFalse);
+    expect(explore.contains('SoriFeedScrollSurface'), isTrue);
     expect(explore.contains('RefreshIndicator'), isTrue);
   });
 
