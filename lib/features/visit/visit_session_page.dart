@@ -32,7 +32,7 @@ import 'ba_recall_overlay.dart';
 import 'consultation_surface_page.dart';
 import 'consultation_track.dart';
 
-enum _VisitCompleteChoice { customerDetail, nextSchedule, close }
+enum _VisitCompleteChoice { customerDetail, nextSchedule, scheduleNext, close }
 
 const double _kVisitPhaseGutter = 20;
 const double _kVisitConsentActionPad = 16;
@@ -660,6 +660,31 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')} $hh:$mm';
   }
 
+  /// Plan phase와 같은 date/time picker → [SoriStore.addManualCareSchedule].
+  Future<DateTime?> _pickNextCareDateTime() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 28)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: '다음 방문 일정',
+    );
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 14, minute: 0),
+    );
+    if (!mounted) return null;
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? 14,
+      time?.minute ?? 0,
+    );
+  }
+
   /// R1-3: Publish/동의 완료 후 다음 행동. 자동 홈 복귀 금지.
   Future<void> _presentVisitCompleteNext(CustomerChart saved) async {
     final customer = _customer;
@@ -729,6 +754,18 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
                   ),
                   child: const Text('다음 일정 보기'),
                 ),
+              ] else ...[
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  key: const Key('visit-complete-schedule-next'),
+                  onPressed: () =>
+                      Navigator.pop(ctx, _VisitCompleteChoice.scheduleNext),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SoriTokens.textPrimary,
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: const Text('다음 케어 일정 잡기'),
+                ),
               ],
               const SizedBox(height: 8),
               TextButton(
@@ -744,6 +781,26 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
 
     if (!mounted) return;
 
+    var createdNext = false;
+    if (choice == _VisitCompleteChoice.scheduleNext) {
+      final at = await _pickNextCareDateTime();
+      if (!mounted) return;
+      if (at != null) {
+        await widget.store.addManualCareSchedule(
+          scheduledAt: at,
+          customerName: customer.name,
+          customerId: customer.id,
+          customerPhone: customer.phone,
+          careLabel: saved.careName.trim().isEmpty
+              ? '다음 관리'
+              : saved.careName.trim(),
+        );
+        createdNext = true;
+      }
+    }
+
+    if (!mounted) return;
+
     final nav = Navigator.of(context);
     final store = widget.store;
     final customerId = customer.id;
@@ -752,7 +809,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     // Leave VisitSession (was pushed from ShootHub). Never auto-jump to Home.
     nav.pop();
 
-    if (choice == _VisitCompleteChoice.customerDetail) {
+    if (choice == _VisitCompleteChoice.customerDetail || createdNext) {
       await nav.push<void>(
         MaterialPageRoute<void>(
           builder: (_) => CustomerChartPage(
