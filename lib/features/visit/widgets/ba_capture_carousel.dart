@@ -18,6 +18,35 @@ import '../home_visual_tokens.dart';
 /// 카드 순서: [B/A 촬영 고정 슬롯] → [🔴 미완성] → [🟢 완성].
 enum BaCarouselFilter { all, incomplete, complete }
 
+/// Staging 사진 삭제 확인. true면 삭제 진행.
+Future<bool> showStagingPhotoDeleteDialog(BuildContext context) async {
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: const Text('사진을 삭제할까요?'),
+        content: const Text(
+          '이 사진은 촬영 목록과 원본 파일에서 삭제돼요. 삭제한 사진은 되돌릴 수 없어요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: SoriTokens.systemRed,
+            ),
+            child: const Text('사진 삭제'),
+          ),
+        ],
+      );
+    },
+  );
+  return go == true;
+}
+
 class BaCaptureCarousel extends StatefulWidget {
   const BaCaptureCarousel({
     super.key,
@@ -27,6 +56,7 @@ class BaCaptureCarousel extends StatefulWidget {
     required this.onBind,
     required this.onDefer,
     required this.onOpen,
+    this.onDiscard,
     this.incompleteCount,
     this.transferringId,
     this.offlineDraft = false,
@@ -51,6 +81,9 @@ class BaCaptureCarousel extends StatefulWidget {
   /// 🟢 카드 탭 — 이관된 관리 케이스를 뷰어로 연다.
   final void Function(BaCaptureSession session) onOpen;
 
+  /// 미연결 draft 폐기. 연결된 카드에는 넘기지 않는다.
+  final Future<void> Function(BaCaptureSession session)? onDiscard;
+
   /// 넛지 배지 숫자. 생략하면 카드 목록에서 계산한다.
   final int? incompleteCount;
 
@@ -63,6 +96,23 @@ class BaCaptureCarousel extends StatefulWidget {
 
 class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
   BaCarouselFilter _filter = BaCarouselFilter.all;
+  String? _discardingId;
+
+  Future<void> _confirmDiscard(BaCaptureSession session) async {
+    if (widget.onDiscard == null) return;
+    if (_discardingId != null) return;
+    if (session.status != BaCaptureStatus.draft || session.hasChart) return;
+
+    final go = await showStagingPhotoDeleteDialog(context);
+    if (!go || !mounted) return;
+
+    setState(() => _discardingId = session.id);
+    try {
+      await widget.onDiscard!(session);
+    } finally {
+      if (mounted) setState(() => _discardingId = null);
+    }
+  }
 
   List<BaCaptureSession> get _visible {
     switch (_filter) {
@@ -168,10 +218,14 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                   session: p,
                   fixedSlot: true,
                   transferring: false,
+                  discarding: p != null && _discardingId == p.id,
                   onCapture: (kind) => widget.onCapture(null, kind),
                   onBind: p == null ? null : () => widget.onBind(p),
                   onDefer: null,
                   onOpen: null,
+                  onDiscard: p == null || widget.onDiscard == null
+                      ? null
+                      : () => _confirmDiscard(p),
                 );
               }
               if (emptyHint != null && index == 1) {
@@ -182,10 +236,14 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                 session: session,
                 fixedSlot: false,
                 transferring: session.id == widget.transferringId,
+                discarding: _discardingId == session.id,
                 onCapture: (kind) => widget.onCapture(session, kind),
                 onBind: () => widget.onBind(session),
                 onDefer: () => widget.onDefer(session),
                 onOpen: () => widget.onOpen(session),
+                onDiscard: widget.onDiscard == null
+                    ? null
+                    : () => _confirmDiscard(session),
               );
             },
           ),
@@ -298,6 +356,8 @@ class _BaCard extends StatelessWidget {
     required this.onBind,
     required this.onDefer,
     required this.onOpen,
+    this.onDiscard,
+    this.discarding = false,
   });
 
   final BaCaptureSession? session;
@@ -305,10 +365,12 @@ class _BaCard extends StatelessWidget {
   /// 좌측 고정 'B/A 촬영' 슬롯인지. 고정 슬롯은 비워도 카드가 유지된다.
   final bool fixedSlot;
   final bool transferring;
+  final bool discarding;
   final void Function(String kind) onCapture;
   final VoidCallback? onBind;
   final VoidCallback? onDefer;
   final VoidCallback? onOpen;
+  final VoidCallback? onDiscard;
 
   @override
   Widget build(BuildContext context) {
@@ -318,6 +380,12 @@ class _BaCard extends StatelessWidget {
     final complete = transferring || (s?.isComplete ?? false);
     final hasPhoto = s?.hasPhoto ?? false;
     final label = fixedSlot ? '' : (s?.label.trim() ?? '');
+    final canDiscard = onDiscard != null &&
+        hasPhoto &&
+        s != null &&
+        s.status == BaCaptureStatus.draft &&
+        !s.hasChart &&
+        !complete;
 
     // 고정 슬롯은 항상 '무엇을 하는 자리'인지로 읽혀야 한다.
     final title = fixedSlot
@@ -410,6 +478,16 @@ class _BaCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (canDiscard)
+                  _MiniIconButton(
+                    key: Key(
+                      fixedSlot
+                          ? 'ba-discard-pending'
+                          : 'ba-discard-${s.id}',
+                    ),
+                    icon: Icons.delete_outline_rounded,
+                    onTap: discarding ? () {} : onDiscard!,
+                  ),
                 if (s != null && onDefer != null && !complete)
                   _MiniIconButton(
                     icon: s.isDeferred
@@ -534,7 +612,11 @@ class _AddGlyph extends StatelessWidget {
 }
 
 class _MiniIconButton extends StatelessWidget {
-  const _MiniIconButton({required this.icon, required this.onTap});
+  const _MiniIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+  });
 
   final IconData icon;
   final VoidCallback onTap;

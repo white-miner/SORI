@@ -718,6 +718,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     }
   }
 
+  Future<void> _discardUnlinkedBaSession(BaCaptureSession session) async {
+    if (_baBusy) return;
+    final result = await widget.store.discardUnlinkedBaSession(session);
+    if (!mounted) return;
+    if (!result.discarded) {
+      _toast('사진을 삭제하지 못했어요. 다시 시도해 주세요.', error: true);
+    }
+  }
+
   /// 고객 연결 — 고정 슬롯의 촬영본이 고객 이름 카드로 분리되는 순간이다.
   ///
   /// 헌법 3에 따라 전체 화면 피커가 아니라 바텀시트 검색으로 즉시 처리한다.
@@ -962,6 +971,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
               onBind: _bindBaSession,
               onDefer: _deferBaSession,
               onOpen: (s) => unawaited(_openBaSession(s)),
+              onDiscard: _discardUnlinkedBaSession,
             ),
           ),
           SliverToBoxAdapter(
