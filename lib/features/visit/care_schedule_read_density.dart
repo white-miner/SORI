@@ -78,6 +78,28 @@ abstract final class CareScheduleReadDensity {
     );
   }
 
+  /// 해당 고객의 오늘 이후 scheduled 중 가장 이른 1건. 없으면 null.
+  static CareScheduleEntry? nextUpcomingForCustomer(
+    Iterable<CareScheduleEntry> all, {
+    required String customerId,
+    DateTime? now,
+  }) {
+    final id = customerId.trim();
+    if (id.isEmpty) return null;
+    final n = now ?? DateTime.now();
+    final startOfToday = DateTime(n.year, n.month, n.day);
+    final list = all
+        .where(
+          (e) =>
+              e.status == CareScheduleStatus.scheduled &&
+              (e.customerId ?? '').trim() == id &&
+              !e.scheduledAt.isBefore(startOfToday),
+        )
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    return list.isEmpty ? null : list.first;
+  }
+
   /// 마이 오늘: cancelled 숨김 · scheduledAt 오름차순 (completed 포함 가능).
   static List<CareScheduleEntry> myTodayReadList(
     Iterable<CareScheduleEntry> all, {
