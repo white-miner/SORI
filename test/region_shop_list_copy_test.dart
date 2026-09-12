@@ -65,6 +65,30 @@ void main() {
     );
     expect(RegionShopListCopy.topCategoryLine('헤어'), '가장 많은 업종은 헤어');
     expect(RegionShopListCopy.topCategoryLine(''), isNull);
+    expect(
+      RegionShopListCopy.provenanceLine(
+        sources: const ['우리 지역 공공데이터 스냅샷', '소상공인시장진흥공단 상가(상권)정보'],
+        snapshotDate: '2026-09-12',
+      ),
+      '로컬 스냅샷 · 기준일 2026-09-12',
+    );
+    expect(
+      RegionShopListCopy.provenanceLine(
+        sources: const ['소상공인시장진흥공단 상가(상권)정보'],
+      ),
+      '소상공인시장진흥공단 상가(상권)정보 · 기준일 없음',
+    );
+    expect(
+      RegionShopListCopy.provenanceLine(sources: const []),
+      '로컬 데이터 · 기준일 없음',
+    );
+    expect(
+      RegionShopListCopy.provenanceLine(
+        sources: const ['우리 지역 공공데이터 스냅샷'],
+        snapshotDate: '',
+      ),
+      '로컬 스냅샷 · 기준일 없음',
+    );
   });
 
   test('detail facts hide missing category, distance, and address', () {
@@ -102,6 +126,8 @@ void main() {
     expect(map.contains("key: const Key('region-shop-insight-mix')"), isTrue);
     expect(map.contains("key: const Key('region-shop-insight-top')"), isTrue);
     expect(map.contains("key: const Key('region-shop-insight-condition')"), isTrue);
+    expect(map.contains("key: const Key('region-shop-provenance')"), isTrue);
+    expect(map.contains('RegionShopListCopy.provenanceLine'), isTrue);
     expect(map.contains("child: const Text('반경 넓히기')"), isTrue);
     expect(map.contains('_widenRadius'), isTrue);
     expect(map.contains('_ShopDetailFacts'), isTrue);

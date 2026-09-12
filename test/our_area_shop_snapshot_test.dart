@@ -16,8 +16,10 @@ void main() {
   }
 
   test('gyeongju snapshot has real WGS84 shops inside 1km of default center', () {
+    final json = fileJson();
+    expect(json['sourceDate'], OurAreaShopSnapshot.sourceDate);
     final items = OurAreaShopSnapshot.parse(
-      fileJson(),
+      json,
       centerLat: AreaSearchCenter.defaultLat,
       centerLng: AreaSearchCenter.defaultLng,
     );
