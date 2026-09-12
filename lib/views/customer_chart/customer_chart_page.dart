@@ -14,6 +14,9 @@ import '../chart_management_page.dart';
 import '../customer_merge_wizard.dart';
 import '../membership_editor_sheet.dart';
 import '../request_customer_review.dart';
+import '../../features/visit/care_schedule_read_density.dart';
+import '../../features/visit/care_start_from_schedule.dart';
+import '../../visit_kernel/models/care_schedule_entry.dart';
 import 'chart_summary.dart';
 
 /// 원장용 고객 차트 (U1–U4) — 타일 허브 대체. 데이터는 Store 읽기만.
@@ -272,6 +275,22 @@ class _CustomerChartPageState extends State<CustomerChartPage>
             child: _SummaryBar(summary: summary),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: _NextCareBanner(
+              entry: CareScheduleReadDensity.nextUpcomingForCustomer(
+                widget.store.careScheduleEntries,
+                customerId: widget.customerId,
+              ),
+              onStart: (entry) {
+                CareStartFromSchedule.begin(
+                  context: context,
+                  store: widget.store,
+                  entry: entry,
+                );
+              },
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: _AlertChips(charts: charts),
           ),
@@ -383,6 +402,64 @@ class _SummaryCell extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NextCareBanner extends StatelessWidget {
+  const _NextCareBanner({
+    required this.entry,
+    required this.onStart,
+  });
+
+  final CareScheduleEntry? entry;
+  final ValueChanged<CareScheduleEntry> onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = entry;
+    if (next == null) return const SizedBox.shrink();
+    final care = next.careLabel.trim();
+    final when =
+        '${next.scheduledAt.month}/${next.scheduledAt.day} ${CareScheduleReadDensity.timeLabel(next.scheduledAt)}';
+    return Material(
+      key: const Key('customer-chart-next-care'),
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                care.isEmpty ? '다음 케어  $when' : '다음 케어  $when  ·  $care',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: SoriTokens.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () => onStart(next),
+              style: FilledButton.styleFrom(
+                backgroundColor: SoriTokens.semanticGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                '케어 시작',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
