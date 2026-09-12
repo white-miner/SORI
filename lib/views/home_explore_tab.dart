@@ -15,6 +15,7 @@ import '../widgets/explore/explore_rich_info_card.dart';
 import '../widgets/glass/sori_glass_overlay.dart';
 import '../widgets/glass/sori_glass_tokens.dart';
 import '../utils/home_explore_search.dart';
+import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
 import 'community_discover_pane.dart';
 
@@ -203,9 +204,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     final bottomInset = SoriShellInsets.scrollBottomInset(context);
     final scrollActive = widget.scrollController != null;
     final scrollPhysics = scrollActive
-        ? const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          )
+        ? soriFeedScrollPhysics
         : const NeverScrollableScrollPhysics();
 
     return ColoredBox(
@@ -363,6 +362,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     return ScrollConfiguration(
       behavior: const SoriScrollBehavior(),
       child: CustomScrollView(
+        key: const Key('explore-browse-scroll'),
         controller: widget.scrollController,
         physics: scrollPhysics,
         slivers: [
