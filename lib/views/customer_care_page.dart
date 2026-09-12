@@ -186,6 +186,26 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                   ),
                 ),
               ),
+            ] else ...[
+              const SizedBox(height: 12),
+              Material(
+                key: const Key('customer-care-next-visit-empty'),
+                color: SoriTokens.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Text(
+                    '다음 방문이 아직 없어요',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
             ],
             if (viewingFamily) ...[
               const SizedBox(height: 8),

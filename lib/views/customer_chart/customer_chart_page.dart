@@ -80,6 +80,41 @@ class _CustomerChartPageState extends State<CustomerChartPage>
   List<CustomerChart> get _charts =>
       widget.store.chartsForCustomer(widget.customerId);
 
+  Future<void> _scheduleNextCare() async {
+    final customer = _customer;
+    if (customer == null) return;
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 28)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: '다음 방문 일정',
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 14, minute: 0),
+    );
+    if (!mounted) return;
+    final at = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? 14,
+      time?.minute ?? 0,
+    );
+    final latest = _charts.isEmpty ? null : _charts.first;
+    final care = latest?.careName.trim() ?? '';
+    await widget.store.addManualCareSchedule(
+      scheduledAt: at,
+      customerName: customer.name,
+      customerId: customer.id,
+      customerPhone: customer.phone,
+      careLabel: care.isEmpty ? '다음 관리' : care,
+    );
+  }
+
   Future<void> _openQuickChart() async {
     final customer = _customer;
     if (customer == null) return;
@@ -338,6 +373,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
                   entry: entry,
                 );
               },
+              onScheduleNext: _scheduleNextCare,
             ),
           ),
           Padding(
@@ -462,15 +498,27 @@ class _NextCareBanner extends StatelessWidget {
   const _NextCareBanner({
     required this.entry,
     required this.onStart,
+    this.onScheduleNext,
   });
 
   final CareScheduleEntry? entry;
   final ValueChanged<CareScheduleEntry> onStart;
+  final VoidCallback? onScheduleNext;
 
   @override
   Widget build(BuildContext context) {
     final next = entry;
-    if (next == null) return const SizedBox.shrink();
+    if (next == null) {
+      if (onScheduleNext == null) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton(
+          key: const Key('customer-chart-schedule-next'),
+          onPressed: onScheduleNext,
+          child: const Text('다음 케어 일정 잡기'),
+        ),
+      );
+    }
     final care = next.careLabel.trim();
     final when =
         '${next.scheduledAt.month}/${next.scheduledAt.day} ${CareScheduleReadDensity.timeLabel(next.scheduledAt)}';
