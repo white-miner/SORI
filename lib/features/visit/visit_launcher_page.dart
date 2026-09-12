@@ -845,6 +845,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       _startCareFromSchedule(next);
       return;
     }
+    if (next == null) {
+      unawaited(_startReturningCustomerFlow());
+      return;
+    }
     _openSchedulerSheet();
   }
 
@@ -964,6 +968,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   store: widget.store,
                   onTap: _openSchedulerSheet,
                   onCareStart: _startCareFromSchedule,
+                  onEmptyStart: () => unawaited(_startReturningCustomerFlow()),
                 ),
               ),
             ),

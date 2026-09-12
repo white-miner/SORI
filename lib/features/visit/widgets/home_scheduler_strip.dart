@@ -114,12 +114,14 @@ class HomeScheduleGlance extends StatelessWidget {
     required this.store,
     this.onTap,
     this.onCareStart,
+    this.onEmptyStart,
     DateTime? now,
   }) : _now = now;
 
   final SoriStore store;
   final VoidCallback? onTap;
   final ValueChanged<CareScheduleEntry>? onCareStart;
+  final VoidCallback? onEmptyStart;
   final DateTime? _now;
 
   static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
@@ -190,12 +192,36 @@ class HomeScheduleGlance extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (top.items.isEmpty)
-            Text(
-              '오늘 예정된 일정이 없어요.',
-              style: TextStyle(
-                fontSize: 13,
-                color: HomeVisualTokens.dateIconColor,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '오늘 예정된 일정이 없어요.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: HomeVisualTokens.dateIconColor,
+                  ),
+                ),
+                if (onEmptyStart != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('home-today-empty-start'),
+                    onPressed: onEmptyStart,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      '재방문 고객으로 시작',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             )
           else ...[
             ...top.items.asMap().entries.map((e) {
