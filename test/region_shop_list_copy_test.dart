@@ -64,10 +64,13 @@ void main() {
   test('next radius follows the existing chip steps and hides at the top', () {
     expect(RegionShopListCopy.nextRadiusKm(0.5), 1.0);
     expect(RegionShopListCopy.nextRadiusKm(1), 2.0);
-    expect(RegionShopListCopy.nextRadiusKm(2), isNull);
+    expect(RegionShopListCopy.nextRadiusKm(2), 3.0);
+    expect(RegionShopListCopy.nextRadiusKm(3), 5.0);
+    expect(RegionShopListCopy.nextRadiusKm(5), 10.0);
+    expect(RegionShopListCopy.nextRadiusKm(10), isNull);
     expect(
       RegionShopListCopy.radiusStepsKm,
-      <double>[0.5, 1.0, 2.0],
+      <double>[0.5, 1.0, 2.0, 3.0, 5.0, 10.0],
     );
   });
 

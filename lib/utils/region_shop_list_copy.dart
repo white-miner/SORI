@@ -2,12 +2,21 @@ import 'area_search_center.dart';
 
 /// 우리 지역 업체 목록 헤더·빈 결과 카피. 반경 단계는 맵 칩과 동일하다.
 abstract final class RegionShopListCopy {
-  static const radiusStepsKm = <double>[0.5, 1.0, 2.0];
+  static const radiusStepsKm = <double>[0.5, 1.0, 2.0, 3.0, 5.0, 10.0];
 
   static String radiusLabel(double km) {
     if (km < 1) return '${(km * 1000).round()}m';
     if (km == km.roundToDouble()) return '${km.toInt()}km';
     return '${km}km';
+  }
+
+  static double mapZoom(double km) {
+    if (km <= 0.5) return 15.2;
+    if (km <= 1) return 14.2;
+    if (km <= 2) return 13.2;
+    if (km <= 3) return 12.4;
+    if (km <= 5) return 11.8;
+    return 11.0;
   }
 
   static String categoryLabel(String? raw) {

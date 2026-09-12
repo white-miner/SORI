@@ -286,7 +286,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         final lng = result.lng!;
         final point = LatLng(lat, lng);
         final zoom =
-            _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2);
+            RegionShopListCopy.mapZoom(_radiusKm);
         setState(() {
           _gpsCenter = point;
           _gpsBanner = _GpsBanner.active;
@@ -881,7 +881,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
-        initialZoom: _radiusKm <= 0.5 ? 15.2 : (_radiusKm <= 1 ? 14.2 : 13.2),
+        initialZoom: RegionShopListCopy.mapZoom(_radiusKm),
         onMapEvent: _onMapEvent,
         onTap: (_, _) => _closeSheet(),
         interactionOptions: const InteractionOptions(
