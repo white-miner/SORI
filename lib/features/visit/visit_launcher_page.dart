@@ -46,6 +46,8 @@ import 'widgets/ba_capture_carousel.dart';
 import 'widgets/home_hero_card.dart';
 import 'widgets/home_quick_action_row.dart';
 import 'widgets/home_scheduler_strip.dart';
+import 'widgets/my_today_task_queue_panel.dart';
+import 'my_today_task_queue.dart';
 import 'care_start_from_schedule.dart';
 import 'widgets/home_timer_customer_bind.dart';
 import 'widgets/home_timer_stage.dart';
@@ -957,6 +959,24 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   onTap: _onNextScheduleTap,
                 ),
               ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: ListenableBuilder(
+              listenable: widget.store,
+              builder: (context, _) {
+                final tasks = MyTodayTaskQueue.buildIncompleteRecordTasks(
+                  charts: widget.store.charts,
+                  customerNameOf: (id) =>
+                      widget.store.findCustomer(id)?.name ?? '',
+                );
+                if (tasks.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  key: const Key('home-today-followup-queue'),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: MyTodayTaskQueuePanel(store: widget.store),
+                );
+              },
             ),
           ),
           SliverToBoxAdapter(
