@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/content_candidate/content_candidate_inbox.dart';
+import '../../features/visit/care_schedule_read_density.dart';
+import '../../features/visit/care_start_from_schedule.dart';
 import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
 import '../../routing/sori_router.dart';
@@ -15,8 +20,6 @@ import '../smart_guide_camera_page.dart';
 import '../customer_merge_wizard.dart';
 import '../membership_editor_sheet.dart';
 import '../request_customer_review.dart';
-import '../../features/visit/care_schedule_read_density.dart';
-import '../../features/visit/care_start_from_schedule.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
 import 'chart_summary.dart';
 
@@ -48,6 +51,8 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
     widget.store.addListener(_onStore);
+    ContentCandidateInbox.instance.addListener(_onStore);
+    unawaited(ContentCandidateInbox.instance.hydrate());
     if (widget.revealLatestResult) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -68,6 +73,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
   void dispose() {
     _tabs.dispose();
     widget.store.removeListener(_onStore);
+    ContentCandidateInbox.instance.removeListener(_onStore);
     super.dispose();
   }
 
@@ -204,6 +210,14 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     if (!mounted) return;
     final updated = widget.store.findChartById(chart.id) ?? chart;
     await _openBeforeAfterCompare(chart: updated);
+  }
+
+  Future<void> _enqueueContentCandidate(CustomerChart chart) async {
+    final ok = await ContentCandidateInbox.instance.enqueue(chart);
+    if (!mounted || !ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('콘텐츠 후보함에 담았어요')),
+    );
   }
 
   Future<void> _openBeforeAfterCompare({CustomerChart? chart}) async {
@@ -392,6 +406,9 @@ class _CustomerChartPageState extends State<CustomerChartPage>
                   charts: charts,
                   onTapChart: (c) => _openBeforeAfterCompare(chart: c),
                   onCaptureMissing: _openMissingResultCapture,
+                  contentCandidateIds:
+                      ContentCandidateInbox.instance.entries.keys.toSet(),
+                  onMakeContentCandidate: _enqueueContentCandidate,
                 ),
                 _PaymentTab(
                   charts: charts,
@@ -867,11 +884,15 @@ class _PhotoTab extends StatelessWidget {
     required this.charts,
     required this.onTapChart,
     required this.onCaptureMissing,
+    required this.contentCandidateIds,
+    required this.onMakeContentCandidate,
   });
 
   final List<CustomerChart> charts;
   final ValueChanged<CustomerChart> onTapChart;
   final ValueChanged<CustomerChart> onCaptureMissing;
+  final Set<String> contentCandidateIds;
+  final ValueChanged<CustomerChart> onMakeContentCandidate;
 
   static List<CustomerChart> _chronological(List<CustomerChart> source) {
     final list = List<CustomerChart>.from(source);
@@ -964,6 +985,21 @@ class _PhotoTab extends StatelessWidget {
                       child: Text(
                         chart.needsAfterPhoto ? 'After 촬영' : '결과 촬영',
                       ),
+                    ),
+                  ),
+                ],
+                if (comparable &&
+                    ContentCandidateInbox.isEligible(chart) &&
+                    !contentCandidateIds.contains(chart.id)) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      key: Key(
+                        'customer-chart-content-candidate-${chart.id}',
+                      ),
+                      onPressed: () => onMakeContentCandidate(chart),
+                      child: const Text('콘텐츠 후보로 만들기'),
                     ),
                   ),
                 ],
