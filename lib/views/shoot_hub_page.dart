@@ -9,6 +9,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_shell_insets.dart';
 import '../features/visit/visit_session_page.dart';
+import '../features/visit/widgets/ba_capture_carousel.dart';
 import '../visit_kernel/theme/visit_glass_tokens.dart';
 import 'smart_guide_camera_page.dart';
 
@@ -301,16 +302,53 @@ class _ShootHubPageState extends State<ShootHubPage> {
   }
 
   Future<void> _dismissSession(ShootInboxSession session) async {
-    for (final item in [session.before, session.after]) {
-      if (item != null) {
-        await store.dismissShootInboxItem(item.id);
+    if (_busy) return;
+    final ids = [
+      if (session.before != null) session.before!.id,
+      if (session.after != null) session.after!.id,
+    ];
+    if (ids.isEmpty) return;
+    final go = await showStagingPhotoDeleteDialog(context);
+    if (!go || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await store.discardUnlinkedShootInboxItems(ids);
+      if (!mounted) return;
+      if (!result.discarded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사진을 삭제하지 못했어요. 다시 시도해 주세요.'),
+            backgroundColor: SoriTokens.systemRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   /// 슬롯 하나만 지운다. After만 지우면 빈 카메라 슬롯으로 돌아간다.
   Future<void> _dismissSlot(ShootInboxItem item) async {
-    await store.dismissShootInboxItem(item.id);
+    if (_busy) return;
+    final go = await showStagingPhotoDeleteDialog(context);
+    if (!go || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await store.discardUnlinkedShootInboxItems([item.id]);
+      if (!mounted) return;
+      if (!result.discarded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사진을 삭제하지 못했어요. 다시 시도해 주세요.'),
+            backgroundColor: SoriTokens.systemRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<Customer?> _pickCustomerForBind() async {
