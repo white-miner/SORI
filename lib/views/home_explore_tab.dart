@@ -10,13 +10,12 @@ import '../services/sori_store.dart';
 import '../services/unified_feed_engine.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/post_navigation.dart';
-import '../widgets/app_scroll_behavior.dart';
-import '../widgets/explore/explore_rich_info_card.dart';
-import '../widgets/glass/sori_glass_overlay.dart';
-import '../widgets/glass/sori_glass_tokens.dart';
 import '../utils/home_explore_search.dart';
 import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
+import '../widgets/explore/explore_rich_info_card.dart';
+import '../widgets/glass/sori_glass_overlay.dart';
+import '../widgets/glass/sori_glass_tokens.dart';
 import 'community_discover_pane.dart';
 
 /// 홈 · 탐색 — 2열 리치 카드 그리드 + 원장 스트립 / 검색 시 게시물·프로필.
@@ -326,21 +325,24 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             ),
           ],
           Expanded(
-            child: RefreshIndicator(
-              color: SoriTokens.primary,
-              onRefresh: () async {
-                await Future.wait([
-                  store.refreshUnifiedCommunityFeed(force: true),
-                  store.refreshDiscoverDirectors(query: _query.trim()),
-                ]);
-              },
-              child: _searching
-                  ? (_segment == _SearchSegment.posts
-                      ? _buildPostsResults(bottomInset, scrollPhysics)
-                      : _buildProfileResults(bottomInset, scrollPhysics))
-                  : (_showAllProfiles
-                      ? _buildAllProfiles(bottomInset, scrollPhysics)
-                      : _buildBrowse(bottomInset, scrollPhysics)),
+            child: ScrollConfiguration(
+              behavior: const SoriFeedScrollBehavior(),
+              child: RefreshIndicator(
+                color: SoriTokens.primary,
+                onRefresh: () async {
+                  await Future.wait([
+                    store.refreshUnifiedCommunityFeed(force: true),
+                    store.refreshDiscoverDirectors(query: _query.trim()),
+                  ]);
+                },
+                child: _searching
+                    ? (_segment == _SearchSegment.posts
+                        ? _buildPostsResults(bottomInset, scrollPhysics)
+                        : _buildProfileResults(bottomInset, scrollPhysics))
+                    : (_showAllProfiles
+                        ? _buildAllProfiles(bottomInset, scrollPhysics)
+                        : _buildBrowse(bottomInset, scrollPhysics)),
+              ),
             ),
           ),
         ],
@@ -360,7 +362,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     }
 
     return ScrollConfiguration(
-      behavior: const SoriScrollBehavior(),
+      behavior: const SoriFeedScrollBehavior(),
       child: CustomScrollView(
         key: const Key('explore-browse-scroll'),
         controller: widget.scrollController,
