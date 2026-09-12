@@ -11,6 +11,7 @@ import '../../utils/storage_image_url.dart';
 import '../admin_chart_writer_page.dart';
 import '../before_after_compare_page.dart';
 import '../chart_management_page.dart';
+import '../smart_guide_camera_page.dart';
 import '../customer_merge_wizard.dart';
 import '../membership_editor_sheet.dart';
 import '../request_customer_review.dart';
@@ -119,6 +120,34 @@ class _CustomerChartPageState extends State<CustomerChartPage>
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _openMissingResultCapture(CustomerChart chart) async {
+    final customer = _customer;
+    if (customer == null) return;
+    final kind = chart.needsAfterPhoto
+        ? GuideCameraKind.after
+        : GuideCameraKind.before;
+    final result = await SmartGuideCameraPage.open(
+      context,
+      shopId: widget.store.shop.id,
+      customerId: customer.id,
+      kind: kind,
+      ghostBeforeUrl:
+          kind == GuideCameraKind.after ? chart.beforeImageUrl : null,
+    );
+    if (!mounted || result == null) return;
+    if (result.kind == GuideCameraKind.before) {
+      await widget.store.updateCustomerChartFields(
+        chartId: chart.id,
+        beforeImageUrl: result.url,
+      );
+    } else {
+      await widget.store.patchChartAfterImage(
+        chartId: chart.id,
+        afterImageUrl: result.url,
+      );
+    }
   }
 
   Future<void> _openBeforeAfterCompare({CustomerChart? chart}) async {
@@ -305,6 +334,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
                 _PhotoTab(
                   charts: charts,
                   onTapChart: (c) => _openBeforeAfterCompare(chart: c),
+                  onCaptureMissing: _openMissingResultCapture,
                 ),
                 _PaymentTab(
                   charts: charts,
@@ -767,10 +797,12 @@ class _PhotoTab extends StatelessWidget {
   const _PhotoTab({
     required this.charts,
     required this.onTapChart,
+    required this.onCaptureMissing,
   });
 
   final List<CustomerChart> charts;
   final ValueChanged<CustomerChart> onTapChart;
+  final ValueChanged<CustomerChart> onCaptureMissing;
 
   static List<CustomerChart> _chronological(List<CustomerChart> source) {
     final list = List<CustomerChart>.from(source);
@@ -816,38 +848,57 @@ class _PhotoTab extends StatelessWidget {
         final care = chart.careName.trim().isEmpty
             ? '시술명 없음'
             : chart.careName.trim();
+        final comparable = chart.hasBeforeImage && chart.hasAfterImage;
         return Material(
           key: Key('customer-chart-photo-row-${chart.id}'),
           color: SoriTokens.surface,
-          child: InkWell(
-            onTap: () => onTapChart(chart),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${_dateLabel(chart)} · ${chart.visitNumber}회차 · $care',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF6B7280),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () => onTapChart(chart),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_dateLabel(chart)} · ${chart.visitNumber}회차 · $care',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _PhotoBaRow(
+                        beforeUrl: chart.beforeImageUrl,
+                        afterUrl: chart.afterImageUrl,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!comparable) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      key: Key('customer-chart-photo-capture-${chart.id}'),
+                      onPressed: () => onCaptureMissing(chart),
+                      child: Text(
+                        chart.needsAfterPhoto ? 'After 촬영' : '결과 촬영',
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  _PhotoBaRow(
-                    beforeUrl: chart.beforeImageUrl,
-                    afterUrl: chart.afterImageUrl,
-                  ),
                 ],
-              ),
+              ],
             ),
           ),
         );
