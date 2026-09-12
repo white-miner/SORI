@@ -18,6 +18,7 @@ import '../services/unified_feed_engine.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
+import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
 import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
@@ -737,30 +738,17 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
-    const scrollPhysics = AlwaysScrollableScrollPhysics(
-      parent: ClampingScrollPhysics(),
-    );
-    final tabPhysics = scrollActive ? scrollPhysics : const NeverScrollableScrollPhysics();
+    final tabPhysics = scrollActive
+        ? soriFeedScrollPhysics
+        : const NeverScrollableScrollPhysics();
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (!scrollActive) return false;
-        if (n.metrics.axis != Axis.vertical) return false;
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
-          if (_visibleCount < widget.feed.length) {
-            setState(() {
-              _visibleCount = (_visibleCount + 8).clamp(0, widget.feed.length);
-            });
-          }
-        }
-        return false;
-      },
-      child: ScrollConfiguration(
-        behavior: const SoriScrollBehavior(),
-        child: CustomScrollView(
-          controller: widget.scrollController,
-          physics: tabPhysics,
-          slivers: [
+    final scrollView = ScrollConfiguration(
+      behavior: const SoriScrollBehavior(),
+      child: CustomScrollView(
+        key: const Key('feed-recommend-scroll'),
+        controller: widget.scrollController,
+        physics: tabPhysics,
+        slivers: [
           if (!widget.homeGlance) ...[
             SliverToBoxAdapter(
               child: InsightsPulseStrip(store: widget.store),
@@ -878,8 +866,32 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               ),
             ),
         ],
-        ),
       ),
+    );
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (!scrollActive) return false;
+        if (n.metrics.axis != Axis.vertical) return false;
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
+          if (_visibleCount < widget.feed.length) {
+            setState(() {
+              _visibleCount = (_visibleCount + 8).clamp(0, widget.feed.length);
+            });
+          }
+        }
+        return false;
+      },
+      child: scrollActive
+          ? RefreshIndicator(
+              key: const Key('feed-recommend-refresh'),
+              color: SoriTokens.primary,
+              onRefresh: () => widget.store.refreshUnifiedCommunityFeed(
+                force: true,
+              ),
+              child: scrollView,
+            )
+          : scrollView,
     );
   }
 }
@@ -928,10 +940,9 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
-    const scrollPhysics = AlwaysScrollableScrollPhysics(
-      parent: ClampingScrollPhysics(),
-    );
-    final tabPhysics = scrollActive ? scrollPhysics : const NeverScrollableScrollPhysics();
+    final tabPhysics = scrollActive
+        ? soriFeedScrollPhysics
+        : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -949,6 +960,7 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
       child: ScrollConfiguration(
         behavior: const SoriScrollBehavior(),
         child: CustomScrollView(
+          key: const Key('feed-local-scroll'),
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
