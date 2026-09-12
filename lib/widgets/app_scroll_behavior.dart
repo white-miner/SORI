@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 /// App-wide scroll behavior for web / desktop / mobile.
 ///
-/// Accepts mouse drag, trackpad, and touch so feed and panels scroll naturally
-/// on every platform. Applied at [MaterialApp.scrollBehavior] and in [main.dart].
+/// Accepts mouse drag, trackpad, and touch. Scroll physics are inherited
+/// from [MaterialScrollBehavior] (Flutter platform default).
 class SoriScrollBehavior extends MaterialScrollBehavior {
   const SoriScrollBehavior();
 
@@ -16,13 +16,6 @@ class SoriScrollBehavior extends MaterialScrollBehavior {
         PointerDeviceKind.stylus,
         PointerDeviceKind.unknown,
       };
-
-  @override
-  ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const AlwaysScrollableScrollPhysics(
-      parent: ClampingScrollPhysics(),
-    );
-  }
 }
 
 /// @deprecated Use [SoriScrollBehavior].

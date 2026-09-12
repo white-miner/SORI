@@ -11,9 +11,7 @@ import '../services/unified_feed_engine.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/post_navigation.dart';
 import '../utils/home_explore_search.dart';
-import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
-import '../widgets/app_scroll_behavior.dart';
 import '../widgets/explore/explore_rich_info_card.dart';
 import '../widgets/glass/sori_glass_overlay.dart';
 import '../widgets/glass/sori_glass_tokens.dart';
@@ -203,8 +201,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     super.build(context);
     final bottomInset = SoriShellInsets.scrollBottomInset(context);
     final scrollActive = widget.scrollController != null;
-    final scrollPhysics = scrollActive
-        ? soriFeedScrollPhysics
+    final ScrollPhysics? scrollPhysics = scrollActive
+        ? null
         : const NeverScrollableScrollPhysics();
 
     return ColoredBox(
@@ -348,7 +346,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildBrowse(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildBrowse(double bottomInset, ScrollPhysics? scrollPhysics) {
     final items = _gridItems;
     final strip = _stripDirectors;
     final loading = store.unifiedFeedLoading && items.isEmpty;
@@ -359,9 +357,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       );
     }
 
-    return ScrollConfiguration(
-      behavior: const SoriScrollBehavior(),
-      child: CustomScrollView(
+    return CustomScrollView(
         key: const Key('explore-browse-scroll'),
         controller: widget.scrollController,
         physics: scrollPhysics,
@@ -427,11 +423,10 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             ),
           ),
       ],
-      ),
     );
   }
 
-  Widget _buildAllProfiles(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildAllProfiles(double bottomInset, ScrollPhysics? scrollPhysics) {
     final rows = store.discoverDirectors;
     return ListView(
       controller: widget.scrollController,
@@ -482,7 +477,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildPostsResults(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildPostsResults(double bottomInset, ScrollPhysics? scrollPhysics) {
     final matched = _matchedUnified;
     if (matched.isEmpty) {
       return ListView(
@@ -540,7 +535,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildProfileResults(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildProfileResults(double bottomInset, ScrollPhysics? scrollPhysics) {
     final rows = _matchedDirectors;
     if (store.discoverDirectorsLoading && rows.isEmpty) {
       return const Center(
