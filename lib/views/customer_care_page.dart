@@ -119,11 +119,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
         ? (customer?.membershipServiceName.isNotEmpty == true
             ? customer!.membershipServiceName
             : '진행 중인 케어')
-        : (latest.careName.isNotEmpty
-            ? latest.careName
-            : (latest.treatmentSummary.isNotEmpty
-                ? latest.treatmentSummary
-                : '케어'));
+        : (latest.careName.isNotEmpty ? latest.careName : '케어');
     final visitNo = latest?.visitNumber ?? customer?.membershipUsedVisits ?? 0;
     final mission = _activeMission(activeId);
     final directives = HomecareDictionary.resolveDirectives(
@@ -251,7 +247,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
             _AiReportCard(
               shopName: shopName,
               lastVisit: lastVisit,
-              insight: latest?.directorInsight ?? '',
+              insight: '',
               directives: directives,
               onDetail: () {
                 if (latest == null) {
@@ -771,15 +767,6 @@ class _AiReportDetailPage extends StatelessWidget {
             style: const TextStyle(color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 16),
-          if (chart.directorInsight.trim().isNotEmpty) ...[
-            const Text(
-              '원장 인사이트',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(chart.directorInsight.trim(), style: const TextStyle(height: 1.45, color: SoriTokens.textPrimary)),
-            const SizedBox(height: 18),
-          ],
           const Text(
             '홈케어 처방',
             style: TextStyle(fontWeight: FontWeight.w800),
