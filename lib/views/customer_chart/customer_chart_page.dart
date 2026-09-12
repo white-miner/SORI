@@ -118,7 +118,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     );
   }
 
-  Future<void> _openBeforeAfterCompare() async {
+  Future<void> _openBeforeAfterCompare({CustomerChart? chart}) async {
     final customer = _customer;
     if (customer == null) return;
     final charts = _charts;
@@ -126,8 +126,9 @@ class _CustomerChartPageState extends State<CustomerChartPage>
       context: context,
       customerName: customer.name,
       charts: charts,
-      initialChartId: charts.isEmpty ? null : charts.first.id,
-      initialCareName: charts.isEmpty ? null : charts.first.careName,
+      initialChartId: chart?.id ?? (charts.isEmpty ? null : charts.first.id),
+      initialCareName:
+          chart?.careName ?? (charts.isEmpty ? null : charts.first.careName),
       customerId: customer.id,
       store: widget.store,
     );
@@ -284,7 +285,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
                 ),
                 _PhotoTab(
                   charts: charts,
-                  onTapChart: (c) => _openChartManagement(chartId: c.id),
+                  onTapChart: (c) => _openBeforeAfterCompare(chart: c),
                 ),
                 _PaymentTab(
                   charts: charts,
@@ -739,6 +740,7 @@ class _PhotoTab extends StatelessWidget {
             ? '시술명 없음'
             : chart.careName.trim();
         return Material(
+          key: Key('customer-chart-photo-row-${chart.id}'),
           color: SoriTokens.surface,
           child: InkWell(
             onTap: () => onTapChart(chart),
