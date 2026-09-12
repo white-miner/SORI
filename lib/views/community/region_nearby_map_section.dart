@@ -1168,6 +1168,70 @@ class _ShopListEmpty extends StatelessWidget {
   }
 }
 
+class _ShopDetailFacts extends StatelessWidget {
+  const _ShopDetailFacts({
+    required this.item,
+    this.titleSize = 14,
+  });
+
+  final ShopMarketStoreItem item;
+  final double titleSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = RegionShopListCopy.visibleText(item.name);
+    final category = RegionShopListCopy.visibleText(item.categoryLabel);
+    final distance = RegionShopListCopy.distanceLabel(item.distanceM);
+    final address = RegionShopListCopy.visibleText(item.address);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (name != null)
+          Text(
+            name,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: titleSize,
+            ),
+          ),
+        if (category != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            category,
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+        ],
+        if (distance != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            distance,
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (address != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            address,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _SelectedCard extends StatelessWidget {
   const _SelectedCard({required this.item, required this.region});
 
@@ -1188,18 +1252,7 @@ class _SelectedCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item.name,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.categoryLabel.isEmpty ? '상권' : item.categoryLabel,
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
+          _ShopDetailFacts(item: item, titleSize: 15),
           _NaverMapCta(
             buttonKey: const Key('region-selected-map-cta'),
             item: item,
@@ -1249,25 +1302,7 @@ class _MarketStoreRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
-                ),
-                if (item.address.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    item.address.trim(),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: SoriTokens.textSecondary,
-                    ),
-                  ),
-                ],
+                _ShopDetailFacts(item: item),
                 _NaverMapCta(
                   buttonKey: Key('region-market-map-cta-$index'),
                   item: item,
