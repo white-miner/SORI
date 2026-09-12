@@ -133,7 +133,33 @@ void main() {
     expect(taps, 1);
   });
 
-  test('launcher sheet and next-strip call the shared care-start path', () {
+  testWidgets('empty glance offers returning-customer start, not a sheet', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    store.careScheduleEntries = [];
+    var emptyStarts = 0;
+    var sheetOpens = 0;
+
+    await tester.pumpWidget(
+      _host(
+        HomeScheduleGlance(
+          store: store,
+          onTap: () => sheetOpens++,
+          onEmptyStart: () => emptyStarts++,
+        ),
+      ),
+    );
+
+    expect(find.text('오늘 예정된 일정이 없어요.'), findsOneWidget);
+    expect(find.byKey(const Key('home-today-empty-start')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home-today-empty-start')));
+    await tester.pump();
+    expect(emptyStarts, 1);
+    expect(sheetOpens, 0);
+  });
+
+  test('launcher empty today starts returning flow instead of a dead sheet', () {
     final src = File('lib/features/visit/visit_launcher_page.dart').readAsStringSync();
     expect(src.contains('_onNextScheduleTap'), isTrue);
     expect(src.contains('_startCareFromSchedule'), isTrue);
@@ -142,5 +168,7 @@ void main() {
     expect(src.contains('_startCareFromSchedule(entry)'), isTrue);
     expect(src.contains('HomeScheduleGlance'), isTrue);
     expect(src.contains('onCareStart: _startCareFromSchedule'), isTrue);
+    expect(src.contains('onEmptyStart: () => unawaited(_startReturningCustomerFlow())'), isTrue);
+    expect(src.contains('unawaited(_startReturningCustomerFlow())'), isTrue);
   });
 }
