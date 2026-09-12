@@ -11,6 +11,7 @@ import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../utils/naver_map_links.dart';
 import '../../utils/sori_bottom_sheet.dart';
 import '../explore_community_post_page.dart';
 import '../seminar_class_detail_page.dart';
@@ -659,7 +660,28 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               ),
             ),
           ),
-        if (_selectedMarket != null) _SelectedCard(item: _selectedMarket!),
+        if (_selectedMarket != null)
+          _SelectedCard(
+            item: _selectedMarket!,
+            region: (widget.store.shop.address ?? '').trim(),
+          ),
+        if (!_loading && stores.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text(
+            '우리 지역 업체',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          for (var i = 0; i < stores.length; i++)
+            _MarketStoreRow(
+              item: stores[i],
+              index: i,
+              region: (widget.store.shop.address ?? '').trim(),
+              selected: _selectedMarket?.name == stores[i].name &&
+                  _selectedMarket?.distanceM == stores[i].distanceM,
+              onSelect: () => setState(() => _selectedMarket = stores[i]),
+            ),
+        ],
         const SizedBox(height: 4),
         const Text(
           '출처: 소상공인시장진흥공단 상가(상권)정보 · 추정·참고용',
@@ -1045,9 +1067,10 @@ class _Cs1TileCompareBar extends StatelessWidget {
 }
 
 class _SelectedCard extends StatelessWidget {
-  const _SelectedCard({required this.item});
+  const _SelectedCard({required this.item, required this.region});
 
   final ShopMarketStoreItem item;
+  final String region;
 
   @override
   Widget build(BuildContext context) {
@@ -1075,7 +1098,125 @@ class _SelectedCard extends StatelessWidget {
               color: SoriTokens.textSecondary,
             ),
           ),
+          _NaverMapCta(
+            buttonKey: const Key('region-selected-map-cta'),
+            item: item,
+            region: region,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _MarketStoreRow extends StatelessWidget {
+  const _MarketStoreRow({
+    required this.item,
+    required this.index,
+    required this.region,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final ShopMarketStoreItem item;
+  final int index;
+  final String region;
+  final bool selected;
+  final VoidCallback onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          key: Key('region-market-store-$index'),
+          onTap: onSelect,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? SoriTokens.primary : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                if (item.address.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.address.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ],
+                _NaverMapCta(
+                  buttonKey: Key('region-market-map-cta-$index'),
+                  item: item,
+                  region: region,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NaverMapCta extends StatelessWidget {
+  const _NaverMapCta({
+    required this.buttonKey,
+    required this.item,
+    required this.region,
+  });
+
+  final Key buttonKey;
+  final ShopMarketStoreItem item;
+  final String region;
+
+  @override
+  Widget build(BuildContext context) {
+    final uri = NaverMapLinks.uri(
+      name: item.name,
+      address: item.address,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      region: region,
+    );
+    if (uri == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: OutlinedButton(
+          key: buttonKey,
+          onPressed: () async {
+            final ok = await NaverMapLinks.open(uri);
+            if (!ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('지도를 열 수 없어요.')),
+              );
+            }
+          },
+          child: const Text('지도에서 보기'),
+        ),
       ),
     );
   }
