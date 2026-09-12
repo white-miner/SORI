@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/content_candidate/content_candidate_inbox.dart';
 import '../models/customer_chart.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
@@ -8,6 +11,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
 import '../utils/consent_publish_gate.dart';
 import 'ai_tool_sheet.dart';
+import 'sori_network_image.dart';
 
 /// 마이페이지 게시물 지표 — B/A · 조용한 이야기 허브.
 Future<void> showShopPostsHubSheet(
@@ -118,6 +122,34 @@ class _BaPostsPane extends StatefulWidget {
 class _BaPostsPaneState extends State<_BaPostsPane> {
   SoriStore get store => widget.store;
 
+  @override
+  void initState() {
+    super.initState();
+    ContentCandidateInbox.instance.addListener(_onInbox);
+    unawaited(ContentCandidateInbox.instance.hydrate());
+  }
+
+  @override
+  void dispose() {
+    ContentCandidateInbox.instance.removeListener(_onInbox);
+    super.dispose();
+  }
+
+  void _onInbox() {
+    if (mounted) setState(() {});
+  }
+
+  List<ContentCandidateCard> get _candidateCards {
+    final inbox = ContentCandidateInbox.instance;
+    final cards = <ContentCandidateCard>[];
+    for (final e in inbox.entries.entries) {
+      final chart = store.findChartById(e.key);
+      if (chart == null) continue;
+      cards.add(ContentCandidateInbox.cardFor(chart, e.value));
+    }
+    return cards;
+  }
+
   List<CustomerChart> get _published {
     return store.charts
         .where(
@@ -224,10 +256,30 @@ class _BaPostsPaneState extends State<_BaPostsPane> {
   Widget build(BuildContext context) {
     final published = _published;
     final drafts = _drafts;
+    final candidates = _candidateCards;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
+        const Text(
+          '콘텐츠 후보함',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        if (candidates.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text(
+              '아직 콘텐츠 후보가 없어요.',
+              style: TextStyle(
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else
+          ...candidates.map((card) => _ContentCandidateCardTile(card: card)),
+        const SizedBox(height: 12),
         const Text(
           '발행됨',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
@@ -354,6 +406,84 @@ class _WhisperPostsPane extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ContentCandidateCardTile extends StatelessWidget {
+  const _ContentCandidateCardTile({required this.card});
+
+  final ContentCandidateCard card;
+
+  static String _dateLabel(DateTime? date) {
+    if (date == null) return '날짜 없음';
+    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = card.imageUrl?.trim() ?? '';
+    return Padding(
+      key: Key('content-candidate-card-${card.chartId}'),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: SoriTokens.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: SoriTokens.border),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: url.isEmpty
+                    ? const ColoredBox(
+                        color: Color(0xFFF3F4F6),
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          size: 20,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      )
+                    : SoriNetworkImage(url: url, fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    card.serviceSummary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _dateLabel(card.createdAt),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: SoriTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PillBadge(
+              label: card.statusLabel,
+              tone: card.status == ContentCandidateStatus.ready
+                  ? PillTone.ok
+                  : PillTone.warn,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
