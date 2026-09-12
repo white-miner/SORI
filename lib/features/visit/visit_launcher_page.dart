@@ -829,6 +829,25 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     );
   }
 
+  void _startCareFromSchedule(CareScheduleEntry entry) {
+    unawaited(
+      CareStartFromSchedule.begin(
+        context: context,
+        store: widget.store,
+        entry: entry,
+      ),
+    );
+  }
+
+  void _onNextScheduleTap() {
+    final next = HomeSchedulerStrip.nextEntry(widget.store);
+    if (next != null && (next.customerId?.trim().isNotEmpty ?? false)) {
+      _startCareFromSchedule(next);
+      return;
+    }
+    _openSchedulerSheet();
+  }
+
   void _openSchedulerSheet() {
     final entries = HomeSchedulerStrip.todayEntries(widget.store);
     unawaited(
@@ -842,7 +861,13 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
             20,
             16 + kSoriFloatingNavClearance,
           ),
-          child: _SchedulerSheet(entries: entries),
+          child: _SchedulerSheet(
+            entries: entries,
+            onSelect: (entry) {
+              Navigator.of(ctx).pop();
+              _startCareFromSchedule(entry);
+            },
+          ),
         ),
       ),
     );
@@ -925,7 +950,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                 careRunning: careRunning,
                 schedulerStrip: HomeSchedulerStrip(
                   store: widget.store,
-                  onTap: _openSchedulerSheet,
+                  onTap: _onNextScheduleTap,
                 ),
               ),
             ),
@@ -938,15 +963,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                 builder: (context, _) => HomeScheduleGlance(
                   store: widget.store,
                   onTap: _openSchedulerSheet,
-                  onCareStart: (entry) {
-                    unawaited(
-                      CareStartFromSchedule.begin(
-                        context: context,
-                        store: widget.store,
-                        entry: entry,
-                      ),
-                    );
-                  },
+                  onCareStart: _startCareFromSchedule,
                 ),
               ),
             ),
@@ -1283,9 +1300,13 @@ class _EmptyCaseFeed extends StatelessWidget {
 }
 
 class _SchedulerSheet extends StatelessWidget {
-  const _SchedulerSheet({required this.entries});
+  const _SchedulerSheet({
+    required this.entries,
+    required this.onSelect,
+  });
 
   final List<CareScheduleEntry> entries;
+  final ValueChanged<CareScheduleEntry> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -1310,41 +1331,54 @@ class _SchedulerSheet extends StatelessWidget {
           )
         else
           ...entries.map(
-            (e) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: HomeVisualTokens.memoDotSize,
-                    height: HomeVisualTokens.memoDotSize,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: HomeVisualTokens.memoActiveFill,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      HomeSchedulerStrip.labelFor(e),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+            (e) => InkWell(
+              key: Key('home-today-sheet-row-${e.id}'),
+              onTap: () => onSelect(e),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: HomeVisualTokens.memoDotSize,
+                      height: HomeVisualTokens.memoDotSize,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: HomeVisualTokens.memoActiveFill,
                       ),
                     ),
-                  ),
-                  if (e.note.trim().isNotEmpty)
-                    Flexible(
+                    const SizedBox(width: 10),
+                    Expanded(
                       child: Text(
-                        e.note.trim(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        HomeSchedulerStrip.labelFor(e),
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: HomeVisualTokens.dateIconColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                ],
+                    if (e.note.trim().isNotEmpty)
+                      Flexible(
+                        child: Text(
+                          e.note.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: HomeVisualTokens.dateIconColor,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '시작',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: HomeVisualTokens.careGreen,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
