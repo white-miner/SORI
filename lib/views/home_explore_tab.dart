@@ -11,7 +11,6 @@ import '../services/unified_feed_engine.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/post_navigation.dart';
 import '../utils/home_explore_search.dart';
-import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
 import '../widgets/explore/explore_rich_info_card.dart';
 import '../widgets/glass/sori_glass_overlay.dart';
@@ -202,8 +201,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     super.build(context);
     final bottomInset = SoriShellInsets.scrollBottomInset(context);
     final scrollActive = widget.scrollController != null;
-    final scrollPhysics = scrollActive
-        ? soriFeedScrollPhysics
+    final ScrollPhysics? scrollPhysics = scrollActive
+        ? null
         : const NeverScrollableScrollPhysics();
 
     return ColoredBox(
@@ -325,24 +324,21 @@ class _HomeExploreTabState extends State<HomeExploreTab>
             ),
           ],
           Expanded(
-            child: SoriFeedScrollSurface(
-              controller: widget.scrollController,
-              child: RefreshIndicator(
-                color: SoriTokens.primary,
-                onRefresh: () async {
-                  await Future.wait([
-                    store.refreshUnifiedCommunityFeed(force: true),
-                    store.refreshDiscoverDirectors(query: _query.trim()),
-                  ]);
-                },
-                child: _searching
-                    ? (_segment == _SearchSegment.posts
-                        ? _buildPostsResults(bottomInset, scrollPhysics)
-                        : _buildProfileResults(bottomInset, scrollPhysics))
-                    : (_showAllProfiles
-                        ? _buildAllProfiles(bottomInset, scrollPhysics)
-                        : _buildBrowse(bottomInset, scrollPhysics)),
-              ),
+            child: RefreshIndicator(
+              color: SoriTokens.primary,
+              onRefresh: () async {
+                await Future.wait([
+                  store.refreshUnifiedCommunityFeed(force: true),
+                  store.refreshDiscoverDirectors(query: _query.trim()),
+                ]);
+              },
+              child: _searching
+                  ? (_segment == _SearchSegment.posts
+                      ? _buildPostsResults(bottomInset, scrollPhysics)
+                      : _buildProfileResults(bottomInset, scrollPhysics))
+                  : (_showAllProfiles
+                      ? _buildAllProfiles(bottomInset, scrollPhysics)
+                      : _buildBrowse(bottomInset, scrollPhysics)),
             ),
           ),
         ],
@@ -350,7 +346,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildBrowse(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildBrowse(double bottomInset, ScrollPhysics? scrollPhysics) {
     final items = _gridItems;
     final strip = _stripDirectors;
     final loading = store.unifiedFeedLoading && items.isEmpty;
@@ -430,7 +426,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildAllProfiles(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildAllProfiles(double bottomInset, ScrollPhysics? scrollPhysics) {
     final rows = store.discoverDirectors;
     return ListView(
       controller: widget.scrollController,
@@ -481,7 +477,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildPostsResults(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildPostsResults(double bottomInset, ScrollPhysics? scrollPhysics) {
     final matched = _matchedUnified;
     if (matched.isEmpty) {
       return ListView(
@@ -539,7 +535,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     );
   }
 
-  Widget _buildProfileResults(double bottomInset, ScrollPhysics scrollPhysics) {
+  Widget _buildProfileResults(double bottomInset, ScrollPhysics? scrollPhysics) {
     final rows = _matchedDirectors;
     if (store.discoverDirectorsLoading && rows.isEmpty) {
       return const Center(

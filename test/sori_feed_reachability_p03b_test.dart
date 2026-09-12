@@ -189,27 +189,25 @@ void main() {
     expect(_phone.height - inset, lessThanOrEqualTo(nav.top - _minClearance));
   });
 
-  test('P0-3b feed-local bounce symbols exist; PR #6 PTR keys remain', () {
-    final physics = File(
-      'lib/utils/sori_feed_scroll_physics.dart',
-    ).readAsStringSync();
-    expect(physics.contains('SoriFeedScrollPosition'), isTrue);
-    expect(physics.contains('SoriFeedScrollController'), isTrue);
-    expect(physics.contains('SoriFeedScrollBehavior'), isTrue);
-    expect(physics.contains('kSoriFeedMaxOvershoot'), isTrue);
-    expect(physics.contains('void pointerScroll'), isTrue);
-    expect(physics.contains('soriFeedScrollPhysics'), isTrue);
-    expect(physics.contains('buildOverscrollIndicator'), isTrue);
+  test('custom feed bounce stack is gone; PTR and inset keys remain', () {
+    expect(File('lib/utils/sori_feed_scroll_physics.dart').existsSync(), isFalse);
+
+    final behavior = File('lib/widgets/app_scroll_behavior.dart').readAsStringSync();
+    expect(behavior.contains('dragDevices'), isTrue);
+    expect(behavior.contains('ClampingScrollPhysics'), isFalse);
+    expect(behavior.contains('AlwaysScrollableScrollPhysics'), isFalse);
+    expect(behavior.contains('getScrollPhysics'), isFalse);
 
     final feed = File('lib/views/unified_home_feed_page.dart').readAsStringSync();
-    expect(feed.contains('SoriFeedScrollController'), isTrue);
-    expect(feed.contains('SoriFeedScrollSurface'), isTrue);
+    expect(feed.contains('SoriFeedScroll'), isFalse);
+    expect(feed.contains('soriFeedScrollPhysics'), isFalse);
     expect(feed.contains("key: const Key('feed-recommend-refresh')"), isTrue);
     expect('RefreshIndicator'.allMatches(feed).length, 1);
     expect('padding: _feedListPadding(context)'.allMatches(feed).length, 2);
 
     final explore = File('lib/views/home_explore_tab.dart').readAsStringSync();
-    expect(explore.contains('SoriFeedScrollSurface'), isTrue);
+    expect(explore.contains('SoriFeedScroll'), isFalse);
+    expect(explore.contains('soriFeedScrollPhysics'), isFalse);
     expect(explore.contains('RefreshIndicator'), isTrue);
   });
 

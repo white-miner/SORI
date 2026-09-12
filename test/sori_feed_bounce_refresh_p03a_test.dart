@@ -8,7 +8,6 @@ import 'package:sori/features/visit/visit_session_page.dart';
 import 'package:sori/features/visit/widgets/home_timer_stage.dart';
 import 'package:sori/models/feed_query_config.dart';
 import 'package:sori/services/sori_store.dart';
-import 'package:sori/utils/sori_feed_scroll_physics.dart';
 import 'package:sori/utils/sori_shell_insets.dart';
 import 'package:sori/views/home_explore_tab.dart';
 import 'package:sori/views/unified_home_feed_page.dart';
@@ -30,12 +29,8 @@ class _FeedRefreshSpyStore extends SoriStore {
   }
 }
 
-void expectFeedBounce(ScrollPhysics? physics) {
-  expect(physics, isA<BouncingScrollPhysics>());
-  expect(
-    (physics as BouncingScrollPhysics).parent,
-    isA<AlwaysScrollableScrollPhysics>(),
-  );
+void expectNoCustomFeedPhysics(ScrollPhysics? physics) {
+  expect(physics, isNot(isA<BouncingScrollPhysics>()));
 }
 
 Widget _shell({
@@ -78,11 +73,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('feed physics SSOT is Bouncing with AlwaysScrollable parent', () {
-    expectFeedBounce(soriFeedScrollPhysics);
+  test('global scroll behavior keeps dragDevices and does not force Clamping', () {
+    final src = File('lib/widgets/app_scroll_behavior.dart').readAsStringSync();
+    expect(src.contains('dragDevices'), isTrue);
+    expect(src.contains('ClampingScrollPhysics'), isFalse);
+    expect(src.contains('AlwaysScrollableScrollPhysics'), isFalse);
+    expect(src.contains('getScrollPhysics'), isFalse);
+    expect(File('lib/utils/sori_feed_scroll_physics.dart').existsSync(), isFalse);
   });
 
-  testWidgets('home recommend uses bounce physics and RefreshIndicator', (
+  testWidgets('home recommend inherits platform physics and keeps RefreshIndicator', (
     tester,
   ) async {
     final store = _FeedRefreshSpyStore();
@@ -106,7 +106,7 @@ void main() {
     final scroll = tester.widget<CustomScrollView>(
       find.byKey(const Key('feed-recommend-scroll')),
     );
-    expectFeedBounce(scroll.physics);
+    expectNoCustomFeedPhysics(scroll.physics);
     expect(find.byKey(const Key('feed-recommend-refresh')), findsOneWidget);
 
     final pad = tester.widget<SliverPadding>(
@@ -136,7 +136,7 @@ void main() {
     );
     await _pumpFrames(tester);
 
-    expectFeedBounce(
+    expectNoCustomFeedPhysics(
       tester
           .widget<CustomScrollView>(
             find.byKey(const Key('feed-recommend-scroll')),
@@ -188,16 +188,17 @@ void main() {
     expect(store.refreshForceTrue, before);
   });
 
-  test('local tab source uses bounce SSOT and no RefreshIndicator', () {
+  test('local tab inherits platform physics and has no RefreshIndicator', () {
     final src = File('lib/views/unified_home_feed_page.dart').readAsStringSync();
     expect(src.contains("key: const Key('feed-local-scroll')"), isTrue);
-    expect(src.contains('soriFeedScrollPhysics'), isTrue);
+    expect(src.contains('soriFeedScrollPhysics'), isFalse);
+    expect(src.contains('SoriFeedScroll'), isFalse);
     expect(src.contains('RegionNearbyMapSection('), isTrue);
     expect('RefreshIndicator'.allMatches(src).length, 1);
     expect(src.contains("key: const Key('feed-recommend-refresh')"), isTrue);
   });
 
-  testWidgets('explore keeps RefreshIndicator and uses bounce physics', (
+  testWidgets('explore keeps RefreshIndicator and inherits platform physics', (
     tester,
   ) async {
     final store = SoriStore();
@@ -219,7 +220,7 @@ void main() {
     await _pumpFrames(tester);
 
     expect(find.byType(RefreshIndicator), findsOneWidget);
-    expectFeedBounce(
+    expectNoCustomFeedPhysics(
       tester
           .widget<CustomScrollView>(
             find.byKey(const Key('explore-browse-scroll')),

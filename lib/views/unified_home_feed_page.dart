@@ -18,7 +18,6 @@ import '../services/unified_feed_engine.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
-import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
 import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
@@ -141,12 +140,12 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   ScrollController _scrollForTab(int index) {
     switch (index) {
       case 1:
-        return _exploreScrollController ??= SoriFeedScrollController();
+        return _exploreScrollController ??= ScrollController();
       case 2:
-        return _localScrollController ??= SoriFeedScrollController();
+        return _localScrollController ??= ScrollController();
       case 0:
       default:
-        return _recommendScrollController ??= SoriFeedScrollController();
+        return _recommendScrollController ??= ScrollController();
     }
   }
 
@@ -738,12 +737,10 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
     final tabPhysics = scrollActive
-        ? soriFeedScrollPhysics
+        ? null
         : const NeverScrollableScrollPhysics();
 
-    final scrollView = SoriFeedScrollSurface(
-      controller: widget.scrollController,
-      child: CustomScrollView(
+    final scrollView = CustomScrollView(
         key: const Key('feed-recommend-scroll'),
         controller: widget.scrollController,
         physics: tabPhysics,
@@ -865,8 +862,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               ),
             ),
         ],
-      ),
-    );
+      );
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -940,7 +936,7 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
     final tabPhysics = scrollActive
-        ? soriFeedScrollPhysics
+        ? null
         : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
@@ -956,9 +952,7 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
         }
         return false;
       },
-      child: SoriFeedScrollSurface(
-        controller: widget.scrollController,
-        child: CustomScrollView(
+      child: CustomScrollView(
           key: const Key('feed-local-scroll'),
           controller: widget.scrollController,
           physics: tabPhysics,
@@ -1060,7 +1054,6 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
               ),
             ),
         ],
-        ),
       ),
     );
   }
