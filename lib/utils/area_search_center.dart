@@ -26,6 +26,19 @@ class AreaSearchCenter {
     source: AreaSearchSource.defaultRegion,
   );
 
+  /// 사용자 GPS 한 점. [source]는 gps(현재 위치). 지도·원·목록·카운트가 이 좌표만 본다.
+  static AreaSearchCenter currentLocation({
+    required double lat,
+    required double lng,
+  }) {
+    if (!RegionMapCenter.isValidLatLng(lat, lng)) return defaultRegion;
+    return AreaSearchCenter(
+      lat: lat,
+      lng: lng,
+      source: AreaSearchSource.gps,
+    );
+  }
+
   /// GPS → 지도 중심 → 샵/인사이트 → 기본 지역. 조용한 null(0건)을 만들지 않는다.
   static AreaSearchCenter resolve({
     double? gpsLat,
