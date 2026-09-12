@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sori/utils/area_search_center.dart';
 import 'package:sori/utils/region_shop_list_copy.dart';
 
 void main() {
@@ -26,6 +27,26 @@ void main() {
     expect(
       RegionShopListCopy.retryGpsLabel,
       '현재 위치 다시 사용',
+    );
+    expect(
+      RegionShopListCopy.searchBasis(AreaSearchSource.gps),
+      '현재 위치 기준',
+    );
+    expect(
+      RegionShopListCopy.searchBasis(AreaSearchSource.mapCamera),
+      '지도 중심 기준',
+    );
+    expect(
+      RegionShopListCopy.searchBasis(AreaSearchSource.defaultRegion),
+      '기본 지역 기준',
+    );
+    expect(
+      RegionShopListCopy.locationUnavailableBanner(AreaSearchSource.mapCamera),
+      '현재 위치를 사용할 수 없어 지도 중심 기준으로 찾고 있어요.',
+    );
+    expect(
+      RegionShopListCopy.emptyLocationHint,
+      '현재 위치를 사용할 수 없어 지도 중심으로 찾고 있어요.',
     );
   });
 
@@ -55,6 +76,8 @@ void main() {
       'lib/views/community/region_nearby_map_section.dart',
     ).readAsStringSync();
     expect(map.contains('RegionShopListCopy.headline'), isTrue);
+    expect(map.contains('RegionShopListCopy.searchBasis'), isTrue);
+    expect(map.contains("key: const Key('region-shop-search-basis')"), isTrue);
     expect(map.contains("child: const Text('반경 넓히기')"), isTrue);
     expect(map.contains('_widenRadius'), isTrue);
     expect(map.contains('_ShopDetailFacts'), isTrue);

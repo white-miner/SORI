@@ -540,9 +540,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       case _GpsBanner.active:
         return '현재 위치 주변을 보고 있어요.';
       case _GpsBanner.denied:
-        return '현재 위치 없이 샵 주소 기준으로 보고 있어요.';
       case _GpsBanner.failed:
-        return '현재 위치를 확인하지 못했어요. 샵 주소 기준으로 보여드릴게요.';
+        return RegionShopListCopy.locationUnavailableBanner(_searchCenter.source);
       case _GpsBanner.none:
         return null;
     }
@@ -740,6 +739,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             radiusKm: _radiusKm,
             category: _insight?.category,
             count: stores.length,
+            searchBasis: RegionShopListCopy.searchBasis(_searchCenter.source),
           ),
           if (stores.isEmpty)
             _ShopListEmpty(
@@ -1139,11 +1139,13 @@ class _ShopListSummary extends StatelessWidget {
     required this.radiusKm,
     required this.category,
     required this.count,
+    required this.searchBasis,
   });
 
   final double radiusKm;
   final String? category;
   final int count;
+  final String searchBasis;
 
   @override
   Widget build(BuildContext context) {
@@ -1157,6 +1159,16 @@ class _ShopListSummary extends StatelessWidget {
           ),
           key: const Key('region-shop-list-summary'),
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          searchBasis,
+          key: const Key('region-shop-search-basis'),
+          style: const TextStyle(
+            fontSize: 12,
+            color: SoriTokens.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
