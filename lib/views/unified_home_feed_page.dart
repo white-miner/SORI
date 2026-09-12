@@ -20,6 +20,7 @@ import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
 import '../utils/sori_feed_scroll_physics.dart';
 import '../utils/sori_shell_insets.dart';
+import '../widgets/app_scroll_behavior.dart';
 import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
 import '../widgets/post/sori_post_mini.dart';
@@ -141,12 +142,12 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   ScrollController _scrollForTab(int index) {
     switch (index) {
       case 1:
-        return _exploreScrollController ??= SoriFeedScrollController();
+        return _exploreScrollController ??= ScrollController();
       case 2:
-        return _localScrollController ??= SoriFeedScrollController();
+        return _localScrollController ??= ScrollController();
       case 0:
       default:
-        return _recommendScrollController ??= SoriFeedScrollController();
+        return _recommendScrollController ??= ScrollController();
     }
   }
 
@@ -742,7 +743,7 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
         : const NeverScrollableScrollPhysics();
 
     final scrollView = ScrollConfiguration(
-      behavior: const SoriFeedScrollBehavior(),
+      behavior: const SoriScrollBehavior(),
       child: CustomScrollView(
         key: const Key('feed-recommend-scroll'),
         controller: widget.scrollController,
@@ -957,7 +958,7 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
         return false;
       },
       child: ScrollConfiguration(
-        behavior: const SoriFeedScrollBehavior(),
+        behavior: const SoriScrollBehavior(),
         child: CustomScrollView(
           key: const Key('feed-local-scroll'),
           controller: widget.scrollController,
