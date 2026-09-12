@@ -33,6 +33,29 @@ abstract final class RegionShopListCopy {
 
   static String countLine(int count) => '$count곳 발견';
 
+  static String conditionLine({
+    required String searchBasis,
+    required double radiusKm,
+    String? category,
+  }) {
+    return '$searchBasis · ${radiusLabel(radiusKm)} · ${categoryLabel(category)}';
+  }
+
+  static String? compositionLine(Iterable<({String label, int count})> mix) {
+    final parts = [
+      for (final row in mix)
+        if (row.count > 0) '${row.label} ${row.count}곳',
+    ];
+    if (parts.isEmpty) return null;
+    return parts.join(' · ');
+  }
+
+  static String? topCategoryLine(String? label) {
+    final value = visibleText(label);
+    if (value == null) return null;
+    return '가장 많은 업종은 $value';
+  }
+
   static const emptyTrueZeroTitle = '이 조건에서 찾은 뷰티숍이 없어요.';
   static const emptyTrueZeroHint = '반경을 넓혀서 다시 찾아보세요.';
   static const emptyLocationTitle = '현재 위치 기준으로 업체를 찾지 못했어요.';

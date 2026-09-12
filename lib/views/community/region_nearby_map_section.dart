@@ -14,6 +14,7 @@ import '../../theme/sori_tokens.dart';
 import '../../utils/naver_map_links.dart';
 import '../../utils/area_search_center.dart';
 import '../../utils/our_area_category.dart';
+import '../../utils/our_area_radius_insight.dart';
 import '../../utils/region_shop_list_copy.dart';
 import '../../utils/sori_bottom_sheet.dart';
 import '../explore_community_post_page.dart';
@@ -778,6 +779,9 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             category: OurAreaCategory.labelOf(_categoryKey),
             count: stores.length,
             searchBasis: RegionShopListCopy.searchBasis(_searchCenter.source),
+            insight: OurAreaRadiusInsight.fromMappedKeys(
+              stores.map((s) => s.chipKey),
+            ),
           ),
           if (stores.isEmpty)
             _ShopListEmpty(
@@ -1178,16 +1182,23 @@ class _ShopListSummary extends StatelessWidget {
     required this.category,
     required this.count,
     required this.searchBasis,
+    required this.insight,
   });
 
   final double radiusKm;
   final String? category;
   final int count;
   final String searchBasis;
+  final OurAreaRadiusInsight insight;
 
   @override
   Widget build(BuildContext context) {
+    final mix = RegionShopListCopy.compositionLine(
+      insight.mix.map((row) => (label: row.label, count: row.count)),
+    );
+    final top = RegionShopListCopy.topCategoryLine(insight.top?.label);
     return Column(
+      key: const Key('region-shop-insight'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -1200,8 +1211,12 @@ class _ShopListSummary extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          searchBasis,
-          key: const Key('region-shop-search-basis'),
+          RegionShopListCopy.conditionLine(
+            searchBasis: searchBasis,
+            radiusKm: radiusKm,
+            category: category,
+          ),
+          key: const Key('region-shop-insight-condition'),
           style: const TextStyle(
             fontSize: 12,
             color: SoriTokens.textSecondary,
@@ -1218,6 +1233,30 @@ class _ShopListSummary extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        if (mix != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            mix,
+            key: const Key('region-shop-insight-mix'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (top != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            top,
+            key: const Key('region-shop-insight-top'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: SoriTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
     );
   }
