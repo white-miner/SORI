@@ -440,26 +440,47 @@ class _SummaryBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          _SummaryCell(
-            value: '${summary.visitCount}',
-            label: '누적 방문',
+          Row(
+            children: [
+              _SummaryCell(
+                value: '${summary.visitCount}',
+                label: '누적 방문',
+              ),
+              _SummaryCell(
+                value: summary.totalPaid > 0
+                    ? _formatWon(summary.totalPaid)
+                    : '—',
+                label: '누적 결제',
+              ),
+              _SummaryCell(
+                value: (remain != null && remain > 0) ? '$remain회' : '—',
+                label: '잔여 선불권',
+              ),
+              _SummaryCell(
+                value: days == null ? '—' : (days == 0 ? 'D+0' : 'D+$days'),
+                label: '최근 방문',
+              ),
+            ],
           ),
-          _SummaryCell(
-            value: summary.totalPaid > 0
-                ? _formatWon(summary.totalPaid)
-                : '—',
-            label: '누적 결제',
-          ),
-          _SummaryCell(
-            value: (remain != null && remain > 0) ? '$remain회' : '—',
-            label: '잔여 선불권',
-          ),
-          _SummaryCell(
-            value: days == null ? '—' : (days == 0 ? 'D+0' : 'D+$days'),
-            label: '최근 방문',
-          ),
+          if (summary.latestChangeLine != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '최근 시술  ${summary.latestChangeLine}',
+                key: const Key('customer-chart-latest-change'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
