@@ -252,6 +252,22 @@ class _BaPostsPaneState extends State<_BaPostsPane> {
     );
   }
 
+  Future<void> _openCandidateDetail(ContentCandidateCard card) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: SoriTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _ContentCandidateDetailSheet(
+        chartId: card.chartId,
+        store: store,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final published = _published;
@@ -278,7 +294,12 @@ class _BaPostsPaneState extends State<_BaPostsPane> {
             ),
           )
         else
-          ...candidates.map((card) => _ContentCandidateCardTile(card: card)),
+          ...candidates.map(
+            (card) => _ContentCandidateCardTile(
+              card: card,
+              onTap: () => _openCandidateDetail(card),
+            ),
+          ),
         const SizedBox(height: 12),
         const Text(
           '발행됨',
@@ -411,14 +432,13 @@ class _WhisperPostsPane extends StatelessWidget {
 }
 
 class _ContentCandidateCardTile extends StatelessWidget {
-  const _ContentCandidateCardTile({required this.card});
+  const _ContentCandidateCardTile({
+    required this.card,
+    required this.onTap,
+  });
 
   final ContentCandidateCard card;
-
-  static String _dateLabel(DateTime? date) {
-    if (date == null) return '날짜 없음';
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -426,61 +446,206 @@ class _ContentCandidateCardTile extends StatelessWidget {
     return Padding(
       key: Key('content-candidate-card-${card.chartId}'),
       padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: SoriTokens.background,
+      child: Material(
+        color: SoriTokens.background,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: SoriTokens.border),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: SoriTokens.border),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: url.isEmpty
+                        ? const ColoredBox(
+                            color: Color(0xFFF3F4F6),
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              size: 20,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          )
+                        : SoriNetworkImage(url: url, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        card.serviceSummary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _candidateDateLabel(card.createdAt),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: SoriTokens.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PillBadge(
+                  label: card.statusLabel,
+                  tone: card.status == ContentCandidateStatus.ready
+                      ? PillTone.ok
+                      : PillTone.warn,
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Row(
+      ),
+    );
+  }
+}
+
+String _candidateDateLabel(DateTime? date) {
+  if (date == null) return '날짜 없음';
+  return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+}
+
+class _ContentCandidateDetailSheet extends StatefulWidget {
+  const _ContentCandidateDetailSheet({
+    required this.chartId,
+    required this.store,
+  });
+
+  final String chartId;
+  final SoriStore store;
+
+  @override
+  State<_ContentCandidateDetailSheet> createState() =>
+      _ContentCandidateDetailSheetState();
+}
+
+class _ContentCandidateDetailSheetState
+    extends State<_ContentCandidateDetailSheet> {
+  @override
+  void initState() {
+    super.initState();
+    ContentCandidateInbox.instance.addListener(_onInbox);
+  }
+
+  @override
+  void dispose() {
+    ContentCandidateInbox.instance.removeListener(_onInbox);
+    super.dispose();
+  }
+
+  void _onInbox() {
+    if (mounted) setState(() {});
+  }
+
+  ContentCandidateCard? get _card {
+    final status = ContentCandidateInbox.instance.entries[widget.chartId];
+    if (status == null) return null;
+    final chart = widget.store.findChartById(widget.chartId);
+    if (chart == null) return null;
+    return ContentCandidateInbox.cardFor(chart, status);
+  }
+
+  Future<void> _markReady() async {
+    await ContentCandidateInbox.instance.markReady(widget.chartId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('발행 준비 완료로 바꿨어요')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final card = _card;
+    if (card == null) {
+      return const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('후보를 찾을 수 없어요.'),
+        ),
+      );
+    }
+    final url = card.imageUrl?.trim() ?? '';
+    return SafeArea(
+      child: Padding(
+        key: Key('content-candidate-detail-${card.chartId}'),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: SoriTokens.border,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: SizedBox(
-                width: 56,
-                height: 56,
+                height: 180,
                 child: url.isEmpty
                     ? const ColoredBox(
                         color: Color(0xFFF3F4F6),
                         child: Icon(
                           Icons.image_not_supported_outlined,
-                          size: 20,
                           color: Color(0xFF9CA3AF),
                         ),
                       )
                     : SoriNetworkImage(url: url, fit: BoxFit.cover),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.serviceSummary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _dateLabel(card.createdAt),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: SoriTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 16),
+            Text(
+              card.serviceSummary,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _candidateDateLabel(card.createdAt),
+              style: const TextStyle(
+                fontSize: 13,
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            PillBadge(
-              label: card.statusLabel,
-              tone: card.status == ContentCandidateStatus.ready
-                  ? PillTone.ok
-                  : PillTone.warn,
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PillBadge(
+                label: card.statusLabel,
+                tone: card.status == ContentCandidateStatus.ready
+                    ? PillTone.ok
+                    : PillTone.warn,
+              ),
             ),
+            if (card.status == ContentCandidateStatus.queued) ...[
+              const SizedBox(height: 20),
+              FilledButton(
+                key: Key('content-candidate-mark-ready-${card.chartId}'),
+                onPressed: _markReady,
+                child: const Text('발행 준비 완료'),
+              ),
+            ],
           ],
         ),
       ),

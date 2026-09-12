@@ -86,4 +86,83 @@ void main() {
     expect(find.text(customer.phone), findsNothing);
     expect(find.byType(AiToolSheet), findsNothing);
   });
+
+  testWidgets('candidate detail marks ready locally without publishing', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    final customer = store.customers.first;
+    store.charts.add(
+      CustomerChart(
+        id: 'hub-cand-ready-1',
+        shopId: store.shop.id,
+        customerId: customer.id,
+        visitNumber: 4,
+        careName: '후보상세케어',
+        treatmentSummary: '내부 시술 메모',
+        directorInsight: '원장 감사 메모',
+        beforeImageUrl: 'https://example.com/b.jpg',
+        afterImageUrl: 'https://example.com/a.jpg',
+        consentMarketing: true,
+        signatureUrl: 'https://example.com/sig.png',
+        createdAt: DateTime(2026, 9, 2),
+      ),
+    );
+    expect(
+      await ContentCandidateInbox.instance.enqueue(
+        store.findChartById('hub-cand-ready-1')!,
+      ),
+      isTrue,
+    );
+
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (ctx) => TextButton(
+              onPressed: () => showShopPostsHubSheet(ctx, store: store),
+              child: const Text('open-hub'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open-hub'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(
+      find.byKey(const Key('content-candidate-card-hub-cand-ready-1')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const Key('content-candidate-detail-hub-cand-ready-1')),
+      findsOneWidget,
+    );
+    final markReady = find.byKey(
+      const Key('content-candidate-mark-ready-hub-cand-ready-1'),
+    );
+    expect(markReady, findsOneWidget);
+    expect(find.text('발행 준비 완료'), findsOneWidget);
+    expect(find.byType(AiToolSheet), findsNothing);
+
+    await tester.tap(markReady);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(
+      ContentCandidateInbox.instance.entries['hub-cand-ready-1'],
+      ContentCandidateStatus.ready,
+    );
+    expect(markReady, findsNothing);
+    expect(find.text('발행 준비 완료'), findsWidgets);
+    expect(find.text('발행 준비 완료로 바꿨어요'), findsOneWidget);
+    expect(find.byType(AiToolSheet), findsNothing);
+    expect(find.text('내부 시술 메모'), findsNothing);
+  });
 }
