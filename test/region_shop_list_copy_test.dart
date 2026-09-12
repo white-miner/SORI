@@ -88,7 +88,8 @@ void main() {
     expect(map.contains('CircleLayer'), isTrue);
     expect(map.contains('overrideLat: search.lat'), isTrue);
     expect(map.contains('_buildMapCanvas(stores)'), isTrue);
-    expect(map.contains('final stores = filter.items'), isTrue);
+    expect(map.contains('final stores = _visibleStores'), isTrue);
+    expect(map.contains('OurAreaCategory.matches'), isTrue);
 
     final sheet = File(
       'lib/views/community/region_map_explore_sheet.dart',

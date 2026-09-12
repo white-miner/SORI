@@ -13,6 +13,7 @@ import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/naver_map_links.dart';
 import '../../utils/area_search_center.dart';
+import '../../utils/our_area_category.dart';
 import '../../utils/region_shop_list_copy.dart';
 import '../../utils/sori_bottom_sheet.dart';
 import '../explore_community_post_page.dart';
@@ -64,6 +65,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   LatLng? _gpsCenter;
   LatLng? _mapCamera;
   _GpsBanner _gpsBanner = _GpsBanner.none;
+  String _categoryKey = OurAreaCategory.all;
   RegionMapTileId _tileId = RegionMapTileCatalog.productionDefault;
   RegionMapContentFilter _filter = RegionMapContentFilter.all;
   RegionMapSheetMode _sheetMode = RegionMapSheetMode.hidden;
@@ -109,6 +111,18 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       lngOf: (s) => s.longitude,
       withDistance: (s, m) => s.copyWith(distanceM: m),
     );
+  }
+
+  List<ShopMarketStoreItem> get _visibleStores {
+    return _storeFilter.items
+        .where(
+          (s) => OurAreaCategory.matches(
+            selected: _categoryKey,
+            chipKey: s.chipKey,
+            categoryLabel: s.categoryLabel,
+          ),
+        )
+        .toList();
   }
 
   LatLng get _viewCenter {
@@ -552,8 +566,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     final screenH = MediaQuery.sizeOf(context).height;
     final mapH = (screenH * 0.52).clamp(280.0, 520.0);
     final gpsText = _gpsStatusText;
-    final filter = _storeFilter;
-    final stores = filter.items;
+    final stores = _visibleStores;
     final locationFailed = _gpsBanner == _GpsBanner.denied ||
         _gpsBanner == _GpsBanner.failed ||
         (_insight != null && !_insight!.storesOk);
@@ -689,6 +702,31 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final key in OurAreaCategory.selectableKeys)
+              ChoiceChip(
+                key: Key('region-shop-category-$key'),
+                label: Text(OurAreaCategory.labelOf(key)),
+                selected: _categoryKey == key,
+                onSelected: (_) {
+                  if (_categoryKey == key) return;
+                  setState(() {
+                    _categoryKey = key;
+                    _selectedMarket = null;
+                  });
+                },
+                selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+          ],
+        ),
         if (_loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
@@ -737,7 +775,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           const SizedBox(height: 8),
           _ShopListSummary(
             radiusKm: _radiusKm,
-            category: _insight?.category,
+            category: OurAreaCategory.labelOf(_categoryKey),
             count: stores.length,
             searchBasis: RegionShopListCopy.searchBasis(_searchCenter.source),
           ),
