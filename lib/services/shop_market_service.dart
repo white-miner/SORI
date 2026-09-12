@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/shop.dart';
 import '../features/operation/shop_geocoding_service.dart';
+import '../utils/area_search_center.dart';
 
 /// ZONE 3 — Edge `get-shop-market` 응답 (상가 + 인구).
 class ShopMarketInsight {
@@ -188,14 +189,27 @@ class ShopMarketStoreItem {
   final String address;
 
   factory ShopMarketStoreItem.fromMap(Map<String, dynamic> map) {
+    final point = AreaSearchCenter.pointFromMap(map);
     return ShopMarketStoreItem(
       name: '${map['name'] ?? ''}'.trim(),
       categoryLabel: '${map['category_label'] ?? ''}'.trim(),
       chipKey: '${map['chip_key'] ?? 'other'}'.trim(),
-      latitude: (map['lat'] as num?)?.toDouble() ?? 0,
-      longitude: (map['lng'] as num?)?.toDouble() ?? 0,
+      latitude: point?.lat ?? 0,
+      longitude: point?.lng ?? 0,
       distanceM: ShopMarketInsight._asInt(map['distance_m']),
       address: '${map['address'] ?? ''}'.trim(),
+    );
+  }
+
+  ShopMarketStoreItem copyWith({int? distanceM}) {
+    return ShopMarketStoreItem(
+      name: name,
+      categoryLabel: categoryLabel,
+      chipKey: chipKey,
+      latitude: latitude,
+      longitude: longitude,
+      distanceM: distanceM ?? this.distanceM,
+      address: address,
     );
   }
 }
