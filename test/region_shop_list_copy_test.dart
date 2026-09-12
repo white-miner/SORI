@@ -48,6 +48,23 @@ void main() {
       RegionShopListCopy.emptyLocationHint,
       '현재 위치를 사용할 수 없어 지도 중심으로 찾고 있어요.',
     );
+    expect(
+      RegionShopListCopy.conditionLine(
+        searchBasis: '기본 지역 기준',
+        radiusKm: 1,
+        category: '전체',
+      ),
+      '기본 지역 기준 · 1km · 전체',
+    );
+    expect(
+      RegionShopListCopy.compositionLine([
+        (label: '헤어', count: 7),
+        (label: '네일', count: 1),
+      ]),
+      '헤어 7곳 · 네일 1곳',
+    );
+    expect(RegionShopListCopy.topCategoryLine('헤어'), '가장 많은 업종은 헤어');
+    expect(RegionShopListCopy.topCategoryLine(''), isNull);
   });
 
   test('detail facts hide missing category, distance, and address', () {
@@ -80,7 +97,11 @@ void main() {
     ).readAsStringSync();
     expect(map.contains('RegionShopListCopy.headline'), isTrue);
     expect(map.contains('RegionShopListCopy.searchBasis'), isTrue);
-    expect(map.contains("key: const Key('region-shop-search-basis')"), isTrue);
+    expect(map.contains('OurAreaRadiusInsight.fromMappedKeys'), isTrue);
+    expect(map.contains("key: const Key('region-shop-insight')"), isTrue);
+    expect(map.contains("key: const Key('region-shop-insight-mix')"), isTrue);
+    expect(map.contains("key: const Key('region-shop-insight-top')"), isTrue);
+    expect(map.contains("key: const Key('region-shop-insight-condition')"), isTrue);
     expect(map.contains("child: const Text('반경 넓히기')"), isTrue);
     expect(map.contains('_widenRadius'), isTrue);
     expect(map.contains('_ShopDetailFacts'), isTrue);
