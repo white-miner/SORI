@@ -21,6 +21,9 @@ void main() {
     expect(src.contains('customer-care-next-visit'), isTrue);
     expect(src.contains('nextCare.note'), isFalse);
     expect(src.contains('customerPhone'), isFalse);
+    expect(src.contains('directorInsight'), isFalse);
+    expect(src.contains('treatmentSummary'), isFalse);
+    expect(src.contains('원장 인사이트'), isFalse);
   });
 
   testWidgets('care tab shows scheduled next visit without internal note', (
@@ -51,6 +54,15 @@ void main() {
       onboardingComplete: true,
       activeMode: UserRole.customer,
     );
+    final existing = store.chartsForCustomer(customer.id);
+    if (existing.isNotEmpty) {
+      final idx = store.charts.indexWhere((c) => c.id == existing.first.id);
+      if (idx >= 0) {
+        store.charts[idx] = existing.first.copyWith(
+          directorInsight: '원장만 보는 판단',
+        );
+      }
+    }
     store.careScheduleEntries = [
       CareScheduleEntry(
         id: 'cust-next',
@@ -75,6 +87,7 @@ void main() {
     expect(find.textContaining('다음 방문'), findsWidgets);
     expect(find.textContaining('리프팅'), findsWidgets);
     expect(find.textContaining('원장만 보는 내부 메모'), findsNothing);
+    expect(find.textContaining('원장만 보는 판단'), findsNothing);
     expect(find.textContaining('다음 권장'), findsNothing);
   });
 }
