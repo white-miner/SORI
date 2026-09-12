@@ -26,10 +26,14 @@ class CustomerChartPage extends StatefulWidget {
     super.key,
     required this.store,
     required this.customerId,
+    this.revealChartId,
+    this.revealLatestResult = false,
   });
 
   final SoriStore store;
   final String customerId;
+  final String? revealChartId;
+  final bool revealLatestResult;
 
   @override
   State<CustomerChartPage> createState() => _CustomerChartPageState();
@@ -44,6 +48,20 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
     widget.store.addListener(_onStore);
+    if (widget.revealLatestResult) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _tabs.index = 1;
+        CustomerChart? chart;
+        final id = widget.revealChartId?.trim() ?? '';
+        if (id.isNotEmpty) {
+          chart = widget.store.findChartById(id);
+        }
+        chart ??= _charts.isEmpty ? null : _charts.first;
+        if (chart == null) return;
+        _openBeforeAfterCompare(chart: chart);
+      });
+    }
   }
 
   @override
@@ -148,6 +166,9 @@ class _CustomerChartPageState extends State<CustomerChartPage>
         afterImageUrl: result.url,
       );
     }
+    if (!mounted) return;
+    final updated = widget.store.findChartById(chart.id) ?? chart;
+    await _openBeforeAfterCompare(chart: updated);
   }
 
   Future<void> _openBeforeAfterCompare({CustomerChart? chart}) async {
