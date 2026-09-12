@@ -56,6 +56,26 @@ abstract final class RegionShopListCopy {
     return '가장 많은 업종은 $value';
   }
 
+  /// 출처·기준일. 모르면 추측하지 않는다.
+  static String provenanceLine({
+    required List<String> sources,
+    String? snapshotDate,
+  }) {
+    final isSnapshot = sources.any((s) => s.contains('스냅샷'));
+    if (isSnapshot) {
+      final date = snapshotDate?.trim() ?? '';
+      if (date.isEmpty) return '로컬 스냅샷 · 기준일 없음';
+      return '로컬 스냅샷 · 기준일 $date';
+    }
+    for (final raw in sources) {
+      final source = raw.trim();
+      if (source.contains('상가') || source.contains('소상공인')) {
+        return '$source · 기준일 없음';
+      }
+    }
+    return '로컬 데이터 · 기준일 없음';
+  }
+
   static const emptyTrueZeroTitle = '이 조건에서 찾은 뷰티숍이 없어요.';
   static const emptyTrueZeroHint = '반경을 넓혀서 다시 찾아보세요.';
   static const emptyLocationTitle = '현재 위치 기준으로 업체를 찾지 못했어요.';

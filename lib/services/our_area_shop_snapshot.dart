@@ -10,6 +10,8 @@ import 'shop_market_service.dart';
 abstract final class OurAreaShopSnapshot {
   static const assetPath = 'assets/data/our_area/gyeongju_beauty_shops.json';
   static const sourceLabel = '우리 지역 공공데이터 스냅샷';
+  /// JSON `sourceDate`와 같아야 한다. 없으면 기준일을 만들지 않는다.
+  static const sourceDate = '2026-09-12';
   static const coverRadiusKm = 25.0;
 
   static const _labels = <String, String>{

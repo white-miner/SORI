@@ -9,6 +9,7 @@ import '../../services/biz_profile_store.dart';
 import '../../services/region_content_bookmark_store.dart';
 import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
+import '../../services/our_area_shop_snapshot.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/naver_map_links.dart';
@@ -782,6 +783,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             insight: OurAreaRadiusInsight.fromMappedKeys(
               stores.map((s) => s.chipKey),
             ),
+            sources: _insight?.sources ?? const <String>[],
           ),
           if (stores.isEmpty)
             _ShopListEmpty(
@@ -1183,6 +1185,7 @@ class _ShopListSummary extends StatelessWidget {
     required this.count,
     required this.searchBasis,
     required this.insight,
+    this.sources = const [],
   });
 
   final double radiusKm;
@@ -1190,6 +1193,7 @@ class _ShopListSummary extends StatelessWidget {
   final int count;
   final String searchBasis;
   final OurAreaRadiusInsight insight;
+  final List<String> sources;
 
   @override
   Widget build(BuildContext context) {
@@ -1257,6 +1261,19 @@ class _ShopListSummary extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: 4),
+        Text(
+          RegionShopListCopy.provenanceLine(
+            sources: sources,
+            snapshotDate: OurAreaShopSnapshot.sourceDate,
+          ),
+          key: const Key('region-shop-provenance'),
+          style: const TextStyle(
+            fontSize: 11,
+            color: SoriTokens.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
