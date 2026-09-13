@@ -58,30 +58,6 @@ EdgeInsets _visitFixedActionPadding(
   );
 }
 
-const double _kVisitPhaseGutter = 20;
-const double _kVisitConsentActionPad = 16;
-
-EdgeInsets _visitPhaseListPadding(BuildContext context) {
-  return EdgeInsets.fromLTRB(
-    _kVisitPhaseGutter,
-    _kVisitPhaseGutter,
-    _kVisitPhaseGutter,
-    _kVisitPhaseGutter + SoriShellInsets.scrollBottomInset(context),
-  );
-}
-
-EdgeInsets _visitFixedActionPadding(
-  BuildContext context, {
-  required double existing,
-}) {
-  return EdgeInsets.fromLTRB(
-    existing,
-    existing,
-    existing,
-    existing + SoriShellInsets.scrollBottomInset(context),
-  );
-}
-
 /// Visit Session — Shoot → Consult → Plan → Consent → Publish (PRD v3.1).
 class VisitSessionPage extends StatefulWidget {
   const VisitSessionPage({
