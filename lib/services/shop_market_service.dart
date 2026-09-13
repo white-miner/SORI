@@ -22,6 +22,7 @@ class ShopMarketInsight {
     required this.sampleNames,
     this.storeItems = const [],
     required this.storesError,
+    this.storesUpstream,
     required this.populationOk,
     required this.admCd,
     required this.dongName,
@@ -49,6 +50,8 @@ class ShopMarketInsight {
   final List<String> sampleNames;
   final List<ShopMarketStoreItem> storeItems;
   final String? storesError;
+  /// Edge `stores.upstream`. 없으면 구버전 응답.
+  final String? storesUpstream;
 
   final bool populationOk;
   final String? admCd;
@@ -147,6 +150,7 @@ class ShopMarketInsight {
             ShopMarketStoreItem.fromMap(Map<String, dynamic>.from(raw)),
       ],
       storesError: stores['error']?.toString(),
+      storesUpstream: stores['upstream']?.toString(),
       populationOk: pop['ok'] == true,
       admCd: pop['adm_cd']?.toString(),
       dongName: pop['dong_name']?.toString(),

@@ -13,6 +13,7 @@ import '../../models/home_care_prescriptions.dart';
 import '../../services/chart_signature_storage.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../utils/sori_shell_insets.dart';
 import '../../views/chart_consent_tab.dart';
 import '../../views/chart_management_page.dart';
 import '../../views/customer_chart/customer_chart_page.dart';
@@ -32,6 +33,30 @@ import 'consultation_surface_page.dart';
 import 'consultation_track.dart';
 
 enum _VisitCompleteChoice { customerDetail, nextSchedule, close }
+
+const double _kVisitPhaseGutter = 20;
+const double _kVisitConsentActionPad = 16;
+
+EdgeInsets _visitPhaseListPadding(BuildContext context) {
+  return EdgeInsets.fromLTRB(
+    _kVisitPhaseGutter,
+    _kVisitPhaseGutter,
+    _kVisitPhaseGutter,
+    _kVisitPhaseGutter + SoriShellInsets.scrollBottomInset(context),
+  );
+}
+
+EdgeInsets _visitFixedActionPadding(
+  BuildContext context, {
+  required double existing,
+}) {
+  return EdgeInsets.fromLTRB(
+    existing,
+    existing,
+    existing,
+    existing + SoriShellInsets.scrollBottomInset(context),
+  );
+}
 
 /// Visit Session — Shoot → Consult → Plan → Consent → Publish (PRD v3.1).
 class VisitSessionPage extends StatefulWidget {
@@ -1142,7 +1167,11 @@ class _HoldPhasePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasHomeCare = chart?.homeCarePrescriptions.isNotEmpty ?? false;
     return Padding(
-      padding: const EdgeInsets.all(20),
+      key: const Key('visit-hold-action-pad'),
+      padding: _visitFixedActionPadding(
+        context,
+        existing: _kVisitPhaseGutter,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1512,7 +1541,8 @@ class _PlanPhaseState extends State<_PlanPhase> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      key: const Key('visit-phase-list'),
+      padding: _visitPhaseListPadding(context),
       children: [
         Text(
           '다음 관리',
@@ -1737,7 +1767,8 @@ class _ShootPhase extends StatelessWidget {
     final after = chart?.afterImageUrl;
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      key: const Key('visit-phase-list'),
+      padding: _visitPhaseListPadding(context),
       children: [
         Text(
           '사진과 변화 기록',
@@ -1882,7 +1913,8 @@ class _ConsultPhase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      key: const Key('visit-phase-list'),
+      padding: _visitPhaseListPadding(context),
       children: [
         Text(
           '고객 이야기',
@@ -2036,7 +2068,11 @@ class _ConsentPhase extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          key: const Key('visit-consent-action-pad'),
+          padding: _visitFixedActionPadding(
+            context,
+            existing: _kVisitConsentActionPad,
+          ),
           child: FilledButton(
             onPressed: busy ? null : onComplete,
             style: FilledButton.styleFrom(

@@ -15,6 +15,7 @@ import '../widgets/explore/explore_rich_info_card.dart';
 import '../widgets/glass/sori_glass_overlay.dart';
 import '../widgets/glass/sori_glass_tokens.dart';
 import '../utils/home_explore_search.dart';
+import '../utils/sori_shell_insets.dart';
 import 'community_discover_pane.dart';
 
 /// 홈 · 탐색 — 2열 리치 카드 그리드 + 원장 스트립 / 검색 시 게시물·프로필.
@@ -199,7 +200,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final bottomInset = SoriShellInsets.scrollBottomInset(context);
     final scrollActive = widget.scrollController != null;
     final scrollPhysics = scrollActive
         ? const AlwaysScrollableScrollPhysics(
@@ -393,7 +394,8 @@ class _HomeExploreTabState extends State<HomeExploreTab>
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 100 + bottomInset),
+            key: const Key('explore-browse-list-padding'),
+            padding: EdgeInsets.fromLTRB(16, 4, 16, bottomInset),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -434,7 +436,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     return ListView(
       controller: widget.scrollController,
       physics: scrollPhysics,
-      padding: EdgeInsets.fromLTRB(0, 0, 0, 100 + bottomInset),
+      padding: EdgeInsets.fromLTRB(0, 0, 0, bottomInset),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 16, 8),
@@ -486,7 +488,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       return ListView(
         controller: widget.scrollController,
         physics: scrollPhysics,
-        padding: EdgeInsets.fromLTRB(24, 48, 24, 100 + bottomInset),
+        padding: EdgeInsets.fromLTRB(24, 48, 24, bottomInset),
         children: const [
           Text(
             '게시물 결과가 없어요',
@@ -509,7 +511,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     return GridView.builder(
       controller: widget.scrollController,
       physics: scrollPhysics,
-      padding: EdgeInsets.fromLTRB(16, 4, 16, 100 + bottomInset),
+      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomInset),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 14,
@@ -549,7 +551,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
       return ListView(
         controller: widget.scrollController,
         physics: scrollPhysics,
-        padding: EdgeInsets.fromLTRB(24, 48, 24, 100 + bottomInset),
+        padding: EdgeInsets.fromLTRB(24, 48, 24, bottomInset),
         children: const [
           Text(
             '프로필 결과가 없어요',
@@ -571,7 +573,7 @@ class _HomeExploreTabState extends State<HomeExploreTab>
     return ListView.builder(
       controller: widget.scrollController,
       physics: scrollPhysics,
-      padding: EdgeInsets.fromLTRB(0, 4, 0, 100 + bottomInset),
+      padding: EdgeInsets.fromLTRB(0, 4, 0, bottomInset),
       itemCount: rows.length,
       itemBuilder: (context, i) {
         final d = rows[i];

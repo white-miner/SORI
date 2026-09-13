@@ -9,6 +9,7 @@ import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
 import '../utils/sori_nav.dart';
+import '../utils/sori_shell_insets.dart';
 import '../widgets/glass/sori_glass_app_bar_cluster.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/floating_pill_nav.dart';
@@ -283,7 +284,10 @@ class _AppShellPageState extends State<AppShellPage> {
             backgroundColor: SoriTokens.background,
             extendBody: true,
             appBar: appBar,
-            body: shellBody,
+            body: SoriShellInsetScope(
+              pillNavVisible: true,
+              child: shellBody,
+            ),
             bottomNavigationBar: FloatingPillNav(
               currentIndex: tab,
               isDirector: isDirector,
@@ -380,7 +384,10 @@ class _AppShellPageState extends State<AppShellPage> {
         return Scaffold(
           backgroundColor: SoriTokens.background,
           appBar: appBar,
-          body: pcBody,
+          body: SoriShellInsetScope(
+            pillNavVisible: false,
+            child: pcBody,
+          ),
         );
       },
     );

@@ -49,12 +49,12 @@ function categoryKeywords(category: string): string[] {
   const c = category.trim();
   if (c === '전체' || c.toLowerCase() === 'all') return [];
   if (c.includes('네일')) return ['네일', '손톱'];
-  if (c.includes('바버') || c.includes('이발')) return ['바버', '이발', '남성전문'];
+  if (c.includes('바버') || c.includes('이발')) return ['바버', '이발', '남성전문', '이용업', '이용원'];
   if (c.includes('타투')) return ['타투', '문신'];
   if (c.includes('반영구')) return ['반영구', '반영구화장', '눈썹문신', '아이라인'];
-  if (c.includes('미용')) return ['미용', '헤어', '두발'];
+  if (c.includes('미용')) return ['두발미용', '헤어', '미용실'];
   if (c.includes('피부') || c.includes('에스테틱')) {
-    return ['피부', '에스테틱', '마사지', '체형', '왁싱'];
+    return ['피부미용', '피부관리', '에스테틱', '스킨케어'];
   }
   return ['피부', '에스테틱', '마사지', '체형', '미용', '네일', '왁싱'];
 }
@@ -85,13 +85,21 @@ function matchesCategory(item: Record<string, unknown>, keywords: string[]): boo
 
 function chipKeyForStore(item: Record<string, unknown>): string {
   const blob = storeBlob(item);
-  if (/네일|손톱/.test(blob)) return 'nail';
-  if (/바버|이발|남성전문/.test(blob)) return 'barber';
-  if (/반영구/.test(blob)) return 'semi_permanent';
-  if (/타투|문신/.test(blob)) return 'tattoo';
-  if (/미용|헤어|두발/.test(blob)) return 'hair';
-  if (/피부|에스테틱|마사지|체형|왁싱/.test(blob)) return 'skin';
-  return 'other';
+  // 원문 분류명. 짧은 '미용' 토큰을 피부미용업보다 먼저 쓰면 피부가 헤어로 간다.
+  if (/피부미용|피부관리|에스테틱|스킨케어/.test(blob)) return "skin";
+  if (/두발미용/.test(blob)) return "hair";
+  if (/이용업/.test(blob) && !/이용및미용/.test(blob) && !/미용업/.test(blob)) {
+    return "barber";
+  }
+  if (/네일|손톱/.test(blob)) return "nail";
+  if (/바버|이발|남성전문|이용원/.test(blob) && !/두발미용|미용실/.test(blob)) {
+    return "barber";
+  }
+  if (/반영구/.test(blob)) return "semi_permanent";
+  if (/타투|문신/.test(blob)) return "tattoo";
+  if (/헤어샵|헤어|미용실/.test(blob) && !/피부미용/.test(blob)) return "hair";
+  if (/피부|왁싱/.test(blob)) return "skin";
+  return "other";
 }
 
 function storeLatLng(item: Record<string, unknown>): { lat: number; lng: number } | null {
@@ -123,25 +131,128 @@ type StoreItemOut = {
   address: string;
 };
 
-function extractStoreItems(payload: unknown): Record<string, unknown>[] {
-  if (!payload || typeof payload !== 'object') return [];
+function readTotalCount(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
   const root = payload as Record<string, unknown>;
-  const body = (root.body ?? root.response ?? root) as Record<string, unknown>;
-  const items =
-    body.items ??
-    (body.body as Record<string, unknown> | undefined)?.items ??
-    root.items;
-  if (Array.isArray(items)) {
-    return items.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
-  }
-  if (items && typeof items === 'object') {
-    const item = (items as Record<string, unknown>).item;
-    if (Array.isArray(item)) {
-      return item.filter((x) => x && typeof x === 'object') as Record<string, unknown>[];
+  const body = (root.body ??
+    (root.response as Record<string, unknown> | undefined)?.body) as
+    | Record<string, unknown>
+    | undefined;
+  const raw = body?.totalCount ?? body?.totalcount;
+  const n = num(raw);
+  return n > 0 || raw === 0 || raw === "0" ? n : null;
+}
+function headerResultCode(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const root = payload as Record<string, unknown>;
+  const header = (root.header ??
+    (root.response as Record<string, unknown> | undefined)?.header ??
+    (root.cmmMsgHeader as Record<string, unknown> | undefined)) as
+    | Record<string, unknown>
+    | undefined;
+  return String(
+    header?.resultCode ??
+      header?.returnReasonCode ??
+      header?.errMsg ??
+      "",
+  ).trim();
+}
+
+function looksLikeStore(row: Record<string, unknown>): boolean {
+  return (
+    "bizesNm" in row ||
+    "storeNm" in row ||
+    "bizesId" in row
+  );
+}
+
+function extractStoreItems(payload: unknown): Record<string, unknown>[] {
+  const found: Record<string, unknown>[] = [];
+  const walk = (node: unknown, depth: number) => {
+    if (depth > 8 || node == null) return;
+    if (Array.isArray(node)) {
+      const maps: Record<string, unknown>[] = [];
+      for (const e of node) {
+        maps.push(...coerceStoreMaps(e));
+      }
+      if (maps.some((m) => looksLikeStore(m))) {
+        for (const m of maps) {
+          if (looksLikeStore(m)) found.push(m);
+        }
+        return;
+      }
+      for (const e of node) walk(e, depth + 1);
+      return;
     }
-    if (item && typeof item === 'object') return [item as Record<string, unknown>];
+    if (typeof node === "object") {
+      const map = node as Record<string, unknown>;
+      if ("item" in map) {
+        walk(map.item, depth + 1);
+        return;
+      }
+      if ("items" in map) {
+        walk(map.items, depth + 1);
+        return;
+      }
+      if (looksLikeStore(map)) {
+        found.push(map);
+        return;
+      }
+      for (const v of Object.values(map)) walk(v, depth + 1);
+    }
+  };
+  walk(payload, 0);
+  return found;
+}
+
+function coerceStoreMaps(node: unknown): Record<string, unknown>[] {
+  if (Array.isArray(node)) {
+    return node.flatMap(coerceStoreMaps);
+  }
+  if (node && typeof node === "object") {
+    const map = node as Record<string, unknown>;
+    if ("item" in map && !looksLikeStore(map)) {
+      return coerceStoreMaps(map.item);
+    }
+    return [map];
   }
   return [];
+}
+
+function xmlTag(block: string, name: string): string {
+  const m = new RegExp("<" + name + ">([^<]*)</" + name + ">", "i").exec(block);
+  return (m?.[1] ?? "").trim();
+}
+
+function extractXmlItemMaps(xml: string): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const re = /<item>([\s\S]*?)<\/item>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const body = m[1];
+    out.push({
+      bizesNm: xmlTag(body, "bizesNm") || xmlTag(body, "storeNm"),
+      bizesId: xmlTag(body, "bizesId"),
+      storeNm: xmlTag(body, "storeNm"),
+      lat: xmlTag(body, "lat") || xmlTag(body, "cy"),
+      lon: xmlTag(body, "lon") || xmlTag(body, "lng") || xmlTag(body, "cx"),
+      lng: xmlTag(body, "lng"),
+      rdnmAdr: xmlTag(body, "rdnmAdr"),
+      lnoAdr: xmlTag(body, "lnoAdr"),
+      indsLclsNm: xmlTag(body, "indsLclsNm"),
+      indsMclsNm: xmlTag(body, "indsMclsNm"),
+      indsSclsNm: xmlTag(body, "indsSclsNm"),
+    });
+  }
+  return out;
+}
+
+function xmlResultCode(xml: string): string {
+  return xmlTag(xml, "returnReasonCode") || xmlTag(xml, "resultCode");
+}
+
+function isSuccessCode(code: string): boolean {
+  return code === "00" || code === "0" || code === "0000";
 }
 
 async function fetchStores(opts: {
@@ -157,6 +268,7 @@ async function fetchStores(opts: {
   sampleNames: string[];
   items: StoreItemOut[];
   error?: string;
+  upstream?: "ok" | "api_error" | "malformed" | "missing_key" | "network";
 }> {
   const keywords = categoryKeywords(opts.category);
   const url =
@@ -174,34 +286,131 @@ async function fetchStores(opts: {
   try {
     const res = await fetch(url);
     const text = await res.text();
-    let payload: unknown;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      return {
-        ok: false,
-        totalInRadius: 0,
-        sameCategoryCount: 0,
-        sampleNames: [],
-        items: [],
-        error: "store_non_json status=" + res.status,
-      };
+    const trimmed = text.trim();
+    let rawItems: Record<string, unknown>[] = [];
+    let code = "";
+    let responseTotalCount: number | null = null;
+    let resultMsg = "";
+
+    if (trimmed.startsWith("<")) {
+      code = xmlResultCode(trimmed);
+      if (code && !isSuccessCode(code)) {
+        return {
+          ok: false,
+          totalInRadius: 0,
+          sameCategoryCount: 0,
+          sampleNames: [],
+          items: [],
+          error: "xml_" + code,
+          upstream: "api_error",
+        };
+      }
+      rawItems = extractXmlItemMaps(trimmed);
+      const xmlTotal = xmlTag(trimmed, "totalCount");
+      if (xmlTotal) responseTotalCount = num(xmlTotal);
+      resultMsg = xmlTag(trimmed, "resultMsg");
+      if (rawItems.length === 0 && !isSuccessCode(code)) {
+        return {
+          ok: false,
+          totalInRadius: 0,
+          sameCategoryCount: 0,
+          sampleNames: [],
+          items: [],
+          error: "malformed_xml_empty",
+          upstream: "malformed",
+        };
+      }
+    } else {
+      let payload: unknown;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        return {
+          ok: false,
+          totalInRadius: 0,
+          sameCategoryCount: 0,
+          sampleNames: [],
+          items: [],
+          error: "store_non_json status=" + res.status,
+          upstream: "malformed",
+        };
+      }
+      code = headerResultCode(payload);
+      const hdr = (payload as Record<string, unknown> | null)?.header as
+        | Record<string, unknown>
+        | undefined;
+      resultMsg = String(hdr?.resultMsg ?? "");
+      if (code && !isSuccessCode(code)) {
+        return {
+          ok: false,
+          totalInRadius: 0,
+          sameCategoryCount: 0,
+          sampleNames: [],
+          items: [],
+          error: "api_" + code,
+          upstream: "api_error",
+        };
+      }
+      if (res.status < 200 || res.status >= 300) {
+        return {
+          ok: false,
+          totalInRadius: 0,
+          sameCategoryCount: 0,
+          sampleNames: [],
+          items: [],
+          error: "http_" + res.status,
+          upstream: "api_error",
+        };
+      }
+      rawItems = extractStoreItems(payload);
+      responseTotalCount = readTotalCount(payload);
+      if (rawItems.length === 0 && !isSuccessCode(code)) {
+        return {
+          ok: false,
+          totalInRadius: 0,
+          sameCategoryCount: 0,
+          sampleNames: [],
+          items: [],
+          error: "malformed_empty",
+          upstream: "malformed",
+        };
+      }
     }
-    const rawItems = extractStoreItems(payload);
     const matched = rawItems.filter((it) => matchesCategory(it, keywords));
     const names = matched
       .map((it) => String(it.bizesNm ?? it.storeNm ?? it.name ?? ''))
       .filter((n) => n.length > 0)
       .slice(0, 5);
 
+    const dropReasons: Record<string, number> = {};
+    const bump = (k: string) => {
+      dropReasons[k] = (dropReasons[k] ?? 0) + 1;
+    };
+    const seenIds = new Set<string>();
     const mapped: StoreItemOut[] = [];
     for (const it of rawItems) {
+      const id = String(it.bizesId ?? it.bizesNo ?? "").trim();
+      if (id && seenIds.has(id)) {
+        bump("dedupe_bizesId");
+        continue;
+      }
+      if (id) seenIds.add(id);
+      if (!matchesCategory(it, keywords)) {
+        bump("category_keyword");
+        continue;
+      }
       const ll = storeLatLng(it);
-      if (!ll) continue;
-      const name = String(it.bizesNm ?? it.storeNm ?? it.name ?? '').trim();
-      if (!name) continue;
+      if (!ll) {
+        bump("invalid_or_missing_coords");
+        continue;
+      }
+      const name = String(it.bizesNm ?? it.storeNm ?? it.name ?? "").trim();
+      if (!name) {
+        bump("empty_name");
+        continue;
+      }
       const categoryLabel = String(
-        it.indsSclsNm ?? it.indsMclsNm ?? it.indsLclsNm ?? it.sclsNm ?? '',
+        it.indsSclsNm ?? it.indsMclsNm ?? it.indsLclsNm ?? it.sclsNm ?? "",
       ).trim();
       mapped.push({
         name,
@@ -210,17 +419,53 @@ async function fetchStores(opts: {
         lat: ll.lat,
         lng: ll.lng,
         distance_m: haversineM(opts.lat, opts.lng, ll.lat, ll.lng),
-        address: String(it.rdnmAdr ?? it.lnoAdr ?? it.addr ?? '').trim(),
+        address: String(it.rdnmAdr ?? it.lnoAdr ?? it.addr ?? "").trim(),
       });
     }
     mapped.sort((a, b) => a.distance_m - b.distance_m);
+
+    const coordBuckets = new Map<string, number>();
+    for (const s of mapped) {
+      const k = `${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
+      coordBuckets.set(k, (coordBuckets.get(k) ?? 0) + 1);
+    }
+    let coincident = 0;
+    for (const n of coordBuckets.values()) {
+      if (n > 1) coincident += 1;
+    }
+
+    const pageUnknown =
+      responseTotalCount != null && responseTotalCount > rawItems.length;
+    const audit = {
+      source: "LIVE" as const,
+      category: opts.category,
+      lat: opts.lat,
+      lng: opts.lng,
+      radiusM: opts.radiusM,
+      httpStatus: res.status,
+      resultCode: code,
+      resultMsg,
+      responseTotalCount,
+      rawItemCount: rawItems.length,
+      normalizedCount: rawItems.length,
+      afterFilterCount: mapped.length,
+      categoryFilteredCount: mapped.length,
+      afterCoordCount: mapped.length,
+      afterDedupeCount: mapped.length,
+      renderedPinCount: mapped.length,
+      paginationContract: pageUnknown ? "contractUnknown" : "this_page_only",
+      dropReasons,
+      coincidentCoordGroups: coincident,
+    };
 
     return {
       ok: true,
       totalInRadius: rawItems.length,
       sameCategoryCount: matched.length,
       sampleNames: names,
-      items: mapped.slice(0, 80),
+      items: mapped,
+      upstream: "ok",
+      audit,
     };
   } catch (e) {
     return {
@@ -230,6 +475,7 @@ async function fetchStores(opts: {
       sampleNames: [],
       items: [],
       error: String(e),
+      upstream: "network",
     };
   }
 }
@@ -591,6 +837,7 @@ Deno.serve(async (req) => {
           address: string;
         }[],
         error: "missing_SBIZ_STORE_SERVICE_KEY",
+        upstream: "missing_key" as const,
       };
 
     const population = moisKey
@@ -630,11 +877,16 @@ Deno.serve(async (req) => {
       stats_ym: statsYm,
       stores: {
         ok: stores.ok,
+        upstream: stores.upstream ?? (stores.ok ? "ok" : "error"),
+        empty: Boolean(stores.ok) && (stores.items?.length ?? 0) === 0,
         total_in_radius: stores.totalInRadius,
         same_category_count: stores.sameCategoryCount,
         sample_names: stores.sampleNames,
         items: stores.items ?? [],
         error: stores.error ?? null,
+        source: "소상공인시장진흥공단 상가(상권)정보",
+        retrieved_at: new Date().toISOString(),
+        audit: (stores as { audit?: unknown }).audit ?? null,
       },
       population: {
         ok: population.ok,
@@ -656,7 +908,13 @@ Deno.serve(async (req) => {
         estimate: true,
         error: String(e),
         fetched_at: new Date().toISOString(),
-        stores: { ok: false, total_in_radius: 0, same_category_count: 0 },
+        stores: {
+          ok: false,
+          upstream: "network",
+          empty: false,
+          total_in_radius: 0,
+          same_category_count: 0,
+        },
         population: { ok: false, total: 0, male: 0, female: 0, ages: [] },
       },
       200,

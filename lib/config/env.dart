@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-/// Compile-time / dotenv 환경 설정.
+import 'process_env_stub.dart'
+    if (dart.library.io) 'process_env_io.dart' as process_env;
+
+/// Compile-time / dotenv / process 환경 설정.
 abstract final class Env {
   /// GitHub Pages 프로덕션 Site URL (localhost 폴백 방지).
   static const String defaultSiteUrl = 'https://white-miner.github.io/SORI/';
@@ -13,6 +16,46 @@ abstract final class Env {
   static const String _openaiFromDefine =
       String.fromEnvironment('OPENAI_API_KEY');
   static const String _siteFromDefine = String.fromEnvironment('SITE_URL');
+
+  static const String _publicDataFromDefine =
+      String.fromEnvironment('PUBLIC_DATA_SERVICE_KEY');
+  static const String _dataGoFromDefine =
+      String.fromEnvironment('DATA_GO_KR_SERVICE_KEY');
+  static const String _sbizFromDefine =
+      String.fromEnvironment('SBIZ_STORE_SERVICE_KEY');
+  static const String _moisFromDefine =
+      String.fromEnvironment('MOIS_POP_SERVICE_KEY');
+  static const String _useDemoFromDefine =
+      String.fromEnvironment('USE_DEMO_MARKET_DATA');
+  static const String _flavorFromDefine =
+      String.fromEnvironment('SORI_ENV', defaultValue: 'development');
+
+  /// development | staging | production
+  static String get flavorName {
+    final raw = _firstNonEmpty([
+      _flavorFromDefine,
+      _dotenv('SORI_ENV'),
+      process_env.readProcessEnv('SORI_ENV'),
+    ]).toLowerCase();
+    if (raw == 'prod' || raw == 'production') return 'production';
+    if (raw == 'stage' || raw == 'staging') return 'staging';
+    return 'development';
+  }
+
+  static bool get isProduction => flavorName == 'production';
+  static bool get isStaging => flavorName == 'staging';
+  static bool get isDevelopment => flavorName == 'development';
+  static bool get isReleaseProduction => isProduction && kReleaseMode;
+
+  /// PowerShell / dart-define / dotenv 에서 읽은 공공데이터 키 별칭.
+  static const publicDataKeyAliases = <String>[
+    'PUBLIC_DATA_SERVICE_KEY',
+    'DATA_GO_KR_SERVICE_KEY',
+    'SBIZ_STORE_SERVICE_KEY',
+    'SERVICE_KEY',
+    'PUBLIC_DATA_API_KEY',
+    'DATA_GO_KR_API_KEY',
+  ];
 
   static String get supabaseUrl {
     final raw = _urlFromDefine.isNotEmpty
@@ -69,6 +112,59 @@ abstract final class Env {
   }
 
   static bool get hasOpenAiConfig => openaiApiKey.isNotEmpty;
+
+  /// 값 자체는 호출부 로그에 넣지 말 것. 존재 여부만 공개.
+  static bool get publicDataKeyConfigured => publicDataServiceKey.isNotEmpty;
+
+  static bool get moisPopKeyConfigured => moisPopServiceKey.isNotEmpty;
+
+  /// `USE_DEMO_MARKET_DATA=true` 를 명시한 경우에만 시드 허용.
+  /// production release 에서는 기본·강제 모두 DEMO 비활성.
+  static bool get useDemoMarketData {
+    if (isReleaseProduction) return false;
+    final raw = _firstNonEmpty([
+      _useDemoFromDefine,
+      _dotenv('USE_DEMO_MARKET_DATA'),
+      process_env.readProcessEnv('USE_DEMO_MARKET_DATA'),
+    ]);
+    return raw.toLowerCase() == 'true' || raw == '1';
+  }
+
+  /// 런치 검증용. 키 값은 넣지 않는다.
+  static Map<String, bool> launchConfiguredFlags() => {
+        'supabase': hasSupabaseConfig,
+        'openai': hasOpenAiConfig,
+        'public_data': publicDataKeyConfigured,
+        'mois_pop': moisPopKeyConfigured,
+        'demo_market': useDemoMarketData,
+      };
+
+  /// 소상공인 상가 API serviceKey. UI/로그에 출력 금지.
+  static String get publicDataServiceKey {
+    return _firstNonEmpty([
+      _publicDataFromDefine,
+      _dataGoFromDefine,
+      _sbizFromDefine,
+      for (final name in publicDataKeyAliases) _dotenv(name),
+      for (final name in publicDataKeyAliases) process_env.readProcessEnv(name),
+    ]);
+  }
+
+  static String get moisPopServiceKey {
+    return _firstNonEmpty([
+      _moisFromDefine,
+      _dotenv('MOIS_POP_SERVICE_KEY'),
+      process_env.readProcessEnv('MOIS_POP_SERVICE_KEY'),
+    ]);
+  }
+
+  static String _firstNonEmpty(Iterable<String> values) {
+    for (final raw in values) {
+      final v = raw.trim();
+      if (v.isNotEmpty && !isPlaceholderCredential(v)) return v;
+    }
+    return '';
+  }
 
   /// `...supabase.co/rest/v1/` 형태도 프로젝트 루트 URL로 정규화.
   static String _normalizeUrl(String raw) {

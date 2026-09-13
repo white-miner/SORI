@@ -18,6 +18,7 @@ import '../services/unified_feed_engine.dart';
 import '../theme/sori_tab_indicator.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/category_presentation_map.dart';
+import '../utils/sori_shell_insets.dart';
 import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
 import '../widgets/post/sori_post_mini.dart';
@@ -35,7 +36,18 @@ import 'community/region_nearby_map_section.dart';
 import 'home_explore_tab.dart';
 import 'seminar_class_detail_page.dart';
 
-/// 원장·고객 공통 통합 피드 — [FeedSurface]로 홈/커뮤니티 chrome·slice 분리 (R2).
+/// Last-card breathing. Shell occupancy is [SoriShellInsets.scrollBottomInset].
+const double _kFeedListBreathing = 8;
+
+EdgeInsets _feedListPadding(BuildContext context) {
+  return EdgeInsets.fromLTRB(
+    0,
+    _kFeedListBreathing,
+    0,
+    _kFeedListBreathing + SoriShellInsets.scrollBottomInset(context),
+  );
+}
+
 class UnifiedHomeFeedPage extends StatefulWidget {
   const UnifiedHomeFeedPage({
     super.key,
@@ -819,7 +831,8 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
+              key: const Key('feed-recommend-list-padding'),
+              padding: _feedListPadding(context),
               sliver: Builder(
                 builder: (context) {
                   final rows = <({String? section, UnifiedFeedItem? item})>[];
@@ -1022,7 +1035,8 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 110),
+              key: const Key('feed-local-list-padding'),
+              padding: _feedListPadding(context),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => FeedScrollRow(

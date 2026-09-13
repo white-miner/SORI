@@ -10,6 +10,7 @@ import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
 import '../features/crm_today/care_schedule_lead_page.dart';
 import '../views/biz_dashboard/biz_dashboard_page.dart';
+import '../features/market_strategy/market_strategy_page.dart';
 import '../views/care_report_page.dart';
 import '../views/customer_care_page.dart';
 import '../views/customer_review_dashboard_page.dart';
@@ -45,6 +46,7 @@ abstract final class AppPaths {
   static const appMy = '/app/my';
   /// 원장 경영 대시보드 (PRD v7.6).
   static const appBizDashboard = '/app/biz-dashboard';
+  static const appMarketStrategy = '/app/market-strategy';
   static const review = '/review';
   static const careReport = '/care-report';
   static const careRequest = '/care-request';
@@ -198,6 +200,11 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
         path: AppPaths.appBizDashboard,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => BizDashboardPage(store: store),
+      ),
+      GoRoute(
+        path: AppPaths.appMarketStrategy,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => MarketStrategyPage(store: store),
       ),
       GoRoute(
         path: '/chart/:customerId',

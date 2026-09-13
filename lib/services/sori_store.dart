@@ -5737,6 +5737,41 @@ class SoriStore implements Listenable {
     _notify();
   }
 
+  /// 미연결 ShootHub 큐 항목을 Storage 원본과 함께 삭제.
+  /// 차트 URL 참조가 있거나 Storage 실패면 큐를 유지한다.
+  Future<StagingPhotoDiscardResult> discardUnlinkedShootInboxItems(
+    List<String> ids,
+  ) async {
+    final items = <ShootInboxItem>[];
+    for (final id in ids) {
+      final tid = id.trim();
+      if (tid.isEmpty) continue;
+      for (final item in shootInbox) {
+        if (item.id == tid) {
+          items.add(item);
+          break;
+        }
+      }
+    }
+    if (items.isEmpty) {
+      return const StagingPhotoDiscardResult(discarded: false);
+    }
+
+    final urls = items.map((e) => e.imageUrl).toList(growable: false);
+    final removed = await _removeUnlinkedStagingUrls(urls);
+    if (!removed.discarded) return removed;
+
+    for (final item in items) {
+      shootInbox.removeWhere((e) => e.id == item.id);
+    }
+    await _persistShootInbox();
+    _notify();
+    return StagingPhotoDiscardResult(
+      discarded: true,
+      storageRemoveCount: removed.storageRemoveCount,
+    );
+  }
+
   Future<void> enqueueShootInboxItem(ShootInboxItem item) async {
     shootInbox.removeWhere((e) => e.id == item.id);
     shootInbox.insert(0, item);
@@ -6304,6 +6339,86 @@ class SoriStore implements Listenable {
   }
 
   Future<void> discardBaSession(BaCaptureSession target) async {
+    await _removeBaSessionMeta(target);
+  }
+
+  /// 홈 오늘 탭 draft + chart_id 없는 staging 세션을 Storage 원본과 함께 삭제.
+  Future<StagingPhotoDiscardResult> discardUnlinkedBaSession(
+    BaCaptureSession target,
+  ) async {
+    if (!_isUnlinkedStagingBaSession(target)) {
+      return const StagingPhotoDiscardResult(discarded: false);
+    }
+
+    final urls = <String>[
+      target.beforeImageUrl ?? '',
+      target.afterImageUrl ?? '',
+    ];
+    final removed = await _removeUnlinkedStagingUrls(urls);
+    if (!removed.discarded) return removed;
+
+    await _removeBaSessionMeta(target);
+    return StagingPhotoDiscardResult(
+      discarded: true,
+      storageRemoveCount: removed.storageRemoveCount,
+    );
+  }
+
+  bool _isUnlinkedStagingBaSession(BaCaptureSession target) {
+    if (isChartMirrorSessionId(target.id)) return false;
+    if (target.status != BaCaptureStatus.draft) return false;
+    if (target.hasChart) return false;
+    return true;
+  }
+
+  bool _chartReferencesPhotoUrl(String url) {
+    final u = url.trim();
+    if (u.isEmpty) return false;
+    for (final chart in charts) {
+      if ((chart.beforeImageUrl?.trim() ?? '') == u) return true;
+      if ((chart.afterImageUrl?.trim() ?? '') == u) return true;
+    }
+    return false;
+  }
+
+  Future<StagingPhotoDiscardResult> _removeUnlinkedStagingUrls(
+    Iterable<String> urls,
+  ) async {
+    final unique = <String>[];
+    for (final raw in urls) {
+      final u = raw.trim();
+      if (u.isEmpty) continue;
+      if (!unique.contains(u)) unique.add(u);
+    }
+
+    for (final u in unique) {
+      if (_chartReferencesPhotoUrl(u)) {
+        return const StagingPhotoDiscardResult(
+          discarded: false,
+          blockedByChartRef: true,
+        );
+      }
+    }
+
+    var count = 0;
+    for (final u in unique) {
+      final ok = await ChartPhotoStorage.removeByPublicUrl(u);
+      if (!ok) {
+        return StagingPhotoDiscardResult(
+          discarded: false,
+          storageRemoveCount: count,
+          storageFailed: true,
+        );
+      }
+      count++;
+    }
+    return StagingPhotoDiscardResult(
+      discarded: true,
+      storageRemoveCount: count,
+    );
+  }
+
+  Future<void> _removeBaSessionMeta(BaCaptureSession target) async {
     _releasePendingToken(target.sessionToken);
     if (isChartMirrorSessionId(target.id)) return;
     if (isLocalBaSessionId(target.id)) {

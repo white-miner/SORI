@@ -111,3 +111,4 @@
 | 2026-09-11 | Perplexity 회신 잠금 · Phase A/B/C 승인 문구 · **구현 금지** |
 | 2026-09-11 | 최종 검토 AC 3문 · **Phase A Approved** · 헬퍼 clearance=content padding |
 | 2026-09-11 | **Phase B·C Approved·구현** · GPS CTA는 C.1(geolocator 없음) |
+| 2026-09-11 | 맵 고도화 조사 → `PRD_v7.9_REGION_MAP_UPGRADE.md` · C.1+ 승인 대기 |

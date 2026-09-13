@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/market_strategy/market_strategy_models.dart';
+import '../../features/market_strategy/market_strategy_store.dart';
+import '../../features/market_strategy/target_revenue_calc.dart';
 import '../../routing/sori_router.dart';
 import '../../services/biz_manual_revenue_store.dart';
 import '../../services/biz_profile_store.dart';
@@ -41,6 +44,9 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
   int? _month;
   int? _year;
   ShopBizProfile _profile = const ShopBizProfile();
+  TargetRevenueResult? _plan;
+  StrategyActionPlan? _openAction;
+  InternalPeriodMetrics? _metrics;
   bool _loading = true;
 
   String get _shopId => widget.store.shop.id;
@@ -54,31 +60,53 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
   Future<void> _reload() async {
     final now = DateTime.now();
     final shopId = _shopId;
-    if (shopId.isEmpty) {
-      if (mounted) setState(() => _loading = false);
-      return;
+    final vault = MarketStrategyStore(
+      shopId: shopId,
+      userId: widget.store.session?.id ?? '',
+    );
+    await vault.hydrate();
+    int? m;
+    int? y;
+    var p = const ShopBizProfile();
+    if (shopId.isNotEmpty) {
+      m = await BizManualRevenueStore.loadMonth(
+        shopId: shopId,
+        year: now.year,
+        month: now.month,
+      );
+      y = await BizManualRevenueStore.loadYear(
+        shopId: shopId,
+        year: now.year,
+      );
+      p = await BizProfileStore.load(shopId);
     }
-    final m = await BizManualRevenueStore.loadMonth(
-      shopId: shopId,
-      year: now.year,
-      month: now.month,
-    );
-    final y = await BizManualRevenueStore.loadYear(
-      shopId: shopId,
-      year: now.year,
-    );
-    final p = await BizProfileStore.load(shopId);
+    StrategyActionPlan? open;
+    for (final a in vault.actions) {
+      if (a.status == ActionPlanStatus.todo ||
+          a.status == ActionPlanStatus.inProgress) {
+        open = a;
+        break;
+      }
+    }
     if (!mounted) return;
     setState(() {
       _month = m;
       _year = y;
       _profile = p;
+      _plan = vault.plan;
+      _openAction = open;
+      _metrics = vault.currentMetrics;
       _loading = false;
     });
   }
 
   Future<void> _openDashboard() async {
     await context.push(AppPaths.appBizDashboard);
+    if (mounted) await _reload();
+  }
+
+  Future<void> _openMarket() async {
+    await context.push(AppPaths.appMarketStrategy);
     if (mounted) await _reload();
   }
 
@@ -102,6 +130,30 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
       monthRevenueKrw: _month,
       now: now,
     );
+    final plan = _plan;
+    final gap = plan == null || _month == null
+        ? null
+        : plan.requiredRevenueKrw - _month!;
+    final primaryLabel = plan == null
+        ? '목표 매출 계산하기'
+        : (_openAction == null ? '오늘 할 일 정하기' : '오늘 할 일 보기');
+
+    final extraDaily = plan == null
+        ? null
+        : TargetRevenueCalc.extraDailyVisitsNeeded(
+            targetDailyVisits: plan.dailyVisits,
+            monthVisitCount: _metrics?.visitCount ?? 0,
+            openDays: plan.input.openDaysPerMonth,
+          );
+    final extraDailyLabel = plan == null
+        ? '목표 없음'
+        : extraDaily == null
+            ? '데이터 없음'
+            : extraDaily > 0
+                ? '하루 ${extraDaily}명 더'
+                : extraDaily < 0
+                    ? '여유 ${-extraDaily}명'
+                    : '하루 가정 충족';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
@@ -115,11 +167,9 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          _profile.isComplete
-              ? '이번 달 결론을 먼저 보고, 숫자는 아래에서 고칩니다.'
-              : '주소와 평소 쓰는 숫자만 적으면, 시간당 수익을 바로 보여 드려요.',
-          style: const TextStyle(
+        const Text(
+          '이번 달 목표와 차이를 먼저 보고, 고객 수·객단가·재방문 중 오늘 바꿀 하나만 고릅니다.',
+          style: TextStyle(
             fontSize: 13,
             color: Color(0xFF6B7280),
             height: 1.4,
@@ -132,20 +182,111 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           )
         else ...[
+          if (plan != null && _month == null)
+            const _KpiCard(
+              key: Key('biz-target-gap'),
+              label: '목표 대비 매출 차이',
+              value: '실제 매출 없음',
+              sub: '0원과 다릅니다. 이번 달 들어온 돈을 넣으면 차이를 계산합니다.',
+              emphasis: true,
+            )
+          else if (plan != null && gap != null)
+            _KpiCard(
+              key: const Key('biz-target-gap'),
+              label: '목표 대비 매출 차이',
+              value: gap == 0
+                  ? '차이 없음'
+                  : (gap > 0
+                      ? '부족 ${BizManualRevenueStore.formatWon(gap)}'
+                      : '여유 ${BizManualRevenueStore.formatWon(-gap)}'),
+              sub: gap > 0
+                  ? '고객 수·객단가·재방문 중 어디가 빠졌는지 전략에서 기간 비교하세요.'
+                  : '가정 기준이며 성과를 보장하지 않습니다.',
+              emphasis: true,
+            )
+          else
+            const _KpiCard(
+              key: Key('biz-target-gap'),
+              label: '목표 대비 매출 차이',
+              value: '아직 없음',
+              sub: '목표 매출을 고객 수로 바꿔보세요.',
+              emphasis: true,
+            ),
+          const SizedBox(height: 10),
+          _KpiCard(
+            label: '하루 필요 방문',
+            value: plan == null ? '목표 없음' : '하루 ${plan.dailyVisits}명',
+            sub: plan == null
+                ? '목표와 객단가를 넣으면 오늘 몇 명이 더 필요한지 나옵니다.'
+                : '월 ${plan.monthlyVisits}회 · 공헌이익률 ${(plan.contributionRate * 100).round()}%',
+          ),
+          const SizedBox(height: 10),
+          _KpiCard(
+            key: const Key('biz-extra-daily-visits'),
+            label: '추가 필요 방문',
+            value: extraDailyLabel,
+            sub: plan == null
+                ? '목표를 먼저 계산하세요.'
+                : extraDaily == null
+                    ? '0회가 아니라 실제 방문 기록이 없습니다.'
+                    : '최근 방문 기록을 영업일로 나눈 값과 비교합니다.',
+          ),
+          const SizedBox(height: 10),
+          _KpiCard(
+            label: '재방문율',
+            value: _metrics == null
+                ? '데이터 없음'
+                : '${(_metrics!.revisitRate * 100).round()}%',
+            sub: _metrics == null
+                ? '기존 고객이 다시 오는지 보려면 방문 데이터가 필요합니다.'
+                : '신규와 재방문을 나눠 보세요.',
+          ),
+          const SizedBox(height: 10),
+          _KpiCard(
+            label: '다음 케어 예약률',
+            value: _metrics == null
+                ? '데이터 없음'
+                : '${(_metrics!.nextCareBookRate * 100).round()}%',
+            sub: _metrics == null
+                ? '방문 종료 때 다음 예약이 잡히는지 확인해 보세요.'
+                : '다음 방문이 미리 잡히면 미래 매출이 안정됩니다.',
+          ),
+          const SizedBox(height: 10),
+          _MoneyAbStrip(
+            aLabel: _month == null
+                ? '미입력'
+                : BizManualRevenueStore.formatWon(_month!),
+            aCaption: _month == null
+                ? '${now.year}.${now.month} 실제 매출 없음 (0원과 다름)'
+                : '${now.year}.${now.month} 들어온 돈(수동)',
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            key: const Key('biz-today-cta'),
+            height: 48,
+            child: SoriPrimaryButton(
+              label: primaryLabel,
+              onPressed: _openMarket,
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _openDashboard,
+            child: SizedBox(
+              height: 48,
+              child: Center(
+                child: Text(
+                  _profile.isComplete ? '내 경영 숫자 보기' : '3분만에 시작하기',
+                ),
+              ),
+            ),
+          ),
           if (snap != null) ...[
-            // Level 1 — 시간당 수익만.
+            const SizedBox(height: 16),
             _KpiCard(
               label: '시간당 수익',
               value: BizManualRevenueStore.formatWon(snap.hourlyYieldKrw),
-              sub: '이번 달 결론 ★',
-              emphasis: true,
-            ),
-            const SizedBox(height: 10),
-            _MoneyAbStrip(
-              aLabel: _month == null
-                  ? '미입력'
-                  : BizManualRevenueStore.formatWon(_month!),
-              aCaption: '${now.year}.${now.month} 들어온 돈(수동)',
+              sub: '상세 · 인건비 가정 포함',
             ),
             const SizedBox(height: 10),
             _KpiCard(
@@ -156,29 +297,14 @@ class _DirectorBizTabBodyState extends State<DirectorBizTabBody> {
                   ? SoriTokens.systemRed
                   : SoriTokens.textPrimary,
             ),
-            const SizedBox(height: 10),
-          ] else ...[
-            _MoneyAbStrip(
-              aLabel: _month == null
-                  ? '미입력'
-                  : BizManualRevenueStore.formatWon(_month!),
-              aCaption: '${now.year}.${now.month} 들어온 돈(수동)',
-            ),
-            const SizedBox(height: 10),
+          ] else if (_year != null) ...[
+            const SizedBox(height: 16),
             _SummaryCard(
               label: '${now.year}년 매출',
-              value: _year == null
-                  ? '미입력'
-                  : BizManualRevenueStore.formatWon(_year!),
+              value: BizManualRevenueStore.formatWon(_year!),
             ),
-            const SizedBox(height: 10),
           ],
         ],
-        const SizedBox(height: 12),
-        SoriPrimaryButton(
-          label: _profile.isComplete ? '내 경영 숫자 보기' : '3분만에 시작하기',
-          onPressed: _openDashboard,
-        ),
       ],
     );
   }
@@ -940,6 +1066,7 @@ class _BepCalendarStrip extends StatelessWidget {
 
 class _KpiCard extends StatelessWidget {
   const _KpiCard({
+    super.key,
     required this.label,
     required this.value,
     required this.sub,
@@ -1429,6 +1556,7 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
     final days = _int(_days.text) ?? 0;
     final hours = _double(_hours.text) ?? 0;
     final material = _double(_material.text) ?? 15;
+    if (!mounted) return;
     if (_category.trim().isEmpty ||
         fixed <= 0 ||
         owner <= 0 ||
@@ -1441,7 +1569,6 @@ class _BizOnboardingSheetState extends State<_BizOnboardingSheet> {
       );
       return;
     }
-    if (!mounted) return;
     Navigator.pop(
       context,
       ShopBizProfile(

@@ -1,0 +1,21 @@
+{
+  "header": { "resultCode": "00", "resultMsg": "NORMAL SERVICE" },
+  "body": {
+    "items": [
+      {
+        "bizesNm": "성건 스킨케어",
+        "lat": 35.8540,
+        "lon": 129.2090,
+        "indsSclsNm": "피부미용업",
+        "rdnmAdr": "경북 경주시 성건동 1"
+      },
+      {
+        "bizesNm": "황성헤어",
+        "lat": 35.8550,
+        "lon": 129.2100,
+        "indsMclsNm": "두발미용업",
+        "lnoAdr": "경북 경주시 황성동 2"
+      }
+    ]
+  }
+}
