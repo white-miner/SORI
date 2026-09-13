@@ -219,21 +219,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('선택된 탭 라벨은 brand로 읽힌다 (칩에 묻히지 않는다)', (tester) async {
+  testWidgets('홈 상단은 Filed Tab — brand 면 + 흰 글자, underline/차콜 칩 없음', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar).first);
+    expect(tabBar.indicator, isNot(isA<UnderlineTabIndicator>()));
+    expect(tabBar.indicator, isA<BoxDecoration>());
+    final fill = tabBar.indicator! as BoxDecoration;
+    expect(fill.color, SoriTokens.brand);
+    expect(
+      fill.borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(13)),
+    );
+    expect(tabBar.labelColor, SoriTokens.onBrand);
+    expect(tabBar.unselectedLabelColor, SoriTokens.textCharcoal);
+    expect(tabBar.labelStyle?.fontSize, 16);
+    expect(tabBar.labelStyle?.fontWeight, FontWeight.w700);
+    expect(tabBar.unselectedLabelStyle?.fontSize, 16);
+    expect(tabBar.unselectedLabelStyle?.fontWeight, FontWeight.w500);
 
-    // Underline + brand — 선택 탭이 3초 안에 읽히게.
-    expect(tabBar.indicator, isA<UnderlineTabIndicator>());
-    expect(tabBar.labelColor, SoriTokens.brand);
-    expect(tabBar.labelColor, isNot(tabBar.unselectedLabelColor));
+    await tester.tap(find.text('프로그램'));
+    await _settle(tester);
+    expect(find.text('윤곽 관리'), findsOneWidget);
 
-    final luminance = tabBar.labelColor!.computeLuminance();
-    expect(luminance, lessThan(0.35));
+    await tester.tap(find.text('타이머').first);
+    await _settle(tester);
+    expect(find.byKey(const Key('home-timer-title-bar')), findsOneWidget);
+
+    await tester.tap(find.text('오늘').first);
+    await _settle(tester);
+    expect(find.byType(HomeQuickActionRow), findsOneWidget);
   });
 
   testWidgets('관리 케이스 북마크 토글이 즐겨찾기만 남긴다', (tester) async {

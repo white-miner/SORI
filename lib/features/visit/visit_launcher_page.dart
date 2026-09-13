@@ -102,8 +102,11 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tabs = TabController(length: HomeTab.values.length, vsync: this)
-      ..addListener(_onVisit);
+    _tabs = TabController(
+      length: HomeTab.values.length,
+      vsync: this,
+      animationDuration: const Duration(milliseconds: 260),
+    )..addListener(_onVisit);
     _feedScroll.addListener(_onFeedScroll);
     visit.addListener(_onVisit);
     widget.store.addListener(_onVisit);
@@ -1167,54 +1170,72 @@ class _HomeTabBar extends StatelessWidget {
   final TabController controller;
   final bool careRunning;
 
+  static const _filedFill = BoxDecoration(
+    color: SoriTokens.brand,
+    borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+  );
+
   @override
   Widget build(BuildContext context) {
+    // Filed Tab — 홈 상단만. 선택 면이 본문과 이어지고, 비선택은 구분선 뒤로 물러난다.
     return SizedBox(
-      height: HomeVisualTokens.tabBarHeight,
-      child: TabBar(
-        controller: controller,
-        labelColor: SoriTokens.brand,
-        unselectedLabelColor: HomeVisualTokens.tabInactiveColor,
-        // brand 밑줄 — 선택 탭이 3초 안에 읽히게.
-        indicator: const UnderlineTabIndicator(
-          borderSide: BorderSide(
-            color: SoriTokens.brand,
-            width: 2,
+      height: 48,
+      child: Stack(
+        children: [
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 1,
+            child: ColoredBox(color: SoriTokens.inputBorder),
           ),
-          insets: EdgeInsets.symmetric(horizontal: 20),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelStyle: const TextStyle(
-          fontSize: HomeVisualTokens.tabLabelSize,
-          fontWeight: FontWeight.w800,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: HomeVisualTokens.tabLabelSize,
-          fontWeight: FontWeight.w600,
-        ),
-        tabs: [
-          const Tab(text: '오늘'),
-          const Tab(text: '프로그램'),
-          Tab(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('타이머'),
-                // 케어 진행 중 — Green semantic (완료·진행 정상).
-                if (careRunning) ...[
-                  const SizedBox(width: 5),
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: SoriTokens.semanticGreen,
-                    ),
-                  ),
-                ],
-              ],
+          TabBar(
+            controller: controller,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            labelColor: SoriTokens.onBrand,
+            unselectedLabelColor: SoriTokens.textCharcoal,
+            indicator: _filedFill,
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicatorPadding: EdgeInsets.zero,
+            dividerColor: Colors.transparent,
+            dividerHeight: 0,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 18),
+            labelStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
             ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
+            tabs: [
+              const Tab(text: '오늘', height: 48),
+              const Tab(text: '프로그램', height: 48),
+              Tab(
+                height: 48,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('타이머'),
+                    // 케어 진행 중 — Green semantic (완료·진행 정상).
+                    if (careRunning) ...[
+                      const SizedBox(width: 5),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: SoriTokens.semanticGreen,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

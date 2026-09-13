@@ -28,9 +28,10 @@ abstract final class SoriTokens {
 
   static const Color onPrimaryLight = Color(0xFFFFFFFF);
 
-  /// DESIGN LAWS — Purple brand / primary action / 선택 / AI / 글 marker.
-  /// 기존 [primary]를 일괄 치환하지 않는다. 새 surface부터 사용.
-  static const Color brand = Color(0xFF6D4A77);
+  /// Brand purple — LOCKED. SSOT is the Home tab 「신규 고객」 button fill.
+  /// Hex `#8B5CF6`. Do not invent another purple. Do not change this value.
+  /// 기존 [primary] charcoal은 일괄 치환하지 않는다. 새 surface부터 이 토큰을 쓴다.
+  static const Color brand = Color(0xFF8B5CF6);
 
   static const Color onBrand = Color(0xFFFFFFFF);
 

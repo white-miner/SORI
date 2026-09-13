@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sori/features/visit/home_visual_tokens.dart';
 import 'package:sori/theme/sori_tokens.dart';
 import 'package:sori/widgets/feed_expandable_caption.dart';
 import 'package:sori/widgets/floating_pill_nav.dart';
@@ -19,7 +20,8 @@ void main() {
     expect(SoriTokens.primaryGlass, SoriTokens.glassFill);
     expect(SoriTokens.onPrimary, const Color(0xFFFFFFFF));
     expect(SoriTokens.primaryLight, const Color(0xFF27272A));
-    expect(SoriTokens.brand, const Color(0xFF6D4A77));
+    expect(SoriTokens.brand, const Color(0xFF8B5CF6));
+    expect(SoriTokens.brand, HomeVisualTokens.quickNewFill);
     expect(SoriTokens.premium, SoriTokens.primaryLight);
     expect(SoriTokens.textPrimary, SoriTokens.textCharcoal);
     expect(SoriTokens.textSecondary.a, closeTo(0xB3 / 255, 0.01));

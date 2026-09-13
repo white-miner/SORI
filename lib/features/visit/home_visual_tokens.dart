@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/sori_tokens.dart';
+
 /// PRD v5.4 — Home dashboard visual constitution (CDG SSOT).
 abstract final class HomeVisualTokens {
   static const canvasBg = Color(0xFFF4F6F9);
@@ -96,8 +98,8 @@ abstract final class HomeVisualTokens {
   /// 스케줄러 스트립 — 일정 없을 때의 비활성 dot.
   static const memoIdleFill = Color(0xFFC7C7CC);
 
-  /// Q2(a) — 신규 고객은 보라(진입), 케어 시작 Green은 Timer 탭 전용.
-  static const quickNewFill = Color(0xFF8B5CF6);
+  /// Q2(a) — 신규 고객 배경 = [SoriTokens.brand]. 두 번째 보라 금지.
+  static const Color quickNewFill = SoriTokens.brand;
   static const quickReturningFill = Color(0xFFFFFFFF);
   static const quickReturningBorder = Color(0xFFE5E5EA);
   static const quickActionHeight = 52.0;

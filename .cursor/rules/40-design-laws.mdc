@@ -14,7 +14,7 @@ alwaysApply: false
 ## 즉시 적용
 
 1. 화면 목적 1개 · filled primary CTA 1개
-2. 색: Purple=브랜드/CTA/글 marker · Blue=GPS/탐색 · Green=완료 · Yellow=확인 · Red/Coral=파괴·세미나 marker
+2. 색: Purple=`SoriTokens.brand`=`#8B5CF6`(홈 「신규 고객」 배경, **변경 금지·다른 보라 hex 금지**) · Blue=GPS/탐색 · Green=완료 · Yellow=확인 · Red/Coral=파괴·세미나 marker
 3. 글래스 = FloatingPillNav · 지도 control · Peek/Half 상단만 (list/form 전체 glass 금지)
 4. press scale 0.97 · map pan/sheet drag/list scroll에 bounce 금지
 5. 우리지역 지도 = Local Bloom · 고객/Visit/매출/경쟁 지표 절대 비노출
