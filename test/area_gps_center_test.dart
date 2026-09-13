@@ -90,6 +90,13 @@ void main() {
       lng: seoulLng,
     );
     expect(OurAreaShopSnapshot.covers(here.lat, here.lng), isFalse);
+    expect(
+      OurAreaShopSnapshot.covers(
+        OurAreaShopSnapshot.seonggeon.lat,
+        OurAreaShopSnapshot.seonggeon.lng,
+      ),
+      isTrue,
+    );
 
     final filtered = AreaSearchCenter.filter(
       items,

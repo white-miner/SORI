@@ -1,0 +1,83 @@
+{
+  "source": "public-business-data",
+  "sourceDate": "2026-09-13",
+  "coordinateSystem": "WGS84",
+  "license": "소상공인시장진흥공단 상가(상권)정보 및 지자체 미용업 인허가 목록. 좌표는 도로명 주소 Nominatim WGS84(ODbL).",
+  "region": "gyeongju-seonggeon",
+  "sido": "경상북도",
+  "sigungu": "경주시",
+  "hangjeongdong": "성건동",
+  "admCd": "47130550",
+  "center": {
+    "latitude": 35.8534,
+    "longitude": 129.2087
+  },
+  "shops": [
+    {
+      "source": "public-business-data",
+      "sourceId": "license:서라벌미용실",
+      "name": "서라벌미용실",
+      "category": "hair",
+      "address": "경상북도 경주시 금성로396번길 23",
+      "latitude": 35.853003,
+      "longitude": 129.21053,
+      "status": "operating",
+      "updatedAt": "2026-09-13"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "license:터치by현정",
+      "name": "터치by현정",
+      "category": "hair",
+      "address": "경상북도 경주시 금성로372번길 67",
+      "latitude": 35.852113,
+      "longitude": 129.212086,
+      "status": "operating",
+      "updatedAt": "2026-09-13"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "license:쏘쏘 스킨&바디",
+      "name": "쏘쏘 스킨&바디",
+      "category": "skin",
+      "address": "경상북도 경주시 금성로368번길 34-4",
+      "latitude": 35.851419,
+      "longitude": 129.210535,
+      "status": "operating",
+      "updatedAt": "2026-09-13"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "sbiz:MA0101202307A0000768",
+      "name": "네일;설렘",
+      "category": "nail",
+      "address": "경상북도 경주시 금성로415번길 9",
+      "latitude": 35.854799,
+      "longitude": 129.205876,
+      "status": "operating",
+      "updatedAt": "2026-09-13"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "license:장은미 헤어샵",
+      "name": "장은미 헤어샵",
+      "category": "hair",
+      "address": "경상북도 경주시 금성로 282",
+      "latitude": 35.856315,
+      "longitude": 129.207074,
+      "status": "operating",
+      "updatedAt": "2026-09-13"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "listing:네일마이붐",
+      "name": "네일마이붐",
+      "category": "nail",
+      "address": "경상북도 경주시 한빛길6번길 51",
+      "latitude": 35.85299,
+      "longitude": 129.206227,
+      "status": "operating",
+      "updatedAt": "2026-09-13"
+    }
+  ]
+}
