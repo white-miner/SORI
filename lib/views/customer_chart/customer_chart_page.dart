@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/content_candidate/content_candidate_inbox.dart';
+import '../../features/visit/care_schedule_read_density.dart';
+import '../../features/visit/care_start_from_schedule.dart';
 import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
 import '../../routing/sori_router.dart';
@@ -11,9 +16,11 @@ import '../../utils/storage_image_url.dart';
 import '../admin_chart_writer_page.dart';
 import '../before_after_compare_page.dart';
 import '../chart_management_page.dart';
+import '../smart_guide_camera_page.dart';
 import '../customer_merge_wizard.dart';
 import '../membership_editor_sheet.dart';
 import '../request_customer_review.dart';
+import '../../visit_kernel/models/care_schedule_entry.dart';
 import 'chart_summary.dart';
 
 /// 원장용 고객 차트 (U1–U4) — 타일 허브 대체. 데이터는 Store 읽기만.
@@ -22,10 +29,14 @@ class CustomerChartPage extends StatefulWidget {
     super.key,
     required this.store,
     required this.customerId,
+    this.revealChartId,
+    this.revealLatestResult = false,
   });
 
   final SoriStore store;
   final String customerId;
+  final String? revealChartId;
+  final bool revealLatestResult;
 
   @override
   State<CustomerChartPage> createState() => _CustomerChartPageState();
@@ -40,12 +51,29 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
     widget.store.addListener(_onStore);
+    ContentCandidateInbox.instance.addListener(_onStore);
+    unawaited(ContentCandidateInbox.instance.hydrate());
+    if (widget.revealLatestResult) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _tabs.index = 1;
+        CustomerChart? chart;
+        final id = widget.revealChartId?.trim() ?? '';
+        if (id.isNotEmpty) {
+          chart = widget.store.findChartById(id);
+        }
+        chart ??= _charts.isEmpty ? null : _charts.first;
+        if (chart == null) return;
+        _openBeforeAfterCompare(chart: chart);
+      });
+    }
   }
 
   @override
   void dispose() {
     _tabs.dispose();
     widget.store.removeListener(_onStore);
+    ContentCandidateInbox.instance.removeListener(_onStore);
     super.dispose();
   }
 
@@ -57,6 +85,41 @@ class _CustomerChartPageState extends State<CustomerChartPage>
 
   List<CustomerChart> get _charts =>
       widget.store.chartsForCustomer(widget.customerId);
+
+  Future<void> _scheduleNextCare() async {
+    final customer = _customer;
+    if (customer == null) return;
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 28)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: '다음 방문 일정',
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 14, minute: 0),
+    );
+    if (!mounted) return;
+    final at = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? 14,
+      time?.minute ?? 0,
+    );
+    final latest = _charts.isEmpty ? null : _charts.first;
+    final care = latest?.careName.trim() ?? '';
+    await widget.store.addManualCareSchedule(
+      scheduledAt: at,
+      customerName: customer.name,
+      customerId: customer.id,
+      customerPhone: customer.phone,
+      careLabel: care.isEmpty ? '다음 관리' : care,
+    );
+  }
 
   Future<void> _openQuickChart() async {
     final customer = _customer;
@@ -118,7 +181,46 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     );
   }
 
-  Future<void> _openBeforeAfterCompare() async {
+  Future<void> _openMissingResultCapture(CustomerChart chart) async {
+    final customer = _customer;
+    if (customer == null) return;
+    final kind = chart.needsAfterPhoto
+        ? GuideCameraKind.after
+        : GuideCameraKind.before;
+    final result = await SmartGuideCameraPage.open(
+      context,
+      shopId: widget.store.shop.id,
+      customerId: customer.id,
+      kind: kind,
+      ghostBeforeUrl:
+          kind == GuideCameraKind.after ? chart.beforeImageUrl : null,
+    );
+    if (!mounted || result == null) return;
+    if (result.kind == GuideCameraKind.before) {
+      await widget.store.updateCustomerChartFields(
+        chartId: chart.id,
+        beforeImageUrl: result.url,
+      );
+    } else {
+      await widget.store.patchChartAfterImage(
+        chartId: chart.id,
+        afterImageUrl: result.url,
+      );
+    }
+    if (!mounted) return;
+    final updated = widget.store.findChartById(chart.id) ?? chart;
+    await _openBeforeAfterCompare(chart: updated);
+  }
+
+  Future<void> _enqueueContentCandidate(CustomerChart chart) async {
+    final ok = await ContentCandidateInbox.instance.enqueue(chart);
+    if (!mounted || !ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('콘텐츠 후보함에 담았어요')),
+    );
+  }
+
+  Future<void> _openBeforeAfterCompare({CustomerChart? chart}) async {
     final customer = _customer;
     if (customer == null) return;
     final charts = _charts;
@@ -126,8 +228,9 @@ class _CustomerChartPageState extends State<CustomerChartPage>
       context: context,
       customerName: customer.name,
       charts: charts,
-      initialChartId: charts.isEmpty ? null : charts.first.id,
-      initialCareName: charts.isEmpty ? null : charts.first.careName,
+      initialChartId: chart?.id ?? (charts.isEmpty ? null : charts.first.id),
+      initialCareName:
+          chart?.careName ?? (charts.isEmpty ? null : charts.first.careName),
       customerId: customer.id,
       store: widget.store,
     );
@@ -271,6 +374,23 @@ class _CustomerChartPageState extends State<CustomerChartPage>
             child: _SummaryBar(summary: summary),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: _NextCareBanner(
+              entry: CareScheduleReadDensity.nextUpcomingForCustomer(
+                widget.store.careScheduleEntries,
+                customerId: widget.customerId,
+              ),
+              onStart: (entry) {
+                CareStartFromSchedule.begin(
+                  context: context,
+                  store: widget.store,
+                  entry: entry,
+                );
+              },
+              onScheduleNext: _scheduleNextCare,
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: _AlertChips(charts: charts),
           ),
@@ -284,7 +404,11 @@ class _CustomerChartPageState extends State<CustomerChartPage>
                 ),
                 _PhotoTab(
                   charts: charts,
-                  onTapChart: (c) => _openChartManagement(chartId: c.id),
+                  onTapChart: (c) => _openBeforeAfterCompare(chart: c),
+                  onCaptureMissing: _openMissingResultCapture,
+                  contentCandidateIds:
+                      ContentCandidateInbox.instance.entries.keys.toSet(),
+                  onMakeContentCandidate: _enqueueContentCandidate,
                 ),
                 _PaymentTab(
                   charts: charts,
@@ -316,26 +440,47 @@ class _SummaryBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          _SummaryCell(
-            value: '${summary.visitCount}',
-            label: '누적 방문',
+          Row(
+            children: [
+              _SummaryCell(
+                value: '${summary.visitCount}',
+                label: '누적 방문',
+              ),
+              _SummaryCell(
+                value: summary.totalPaid > 0
+                    ? _formatWon(summary.totalPaid)
+                    : '—',
+                label: '누적 결제',
+              ),
+              _SummaryCell(
+                value: (remain != null && remain > 0) ? '$remain회' : '—',
+                label: '잔여 선불권',
+              ),
+              _SummaryCell(
+                value: days == null ? '—' : (days == 0 ? 'D+0' : 'D+$days'),
+                label: '최근 방문',
+              ),
+            ],
           ),
-          _SummaryCell(
-            value: summary.totalPaid > 0
-                ? _formatWon(summary.totalPaid)
-                : '—',
-            label: '누적 결제',
-          ),
-          _SummaryCell(
-            value: (remain != null && remain > 0) ? '$remain회' : '—',
-            label: '잔여 선불권',
-          ),
-          _SummaryCell(
-            value: days == null ? '—' : (days == 0 ? 'D+0' : 'D+$days'),
-            label: '최근 방문',
-          ),
+          if (summary.latestChangeLine != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '최근 시술  ${summary.latestChangeLine}',
+                key: const Key('customer-chart-latest-change'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -382,6 +527,76 @@ class _SummaryCell extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NextCareBanner extends StatelessWidget {
+  const _NextCareBanner({
+    required this.entry,
+    required this.onStart,
+    this.onScheduleNext,
+  });
+
+  final CareScheduleEntry? entry;
+  final ValueChanged<CareScheduleEntry> onStart;
+  final VoidCallback? onScheduleNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = entry;
+    if (next == null) {
+      if (onScheduleNext == null) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton(
+          key: const Key('customer-chart-schedule-next'),
+          onPressed: onScheduleNext,
+          child: const Text('다음 케어 일정 잡기'),
+        ),
+      );
+    }
+    final care = next.careLabel.trim();
+    final when =
+        '${next.scheduledAt.month}/${next.scheduledAt.day} ${CareScheduleReadDensity.timeLabel(next.scheduledAt)}';
+    return Material(
+      key: const Key('customer-chart-next-care'),
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                care.isEmpty ? '다음 케어  $when' : '다음 케어  $when  ·  $care',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: SoriTokens.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () => onStart(next),
+              style: FilledButton.styleFrom(
+                backgroundColor: SoriTokens.semanticGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                '케어 시작',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -689,10 +904,16 @@ class _PhotoTab extends StatelessWidget {
   const _PhotoTab({
     required this.charts,
     required this.onTapChart,
+    required this.onCaptureMissing,
+    required this.contentCandidateIds,
+    required this.onMakeContentCandidate,
   });
 
   final List<CustomerChart> charts;
   final ValueChanged<CustomerChart> onTapChart;
+  final ValueChanged<CustomerChart> onCaptureMissing;
+  final Set<String> contentCandidateIds;
+  final ValueChanged<CustomerChart> onMakeContentCandidate;
 
   static List<CustomerChart> _chronological(List<CustomerChart> source) {
     final list = List<CustomerChart>.from(source);
@@ -738,37 +959,72 @@ class _PhotoTab extends StatelessWidget {
         final care = chart.careName.trim().isEmpty
             ? '시술명 없음'
             : chart.careName.trim();
+        final comparable = chart.hasBeforeImage && chart.hasAfterImage;
         return Material(
+          key: Key('customer-chart-photo-row-${chart.id}'),
           color: SoriTokens.surface,
-          child: InkWell(
-            onTap: () => onTapChart(chart),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${_dateLabel(chart)} · ${chart.visitNumber}회차 · $care',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF6B7280),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () => onTapChart(chart),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_dateLabel(chart)} · ${chart.visitNumber}회차 · $care',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _PhotoBaRow(
+                        beforeUrl: chart.beforeImageUrl,
+                        afterUrl: chart.afterImageUrl,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!comparable) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      key: Key('customer-chart-photo-capture-${chart.id}'),
+                      onPressed: () => onCaptureMissing(chart),
+                      child: Text(
+                        chart.needsAfterPhoto ? 'After 촬영' : '결과 촬영',
+                      ),
                     ),
                   ),
+                ],
+                if (comparable &&
+                    ContentCandidateInbox.isEligible(chart) &&
+                    !contentCandidateIds.contains(chart.id)) ...[
                   const SizedBox(height: 8),
-                  _PhotoBaRow(
-                    beforeUrl: chart.beforeImageUrl,
-                    afterUrl: chart.afterImageUrl,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      key: Key(
+                        'customer-chart-content-candidate-${chart.id}',
+                      ),
+                      onPressed: () => onMakeContentCandidate(chart),
+                      child: const Text('콘텐츠 후보로 만들기'),
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
         );

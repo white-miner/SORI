@@ -44,15 +44,22 @@ abstract final class SoriShellInsets {
 
   /// 스크롤 마지막 콘텐츠가 pill nav 아래로 들어가기 전에 확보할 하단 여백.
   ///
-  /// 모바일 occupancy:
+  /// 모바일 occupancy (scope 밖, viewPadding 유지):
   /// `64 + 12 + viewPadding.bottom + 20`
   ///
-  /// PC occupancy는 0.
+  /// AppShell `extendBody` + `bottomNavigationBar` 안에서는 Scaffold가 body의
+  /// [MediaQueryData.viewPadding] bottom을 0으로 만들고, nav 위젯 높이를
+  /// [MediaQueryData.padding] bottom에 넣는다. 그때는 nav 높이 + 20.
+  ///
+  /// PC occupancy는 0. [MediaQuery.viewInsets]는 더하지 않는다.
   static double scrollBottomInset(BuildContext context) {
     if (!pillNavOccupying(context)) return 0;
-    return pillNavHeight +
-        pillNavOuterBottomGap +
-        MediaQuery.viewPaddingOf(context).bottom +
-        contentClearance;
+    final viewPad = MediaQuery.viewPaddingOf(context).bottom;
+    final pad = MediaQuery.paddingOf(context).bottom;
+    final navBlock = pillNavHeight + pillNavOuterBottomGap;
+    if (viewPad == 0 && pad >= navBlock) {
+      return pad + contentClearance;
+    }
+    return navBlock + viewPad + contentClearance;
   }
 }

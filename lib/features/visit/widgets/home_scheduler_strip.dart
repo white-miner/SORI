@@ -55,6 +55,7 @@ class HomeSchedulerStrip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(HomeVisualTokens.memoBarRadius),
         child: SizedBox(
+          key: const Key('home-today-next-strip'),
           height: HomeVisualTokens.memoBarHeight,
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -113,12 +114,14 @@ class HomeScheduleGlance extends StatelessWidget {
     required this.store,
     this.onTap,
     this.onCareStart,
+    this.onEmptyStart,
     DateTime? now,
   }) : _now = now;
 
   final SoriStore store;
   final VoidCallback? onTap;
   final ValueChanged<CareScheduleEntry>? onCareStart;
+  final VoidCallback? onEmptyStart;
   final DateTime? _now;
 
   static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
@@ -189,12 +192,36 @@ class HomeScheduleGlance extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (top.items.isEmpty)
-            Text(
-              '오늘 예정된 일정이 없어요.',
-              style: TextStyle(
-                fontSize: 13,
-                color: HomeVisualTokens.dateIconColor,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '오늘 예정된 일정이 없어요.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: HomeVisualTokens.dateIconColor,
+                  ),
+                ),
+                if (onEmptyStart != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('home-today-empty-start'),
+                    onPressed: onEmptyStart,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      '재방문 고객으로 시작',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             )
           else ...[
             ...top.items.asMap().entries.map((e) {
@@ -202,36 +229,41 @@ class HomeScheduleGlance extends StatelessWidget {
               return _todayRow(
                 e.value,
                 showCareStart: isPrimary && onCareStart != null,
-                onCareStart: isPrimary
-                    ? () => onCareStart?.call(e.value)
-                    : null,
+                onCareStart: onCareStart == null
+                    ? null
+                    : () => onCareStart!(e.value),
               );
             }),
             if (top.overflow > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '+${top.overflow}건',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: HomeVisualTokens.dateIconColor,
-                  ),
-                ),
+                child: onTap == null
+                    ? Text(
+                        '+${top.overflow}건',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: HomeVisualTokens.dateIconColor,
+                        ),
+                      )
+                    : InkWell(
+                        key: const Key('home-today-schedule-overflow'),
+                        onTap: onTap,
+                        child: Text(
+                          '+${top.overflow}건',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: HomeVisualTokens.dateIconColor,
+                          ),
+                        ),
+                      ),
               ),
           ],
         ],
       ),
     );
 
-    if (onTap == null) return body;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: body,
-      ),
-    );
+    return body;
   }
 
   Widget _todayRow(
@@ -242,7 +274,7 @@ class HomeScheduleGlance extends StatelessWidget {
     final note = CareScheduleReadDensity.notePreview(e);
     final name = e.customerName.trim().isEmpty ? '고객' : e.customerName.trim();
     final care = e.careLabel.trim();
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,6 +340,15 @@ class HomeScheduleGlance extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+    if (onCareStart == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('home-today-glance-row-${e.id}'),
+        onTap: onCareStart,
+        child: row,
       ),
     );
   }

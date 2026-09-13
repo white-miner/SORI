@@ -1,0 +1,210 @@
+{
+  "source": "public-business-data",
+  "sourceDate": "2026-09-12",
+  "coordinateSystem": "WGS84",
+  "region": "gyeongju",
+  "center": {
+    "latitude": 35.8562,
+    "longitude": 129.2247
+  },
+  "shops": [
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:SSUN NAIL",
+      "name": "SSUN NAIL",
+      "category": "nail",
+      "address": "경상북도 경주시 백률로 40",
+      "latitude": 35.856633,
+      "longitude": 129.225416,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:헤어수지",
+      "name": "헤어수지",
+      "category": "hair",
+      "address": "경상북도 경주시 백률로39번길 21",
+      "latitude": 35.857597,
+      "longitude": 129.223638,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:미인헤어",
+      "name": "미인헤어",
+      "category": "hair",
+      "address": "경상북도 경주시 백률로25번길 6",
+      "latitude": 35.857574,
+      "longitude": 129.222474,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:길헤어샵",
+      "name": "길헤어샵",
+      "category": "hair",
+      "address": "경상북도 경주시 동천로50번길 4",
+      "latitude": 35.852259,
+      "longitude": 129.227365,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:최윤겸헤어",
+      "name": "최윤겸헤어",
+      "category": "hair",
+      "address": "경상북도 경주시 소금강로8번길 20",
+      "latitude": 35.859667,
+      "longitude": 129.221078,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:엣지헤어",
+      "name": "엣지헤어",
+      "category": "hair",
+      "address": "경상북도 경주시 동천로21번길 11-2",
+      "latitude": 35.850206,
+      "longitude": 129.225647,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:이지선 헤어샵",
+      "name": "이지선 헤어샵",
+      "category": "hair",
+      "address": "경상북도 경주시 탈해로52번길 34",
+      "latitude": 35.848896,
+      "longitude": 129.230932,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:그집미용실",
+      "name": "그집미용실",
+      "category": "hair",
+      "address": "경상북도 경주시 탈해로 28",
+      "latitude": 35.8478,
+      "longitude": 129.228332,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:네일스테이",
+      "name": "네일스테이",
+      "category": "nail",
+      "address": "경상북도 경주시 황성로16번길 18",
+      "latitude": 35.863467,
+      "longitude": 129.215838,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "osm:헤어샵",
+      "name": "헤어샵",
+      "category": "hair",
+      "address": "",
+      "latitude": 35.847584,
+      "longitude": 129.23269,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:달콤네일",
+      "name": "달콤네일",
+      "category": "nail",
+      "address": "경상북도 경주시 황성로1번길 23-4",
+      "latitude": 35.864786,
+      "longitude": 129.213245,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:필헤어샵",
+      "name": "필헤어샵",
+      "category": "hair",
+      "address": "경상북도 경주시 초당길 41",
+      "latitude": 35.845059,
+      "longitude": 129.236066,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "osm:구황이용원",
+      "name": "구황이용원",
+      "category": "barber",
+      "address": "",
+      "latitude": 35.841473,
+      "longitude": 129.228729,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:네일그리다",
+      "name": "네일그리다",
+      "category": "nail",
+      "address": "경상북도 경주시 용담로104번길 10",
+      "latitude": 35.866947,
+      "longitude": 129.21139,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:선영이네일",
+      "name": "선영이네일",
+      "category": "nail",
+      "address": "경상북도 경주시 원효로 102",
+      "latitude": 35.841869,
+      "longitude": 129.216223,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "seed:쏘뷰티",
+      "name": "쏘뷰티",
+      "category": "nail",
+      "address": "경상북도 경주시 알천남로 132",
+      "latitude": 35.841624,
+      "longitude": 129.235757,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "osm:끼있는가위꾼",
+      "name": "끼있는가위꾼",
+      "category": "hair",
+      "address": "경상북도 경주시",
+      "latitude": 35.850186,
+      "longitude": 129.204405,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    },
+    {
+      "source": "public-business-data",
+      "sourceId": "osm:Kkoppula",
+      "name": "Kkoppula",
+      "category": "hair",
+      "address": "",
+      "latitude": 35.843078,
+      "longitude": 129.20577,
+      "status": "operating",
+      "updatedAt": "2026-09-12"
+    }
+  ]
+}

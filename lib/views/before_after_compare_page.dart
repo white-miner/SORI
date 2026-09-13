@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:screenshot/screenshot.dart';
 
+import '../features/content_candidate/content_candidate_inbox.dart';
 import '../features/visit/visit_customer_picker_sheet.dart';
 import '../features/visit/widgets/ba_story_strip.dart';
 import '../features/visit/widgets/ba_workspace_dock.dart';
@@ -57,6 +59,8 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ContentCandidateInbox.instance.addListener(_onInbox);
+    unawaited(ContentCandidateInbox.instance.hydrate());
     _customerName = widget.customerName;
     _customerId = widget.customerId;
     _charts = List<CustomerChart>.from(widget.charts);
@@ -69,6 +73,7 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ContentCandidateInbox.instance.removeListener(_onInbox);
     super.dispose();
   }
 
@@ -93,6 +98,10 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
   int _zoomIndex = BeforeAfterComparePage.defaultZoomIndex;
   double _panY = 0;
   bool _careOpen = false;
+
+  void _onInbox() {
+    if (mounted) setState(() {});
+  }
 
   void _reseed({String? initialChartId, String? initialCareName}) {
     _slots = buildVisitPhotoSlots(_charts);
@@ -119,6 +128,27 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
     final store = widget.store;
     if (id == null || store == null) return null;
     return store.findCustomer(id);
+  }
+
+  /// 같은 회차 B/A가 묶여 있을 때만 사진 탭과 동일한 적격을 본다.
+  CustomerChart? get _activeCompareChart {
+    final left = _left;
+    final right = _right;
+    if (left == null || right == null) return null;
+    if (left.chartId != right.chartId) return null;
+    final fromStore = widget.store?.findChartById(left.chartId);
+    if (fromStore != null) return fromStore;
+    for (final chart in _charts) {
+      if (chart.id == left.chartId) return chart;
+    }
+    return null;
+  }
+
+  bool get _showContentCandidateCta {
+    final chart = _activeCompareChart;
+    if (chart == null) return false;
+    return ContentCandidateInbox.isEligible(chart) &&
+        !ContentCandidateInbox.instance.contains(chart.id);
   }
 
   String get _careLabel {
@@ -309,6 +339,14 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Future<void> _enqueueContentCandidate() async {
+    final chart = _activeCompareChart;
+    if (chart == null) return;
+    final ok = await ContentCandidateInbox.instance.enqueue(chart);
+    if (!mounted || !ok) return;
+    _toast('콘텐츠 후보함에 담았어요');
+  }
+
   bool get _shortLandscape {
     final size = MediaQuery.sizeOf(context);
     return MediaQuery.orientationOf(context) == Orientation.landscape &&
@@ -484,6 +522,26 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
             onToggle: () => setState(() => _useSlider = !_useSlider),
           ),
         ),
+        if (_showContentCandidateCta)
+          Positioned(
+            left: 72,
+            right: 72,
+            bottom: 8,
+            child: Center(
+              child: OutlinedButton(
+                key: Key(
+                  'ba-compare-content-candidate-${_activeCompareChart?.id ?? ''}',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white70),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: _enqueueContentCandidate,
+                child: const Text('콘텐츠 후보로 만들기'),
+              ),
+            ),
+          ),
         if (overlayChrome != null)
           Positioned(
             key: const Key('ba-compare-chrome-overlay'),

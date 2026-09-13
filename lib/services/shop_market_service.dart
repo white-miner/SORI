@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/shop.dart';
 import '../features/operation/shop_geocoding_service.dart';
+import '../utils/area_search_center.dart';
+import 'our_area_shop_snapshot.dart';
 
 /// ZONE 3 — Edge `get-shop-market` 응답 (상가 + 인구).
 class ShopMarketInsight {
@@ -165,6 +167,46 @@ class ShopMarketInsight {
     );
   }
 
+  /// Edge 0건일 때 지역 스냅샷을 목록/마커에 붙인다. 기존 필드는 유지.
+  ShopMarketInsight withFallbackStores(List<ShopMarketStoreItem> items) {
+    if (items.isEmpty) return this;
+    final names = [
+      for (final s in items)
+        if (s.name.trim().isNotEmpty) s.name.trim(),
+    ].take(5).toList();
+    final sources = [
+      ...this.sources,
+      if (!this.sources.contains(OurAreaShopSnapshot.sourceLabel))
+        OurAreaShopSnapshot.sourceLabel,
+    ];
+    return ShopMarketInsight(
+      ok: true,
+      locationLabel: locationLabel,
+      radiusM: radiusM,
+      category: category,
+      statsYm: statsYm,
+      fetchedAt: fetchedAt,
+      sources: sources,
+      storesOk: true,
+      totalInRadius: items.length,
+      sameCategoryCount: items.length,
+      sampleNames: names,
+      storeItems: items,
+      storesError: null,
+      populationOk: populationOk,
+      admCd: admCd,
+      dongName: dongName,
+      popTotal: popTotal,
+      popMale: popMale,
+      popFemale: popFemale,
+      ages: ages,
+      populationError: populationError,
+      storesPer1kPop: storesPer1kPop,
+      centerLatitude: centerLatitude,
+      centerLongitude: centerLongitude,
+    );
+  }
+
   static int _asInt(dynamic v, [int fallback = 0]) {
     if (v is int) return v;
     if (v is num) return v.round();
@@ -192,14 +234,27 @@ class ShopMarketStoreItem {
   final String address;
 
   factory ShopMarketStoreItem.fromMap(Map<String, dynamic> map) {
+    final point = AreaSearchCenter.pointFromMap(map);
     return ShopMarketStoreItem(
       name: '${map['name'] ?? ''}'.trim(),
       categoryLabel: '${map['category_label'] ?? ''}'.trim(),
       chipKey: '${map['chip_key'] ?? 'other'}'.trim(),
-      latitude: (map['lat'] as num?)?.toDouble() ?? 0,
-      longitude: (map['lng'] as num?)?.toDouble() ?? 0,
+      latitude: point?.lat ?? 0,
+      longitude: point?.lng ?? 0,
       distanceM: ShopMarketInsight._asInt(map['distance_m']),
       address: '${map['address'] ?? ''}'.trim(),
+    );
+  }
+
+  ShopMarketStoreItem copyWith({int? distanceM}) {
+    return ShopMarketStoreItem(
+      name: name,
+      categoryLabel: categoryLabel,
+      chipKey: chipKey,
+      latitude: latitude,
+      longitude: longitude,
+      distanceM: distanceM ?? this.distanceM,
+      address: address,
     );
   }
 }
@@ -361,27 +416,57 @@ class ShopMarketService {
         if (decoded is Map<String, dynamic>) map = decoded;
       }
       if (map == null) {
-        return ShopMarketInsight.unavailable(
-          reason: 'bad_response',
-          centerLatitude: lat,
-          centerLongitude: lng,
+        return _withLocalSnapshot(
+          ShopMarketInsight.unavailable(
+            reason: 'bad_response',
+            centerLatitude: lat,
+            centerLongitude: lng,
+          ),
+          lat: lat,
+          lng: lng,
+          cacheKey: key,
         );
       }
       map.putIfAbsent('latitude', () => lat);
       map.putIfAbsent('longitude', () => lng);
-      final insight = ShopMarketInsight.fromMap(map);
-      _cache = insight;
-      _cacheAt = DateTime.now();
-      _cacheKey = key;
-      return insight;
+      return _withLocalSnapshot(
+        ShopMarketInsight.fromMap(map),
+        lat: lat,
+        lng: lng,
+        cacheKey: key,
+      );
     } catch (e) {
       debugPrint('get-shop-market failed: $e');
-      return ShopMarketInsight.unavailable(
-        reason: e.toString(),
-        centerLatitude: lat,
-        centerLongitude: lng,
+      return _withLocalSnapshot(
+        ShopMarketInsight.unavailable(
+          reason: e.toString(),
+          centerLatitude: lat,
+          centerLongitude: lng,
+        ),
+        lat: lat,
+        lng: lng,
+        cacheKey: key,
       );
     }
+  }
+
+  Future<ShopMarketInsight> _withLocalSnapshot(
+    ShopMarketInsight insight, {
+    required double lat,
+    required double lng,
+    required String cacheKey,
+  }) async {
+    final merged = await OurAreaShopSnapshot.mergeIfEmpty(
+      insight,
+      lat: lat,
+      lng: lng,
+    );
+    if (merged.storeItems.isNotEmpty) {
+      _cache = merged;
+      _cacheAt = DateTime.now();
+      _cacheKey = cacheKey;
+    }
+    return merged;
   }
 
   /// UI용 쉬운 말. 기술 reason은 숨기되 디버그는 로그에.

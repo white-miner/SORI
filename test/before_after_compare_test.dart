@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sori/features/content_candidate/content_candidate_inbox.dart';
 import 'package:sori/features/visit/widgets/ba_workspace_dock.dart';
 import 'package:sori/models/customer_chart.dart';
 import 'package:sori/views/before_after_compare_page.dart';
@@ -34,6 +36,12 @@ List<CustomerChart> get _mixed {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    ContentCandidateInbox.instance.debugReset();
+  });
+
   group('서비스 메뉴 2 depth 그룹핑', () {
     test('같은 시술은 한 그룹, 다른 시술은 섞이지 않는다', () {
       final groups = groupVisitPhotoSlotsByProgram(

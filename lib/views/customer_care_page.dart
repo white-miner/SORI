@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/visit/care_schedule_read_density.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../models/home_care_prescriptions.dart';
@@ -101,16 +102,24 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
     final lastVisit = latest?.visitCheckedAt ??
         latest?.createdAt ??
         customer?.lastTreatmentDate;
-    final nextVisit = lastVisit?.add(const Duration(days: 28));
+    final nextCare = activeId == null
+        ? null
+        : CareScheduleReadDensity.nextUpcomingForCustomer(
+            store.careScheduleEntries,
+            customerId: activeId,
+          );
+    final nextVisitLabel = nextCare == null
+        ? null
+        : [
+            '${nextCare.scheduledAt.month}/${nextCare.scheduledAt.day} '
+                '${CareScheduleReadDensity.timeLabel(nextCare.scheduledAt)}',
+            if (nextCare.careLabel.trim().isNotEmpty) nextCare.careLabel.trim(),
+          ].join(' · ');
     final careName = latest == null
         ? (customer?.membershipServiceName.isNotEmpty == true
             ? customer!.membershipServiceName
             : '진행 중인 케어')
-        : (latest.careName.isNotEmpty
-            ? latest.careName
-            : (latest.treatmentSummary.isNotEmpty
-                ? latest.treatmentSummary
-                : '케어'));
+        : (latest.careName.isNotEmpty ? latest.careName : '케어');
     final visitNo = latest?.visitNumber ?? customer?.membershipUsedVisits ?? 0;
     final mission = _activeMission(activeId);
     final directives = HomecareDictionary.resolveDirectives(
@@ -153,6 +162,47 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                 );
               },
             ),
+            if (nextVisitLabel != null) ...[
+              const SizedBox(height: 12),
+              Material(
+                key: const Key('customer-care-next-visit'),
+                color: SoriTokens.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Text(
+                    '다음 방문  $nextVisitLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: SoriTokens.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              Material(
+                key: const Key('customer-care-next-visit-empty'),
+                color: SoriTokens.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Text(
+                    '다음 방문이 아직 없어요',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (viewingFamily) ...[
               const SizedBox(height: 8),
               Container(
@@ -197,7 +247,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
             _AiReportCard(
               shopName: shopName,
               lastVisit: lastVisit,
-              insight: latest?.directorInsight ?? '',
+              insight: '',
               directives: directives,
               onDetail: () {
                 if (latest == null) {
@@ -223,7 +273,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
             _CareSummaryCard(
               careName: careName,
               visitNo: visitNo,
-              nextVisit: nextVisit,
+              nextVisitLabel: nextVisitLabel,
               remaining: customer?.membershipRemainingVisits ?? 0,
               onMore: () {
                 Navigator.of(context, rootNavigator: true).push(
@@ -624,14 +674,14 @@ class _CareSummaryCard extends StatelessWidget {
   const _CareSummaryCard({
     required this.careName,
     required this.visitNo,
-    required this.nextVisit,
+    required this.nextVisitLabel,
     required this.remaining,
     required this.onMore,
   });
 
   final String careName;
   final int visitNo;
-  final DateTime? nextVisit;
+  final String? nextVisitLabel;
   final int remaining;
   final VoidCallback onMore;
 
@@ -658,7 +708,7 @@ class _CareSummaryCard extends StatelessWidget {
             [
               if (visitNo > 0) '$visitNo회차',
               if (remaining > 0) '잔여 $remaining회',
-              if (nextVisit != null) '다음 권장 ${_fmt(nextVisit!)}',
+              if (nextVisitLabel != null) '다음 방문 $nextVisitLabel',
             ].join(' · '),
             style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
           ),
@@ -717,15 +767,6 @@ class _AiReportDetailPage extends StatelessWidget {
             style: const TextStyle(color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 16),
-          if (chart.directorInsight.trim().isNotEmpty) ...[
-            const Text(
-              '원장 인사이트',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(chart.directorInsight.trim(), style: const TextStyle(height: 1.45, color: SoriTokens.textPrimary)),
-            const SizedBox(height: 18),
-          ],
           const Text(
             '홈케어 처방',
             style: TextStyle(fontWeight: FontWeight.w800),

@@ -11,6 +11,7 @@ import '../utils/sori_shell_insets.dart';
 import '../features/visit/visit_session_page.dart';
 import '../features/visit/widgets/ba_capture_carousel.dart';
 import '../visit_kernel/theme/visit_glass_tokens.dart';
+import 'customer_chart/customer_chart_page.dart';
 import 'smart_guide_camera_page.dart';
 
 /// 같은 sessionToken 의 Before/After 한 묶음.
@@ -187,6 +188,18 @@ class _ShootHubPageState extends State<ShootHubPage> {
           afterImageUrl: result.url,
         );
       }
+      if (!mounted) return;
+      final savedChartId = chart.id;
+      await Navigator.of(context, rootNavigator: true).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => CustomerChartPage(
+            store: store,
+            customerId: customer.id,
+            revealChartId: savedChartId,
+            revealLatestResult: true,
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

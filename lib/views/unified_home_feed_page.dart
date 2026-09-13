@@ -23,7 +23,6 @@ import '../widgets/post/post_view_data.dart';
 import '../widgets/post/sori_post_medium.dart';
 import '../widgets/post/sori_post_mini.dart';
 import '../widgets/margin_scroll_forwarder.dart';
-import '../widgets/app_scroll_behavior.dart';
 import '../widgets/boost_purchase_sheet.dart';
 import '../widgets/fan_boost_purchase_sheet.dart';
 import '../widgets/mentoring_request_sheet.dart';
@@ -737,30 +736,15 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
-    const scrollPhysics = AlwaysScrollableScrollPhysics(
-      parent: ClampingScrollPhysics(),
-    );
-    final tabPhysics = scrollActive ? scrollPhysics : const NeverScrollableScrollPhysics();
+    final tabPhysics = scrollActive
+        ? null
+        : const NeverScrollableScrollPhysics();
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (!scrollActive) return false;
-        if (n.metrics.axis != Axis.vertical) return false;
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
-          if (_visibleCount < widget.feed.length) {
-            setState(() {
-              _visibleCount = (_visibleCount + 8).clamp(0, widget.feed.length);
-            });
-          }
-        }
-        return false;
-      },
-      child: ScrollConfiguration(
-        behavior: const SoriScrollBehavior(),
-        child: CustomScrollView(
-          controller: widget.scrollController,
-          physics: tabPhysics,
-          slivers: [
+    final scrollView = CustomScrollView(
+        key: const Key('feed-recommend-scroll'),
+        controller: widget.scrollController,
+        physics: tabPhysics,
+        slivers: [
           if (!widget.homeGlance) ...[
             SliverToBoxAdapter(
               child: InsightsPulseStrip(store: widget.store),
@@ -878,8 +862,31 @@ class _RecommendFeedTabState extends State<_RecommendFeedTab>
               ),
             ),
         ],
-        ),
-      ),
+      );
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (!scrollActive) return false;
+        if (n.metrics.axis != Axis.vertical) return false;
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
+          if (_visibleCount < widget.feed.length) {
+            setState(() {
+              _visibleCount = (_visibleCount + 8).clamp(0, widget.feed.length);
+            });
+          }
+        }
+        return false;
+      },
+      child: scrollActive
+          ? RefreshIndicator(
+              key: const Key('feed-recommend-refresh'),
+              color: SoriTokens.primary,
+              onRefresh: () => widget.store.refreshUnifiedCommunityFeed(
+                force: true,
+              ),
+              child: scrollView,
+            )
+          : scrollView,
     );
   }
 }
@@ -928,10 +935,9 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
     super.build(context);
     final shown = widget.feed.take(_visibleCount).toList();
     final scrollActive = widget.scrollController != null;
-    const scrollPhysics = AlwaysScrollableScrollPhysics(
-      parent: ClampingScrollPhysics(),
-    );
-    final tabPhysics = scrollActive ? scrollPhysics : const NeverScrollableScrollPhysics();
+    final tabPhysics = scrollActive
+        ? null
+        : const NeverScrollableScrollPhysics();
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -946,9 +952,8 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
         }
         return false;
       },
-      child: ScrollConfiguration(
-        behavior: const SoriScrollBehavior(),
-        child: CustomScrollView(
+      child: CustomScrollView(
+          key: const Key('feed-local-scroll'),
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
@@ -1049,7 +1054,6 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
               ),
             ),
         ],
-        ),
       ),
     );
   }

@@ -9,12 +9,14 @@ CareScheduleEntry _e({
   CareScheduleStatus status = CareScheduleStatus.scheduled,
   String note = '',
   String name = '고객',
+  String? customerId,
 }) {
   return CareScheduleEntry(
     id: id,
     shopId: 'shop',
     scheduledAt: at,
     customerName: name,
+    customerId: customerId,
     note: note,
     status: status,
   );
@@ -96,5 +98,43 @@ void main() {
     final counts = CareScheduleReadDensity.weekDayCounts(all, now: day);
     expect(counts.reduce((a, b) => a + b), 2);
     expect(CareScheduleReadDensity.homeWeekAnchor(day), monday);
+  });
+
+  test('nextUpcomingForCustomer skips other customers and past days', () {
+    final now = DateTime(2026, 9, 11, 12);
+    final all = [
+      _e(
+        id: 'past',
+        at: DateTime(2026, 9, 10, 18),
+        customerId: 'c1',
+      ),
+      _e(
+        id: 'other',
+        at: DateTime(2026, 9, 11, 13),
+        customerId: 'c2',
+      ),
+      _e(
+        id: 'later',
+        at: DateTime(2026, 9, 12, 10),
+        customerId: 'c1',
+      ),
+      _e(
+        id: 'soon',
+        at: DateTime(2026, 9, 11, 15),
+        customerId: 'c1',
+      ),
+      _e(
+        id: 'done',
+        at: DateTime(2026, 9, 11, 14),
+        customerId: 'c1',
+        status: CareScheduleStatus.completed,
+      ),
+    ];
+    final next = CareScheduleReadDensity.nextUpcomingForCustomer(
+      all,
+      customerId: 'c1',
+      now: now,
+    );
+    expect(next?.id, 'soon');
   });
 }
