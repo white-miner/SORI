@@ -12,6 +12,7 @@ import '../../utils/sori_shell_insets.dart';
 import '../../utils/supabase_schema_error.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../views/before_after_compare_page.dart';
+import '../../views/chart_customer_picker_sheet.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/visit_store.dart';
@@ -57,11 +58,11 @@ import 'widgets/management_case_card.dart';
 import 'widgets/quick_calculator_sheet.dart';
 import '../operation/widgets/care_timer_preset_editor_page.dart';
 
-/// PRD v7.0 — 원장 홈 상단 탭.
-enum HomeTab { myFeed, program, timer }
+/// 원장 홈 상단 탭. 노출 라벨은 Desk / Chart / Programs / Flow.
+enum HomeTab { myFeed, chart, program, timer }
 
-/// PRD v7.1 — 원장 GNB 홈: 오늘 / 프로그램 / 타이머 3탭 셸.
-/// DESIGN LAWS: 오늘=glance · 타이머 SSOT는 VisitTimerStore 유지(로직 비침).
+/// 원장 GNB 홈: Desk / Chart / Programs / Flow.
+/// enum 값은 호환 유지. Chart만 슬롯 추가(Expand).
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});
 
@@ -911,6 +912,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildMyFeed(careRunning),
+                          ChartCustomerPickerBody(
+                            store: widget.store,
+                            embedded: true,
+                          ),
                           ProgramPane(store: widget.store),
                           _buildTimerPane(careRunning),
                         ],
@@ -1170,10 +1175,10 @@ class _HomeTabBar extends StatelessWidget {
   final TabController controller;
   final bool careRunning;
 
-  static const _labels = ['오늘', '프로그램', '타이머'];
-  static const _gap = 28.0;
+  static const _labels = ['Desk', 'Chart', 'Programs', 'Flow'];
+  static const _gap = 24.0;
   static const _sidePad = 16.0;
-  static const _inset = 17.0;
+  static const _inset = 16.0;
   static const _lift = 5.0;
   static const _filedHeight = 48.0;
   static const _layoutStyle = TextStyle(
@@ -1195,66 +1200,81 @@ class _HomeTabBar extends StatelessWidget {
         final t = animation.value;
         final scaler = MediaQuery.textScalerOf(context);
         final widths = [
-          for (var i = 0; i < _labels.length; i++)
-            _labelWidth(i, scaler),
+          for (var i = 0; i < _labels.length; i++) _labelWidth(i, scaler),
         ];
-        final textXs = <double>[];
-        var cursor = _sidePad + _inset;
-        for (final w in widths) {
-          textXs.add(cursor);
-          cursor += w + _gap;
-        }
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            var gap = _gap;
+            var inset = _inset;
+            final textW = widths.fold<double>(0, (sum, w) => sum + w);
+            double used(double g, double ins) =>
+                _sidePad + ins + textW + g * (_labels.length - 1) + _sidePad;
+            while (used(gap, inset) > constraints.maxWidth - 2 && gap > 10) {
+              gap -= 2;
+            }
+            while (used(gap, inset) > constraints.maxWidth - 2 && inset > 10) {
+              inset -= 1;
+            }
 
-        final from = t.floor().clamp(0, _labels.length - 1);
-        final to = t.ceil().clamp(0, _labels.length - 1);
-        final f = (t - from).clamp(0.0, 1.0);
-        final boxLeft = _lerp(
-          textXs[from] - _inset,
-          textXs[to] - _inset,
-          f,
-        );
-        final boxWidth = _lerp(
-          widths[from] + _inset * 2,
-          widths[to] + _inset * 2,
-          f,
-        );
+            final textXs = <double>[];
+            var cursor = _sidePad + inset;
+            for (final w in widths) {
+              textXs.add(cursor);
+              cursor += w + gap;
+            }
 
-        return SizedBox(
-          height: _filedHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 1,
-                child: ColoredBox(color: SoriTokens.inputBorder),
+            final from = t.floor().clamp(0, _labels.length - 1);
+            final to = t.ceil().clamp(0, _labels.length - 1);
+            final f = (t - from).clamp(0.0, 1.0);
+            final boxLeft = _lerp(
+              textXs[from] - inset,
+              textXs[to] - inset,
+              f,
+            );
+            final boxWidth = _lerp(
+              widths[from] + inset * 2,
+              widths[to] + inset * 2,
+              f,
+            );
+
+            return SizedBox(
+              height: _filedHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 1,
+                    child: ColoredBox(color: SoriTokens.inputBorder),
+                  ),
+                  Positioned(
+                    left: boxLeft,
+                    top: -_lift,
+                    width: boxWidth,
+                    height: _filedHeight + _lift,
+                    child: const DecoratedBox(
+                      key: Key('home-filed-label'),
+                      decoration: _filedFill,
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: _sidePad + inset),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < _labels.length; i++) ...[
+                          if (i > 0) SizedBox(width: gap),
+                          _indexLabel(i, t),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              Positioned(
-                left: boxLeft,
-                top: -_lift,
-                width: boxWidth,
-                height: _filedHeight + _lift,
-                child: const DecoratedBox(
-                  key: Key('home-filed-label'),
-                  decoration: _filedFill,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: _sidePad + _inset),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < _labels.length; i++) ...[
-                      if (i > 0) const SizedBox(width: _gap),
-                      _indexLabel(i, t),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1268,7 +1288,7 @@ class _HomeTabBar extends StatelessWidget {
       maxLines: 1,
     )..layout();
     var width = painter.size.width;
-    if (index == 2 && careRunning) width += 11;
+    if (index == HomeTab.timer.index && careRunning) width += 11;
     return width;
   }
 
@@ -1293,6 +1313,8 @@ class _HomeTabBar extends StatelessWidget {
               children: [
                 Text(
                   _labels[index],
+                  maxLines: 1,
+                  softWrap: false,
                   style: TextStyle(
                     fontSize: 15 + amount,
                     fontWeight: FontWeight.lerp(
@@ -1308,7 +1330,7 @@ class _HomeTabBar extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
-                if (index == 2 && careRunning) ...[
+                if (index == HomeTab.timer.index && careRunning) ...[
                   const SizedBox(width: 5),
                   Container(
                     width: 6,
@@ -1329,6 +1351,7 @@ class _HomeTabBar extends StatelessWidget {
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
 }
+
 
 class _CaseFeedHeader extends StatelessWidget {
   const _CaseFeedHeader({

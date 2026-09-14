@@ -42,10 +42,11 @@ void main() {
 
     await _mountHome(tester);
 
-    expect(find.text('오늘'), findsWidgets);
-    expect(find.text('프로그램'), findsOneWidget);
+    expect(find.text('Desk'), findsOneWidget);
+    expect(find.text('Chart'), findsOneWidget);
+    expect(find.text('Programs'), findsOneWidget);
     expect(find.text('My Asset'), findsNothing);
-    expect(find.text('타이머'), findsOneWidget);
+    expect(find.text('Flow'), findsOneWidget);
 
     // 기본 선택은 오늘 — 4대 컴포넌트가 한 화면에 조립된다.
     expect(find.byType(HomeHeroCard), findsOneWidget);
@@ -185,7 +186,7 @@ void main() {
     expect(find.byType(HomeToolboxRow), findsNothing);
     expect(find.byType(HomePresetQuickPick), findsNothing);
 
-    await tester.tap(find.text('타이머'));
+    await tester.tap(find.text('Flow'));
     await _settle(tester);
 
     expect(find.byType(HomeToolboxRow), findsOneWidget);
@@ -208,7 +209,7 @@ void main() {
 
     await _mountHome(tester);
 
-    await tester.tap(find.text('프로그램'));
+    await tester.tap(find.text('Programs'));
     await _settle(tester);
 
     expect(find.text('윤곽 관리'), findsOneWidget);
@@ -238,15 +239,15 @@ void main() {
     );
     expect(tester.getSize(filed).width, lessThan(430 / 3));
 
-    await tester.tap(find.text('프로그램'));
+    await tester.tap(find.text('Programs'));
     await _settle(tester);
     expect(find.text('윤곽 관리'), findsOneWidget);
 
-    await tester.tap(find.text('타이머').first);
+    await tester.tap(find.text('Flow').first);
     await _settle(tester);
     expect(find.byKey(const Key('home-timer-title-bar')), findsOneWidget);
 
-    await tester.tap(find.text('오늘').first);
+    await tester.tap(find.text('Desk').first);
     await _settle(tester);
     expect(find.byType(HomeQuickActionRow), findsOneWidget);
   });

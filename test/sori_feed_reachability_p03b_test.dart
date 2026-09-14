@@ -441,7 +441,7 @@ void main() {
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 120));
     }
-    await tester.tap(find.text('타이머').first);
+    await tester.tap(find.text('Flow').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     for (var i = 0; i < 16; i++) {

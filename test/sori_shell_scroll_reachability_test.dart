@@ -14,7 +14,7 @@ Future<void> _settle(WidgetTester tester) async {
 }
 
 Future<void> _openTimerTab(WidgetTester tester) async {
-  await tester.tap(find.text('타이머').first);
+  await tester.tap(find.text('Flow').first);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
   for (var i = 0; i < 16; i++) {

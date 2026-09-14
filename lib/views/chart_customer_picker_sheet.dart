@@ -20,22 +20,28 @@ Future<void> showChartCustomerPickerSheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (ctx) {
-      return _ChartCustomerPickerSheet(store: store);
+      return ChartCustomerPickerBody(store: store);
     },
   );
 }
 
-class _ChartCustomerPickerSheet extends StatefulWidget {
-  const _ChartCustomerPickerSheet({required this.store});
+class ChartCustomerPickerBody extends StatefulWidget {
+  const ChartCustomerPickerBody({
+    super.key,
+    required this.store,
+    this.embedded = false,
+  });
 
   final SoriStore store;
+  /// 홈 Chart 탭에 붙일 때 true. 시트 핸들을 숨기고 목록을 늘린다.
+  final bool embedded;
 
   @override
-  State<_ChartCustomerPickerSheet> createState() =>
-      _ChartCustomerPickerSheetState();
+  State<ChartCustomerPickerBody> createState() =>
+      _ChartCustomerPickerBodyState();
 }
 
-class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
+class _ChartCustomerPickerBodyState extends State<ChartCustomerPickerBody> {
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -59,7 +65,9 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
   List<Customer> get _results => widget.store.searchCustomers(_query);
 
   Future<void> _openChart(Customer customer) async {
-    Navigator.pop(context);
+    if (!widget.embedded && Navigator.of(context).canPop()) {
+      Navigator.pop(context);
+    }
     if (!mounted) return;
     await openChartWriterForCustomer(
       context,
@@ -69,9 +77,11 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
     );
   }
 
-  /// 신규 고객 기본 인적사항 입력 → 첫 차트 작성.
+  /// 신규 고객 기본 인적사항 입력 → 차트 작성(회차 추가 가능).
   Future<void> _openNewCustomerChart() async {
-    Navigator.pop(context);
+    if (!widget.embedded && Navigator.of(context).canPop()) {
+      Navigator.pop(context);
+    }
     if (!mounted) return;
     await showAddCustomerSheet(
       context,
@@ -91,23 +101,77 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
     final results = _results;
     final hasQuery = _query.trim().isNotEmpty;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(99),
+    final list = results.isEmpty
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              hasQuery
+                  ? '검색 결과가 없어요 · 위에서 신규 고객으로 작성해 보세요'
+                  : '등록된 고객이 없습니다 · 위 버튼으로 첫 차트를 시작하세요',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: SoriTokens.textSecondary,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+          )
+        : ListView.separated(
+            shrinkWrap: !widget.embedded,
+            itemCount: results.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final c = results[index];
+              final remain = c.isMembershipCustomer
+                  ? '잔여 ${c.membershipRemainingVisits}회'
+                  : '회원권 미등록';
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: SoriTokens.primarySoft,
+                  child: Text(
+                    c.name.characters.first,
+                    style: const TextStyle(
+                      color: SoriTokens.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  c.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  '${c.phone} · ${_formatDate(c.lastTreatmentDate)} · $remain',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.edit_note_rounded),
+                onTap: () => _openChart(c),
+              );
+            },
+          );
+
+    return ColoredBox(
+      color: SoriTokens.background,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
+        child: Column(
+          mainAxisSize:
+              widget.embedded ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!widget.embedded) ...[
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           const Text(
             '차트 작성',
             style: TextStyle(
@@ -227,60 +291,17 @@ class _ChartCustomerPickerSheetState extends State<_ChartCustomerPickerSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.38,
+          if (widget.embedded)
+            Expanded(child: list)
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.38,
+              ),
+              child: list,
             ),
-            child: results.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      hasQuery
-                          ? '검색 결과가 없어요 · 위에서 신규 고객으로 작성해 보세요'
-                          : '등록된 고객이 없습니다 · 위 버튼으로 첫 차트를 시작하세요',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: SoriTokens.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: results.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final c = results[index];
-                      final remain = c.isMembershipCustomer
-                          ? '잔여 ${c.membershipRemainingVisits}회'
-                          : '회원권 미등록';
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: SoriTokens.primarySoft,
-                          child: Text(
-                            c.name.characters.first,
-                            style: const TextStyle(
-                              color: SoriTokens.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          c.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Text(
-                          '${c.phone} · ${_formatDate(c.lastTreatmentDate)} · $remain',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: const Icon(Icons.edit_note_rounded),
-                        onTap: () => _openChart(c),
-                      );
-                    },
-                  ),
-          ),
         ],
+        ),
       ),
     );
   }
