@@ -8,12 +8,12 @@ import '../customer_chart/customer_chart_page.dart';
 
 /// 캐비넷 작업공간 색. 앱 brand purple과 별개. local UI only.
 enum CabinetFinish {
-  ivory('아이보리', Color(0xFFEDE6D9), Color(0xFFE0D3C2), Color(0xFF3F3A34)),
-  sage('세이지', Color(0xFFB7C4B2), Color(0xFFA3B19E), Color(0xFF243028)),
-  slate('슬레이트', Color(0xFF8B93A0), Color(0xFF7A8390), Color(0xFFF4F4F5)),
-  charcoal('차콜', Color(0xFF3F3F46), Color(0xFF2F2F35), Color(0xFFF4F4F5)),
-  burgundy('버건디', Color(0xFF7A3B44), Color(0xFF682F37), Color(0xFFF8F1F2)),
-  navy('네이비', Color(0xFF2C3E56), Color(0xFF243448), Color(0xFFF2F5F8));
+  ivory('아이보리', Color(0xFFD9CFC0), Color(0xFFF0E7DA), Color(0xFF2F2B26)),
+  sage('세이지', Color(0xFF8FA68A), Color(0xFFB7C7B2), Color(0xFF1F2A22)),
+  slate('슬레이트', Color(0xFF6E7888), Color(0xFF93A0AF), Color(0xFFF4F5F7)),
+  charcoal('차콜', Color(0xFF2C2C32), Color(0xFF46464E), Color(0xFFF3F3F4)),
+  burgundy('버건디', Color(0xFF5F2A32), Color(0xFF874650), Color(0xFFF8F1F2)),
+  navy('네이비', Color(0xFF1E2F43), Color(0xFF334B66), Color(0xFFF1F4F8));
 
   const CabinetFinish(this.label, this.body, this.front, this.ink);
 
@@ -21,9 +21,11 @@ enum CabinetFinish {
   final Color body;
   final Color front;
   final Color ink;
+
+  Color get cavity => Color.alphaBlend(const Color(0x59000000), body);
 }
 
-/// Chart 탭 기본 수납: 열고 닫는 서랍 A. fixture/DB No 없음.
+/// Chart 탭 기본 수납: 서랍 A. 기본 OPEN. fixture/DB No 없음.
 class FileCabinetShell extends StatefulWidget {
   const FileCabinetShell({super.key, required this.store});
 
@@ -36,10 +38,10 @@ class FileCabinetShell extends StatefulWidget {
 class _FileCabinetShellState extends State<FileCabinetShell> {
   final _search = TextEditingController();
   String _query = '';
-  var _open = false;
+  var _open = true;
   var _finish = CabinetFinish.ivory;
 
-  static const _move = Duration(milliseconds: 240);
+  static const _move = Duration(milliseconds: 260);
 
   @override
   void initState() {
@@ -141,10 +143,19 @@ class _FileCabinetShellState extends State<FileCabinetShell> {
     return ColoredBox(
       color: SoriTokens.background,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const Text(
+              '고객 파일 캐비넷',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: SoriTokens.textCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
             if (_open) ...[
               TextField(
                 key: const Key('file-cabinet-search'),
@@ -173,7 +184,7 @@ class _FileCabinetShellState extends State<FileCabinetShell> {
             Expanded(
               child: Align(
                 alignment: Alignment.topCenter,
-                child: _CabinetBody(
+                child: _CabinetObject(
                   finish: _finish,
                   open: _open,
                   fileCount: count,
@@ -192,8 +203,8 @@ class _FileCabinetShellState extends State<FileCabinetShell> {
   }
 }
 
-class _CabinetBody extends StatelessWidget {
-  const _CabinetBody({
+class _CabinetObject extends StatelessWidget {
+  const _CabinetObject({
     required this.finish,
     required this.open,
     required this.fileCount,
@@ -222,17 +233,17 @@ class _CabinetBody extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: finish.body,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x33000000), width: 1),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0x55000000), width: 1.2),
       ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Column(
         mainAxisSize: open ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          const SizedBox(height: 14),
-          AnimatedContainer(
+          AnimatedSlide(
             duration: _FileCabinetShellState._move,
             curve: Curves.easeOutCubic,
-            margin: EdgeInsets.fromLTRB(10, open ? 16 : 0, 10, 0),
+            offset: Offset(0, open ? 0.06 : 0),
             child: _DrawerFront(
               finish: finish,
               open: open,
@@ -243,59 +254,22 @@ class _CabinetBody extends StatelessWidget {
           ),
           if (open)
             Expanded(
-              child: AnimatedOpacity(
-                duration: _FileCabinetShellState._move,
-                opacity: open ? 1 : 0,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 18, 10, 10),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Color.alphaBlend(
-                        const Color(0x14000000),
-                        finish.body,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: files.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    '파일이 없습니다',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: finish.ink.withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    8,
-                                    8,
-                                    8,
-                                    4,
-                                  ),
-                                  itemCount: files.length,
-                                  itemBuilder: (context, index) {
-                                    final c = files[index];
-                                    return _FileSpine(
-                                      customer: c,
-                                      ink: finish.ink,
-                                      onTap: () => onOpenFile(c),
-                                    );
-                                  },
-                                ),
-                        ),
-                        _AddSpine(ink: finish.ink, onTap: onAddFile),
-                      ],
-                    ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: AnimatedOpacity(
+                  duration: _FileCabinetShellState._move,
+                  opacity: open ? 1 : 0,
+                  child: _DrawerCavity(
+                    finish: finish,
+                    files: files,
+                    onOpenFile: onOpenFile,
+                    onAddFile: onAddFile,
                   ),
                 ),
               ),
             )
           else
-            const SizedBox(width: double.infinity, height: 18),
+            const SizedBox(width: double.infinity, height: 8),
         ],
       ),
     );
@@ -329,26 +303,41 @@ class _DrawerFront extends StatelessWidget {
       onTap: onToggle,
       onLongPress: onSettings,
       child: Material(
-        color: finish.front,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
         child: InkWell(
           key: const Key('file-cabinet-drawer-a'),
           onTap: onToggle,
           onLongPress: onSettings,
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            children: [
-              Container(height: 1, color: const Color(0x33000000)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 220),
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: finish.front,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0x44000000)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x22000000),
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  height: 1,
+                  margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+                  color: const Color(0x33000000),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3EFE6),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFFC4BDB0)),
+                        color: const Color(0xFFF4F0E6),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: const Color(0xFFB7AFA2)),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -356,6 +345,7 @@ class _DrawerFront extends StatelessWidget {
                           vertical: 8,
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               '서랍 A',
@@ -380,37 +370,109 @@ class _DrawerFront extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-              Semantics(
-                button: true,
-                label: open ? '서랍 A 닫기' : '서랍 A 열기',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: onToggle,
-                  onLongPress: onSettings,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: SizedBox(
-                      key: const Key('file-cabinet-handle'),
-                      width: 56,
-                      height: 24,
+                Semantics(
+                  button: true,
+                  label: open ? '서랍 A 닫기' : '서랍 A 열기',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: onToggle,
+                    onLongPress: onSettings,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 2, 0, 14),
                       child: Center(
                         child: Container(
-                          width: 42,
-                          height: 8,
+                          key: const Key('file-cabinet-handle'),
+                          width: 92,
+                          height: 16,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4A4540),
-                            borderRadius: BorderRadius.circular(99),
+                            color: const Color(0xFF3A3632),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: const Color(0xFF1A1714),
+                              width: 1.2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x44000000),
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                              BoxShadow(
+                                color: Color(0x33FFFFFF),
+                                blurRadius: 1,
+                                offset: Offset(0, -1),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerCavity extends StatelessWidget {
+  const _DrawerCavity({
+    required this.finish,
+    required this.files,
+    required this.onOpenFile,
+    required this.onAddFile,
+  });
+
+  final CabinetFinish finish;
+  final List<Customer> files;
+  final ValueChanged<Customer> onOpenFile;
+  final VoidCallback onAddFile;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: _FileCabinetShellState._move,
+      opacity: 1,
+      child: DecoratedBox(
+        key: const Key('file-cabinet-cavity'),
+        decoration: BoxDecoration(
+          color: finish.cavity,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0x66000000)),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: files.isEmpty
+                  ? Center(
+                      child: Text(
+                        '파일이 없습니다',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: finish.ink.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+                      itemCount: files.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      itemBuilder: (context, index) {
+                        final c = files[index];
+                        return _FileSpine(
+                          customer: c,
+                          ink: finish.ink,
+                          onTap: () => onOpenFile(c),
+                        );
+                      },
+                    ),
+            ),
+            _AddSpine(ink: finish.ink, onTap: onAddFile),
+          ],
         ),
       ),
     );
@@ -430,48 +492,62 @@ class _FileSpine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      key: Key('file-cabinet-file-${customer.id}'),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 28,
-              decoration: BoxDecoration(
-                color: ink.withValues(alpha: 0.22),
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(2),
+    return Material(
+      color: const Color(0xFFF8F5EE),
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        key: Key('file-cabinet-file-${customer.id}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFD2C8B8)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 18,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE4DACB),
+                    borderRadius: BorderRadius.horizontal(
+                      left: Radius.circular(3),
+                    ),
+                    border: Border(right: BorderSide(color: Color(0xFFC9BCA8))),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    customer.name,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: ink,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          customer.name,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          customer.phone,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: ink.withValues(alpha: 0.62),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    customer.phone,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: ink.withValues(alpha: 0.62),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -486,33 +562,27 @@ class _AddSpine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      key: const Key('file-cabinet-add'),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 22,
-              decoration: BoxDecoration(
-                border: Border.all(color: ink.withValues(alpha: 0.35)),
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('file-cabinet-add'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Row(
+            children: [
+              Icon(Icons.add_rounded, size: 18, color: ink),
+              const SizedBox(width: 6),
+              Text(
+                '새 고객 파일',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              '새 고객 파일',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: ink,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -15,10 +15,10 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
-Future<void> _openDrawer(WidgetTester tester) async {
+Future<void> _toggleDrawer(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('file-cabinet-drawer-a')));
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 280));
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 Color? _cabinetBodyColor(WidgetTester tester) {
@@ -32,7 +32,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('Chart tab closed cabinet hides files search and add', (
+  testWidgets('Chart tab defaults to open cabinet with spines in cavity', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
@@ -53,18 +53,23 @@ void main() {
     await _settle(tester);
 
     expect(find.byKey(const Key('file-cabinet-drawer-a')), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-cavity')), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-handle')), findsOneWidget);
     expect(find.text('서랍 A'), findsOneWidget);
     expect(find.text('파일 ${store.customers.length}개'), findsOneWidget);
-    expect(find.byKey(const Key('file-cabinet-search')), findsNothing);
-    expect(find.byKey(Key('file-cabinet-file-${customer.id}')), findsNothing);
-    expect(find.byKey(const Key('file-cabinet-add')), findsNothing);
-    expect(find.text('새 고객 파일'), findsNothing);
+    expect(find.byKey(const Key('file-cabinet-search')), findsOneWidget);
+    expect(find.byKey(Key('file-cabinet-file-${customer.id}')), findsOneWidget);
+    expect(find.text(customer.name), findsOneWidget);
+    expect(find.text(customer.phone), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-add')), findsOneWidget);
+    expect(find.text('새 고객 파일'), findsOneWidget);
+    expect(find.byType(ListTile), findsNothing);
     expect(find.textContaining('번호 준비 중'), findsNothing);
     expect(find.textContaining('파일 준비 중'), findsNothing);
     expect(_cabinetBodyColor(tester), CabinetFinish.ivory.body);
   });
 
-  testWidgets('drawer tap opens spines then tap closes them', (tester) async {
+  testWidgets('drawer tap closes then opens spines again', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -78,25 +83,25 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.text(customer.name), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-search')), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-cavity')), findsOneWidget);
+
+    await _toggleDrawer(tester);
+
     expect(find.text(customer.name), findsNothing);
     expect(find.byKey(const Key('file-cabinet-search')), findsNothing);
-
-    await _openDrawer(tester);
-
-    expect(find.byKey(const Key('file-cabinet-search')), findsOneWidget);
-    expect(find.text(customer.name), findsOneWidget);
-    expect(find.text(customer.phone), findsOneWidget);
-    expect(find.text('새 고객 파일'), findsOneWidget);
-    expect(find.byType(ListTile), findsNothing);
-    expect(find.textContaining('번호 준비 중'), findsNothing);
+    expect(find.byKey(const Key('file-cabinet-cavity')), findsNothing);
+    expect(find.text('새 고객 파일'), findsNothing);
 
     await tester.tap(find.byKey(const Key('file-cabinet-handle')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 280));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text(customer.name), findsNothing);
-    expect(find.byKey(const Key('file-cabinet-search')), findsNothing);
-    expect(find.text('새 고객 파일'), findsNothing);
+    expect(find.text(customer.name), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-search')), findsOneWidget);
+    expect(find.byKey(const Key('file-cabinet-cavity')), findsOneWidget);
+    expect(find.text('새 고객 파일'), findsOneWidget);
   });
 
   testWidgets('file spine opens CustomerChartPage not the writer', (
@@ -118,7 +123,6 @@ void main() {
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pump();
-    await _openDrawer(tester);
 
     await tester.tap(find.byKey(Key('file-cabinet-file-${customer.id}')));
     await tester.pump();
@@ -143,7 +147,6 @@ void main() {
       ),
     );
     await tester.pump();
-    await _openDrawer(tester);
 
     await tester.tap(find.byKey(const Key('file-cabinet-add')));
     await tester.pump();
@@ -229,17 +232,23 @@ void main() {
 
     await expectLater(
       find.byType(FileCabinetShell),
-      matchesGoldenFile('goldens/cabinet_closed_ivory.png'),
-    );
-
-    await _openDrawer(tester);
-    await expectLater(
-      find.byType(FileCabinetShell),
       matchesGoldenFile('goldens/cabinet_open_ivory.png'),
     );
     await expectLater(
       find.byType(FileCabinetShell),
       matchesGoldenFile('goldens/cabinet_open_spines.png'),
+    );
+
+    await _toggleDrawer(tester);
+    await expectLater(
+      find.byType(FileCabinetShell),
+      matchesGoldenFile('goldens/cabinet_closed_ivory.png'),
+    );
+
+    await _toggleDrawer(tester);
+    await expectLater(
+      find.byType(FileCabinetShell),
+      matchesGoldenFile('goldens/cabinet_reopened_ivory.png'),
     );
 
     await tester.longPress(find.byKey(const Key('file-cabinet-drawer-a')));
