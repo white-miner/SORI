@@ -1169,7 +1169,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 }
 
-class _HomeTabBar extends StatelessWidget {
+class _HomeTabBar extends StatefulWidget {
   const _HomeTabBar({required this.controller, required this.careRunning});
 
   final TabController controller;
@@ -1180,7 +1180,15 @@ class _HomeTabBar extends StatelessWidget {
   static const _sidePad = 16.0;
   static const _inset = 16.0;
   static const _lift = 5.0;
+  static const _pressLift = 1.5;
   static const _filedHeight = 48.0;
+  static const _glassHeight = 40.0;
+  static const _glassPad = 13.0;
+  static const _glassFillAlpha = 0.42;
+  static const _glassRadius = BorderRadius.vertical(
+    top: Radius.circular(11),
+    bottom: Radius.circular(5),
+  );
   static const _layoutStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w700,
@@ -1192,23 +1200,38 @@ class _HomeTabBar extends StatelessWidget {
   );
 
   @override
+  State<_HomeTabBar> createState() => _HomeTabBarState();
+}
+
+class _HomeTabBarState extends State<_HomeTabBar> {
+  int? _pressedIndex;
+
+  TabController get _controller => widget.controller;
+  bool get _careRunning => widget.careRunning;
+
+  @override
   Widget build(BuildContext context) {
-    final animation = controller.animation!;
+    final animation = _controller.animation!;
     return AnimatedBuilder(
-      animation: Listenable.merge([controller, animation]),
+      animation: Listenable.merge([_controller, animation]),
       builder: (context, _) {
         final t = animation.value;
         final scaler = MediaQuery.textScalerOf(context);
         final widths = [
-          for (var i = 0; i < _labels.length; i++) _labelWidth(i, scaler),
+          for (var i = 0; i < _HomeTabBar._labels.length; i++)
+            _labelWidth(i, scaler),
         ];
         return LayoutBuilder(
           builder: (context, constraints) {
-            var gap = _gap;
-            var inset = _inset;
+            var gap = _HomeTabBar._gap;
+            var inset = _HomeTabBar._inset;
             final textW = widths.fold<double>(0, (sum, w) => sum + w);
             double used(double g, double ins) =>
-                _sidePad + ins + textW + g * (_labels.length - 1) + _sidePad;
+                _HomeTabBar._sidePad +
+                ins +
+                textW +
+                g * (_HomeTabBar._labels.length - 1) +
+                _HomeTabBar._sidePad;
             while (used(gap, inset) > constraints.maxWidth - 2 && gap > 10) {
               gap -= 2;
             }
@@ -1217,14 +1240,14 @@ class _HomeTabBar extends StatelessWidget {
             }
 
             final textXs = <double>[];
-            var cursor = _sidePad + inset;
+            var cursor = _HomeTabBar._sidePad + inset;
             for (final w in widths) {
               textXs.add(cursor);
               cursor += w + gap;
             }
 
-            final from = t.floor().clamp(0, _labels.length - 1);
-            final to = t.ceil().clamp(0, _labels.length - 1);
+            final from = t.floor().clamp(0, _HomeTabBar._labels.length - 1);
+            final to = t.ceil().clamp(0, _HomeTabBar._labels.length - 1);
             final f = (t - from).clamp(0.0, 1.0);
             final boxLeft = _lerp(
               textXs[from] - inset,
@@ -1236,9 +1259,10 @@ class _HomeTabBar extends StatelessWidget {
               widths[to] + inset * 2,
               f,
             );
+            final reduceTransparency = MediaQuery.highContrastOf(context);
 
             return SizedBox(
-              height: _filedHeight,
+              height: _HomeTabBar._filedHeight,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -1249,22 +1273,32 @@ class _HomeTabBar extends StatelessWidget {
                     height: 1,
                     child: ColoredBox(color: SoriTokens.inputBorder),
                   ),
+                  for (var i = 0; i < _HomeTabBar._labels.length; i++)
+                    _glassPlate(
+                      index: i,
+                      t: t,
+                      left: textXs[i] - _HomeTabBar._glassPad,
+                      width: widths[i] + _HomeTabBar._glassPad * 2,
+                      reduceTransparency: reduceTransparency,
+                    ),
                   Positioned(
                     left: boxLeft,
-                    top: -_lift,
+                    top: -_HomeTabBar._lift,
                     width: boxWidth,
-                    height: _filedHeight + _lift,
+                    height: _HomeTabBar._filedHeight + _HomeTabBar._lift,
                     child: const DecoratedBox(
                       key: Key('home-filed-label'),
-                      decoration: _filedFill,
+                      decoration: _HomeTabBar._filedFill,
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.only(left: _sidePad + inset),
+                    padding: EdgeInsets.only(
+                      left: _HomeTabBar._sidePad + inset,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (var i = 0; i < _labels.length; i++) ...[
+                        for (var i = 0; i < _HomeTabBar._labels.length; i++) ...[
                           if (i > 0) SizedBox(width: gap),
                           _indexLabel(i, t),
                         ],
@@ -1280,48 +1314,96 @@ class _HomeTabBar extends StatelessWidget {
     );
   }
 
+  Widget _glassPlate({
+    required int index,
+    required double t,
+    required double left,
+    required double width,
+    required bool reduceTransparency,
+  }) {
+    final amount = (1.0 - (t - index).abs()).clamp(0.0, 1.0);
+    final fade = (1.0 - amount).clamp(0.0, 1.0);
+    if (fade <= 0.01) return const SizedBox.shrink();
+    final pressed = _pressedIndex == index;
+    return Positioned(
+      left: left,
+      bottom: 0,
+      width: width,
+      height: _HomeTabBar._glassHeight,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: fade,
+          child: Transform.translate(
+            offset: Offset(0, pressed ? -_HomeTabBar._pressLift : 0),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: reduceTransparency
+                    ? SoriTokens.surfaceOverlay
+                    : SoriTokens.surface.withValues(
+                        alpha: _HomeTabBar._glassFillAlpha,
+                      ),
+                borderRadius: _HomeTabBar._glassRadius,
+                border: Border.all(color: SoriTokens.inputBorder, width: 1),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   double _labelWidth(int index, TextScaler scaler) {
     final painter = TextPainter(
-      text: TextSpan(text: _labels[index], style: _layoutStyle),
+      text: TextSpan(text: _HomeTabBar._labels[index], style: _HomeTabBar._layoutStyle),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
       maxLines: 1,
     )..layout();
     var width = painter.size.width;
-    if (index == HomeTab.timer.index && careRunning) width += 11;
+    if (index == HomeTab.timer.index && _careRunning) width += 11;
     return width;
   }
 
   Widget _indexLabel(int index, double t) {
     final amount = (1.0 - (t - index).abs()).clamp(0.0, 1.0);
-    final selected = controller.index == index;
+    final selected = _controller.index == index;
+    final pressed = _pressedIndex == index && amount < 0.99;
     return Semantics(
       button: true,
       selected: selected,
-      label: _labels[index],
+      label: _HomeTabBar._labels[index],
       child: GestureDetector(
+        onTapDown: amount < 0.5
+            ? (_) => setState(() => _pressedIndex = index)
+            : null,
+        onTapUp: (_) => setState(() => _pressedIndex = null),
+        onTapCancel: () => setState(() => _pressedIndex = null),
         onTap: () {
-          if (controller.index != index) controller.animateTo(index);
+          if (_controller.index != index) _controller.animateTo(index);
         },
         behavior: HitTestBehavior.opaque,
         child: Transform.translate(
-          offset: Offset(0, _lift * (1 - amount)),
+          offset: Offset(
+            0,
+            -_HomeTabBar._lift * amount - (pressed ? _HomeTabBar._pressLift : 0),
+          ),
           child: SizedBox(
-            height: _filedHeight,
+            height: _HomeTabBar._filedHeight,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _labels[index],
+                  _HomeTabBar._labels[index],
                   maxLines: 1,
                   softWrap: false,
                   style: TextStyle(
-                    fontSize: 15 + amount,
+                    fontSize: 15.5 + amount,
                     fontWeight: FontWeight.lerp(
                       FontWeight.w500,
                       FontWeight.w700,
                       amount,
                     ),
+                    letterSpacing: 0.05 * (1 - amount),
                     color: Color.lerp(
                       SoriTokens.textCharcoal,
                       SoriTokens.onBrand,
@@ -1330,7 +1412,7 @@ class _HomeTabBar extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
-                if (index == HomeTab.timer.index && careRunning) ...[
+                if (index == HomeTab.timer.index && _careRunning) ...[
                   const SizedBox(width: 5),
                   Container(
                     width: 6,
