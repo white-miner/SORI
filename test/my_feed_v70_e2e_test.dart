@@ -227,21 +227,16 @@ void main() {
 
     await _mountHome(tester);
 
-    final tabBar = tester.widget<TabBar>(find.byType(TabBar).first);
-    expect(tabBar.indicator, isNot(isA<UnderlineTabIndicator>()));
-    expect(tabBar.indicator, isA<BoxDecoration>());
-    final fill = tabBar.indicator! as BoxDecoration;
+    expect(find.byType(TabBar), findsNothing);
+    final filed = find.byKey(const Key('home-filed-label'));
+    expect(filed, findsOneWidget);
+    final fill = tester.widget<DecoratedBox>(filed).decoration as BoxDecoration;
     expect(fill.color, SoriTokens.brand);
     expect(
       fill.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(13)),
     );
-    expect(tabBar.labelColor, SoriTokens.onBrand);
-    expect(tabBar.unselectedLabelColor, SoriTokens.textCharcoal);
-    expect(tabBar.labelStyle?.fontSize, 16);
-    expect(tabBar.labelStyle?.fontWeight, FontWeight.w700);
-    expect(tabBar.unselectedLabelStyle?.fontSize, 16);
-    expect(tabBar.unselectedLabelStyle?.fontWeight, FontWeight.w500);
+    expect(tester.getSize(filed).width, lessThan(430 / 3));
 
     await tester.tap(find.text('프로그램'));
     await _settle(tester);

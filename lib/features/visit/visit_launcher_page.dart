@@ -1170,6 +1170,17 @@ class _HomeTabBar extends StatelessWidget {
   final TabController controller;
   final bool careRunning;
 
+  static const _labels = ['오늘', '프로그램', '타이머'];
+  static const _gap = 28.0;
+  static const _sidePad = 16.0;
+  static const _inset = 17.0;
+  static const _lift = 5.0;
+  static const _filedHeight = 48.0;
+  static const _layoutStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  );
   static const _filedFill = BoxDecoration(
     color: SoriTokens.brand,
     borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
@@ -1177,70 +1188,146 @@ class _HomeTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Filed Tab — 홈 상단만. 선택 면이 본문과 이어지고, 비선택은 구분선 뒤로 물러난다.
-    return SizedBox(
-      height: 48,
-      child: Stack(
-        children: [
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 1,
-            child: ColoredBox(color: SoriTokens.inputBorder),
-          ),
-          TabBar(
-            controller: controller,
-            splashFactory: NoSplash.splashFactory,
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-            labelColor: SoriTokens.onBrand,
-            unselectedLabelColor: SoriTokens.textCharcoal,
-            indicator: _filedFill,
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicatorPadding: EdgeInsets.zero,
-            dividerColor: Colors.transparent,
-            dividerHeight: 0,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 18),
-            labelStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
-            tabs: [
-              const Tab(text: '오늘', height: 48),
-              const Tab(text: '프로그램', height: 48),
-              Tab(
-                height: 48,
+    final animation = controller.animation!;
+    return AnimatedBuilder(
+      animation: Listenable.merge([controller, animation]),
+      builder: (context, _) {
+        final t = animation.value;
+        final scaler = MediaQuery.textScalerOf(context);
+        final widths = [
+          for (var i = 0; i < _labels.length; i++)
+            _labelWidth(i, scaler),
+        ];
+        final textXs = <double>[];
+        var cursor = _sidePad + _inset;
+        for (final w in widths) {
+          textXs.add(cursor);
+          cursor += w + _gap;
+        }
+
+        final from = t.floor().clamp(0, _labels.length - 1);
+        final to = t.ceil().clamp(0, _labels.length - 1);
+        final f = (t - from).clamp(0.0, 1.0);
+        final boxLeft = _lerp(
+          textXs[from] - _inset,
+          textXs[to] - _inset,
+          f,
+        );
+        final boxWidth = _lerp(
+          widths[from] + _inset * 2,
+          widths[to] + _inset * 2,
+          f,
+        );
+
+        return SizedBox(
+          height: _filedHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 1,
+                child: ColoredBox(color: SoriTokens.inputBorder),
+              ),
+              Positioned(
+                left: boxLeft,
+                top: -_lift,
+                width: boxWidth,
+                height: _filedHeight + _lift,
+                child: const DecoratedBox(
+                  key: Key('home-filed-label'),
+                  decoration: _filedFill,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: _sidePad + _inset),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('타이머'),
-                    // 케어 진행 중 — Green semantic (완료·진행 정상).
-                    if (careRunning) ...[
-                      const SizedBox(width: 5),
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: SoriTokens.semanticGreen,
-                        ),
-                      ),
+                    for (var i = 0; i < _labels.length; i++) ...[
+                      if (i > 0) const SizedBox(width: _gap),
+                      _indexLabel(i, t),
                     ],
                   ],
                 ),
               ),
             ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  double _labelWidth(int index, TextScaler scaler) {
+    final painter = TextPainter(
+      text: TextSpan(text: _labels[index], style: _layoutStyle),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    var width = painter.size.width;
+    if (index == 2 && careRunning) width += 11;
+    return width;
+  }
+
+  Widget _indexLabel(int index, double t) {
+    final amount = (1.0 - (t - index).abs()).clamp(0.0, 1.0);
+    final selected = controller.index == index;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: _labels[index],
+      child: GestureDetector(
+        onTap: () {
+          if (controller.index != index) controller.animateTo(index);
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Transform.translate(
+          offset: Offset(0, _lift * (1 - amount)),
+          child: SizedBox(
+            height: _filedHeight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _labels[index],
+                  style: TextStyle(
+                    fontSize: 15 + amount,
+                    fontWeight: FontWeight.lerp(
+                      FontWeight.w500,
+                      FontWeight.w700,
+                      amount,
+                    ),
+                    color: Color.lerp(
+                      SoriTokens.textCharcoal,
+                      SoriTokens.onBrand,
+                      amount,
+                    ),
+                    height: 1.2,
+                  ),
+                ),
+                if (index == 2 && careRunning) ...[
+                  const SizedBox(width: 5),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: SoriTokens.semanticGreen,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
 }
 
 class _CaseFeedHeader extends StatelessWidget {
