@@ -12,7 +12,7 @@ import '../../utils/sori_shell_insets.dart';
 import '../../utils/supabase_schema_error.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../views/before_after_compare_page.dart';
-import '../../views/chart_customer_picker_sheet.dart';
+import '../../views/file_cabinet/file_cabinet_shell.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/visit_store.dart';
@@ -912,10 +912,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildMyFeed(careRunning),
-                          ChartCustomerPickerBody(
-                            store: widget.store,
-                            embedded: true,
-                          ),
+                          FileCabinetShell(store: widget.store),
                           ProgramPane(store: widget.store),
                           _buildTimerPane(careRunning),
                         ],
