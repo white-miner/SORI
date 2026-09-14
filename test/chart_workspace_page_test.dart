@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
 import 'package:sori/services/sori_store.dart';
+import 'package:sori/views/chart_workspace/chart_index_label.dart';
+import 'package:sori/views/chart_workspace/chart_index_palette.dart';
 import 'package:sori/views/chart_workspace/chart_workspace_page.dart';
 import 'package:sori/views/chart_workspace/chart_workspace_state.dart';
 import 'package:sori/views/customer_chart/customer_chart_page.dart';
@@ -15,7 +17,10 @@ Future<void> _settle(WidgetTester tester) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    ChartIndexPaletteStore.instance.debugResetForTest();
+  });
 
   testWidgets('Chart tab shows drawer and file rails without cabinet UI', (
     tester,
@@ -185,6 +190,104 @@ void main() {
     expect(find.byKey(const Key('chart-new-sheet-title')), findsNothing);
     expect(find.textContaining('Today ·'), findsOneWidget);
   });
+
+  testWidgets(
+    'file rail label colors follow last-digit palette (신규=고정색, No.N=끝자리색)',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = SoriStore();
+      final customer = store.customers.first; // 등록순 첫 고객 = No.1
+
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: ChartWorkspacePage(store: store))),
+      );
+      await tester.pump();
+
+      final newLabel = tester.widget<ChartIndexLabel>(
+        find.byKey(const Key('chart-file-file-new')),
+      );
+      expect(newLabel.baseColor, kChartIndexNoNumberColor);
+
+      final noOneLabel = tester.widget<ChartIndexLabel>(
+        find.byKey(Key('chart-file-file-${customer.id}')),
+      );
+      expect(
+        noOneLabel.baseColor,
+        ChartIndexPaletteStore.instance.colorForNumber(
+          fileDisplayNumberFor(store, customer),
+        ),
+      );
+      // 선택되지 않았어도 끝자리 색은 이미 반영되어 있다 — 선택은 진하기만
+      // 바꾼다(색 계열 자체를 바꾸지 않는다).
+      expect(noOneLabel.baseColor, isNot(kChartIndexNoNumberColor));
+    },
+  );
+
+  testWidgets(
+    'visit rail: 신규 작성은 고정색, Today는 실제 저장된 v의 끝자리 색을 그대로 상속',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = SoriStore();
+      final customer = store.customers.firstWhere(
+        (c) => todayChartForCustomer(store, c.id) == null,
+        orElse: () => store.customers.first,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: ChartWorkspacePage(store: store))),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(Key('chart-file-file-${customer.id}')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final existingToday = todayChartForCustomer(store, customer.id);
+      if (existingToday != null) {
+        // 이미 Today가 있는 시드 — Today 라벨이 실제 vN 끝자리 색을 상속하는지만 확인.
+        final todayLabel = tester.widget<ChartIndexLabel>(
+          find.byKey(Key('chart-visit-visit-today-${existingToday.id}')),
+        );
+        expect(
+          todayLabel.baseColor,
+          ChartIndexPaletteStore.instance.colorForNumber(
+            existingToday.visitNumber,
+          ),
+        );
+        return;
+      }
+
+      // 신규 작성 탭은 번호가 없어 고정(SORI 보라) 색.
+      final draftLabel = tester.widget<ChartIndexLabel>(
+        find.byKey(const Key('chart-visit-visit-new')),
+      );
+      expect(draftLabel.baseColor, kChartIndexNoNumberColor);
+
+      await tester.enterText(
+        find.byKey(const Key('chart-new-service')),
+        '테스트케어\n본문',
+      );
+      await tester.tap(find.byKey(const Key('chart-new-sheet-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final saved = todayChartForCustomer(store, customer.id);
+      expect(saved, isNotNull);
+      // 저장 직후 Today는 "오늘용 별도 색"이 아니라, 방금 저장된 실제
+      // visitNumber의 끝자리 색을 그대로 상속해야 한다.
+      final todayLabelAfterSave = tester.widget<ChartIndexLabel>(
+        find.byKey(Key('chart-visit-visit-today-${saved!.id}')),
+      );
+      expect(
+        todayLabelAfterSave.baseColor,
+        ChartIndexPaletteStore.instance.colorForNumber(saved.visitNumber),
+      );
+    },
+  );
 
   test('visit rail hides duplicate today visit number', () {
     final store = SoriStore();

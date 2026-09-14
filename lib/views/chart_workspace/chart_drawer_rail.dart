@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'chart_index_label.dart';
+import 'chart_index_palette.dart';
 import 'chart_index_rail.dart';
 import 'chart_workspace_state.dart';
 
@@ -29,6 +30,8 @@ class ChartDrawerRail extends StatelessWidget {
           key: Key('chart-drawer-${drawer.id}'),
           text: drawer.label,
           selected: selected,
+          // 서랍은 번호가 없다 — 끝자리 팔레트와 무관한 고정색.
+          baseColor: kChartIndexNoNumberColor,
         );
       },
     );

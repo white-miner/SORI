@@ -34,6 +34,7 @@ import 'consultation_track.dart';
 import 'home_dashboard_controller.dart';
 import 'home_visual_tokens.dart';
 import 'management_case_paginator.dart';
+import 'sori_stage_folder_tabs.dart';
 import 'today_agenda.dart';
 import 'models/care_timer_entry_mode.dart';
 import 'visit_customer_picker_sheet.dart';
@@ -60,6 +61,10 @@ import '../operation/widgets/care_timer_preset_editor_page.dart';
 
 /// 원장 홈 상단 탭. 노출 라벨은 Desk / Chart / Programs / Flow.
 enum HomeTab { myFeed, chart, program, timer }
+
+/// [SoriStageFolderTabs]에 넘기는 라벨/최소폭 — 순서는 [HomeTab]과 짝을 이룬다.
+const _kHomeStageLabels = ['Desk', 'Chart', 'Programs', 'Flow'];
+const _kHomeStageMinWidths = [72.0, 76.0, 100.0, 72.0];
 
 /// 원장 GNB 홈: Desk / Chart / Programs / Flow.
 /// enum 값은 호환 유지. Chart만 슬롯 추가(Expand).
@@ -904,7 +909,12 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
         children: [
           Column(
             children: [
-              _HomeTabBar(controller: _tabs, careRunning: careRunning),
+              SoriStageFolderTabs(
+                controller: _tabs,
+                labels: _kHomeStageLabels,
+                minWidths: _kHomeStageMinWidths,
+                dotIndex: careRunning ? HomeTab.timer.index : null,
+              ),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -1164,311 +1174,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       ),
     );
   }
-}
-
-class _HomeTabBar extends StatefulWidget {
-  const _HomeTabBar({required this.controller, required this.careRunning});
-
-  final TabController controller;
-  final bool careRunning;
-
-  static const _labels = ['Desk', 'Chart', 'Programs', 'Flow'];
-  static const _minWidths = [80.0, 84.0, 116.0, 80.0];
-  static const _gap = 5.0;
-  static const _sidePad = 16.0;
-  static const _hPad = 18.0;
-  static const _trailingReserve = 16.0;
-  static const _lift = 6.0;
-  static const _pressLift = 1.5;
-  static const _hitHeight = 52.0;
-  static const _visualHeight = 48.0;
-  static const _glassFillAlpha = 0.42;
-  static const _glassRadius = BorderRadius.vertical(
-    top: Radius.circular(11),
-    bottom: Radius.circular(5),
-  );
-  static const _layoutStyle = TextStyle(
-    fontSize: 17.5,
-    fontWeight: FontWeight.w700,
-    height: 1.2,
-  );
-  static const _filedFill = BoxDecoration(
-    color: SoriTokens.brand,
-    borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
-  );
-
-  @override
-  State<_HomeTabBar> createState() => _HomeTabBarState();
-}
-
-class _HomeTabBarState extends State<_HomeTabBar> {
-  int? _pressedIndex;
-
-  TabController get _controller => widget.controller;
-  bool get _careRunning => widget.careRunning;
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = _controller.animation!;
-    return AnimatedBuilder(
-      animation: Listenable.merge([_controller, animation]),
-      builder: (context, _) {
-        final t = animation.value;
-        final scaler = MediaQuery.textScalerOf(context);
-        final textWs = [
-          for (var i = 0; i < _HomeTabBar._labels.length; i++)
-            _labelWidth(i, scaler),
-        ];
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : 430.0;
-            final layout = _tabLayout(textWs, maxWidth);
-            final widths = layout.widths;
-            final gap = layout.gap;
-            final tabLefts = <double>[];
-            var cursor = _HomeTabBar._sidePad;
-            for (final w in widths) {
-              tabLefts.add(cursor);
-              cursor += w + gap;
-            }
-
-            final from = t.floor().clamp(0, _HomeTabBar._labels.length - 1);
-            final to = t.ceil().clamp(0, _HomeTabBar._labels.length - 1);
-            final f = (t - from).clamp(0.0, 1.0);
-            final boxLeft = _lerp(tabLefts[from], tabLefts[to], f);
-            final boxWidth = _lerp(widths[from], widths[to], f);
-            final reduceTransparency = MediaQuery.highContrastOf(context);
-            final selectedTop =
-                _HomeTabBar._hitHeight -
-                _HomeTabBar._visualHeight -
-                _HomeTabBar._lift;
-
-            return SizedBox(
-              width: double.infinity,
-              height: _HomeTabBar._hitHeight,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 1,
-                    child: ColoredBox(color: SoriTokens.inputBorder),
-                  ),
-                  for (var i = 0; i < _HomeTabBar._labels.length; i++)
-                    _glassPlate(
-                      index: i,
-                      t: t,
-                      left: tabLefts[i],
-                      width: widths[i],
-                      reduceTransparency: reduceTransparency,
-                    ),
-                  Positioned(
-                    left: boxLeft,
-                    top: selectedTop,
-                    width: boxWidth,
-                    height: _HomeTabBar._visualHeight + _HomeTabBar._lift,
-                    child: const DecoratedBox(
-                      key: Key('home-filed-label'),
-                      decoration: _HomeTabBar._filedFill,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: _HomeTabBar._sidePad),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (
-                          var i = 0;
-                          i < _HomeTabBar._labels.length;
-                          i++
-                        ) ...[
-                          if (i > 0) SizedBox(width: gap),
-                          SizedBox(
-                            width: widths[i],
-                            height: _HomeTabBar._hitHeight,
-                            child: _indexLabel(i, t),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  ({List<double> widths, double gap}) _tabLayout(
-    List<double> textWs,
-    double maxWidth,
-  ) {
-    final n = textWs.length;
-    var gap = _HomeTabBar._gap;
-    final widths = [
-      for (var i = 0; i < n; i++) _max(textWs[i], _HomeTabBar._minWidths[i]),
-    ];
-    double used() =>
-        _HomeTabBar._sidePad +
-        widths.fold<double>(0, (sum, w) => sum + w) +
-        gap * (n - 1);
-    final budget = maxWidth - 2;
-    var leftover = budget - used();
-    if (leftover < 0) {
-      for (var i = 0; i < n; i++) {
-        widths[i] = textWs[i];
-      }
-      leftover = budget - used();
-    }
-    while (leftover < 0 && gap > 2) {
-      gap -= 1;
-      leftover = budget - used();
-    }
-    if (leftover > 0) {
-      final want = _HomeTabBar._hPad * 2 * n;
-      final grow = leftover > _HomeTabBar._trailingReserve
-          ? _min(leftover - _HomeTabBar._trailingReserve, want)
-          : leftover;
-      final minSum = _HomeTabBar._minWidths.fold<double>(0, (a, b) => a + b);
-      for (var i = 0; i < n; i++) {
-        widths[i] += grow * (_HomeTabBar._minWidths[i] / minSum);
-      }
-    }
-    return (widths: widths, gap: gap);
-  }
-
-  Widget _glassPlate({
-    required int index,
-    required double t,
-    required double left,
-    required double width,
-    required bool reduceTransparency,
-  }) {
-    final amount = (1.0 - (t - index).abs()).clamp(0.0, 1.0);
-    final fade = (1.0 - amount).clamp(0.0, 1.0);
-    if (fade <= 0.01) return const SizedBox.shrink();
-    final pressed = _pressedIndex == index;
-    return Positioned(
-      left: left,
-      bottom: 0,
-      width: width,
-      height: _HomeTabBar._visualHeight,
-      child: IgnorePointer(
-        child: Opacity(
-          opacity: fade,
-          child: Transform.translate(
-            offset: Offset(0, pressed ? -_HomeTabBar._pressLift : 0),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: reduceTransparency
-                    ? SoriTokens.surfaceOverlay
-                    : SoriTokens.surface.withValues(
-                        alpha: _HomeTabBar._glassFillAlpha,
-                      ),
-                borderRadius: _HomeTabBar._glassRadius,
-                border: Border.all(color: SoriTokens.inputBorder, width: 1),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _labelWidth(int index, TextScaler scaler) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: _HomeTabBar._labels[index],
-        style: _HomeTabBar._layoutStyle,
-      ),
-      textDirection: TextDirection.ltr,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-    var width = painter.size.width;
-    if (index == HomeTab.timer.index && _careRunning) width += 11;
-    return width;
-  }
-
-  Widget _indexLabel(int index, double t) {
-    final amount = (1.0 - (t - index).abs()).clamp(0.0, 1.0);
-    final selected = _controller.index == index;
-    final pressed = _pressedIndex == index && amount < 0.99;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: _HomeTabBar._labels[index],
-      child: GestureDetector(
-        onTapDown: amount < 0.5
-            ? (_) => setState(() => _pressedIndex = index)
-            : null,
-        onTapUp: (_) => setState(() => _pressedIndex = null),
-        onTapCancel: () => setState(() => _pressedIndex = null),
-        onTap: () {
-          if (_controller.index != index) _controller.animateTo(index);
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Transform.translate(
-          offset: Offset(
-            0,
-            -_HomeTabBar._lift * amount -
-                (pressed ? _HomeTabBar._pressLift : 0),
-          ),
-          child: OverflowBox(
-            maxWidth: double.infinity,
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _HomeTabBar._labels[index],
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(
-                    fontSize: 16.5 + amount,
-                    fontWeight: FontWeight.lerp(
-                      FontWeight.w600,
-                      FontWeight.w700,
-                      amount,
-                    ),
-                    color: Color.lerp(
-                      SoriTokens.textCharcoal,
-                      SoriTokens.onBrand,
-                      amount,
-                    ),
-                    height: 1.2,
-                  ),
-                ),
-                if (index == HomeTab.timer.index && _careRunning) ...[
-                  const SizedBox(width: 5),
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: SoriTokens.semanticGreen,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static double _lerp(double a, double b, double t) => a + (b - a) * t;
-
-  static double _max(double a, double b) => a > b ? a : b;
-
-  static double _min(double a, double b) => a < b ? a : b;
 }
 
 class _CaseFeedHeader extends StatelessWidget {

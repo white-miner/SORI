@@ -186,7 +186,7 @@ void main() {
     expect(find.byType(HomeToolboxRow), findsNothing);
     expect(find.byType(HomePresetQuickPick), findsNothing);
 
-    await tester.tap(find.text('Flow'));
+    await tester.tap(find.byKey(const Key('sori-stage-tab-3')));
     await _settle(tester);
 
     expect(find.byType(HomeToolboxRow), findsOneWidget);
@@ -231,23 +231,33 @@ void main() {
     expect(find.byType(TabBar), findsNothing);
     final filed = find.byKey(const Key('home-filed-label'));
     expect(filed, findsOneWidget);
-    final fill = tester.widget<DecoratedBox>(filed).decoration as BoxDecoration;
+    final fill = tester
+        .widget<AnimatedContainer>(
+          find.descendant(
+            of: filed,
+            matching: find.byKey(const Key('sori-stage-tab-fill-0')),
+          ),
+        )
+        .decoration! as BoxDecoration;
     expect(fill.color, SoriTokens.brand);
     expect(
       fill.borderRadius,
-      const BorderRadius.vertical(top: Radius.circular(13)),
+      const BorderRadius.only(
+        topLeft: Radius.circular(11),
+        topRight: Radius.circular(11),
+      ),
     );
     expect(tester.getSize(filed).width, lessThan(430 / 3));
 
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.byKey(const Key('sori-stage-tab-2')));
     await _settle(tester);
     expect(find.text('윤곽 관리'), findsOneWidget);
 
-    await tester.tap(find.text('Flow').first);
+    await tester.tap(find.byKey(const Key('sori-stage-tab-3')));
     await _settle(tester);
     expect(find.byKey(const Key('home-timer-title-bar')), findsOneWidget);
 
-    await tester.tap(find.text('Desk').first);
+    await tester.tap(find.byKey(const Key('sori-stage-tab-0')));
     await _settle(tester);
     expect(find.byType(HomeQuickActionRow), findsOneWidget);
   });

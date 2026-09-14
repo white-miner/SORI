@@ -8,6 +8,8 @@ import '../add_customer_sheet.dart';
 import 'chart_drawer_rail.dart';
 import 'chart_file_document_strip.dart';
 import 'chart_file_rail.dart';
+import 'chart_index_palette.dart';
+import 'chart_index_palette_sheet.dart';
 import 'chart_new_visit_sheet.dart';
 import 'chart_visit_rail.dart';
 import 'chart_visit_sheet.dart';
@@ -35,11 +37,15 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
     super.initState();
     _selectedDrawerId = kDefaultChartDrawer.id;
     widget.store.addListener(_onStore);
+    // 인덱스 색상 팔레트가 바뀌면(설정에서 편집·초기화·기기 저장값 로드
+    // 완료) rail을 다시 그려 즉시 반영한다.
+    ChartIndexPaletteStore.instance.addListener(_onPaletteChanged);
   }
 
   @override
   void dispose() {
     widget.store.removeListener(_onStore);
+    ChartIndexPaletteStore.instance.removeListener(_onPaletteChanged);
     super.dispose();
   }
 
@@ -55,6 +61,13 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
       _ensureVisitSelection();
     });
   }
+
+  void _onPaletteChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openIndexColorSettings() =>
+      showChartIndexPaletteSheet(context);
 
   List<FileRailItem> get _fileItems => buildFileRailItems(widget.store);
 
@@ -152,15 +165,33 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(18, 10, 18, 6),
-            child: Text(
-              'Chart',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: SoriTokens.textCharcoal,
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 8, 6),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Chart',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: SoriTokens.textCharcoal,
+                    ),
+                  ),
+                ),
+                // 조용한 설정 진입점 — 버튼 나열이 아니라 아이콘 하나.
+                IconButton(
+                  key: const Key('chart-index-color-settings-entry'),
+                  onPressed: _openIndexColorSettings,
+                  tooltip: '인덱스 색상 설정',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.palette_outlined,
+                    size: 20,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
           ChartDrawerRail(
