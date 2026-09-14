@@ -12,7 +12,7 @@ import '../../utils/sori_shell_insets.dart';
 import '../../utils/supabase_schema_error.dart';
 import '../../views/admin_chart_writer_page.dart';
 import '../../views/before_after_compare_page.dart';
-import '../../views/file_cabinet/file_cabinet_shell.dart';
+import '../../views/chart_workspace/chart_workspace_page.dart';
 import '../../visit_kernel/models/care_schedule_entry.dart';
 import '../../visit_kernel/models/visit_session.dart';
 import '../../visit_kernel/visit_store.dart';
@@ -179,8 +179,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
 
   Future<void> _loadClimate() async {
     try {
-      final ctx =
-          await ShopClimateService.instance.fetchForShop(widget.store.shop);
+      final ctx = await ShopClimateService.instance.fetchForShop(
+        widget.store.shop,
+      );
       if (mounted) _climate = ctx;
     } catch (_) {
       if (mounted) {
@@ -191,8 +192,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
 
   Future<void> _loadTrends() async {
     try {
-      final snap = await ShopClinicalTrendService.instance
-          .fetchForShop(widget.store.shop);
+      final snap = await ShopClinicalTrendService.instance.fetchForShop(
+        widget.store.shop,
+      );
       if (mounted) _trends = snap;
     } catch (_) {
       if (mounted) _trends = ClinicalTrendSnapshot.fallback();
@@ -298,16 +300,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
 
   void _autoWarmNextCustomer() {
     final snap = _agendaSnapshot();
-    final next = snap.items.where((e) => e.isNext).firstOrNull ??
-        snap.items.where((e) => e.isReturning && !e.hasActiveSession).firstOrNull;
+    final next =
+        snap.items.where((e) => e.isNext).firstOrNull ??
+        snap.items
+            .where((e) => e.isReturning && !e.hasActiveSession)
+            .firstOrNull;
     final cid = next?.customerId.trim() ?? '';
     if (cid.isEmpty || !next!.isReturning) return;
     unawaited(
-      BaRecallCache.instance.prefetch(
-        widget.store,
-        cid,
-        imageContext: context,
-      ),
+      BaRecallCache.instance.prefetch(widget.store, cid, imageContext: context),
     );
   }
 
@@ -388,9 +389,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('상담 시작 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('상담 시작 실패: $e')));
     }
   }
 
@@ -457,8 +458,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     // 케어 시작 = 탭 본문에서 카운트다운. 화면 전환 없음.
     final timerStore = VisitTimerStore.instance;
     await timerStore.ensureStandaloneTimer();
-    final slot = timerStore.homeSelectedPresetSlot ??
-        timerStore.selectedPresetSlot;
+    final slot =
+        timerStore.homeSelectedPresetSlot ?? timerStore.selectedPresetSlot;
     final preset = timerStore.presetAt(slot);
     if (preset.isEmpty) {
       if (mounted) {
@@ -491,7 +492,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final timerStore = VisitTimerStore.instance;
     await timerStore.ensureStandaloneTimer();
     if (!mounted) return;
-    final bound = session ??
+    final bound =
+        session ??
         (_agendaSnapshot().activeSessions.firstOrNull ??
             widget.store.activeVisitSession);
     await CareTimerFullscreenPage.open(
@@ -517,10 +519,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   Future<void> _openPresetEditor(int slot) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => CareTimerPresetEditorPage(
-          store: widget.store,
-          initialSlot: slot,
-        ),
+        builder: (_) =>
+            CareTimerPresetEditorPage(store: widget.store, initialSlot: slot),
       ),
     );
     if (mounted) setState(() {});
@@ -633,8 +633,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     if (!mounted) return;
 
     final chart = widget.store.chartForVisitSession(session);
-    final customer =
-        chart != null ? widget.store.findCustomer(chart.customerId) : null;
+    final customer = chart != null
+        ? widget.store.findCustomer(chart.customerId)
+        : null;
 
     if (result.hasReport) {
       await VisitReportSendSheet.show(
@@ -712,9 +713,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   }
 
   /// 원장님 화면에 PostgrestException 원문이 그대로 뜨면 대응할 방법이 없다.
-  String _readableError(Object e) => isMissingSchemaError(e)
-      ? '서버 준비가 끝나지 않았습니다. 잠시 후 다시 시도해 주세요'
-      : '$e';
+  String _readableError(Object e) =>
+      isMissingSchemaError(e) ? '서버 준비가 끝나지 않았습니다. 잠시 후 다시 시도해 주세요' : '$e';
 
   Future<void> _deferBaSession(BaCaptureSession session) async {
     try {
@@ -812,9 +812,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   void _focusCaseInFeed(String chartId) {
     final index = _casePager.items.indexWhere((c) => c.id == chartId);
     if (index < 0 || !_feedScroll.hasClients) return;
-    final target = (_feedScroll.position.maxScrollExtent *
-            (index / _casePager.items.length))
-        .clamp(0.0, _feedScroll.position.maxScrollExtent);
+    final target =
+        (_feedScroll.position.maxScrollExtent *
+                (index / _casePager.items.length))
+            .clamp(0.0, _feedScroll.position.maxScrollExtent);
     _feedScroll.animateTo(
       target,
       duration: const Duration(milliseconds: 280),
@@ -912,7 +913,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildMyFeed(careRunning),
-                          FileCabinetShell(store: widget.store),
+                          ChartWorkspacePage(store: widget.store),
                           ProgramPane(store: widget.store),
                           _buildTimerPane(careRunning),
                         ],
@@ -1042,8 +1043,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   bookmarked: widget.store.isChartBookmarked(chart.id),
                   onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
                   onExpand: () => unawaited(_openCaseCompare(chart)),
-                  onHideFromHome: () =>
-                      unawaited(_hideCaseFromHome(chart)),
+                  onHideFromHome: () => unawaited(_hideCaseFromHome(chart)),
                 );
               },
             ),
@@ -1056,8 +1056,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   /// Timer 탭 Standby — 툴박스 + 플립시계/컨트롤/칩 + 프리셋 + 고객 차트 연결.
   Widget _buildTimerPane(bool careRunning) {
     final snap = _agendaSnapshot();
-    final heroSession = snap.activeSessions.firstOrNull ??
-        widget.store.activeVisitSession;
+    final heroSession =
+        snap.activeSessions.firstOrNull ?? widget.store.activeVisitSession;
     final boundCustomer = _timerBoundCustomerId == null
         ? null
         : widget.store.findCustomer(_timerBoundCustomerId!);
@@ -1281,7 +1281,11 @@ class _HomeTabBarState extends State<_HomeTabBar> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (var i = 0; i < _HomeTabBar._labels.length; i++) ...[
+                        for (
+                          var i = 0;
+                          i < _HomeTabBar._labels.length;
+                          i++
+                        ) ...[
                           if (i > 0) SizedBox(width: gap),
                           SizedBox(
                             width: widths[i],
@@ -1308,8 +1312,7 @@ class _HomeTabBarState extends State<_HomeTabBar> {
     final n = textWs.length;
     var gap = _HomeTabBar._gap;
     final widths = [
-      for (var i = 0; i < n; i++)
-        _max(textWs[i], _HomeTabBar._minWidths[i]),
+      for (var i = 0; i < n; i++) _max(textWs[i], _HomeTabBar._minWidths[i]),
     ];
     double used() =>
         _HomeTabBar._sidePad +
@@ -1414,7 +1417,8 @@ class _HomeTabBarState extends State<_HomeTabBar> {
         child: Transform.translate(
           offset: Offset(
             0,
-            -_HomeTabBar._lift * amount - (pressed ? _HomeTabBar._pressLift : 0),
+            -_HomeTabBar._lift * amount -
+                (pressed ? _HomeTabBar._pressLift : 0),
           ),
           child: OverflowBox(
             maxWidth: double.infinity,
@@ -1466,7 +1470,6 @@ class _HomeTabBarState extends State<_HomeTabBar> {
 
   static double _min(double a, double b) => a < b ? a : b;
 }
-
 
 class _CaseFeedHeader extends StatelessWidget {
   const _CaseFeedHeader({
@@ -1543,9 +1546,7 @@ class _EmptyCaseFeed extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            bookmarkOnly
-                ? '즐겨찾기한 케이스가 없습니다'
-                : '완성된 B/A 케이스가 아직 없습니다',
+            bookmarkOnly ? '즐겨찾기한 케이스가 없습니다' : '완성된 B/A 케이스가 아직 없습니다',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -1571,10 +1572,7 @@ class _EmptyCaseFeed extends StatelessWidget {
 }
 
 class _SchedulerSheet extends StatelessWidget {
-  const _SchedulerSheet({
-    required this.entries,
-    required this.onSelect,
-  });
+  const _SchedulerSheet({required this.entries, required this.onSelect});
 
   final List<CareScheduleEntry> entries;
   final ValueChanged<CareScheduleEntry> onSelect;
