@@ -1176,21 +1176,22 @@ class _HomeTabBar extends StatefulWidget {
   final bool careRunning;
 
   static const _labels = ['Desk', 'Chart', 'Programs', 'Flow'];
-  static const _gap = 24.0;
+  static const _minWidths = [80.0, 84.0, 116.0, 80.0];
+  static const _gap = 5.0;
   static const _sidePad = 16.0;
-  static const _inset = 16.0;
-  static const _lift = 5.0;
+  static const _hPad = 18.0;
+  static const _trailingReserve = 16.0;
+  static const _lift = 6.0;
   static const _pressLift = 1.5;
-  static const _filedHeight = 48.0;
-  static const _glassHeight = 40.0;
-  static const _glassPad = 13.0;
+  static const _hitHeight = 52.0;
+  static const _visualHeight = 48.0;
   static const _glassFillAlpha = 0.42;
   static const _glassRadius = BorderRadius.vertical(
     top: Radius.circular(11),
     bottom: Radius.circular(5),
   );
   static const _layoutStyle = TextStyle(
-    fontSize: 16,
+    fontSize: 17.5,
     fontWeight: FontWeight.w700,
     height: 1.2,
   );
@@ -1217,52 +1218,39 @@ class _HomeTabBarState extends State<_HomeTabBar> {
       builder: (context, _) {
         final t = animation.value;
         final scaler = MediaQuery.textScalerOf(context);
-        final widths = [
+        final textWs = [
           for (var i = 0; i < _HomeTabBar._labels.length; i++)
             _labelWidth(i, scaler),
         ];
         return LayoutBuilder(
           builder: (context, constraints) {
-            var gap = _HomeTabBar._gap;
-            var inset = _HomeTabBar._inset;
-            final textW = widths.fold<double>(0, (sum, w) => sum + w);
-            double used(double g, double ins) =>
-                _HomeTabBar._sidePad +
-                ins +
-                textW +
-                g * (_HomeTabBar._labels.length - 1) +
-                _HomeTabBar._sidePad;
-            while (used(gap, inset) > constraints.maxWidth - 2 && gap > 10) {
-              gap -= 2;
-            }
-            while (used(gap, inset) > constraints.maxWidth - 2 && inset > 10) {
-              inset -= 1;
-            }
-
-            final textXs = <double>[];
-            var cursor = _HomeTabBar._sidePad + inset;
+            final maxWidth = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 430.0;
+            final layout = _tabLayout(textWs, maxWidth);
+            final widths = layout.widths;
+            final gap = layout.gap;
+            final tabLefts = <double>[];
+            var cursor = _HomeTabBar._sidePad;
             for (final w in widths) {
-              textXs.add(cursor);
+              tabLefts.add(cursor);
               cursor += w + gap;
             }
 
             final from = t.floor().clamp(0, _HomeTabBar._labels.length - 1);
             final to = t.ceil().clamp(0, _HomeTabBar._labels.length - 1);
             final f = (t - from).clamp(0.0, 1.0);
-            final boxLeft = _lerp(
-              textXs[from] - inset,
-              textXs[to] - inset,
-              f,
-            );
-            final boxWidth = _lerp(
-              widths[from] + inset * 2,
-              widths[to] + inset * 2,
-              f,
-            );
+            final boxLeft = _lerp(tabLefts[from], tabLefts[to], f);
+            final boxWidth = _lerp(widths[from], widths[to], f);
             final reduceTransparency = MediaQuery.highContrastOf(context);
+            final selectedTop =
+                _HomeTabBar._hitHeight -
+                _HomeTabBar._visualHeight -
+                _HomeTabBar._lift;
 
             return SizedBox(
-              height: _HomeTabBar._filedHeight,
+              width: double.infinity,
+              height: _HomeTabBar._hitHeight,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -1277,30 +1265,32 @@ class _HomeTabBarState extends State<_HomeTabBar> {
                     _glassPlate(
                       index: i,
                       t: t,
-                      left: textXs[i] - _HomeTabBar._glassPad,
-                      width: widths[i] + _HomeTabBar._glassPad * 2,
+                      left: tabLefts[i],
+                      width: widths[i],
                       reduceTransparency: reduceTransparency,
                     ),
                   Positioned(
                     left: boxLeft,
-                    top: -_HomeTabBar._lift,
+                    top: selectedTop,
                     width: boxWidth,
-                    height: _HomeTabBar._filedHeight + _HomeTabBar._lift,
+                    height: _HomeTabBar._visualHeight + _HomeTabBar._lift,
                     child: const DecoratedBox(
                       key: Key('home-filed-label'),
                       decoration: _HomeTabBar._filedFill,
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.only(
-                      left: _HomeTabBar._sidePad + inset,
-                    ),
+                    padding: const EdgeInsets.only(left: _HomeTabBar._sidePad),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         for (var i = 0; i < _HomeTabBar._labels.length; i++) ...[
                           if (i > 0) SizedBox(width: gap),
-                          _indexLabel(i, t),
+                          SizedBox(
+                            width: widths[i],
+                            height: _HomeTabBar._hitHeight,
+                            child: _indexLabel(i, t),
+                          ),
                         ],
                       ],
                     ),
@@ -1312,6 +1302,45 @@ class _HomeTabBarState extends State<_HomeTabBar> {
         );
       },
     );
+  }
+
+  ({List<double> widths, double gap}) _tabLayout(
+    List<double> textWs,
+    double maxWidth,
+  ) {
+    final n = textWs.length;
+    var gap = _HomeTabBar._gap;
+    final widths = [
+      for (var i = 0; i < n; i++)
+        _max(textWs[i], _HomeTabBar._minWidths[i]),
+    ];
+    double used() =>
+        _HomeTabBar._sidePad +
+        widths.fold<double>(0, (sum, w) => sum + w) +
+        gap * (n - 1);
+    final budget = maxWidth - 2;
+    var leftover = budget - used();
+    if (leftover < 0) {
+      for (var i = 0; i < n; i++) {
+        widths[i] = textWs[i];
+      }
+      leftover = budget - used();
+    }
+    while (leftover < 0 && gap > 2) {
+      gap -= 1;
+      leftover = budget - used();
+    }
+    if (leftover > 0) {
+      final want = _HomeTabBar._hPad * 2 * n;
+      final grow = leftover > _HomeTabBar._trailingReserve
+          ? _min(leftover - _HomeTabBar._trailingReserve, want)
+          : leftover;
+      final minSum = _HomeTabBar._minWidths.fold<double>(0, (a, b) => a + b);
+      for (var i = 0; i < n; i++) {
+        widths[i] += grow * (_HomeTabBar._minWidths[i] / minSum);
+      }
+    }
+    return (widths: widths, gap: gap);
   }
 
   Widget _glassPlate({
@@ -1329,7 +1358,7 @@ class _HomeTabBarState extends State<_HomeTabBar> {
       left: left,
       bottom: 0,
       width: width,
-      height: _HomeTabBar._glassHeight,
+      height: _HomeTabBar._visualHeight,
       child: IgnorePointer(
         child: Opacity(
           opacity: fade,
@@ -1354,7 +1383,10 @@ class _HomeTabBarState extends State<_HomeTabBar> {
 
   double _labelWidth(int index, TextScaler scaler) {
     final painter = TextPainter(
-      text: TextSpan(text: _HomeTabBar._labels[index], style: _HomeTabBar._layoutStyle),
+      text: TextSpan(
+        text: _HomeTabBar._labels[index],
+        style: _HomeTabBar._layoutStyle,
+      ),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
       maxLines: 1,
@@ -1387,8 +1419,9 @@ class _HomeTabBarState extends State<_HomeTabBar> {
             0,
             -_HomeTabBar._lift * amount - (pressed ? _HomeTabBar._pressLift : 0),
           ),
-          child: SizedBox(
-            height: _HomeTabBar._filedHeight,
+          child: OverflowBox(
+            maxWidth: double.infinity,
+            alignment: Alignment.center,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1397,13 +1430,12 @@ class _HomeTabBarState extends State<_HomeTabBar> {
                   maxLines: 1,
                   softWrap: false,
                   style: TextStyle(
-                    fontSize: 15.5 + amount,
+                    fontSize: 16.5 + amount,
                     fontWeight: FontWeight.lerp(
-                      FontWeight.w500,
+                      FontWeight.w600,
                       FontWeight.w700,
                       amount,
                     ),
-                    letterSpacing: 0.05 * (1 - amount),
                     color: Color.lerp(
                       SoriTokens.textCharcoal,
                       SoriTokens.onBrand,
@@ -1432,6 +1464,10 @@ class _HomeTabBarState extends State<_HomeTabBar> {
   }
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  static double _max(double a, double b) => a > b ? a : b;
+
+  static double _min(double a, double b) => a < b ? a : b;
 }
 
 
