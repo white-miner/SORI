@@ -44,6 +44,15 @@ void main() {
     expect(find.text('서랍 B'), findsNothing);
     expect(find.textContaining('번호 준비 중'), findsNothing);
     expect(find.byKey(const Key('file-cabinet-drawer-a')), findsNothing);
+
+    // 파일 rail 주 라벨은 No.N — 등록순 첫 고객은 항상 No.1.
+    expect(find.text('No.1'), findsOneWidget);
+    // 고객 이름이 rail 라벨을 대체하지 않는다.
+    for (final c in store.customers) {
+      expect(find.text(c.name), findsNothing);
+    }
+    // 화면 중앙을 채우던 구 빈 상태 배너는 사라졌다.
+    expect(find.text('파일을 선택하거나 신규로 등록하세요'), findsNothing);
   });
 
   testWidgets('selecting file shows document strip and visit rail', (
@@ -67,7 +76,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byKey(Key('chart-file-title-${customer.id}')), findsOneWidget);
+    // 헤더는 "No.N · 이름" — No가 이름을 대체하지 않고 함께 존재한다.
+    final fileNumber = fileDisplayNumberFor(store, customer);
+    expect(
+      find.text(fileHeaderLabel(fileNumber, customer)),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('chart-doc-consent')), findsOneWidget);
+    expect(find.text('전자 동의서'), findsOneWidget);
     expect(find.byKey(const Key('chart-doc-photo')), findsOneWidget);
     expect(find.byKey(const Key('chart-doc-payment')), findsOneWidget);
     expect(find.byKey(const Key('chart-visit-rail')), findsOneWidget);

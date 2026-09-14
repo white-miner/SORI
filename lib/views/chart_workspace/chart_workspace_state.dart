@@ -27,10 +27,19 @@ class NewCustomerFileRailItem extends FileRailItem {
 }
 
 class CustomerFileRailItem extends FileRailItem {
-  const CustomerFileRailItem({required this.customer, required this.label});
+  const CustomerFileRailItem({
+    required this.customer,
+    required this.displayNumber,
+  });
 
   final Customer customer;
-  final String label;
+
+  /// 파일 rail 주 라벨용 순번. `customer_file_no`(DB) 미발급 상태의
+  /// 정직한 대체값 — 등록순 1-based 위치. 저장/백필 없음(3차 이관).
+  final int displayNumber;
+
+  /// rail 주 라벨. 고객 이름은 대체하지 않는다.
+  String get label => 'No.$displayNumber';
 
   @override
   String get id => 'file-${customer.id}';
@@ -110,21 +119,44 @@ List<VisitRailItem> buildVisitRailItems(SoriStore store, String customerId) {
   return [const VisitRailItem.newDraft(), ...past.map(VisitRailItem.existing)];
 }
 
-/// No 미연결 전환기: 가짜 No.N 금지. 이름 기반 임시 라벨.
-String fileRailLabelFor(Customer customer) {
+/// 파일 rail 순서 SSOT: 등록순(createdAt asc), 동률/결측은 id로 고정.
+/// `customer_file_no`(DB 컬럼)는 아직 발급 로직이 없어 미사용 — 3차에서
+/// 이 함수를 실제 발급값으로 교체한다. 정렬은 store.customers를 그대로
+/// 두고 로컬 복사본에서만 수행(원본 순서·기존 참조 영향 없음).
+List<Customer> orderedFileCustomers(SoriStore store) {
+  final customers = List<Customer>.of(store.customers);
+  customers.sort((a, b) {
+    final at = a.createdAt;
+    final bt = b.createdAt;
+    if (at == null && bt == null) return a.id.compareTo(b.id);
+    if (at == null) return 1;
+    if (bt == null) return -1;
+    final byTime = at.compareTo(bt);
+    if (byTime != 0) return byTime;
+    return a.id.compareTo(b.id);
+  });
+  return customers;
+}
+
+/// No.N 계산. 목록에 없으면(경합 등) 안전하게 끝번호로.
+int fileDisplayNumberFor(SoriStore store, Customer customer) {
+  final ordered = orderedFileCustomers(store);
+  final idx = ordered.indexWhere((c) => c.id == customer.id);
+  return idx == -1 ? ordered.length + 1 : idx + 1;
+}
+
+/// 파일철 문서 인덱스 헤더 라벨. "No.N · 고객이름" — 이름은 보조 정보.
+String fileHeaderLabel(int displayNumber, Customer customer) {
   final name = customer.name.trim();
-  if (name.isEmpty) return '파일';
-  return name.length <= 4 ? name : '${name.substring(0, 4)}';
+  return name.isEmpty ? 'No.$displayNumber' : 'No.$displayNumber · $name';
 }
 
 List<FileRailItem> buildFileRailItems(SoriStore store) {
-  final customers = List<Customer>.of(store.customers)
-    ..sort((a, b) => a.name.compareTo(b.name));
+  final customers = orderedFileCustomers(store);
   return [
     const NewCustomerFileRailItem(),
-    ...customers.map(
-      (c) => CustomerFileRailItem(customer: c, label: fileRailLabelFor(c)),
-    ),
+    for (var i = 0; i < customers.length; i++)
+      CustomerFileRailItem(customer: customers[i], displayNumber: i + 1),
   ];
 }
 

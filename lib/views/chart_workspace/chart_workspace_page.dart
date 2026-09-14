@@ -176,7 +176,11 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
           ),
           if (customer != null) ...[
             const SizedBox(height: 8),
-            ChartFileDocumentStrip(store: widget.store, customer: customer),
+            ChartFileDocumentStrip(
+              store: widget.store,
+              customer: customer,
+              fileNumber: fileDisplayNumberFor(widget.store, customer),
+            ),
             const SizedBox(height: 4),
             ChartVisitRail(
               items: visitItems,
@@ -187,12 +191,15 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
           const SizedBox(height: 8),
           Expanded(
             child: customer == null
-                ? const Center(
+                ? Padding(
+                    // 화면 중앙을 채우는 안내 배너 금지 — 조용한 한 줄만.
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
                     child: Text(
-                      '파일을 선택하거나 신규로 등록하세요',
+                      '서랍에서 파일을 선택하세요',
                       style: TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: SoriTokens.textSecondary,
+                        color: SoriTokens.textSecondary.withValues(alpha: 0.62),
                       ),
                     ),
                   )

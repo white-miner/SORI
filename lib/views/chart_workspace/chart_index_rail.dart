@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'chart_index_label.dart';
+
 /// 세 rail 공통 가로 인덱스. Wrap/Grid/TabBar 금지.
 class ChartIndexRail<T> extends StatefulWidget {
   const ChartIndexRail({
@@ -58,34 +60,41 @@ class _ChartIndexRailState<T> extends State<ChartIndexRail<T>> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        controller: _controller,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        itemCount: widget.items.length + (widget.leading == null ? 0 : 1),
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          if (widget.leading != null && index == 0) {
-            return widget.leading!;
-          }
+    // 탭이 걸터앉는 얇은 선반 선. 선택 탭은 바닥 테두리가 없어 이 선과
+    // 맞닿으며 아래 콘텐츠로 시각적으로 이어진다.
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFDCD8D1))),
+      ),
+      child: SizedBox(
+        height: ChartIndexLabel.laneHeight,
+        child: ListView.separated(
+          controller: _controller,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          itemCount: widget.items.length + (widget.leading == null ? 0 : 1),
+          separatorBuilder: (_, _) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            if (widget.leading != null && index == 0) {
+              return widget.leading!;
+            }
 
-          final itemIndex = widget.leading == null ? index : index - 1;
-          final item = widget.items[itemIndex];
-          final id = widget.itemId(item);
-          final isSelected = id == widget.selectedId;
-          final key = _itemKeys.putIfAbsent(id, GlobalKey.new);
+            final itemIndex = widget.leading == null ? index : index - 1;
+            final item = widget.items[itemIndex];
+            final id = widget.itemId(item);
+            final isSelected = id == widget.selectedId;
+            final key = _itemKeys.putIfAbsent(id, GlobalKey.new);
 
-          return KeyedSubtree(
-            key: key,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => widget.onSelected(item),
-              child: widget.labelBuilder(context, item, isSelected),
-            ),
-          );
-        },
+            return KeyedSubtree(
+              key: key,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => widget.onSelected(item),
+                child: widget.labelBuilder(context, item, isSelected),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
