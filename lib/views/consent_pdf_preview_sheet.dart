@@ -4,15 +4,20 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chart_consent_texts.dart';
 import '../models/customer.dart';
 import '../models/customer_chart.dart';
 import '../services/consent_pdf_generator.dart';
+import '../services/consent_pdf_storage.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../utils/customer_consent_archive.dart';
+import '../utils/storage_image_url.dart';
 import '../utils/web_file_download.dart';
 
 /// 앱 내부 동의서 미리보기 + PDF 저장/인쇄 모달.
@@ -56,6 +61,8 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
   String? _pdfError;
   var _preparingPdf = true;
   var _busy = false;
+  var _usedStoredPdf = false;
+  String? _storedPdfUrl;
 
   @override
   void initState() {
@@ -121,7 +128,9 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
       if (bytes == null || bytes.isEmpty) {
         setState(() {
           _preparingPdf = false;
-          _pdfError = '동의서 PDF를 준비하지 못했습니다.';
+          _pdfError = (_storedPdfUrl != null && _storedPdfUrl!.isNotEmpty)
+              ? '저장된 동의서 PDF를 불러오지 못했습니다. 브라우저에서 열 수 있습니다.'
+              : '동의서 PDF를 준비하지 못했습니다.';
         });
         return;
       }
@@ -139,7 +148,22 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
   }
 
   Future<Uint8List?> _resolvePdfBytes() async {
-    // 원격 URL fetch는 CORS/지연으로 모달을 멈추게 하므로 항상 로컬 재생성.
+    _usedStoredPdf = false;
+    _storedPdfUrl = null;
+    if (CustomerConsentArchive.hasStoredPdf(widget.chart)) {
+      final resolved = StorageImageUrl.resolve(
+        widget.chart.consentPdfUrl,
+        bucket: ConsentPdfStorage.bucket,
+      );
+      _storedPdfUrl = resolved ?? widget.chart.consentPdfUrl?.trim();
+      final stored = await _fetchStoredPdfBytes(_storedPdfUrl);
+      if (stored != null && stored.isNotEmpty) {
+        _usedStoredPdf = true;
+        return stored;
+      }
+      // URL이 있으면 generator로 덮어쓰지 않는다.
+      return null;
+    }
     return ConsentPdfGenerator.buildBytes(
       shopName: widget.store.shop.name,
       customerName: widget.customer.name,
@@ -149,6 +173,34 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
       shopOwnerName: widget.store.shop.ownerName,
       careMenuName: _careLabel == '-' ? null : _careLabel,
     );
+  }
+
+  Future<Uint8List?> _fetchStoredPdfBytes(String? rawUrl) async {
+    final url = rawUrl?.trim() ?? '';
+    if (url.isEmpty || !(url.startsWith('http://') || url.startsWith('https://'))) {
+      return null;
+    }
+    try {
+      final response = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 12),
+      );
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          response.bodyBytes.isNotEmpty) {
+        return response.bodyBytes;
+      }
+    } catch (e) {
+      debugPrint('stored consent pdf fetch failed: $e');
+    }
+    return null;
+  }
+
+  Future<void> _openStoredPdfUrl() async {
+    final raw = _storedPdfUrl?.trim() ?? '';
+    if (raw.isEmpty) return;
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _savePdf() async {
@@ -209,14 +261,18 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
   }
 
   Future<void> _printPdf() async {
-    final bytes = _pdfBytes;
-    if (bytes == null || bytes.isEmpty || _busy) return;
+    if (_busy) return;
     setState(() => _busy = true);
     try {
-      await Printing.layoutPdf(
-        name: _pdfFileName,
-        onLayout: (PdfPageFormat format) async => bytes,
-      );
+      final bytes = _pdfBytes;
+      if (bytes != null && bytes.isNotEmpty) {
+        await Printing.layoutPdf(
+          name: _pdfFileName,
+          onLayout: (PdfPageFormat format) async => bytes,
+        );
+      } else if ((_storedPdfUrl ?? '').trim().isNotEmpty) {
+        await _openStoredPdfUrl();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -235,8 +291,11 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
     final size = MediaQuery.sizeOf(context);
     final maxW = size.width >= 900 ? 820.0 : size.width * 0.96;
     final maxH = size.height * 0.92;
-    final canPdf = _pdfBytes != null && !_busy && !_preparingPdf;
-    final canPng = !_busy;
+    final canPdf = !_busy &&
+        !_preparingPdf &&
+        ((_pdfBytes != null && _pdfBytes!.isNotEmpty) ||
+            (_storedPdfUrl != null && _storedPdfUrl!.trim().isNotEmpty));
+    final canPng = !_busy && !_usedStoredPdf && _pdfBytes != null;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
@@ -283,6 +342,32 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  Text(
+                    _usedStoredPdf
+                        ? '저장된 동의서 PDF'
+                        : (CustomerConsentArchive.hasStoredPdf(widget.chart)
+                            ? '저장된 PDF URL'
+                            : '미리보기 재생성'),
+                    key: const Key('customer-consent-pdf-source'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: SoriTokens.textSecondary,
+                    ),
+                  ),
+                  if ((_storedPdfUrl ?? '').trim().isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _openStoredPdfUrl,
+                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                      label: const Text('저장된 PDF 열기'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SoriTokens.textPrimary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
                   FilledButton.icon(
                     onPressed: canPdf ? _savePdf : null,
                     icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
@@ -351,14 +436,39 @@ class _ConsentPdfPreviewDialogState extends State<_ConsentPdfPreviewDialog> {
             ),
             const Divider(height: 1),
             Expanded(
-              child: Scrollbar(
+              child: _usedStoredPdf && _pdfBytes != null && _pdfBytes!.isNotEmpty
+                  ? PdfPreview(
+                      build: (format) async => _pdfBytes!,
+                      maxPageWidth: 680,
+                      allowPrinting: false,
+                      allowSharing: false,
+                      canChangePageFormat: false,
+                      canChangeOrientation: false,
+                      canDebug: false,
+                      padding: EdgeInsets.zero,
+                    )
+                  : Scrollbar(
                 thumbVisibility: true,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 680),
-                      child: RepaintBoundary(
+                      child: CustomerConsentArchive.hasStoredPdf(widget.chart) &&
+                              !_usedStoredPdf
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+                              child: Text(
+                                _pdfError ??
+                                    '저장된 동의서 PDF를 표시합니다. 위에서 열기 또는 인쇄를 사용하세요.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: SoriTokens.textSecondary,
+                                ),
+                              ),
+                            )
+                          : RepaintBoundary(
                         key: _previewKey,
                         child: _ConsentStaticDocument(
                           shopName: widget.store.shop.name,

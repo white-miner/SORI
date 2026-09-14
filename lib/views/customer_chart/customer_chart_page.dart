@@ -12,8 +12,10 @@ import '../../models/customer_chart.dart';
 import '../../routing/sori_router.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
+import '../../utils/customer_consent_archive.dart';
 import '../../utils/storage_image_url.dart';
 import '../admin_chart_writer_page.dart';
+import 'customer_consent_history_sheet.dart';
 import '../before_after_compare_page.dart';
 import '../chart_management_page.dart';
 import '../smart_guide_camera_page.dart';
@@ -118,6 +120,16 @@ class _CustomerChartPageState extends State<CustomerChartPage>
       customerId: customer.id,
       customerPhone: customer.phone,
       careLabel: care.isEmpty ? '다음 관리' : care,
+    );
+  }
+
+  Future<void> _openConsentArchive() async {
+    final customer = _customer;
+    if (customer == null) return;
+    await showCustomerConsentHistorySheet(
+      context: context,
+      store: widget.store,
+      customer: customer,
     );
   }
 
@@ -375,6 +387,16 @@ class _CustomerChartPageState extends State<CustomerChartPage>
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: _ConsentEntryCard(
+              snapshot: CustomerConsentArchive.snapshot(
+                customerId: customer.id,
+                charts: widget.store.charts,
+              ),
+              onOpen: _openConsentArchive,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: _NextCareBanner(
               entry: CareScheduleReadDensity.nextUpcomingForCustomer(
                 widget.store.careScheduleEntries,
@@ -419,6 +441,81 @@ class _CustomerChartPageState extends State<CustomerChartPage>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ConsentEntryCard extends StatelessWidget {
+  const _ConsentEntryCard({
+    required this.snapshot,
+    required this.onOpen,
+  });
+
+  final CustomerConsentSnapshot snapshot;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = snapshot.hasValid;
+    final empty = !snapshot.hasAny;
+    return Material(
+      color: SoriTokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      child: InkWell(
+        key: const Key('customer-chart-consent-entry'),
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.draw_outlined,
+                color: empty
+                    ? SoriTokens.textSecondary
+                    : (valid ? const Color(0xFF2E7D32) : SoriTokens.warningText),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '전자 동의서',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      empty
+                          ? snapshot.statusLabel
+                          : '${snapshot.statusLabel} · ${snapshot.countLabel}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: empty
+                            ? SoriTokens.textSecondary
+                            : (valid
+                                ? const Color(0xFF2E7D32)
+                                : SoriTokens.warningText),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: SoriTokens.textSecondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
