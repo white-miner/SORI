@@ -169,10 +169,9 @@ void main() {
     expect(src.contains('onSelect: (entry)'), isTrue);
     expect(src.contains('Navigator.of(ctx).pop()'), isTrue);
     expect(src.contains('_startCareFromSchedule(entry)'), isTrue);
-    expect(src.contains('HomeScheduleGlance'), isTrue);
-    expect(src.contains('onCareStart: _startCareFromSchedule'), isTrue);
-    expect(src.contains('onEmptyStart: () => unawaited(_startReturningCustomerFlow())'), isTrue);
     expect(src.contains('unawaited(_startReturningCustomerFlow())'), isTrue);
+    // Desk 피드에서는 스케줄 glance를 더 이상 마운트하지 않는다.
+    expect(src.contains('HomeScheduleGlance('), isFalse);
   });
 
   testWidgets('incomplete record queue shows existing chart resume CTA', (
@@ -210,14 +209,10 @@ void main() {
     expect(find.text('기록하기'), findsOneWidget);
   });
 
-  test('launcher surfaces incomplete-record queue before today glance', () {
+  test('launcher no longer mounts incomplete-record queue on Desk feed', () {
     final src = File('lib/features/visit/visit_launcher_page.dart').readAsStringSync();
-    expect(src.contains('MyTodayTaskQueue.buildIncompleteRecordTasks'), isTrue);
-    expect(src.contains("Key('home-today-followup-queue')"), isTrue);
-    expect(src.contains('MyTodayTaskQueuePanel(store: widget.store)'), isTrue);
-    final queueAt = src.indexOf("Key('home-today-followup-queue')");
-    final glanceAt = src.indexOf('HomeScheduleGlance(');
-    expect(queueAt, greaterThan(0));
-    expect(glanceAt, greaterThan(queueAt));
+    expect(src.contains('MyTodayTaskQueue.buildIncompleteRecordTasks'), isFalse);
+    expect(src.contains("Key('home-today-followup-queue')"), isFalse);
+    expect(src.contains('MyTodayTaskQueuePanel(store: widget.store)'), isFalse);
   });
 }

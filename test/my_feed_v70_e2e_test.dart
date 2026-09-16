@@ -48,9 +48,10 @@ void main() {
     expect(find.text('My Asset'), findsNothing);
     expect(find.text('Flow'), findsOneWidget);
 
-    // 기본 선택은 오늘 — 4대 컴포넌트가 한 화면에 조립된다.
-    expect(find.byType(HomeHeroCard), findsOneWidget);
-    expect(find.byType(HomeSchedulerStrip), findsOneWidget);
+    // Desk 피드: 히어로·스케줄러·지금 처리할 일 제거 후 퀵액션부터 시작.
+    expect(find.byType(HomeHeroCard), findsNothing);
+    expect(find.byType(HomeSchedulerStrip), findsNothing);
+    expect(find.text('지금 처리할 일'), findsNothing);
     expect(find.byType(HomeQuickActionRow), findsOneWidget);
     expect(find.byType(BaCaptureCarousel), findsOneWidget);
     expect(find.text('관리 케이스'), findsOneWidget);
@@ -62,20 +63,15 @@ void main() {
 
     await _mountHome(tester);
 
-    // v5.4 blank screen 사고의 재발 감시 — Hero가 실제 면적을 차지해야 한다.
-    final hero = tester.getSize(find.byType(HomeHeroCard));
-    expect(hero.height, greaterThan(200));
-    expect(hero.width, greaterThan(300));
+    final quick = tester.getSize(find.byType(HomeQuickActionRow));
+    expect(quick.height, greaterThan(40));
+    expect(quick.width, greaterThan(200));
 
     final carousel = tester.getSize(find.byType(BaCaptureCarousel));
     expect(carousel.height, greaterThan(100));
 
-    // 플립 시계가 초(SS)를 달고도 hero 카드 폭 안에 들어와야 한다.
-    final clock = tester.getRect(find.byType(FlipClockDisplay));
-    final heroRect = tester.getRect(find.byType(HomeHeroCard));
-    expect(clock.left, greaterThanOrEqualTo(heroRect.left - 0.5));
-    expect(clock.right, lessThanOrEqualTo(heroRect.right + 0.5));
-    expect(clock.right, lessThanOrEqualTo(430.0 + 0.5));
+    // Desk 피드에는 플립시계가 없다 (Timer 탭에만 있음).
+    expect(find.byType(FlipClockDisplay), findsNothing);
 
     expect(tester.takeException(), isNull);
   });
