@@ -252,13 +252,14 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
       }
     });
     try {
-      final result = await SmartGuideCameraPage.open(
+      final session = await SmartGuideCameraPage.open(
         context,
         shopId: widget.store.shop.id,
         customerId: widget.customerId,
         kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
         ghostBeforeUrl: isBefore ? null : chart.beforeImageUrl,
       );
+      final result = session?.primary;
       if (result == null || !mounted) return;
       if (isBefore) {
         await widget.store.updateCustomerChartFields(

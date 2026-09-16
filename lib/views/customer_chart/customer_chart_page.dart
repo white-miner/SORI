@@ -199,7 +199,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
     final kind = chart.needsAfterPhoto
         ? GuideCameraKind.after
         : GuideCameraKind.before;
-    final result = await SmartGuideCameraPage.open(
+    final session = await SmartGuideCameraPage.open(
       context,
       shopId: widget.store.shop.id,
       customerId: customer.id,
@@ -207,6 +207,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
       ghostBeforeUrl:
           kind == GuideCameraKind.after ? chart.beforeImageUrl : null,
     );
+    final result = session?.primary;
     if (!mounted || result == null) return;
     if (result.kind == GuideCameraKind.before) {
       await widget.store.updateCustomerChartFields(

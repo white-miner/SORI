@@ -168,13 +168,16 @@ class _ShootHubPageState extends State<ShootHubPage> {
           ? (targetChart?.beforeImageUrl ?? chart.beforeImageUrl)
           : null;
 
-      final result = await SmartGuideCameraPage.open(
+      final session = await SmartGuideCameraPage.open(
         context,
         shopId: store.shop.id,
         customerId: customer.id,
         kind: kind,
         ghostBeforeUrl: ghost,
       );
+      // 세션 안에서 여러 장을 찍을 수 있다 — 대표 한 장(After 거치 우선, 없으면
+      // 최근 촬영본)만 차트에 반영한다. 나머지 촬영본은 이번 화면에서는 쓰지 않는다.
+      final result = session?.primary;
       if (!mounted || result == null) return;
 
       if (result.kind == GuideCameraKind.before) {
@@ -233,7 +236,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
       final ghost =
           kind == GuideCameraKind.after ? ghostBeforeUrl : null;
 
-      final result = await SmartGuideCameraPage.open(
+      final session = await SmartGuideCameraPage.open(
         context,
         shopId: store.shop.id,
         customerId: 'unbound',
@@ -241,6 +244,7 @@ class _ShootHubPageState extends State<ShootHubPage> {
         ghostBeforeUrl: ghost,
       );
       // 촬영 없이 닫으면 아무 팝업도 없이 허브로만 돌아온다.
+      final result = session?.primary;
       if (!mounted || result == null) return;
 
       // 1:1 — 같은 세션에 After가 이미 있으면 새 장으로 덮지 않고 교체한다.

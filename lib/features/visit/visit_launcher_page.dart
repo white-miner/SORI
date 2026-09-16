@@ -600,13 +600,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final chart = widget.store.chartForVisitSession(session);
     if (customer == null || chart == null || !mounted) return;
 
-    final result = await SmartGuideCameraPage.open(
+    final cameraSession = await SmartGuideCameraPage.open(
       context,
       shopId: widget.store.shop.id,
       customerId: customer.id,
       kind: GuideCameraKind.after,
       ghostBeforeUrl: chart.beforeImageUrl,
     );
+    // 세션에서 여러 장을 찍었어도 After로는 대표 한 장(거치본 우선)만 반영한다.
+    final result = cameraSession?.primary;
     if (result == null || !mounted) return;
 
     await widget.store.patchChartAfterImage(
@@ -676,7 +678,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       final token = pending?.sessionToken ?? store.reservePendingBaToken();
       final isBefore = kind != 'after';
 
-      final result = await SmartGuideCameraPage.open(
+      final cameraSession = await SmartGuideCameraPage.open(
         context,
         shopId: store.shop.id,
         // public 버킷이므로 UUID 토큰 경로로 URL 추측을 어렵게 한다.
@@ -685,6 +687,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
         ghostBeforeUrl: isBefore ? null : pending?.ghostBeforeUrl,
       );
       // 취소 — 아무것도 만들지 않는다. 슬롯 증식의 원인이었다.
+      final result = cameraSession?.primary;
       if (result == null || !mounted) return;
 
       final photoKind = isBefore ? 'before' : 'after';

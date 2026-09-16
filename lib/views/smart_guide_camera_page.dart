@@ -20,7 +20,9 @@ enum GuideCameraKind { before, after }
 
 enum GuideCaptureMode { selfFront, directorRear }
 
-enum _ShutterTimerDelay { off, s3, s5, s10 }
+/// 타이머 지연 + 마법봉(자동 촬영)을 하나의 순환으로 통합한 상태.
+/// off → 3 → 5 → 10 → auto(마법봉) → off 순으로 셔터 버튼 옆 버튼 하나가 순환한다.
+enum _ShutterTimerDelay { off, s3, s5, s10, auto }
 
 extension _ShutterTimerDelayX on _ShutterTimerDelay {
   int get seconds => switch (this) {
@@ -28,6 +30,8 @@ extension _ShutterTimerDelayX on _ShutterTimerDelay {
         _ShutterTimerDelay.s3 => 3,
         _ShutterTimerDelay.s5 => 5,
         _ShutterTimerDelay.s10 => 10,
+        // auto는 정렬 감지가 셔터를 대신 누른다 — 수동으로 누르면 즉시 촬영.
+        _ShutterTimerDelay.auto => 0,
       };
 
   String get badge => switch (this) {
@@ -35,13 +39,15 @@ extension _ShutterTimerDelayX on _ShutterTimerDelay {
         _ShutterTimerDelay.s3 => '3',
         _ShutterTimerDelay.s5 => '5',
         _ShutterTimerDelay.s10 => '10',
+        _ShutterTimerDelay.auto => '',
       };
 
   _ShutterTimerDelay get next => switch (this) {
         _ShutterTimerDelay.off => _ShutterTimerDelay.s3,
         _ShutterTimerDelay.s3 => _ShutterTimerDelay.s5,
         _ShutterTimerDelay.s5 => _ShutterTimerDelay.s10,
-        _ShutterTimerDelay.s10 => _ShutterTimerDelay.off,
+        _ShutterTimerDelay.s10 => _ShutterTimerDelay.auto,
+        _ShutterTimerDelay.auto => _ShutterTimerDelay.off,
       };
 }
 
@@ -105,6 +111,31 @@ class GuideCameraResult {
   final GuideCameraKind kind;
 }
 
+/// 한 번의 카메라 세션에서 찍은 전체 결과.
+///
+/// "어떤 사진이든 After가 될 수 있다" — 세션 안에서 여러 장을 자유롭게 찍고
+/// (`shots`), 그중 마음에 드는 한 장을 After 거치대에 지정할 수 있다
+/// (`afterPick`). 거치된 사진은 세션 도중 실루엣 가이드로도 쓰인다.
+class GuideCameraSessionResult {
+  const GuideCameraSessionResult({
+    required this.shots,
+    this.afterPick,
+  });
+
+  /// 이번 세션에서 촬영한 전체 사진 — 촬영 순서대로.
+  final List<GuideCameraResult> shots;
+
+  /// After 거치대에 지정된 사진. 지정하지 않았으면 null.
+  final GuideCameraResult? afterPick;
+
+  /// 가장 최근에 찍은 사진.
+  GuideCameraResult? get latest => shots.isEmpty ? null : shots.last;
+
+  /// 대표 한 장 — After로 거치된 사진이 있으면 그것을, 없으면 최근 촬영본을 쓴다.
+  /// 기존 화면들(단일 사진 결과를 기대하는 호출부)이 과도기 동안 쓰는 값이다.
+  GuideCameraResult? get primary => afterPick ?? latest;
+}
+
 /// 스마트 가이드 카메라 V2 — 줌 메모리 + MediaPipe 3D 정렬.
 class SmartGuideCameraPage extends StatefulWidget {
   const SmartGuideCameraPage({
@@ -120,14 +151,14 @@ class SmartGuideCameraPage extends StatefulWidget {
   final GuideCameraKind kind;
   final String? ghostBeforeUrl;
 
-  static Future<GuideCameraResult?> open(
+  static Future<GuideCameraSessionResult?> open(
     BuildContext context, {
     required String shopId,
     required String customerId,
     required GuideCameraKind kind,
     String? ghostBeforeUrl,
   }) {
-    return pushRootPage<GuideCameraResult>(
+    return pushRootPage<GuideCameraSessionResult>(
       context,
       SmartGuideCameraPage(
         shopId: shopId,
@@ -166,7 +197,10 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   Size _viewfinderSize = GuideFacePose.referenceFrame;
   double _zoom = GuideCameraZoomMemory.defaultZoom;
   _ShutterTimerDelay _timerDelay = _ShutterTimerDelay.off;
-  bool _autoShootEnabled = false;
+  // 이번 세션에서 찍은 전체 사진 — pop 없이 계속 쌓인다("마음껏 촬영").
+  final List<GuideCameraResult> _shots = [];
+  // After 거치대에 지정된 사진 — 지정 즉시 실루엣 가이드로도 쓰인다.
+  GuideCameraResult? _dockedGuide;
   StreamSubscription<GuideDeviceAttitude?>? _attitudeSub;
   StreamSubscription<GuideFacePose>? _poseSub;
   StreamSubscription<GuideBodyPose>? _bodyPoseSub;
@@ -178,7 +212,11 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
   Timer? _zoomSaveTimer;
 
   bool get _isAfter => widget.kind == GuideCameraKind.after;
+
+  /// 실루엣 가이드를 켤 수 있는가 — After 거치대에 뭔가 지정돼 있거나
+  /// (방향 무관, 이번 세션 내 촬영본), 외부에서 넘어온 Before 사진이 있을 때(After 촬영).
   bool get _canGhost {
+    if (_dockedGuide != null) return true;
     final u = widget.ghostBeforeUrl?.trim() ?? '';
     return _isAfter && u.isNotEmpty;
   }
@@ -402,20 +440,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     }
   }
 
-  void _toggleAutoShoot() {
-    if (_controlsLocked) return;
-    setState(() => _autoShootEnabled = !_autoShootEnabled);
-    if (_autoShootEnabled && _faceAligned) {
-      _scheduleAutoShootIfEnabled();
-    } else {
-      _cancelAutoShootSchedule();
-    }
-    HapticFeedback.selectionClick();
-  }
-
   void _scheduleAutoShootIfEnabled() {
     _cancelAutoShootSchedule();
-    if (!_autoShootEnabled ||
+    if (_timerDelay != _ShutterTimerDelay.auto ||
         !_faceAlignActive ||
         _mlLoading ||
         _busy ||
@@ -424,7 +451,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     }
     _autoShootHoldTimer = Timer(const Duration(milliseconds: 1500), () {
       if (!mounted ||
-          !_autoShootEnabled ||
+          _timerDelay != _ShutterTimerDelay.auto ||
           !_faceAligned ||
           _busy ||
           _countdown != null) {
@@ -458,7 +485,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       if (!_facePose.isDecolleteScaleAligned(_viewfinderSize)) {
         return '촬영 거리(크기)를 맞춰 주세요';
       }
-      return _autoShootEnabled ? '거리·중심 정렬됨 · 자동 촬영 대기' : '거리·중심 정렬됨';
+      return _timerDelay == _ShutterTimerDelay.auto
+          ? '거리·중심 정렬됨 · 자동 촬영 대기'
+          : '거리·중심 정렬됨';
     }
     if (!_faceAlignActive) return null;
     if (_mlLoading) return 'AI 준비 중';
@@ -472,7 +501,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     if (!_facePose.computeAligned(_viewfinderSize, mirrored: _faceMirrored)) {
       return '거의 맞았어요';
     }
-    return _autoShootEnabled ? '정렬됨 · 자동 촬영 대기' : '정렬됨';
+    return _timerDelay == _ShutterTimerDelay.auto
+        ? '정렬됨 · 자동 촬영 대기'
+        : '정렬됨';
   }
 
   Color get _decolleteGuideColor {
@@ -622,7 +653,15 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
 
   void _cycleTimerDelay() {
     if (_controlsLocked) return;
+    final wasAuto = _timerDelay == _ShutterTimerDelay.auto;
     setState(() => _timerDelay = _timerDelay.next);
+    HapticFeedback.selectionClick();
+    final isAuto = _timerDelay == _ShutterTimerDelay.auto;
+    if (isAuto && _faceAligned) {
+      _scheduleAutoShootIfEnabled();
+    } else if (wasAuto && !isAuto) {
+      _cancelAutoShootSchedule();
+    }
   }
 
   void _onShutterPressed() {
@@ -707,12 +746,15 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       await GuideCameraZoomMemory.save(widget.shopId, _zoom);
       if (!mounted) return;
 
-      Navigator.pop(
-        context,
-        GuideCameraResult(
-          url: url,
-          previewBytes: webp,
-          kind: widget.kind,
+      // 곧바로 화면을 닫지 않는다 — 세션 안에서 마음껏 더 찍을 수 있어야 한다.
+      final shot = GuideCameraResult(url: url, previewBytes: webp, kind: widget.kind);
+      setState(() => _shots.add(shot));
+      soriLightHaptic();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('촬영 완료 · 이번 세션 ${_shots.length}장'),
+          duration: const Duration(milliseconds: 900),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
@@ -729,7 +771,7 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     }
   }
 
-  Future<void> _closePage() async {
+  Future<void> _stopAllSessions() async {
     _timer?.cancel();
     _cancelAutoShootSchedule();
     _zoomSaveTimer?.cancel();
@@ -739,7 +781,105 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
     await _faceAlign.stop();
     await _bodyAlign.stop();
     await _session.stop();
+  }
+
+  Future<void> _closePage() async {
+    await _stopAllSessions();
     if (mounted) Navigator.pop(context);
+  }
+
+  /// 닫기(X) — 찍어둔 사진이 있으면 버려도 되는지 먼저 확인한다.
+  void _handleClosePressed() {
+    if (_shots.isEmpty) {
+      unawaited(_closePage());
+      return;
+    }
+    unawaited(_confirmDiscardAndClose());
+  }
+
+  Future<void> _confirmDiscardAndClose() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SoriTokens.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          '저장하지 않고 나가시겠어요?',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: SoriTokens.textCharcoal,
+          ),
+        ),
+        content: Text(
+          '이번 세션에서 찍은 ${_shots.length}장이 사라져요.',
+          style: const TextStyle(color: SoriTokens.textCharcoal),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              '나가기',
+              style: TextStyle(color: SoriTokens.systemRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (discard == true) {
+      await _closePage();
+    }
+  }
+
+  /// 완료 — 이번 세션에서 찍은 전체 사진 + After 거치 결과를 돌려준다.
+  Future<void> _finishSession() async {
+    if (_shots.isEmpty) {
+      await _closePage();
+      return;
+    }
+    final result = GuideCameraSessionResult(
+      shots: List<GuideCameraResult>.unmodifiable(_shots),
+      afterPick: _dockedGuide,
+    );
+    await _stopAllSessions();
+    if (mounted) Navigator.pop(context, result);
+  }
+
+  /// After 거치대 탭 — 이번 세션 촬영본 중 하나를 실루엣 가이드로 지정한다.
+  Future<void> _handleDockTap() async {
+    if (_controlsLocked) return;
+    if (_shots.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('먼저 한 장 이상 촬영해 주세요'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final choice = await showModalBottomSheet<_DockChoice>(
+      context: context,
+      backgroundColor: Colors.black,
+      isScrollControlled: true,
+      builder: (ctx) => _AfterDockPickerSheet(
+        shots: _shots,
+        current: _dockedGuide,
+      ),
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      if (choice is _DockCleared) {
+        _dockedGuide = null;
+      } else if (choice is _DockPicked) {
+        _dockedGuide = choice.shot;
+        _ghostOn = true;
+      }
+    });
+    HapticFeedback.selectionClick();
   }
 
   @override
@@ -785,12 +925,14 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
       children: [
         _TopBar(
           kindLabel: kindLabel,
-          onClose: () => unawaited(_closePage()),
+          onClose: _handleClosePressed,
           showGhostToggle: _canGhost,
           ghostOn: _ghostOn,
           onGhostToggle: _controlsLocked
               ? null
               : () => setState(() => _ghostOn = !_ghostOn),
+          shotCount: _shots.length,
+          onDone: _shots.isEmpty ? null : () => unawaited(_finishSession()),
         ),
         Expanded(child: _buildViewfinder()),
         _CameraDock(
@@ -802,8 +944,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
           onZoomChanged: _onZoomChanged,
           timerDelay: _timerDelay,
           onTimerCycle: _cycleTimerDelay,
-          autoShootEnabled: _autoShootEnabled,
-          onAutoShootToggle: _toggleAutoShoot,
+          dockedGuide: _dockedGuide,
+          hasShots: _shots.isNotEmpty,
+          onDockTap: () => unawaited(_handleDockTap()),
           onShutter: _onShutterPressed,
           onFlip: () => unawaited(_toggleCameraFacing()),
           faceHint: _dockHint,
@@ -825,12 +968,15 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
               children: [
                 _TopBar(
                   kindLabel: kindLabel,
-                  onClose: () => unawaited(_closePage()),
+                  onClose: _handleClosePressed,
                   showGhostToggle: _canGhost,
                   ghostOn: _ghostOn,
                   onGhostToggle: _controlsLocked
                       ? null
                       : () => setState(() => _ghostOn = !_ghostOn),
+                  shotCount: _shots.length,
+                  onDone:
+                      _shots.isEmpty ? null : () => unawaited(_finishSession()),
                 ),
                 Expanded(
                   child: _CameraDock(
@@ -842,8 +988,9 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     onZoomChanged: _onZoomChanged,
                     timerDelay: _timerDelay,
                     onTimerCycle: _cycleTimerDelay,
-                    autoShootEnabled: _autoShootEnabled,
-                    onAutoShootToggle: _toggleAutoShoot,
+                    dockedGuide: _dockedGuide,
+                    hasShots: _shots.isNotEmpty,
+                    onDockTap: () => unawaited(_handleDockTap()),
                     onShutter: _onShutterPressed,
                     onFlip: () => unawaited(_toggleCameraFacing()),
                     faceHint: _dockHint,
@@ -915,21 +1062,31 @@ class _SmartGuideCameraPageState extends State<SmartGuideCameraPage> {
                     ),
                   ),
                 // —— 시각 가이드·오버레이: 전부 터치 통과 ——
-                if (_canGhost &&
-                    _ghostOn &&
-                    (widget.ghostBeforeUrl?.isNotEmpty ?? false))
+                // 실루엣 소스 우선순위: After 거치대에 지정한 사진(이번 세션) >
+                // 외부에서 넘어온 Before 사진(After 촬영 시). 어떤 사진이든 After가
+                // 될 수 있다는 요구사항이 바로 이 지점에서 실현된다.
+                if (_canGhost && _ghostOn)
                   IgnorePointer(
                     child: Opacity(
                       opacity: 0.25,
-                      child: Image.network(
-                        widget.ghostBeforeUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
+                      child: _dockedGuide != null
+                          ? Image.memory(
+                              _dockedGuide!.previewBytes,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.low,
+                            )
+                          : Image.network(
+                              widget.ghostBeforeUrl!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.low,
+                              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                            ),
                     ),
                   ),
                 IgnorePointer(
@@ -1105,8 +1262,9 @@ class _CameraDock extends StatelessWidget {
     required this.onZoomChanged,
     required this.timerDelay,
     required this.onTimerCycle,
-    required this.autoShootEnabled,
-    required this.onAutoShootToggle,
+    required this.dockedGuide,
+    required this.hasShots,
+    required this.onDockTap,
     required this.onShutter,
     required this.onFlip,
     this.faceHint,
@@ -1122,8 +1280,9 @@ class _CameraDock extends StatelessWidget {
   final ValueChanged<double> onZoomChanged;
   final _ShutterTimerDelay timerDelay;
   final VoidCallback onTimerCycle;
-  final bool autoShootEnabled;
-  final VoidCallback onAutoShootToggle;
+  final GuideCameraResult? dockedGuide;
+  final bool hasShots;
+  final VoidCallback onDockTap;
   final VoidCallback onShutter;
   final VoidCallback onFlip;
   final String? faceHint;
@@ -1197,14 +1356,15 @@ class _CameraDock extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _TimerToggleButton(
+                                _TimerAutoToggleButton(
                                   delay: timerDelay,
                                   onTap: onTimerCycle,
                                 ),
                                 const SizedBox(width: 8),
-                                _AutoShootToggleButton(
-                                  enabled: autoShootEnabled,
-                                  onTap: onAutoShootToggle,
+                                _AfterDockButton(
+                                  docked: dockedGuide,
+                                  hasShots: hasShots,
+                                  onTap: onDockTap,
                                 ),
                               ],
                             ),
@@ -1279,8 +1439,10 @@ class _ShutterButton extends StatelessWidget {
   }
 }
 
-class _TimerToggleButton extends StatelessWidget {
-  const _TimerToggleButton({
+/// 타이머(3/5/10초)와 마법봉(자동 촬영)을 하나로 합친 순환 버튼.
+/// 탭할 때마다 꺼짐 → 3 → 5 → 10 → 마법봉 → 꺼짐 순으로 순환한다.
+class _TimerAutoToggleButton extends StatelessWidget {
+  const _TimerAutoToggleButton({
     required this.delay,
     required this.onTap,
   });
@@ -1290,10 +1452,14 @@ class _TimerToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAuto = delay == _ShutterTimerDelay.auto;
     final active = delay != _ShutterTimerDelay.off;
     return Semantics(
       button: true,
-      label: active ? '타이머 ${delay.badge}초' : '타이머 꺼짐',
+      label: isAuto
+          ? '자동 촬영(마법봉) 켜짐'
+          : (active ? '타이머 ${delay.badge}초' : '타이머·자동 촬영 꺼짐'),
+      selected: active,
       child: GestureDetector(
         onTap: onTap,
         child: SizedBox(
@@ -1303,13 +1469,15 @@ class _TimerToggleButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.timer_outlined,
+                isAuto ? Icons.auto_fix_high_rounded : Icons.timer_outlined,
                 size: 24,
-                color: active
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.55),
+                color: !active
+                    ? Colors.white.withValues(alpha: 0.55)
+                    : isAuto
+                        ? SoriTokens.cameraYellow
+                        : Colors.white,
               ),
-              if (active) ...[
+              if (active && !isAuto) ...[
                 const SizedBox(height: 2),
                 Text(
                   delay.badge,
@@ -1329,44 +1497,142 @@ class _TimerToggleButton extends StatelessWidget {
   }
 }
 
-class _AutoShootToggleButton extends StatelessWidget {
-  const _AutoShootToggleButton({
-    required this.enabled,
+/// 타이머 버튼이 있던 자리 하나를 대신 차지하는 After 거치대.
+/// 이번 세션에서 찍은 사진 중 하나를 지정해 실루엣 가이드로 쓴다.
+class _AfterDockButton extends StatelessWidget {
+  const _AfterDockButton({
+    required this.docked,
+    required this.hasShots,
     required this.onTap,
   });
 
-  final bool enabled;
+  final GuideCameraResult? docked;
+  final bool hasShots;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final active = docked != null;
     return Semantics(
       button: true,
-      label: enabled ? '자동 촬영 켜짐' : '자동 촬영 꺼짐',
-      selected: enabled,
+      label: active ? 'After 거치됨 · 탭하여 변경' : 'After 거치대',
+      selected: active,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           width: 48,
           height: 48,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: enabled
+            color: active
                 ? SoriTokens.cameraYellow.withValues(alpha: 0.16)
                 : Colors.white.withValues(alpha: 0.08),
             border: Border.all(
-              color: enabled
+              color: active
                   ? SoriTokens.cameraYellow
-                  : Colors.white.withValues(alpha: 0.14),
+                  : Colors.white.withValues(alpha: hasShots ? 0.14 : 0.08),
+              width: active ? 2 : 1,
             ),
           ),
-          child: Icon(
-            Icons.auto_fix_high_rounded,
-            size: 22,
-            color: enabled
-                ? SoriTokens.cameraYellow
-                : Colors.white.withValues(alpha: 0.55),
-          ),
+          child: active
+              ? Image.memory(docked!.previewBytes, fit: BoxFit.cover)
+              : Icon(
+                  Icons.filter_center_focus_rounded,
+                  size: 22,
+                  color: Colors.white.withValues(alpha: hasShots ? 0.75 : 0.35),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// After 거치대 바텀시트가 돌려주는 선택 결과.
+sealed class _DockChoice {}
+
+class _DockPicked extends _DockChoice {
+  _DockPicked(this.shot);
+  final GuideCameraResult shot;
+}
+
+class _DockCleared extends _DockChoice {}
+
+class _AfterDockPickerSheet extends StatelessWidget {
+  const _AfterDockPickerSheet({required this.shots, required this.current});
+
+  final List<GuideCameraResult> shots;
+  final GuideCameraResult? current;
+
+  @override
+  Widget build(BuildContext context) {
+    // 최신 촬영본을 먼저 보여준다.
+    final ordered = shots.reversed.toList();
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'After로 거치할 사진 선택',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '선택한 사진이 다음 촬영의 실루엣 가이드가 돼요',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 12.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: ordered.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, i) {
+                  final shot = ordered[i];
+                  final selected = identical(shot, current);
+                  return GestureDetector(
+                    onTap: () => Navigator.pop(context, _DockPicked(shot)),
+                    child: Container(
+                      width: 84,
+                      height: 84,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selected
+                              ? SoriTokens.cameraYellow
+                              : Colors.white24,
+                          width: selected ? 3 : 1,
+                        ),
+                      ),
+                      child: Image.memory(shot.previewBytes, fit: BoxFit.cover),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (current != null) ...[
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context, _DockCleared()),
+                child: const Text(
+                  '거치 해제',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -2026,6 +2292,8 @@ class _TopBar extends StatelessWidget {
     this.showGhostToggle = false,
     this.ghostOn = false,
     this.onGhostToggle,
+    this.shotCount = 0,
+    this.onDone,
   });
 
   final String kindLabel;
@@ -2033,9 +2301,12 @@ class _TopBar extends StatelessWidget {
   final bool showGhostToggle;
   final bool ghostOn;
   final VoidCallback? onGhostToggle;
+  final int shotCount;
+  final VoidCallback? onDone;
 
   @override
   Widget build(BuildContext context) {
+    final showDone = onDone != null && shotCount > 0;
     return Material(
       color: Colors.black,
       child: Padding(
@@ -2048,7 +2319,7 @@ class _TopBar extends StatelessWidget {
             ),
             Expanded(
               child: Text(
-                kindLabel,
+                shotCount > 0 ? '$kindLabel · $shotCount장' : kindLabel,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.92),
@@ -2068,8 +2339,23 @@ class _TopBar extends StatelessWidget {
                       : Colors.white.withValues(alpha: 0.45),
                 ),
                 tooltip: ghostOn ? '잔상 끄기' : '잔상 켜기',
+              ),
+            if (showDone)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: TextButton(
+                  onPressed: onDone,
+                  child: const Text(
+                    '완료',
+                    style: TextStyle(
+                      color: SoriTokens.cameraYellow,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
               )
-            else
+            else if (!showGhostToggle)
               const SizedBox(width: 48),
           ],
         ),

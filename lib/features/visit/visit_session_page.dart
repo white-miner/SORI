@@ -482,13 +482,15 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
           ? chart.beforeImageUrl
           : null;
 
-      final result = await SmartGuideCameraPage.open(
+      final session = await SmartGuideCameraPage.open(
         context,
         shopId: widget.store.shop.id,
         customerId: customer.id,
         kind: kind,
         ghostBeforeUrl: ghost,
       );
+      // 세션에서 여러 장을 찍었어도 대표 한 장(After 거치본 우선)만 차트에 반영한다.
+      final result = session?.primary;
       if (!mounted || result == null) return;
 
       if (result.kind == GuideCameraKind.before) {

@@ -1146,13 +1146,14 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       return;
     }
 
-    final result = await SmartGuideCameraPage.open(
+    final session = await SmartGuideCameraPage.open(
       context,
       shopId: widget.store.shop.id,
       customerId: customerId,
       kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
       ghostBeforeUrl: isBefore ? null : _beforeUrl,
     );
+    final result = session?.primary;
     if (!mounted || result == null) return;
 
     setState(() {
