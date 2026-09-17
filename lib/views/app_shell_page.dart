@@ -419,14 +419,14 @@ class _PcSidePanel extends StatelessWidget {
             (Icons.people_outline, Icons.people_rounded, '고객'),
             (Icons.photo_camera_outlined, Icons.photo_camera_rounded, '촬영'),
             (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티'),
-            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이페이지'),
           ]
         : const [
             (Icons.home_outlined, Icons.home_rounded, '홈'),
             (Icons.spa_outlined, Icons.spa_rounded, '케어'),
             (Icons.rate_review_outlined, Icons.rate_review_rounded, '리뷰'),
             (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티'),
-            (Icons.person_outline_rounded, Icons.person_rounded, '마이'),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이페이지'),
           ];
 
     return AnimatedContainer(
@@ -735,3 +735,4 @@ class _ShellLogoButton extends StatelessWidget {
     );
   }
 }
+

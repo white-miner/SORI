@@ -174,14 +174,14 @@ class _FloatingPillNavState extends State<FloatingPillNav>
             (Icons.people_outline, Icons.people_rounded, '고객', 1),
             (Icons.photo_camera_outlined, Icons.photo_camera_rounded, '촬영', 2),
             (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티', 3),
-            (Icons.work_outline_rounded, Icons.work_rounded, '책상', 4),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이페이지', 4),
           ]
         : const [
             (Icons.home_outlined, Icons.home_rounded, '홈', 0),
             (Icons.spa_outlined, Icons.spa_rounded, '케어', 1),
             (Icons.rate_review_outlined, Icons.rate_review_rounded, '리뷰', 2),
             (Icons.groups_outlined, Icons.groups_rounded, '커뮤니티', 3),
-            (Icons.person_outline_rounded, Icons.person_rounded, '마이', 4),
+            (Icons.person_outline_rounded, Icons.person_rounded, '마이페이지', 4),
           ];
 
     final labels = widget.isDirector
@@ -340,3 +340,4 @@ class _GlassHighlight extends StatelessWidget {
     );
   }
 }
+
