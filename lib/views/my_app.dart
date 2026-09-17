@@ -1,0 +1,233 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:go_router/go_router.dart';
+
+import '../routing/sori_router.dart';
+import '../services/app_bootstrap.dart';
+import '../services/sori_auth_service.dart';
+import '../services/sori_store.dart';
+import '../theme/app_theme.dart';
+import '../theme/sori_tokens.dart';
+import '../widgets/app_scroll_behavior.dart';
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  /// Brand accent — monochrome charcoal. Prefer [SoriTokens.primary].
+  static const Color soriEmerald = SoriTokens.primary;
+
+  /// @deprecated Use [SoriTokens.primary]
+  static const Color soriMint = soriEmerald;
+
+  /// @deprecated Legacy name — resolves to charcoal primary.
+  static const Color soriPurple = soriEmerald;
+
+  /// 라우트 Pop 이후에도 Toast를 남기기 위한 전역 ScaffoldMessenger.
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router = createSoriGoRouter();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      title: '소통하는 리뷰, SORI',
+      debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: MyApp.scaffoldMessengerKey,
+      locale: const Locale('ko', 'KR'),
+      supportedLocales: const [
+        Locale('ko', 'KR'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      scrollBehavior: const SoriScrollBehavior(),
+      theme: AppTheme.theme,
+      darkTheme: null,
+      themeMode: ThemeMode.light,
+      builder: (context, child) {
+        return DefaultTextStyle(
+          style: const TextStyle(
+            color: SoriTokens.textCharcoal,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            decoration: TextDecoration.none,
+          ),
+          child: _StoreErrorHost(child: child ?? const SizedBox.shrink()),
+        );
+      },
+      routerConfig: _router,
+    );
+  }
+}
+
+/// Store의 lastError / isLoading을 SnackBar로 노출.
+class _StoreErrorHost extends StatefulWidget {
+  const _StoreErrorHost({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_StoreErrorHost> createState() => _StoreErrorHostState();
+}
+
+class _StoreErrorHostState extends State<_StoreErrorHost> {
+  final _store = SoriStore.instance;
+  String? _shownError;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onStore);
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (!mounted) return;
+    final err = _store.lastError;
+    if (err != null &&
+        err.isNotEmpty &&
+        err != _shownError &&
+        !SoriStore.isNonFatalRemoteNoise(err)) {
+      _shownError = err;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: SoriTokens.systemRed,
+            action: SnackBarAction(
+              label: '닫기',
+              textColor: Colors.white,
+              onPressed: () => _store.clearError(),
+            ),
+          ),
+        );
+        _store.clearError();
+      });
+    }
+    final authErr = _store.authError;
+    if (authErr != null &&
+        authErr.isNotEmpty &&
+        authErr != _shownError) {
+      if (SoriAuthService.isStaleOAuthError(authErr)) {
+        _store.clearAuthSession(localOnly: false);
+        _store.clearAuthError();
+      } else {
+        _shownError = authErr;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authErr),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: SoriTokens.systemRed,
+            ),
+          );
+          _store.clearAuthError();
+        });
+      }
+    }
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        if (_store.bootstrapFailed)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Material(
+              color: SoriTokens.warningBg,
+              elevation: 2,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.wifi_off_rounded,
+                        color: SoriTokens.warningText,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _store.backendNotice ??
+                              '서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: SoriTokens.warningText,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _store.isLoading
+                            ? null
+                            : () async {
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
+                                await AppBootstrap.connect(_store);
+                                if (!mounted) return;
+                                if (!_store.bootstrapFailed) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('연결이 복구되었어요'),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: SoriTokens.primary,
+                                    ),
+                                  );
+                                }
+                              },
+                        child: const Text(
+                          '다시 시도',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: SoriTokens.warningText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (_store.isLoading)
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: IgnorePointer(
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: SoriTokens.primary,
+                backgroundColor: Colors.transparent,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

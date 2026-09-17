@@ -1,0 +1,917 @@
+// PRD v7.6 Phase 3a — 상가정보 + 행정동 인구 → 경영 ZONE 3
+// Secrets: SBIZ_STORE_SERVICE_KEY, MOIS_POP_SERVICE_KEY, KAKAO_REST_API_KEY
+// action=resolve_address → 주소만으로 행정동 코드 자동 연결
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+interface MarketBody {
+  /** resolve_address | market(default) */
+  action?: string;
+  address?: string;
+  shop_id?: string;
+  latitude?: number;
+  longitude?: number;
+  /** 행정기관코드(행정동) 10자리 권장 */
+  adm_cd?: string;
+  /** 업종 라벨 — 클라이언트 필터 힌트 */
+  category?: string;
+  /** 반경 m (기본 500) */
+  radius_m?: number;
+  location_label?: string;
+}
+
+type AgeBucket = {
+  label: string;
+  male: number;
+  female: number;
+  total: number;
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function num(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const n = Number(String(v ?? "").replace(/,/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function categoryKeywords(category: string): string[] {
+  const c = category.trim();
+  if (c === '전체' || c.toLowerCase() === 'all') return [];
+  if (c.includes('네일')) return ['네일', '손톱'];
+  if (c.includes('바버') || c.includes('이발')) return ['바버', '이발', '남성전문', '이용업', '이용원'];
+  if (c.includes('타투')) return ['타투', '문신'];
+  if (c.includes('반영구')) return ['반영구', '반영구화장', '눈썹문신', '아이라인'];
+  if (c.includes('미용')) return ['두발미용', '헤어', '미용실'];
+  if (c.includes('피부') || c.includes('에스테틱')) {
+    return ['피부미용', '피부관리', '에스테틱', '스킨케어'];
+  }
+  return ['피부', '에스테틱', '마사지', '체형', '미용', '네일', '왁싱'];
+}
+
+function storeBlob(item: Record<string, unknown>): string {
+  return [
+    item.indsLclsNm,
+    item.indsMclsNm,
+    item.indsSclsNm,
+    item.lclsNm,
+    item.mclsNm,
+    item.sclsNm,
+    item.indutyLclasNm,
+    item.indutyMlsfcNm,
+    item.indutySclasNm,
+    item.ksicNm,
+  ]
+    .map((x) => String(x ?? ''))
+    .join(' ');
+}
+
+function matchesCategory(item: Record<string, unknown>, keywords: string[]): boolean {
+  if (keywords.length === 0) return true;
+  const blob = storeBlob(item);
+  if (!blob.trim()) return true;
+  return keywords.some((k) => blob.includes(k));
+}
+
+function chipKeyForStore(item: Record<string, unknown>): string {
+  const blob = storeBlob(item).replace(/\s+/g, "");
+  const name = String(item.bizesNm ?? item.storeNm ?? "").replace(/\s+/g, "");
+  if (/반영구|눈썹문신/.test(name)) return "semi_permanent";
+  if (/타투|tattoo/i.test(name)) return "tattoo";
+  if (/바버|barber/i.test(name)) return "barber";
+  if (/네일|nail/i.test(name)) return "nail";
+  if (/메이크업|화장분장|메이크업/.test(blob)) return "makeup";
+  // 원문 분류명. 짧은 '미용' 토큰을 피부미용업보다 먼저 쓰면 피부가 헤어로 간다.
+  if (/피부미용|피부관리|에스테틱|스킨케어/.test(blob)) return "skin";
+  if (/두발미용/.test(blob)) return "hair";
+  if (/이용업/.test(blob) && !/이용및미용/.test(blob) && !/미용업/.test(blob)) {
+    return "barber";
+  }
+  if (/네일|손톱/.test(blob)) return "nail";
+  if (/바버|이발|남성전문|이용원/.test(blob) && !/두발미용|미용실/.test(blob)) {
+    return "barber";
+  }
+  if (/반영구/.test(blob)) return "semi_permanent";
+  if (/타투|문신/.test(blob)) return "tattoo";
+  if (/헤어샵|헤어|미용실/.test(blob) && !/피부미용/.test(blob)) return "hair";
+  if (/피부|왁싱/.test(blob)) return "skin";
+  return "other";
+}
+
+function storeLatLng(item: Record<string, unknown>): { lat: number; lng: number } | null {
+  const lat = num(item.lat ?? item.y ?? item.ycord ?? item.cy);
+  const lng = num(item.lon ?? item.lng ?? item.x ?? item.xcord ?? item.cx);
+  if (Math.abs(lat) < 0.01 || Math.abs(lng) < 0.01) return null;
+  if (lat < 33 || lat > 39 || lng < 124 || lng > 132) return null;
+  return { lat, lng };
+}
+
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+type StoreItemOut = {
+  name: string;
+  category_label: string;
+  chip_key: string;
+  lat: number;
+  lng: number;
+  distance_m: number;
+  address: string;
+};
+
+function readTotalCount(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const root = payload as Record<string, unknown>;
+  const body = (root.body ??
+    (root.response as Record<string, unknown> | undefined)?.body) as
+    | Record<string, unknown>
+    | undefined;
+  const raw = body?.totalCount ?? body?.totalcount;
+  const n = num(raw);
+  return n > 0 || raw === 0 || raw === "0" ? n : null;
+}
+function headerResultCode(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const root = payload as Record<string, unknown>;
+  const header = (root.header ??
+    (root.response as Record<string, unknown> | undefined)?.header ??
+    (root.cmmMsgHeader as Record<string, unknown> | undefined)) as
+    | Record<string, unknown>
+    | undefined;
+  return String(
+    header?.resultCode ??
+      header?.returnReasonCode ??
+      header?.errMsg ??
+      "",
+  ).trim();
+}
+
+function looksLikeStore(row: Record<string, unknown>): boolean {
+  return (
+    "bizesNm" in row ||
+    "storeNm" in row ||
+    "bizesId" in row
+  );
+}
+
+function extractStoreItems(payload: unknown): Record<string, unknown>[] {
+  const found: Record<string, unknown>[] = [];
+  const walk = (node: unknown, depth: number) => {
+    if (depth > 8 || node == null) return;
+    if (Array.isArray(node)) {
+      const maps: Record<string, unknown>[] = [];
+      for (const e of node) {
+        maps.push(...coerceStoreMaps(e));
+      }
+      if (maps.some((m) => looksLikeStore(m))) {
+        for (const m of maps) {
+          if (looksLikeStore(m)) found.push(m);
+        }
+        return;
+      }
+      for (const e of node) walk(e, depth + 1);
+      return;
+    }
+    if (typeof node === "object") {
+      const map = node as Record<string, unknown>;
+      if ("item" in map) {
+        walk(map.item, depth + 1);
+        return;
+      }
+      if ("items" in map) {
+        walk(map.items, depth + 1);
+        return;
+      }
+      if (looksLikeStore(map)) {
+        found.push(map);
+        return;
+      }
+      for (const v of Object.values(map)) walk(v, depth + 1);
+    }
+  };
+  walk(payload, 0);
+  return found;
+}
+
+function coerceStoreMaps(node: unknown): Record<string, unknown>[] {
+  if (Array.isArray(node)) {
+    return node.flatMap(coerceStoreMaps);
+  }
+  if (node && typeof node === "object") {
+    const map = node as Record<string, unknown>;
+    if ("item" in map && !looksLikeStore(map)) {
+      return coerceStoreMaps(map.item);
+    }
+    return [map];
+  }
+  return [];
+}
+
+function xmlTag(block: string, name: string): string {
+  const m = new RegExp("<" + name + ">([^<]*)</" + name + ">", "i").exec(block);
+  return (m?.[1] ?? "").trim();
+}
+
+function extractXmlItemMaps(xml: string): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const re = /<item>([\s\S]*?)<\/item>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const body = m[1];
+    out.push({
+      bizesNm: xmlTag(body, "bizesNm") || xmlTag(body, "storeNm"),
+      bizesId: xmlTag(body, "bizesId"),
+      storeNm: xmlTag(body, "storeNm"),
+      lat: xmlTag(body, "lat") || xmlTag(body, "cy"),
+      lon: xmlTag(body, "lon") || xmlTag(body, "lng") || xmlTag(body, "cx"),
+      lng: xmlTag(body, "lng"),
+      rdnmAdr: xmlTag(body, "rdnmAdr"),
+      lnoAdr: xmlTag(body, "lnoAdr"),
+      indsLclsNm: xmlTag(body, "indsLclsNm"),
+      indsMclsNm: xmlTag(body, "indsMclsNm"),
+      indsSclsNm: xmlTag(body, "indsSclsNm"),
+    });
+  }
+  return out;
+}
+
+function xmlResultCode(xml: string): string {
+  return xmlTag(xml, "returnReasonCode") || xmlTag(xml, "resultCode");
+}
+
+function isSuccessCode(code: string): boolean {
+  return code === "00" || code === "0" || code === "0000";
+}
+
+async function fetchStores(opts: {
+  key: string;
+  lat: number;
+  lng: number;
+  radiusM: number;
+  category: string;
+  beautyOnly?: boolean;
+}): Promise<{
+  ok: boolean;
+  totalInRadius: number;
+  sameCategoryCount: number;
+  sampleNames: string[];
+  items: StoreItemOut[];
+  complete?: boolean;
+  audit?: Record<string, unknown>;
+  error?: string;
+  upstream?: "ok" | "api_error" | "malformed" | "missing_key" | "network";
+}> {
+  const keywords = categoryKeywords(opts.category);
+  // Both encoded and decoded data.go.kr keys are accepted; encode exactly once.
+  let serviceKey = opts.key.trim();
+  try { serviceKey = decodeURIComponent(serviceKey); } catch { /* raw key */ }
+  const pageSize = 1000;
+  const maxPages = 20;
+  const started = Date.now();
+  const rawItems: Record<string, unknown>[] = [];
+  let responseTotalCount: number | null = null;
+  let complete = false;
+  let pageError: string | undefined;
+  let pageCount = 0;
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      if (Date.now() - started > 20000) {
+        pageError = "pagination_timeout";
+        break;
+      }
+      const url = new URL("https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius");
+      url.search = new URLSearchParams({
+        serviceKey, pageNo: String(page), numOfRows: String(pageSize),
+        radius: String(opts.radiusM), cx: String(opts.lng), cy: String(opts.lat), type: "json",
+      }).toString();
+      let pageItems: Record<string, unknown>[];
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) throw new Error("http_" + res.status);
+        const text = (await res.text()).trim();
+        let code: string;
+        if (text.startsWith("<")) {
+          code = xmlResultCode(text);
+          if (code && !isSuccessCode(code)) throw new Error("api_" + code);
+          pageItems = extractXmlItemMaps(text);
+          const total = xmlTag(text, "totalCount");
+          if (total) responseTotalCount = num(total);
+        } else {
+          const payload = JSON.parse(text);
+          code = headerResultCode(payload);
+          if (code && !isSuccessCode(code)) throw new Error("api_" + code);
+          pageItems = extractStoreItems(payload);
+          responseTotalCount = readTotalCount(payload) ?? responseTotalCount;
+        }
+        if (!pageItems.length && !isSuccessCode(code)) throw new Error("malformed_empty");
+      } catch (e) {
+        // Never echo upstream URLs (which contain service keys).
+        const message = e instanceof Error ? e.message : "network";
+        pageError = /^(http_\d+|api_[A-Z0-9_]+|malformed_empty)$/.test(message)
+          ? message : "upstream_unavailable";
+        break;
+      }
+      pageCount++;
+      if (pageItems.length === 0) {
+        complete = responseTotalCount == null || rawItems.length >= responseTotalCount;
+        if (!complete) pageError = "pagination_incomplete";
+        break;
+      }
+      rawItems.push(...pageItems);
+      if (responseTotalCount != null && rawItems.length >= responseTotalCount) {
+        complete = true;
+        break;
+      }
+      // Without totalCount, only an empty terminal page proves completion.
+    }
+    if (!complete && !pageError) pageError = "pagination_limit";
+    if (pageCount === 0) return {
+      ok: false, totalInRadius: 0, sameCategoryCount: 0, sampleNames: [], items: [],
+      complete: false, error: pageError, upstream: "api_error",
+    };
+    const matched = rawItems.filter((it) => matchesCategory(it, keywords));
+    const names = matched
+      .map((it) => String(it.bizesNm ?? it.storeNm ?? it.name ?? ''))
+      .filter((n) => n.length > 0)
+      .slice(0, 5);
+
+    const dropReasons: Record<string, number> = {};
+    const bump = (k: string) => {
+      dropReasons[k] = (dropReasons[k] ?? 0) + 1;
+    };
+    const seenIds = new Set<string>();
+    const mapped: StoreItemOut[] = [];
+    for (const it of rawItems) {
+      const id = String(it.bizesId ?? it.bizesNo ?? "").trim();
+      if (id && seenIds.has(id)) {
+        bump("dedupe_bizesId");
+        continue;
+      }
+      if (id) seenIds.add(id);
+      if (!matchesCategory(it, keywords)) {
+        bump("category_keyword");
+        continue;
+      }
+      if (opts.beautyOnly && chipKeyForStore(it) === "other") {
+        bump("not_beauty");
+        continue;
+      }
+      const ll = storeLatLng(it);
+      if (!ll) {
+        bump("invalid_or_missing_coords");
+        continue;
+      }
+      const name = String(it.bizesNm ?? it.storeNm ?? it.name ?? "").trim();
+      if (!name) {
+        bump("empty_name");
+        continue;
+      }
+      const categoryLabel = String(
+        it.indsSclsNm ?? it.indsMclsNm ?? it.indsLclsNm ?? it.sclsNm ?? "",
+      ).trim();
+      if (haversineM(opts.lat, opts.lng, ll.lat, ll.lng) > opts.radiusM) {
+        bump("outside_radius");
+        continue;
+      }
+      mapped.push({
+        name,
+        category_label: categoryLabel,
+        chip_key: chipKeyForStore(it),
+        lat: ll.lat,
+        lng: ll.lng,
+        distance_m: haversineM(opts.lat, opts.lng, ll.lat, ll.lng),
+        address: String(it.rdnmAdr ?? it.lnoAdr ?? it.addr ?? "").trim(),
+      });
+    }
+    mapped.sort((a, b) => a.distance_m - b.distance_m);
+
+    const coordBuckets = new Map<string, number>();
+    for (const s of mapped) {
+      const k = `${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
+      coordBuckets.set(k, (coordBuckets.get(k) ?? 0) + 1);
+    }
+    let coincident = 0;
+    for (const n of coordBuckets.values()) {
+      if (n > 1) coincident += 1;
+    }
+
+    const pageUnknown =
+      responseTotalCount != null && responseTotalCount > rawItems.length;
+    const audit = {
+      source: "LIVE" as const,
+      category: opts.category,
+      lat: opts.lat,
+      lng: opts.lng,
+      radiusM: opts.radiusM,
+      pagesRead: pageCount,
+      responseTotalCount,
+      rawItemCount: rawItems.length,
+      normalizedCount: rawItems.length,
+      afterFilterCount: mapped.length,
+      categoryFilteredCount: mapped.length,
+      afterCoordCount: mapped.length,
+      afterDedupeCount: mapped.length,
+      renderedPinCount: mapped.length,
+      paginationContract: complete ? "complete" : "partial",
+      dropReasons,
+      coincidentCoordGroups: coincident,
+    };
+
+    return {
+      ok: true,
+      totalInRadius: rawItems.length,
+      sameCategoryCount: opts.beautyOnly ? mapped.length : matched.length,
+      sampleNames: names,
+      items: mapped,
+      complete,
+      error: pageError,
+      upstream: "ok",
+      audit,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      totalInRadius: 0,
+      sameCategoryCount: 0,
+      sampleNames: [],
+      items: [],
+      error: String(e),
+      upstream: "network",
+    };
+  }
+}
+
+function yyyymmKst(d = new Date()): string {
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  // 공표 지연 대비 전월
+  kst.setUTCMonth(kst.getUTCMonth() - 1);
+  const y = kst.getUTCFullYear();
+  const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}${m}`;
+}
+
+function extractPopRows(payload: unknown): Record<string, unknown>[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  // 흔한 래핑: response.body.items.item | data | row
+  const candidates: unknown[] = [];
+  const walk = (node: unknown, depth: number) => {
+    if (depth > 6 || node == null) return;
+    if (Array.isArray(node)) {
+      if (
+        node.length > 0 &&
+        typeof node[0] === "object" &&
+        node[0] !== null &&
+        ("totPpltn" in (node[0] as object) ||
+          "totNmprCnt" in (node[0] as object) ||
+          "malePpltnCnt" in (node[0] as object) ||
+          "남자인구수" in (node[0] as object) ||
+          "totPopulation" in (node[0] as object))
+      ) {
+        candidates.push(node);
+      }
+      for (const x of node) walk(x, depth + 1);
+      return;
+    }
+    if (typeof node === "object") {
+      for (const v of Object.values(node as Record<string, unknown>)) {
+        walk(v, depth + 1);
+      }
+    }
+  };
+  walk(root, 0);
+  if (candidates.length > 0) {
+    return (candidates[0] as unknown[]).filter(
+      (x) => x && typeof x === "object",
+    ) as Record<string, unknown>[];
+  }
+  return [];
+}
+
+function aggregatePopulation(rows: Record<string, unknown>[]): {
+  total: number;
+  male: number;
+  female: number;
+  ages: AgeBucket[];
+  dongName: string;
+} {
+  let total = 0;
+  let male = 0;
+  let female = 0;
+  let dongName = "";
+
+  const ageDefs: { label: string; mKeys: string[]; fKeys: string[] }[] = [
+    {
+      label: "0-19",
+      mKeys: ["male0To9AgePpltnCnt", "male10To19AgePpltnCnt", "만0~9세남자", "만10~19세남자"],
+      fKeys: ["female0To9AgePpltnCnt", "female10To19AgePpltnCnt", "만0~9세여자", "만10~19세여자"],
+    },
+    {
+      label: "20-29",
+      mKeys: ["male20To29AgePpltnCnt", "만20~29세남자"],
+      fKeys: ["female20To29AgePpltnCnt", "만20~29세여자"],
+    },
+    {
+      label: "30-39",
+      mKeys: ["male30To39AgePpltnCnt", "만30~39세남자"],
+      fKeys: ["female30To39AgePpltnCnt", "만30~39세여자"],
+    },
+    {
+      label: "40-49",
+      mKeys: ["male40To49AgePpltnCnt", "만40~49세남자"],
+      fKeys: ["female40To49AgePpltnCnt", "만40~49세여자"],
+    },
+    {
+      label: "50+",
+      mKeys: [
+        "male50To59AgePpltnCnt",
+        "male60To69AgePpltnCnt",
+        "male70To79AgePpltnCnt",
+        "male80To89AgePpltnCnt",
+        "male90To99AgePpltnCnt",
+        "male100AgeAbovePpltnCnt",
+        "만50~59세남자",
+        "만60~69세남자",
+        "만70~79세남자",
+        "만80~89세남자",
+        "만90~99세남자",
+        "만100세이상남자",
+      ],
+      fKeys: [
+        "female50To59AgePpltnCnt",
+        "female60To69AgePpltnCnt",
+        "female70To79AgePpltnCnt",
+        "female80To89AgePpltnCnt",
+        "female90To99AgePpltnCnt",
+        "female100AgeAbovePpltnCnt",
+        "만50~59세여자",
+        "만60~69세여자",
+        "만70~79세여자",
+        "만80~89세여자",
+        "만90~99세여자",
+        "만100세이상여자",
+      ],
+    },
+  ];
+
+  const ageAcc = ageDefs.map((d) => ({
+    label: d.label,
+    male: 0,
+    female: 0,
+    total: 0,
+  }));
+
+  for (const row of rows) {
+    if (!dongName) {
+      dongName = String(
+        row.admmNm ?? row.dongNm ?? row.행정동명 ?? row.admNm ?? "",
+      );
+    }
+    total += num(
+      row.totNmprCnt ?? row.totPpltn ?? row.totPopulation ?? row.총인구수,
+    );
+    male += num(
+      row.maleNmprCnt ?? row.malePpltnCnt ?? row.남자인구수,
+    );
+    female += num(
+      row.femaleNmprCnt ?? row.femalePpltnCnt ?? row.여자인구수,
+    );
+
+    ageDefs.forEach((def, i) => {
+      for (const k of def.mKeys) ageAcc[i].male += num(row[k]);
+      for (const k of def.fKeys) ageAcc[i].female += num(row[k]);
+    });
+  }
+
+  for (const a of ageAcc) a.total = a.male + a.female;
+
+  return { total, male, female, ages: ageAcc, dongName };
+}
+
+async function fetchPopulation(opts: {
+  key: string;
+  admCd: string;
+  statsYm: string;
+}): Promise<{
+  ok: boolean;
+  total: number;
+  male: number;
+  female: number;
+  ages: AgeBucket[];
+  dongName: string;
+  statsYm: string;
+  error?: string;
+}> {
+  const adm = opts.admCd.trim();
+  if (!adm) {
+    return {
+      ok: false,
+      total: 0,
+      male: 0,
+      female: 0,
+      ages: [],
+      dongName: "",
+      statsYm: opts.statsYm,
+      error: "adm_cd_required",
+    };
+  }
+
+  // 행안부 주민등록 OpenAPI — 엔드포인트는 기관 스펙 변경에 대비해 2경로 시도
+  const bases = [
+    Deno.env.get("MOIS_POP_API_URL")?.trim(),
+    "https://apis.data.go.kr/1741000/stdgPpltnInfoService/getStdgPpltnInfo",
+    "https://apis.data.go.kr/1741000/admmPpltnInfoService/getAdmmPpltnInfo",
+  ].filter((x): x is string => !!x && x.length > 0);
+
+  let lastErr = "no_endpoint";
+  for (const base of bases) {
+    const url =
+      `${base}?serviceKey=${encodeURIComponent(opts.key)}` +
+      `&pageNo=1&numOfRows=300&resultType=json&type=json` +
+      `&stdgCd=${encodeURIComponent(adm)}` +
+      `&admmCd=${encodeURIComponent(adm)}` +
+      `&srchFrYm=${opts.statsYm}&srchToYm=${opts.statsYm}` +
+      `&statsYm=${opts.statsYm}&statsYearMonth=${opts.statsYm}`;
+
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      let payload: unknown;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        lastErr = `pop_non_json status=${res.status}`;
+        continue;
+      }
+      const rows = extractPopRows(payload);
+      if (rows.length === 0) {
+        lastErr = `pop_empty status=${res.status}`;
+        continue;
+      }
+      const agg = aggregatePopulation(rows);
+      return {
+        ok: true,
+        total: agg.total,
+        male: agg.male,
+        female: agg.female,
+        ages: agg.ages,
+        dongName: agg.dongName,
+        statsYm: opts.statsYm,
+      };
+    } catch (e) {
+      lastErr = String(e);
+    }
+  }
+
+  return {
+    ok: false,
+    total: 0,
+    male: 0,
+    female: 0,
+    ages: [],
+    dongName: "",
+    statsYm: opts.statsYm,
+    error: lastErr,
+  };
+}
+
+async function resolveAddressWithKakao(address: string): Promise<{
+  ok: boolean;
+  latitude?: number;
+  longitude?: number;
+  adm_cd?: string;
+  dong_name?: string;
+  display_label?: string;
+  error?: string;
+}> {
+  const key = Deno.env.get("KAKAO_REST_API_KEY")?.trim() ?? "";
+  if (!key) {
+    return { ok: false, error: "missing_KAKAO_REST_API_KEY" };
+  }
+  const trimmed = address.trim();
+  if (!trimmed) return { ok: false, error: "empty_address" };
+
+  try {
+    const searchUrl =
+      `https://dapi.kakao.com/v2/local/search/address.json` +
+      `?query=${encodeURIComponent(trimmed)}`;
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `KakaoAK ${key}` },
+    });
+    const searchJson = await searchRes.json();
+    const doc = searchJson?.documents?.[0];
+    if (!doc) return { ok: false, error: "address_not_found" };
+
+    const lat = Number(doc.y);
+    const lng = Number(doc.x);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return { ok: false, error: "bad_coords" };
+    }
+
+    let admCd = String(doc.address?.h_code ?? "").trim();
+    let dongName = String(doc.address?.region_3depth_name ?? "").trim();
+
+    if (!admCd) {
+      const regionUrl =
+        `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json` +
+        `?x=${lng}&y=${lat}`;
+      const regionRes = await fetch(regionUrl, {
+        headers: { Authorization: `KakaoAK ${key}` },
+      });
+      const regionJson = await regionRes.json();
+      const docs = regionJson?.documents ?? [];
+      const h = docs.find((d: { region_type?: string }) => d.region_type === "H") ??
+        docs[0];
+      admCd = String(h?.code ?? "").trim();
+      dongName = String(h?.region_3depth_name ?? dongName).trim();
+    }
+
+    if (!admCd) {
+      return {
+        ok: false,
+        latitude: lat,
+        longitude: lng,
+        error: "adm_cd_not_found",
+      };
+    }
+
+    return {
+      ok: true,
+      latitude: lat,
+      longitude: lng,
+      adm_cd: admCd,
+      dong_name: dongName,
+      display_label: dongName || admCd,
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const body = (await req.json()) as MarketBody;
+
+    if ((body.action ?? "").trim() === "resolve_address") {
+      const resolved = await resolveAddressWithKakao(body.address ?? "");
+      return jsonResponse({
+        ...resolved,
+        fetched_at: new Date().toISOString(),
+      });
+    }
+
+    const lat = body.latitude;
+    const lng = body.longitude;
+    if (typeof lat !== "number" || typeof lng !== "number" ||
+        !Number.isFinite(lat) || !Number.isFinite(lng) ||
+        lat < 33 || lat > 39 || lng < 124 || lng > 132) {
+      return jsonResponse({ ok: false, error: "valid_korea_coordinates_required" }, 400);
+    }
+    if (body.radius_m != null &&
+        (typeof body.radius_m !== "number" || !Number.isFinite(body.radius_m) ||
+         body.radius_m < 100 || body.radius_m > 2000)) {
+      return jsonResponse({ ok: false, error: "radius_m_must_be_100_to_2000" }, 400);
+    }
+    const storesOnly = body.action === "stores";
+    const radiusM = Math.min(Math.max(body.radius_m ?? 500, 100), 2000);
+    const category = body.category ?? "에스테틱";
+    const locationLabel = body.location_label ?? "매장";
+    const admCd = (body.adm_cd ?? "").trim();
+    const statsYm = yyyymmKst();
+
+    const sbizKey = Deno.env.get("SBIZ_STORE_SERVICE_KEY") ?? "";
+    const moisKey = Deno.env.get("MOIS_POP_SERVICE_KEY") ?? "";
+
+    const stores = sbizKey
+      ? await fetchStores({
+        key: sbizKey,
+        lat,
+        lng,
+        radiusM,
+        category,
+        beautyOnly: storesOnly,
+      })
+      : {
+        ok: false,
+        totalInRadius: 0,
+        sameCategoryCount: 0,
+        sampleNames: [] as string[],
+        items: [] as {
+          name: string;
+          category_label: string;
+          chip_key: string;
+          lat: number;
+          lng: number;
+          distance_m: number;
+          address: string;
+        }[],
+        error: "missing_SBIZ_STORE_SERVICE_KEY",
+        upstream: "missing_key" as const,
+      };
+
+    const population = !storesOnly && moisKey
+      ? await fetchPopulation({ key: moisKey, admCd, statsYm })
+      : {
+        ok: false,
+        total: 0,
+        male: 0,
+        female: 0,
+        ages: [] as AgeBucket[],
+        dongName: "",
+        statsYm,
+        error: "missing_MOIS_POP_SERVICE_KEY",
+      };
+
+    const densityHint =
+      population.ok && population.total > 0 && stores.ok
+        ? Number(
+          (stores.sameCategoryCount / (population.total / 1000)).toFixed(2),
+        )
+        : null;
+
+    return jsonResponse({
+      ok: stores.ok || population.ok,
+      shop_id: body.shop_id ?? "",
+      location_label: locationLabel,
+      latitude: lat,
+      longitude: lng,
+      radius_m: radiusM,
+      category,
+      estimate: true,
+      sources: [
+        "소상공인시장진흥공단 상가(상권)정보",
+        ...(!storesOnly ? ["행정안전부 행정동별 성/연령별 주민등록 인구수"] : []),
+      ],
+      fetched_at: new Date().toISOString(),
+      stats_ym: statsYm,
+      stores: {
+        ok: stores.ok,
+        upstream: stores.upstream ?? (stores.ok ? "ok" : "error"),
+        complete: (stores as { complete?: boolean }).complete ?? false,
+        empty: Boolean(stores.ok) && (stores.items?.length ?? 0) === 0,
+        total_in_radius: stores.totalInRadius,
+        same_category_count: stores.sameCategoryCount,
+        sample_names: stores.sampleNames,
+        items: stores.items ?? [],
+        error: stores.error ?? null,
+        source: "소상공인시장진흥공단 상가(상권)정보",
+        retrieved_at: new Date().toISOString(),
+        audit: (stores as { audit?: unknown }).audit ?? null,
+      },
+      population: {
+        ok: population.ok,
+        adm_cd: admCd || null,
+        dong_name: population.dongName || null,
+        total: population.total,
+        male: population.male,
+        female: population.female,
+        ages: population.ages,
+        error: population.error ?? null,
+      },
+      /** 동종 점포수 / 인구 천명 — 참고 지표 */
+      stores_per_1k_pop: densityHint,
+    });
+  } catch (e) {
+    return jsonResponse(
+      {
+        ok: false,
+        estimate: true,
+        error: String(e),
+        fetched_at: new Date().toISOString(),
+        stores: {
+          ok: false,
+          upstream: "network",
+          empty: false,
+          total_in_radius: 0,
+          same_category_count: 0,
+        },
+        population: { ok: false, total: 0, male: 0, female: 0, ages: [] },
+      },
+      200,
+    );
+  }
+});
+

@@ -1,0 +1,1316 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../models/ba_capture_session.dart';
+import '../../models/customer.dart';
+import '../../models/customer_chart.dart';
+import '../../services/sori_store.dart';
+import '../../theme/sori_tokens.dart';
+import '../../utils/sori_bottom_sheet.dart';
+import '../../utils/sori_shell_insets.dart';
+import '../../utils/supabase_schema_error.dart';
+import '../../views/admin_chart_writer_page.dart';
+import '../../views/before_after_compare_page.dart';
+import '../../views/chart_workspace/chart_workspace_page.dart';
+import '../../visit_kernel/models/care_schedule_entry.dart';
+import '../../visit_kernel/models/visit_session.dart';
+import '../../visit_kernel/visit_store.dart';
+import '../operation/models/clinical_environment_brief.dart';
+import '../operation/models/consultation_deep_mode.dart';
+import '../operation/models/clinical_trend_snapshot.dart';
+import '../operation/models/shop_climate_context.dart';
+import '../operation/models/visit_biometrics.dart';
+import '../operation/shop_climate_service.dart';
+import '../operation/shop_clinical_trend_service.dart';
+import '../operation/care_timer_tts_service.dart';
+import '../operation/visit_timer_store.dart';
+import '../operation/widgets/clinical_assistant_sheet.dart';
+import '../operation/widgets/consultation_widget_board.dart';
+import '../../views/smart_guide_camera_page.dart';
+import '../program/program_pane.dart';
+import 'ba_recall_cache.dart';
+import 'consultation_track.dart';
+import 'home_dashboard_controller.dart';
+import 'home_visual_tokens.dart';
+import 'management_case_paginator.dart';
+import 'sori_stage_folder_tabs.dart';
+import 'today_agenda.dart';
+import 'models/care_timer_entry_mode.dart';
+import 'visit_customer_picker_sheet.dart';
+import 'visit_existing_customer_picker_page.dart';
+import 'visit_new_customer_form_page.dart';
+import 'visit_session_view_page.dart';
+import '../operation/widgets/care_timer_fullscreen_page.dart';
+import 'report/visit_end_pipeline.dart';
+import 'widgets/visit_report_send_sheet.dart';
+import 'widgets/ba_capture_carousel.dart';
+import 'widgets/home_quick_action_row.dart';
+import 'widgets/home_scheduler_strip.dart';
+import 'care_start_from_schedule.dart';
+import 'widgets/home_timer_customer_bind.dart';
+import 'widgets/home_timer_stage.dart';
+import 'widgets/countdown_flip_zone.dart';
+import 'widgets/home_toolbox_row.dart';
+import 'widgets/management_case_card.dart';
+import 'widgets/quick_calculator_sheet.dart';
+import '../operation/widgets/care_timer_preset_editor_page.dart';
+
+/// 원장 홈 상단 탭. 노출 라벨은 Desk / Chart / Programs / Flow.
+enum HomeTab { myFeed, chart, program, timer }
+
+/// [SoriStageFolderTabs]에 넘기는 라벨/최소폭 — 순서는 [HomeTab]과 짝을 이룬다.
+const _kHomeStageLabels = ['Desk', 'Chart', 'Programs', 'Flow'];
+const _kHomeStageMinWidths = [72.0, 76.0, 100.0, 72.0];
+
+/// 원장 GNB 홈: Desk / Chart / Programs / Flow.
+/// enum 값은 호환 유지. Chart만 슬롯 추가(Expand).
+class VisitLauncherPage extends StatefulWidget {
+  const VisitLauncherPage({super.key, required this.store});
+
+  final SoriStore store;
+
+  @override
+  State<VisitLauncherPage> createState() => _VisitLauncherPageState();
+}
+
+class _VisitLauncherPageState extends State<VisitLauncherPage>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+  bool _loading = true;
+  ShopClimateContext? _climate;
+  ClinicalTrendSnapshot? _trends;
+  final HomeDashboardController _homeCtrl = HomeDashboardController();
+
+  late final TabController _tabs;
+  final ScrollController _feedScroll = ScrollController();
+  final ManagementCasePaginator _casePager = ManagementCasePaginator();
+
+  /// Q3(a) — 🟢 확정 애니메이션이 진행 중인 세션. 320ms 후 목록에서 사라진다.
+  String? _baTransferringId;
+  bool _baBusy = false;
+
+  /// 상담 중 즐겨찾기한 레퍼런스만 빠르게 훑기 위한 필터.
+  bool _caseBookmarkOnly = false;
+
+  /// Timer 탭 — 고객 차트 CRM 바인딩 (스탠바이).
+  bool _timerChartBindEnabled = false;
+  String? _timerBoundCustomerId;
+  final GlobalKey _timerCustomerBindKey = GlobalKey();
+
+  VisitStore get visit => widget.store.visit;
+
+  static const _groupedBg = SoriTokens.background;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _tabs = TabController(
+      length: HomeTab.values.length,
+      vsync: this,
+      animationDuration: const Duration(milliseconds: 260),
+    )..addListener(_onVisit);
+    _feedScroll.addListener(_onFeedScroll);
+    visit.addListener(_onVisit);
+    widget.store.addListener(_onVisit);
+    VisitTimerStore.instance.addListener(_onVisit);
+    _homeCtrl.addListener(_onHomeCtrl);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    visit.removeListener(_onVisit);
+    widget.store.removeListener(_onVisit);
+    VisitTimerStore.instance.removeListener(_onVisit);
+    _homeCtrl.removeListener(_onHomeCtrl);
+    _feedScroll.dispose();
+    _tabs.dispose();
+    _homeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool force = false}) async {
+    setState(() => _loading = true);
+    await Future.wait([
+      visit.ensureLoaded(force: force),
+      widget.store.refreshCareScheduleEntries(force: force),
+      widget.store.hydrateVisitTimer(),
+      widget.store.refreshBaSessions(),
+      widget.store.refreshProgramBoard(),
+      _loadClimate(),
+      _loadTrends(),
+    ]);
+    if (!mounted) return;
+    _autoWarmNextCustomer();
+    _reloadCaseFeed();
+    setState(() => _loading = false);
+  }
+
+  /// 무한 스크롤 소스 — 북마크 필터가 켜지면 즐겨찾기한 케이스로 좁힌다.
+  List<CustomerChart> _caseSource() {
+    final all = widget.store.managementCaseCharts();
+    if (!_caseBookmarkOnly) return all;
+    return all
+        .where((c) => widget.store.isChartBookmarked(c.id))
+        .toList(growable: false);
+  }
+
+  void _reloadCaseFeed() {
+    _casePager.reset();
+    _casePager.loadMore(_caseSource());
+  }
+
+  void _toggleCaseBookmarkFilter() {
+    setState(() {
+      _caseBookmarkOnly = !_caseBookmarkOnly;
+      _reloadCaseFeed();
+    });
+  }
+
+  void _onFeedScroll() {
+    if (!_feedScroll.hasClients || !_casePager.hasMore) return;
+    final position = _feedScroll.position;
+    // 잔여 3건 지점에서 미리 당겨온다 (카드 1장 ≈ 화면 절반).
+    if (position.pixels < position.maxScrollExtent - 900) return;
+    if (_casePager.loadMore(_caseSource()) > 0) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _loadClimate() async {
+    try {
+      final ctx = await ShopClimateService.instance.fetchForShop(
+        widget.store.shop,
+      );
+      if (mounted) _climate = ctx;
+    } catch (_) {
+      if (mounted) {
+        _climate = ShopClimateContext.fallback();
+      }
+    }
+  }
+
+  Future<void> _loadTrends() async {
+    try {
+      final snap = await ShopClinicalTrendService.instance.fetchForShop(
+        widget.store.shop,
+      );
+      if (mounted) _trends = snap;
+    } catch (_) {
+      if (mounted) _trends = ClinicalTrendSnapshot.fallback();
+    }
+  }
+
+  void _openClinicalSheet({ClinicalTrendItem? trend}) {
+    final climate = _climate;
+    if (climate == null) return;
+    final snap = _agendaSnapshot();
+    unawaited(
+      showClinicalAssistantSheet(
+        context: context,
+        climate: climate,
+        trends: _trends,
+        initialTrend: trend,
+        tempoLevel: computeTempoLevel(
+          scheduledCount: snap.scheduledCount,
+          inProgressCount: snap.inProgressCount,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(VisitTimerStore.instance.syncOnResume());
+    }
+  }
+
+  void _onVisit() {
+    if (!mounted) return;
+    final req = widget.store.takeHomeTimerFocusRequest();
+    if (req != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        if (_tabs.index != HomeTab.timer.index) {
+          _tabs.animateTo(HomeTab.timer.index);
+        }
+        if (req.startCare) {
+          await _startCareAfterScheduleHandoff();
+        }
+        if (mounted) setState(() {});
+      });
+    }
+    setState(() {});
+  }
+
+  /// Phase 4 — 일정에서 넘긴 세션 타이머에 프리셋 케어 시작 (standalone 생성 금지).
+  Future<void> _startCareAfterScheduleHandoff() async {
+    await CareTimerTtsService.primeFromUserGesture();
+    final timerStore = VisitTimerStore.instance;
+    if (timerStore.active == null || timerStore.active!.isStandalone) {
+      return;
+    }
+    final slot =
+        timerStore.homeSelectedPresetSlot ?? timerStore.selectedPresetSlot;
+    final preset = timerStore.presetAt(slot);
+    if (preset.isEmpty) {
+      if (mounted) {
+        _toast('타이머에서 프리셋을 선택한 뒤 케어를 시작하세요', error: true);
+      }
+      return;
+    }
+    timerStore.selectPresetSlot(slot);
+    if (timerStore.isCareArmed) {
+      await timerStore.startCare(presetSlot: slot);
+    } else if (!timerStore.isCareRunning) {
+      await timerStore.bindPreset(presetSlot: slot);
+      await timerStore.startCare(presetSlot: slot);
+    }
+  }
+
+  void _onHomeCtrl() {
+    if (!mounted) return;
+    // 부가 툴은 Timer 탭 안에서만 켠다. 다른 탭으로 나가지 않는다.
+    if (_tabs.index != HomeTab.timer.index &&
+        (_homeCtrl.calculatorOpen ||
+            _homeCtrl.activeTool == HomeToolboxTool.count)) {
+      _tabs.animateTo(HomeTab.timer.index);
+    }
+    setState(() {});
+  }
+
+  void _resetTimerToolbox() {
+    _homeCtrl.resetToTimerStandby();
+    if (_tabs.index != HomeTab.timer.index) {
+      _tabs.animateTo(HomeTab.timer.index);
+    }
+  }
+
+  TodayAgendaSnapshot _agendaSnapshot() {
+    final now = DateTime.now();
+    return buildTodayAgenda(
+      store: widget.store,
+      now: now,
+      schedules: widget.store.careScheduleEntries,
+      sessions: visit.sessions,
+      sosParser: widget.store.sosParser,
+    );
+  }
+
+  void _autoWarmNextCustomer() {
+    final snap = _agendaSnapshot();
+    final next =
+        snap.items.where((e) => e.isNext).firstOrNull ??
+        snap.items
+            .where((e) => e.isReturning && !e.hasActiveSession)
+            .firstOrNull;
+    final cid = next?.customerId.trim() ?? '';
+    if (cid.isEmpty || !next!.isReturning) return;
+    unawaited(
+      BaRecallCache.instance.prefetch(widget.store, cid, imageContext: context),
+    );
+  }
+
+  Future<void> _startNewCustomerFlow({
+    String? prefillName,
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
+  }) async {
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(
+        builder: (_) => VisitNewCustomerFormPage(
+          store: widget.store,
+          initialName: prefillName,
+        ),
+      ),
+    );
+    if (customer == null || !mounted) return;
+    await _startSessionFor(
+      customer,
+      ConsultationTrack.newCustomer,
+      deepMode: deepMode,
+      biometrics: biometrics,
+      environmentBrief: environmentBrief,
+    );
+    final session = widget.store.activeVisitSession;
+    if (session != null) await _beginConsultation(session);
+  }
+
+  Future<void> _startReturningCustomerFlow({
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
+  }) async {
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(
+        builder: (_) => VisitExistingCustomerPickerPage(store: widget.store),
+      ),
+    );
+    if (customer == null || !mounted) return;
+
+    unawaited(
+      BaRecallCache.instance.prefetch(
+        widget.store,
+        customer.id,
+        imageContext: context,
+      ),
+    );
+    await _startSessionFor(
+      customer,
+      ConsultationTrack.returning,
+      deepMode: deepMode,
+      biometrics: biometrics,
+      environmentBrief: environmentBrief,
+    );
+    final session = widget.store.activeVisitSession;
+    if (session != null) await _beginConsultation(session);
+  }
+
+  Future<void> _startSessionFor(
+    Customer customer,
+    ConsultationTrack track, {
+    ConsultationDeepMode? deepMode,
+    VisitBiometrics? biometrics,
+    ClinicalEnvironmentBrief? environmentBrief,
+  }) async {
+    try {
+      final session = await visit.startVisit(customer);
+      if (!mounted) return;
+      final chart = widget.store.chartForVisitSession(session);
+      if (chart != null && biometrics != null) {
+        await widget.store.persistVisitBiometrics(
+          chartId: chart.id,
+          biometrics: biometrics,
+        );
+      }
+      widget.store.activeVisitSessionId = session.id;
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('상담 시작 실패: $e')));
+    }
+  }
+
+  void _openSessionView(VisitSession session) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitSessionViewPage(
+          store: widget.store,
+          session: session,
+          onConsultationStart: () => _beginConsultation(session),
+          onOpenChart: () => _openChartForSession(session),
+          onPresetSelected: (slot) async {
+            await _handlePresetSelected(session, slot);
+          },
+          onCareEnd: () => _handleCareEnd(session),
+          onAfterPhoto: () => _captureAfterPhoto(session),
+          onVisitEnd: () => _endVisit(session),
+        ),
+      ),
+    );
+  }
+
+  /// PO v4.5 — [상담 시작] → timer T0 + chart writer.
+  Future<void> _beginConsultation(VisitSession session) async {
+    final timer = VisitTimerStore.instance;
+    if (timer.active == null ||
+        timer.active!.visitSessionId != session.id ||
+        timer.active!.consultationStartedAt == null) {
+      await timer.startConsultation(
+        visitSessionId: session.id,
+        shopId: session.shopId,
+      );
+    }
+    widget.store.activeVisitSessionId = session.id;
+    await _openChartForSession(session);
+  }
+
+  Future<void> _openChartForSession(VisitSession session) async {
+    final customer = widget.store.findCustomer(session.customerId);
+    if (customer == null || !mounted) return;
+    final chart = widget.store.chartForVisitSession(session);
+    await VisitTimerStore.instance.onChartOpened(session.id);
+    if (!mounted) return;
+    await openChartWriterForCustomer(
+      context,
+      store: widget.store,
+      customer: customer,
+      existingChart: chart,
+    );
+    await VisitTimerStore.instance.onChartClosed(session.id);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openTimerStandalone() async {
+    // 툴박스 타이머 = 탭 내 스테이지 포커스. 풀스크린은 확대 버튼만.
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openCareStart() async {
+    // 웹 브라우저 autoplay 정책 — 터치 제스처 안에서 TTS/Audio를 먼저 활성화.
+    await CareTimerTtsService.primeFromUserGesture();
+    // 케어 시작 = 탭 본문에서 카운트다운. 화면 전환 없음.
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    final slot =
+        timerStore.homeSelectedPresetSlot ?? timerStore.selectedPresetSlot;
+    final preset = timerStore.presetAt(slot);
+    if (preset.isEmpty) {
+      if (mounted) {
+        _toast('프리셋을 먼저 선택하거나 설정하세요', error: true);
+      }
+      return;
+    }
+    timerStore.selectPresetSlot(slot);
+    if (timerStore.isCareArmed) {
+      await timerStore.startCare(presetSlot: slot);
+    } else if (!timerStore.isCareRunning) {
+      await timerStore.bindPreset(presetSlot: slot);
+      await timerStore.startCare(presetSlot: slot);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _endCareInTab() async {
+    await CareTimerTtsService.primeFromUserGesture();
+    final timerStore = VisitTimerStore.instance;
+    if (timerStore.active?.isStandalone ?? false) {
+      await timerStore.finishStandaloneCare();
+    } else if (timerStore.isCareRunning || timerStore.isCareArmed) {
+      await timerStore.endCare();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openFullscreenGlance({VisitSession? session}) async {
+    final timerStore = VisitTimerStore.instance;
+    await timerStore.ensureStandaloneTimer();
+    if (!mounted) return;
+    final bound =
+        session ??
+        (_agendaSnapshot().activeSessions.firstOrNull ??
+            widget.store.activeVisitSession);
+    await CareTimerFullscreenPage.open(
+      context,
+      store: widget.store,
+      session: bound,
+      presetSlot: timerStore.selectedPresetSlot,
+      entryMode: CareTimerEntryMode.standalone,
+      onCareEnd: bound == null ? null : () => _handleCareEnd(bound),
+      onVisitEnd: bound == null
+          ? null
+          : () async {
+              await _endVisit(bound);
+              if (mounted) Navigator.of(context).pop();
+            },
+      onPopHome: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openPresetEditor(int slot) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            CareTimerPresetEditorPage(store: widget.store, initialSlot: slot),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  /// Switch On 직후, 펼쳐진 첫 actionable form block만 스크롤로 드러낸다.
+  /// Off / 자동 focus / 키보드 오픈은 하지 않는다. 전역 helper 아님.
+  void _revealTimerCustomerBindBlock() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_timerChartBindEnabled) return;
+      final root = _timerCustomerBindKey.currentContext;
+      if (root == null || !root.mounted) return;
+      final target =
+          _contextWithKey(root, const Key('home-timer-customer-add')) ?? root;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: 0.2,
+      );
+    });
+  }
+
+  BuildContext? _contextWithKey(BuildContext root, Key key) {
+    BuildContext? found;
+    void visitor(Element element) {
+      if (found != null) return;
+      if (element.widget.key == key) {
+        found = element;
+        return;
+      }
+      element.visitChildren(visitor);
+    }
+
+    root.visitChildElements(visitor);
+    return found;
+  }
+
+  Future<void> _pickTimerCustomer() async {
+    final picked = await showVisitCustomerPickerSheet(
+      context,
+      store: widget.store,
+      allowQuickCreate: true,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _timerChartBindEnabled = true;
+      _timerBoundCustomerId = picked.id;
+    });
+  }
+
+  Future<void> _handlePresetSelected(VisitSession session, int slot) async {
+    final timerStore = VisitTimerStore.instance;
+    timerStore.selectPresetSlot(slot);
+    if (timerStore.active == null ||
+        timerStore.active!.visitSessionId != session.id) {
+      await timerStore.startConsultation(
+        visitSessionId: session.id,
+        shopId: session.shopId,
+      );
+    }
+    await timerStore.bindPreset(presetSlot: slot);
+    if (!mounted) return;
+    setState(() {});
+    // 방문 세션 바인딩 후 탭 내 실행 — 풀스크린은 확대만.
+  }
+
+  Future<void> _handleCareEnd(VisitSession session) async {
+    await VisitTimerStore.instance.endCare();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _captureAfterPhoto(VisitSession session) async {
+    final customer = widget.store.findCustomer(session.customerId);
+    final chart = widget.store.chartForVisitSession(session);
+    if (customer == null || chart == null || !mounted) return;
+
+    final cameraSession = await SmartGuideCameraPage.open(
+      context,
+      shopId: widget.store.shop.id,
+      customerId: customer.id,
+      kind: GuideCameraKind.after,
+      ghostBeforeUrl: chart.beforeImageUrl,
+    );
+    // 세션에서 여러 장을 찍었어도 After로는 대표 한 장(거치본 우선)만 반영한다.
+    final result = cameraSession?.primary;
+    if (result == null || !mounted) return;
+
+    await widget.store.patchChartAfterImage(
+      chartId: chart.id,
+      afterImageUrl: result.url,
+    );
+    await VisitTimerStore.instance.markAfterPhotoCaptured();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('After 저장 완료'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() {});
+    }
+  }
+
+  Future<void> _endVisit(VisitSession session) async {
+    final pipeline = VisitEndPipeline(
+      store: widget.store,
+      visitStore: visit,
+      timerStore: VisitTimerStore.instance,
+    );
+    final result = await pipeline.run(session: session);
+    if (!mounted) return;
+
+    final chart = widget.store.chartForVisitSession(session);
+    final customer = chart != null
+        ? widget.store.findCustomer(chart.customerId)
+        : null;
+
+    if (result.hasReport) {
+      await VisitReportSendSheet.show(
+        context,
+        report: result.report!,
+        customerPhone: customer?.phone ?? '',
+        store: widget.store,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            chart?.afterImageUrl?.trim().isEmpty ?? true
+                ? '방문 종료 · 애프터 미촬영'
+                : '방문 종료 · 관리 리포트 저장',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    await _load(force: true);
+  }
+
+  // ── PRD v7.0 ③ B/A 캐러셀 ──────────────────────────────────────────
+
+  /// [session]이 null이면 좌측 고정 'B/A 촬영' 슬롯에서의 촬영이다.
+  ///
+  /// 세션 row는 **사진이 실제로 찍힌 뒤에만** 만든다. 예전처럼 카메라를 열기
+  /// 전에 만들어 두면 촬영을 취소할 때마다 빈 카드가 하나씩 쌓였다.
+  Future<void> _captureBaPhoto(BaCaptureSession? session, String kind) async {
+    if (_baBusy) return;
+    setState(() => _baBusy = true);
+    try {
+      final store = widget.store;
+      final pending = session ?? store.baPendingSession;
+      final token = pending?.sessionToken ?? store.reservePendingBaToken();
+      final isBefore = kind != 'after';
+
+      final cameraSession = await SmartGuideCameraPage.open(
+        context,
+        shopId: store.shop.id,
+        // public 버킷이므로 UUID 토큰 경로로 URL 추측을 어렵게 한다.
+        customerId: SoriStore.baDraftStorageSegment(token),
+        kind: isBefore ? GuideCameraKind.before : GuideCameraKind.after,
+        ghostBeforeUrl: isBefore ? null : pending?.ghostBeforeUrl,
+      );
+      // 취소 — 아무것도 만들지 않는다. 슬롯 증식의 원인이었다.
+      final result = cameraSession?.primary;
+      if (result == null || !mounted) return;
+
+      final photoKind = isBefore ? 'before' : 'after';
+      final saved = session == null
+          ? await store.captureIntoPendingBaSlot(
+              kind: photoKind,
+              imageUrl: result.url,
+            )
+          : await store.attachBaPhoto(
+              target: session,
+              kind: photoKind,
+              imageUrl: result.url,
+            );
+      if (!mounted) return;
+
+      // 헌법 3 — 촬영 직후 곧바로 고객 차트를 연결할 수 있어야 한다.
+      if (!saved.hasCustomer) {
+        setState(() => _baBusy = false);
+        await _bindBaSession(saved);
+        return;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _toast('촬영 저장 실패: ${_readableError(e)}', error: true);
+    } finally {
+      if (mounted) setState(() => _baBusy = false);
+    }
+  }
+
+  /// 원장님 화면에 PostgrestException 원문이 그대로 뜨면 대응할 방법이 없다.
+  String _readableError(Object e) =>
+      isMissingSchemaError(e) ? '서버 준비가 끝나지 않았습니다. 잠시 후 다시 시도해 주세요' : '$e';
+
+  Future<void> _deferBaSession(BaCaptureSession session) async {
+    try {
+      await widget.store.deferBaSession(session);
+    } catch (e) {
+      if (mounted) _toast('처리 실패: ${_readableError(e)}', error: true);
+    }
+  }
+
+  Future<void> _discardUnlinkedBaSession(BaCaptureSession session) async {
+    if (_baBusy) return;
+    final result = await widget.store.discardUnlinkedBaSession(session);
+    if (!mounted) return;
+    if (!result.discarded) {
+      _toast('사진을 삭제하지 못했어요. 다시 시도해 주세요.', error: true);
+    }
+  }
+
+  /// 고객 연결 — 고정 슬롯의 촬영본이 고객 이름 카드로 분리되는 순간이다.
+  ///
+  /// 헌법 3에 따라 전체 화면 피커가 아니라 바텀시트 검색으로 즉시 처리한다.
+  /// 두 장이 모두 모여 있었다면 그대로 🟢가 되어 관리 케이스 피드로 간다.
+  Future<void> _bindBaSession(BaCaptureSession session) async {
+    if (_baBusy) return;
+    final customer = await showVisitCustomerPickerSheet(
+      context,
+      store: widget.store,
+    );
+    if (customer == null || !mounted) return;
+
+    setState(() {
+      _baBusy = true;
+      _baTransferringId = session.id;
+    });
+    try {
+      final chart = await widget.store.bindBaSessionToChart(
+        target: session,
+        customerId: customer.id,
+      );
+      // 확정 애니메이션이 끝나는 시점에 맞춰 피드 최상단에 꽂는다.
+      await Future<void>.delayed(HomeVisualTokens.baTransferDuration);
+      if (!mounted) return;
+      if (chart.hasBeforeImage && chart.hasAfterImage) {
+        _casePager.prepend(chart);
+        _toast('${customer.name} · ${chart.visitNumber}회 케이스로 이관');
+      } else {
+        _toast('${customer.name} 고객에 연결했어요 · 나머지 한 장을 채워주세요');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _toast('고객 연결 실패: ${_readableError(e)}', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _baBusy = false;
+          _baTransferringId = null;
+        });
+      }
+    }
+  }
+
+  // ── PRD v7.0 ④ 관리 케이스 ─────────────────────────────────────────
+
+  Future<void> _toggleCaseBookmark(CustomerChart chart) async {
+    try {
+      await widget.store.toggleCaseBookmark(chart.id);
+      // 필터가 켜진 상태에서 해제하면 그 카드는 목록에서 빠져야 한다.
+      if (mounted && _caseBookmarkOnly) setState(_reloadCaseFeed);
+    } catch (e) {
+      if (mounted) _toast('보관함 처리 실패: $e', error: true);
+    }
+  }
+
+  Future<void> _hideCaseFromHome(CustomerChart chart) async {
+    await widget.store.hideManagementCaseFromHome(chart.id);
+    if (mounted) setState(_reloadCaseFeed);
+  }
+
+  /// 🟢 카드 탭 — 이관된 케이스를 뷰어로 연다.
+  ///
+  /// 차트를 못 찾으면(로컬 폴백 등) 뷰어 대신 피드의 해당 카드로 스크롤한다.
+  Future<void> _openBaSession(BaCaptureSession session) async {
+    final chartId = session.chartId?.trim() ?? '';
+    if (chartId.isEmpty) return;
+
+    final chart = widget.store.findChartById(chartId);
+    if (chart != null) {
+      await _openCaseCompare(chart);
+      return;
+    }
+    _focusCaseInFeed(chartId);
+  }
+
+  /// 피드에 이미 로드된 케이스라면 그 위치로 스크롤해 준다.
+  void _focusCaseInFeed(String chartId) {
+    final index = _casePager.items.indexWhere((c) => c.id == chartId);
+    if (index < 0 || !_feedScroll.hasClients) return;
+    final target =
+        (_feedScroll.position.maxScrollExtent *
+                (index / _casePager.items.length))
+            .clamp(0.0, _feedScroll.position.maxScrollExtent);
+    _feedScroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _openCaseCompare(CustomerChart chart) async {
+    final customer = widget.store.findCustomer(chart.customerId);
+    await openBeforeAfterComparePage(
+      context: context,
+      customerName: customer?.name ?? '고객',
+      charts: widget.store.chartsForCustomer(chart.customerId),
+      initialChartId: chart.id,
+      initialCareName: chart.careName,
+      customerId: chart.customerId,
+      store: widget.store,
+    );
+  }
+
+  void _startCareFromSchedule(CareScheduleEntry entry) {
+    unawaited(
+      CareStartFromSchedule.begin(
+        context: context,
+        store: widget.store,
+        entry: entry,
+      ),
+    );
+  }
+
+  void _onNextScheduleTap() {
+    final next = HomeSchedulerStrip.nextEntry(widget.store);
+    if (next != null && (next.customerId?.trim().isNotEmpty ?? false)) {
+      _startCareFromSchedule(next);
+      return;
+    }
+    if (next == null) {
+      unawaited(_startReturningCustomerFlow());
+      return;
+    }
+    _openSchedulerSheet();
+  }
+
+  void _openSchedulerSheet() {
+    final entries = HomeSchedulerStrip.todayEntries(widget.store);
+    unawaited(
+      showSoriSolidBottomSheet<void>(
+        context: context,
+        builder: (ctx) => SoriSheetFrame(
+          // clearance = scroll content bottom padding (not outer margin).
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            16 + kSoriFloatingNavClearance,
+          ),
+          child: _SchedulerSheet(
+            entries: entries,
+            onSelect: (entry) {
+              Navigator.of(ctx).pop();
+              _startCareFromSchedule(entry);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toast(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: error ? SoriTokens.systemRed : SoriTokens.primary,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final careRunning = VisitTimerStore.instance.isCareRunning;
+
+    return ColoredBox(
+      color: _groupedBg,
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              SoriStageFolderTabs(
+                controller: _tabs,
+                labels: _kHomeStageLabels,
+                minWidths: _kHomeStageMinWidths,
+                dotIndex: careRunning ? HomeTab.timer.index : null,
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : TabBarView(
+                        controller: _tabs,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          _buildMyFeed(),
+                          ChartWorkspacePage(store: widget.store),
+                          ProgramPane(store: widget.store),
+                          _buildTimerPane(careRunning),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+          if (_homeCtrl.calculatorOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedSlide(
+                offset: _homeCtrl.calculatorOpen
+                    ? Offset.zero
+                    : const Offset(0, 1),
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                child: const QuickCalculatorSheet(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMyFeed() {
+    final drafts = widget.store.baCarouselSessions;
+    final cases = _casePager.items;
+
+    return RefreshIndicator(
+      color: SoriTokens.primary,
+      onRefresh: () => _load(force: true),
+      child: CustomScrollView(
+        controller: _feedScroll,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: HomeQuickActionRow(
+                onNewCustomer: _startNewCustomerFlow,
+                onReturningCustomer: _startReturningCustomerFlow,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: BaCaptureCarousel(
+              sessions: drafts,
+              pending: widget.store.baPendingSession,
+              incompleteCount: widget.store.baIncompleteCount,
+              transferringId: _baTransferringId,
+              offlineDraft: !widget.store.baRemoteReady,
+              onCapture: _captureBaPhoto,
+              onBind: _bindBaSession,
+              onDefer: _deferBaSession,
+              onOpen: (s) => unawaited(_openBaSession(s)),
+              onDiscard: _discardUnlinkedBaSession,
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: _CaseFeedHeader(
+              bookmarkOnly: _caseBookmarkOnly,
+              onToggleBookmark: _toggleCaseBookmarkFilter,
+            ),
+          ),
+          if (cases.isEmpty)
+            SliverToBoxAdapter(
+              child: _EmptyCaseFeed(bookmarkOnly: _caseBookmarkOnly),
+            )
+          else
+            SliverList.builder(
+              itemCount: cases.length,
+              itemBuilder: (context, index) {
+                final chart = cases[index];
+                return ManagementCaseCard(
+                  key: ValueKey(chart.id),
+                  chart: chart,
+                  bookmarked: widget.store.isChartBookmarked(chart.id),
+                  onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
+                  onExpand: () => unawaited(_openCaseCompare(chart)),
+                  onHideFromHome: () => unawaited(_hideCaseFromHome(chart)),
+                );
+              },
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 48)),
+        ],
+      ),
+    );
+  }
+
+  /// Timer 탭 Standby — 툴박스 + 플립시계/컨트롤/칩 + 프리셋 + 고객 차트 연결.
+  Widget _buildTimerPane(bool careRunning) {
+    final snap = _agendaSnapshot();
+    final heroSession =
+        snap.activeSessions.firstOrNull ?? widget.store.activeVisitSession;
+    final boundCustomer = _timerBoundCustomerId == null
+        ? null
+        : widget.store.findCustomer(_timerBoundCustomerId!);
+
+    return RefreshIndicator(
+      color: SoriTokens.primary,
+      onRefresh: () => _load(force: true),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 720;
+          final body = CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: ListenableBuilder(
+                  listenable: _homeCtrl,
+                  builder: (context, _) => HomeToolboxRow(
+                    controller: _homeCtrl,
+                    careRunning: careRunning,
+                    climate: _climate,
+                    onTimerTap: _resetTimerToolbox,
+                    onWeatherTap: () => _openClinicalSheet(),
+                  ),
+                ),
+              ),
+              if (_homeCtrl.activeTool == HomeToolboxTool.count)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Material(
+                      key: const Key('timer-count-overlay'),
+                      color: HomeVisualTokens.heroCardFill,
+                      borderRadius: BorderRadius.circular(
+                        HomeVisualTokens.heroCardRadius,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              '카운트',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF8E8E93),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            CountdownFlipZone(controller: _homeCtrl),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: HomeTimerStage(
+                  onExpandFullscreen: () =>
+                      unawaited(_openFullscreenGlance(session: heroSession)),
+                  onCareStart: () => unawaited(_openCareStart()),
+                  onCareEnd: () => unawaited(_endCareInTab()),
+                  onOpenPresetEditor: (slot) =>
+                      unawaited(_openPresetEditor(slot)),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: HomeTimerCustomerBind(
+                  key: _timerCustomerBindKey,
+                  store: widget.store,
+                  enabled: _timerChartBindEnabled,
+                  customer: boundCustomer,
+                  onEnabledChanged: (v) {
+                    setState(() {
+                      _timerChartBindEnabled = v;
+                      if (!v) _timerBoundCustomerId = null;
+                    });
+                    if (v) _revealTimerCustomerBindBlock();
+                  },
+                  onPickCustomer: () => unawaited(_pickTimerCustomer()),
+                  onClear: () {
+                    setState(() => _timerBoundCustomerId = null);
+                  },
+                ),
+              ),
+              SliverToBoxAdapter(
+                key: const Key('home-timer-scroll-bottom-inset'),
+                child: SizedBox(
+                  height: SoriShellInsets.scrollBottomInset(context),
+                ),
+              ),
+            ],
+          );
+          if (!wide) return body;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: body,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CaseFeedHeader extends StatelessWidget {
+  const _CaseFeedHeader({
+    required this.bookmarkOnly,
+    required this.onToggleBookmark,
+  });
+
+  final bool bookmarkOnly;
+  final VoidCallback onToggleBookmark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 22, 8, 10),
+      child: Row(
+        children: [
+          const Text(
+            '관리 케이스',
+            style: TextStyle(
+              fontSize: HomeVisualTokens.sectionLabelSize,
+              fontWeight: FontWeight.w700,
+              color: HomeVisualTokens.sectionLabelColor,
+            ),
+          ),
+          if (bookmarkOnly) ...[
+            const SizedBox(width: 8),
+            const Text(
+              '즐겨찾기만',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: SoriTokens.brand,
+              ),
+            ),
+          ],
+          const Spacer(),
+          IconButton(
+            onPressed: onToggleBookmark,
+            visualDensity: VisualDensity.compact,
+            tooltip: bookmarkOnly ? '전체 케이스 보기' : '즐겨찾기한 케이스만 보기',
+            icon: Icon(
+              bookmarkOnly
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
+              size: 20,
+              color: bookmarkOnly
+                  ? SoriTokens.brand
+                  : HomeVisualTokens.dateIconColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyCaseFeed extends StatelessWidget {
+  const _EmptyCaseFeed({required this.bookmarkOnly});
+
+  final bool bookmarkOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+      child: Column(
+        children: [
+          Icon(
+            bookmarkOnly
+                ? Icons.bookmark_border_rounded
+                : Icons.photo_library_outlined,
+            size: 30,
+            color: HomeVisualTokens.dateIconColor,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            bookmarkOnly ? '즐겨찾기한 케이스가 없습니다' : '완성된 B/A 케이스가 아직 없습니다',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: HomeVisualTokens.dateTextColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            bookmarkOnly
+                ? '카드 우측 상단 책갈피를 눌러 상담용 레퍼런스를 모아 두세요'
+                : '위 전·후 등록에서 사진을 찍고 고객에 연결해 보세요',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: HomeVisualTokens.dateIconColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SchedulerSheet extends StatelessWidget {
+  const _SchedulerSheet({required this.entries, required this.onSelect});
+
+  final List<CareScheduleEntry> entries;
+  final ValueChanged<CareScheduleEntry> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '오늘 일정',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        if (entries.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              '등록된 일정이 없습니다',
+              style: TextStyle(
+                fontSize: 13,
+                color: HomeVisualTokens.dateIconColor,
+              ),
+            ),
+          )
+        else
+          ...entries.map(
+            (e) => InkWell(
+              key: Key('home-today-sheet-row-${e.id}'),
+              onTap: () => onSelect(e),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: HomeVisualTokens.memoDotSize,
+                      height: HomeVisualTokens.memoDotSize,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: HomeVisualTokens.memoActiveFill,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        HomeSchedulerStrip.labelFor(e),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (e.note.trim().isNotEmpty)
+                      Flexible(
+                        child: Text(
+                          e.note.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: HomeVisualTokens.dateIconColor,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '시작',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: HomeVisualTokens.careGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

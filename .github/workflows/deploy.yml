@@ -1,0 +1,109 @@
+name: Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Prepare env asset
+        run: |
+          if [ ! -f .env ]; then cp .env.example .env; fi
+
+      - name: Verify Supabase secrets present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY secrets are missing"
+            exit 1
+          fi
+          echo "Supabase secrets detected (values not printed)."
+          echo "URL host: $(echo "$SUPABASE_URL" | sed -E 's#https?://([^/]+).*#\1#')"
+
+      - name: Build Web
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAPTILER_API_KEY: ${{ secrets.MAPTILER_API_KEY }}
+          SITE_URL: https://white-miner.github.io/SORI/
+        run: |
+          DEFINES=(
+            --dart-define="SUPABASE_URL=${SUPABASE_URL}"
+            --dart-define="SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
+            --dart-define="SITE_URL=${SITE_URL}"
+            --dart-define="SORI_ASSET_V=${{ github.run_number }}"
+          )
+          if [ -n "$OPENAI_API_KEY" ]; then
+            DEFINES+=(--dart-define="OPENAI_API_KEY=${OPENAI_API_KEY}")
+          fi
+          if [ -n "$MAPTILER_API_KEY" ]; then
+            DEFINES+=(--dart-define="MAPTILER_API_KEY=${MAPTILER_API_KEY}")
+            echo "MapTiler key present for C.S1 Pastel basemap (value not printed)."
+          else
+            echo "::warning::MAPTILER_API_KEY secret missing — region map falls back to OSM."
+          fi
+          flutter build web --release --base-href "/SORI/" \
+            --build-name="1.0.0" \
+            --build-number="${{ github.run_number }}" \
+            "${DEFINES[@]}"
+
+      # index.html / 404.html — SORI_BUILD_ID → CI run number (cache bust)
+      - name: Bust web shell cache
+        run: |
+          BUILD="${{ github.run_number }}"
+          for f in build/web/index.html build/web/404.html; do
+            if [ -f "$f" ]; then
+              sed -i "s/SORI_BUILD_ID/${BUILD}/g" "$f"
+            fi
+          done
+          echo "Cache bust applied: build=${BUILD}"
+          grep -n "sori-build\|flutter_bootstrap" build/web/index.html | head -20
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './build/web'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

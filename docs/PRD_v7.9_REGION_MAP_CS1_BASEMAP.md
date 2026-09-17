@@ -1,0 +1,220 @@
+# SORI — C.S1 Local Bloom 후보 비교 · 렌더링 검수
+
+**Status:** A 채택 철회 · **SORI Local Bloom** · 운영 OSM · 우선 **D Streets Pastel** · C.S2 = Local Bloom 커스텀  
+**비교 로그 SSOT:** `PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`  
+**상위 문서:** `docs/PRD_v7.9_REGION_MAP_UPGRADE.md`  
+**작성:** 2026-09-11 · PO 방향 수정 동시
+
+---
+
+## 0. 목표
+
+C.S1은 타일 URL 교체가 아니라 **예쁜 도시 결 위에서 글·세미나 marker / cluster / Peek가 먼저 읽히는 Local Bloom 베이스맵 1개 선정**이다.
+
+```
+기존 Quiet Local (A) → 저채도 SaaS → 생동감 부족 → 채택 철회
+Local Bloom → 컬러 도시 캔버스 + marker 2색 → sheet는 웜 뉴트럴
+경로: D Streets Pastel 검수 → (채택 시) 운영 → C.S2 커스텀 E
+```
+
+| 검수 질문 | 통과 |
+|-----------|------|
+| 3초: 동네가 살아 있음 | 물·공원·도로·블록이 읽힘 |
+| 1초: SORI 마커 발견 | 베이스맵보다 marker 우선 |
+| 색감 피로도 | 컬러가 marker·sheet를 압도하지 않음 |
+| 지도↔sheet | 웜 sheet ↔ 컬러 지도가 한 제품 |
+| OSM·종이 / BI 대시보드 | 있으면 **감점·탈락 후보** |
+| 핑크 필터·위성 기본 | 있으면 **탈락** |
+| Web 안정 | HTTPS·CORS·Origins·attribution·키 정책 |
+
+**분업:** Cursor = 동일 fixture 렌더·비교표·기술 결과 · PO = 스크린샷 미감 선택 · **PO 선택 전 운영 tile URL 교체 금지.**
+
+**부채:** 현재 코드에 Carto `light_all`이 들어가 있음 → C.S1 완료 전 **임시**. 본 문서 후보와 다르면 C.S1에서 재선정·교체.
+
+---
+
+## 1. 동일 조건 Fixture (필수)
+
+```
+고정 지역: 상권·주거 혼합 1 · 마커 밀도 높음 1 · 콘텐츠 적음 1
+고정 카메라: lat/lng·zoom 동일 · bearing=0 · pitch=0
+고정 UI: 글4 · 세미나2 · cluster1 · selected1 · Peek1 · GPS/저장함2 · 동일 기기 프레임
+```
+
+| 장면 | 목적 |
+|------|------|
+| A. 마커 없음 | 베이스맵 소음 |
+| B. 저줌 + cluster | cluster 대비 |
+| C. 중줌 + 마커 6 | 유형·밀도 |
+| D. 선택 + Peek | 위계 |
+| E. Half + 필터3 | sheet 밀도 |
+| F. 주소 없음 빈 상태 | CTA 자연스러움 |
+| G. Flutter Web 실배포 | CORS·Referer·attribution |
+
+---
+
+## 2. 후보 (Local Bloom · A 철회 후)
+
+| ID | 후보 | 방식 | 수정 판단 |
+|----|------|------|-----------|
+| **0** | OSM Standard | 현행/기준선 | **임시 운영** · 기능 기준선 |
+| **D** | MapTiler Streets Pastel | 파스텔 도시 래스터 | **1순위** · Local Bloom 방향 |
+| **B** | MapTiler Base Light | 래스터/벡터 | 비교 유지 · C.S2 확장 |
+| **A** | Stadia Alidade Smooth | 라이트 래스터 XYZ | **채택 철회·보류** · 저채도 SaaS감 |
+| **C** | MapTiler Dataviz Light | 라이트 스타일 | 보조 비교 · BI 인상 |
+| E | SORI Local Bloom 커스텀 | 커스텀 스타일 | **C.S2 최종 목표** |
+| T | Carto Light | 임시 | 비교만 · 비채택 |
+
+### 추천 비교 세트
+
+```
+0 OSM · D Streets Pastel · B Base Light · A Alidade Smooth · C Dataviz · T Carto
+```
+
+### URL 패턴 (비교용 · 키 하드코딩 금지)
+
+| 후보 | 예시 패턴 | 키 |
+|------|-----------|-----|
+| 0 OSM | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | 공개 · attribution 필수 |
+| D Pastel | `https://api.maptiler.com/maps/streets-v2-pastel/{z}/{x}/{y}.png?key=` | MAPTILER · Origins |
+| B/C MapTiler | basic-v2 / dataviz-light raster | 동일 |
+| A Stadia | `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png` | domain auth (키리스) |
+
+키는 Flutter Web 번들 **금지**(채택·도메인 제한 전). Attribution(공급자+OSM) 항상 노출.
+
+### 토큰 적합성 (Local Bloom · 초안)
+
+| SORI 목표 | D Pastel | B Base | A Smooth | C Dataviz |
+|-----------|:--------:|:------:|:--------:|:---------:|
+| 도시 생동감 | 높음 | 중~높 | 낮음 | 중간 |
+| 색감 피로도(낮을수록 좋음) | 중 | 중 | 낮음 | 중~높 |
+| POI 최소화 | 중 | 중간 | 높음 | 높음 |
+| marker 대비 | 중~높 | 높음 | 높음 | 매우 높음 |
+| sheet 조화 | 높음 | 중~높 | 높음 | 중간 |
+| 길·동네 인지 | 높음 | 중~높 | 중간 | 중간 |
+| BI 느낌 회피 | 높음 | 높음 | 중간 | 낮음 |
+| C.S2 Local Bloom 확장 | 중간(출발점) | 높음 | 낮음 | 중간 |
+
+---
+
+## 3. 렌더링 검수표
+
+### 3.1 시각 위계 (1–5 · 합격 ≥4)
+
+| 항목 | 1 | 3 | 5 |
+|------|---|---|---|
+| Marker 우선성 | 라벨에 묻힘 | 탐색 필요 | 첫 시선 |
+| Cluster 가독 | 숫자 불가 | 경쟁 | 즉시 |
+| 선택 상태 | 차이 없음 | ring | 명확·과장 없음 |
+| Sheet 조화 | 이질 | 무난 | 한 surface |
+| GPS/저장함 | 묻힘 | 보통 | 작지만 명확 |
+| 정보 밀도 | POI 과다 | 일부 과다 | 길·공원·지명만 |
+
+### 3.2 공간·탐색
+
+| 항목 | 합격 |
+|------|------|
+| 3초 지역 인지 | 대략 동네/지명 |
+| 1초 마커 ≥1 | 찾음 |
+| 글/세미나 구분 | 색+아이콘/형태 |
+| cluster 탭 | bounds 확대 자연 |
+| pan/zoom | 깜빡임 과다 없음 |
+| Peek | ring ↔ sheet 제목 일치 |
+| Peek→Half | PillNav·control 위계 유지 |
+| 필터 | 중심 유지 · marker만 갱신 |
+
+### 3.3 미학 탈락 (1개라도 → 탈락/수정)
+
+- OSM·종이·행정 지도 느낌 강함  
+- 외부 POI > SORI marker  
+- 베이스 라벨 > Peek 제목  
+- ColorFilter/베이지/핑크 overlay로 탁함  
+- 의미색 3개 이상 · 그라데이션/3D cluster · 광고형 마커  
+- 무채색 과다로 도로·물·공원 구분 실패  
+- 지도↔sheet 다른 브랜드감  
+- 타일 로딩·저작권·CORS 불안정  
+
+### 3.4 기술·운영 (전부 통과)
+
+HTTPS · tile 200 · CORS · Referer · 키 비하드코딩 · Edge/domain · attribution · Peek↔Half 중 **타일 재요청 0** · 캐시 · 약관 · 타일 실패≠중심 null · GPS 이력 비저장.
+
+---
+
+## 4. 비교 절차
+
+### Cursor 산출물
+
+- 후보 0/A/B/C × 장면(최소: 무마커 · 저줌 cluster · 중줌 6 · Peek · Half+필터)  
+- 동일 viewport/DPR/지역/줌  
+- tile URL · attribution · key 여부 · CORS · 타일 수 · sheet drag network 0건  
+- 장단점·탈락/보류 표  
+- **운영 main tile 교체 없음** (preview branch만)
+
+### PO 순서
+
+1 무마커 3초 → 2 cluster → 3 marker 6 → 4 Peek → 5 Half+필터 → 6 느린망/실패 → 7 점수표 → 8 **1후보 잠금**
+
+### 채택 규칙
+
+```
+시각 평균 ≥ 4.0
+AND Marker 우선성 · Cluster 가독 · Sheet 조화 · 정보 밀도 각각 ≥ 4
+AND 기술 필수 전부 Yes (HTTPS·Tile200·CORS·Origin/Referer·Attribution·Key restriction·Drag network 0·약관)
+AND 탈락 체크 0개
+→ C.S1 채택
+
+동점: marker/cluster 대비 → POI 최소화 → Web 안정 → 비용·약관 단순 → C.S2 확장성
+```
+
+상세 점수 정의·탈락 체크·PO 순서·결정 문구 → **`docs/PRD_v7.9_REGION_MAP_CS1_COMPARE_LOG.md`**.
+
+> 타일이 로드된다 ≠ 통과. 디자인 QA 문서의 채택 조건을 만족해야 운영 URL을 교체한다.
+
+---
+
+## 5. Cursor 브리프 (복붙)
+
+```md
+# SORI C.S1 Local Bloom 후보 비교
+
+목적: 무채색 Quiet Local이 아니라, 예쁜 도시 캔버스 위에서
+글·세미나 marker + Peek가 먼저 읽히는 베이스맵 1개 선정.
+
+후보: 0 OSM | D Streets Pastel | B Base Light | A Alidade Smooth | C Dataviz | T Carto
+우선: D Pastel · 운영 기본은 OSM(재채택 전)
+
+Fixture: 동일 lat/lng/zoom · 글4 · 세미나2 · cluster1 · selected1 · Peek · GPS/저장함
+
+각 후보: 무마커 / 저줌+cluster / 중줌+6 / selected+Peek / Half+필터
+점수: Marker·Cluster·Sheet·밀도 + 도시 생동감·색감 피로도 (≥4)
+
+금지: 지도 ColorFilter · 베이지/핑크 overlay · 위성 기본 · 마커 5색 · cluster 그라데이션 · SDK 교체 · 키 하드코딩
+제출: URL·attribution·key·CORS 표 + 점수. PO 선택 전 운영 tile 교체 금지.
+```
+
+---
+
+## 6. 최종 권고 (방향 잠금 · 채택은 검수 후)
+
+| 순위 | 후보 |
+|-----:|------|
+| 1 | **MapTiler Streets Pastel (D)** |
+| 2 | MapTiler Base Light (B) |
+| 보류 | Stadia Alidade Smooth (A) — 채택 철회 |
+| 보조 | MapTiler Dataviz Light (C) |
+| 임시 운영 | OSM Standard (재채택 전) |
+| 최종 목표 | E SORI Local Bloom 커스텀 (C.S2) |
+
+최종은 예시 이미지가 아니라 **SORI fixture 실렌더**로만 결정한다.  
+채택 기준 = 지도만 예쁜가 ❌ · **생동감 + marker·cluster·sheet가 함께 읽히는가** ✅.
+
+---
+
+## 7. 변경 로그
+
+| 날짜 | 내용 |
+|------|------|
+| 2026-09-11 | C.S1 후보·검수표·절차·브리프 잠금 · 운영 URL 사전 교체 금지 · Carto=임시 부채 |
+| 2026-09-11 | 채택 조건 강화(핵심4≥4) · COMPARE_LOG를 PO 검수 SSOT로 연결 |
+| 2026-09-11 | COMPARE_LOG Ready · tile 정상/비정상 · fixture 보호 · T N/A · a11y · 교차 검수 |
+| 2026-09-11 | **A 철회** · Local Bloom · D Pastel 1순위 · 운영 OSM |

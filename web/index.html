@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="소통하는 리뷰, SORI — 에스테틱 케어 리포트와 AI 리뷰 작성">
+  <meta name="theme-color" content="#FFFFFF">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="sori-build" content="SORI_BUILD_ID">
+
+  <!-- PWA / Android Chrome -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="SORI CRM">
+
+  <!-- iOS Safari 홈 화면 추가 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="SORI">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+
+  <link rel="icon" type="image/png" href="favicon.png?v=2"/>
+
+  <title>소통하는 리뷰, SORI</title>
+  <link rel="manifest" href="manifest.json?v=SORI_BUILD_ID">
+
+  <script>
+    var dartPdfJsBaseUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  </script>
+
+  <style>
+    /*
+      100%만 쓰면 모바일 주소창·하단 탭바가 100vh에 포함되어
+      Flutter 캔버스 아래가 브라우저 UI 뒤에 가려진다. 100dvh가 실제 보이는 높이다.
+    */
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000000;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    flt-glass-pane,
+    flutter-view {
+      height: 100%;
+      height: 100dvh;
+      width: 100%;
+    }
+    /* Modal barrier glass pane must not steal pointer events (iPad/tablet offset). */
+    flt-glass-pane {
+      pointer-events: none !important;
+    }
+    /*
+      Flutter Web uses offsetX/Y relative to event.target. When
+      flt-text-editing-host or HtmlElementView slots become the target,
+      coordinates jump and hit-testing misses painted widgets
+      (flutter/flutter#184524, #125948). Camera is the only platform view
+      and is non-interactive — safe to ignore pointer events here.
+    */
+    flt-text-editing-host,
+    flt-text-editing-host *,
+    flt-platform-view,
+    flt-platform-view-slot {
+      pointer-events: none !important;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    (function () {
+      var meta = document.querySelector('meta[name="sori-build"]');
+      var build = meta && meta.getAttribute('content');
+      if (!build) return;
+      var key = 'sori_web_build_v1';
+      var prev = null;
+      try { prev = localStorage.getItem(key); } catch (_) {}
+      function remember() {
+        try { localStorage.setItem(key, build); } catch (_) {}
+      }
+      if (!prev) { remember(); return; }
+      if (prev === build) return;
+      var finish = function () {
+        remember();
+        var u = new URL(window.location.href);
+        u.searchParams.set('_sb', build);
+        window.location.replace(u.toString());
+      };
+      var p = Promise.resolve();
+      if ('serviceWorker' in navigator) {
+        p = navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        });
+      }
+      p.then(function () {
+        if (!window.caches || !caches.keys) return;
+        return caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        });
+      }).then(finish).catch(finish);
+    })();
+  </script>
+  <script>
+    /*
+      visualViewport는 주소창이 접히거나 회전한 뒤의 실제 높이다.
+      회전 직후 첫 프레임이 옛 높이에 남으면 히트 영역이 어긋난다.
+    */
+    (function () {
+      function syncVisibleHeight() {
+        var vv = window.visualViewport;
+        if (!vv) return;
+        var h = Math.round(vv.height) + 'px';
+        document.documentElement.style.height = h;
+        document.body.style.height = h;
+      }
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncVisibleHeight);
+        window.visualViewport.addEventListener('scroll', syncVisibleHeight);
+      }
+      window.addEventListener('orientationchange', function () {
+        setTimeout(syncVisibleHeight, 80);
+        setTimeout(syncVisibleHeight, 320);
+      });
+      syncVisibleHeight();
+    })();
+  </script>
+  <script>
+    /* Keep late-mounted text hosts / platform slots from stealing pointer targets */
+    (function () {
+      var SEL = 'flt-text-editing-host,flt-platform-view,flt-platform-view-slot';
+      function harden(node) {
+        if (!node || node.nodeType !== 1) return;
+        if (node.matches && node.matches(SEL)) {
+          node.style.setProperty('pointer-events', 'none', 'important');
+        }
+        if (node.querySelectorAll) {
+          node.querySelectorAll(SEL).forEach(function (el) {
+            el.style.setProperty('pointer-events', 'none', 'important');
+          });
+        }
+      }
+      harden(document.documentElement);
+      new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+          var nodes = records[i].addedNodes;
+          for (var j = 0; j < nodes.length; j++) harden(nodes[j]);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    })();
+  </script>
+  <script src="flutter_bootstrap.js?v=SORI_BUILD_ID" async></script>
+</body>
+</html>

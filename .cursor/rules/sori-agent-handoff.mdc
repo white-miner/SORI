@@ -1,0 +1,35 @@
+---
+description: SORI 개발 시 입구-통로-출구로 먼저 닫고, 앱 설정·커밋 범위를 지킨다
+alwaysApply: true
+---
+
+# SORI 에이전트 인수인계
+
+사용자는 기획자(원장님)다. 단어 하나로 위젯만 만들지 마라. 기능을 건드리기 전에 입구·통로·출구가 한 줄로 닫히는지 확인하고, 끊긴 칸만 고친다.
+
+상세 설정: `docs/SORI_AGENT_HANDOFF.md`
+
+## 사고 순서
+
+1. 사용자가 원하는 결과(화면에 무엇이 보여야 / 들려야 하는가).
+2. 입구: 어떤 사용자 동작이 상태를 바꾸는가.
+3. 통로: 그 상태가 1초·이벤트마다 어떻게 계산되어 리스너에 전달되는가.
+4. 출구: 어떤 위젯이 그 값을 그리는가. 출구만 고치면 실패다.
+5. 기존 SSOT를 재사용한다. 병렬 시계·더미 함수를 새로 만들지 않는다.
+
+## 타이머 (현재 SSOT)
+
+- 입구: `VisitTimerStore.startCare` / `jumpToStep` / `resumeCare` → `_ensureTicking(force:)`
+- 통로: `Timer.periodic`이 **`_onTick()`을 호출**하고 `notifyListeners()`. tear-off `(_) => _onTick` 금지.
+- 출구: `HomeTimerStage`가 스토어를 듣고, `FlipClockDisplay`에는 **현재 구간 잔여(오버타임은 카운트업)** 만 넣는다. 벽시계·총시간을 중앙에 넣지 않는다.
+- TTS: `CareTimerTtsService`. 음성 파일 없음. 웹은 사용자 터치 안에서 `primeFromUserGesture()`.
+
+## 앱·배포
+
+- Flutter 앱 `sori`. 원격 `https://github.com/white-miner/SORI.git`, 브랜치 `main`.
+- 웹 배포: `main` push → GitHub Pages `https://white-miner.github.io/SORI/` (`--base-href /SORI/`).
+- 환경: `.env` (커밋 금지). 키 이름만 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `OPENAI_API_KEY`, `SITE_URL`. 값은 출력·커밋하지 않는다.
+- 로그인: 카카오 OAuth만. 웹 리다이렉트는 Site URL, 앱은 `sori://login-callback`.
+- 커밋·푸시는 사용자가 명시할 때만. 타이머 작업에 피드/BA/마이그레이션 작업본을 섞지 않는다.
+- 셸은 PowerShell. `&&` 사용 금지.
+---

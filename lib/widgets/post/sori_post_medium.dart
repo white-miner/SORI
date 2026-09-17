@@ -1,0 +1,142 @@
+import 'package:flutter/material.dart';
+
+import '../../models/post_engagement_bindings.dart';
+import '../../services/sori_store.dart';
+import '../../theme/sori_tokens.dart';
+import '../../utils/post_navigation.dart';
+import '../../widgets/sori_glass_surface.dart';
+import 'post_engagement_action_row.dart';
+import 'post_action_row.dart';
+import 'post_ai_content.dart';
+import 'post_header.dart';
+import 'post_media_section.dart';
+import 'post_read_more_link.dart';
+import 'post_view_data.dart';
+
+/// Tier B — home central feed (visual-first, 2-line caption).
+class SoriPostMedium extends StatelessWidget {
+  const SoriPostMedium({
+    super.key,
+    required this.data,
+    required this.store,
+    this.liked = false,
+    this.bookmarked = false,
+    this.onLike,
+    this.onComment,
+    this.onBookmark,
+    this.onMentoring,
+    this.onBoost,
+    this.onShopProfile,
+    this.engagement,
+    this.glanceMode = false,
+  });
+
+  final PostViewData data;
+  final SoriStore store;
+  final bool liked;
+  final bool bookmarked;
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onBookmark;
+  final VoidCallback? onMentoring;
+  final VoidCallback? onBoost;
+  final VoidCallback? onShopProfile;
+  final PostEngagementBindings? engagement;
+
+  /// Home surface — view CTA only; no like/comment/boost primary row.
+  final bool glanceMode;
+
+  void _openOriginal(BuildContext context) {
+    openPostOriginal(context, data: data, store: store);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SoriGlassSurface(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      borderRadius: BorderRadius.circular(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PostHeader(
+            data: data,
+            store: store,
+            onAvatarTap: onShopProfile,
+          ),
+          if (data.bodyText.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: _MediumCaption(
+                text: data.bodyText,
+                onReadMore: () => _openOriginal(context),
+              ),
+            ),
+          PostAiContent(data: data),
+          PostMediaSection(
+            slides: data.mediaSlides,
+            heroTag: data.heroTag,
+            onOpenDetail: () => _openOriginal(context),
+          ),
+          if (glanceMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => _openOriginal(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SoriTokens.brand,
+                    minimumSize: const Size(48, 40),
+                  ),
+                  child: const Text(
+                    '게시물 보기',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            )
+          else if (engagement != null)
+            PostEngagementActionRow(bindings: engagement!)
+          else
+            PostActionRow(
+              liked: liked,
+              bookmarked: bookmarked,
+              likeCount: data.likeCount,
+              commentCount: data.commentCount,
+              mentoringActive: data.hasActiveMentoring,
+              isBoosted: data.isBoosted,
+              onLike: onLike ?? () {},
+              onComment: onComment ?? () => _openOriginal(context),
+              onBookmark: onBookmark ?? () {},
+              onMentoring: onMentoring ?? () {},
+              onBoost: onBoost ?? () {},
+              onMentoringLongPress: () => _openOriginal(context),
+              onBoostLongPress: () => _openOriginal(context),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediumCaption extends StatelessWidget {
+  const _MediumCaption({required this.text, required this.onReadMore});
+
+  final String text;
+  final VoidCallback onReadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return PostTruncatedCaption(
+      text: text,
+      maxLines: 2,
+      onReadMore: onReadMore,
+      bodyStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.35,
+        color: SoriTokens.textPrimary,
+      ),
+    );
+  }
+}

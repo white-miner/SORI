@@ -1,0 +1,716 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../models/customer.dart';
+import '../models/customer_chart.dart';
+import '../routing/sori_router.dart';
+import '../services/sori_store.dart';
+import '../theme/sori_date_picker.dart';
+import '../theme/sori_tokens.dart';
+import 'consent_pdf_preview_sheet.dart';
+import 'quick_consent_sheet.dart';
+
+/// 고객 상세 정보 / 수정 — `/customer/:id/profile`
+class CustomerProfilePage extends StatefulWidget {
+  const CustomerProfilePage({
+    super.key,
+    required this.store,
+    required this.customerId,
+  });
+
+  final SoriStore store;
+  final String customerId;
+
+  @override
+  State<CustomerProfilePage> createState() => _CustomerProfilePageState();
+}
+
+class _CustomerProfilePageState extends State<CustomerProfilePage> {
+  late final TextEditingController _name;
+  late final TextEditingController _phone;
+  late final TextEditingController _address;
+  late final TextEditingController _occupation;
+  late final TextEditingController _memo;
+  CustomerGender? _gender;
+  DateTime? _birthDate;
+  var _saving = false;
+  var _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.store.findCustomer(widget.customerId);
+    _name = TextEditingController(text: c?.name ?? '');
+    _phone = TextEditingController(text: c?.phone ?? '');
+    _address = TextEditingController(text: c?.address ?? '');
+    _occupation = TextEditingController(text: c?.occupation ?? '');
+    _memo = TextEditingController(text: c?.memo ?? '');
+    _gender = c?.gender;
+    _birthDate = c?.birthDate;
+    widget.store.addListener(_onStore);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStore);
+    _name.dispose();
+    _phone.dispose();
+    _address.dispose();
+    _occupation.dispose();
+    _memo.dispose();
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  Customer? get _customer => widget.store.findCustomer(widget.customerId);
+
+  CustomerChart? get _latestChart =>
+      widget.store.latestChart(widget.customerId);
+
+  CustomerChart? get _consentChart =>
+      widget.store.latestSignedConsentChart(widget.customerId);
+
+  int? get _koreanAge {
+    final b = _birthDate;
+    if (b == null) return null;
+    final now = DateTime.now();
+    var age = now.year - b.year;
+    if (now.month < b.month ||
+        (now.month == b.month && now.day < b.day)) {
+      age -= 1;
+    }
+    return age < 0 ? null : age;
+  }
+
+  String _fmtDate(DateTime? d) {
+    if (d == null) return '미입력';
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickBirth() async {
+    if (!_isEditing) return;
+    final now = DateTime.now();
+    final picked = await SoriDatePickerTheme.show(
+      context: context,
+      initialDate: _birthDate ?? DateTime(now.year - 30),
+      firstDate: DateTime(1920),
+      lastDate: now,
+      helpText: '생년월일',
+    );
+    if (picked == null) return;
+    setState(() => _birthDate = picked);
+  }
+
+  Future<void> _openQuickConsent() async {
+    final customer = _customer;
+    if (customer == null) return;
+    final chart = await showQuickConsentSheet(
+      context: context,
+      store: widget.store,
+      customer: customer,
+    );
+    if (chart != null && mounted) setState(() {});
+  }
+
+  Future<void> _onAppBarAction() async {
+    if (_saving) return;
+    if (!_isEditing) {
+      setState(() => _isEditing = true);
+      return;
+    }
+    await _save();
+  }
+
+  Future<void> _call() async {
+    final digits = SoriStore.normalizePhone(_phone.text);
+    if (digits.length < 10) return;
+    await launchUrl(Uri.parse('tel:$digits'));
+  }
+
+  Future<void> _sms() async {
+    final digits = SoriStore.normalizePhone(_phone.text);
+    if (digits.length < 10) return;
+    await launchUrl(Uri.parse('sms:$digits'));
+  }
+
+  Future<void> _openPdf() async {
+    final customer = _customer;
+    final chart = _consentChart;
+    if (customer == null || chart == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('저장된 동의서 PDF가 없습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    await showConsentPdfPreviewModal(
+      context: context,
+      store: widget.store,
+      customer: customer,
+      chart: chart,
+    );
+  }
+
+  Future<void> _save() async {
+    final base = _customer;
+    if (base == null) return;
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('성함을 입력해 주세요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.store.saveCustomerProfile(
+        base.copyWith(
+          name: name,
+          phone: _phone.text.trim(),
+          address: _address.text.trim(),
+          occupation: _occupation.text.trim(),
+          memo: _memo.text.trim(),
+          gender: _gender,
+          birthDate: _birthDate,
+          clearGender: _gender == null,
+          clearBirthDate: _birthDate == null,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _isEditing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('고객 정보가 저장되었습니다.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: SoriTokens.primary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('저장 실패: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: SoriTokens.systemRed,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final customer = _customer;
+    if (customer == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('고객 상세'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppPaths.appCustomers);
+              }
+            },
+          ),
+        ),
+        body: const Center(child: Text('고객을 찾을 수 없습니다.')),
+      );
+    }
+
+    final chart = _latestChart;
+    final consent = _consentChart;
+    final until = SoriStore.consentValidUntil(consent);
+    final allergy = (chart?.allergyNotes.trim().isNotEmpty == true)
+        ? chart!.allergyNotes
+        : customer.allergyNotes;
+    final skin = (chart?.skinSensitivity.trim().isNotEmpty == true)
+        ? chart!.skinSensitivity
+        : customer.medicationHistory;
+    final side = (chart?.sideEffectHistory.trim().isNotEmpty == true)
+        ? chart!.sideEffectHistory
+        : customer.homeCareHabits;
+    final age = _koreanAge;
+
+    return Scaffold(
+      backgroundColor: SoriTokens.background,
+      appBar: AppBar(
+        title: const Text('고객 상세 정보'),
+        backgroundColor: SoriTokens.surface,
+        foregroundColor: SoriTokens.textPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppPaths.customerDetail(customer.id));
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _onAppBarAction,
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    _isEditing ? '저장' : '수정',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        children: [
+          _SectionCard(
+            title: '기본 인적사항',
+            child: Column(
+              children: [
+                TextField(
+                  controller: _name,
+                  readOnly: !_isEditing,
+                  decoration: InputDecoration(
+                    labelText: '성명',
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<CustomerGender?>(
+                        // ignore: deprecated_member_use
+                        value: _gender,
+                        decoration: InputDecoration(
+                          labelText: '성별',
+                          border: const OutlineInputBorder(),
+                          filled: !_isEditing,
+                          fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('미선택')),
+                          DropdownMenuItem(
+                            value: CustomerGender.female,
+                            child: Text('여성'),
+                          ),
+                          DropdownMenuItem(
+                            value: CustomerGender.male,
+                            child: Text('남성'),
+                          ),
+                        ],
+                        onChanged: _isEditing
+                            ? (v) => setState(() => _gender = v)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _isEditing ? _pickBirth : null,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: '생년월일',
+                            border: const OutlineInputBorder(),
+                            filled: !_isEditing,
+                            fillColor:
+                                _isEditing ? null : SoriTokens.surfaceElevated,
+                          ),
+                          child: Text(
+                            age == null
+                                ? _fmtDate(_birthDate)
+                                : '${_fmtDate(_birthDate)} · 만 $age세',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _phone,
+                  readOnly: !_isEditing,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: '연락처',
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: '전화',
+                          onPressed: _call,
+                          icon: const Icon(Icons.phone_rounded),
+                        ),
+                        IconButton(
+                          tooltip: '문자',
+                          onPressed: _sms,
+                          icon: const Icon(Icons.sms_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _address,
+                  readOnly: !_isEditing,
+                  decoration: InputDecoration(
+                    labelText: '주소',
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _occupation,
+                  readOnly: !_isEditing,
+                  decoration: InputDecoration(
+                    labelText: '직업 / 라이프스타일',
+                    border: const OutlineInputBorder(),
+                    filled: !_isEditing,
+                    fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
+                  ),
+                ),
+                if (customer.isMembershipCustomer) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      customer.membershipBadgeLabel,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                ],
+                if (widget.store.unusedCouponCount(customer.id) > 0) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      key: const Key('program-coupon-badge'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1C1C1E),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '미사용 쿠폰 ${widget.store.unusedCouponCount(customer.id)}장',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  ...widget.store.unusedCouponsFor(customer.id).map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '· ${c.title} · ${c.benefitLine}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if (widget.store.outstandingKrwFor(customer.id) > 0) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      key: const Key('program-unpaid-badge'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1C1C1E),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '미수금 ${widget.store.outstandingKrwFor(customer.id)}원',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _SectionCard(
+            title: '메디컬 / 피부 스펙',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SpecRow(label: '피부 타입 / 민감도', value: skin),
+                const SizedBox(height: 10),
+                _SpecRow(label: '알레르기', value: allergy, danger: true),
+                const SizedBox(height: 10),
+                _SpecRow(label: '부작용 주의', value: side, danger: true),
+                const SizedBox(height: 8),
+                Text(
+                  '※ 메디컬 항목은 최근 차트 기록을 우선 표시합니다.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: SoriTokens.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _SectionCard(
+            title: '원장 전용 메모',
+            child: TextField(
+              controller: _memo,
+              readOnly: !_isEditing,
+              minLines: 4,
+              maxLines: 8,
+              decoration: InputDecoration(
+                hintText: '고객 성향·취향·대화 선호도·특이사항을 자유롭게 남겨 주세요.',
+                border: const OutlineInputBorder(),
+                alignLabelWithHint: true,
+                filled: !_isEditing,
+                fillColor: _isEditing ? null : SoriTokens.surfaceElevated,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _SectionCard(
+            title: '동의서 상태',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (consent != null &&
+                    until != null &&
+                    !until.isBefore(DateTime.now()))
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: SoriTokens.primarySoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '✅ 전자 동의서 체결 완료\n동의일시: ${_fmtDate(consent.consentSignedAt)} · 유효: ${_fmtDate(until)}까지',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  )
+                else if (consent != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: SoriTokens.warningBg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '⚠️ 동의서 만료 또는 갱신 필요\n마지막 동의: ${_fmtDate(consent.consentSignedAt)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                        color: SoriTokens.warningText,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A1518),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '미체결 — 아래에서 퀵 전자 동의서를 작성할 수 있습니다.',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFC62828),
+                      ),
+                    ),
+                  ),
+                if (consent == null ||
+                    until == null ||
+                    until.isBefore(DateTime.now())) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _openQuickConsent,
+                    icon: const Icon(Icons.bolt_rounded),
+                    label: const Text('퀵 전자 동의서 작성'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SoriTokens.primary,
+                      foregroundColor: SoriTokens.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: (consent != null &&
+                          until != null &&
+                          !until.isBefore(DateTime.now()))
+                      ? _openPdf
+                      : null,
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: const Text('동의서 PDF 다운로드'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SoriTokens.textPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: SoriTokens.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: SoriTokens.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: SoriTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _SpecRow extends StatelessWidget {
+  const _SpecRow({
+    required this.label,
+    required this.value,
+    this.danger = false,
+  });
+
+  final String label;
+  final String value;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value.trim().isEmpty ? '기록 없음' : value.trim();
+    final empty = value.trim().isEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (danger && !empty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A1518),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFEF9A9A)),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFC62828),
+                height: 1.35,
+              ),
+            ),
+          )
+        else
+          Text(
+            text,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: empty ? SoriTokens.textSecondary : SoriTokens.textPrimary,
+              height: 1.35,
+            ),
+          ),
+      ],
+    );
+  }
+}

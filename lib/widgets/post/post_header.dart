@@ -1,0 +1,197 @@
+import 'package:flutter/material.dart';
+
+import '../../services/sori_store.dart';
+import '../../theme/sori_tokens.dart';
+import '../animated_booster_avatar.dart';
+import '../glass/sori_glass_icon_button.dart';
+import '../glass/sori_glass_tokens.dart';
+import '../official_badge.dart';
+import '../sori_logo.dart';
+import 'post_kebab_menu.dart';
+import 'post_view_data.dart';
+
+/// Shared post header — avatar, author, community path, time, hot + menu.
+class PostHeader extends StatelessWidget {
+  const PostHeader({
+    super.key,
+    required this.data,
+    this.store,
+    this.onAvatarTap,
+    this.onMore,
+    this.dense = false,
+  });
+
+  final PostViewData data;
+  final SoriStore? store;
+  final VoidCallback? onAvatarTap;
+  final VoidCallback? onMore;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarRadius = dense ? 14.0 : 18.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, dense ? 8 : 10, 4, dense ? 6 : 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: onAvatarTap,
+            child: data.isBoosted && !dense
+                ? AnimatedBoosterAvatar(
+                    imageUrl: data.avatarUrl ?? '',
+                    isBoosted: data.isBoosted,
+                    radius: avatarRadius,
+                  )
+                : _PlainAvatar(url: data.avatarUrl, radius: avatarRadius),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        data.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: dense ? 13 : 14,
+                          color: SoriTokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (data.caseItem?.shop.displayIsOfficial == true) ...[
+                      const SizedBox(width: 4),
+                      const OfficialBadge(compact: true),
+                    ],
+                    if (data.communityLabel != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: dense ? 6 : 8,
+                          vertical: dense ? 2 : 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Text(
+                          data.communityLabel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: dense ? 10 : 11,
+                            fontWeight: FontWeight.w800,
+                            color: SoriTokens.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 4),
+                    Text(
+                      data.timeLabel,
+                      style: TextStyle(
+                        fontSize: dense ? 10.5 : 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: SoriTokens.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+                if (data.affiliation.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    data.affiliation,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: dense ? 11 : 12,
+                      fontWeight: FontWeight.w500,
+                      color: SoriTokens.textTertiary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (data.isBoosted)
+            Padding(
+              padding: const EdgeInsets.only(right: 2, top: 2),
+              child: Semantics(
+                label: '홍보',
+                child: Icon(
+                  Icons.local_fire_department_rounded,
+                  size: dense ? 18 : 20,
+                  color: SoriTokens.warningText,
+                ),
+              ),
+            ),
+          _buildMoreButton(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoreButton(BuildContext context) {
+    if (onMore != null || store == null) {
+      return SoriGlassIconButton(
+        icon: Icons.more_vert_rounded,
+        onPressed: onMore,
+        size: dense ? SoriGlassTokens.chipSm : SoriGlassTokens.chipMd,
+        iconSize: dense ? 18 : 20,
+        tooltip: '더보기',
+      );
+    }
+    return Builder(
+      builder: (btnCtx) {
+        return SoriGlassIconButton(
+          icon: Icons.more_vert_rounded,
+          onPressed: () {
+            final box = btnCtx.findRenderObject() as RenderBox?;
+            final anchor = box != null
+                ? box.localToGlobal(Offset.zero) & box.size
+                : null;
+            showPostKebabMenu(
+              btnCtx,
+              data: data,
+              store: store!,
+              anchor: anchor,
+            );
+          },
+          size: dense ? SoriGlassTokens.chipSm : SoriGlassTokens.chipMd,
+          iconSize: dense ? 18 : 20,
+          tooltip: '더보기',
+        );
+      },
+    );
+  }
+}
+
+class _PlainAvatar extends StatelessWidget {
+  const _PlainAvatar({required this.url, required this.radius});
+
+  final String? url;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = url?.trim() ?? '';
+    final valid = u.isNotEmpty && !u.startsWith('data:');
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: SoriTokens.primarySoft,
+      backgroundImage: valid ? NetworkImage(u) : null,
+      child: valid
+          ? null
+          : Padding(
+              padding: EdgeInsets.all(radius * 0.28),
+              child: SoriLogo(width: radius, height: radius),
+            ),
+    );
+  }
+}

@@ -1,0 +1,62 @@
+---
+description: sori 실제 도메인 모델 — 스키마·모델·리포지토리·마이그레이션 작업 시 적용
+globs:
+  - "lib/models/**"
+  - "lib/data/**"
+  - "lib/services/sori_store.dart"
+  - "lib/visit_kernel/**"
+  - "supabase/migrations/**"
+---
+
+# 사실: Visit 테이블은 없다
+
+sori의 방문 단위는 **`public.customer_charts` 의 row**다.
+한 row = 한 회차 = 상담 + 사진 + 방문 확인의 중심이다.
+
+```
+Customer
+ └─ customer_charts (row 1개 = 회차 1개 = 방문 1개)   ← 여기가 SSOT
+      ├─ visit_number                (표시용 회차 번호, unique(customer_id, visit_number))
+      ├─ before_image_url / after_image_url / photo_meta  ← 현재 사진 SSOT
+      ├─ 동의 · 처방 · 메모 필드
+      └─ visit_sessions.chart_draft_id 로 Visit OS 세션이 이 row를 가리킨다
+```
+
+# 신설 금지
+
+`visits`, `photos`, `consultations`, `chart_notes` 테이블을 **만들지 않는다.**
+만들면 `chartsForCustomer` · `visitNumber` · `chartDraftId` · `buildVisitPhotoSlots` ·
+`bind_ba_session_to_chart` 가 두 개의 진실을 갖게 된다.
+
+목표 구조는 신설이 아니라 **기존 row의 승격**으로 달성한다.
+
+| 개념 | 처리 |
+|---|---|
+| Visit | `customer_charts` row를 그대로 인정 |
+| Consultation | `visit_number = 1` 또는 플래그로 구분 |
+| SOAP | `customer_charts`에 nullable 컬럼 4개 추가 |
+| Photo / PhotoSet | **유일한 신설 허용** — `chart_photo_records`, `photo_sets` |
+| Payment / CreditLedger | 지금 건드리지 않는다 |
+
+# 불변 규칙
+
+- `before_image_url` / `after_image_url` 는 **영구 유지**한다. 사진 테이블이 생긴 뒤에도 대표 사진 캐시로 계속 동기화한다. 제거 금지.
+- 사진 읽기는 **신규 테이블 우선, 없으면 URL 컬럼 폴백**. 폴백 분기를 반드시 남긴다.
+- `unique(customer_id, visit_number)` 제약은 승인 없이 제거하지 않는다. 결속은 새로 추가하는 `visit_session_id` 유니크 인덱스가 담당하고, `visit_number`는 표시용으로 강등한다.
+- `ensureTodayShootChart` 는 삭제하지 않는다. `ensureVisitChart(visitSessionId:)` 를 추가하고 기존 함수는 내부 위임 래퍼로 남긴다.
+- `saveChartAndConfirmVisit` 는 이름·시그니처를 바꾸지 않는다. 내부를 `_saveChartOnly` + `_confirmVisit` 로 쪼개고 기존 함수는 래퍼로 유지한다.
+- `chartsForCustomer` 는 UI 읽기 SSOT다. 반환 타입 `List<CustomerChart>` 와 정렬 순서를 바꾸지 않는다.
+- `buildVisitPhotoSlots(List<CustomerChart>)` 의 인자 타입을 바꾸지 않는다. 내부 사진 소스만 교체한다.
+- 신규 컬럼은 전부 nullable + 기본값. `NOT NULL` 추가 금지.
+
+# 마이그레이션
+
+- `supabase/migrations/001`~`108` 은 읽기 전용. 수정 금지.
+- 신규는 `109` 이후 번호로 추가만 한다.
+- `drop column` · `alter type` · `drop constraint` 는 승인 없이 금지.
+- 모든 마이그레이션에 롤백 방법과 검증 쿼리를 함께 제출한다.
+
+# 단계 준수
+
+`docs/MIGRATION-PLAN.md` 의 P0~P6 순서를 따른다.
+현재 어느 단계인지 모르면 작업하지 말고 물어본다. 단계를 건너뛰지 않는다.

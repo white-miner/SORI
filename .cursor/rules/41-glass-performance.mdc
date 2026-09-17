@@ -1,0 +1,19 @@
+---
+description: SORI 글래스·GPU 성능 — BackdropFilter 예산·지도 sheet
+globs:
+  - "lib/views/**"
+  - "lib/widgets/**"
+  - "lib/features/**"
+alwaysApply: false
+---
+
+# Glass Performance Contract
+
+전문: `docs/SORI_GLASS_PERFORMANCE.md`
+
+- BackdropFilter ≤ **1–3**/화면 · **ClipRRect로 bounds 제한** · sigma **8–12**(max 16)
+- full-screen / nested / list-row / **blur 애니메이션 금지**
+- `Opacity` 위젯 대신 `Color.withValues(alpha:)`
+- 지도: GPS·저장함·Peek만 glass 후보 · Half opaque↑ · Expanded solid
+- sheet drag ≠ MapCanvas/tile/marker/API
+- RepaintBoundary는 profile 증거 후에만

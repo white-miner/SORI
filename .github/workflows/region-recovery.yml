@@ -1,0 +1,32 @@
+name: Region recovery verification
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [fix/our-region-recovery]
+permissions:
+  contents: read
+jobs:
+  region:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Edge response regression tests
+        run: node --test test/shop_market_edge.test.mjs
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Prepare public test environment
+        run: cp .env.example .env
+      - name: Analyze region changes
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib/services/shop_market_service.dart lib/views/community/region_nearby_map_section.dart lib/views/unified_home_feed_page.dart
+      - name: Region regressions
+        run: flutter test test/shop_market_response_test.dart test/area_search_center_test.dart test/area_gps_center_test.dart test/our_area_category_test.dart test/our_area_field_smoke_test.dart test/region_map_center_phase_c_test.dart test/region_map_gps_test.dart test/region_shop_list_copy_test.dart
+      - name: Compile web
+        run: flutter build web --release --base-href /SORI/
