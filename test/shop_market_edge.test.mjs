@@ -9,7 +9,9 @@ function edge(fetcher = async () => { throw new Error('Unexpected network'); }, 
     .replace('import "jsr:@supabase/functions-js/edge-runtime.d.ts";', '');
   let handler;
   const context = vm.createContext({
-    fetch: fetcher, Response, Request, URL, URLSearchParams, AbortSignal,
+    fetch: (url, init) => String(url).includes('/largeUpjongList')
+      ? Promise.resolve(new Response(JSON.stringify({body:{items:[{indsLclsCd:'S2',indsLclsNm:'수리·개인 서비스'}]}})))
+      : fetcher(url, init), Response, Request, URL, URLSearchParams, AbortSignal,
     console, setTimeout, clearTimeout,
     Deno: { env: { get: key => secrets[key] }, serve: fn => { handler = fn; } },
   });
@@ -52,6 +54,7 @@ test('reads subsequent pages, encodes key once, excludes non-beauty and deduplic
   assert.equal(requests.length, 2);
   assert.equal(requests[1].searchParams.get('pageNo'), '2');
   assert.equal(requests[0].searchParams.get('serviceKey'), 'abc+def=');
+  assert.equal(requests[0].searchParams.get('indsLclsCd'), 'S2');
   assert.equal(result.items.length, 2);
   assert.equal(result.items[1].chip_key, 'skin');
   assert.equal(result.complete, true);
@@ -99,4 +102,17 @@ test('invalid coordinates and unsupported radius fail instead of silently changi
     const response = await edge().handler(new Request('https://example.test',{method:'POST',body:JSON.stringify(body)}));
     assert.equal(response.status, 400);
   }
+});
+
+
+test('real public classifications exclude clinics, schools and similarly named businesses', () => {
+  const e = edge();
+  for (const row of [
+    {bizesNm:'핑의원', indsSclsNm:'피부/비뇨기과 의원'},
+    {bizesNm:'네일아카데미', indsSclsNm:'기타 기술/직업 훈련학원'},
+    {bizesNm:'파이브스타투어', indsSclsNm:'여행사'},
+    {bizesNm:'네일유통', indsSclsNm:'화장품 소매업'},
+  ]) assert.equal(e.call(`chipKeyForStore(${JSON.stringify(row)})`), 'other');
+  assert.equal(e.call(`chipKeyForStore({bizesNm:'정본에스테틱',indsSclsNm:'피부 관리실'})`), 'skin');
+  assert.equal(e.call(`matchesCategory({indsSclsNm:'피부 관리실'}, categoryKeywords('에스테틱'))`), true);
 });

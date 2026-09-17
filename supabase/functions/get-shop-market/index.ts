@@ -79,7 +79,7 @@ function storeBlob(item: Record<string, unknown>): string {
 
 function matchesCategory(item: Record<string, unknown>, keywords: string[]): boolean {
   if (keywords.length === 0) return true;
-  const blob = storeBlob(item);
+  const blob = storeBlob(item).replace(/\s+/g, "");
   if (!blob.trim()) return true;
   return keywords.some((k) => blob.includes(k));
 }
@@ -87,10 +87,14 @@ function matchesCategory(item: Record<string, unknown>, keywords: string[]): boo
 function chipKeyForStore(item: Record<string, unknown>): string {
   const blob = storeBlob(item).replace(/\s+/g, "");
   const name = String(item.bizesNm ?? item.storeNm ?? "").replace(/\s+/g, "");
+  // Service shops only: a skin clinic, nail school or “스타투어” travel
+  // agency must not become a beauty shop through a substring match.
+  if (/의원|병원|의료|학원|교육|훈련|소매|도매|여행|제조/.test(blob)) return "other";
   if (/반영구|눈썹문신/.test(name)) return "semi_permanent";
   if (/타투|tattoo/i.test(name)) return "tattoo";
   if (/바버|barber/i.test(name)) return "barber";
   if (/네일|nail/i.test(name)) return "nail";
+  if (/메이크업|makeup/i.test(name)) return "makeup";
   if (/메이크업|화장분장|메이크업/.test(blob)) return "makeup";
   // 원문 분류명. 짧은 '미용' 토큰을 피부미용업보다 먼저 쓰면 피부가 헤어로 간다.
   if (/피부미용|피부관리|에스테틱|스킨케어/.test(blob)) return "skin";
@@ -262,6 +266,37 @@ function isSuccessCode(code: string): boolean {
   return code === "00" || code === "0" || code === "0000";
 }
 
+// Resolve the provider's current personal-service classification instead of
+// downloading restaurants/offices first. Failure falls back to full pagination.
+let personalIndustryCache: {code: string; expires: number} | null = null;
+async function personalIndustryCode(serviceKey: string): Promise<string> {
+  if (personalIndustryCache && personalIndustryCache.expires > Date.now()) {
+    return personalIndustryCache.code;
+  }
+  try {
+    const url = new URL("https://apis.data.go.kr/B553077/api/open/sdsc2/largeUpjongList");
+    url.search = new URLSearchParams({serviceKey, type: "json"}).toString();
+    const response = await fetch(url, {signal: AbortSignal.timeout(4000)});
+    if (!response.ok) return "";
+    const data = await response.json();
+    const candidates = new Set<string>();
+    function walk(value: unknown): void {
+      if (!value || typeof value !== "object") return;
+      if (Array.isArray(value)) { value.forEach(walk); return; }
+      const row = value as Record<string, unknown>;
+      const name = String(row.indsLclsNm ?? "").replace(/\s+/g, "");
+      const code = String(row.indsLclsCd ?? "");
+      if (/개인서비스|수리.*개인|생활서비스/.test(name) && /^[A-Z0-9]{2}$/.test(code)) candidates.add(code);
+      Object.values(row).forEach(walk);
+    }
+    walk(data);
+    if (candidates.size !== 1) return "";
+    const code = [...candidates][0];
+    personalIndustryCache = {code, expires: Date.now() + 86400000};
+    return code;
+  } catch { return ""; }
+}
+
 async function fetchStores(opts: {
   key: string;
   lat: number;
@@ -284,6 +319,7 @@ async function fetchStores(opts: {
   // Both encoded and decoded data.go.kr keys are accepted; encode exactly once.
   let serviceKey = opts.key.trim();
   try { serviceKey = decodeURIComponent(serviceKey); } catch { /* raw key */ }
+  const industryCode = opts.beautyOnly ? await personalIndustryCode(serviceKey) : "";
   const pageSize = 1000;
   const maxPages = 20;
   const started = Date.now();
@@ -301,6 +337,7 @@ async function fetchStores(opts: {
       const url = new URL("https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius");
       url.search = new URLSearchParams({
         serviceKey, pageNo: String(page), numOfRows: String(pageSize),
+        ...(industryCode ? {indsLclsCd: industryCode} : {}),
         radius: String(opts.radiusM), cx: String(opts.lng), cy: String(opts.lat), type: "json",
       }).toString();
       let pageItems: Record<string, unknown>[];
@@ -414,8 +451,6 @@ async function fetchStores(opts: {
       if (n > 1) coincident += 1;
     }
 
-    const pageUnknown =
-      responseTotalCount != null && responseTotalCount > rawItems.length;
     const audit = {
       source: "LIVE" as const,
       category: opts.category,
@@ -423,6 +458,7 @@ async function fetchStores(opts: {
       lng: opts.lng,
       radiusM: opts.radiusM,
       pagesRead: pageCount,
+      industryCode: industryCode || null,
       responseTotalCount,
       rawItemCount: rawItems.length,
       normalizedCount: rawItems.length,
@@ -440,7 +476,7 @@ async function fetchStores(opts: {
       ok: true,
       totalInRadius: rawItems.length,
       sameCategoryCount: opts.beautyOnly ? mapped.length : matched.length,
-      sampleNames: names,
+      sampleNames: opts.beautyOnly ? mapped.slice(0, 5).map((s) => s.name) : names,
       items: mapped,
       complete,
       error: pageError,
@@ -797,7 +833,7 @@ Deno.serve(async (req) => {
     }
     const storesOnly = body.action === "stores";
     const radiusM = Math.min(Math.max(body.radius_m ?? 500, 100), 2000);
-    const category = body.category ?? "에스테틱";
+    const category = body.category ?? (storesOnly ? "전체" : "에스테틱");
     const locationLabel = body.location_label ?? "매장";
     const admCd = (body.adm_cd ?? "").trim();
     const statsYm = yyyymmKst();
