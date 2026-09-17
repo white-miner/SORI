@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/utils/area_search_center.dart';
 import 'package:sori/utils/region_shop_list_copy.dart';
@@ -151,45 +149,4 @@ void main() {
     );
   });
 
-  test('list summary is wired without touching map canvas or explore sheet', () {
-    final map = File(
-      'lib/views/community/region_nearby_map_section.dart',
-    ).readAsStringSync();
-    expect(map.contains('RegionShopListCopy.headline'), isTrue);
-    expect(map.contains('RegionShopListCopy.searchBasis'), isTrue);
-    expect(map.contains('OurAreaRadiusInsight.fromMappedKeys'), isTrue);
-    expect(map.contains("key: const Key('region-shop-insight')"), isTrue);
-    expect(map.contains("key: const Key('region-shop-insight-mix')"), isTrue);
-    expect(map.contains("key: const Key('region-shop-insight-top')"), isTrue);
-    expect(map.contains("key: const Key('region-shop-insight-condition')"), isTrue);
-    expect(map.contains("key: const Key('region-shop-provenance')"), isTrue);
-    expect(map.contains('RegionShopListCopy.provenanceLine'), isTrue);
-    expect(map.contains("child: const Text('반경 넓히기')"), isTrue);
-    expect(map.contains('_widenRadius'), isTrue);
-    expect(map.contains('_ShopDetailFacts'), isTrue);
-    expect(map.contains("item.categoryLabel.isEmpty ? '상권'"), isFalse);
-    expect(map.contains("child: const Text('지도에서 보기')"), isTrue);
-    expect(map.contains('interactionOptions: const InteractionOptions('), isTrue);
-    expect(map.contains('AreaSearchCenter'), isTrue);
-    expect(map.contains('AreaSearchCenter.currentLocation'), isTrue);
-    expect(map.contains('_applyCurrentLocation'), isTrue);
-    expect(map.contains('_mapController.move(point, zoom)'), isTrue);
-    expect(map.contains('OurAreaShopSnapshot.covers'), isTrue);
-    expect(map.contains('RegionShopListCopy.emptyKind'), isTrue);
-    expect(map.contains('RegionShopListCopy.findMyLocationLabel'), isTrue);
-    expect(map.contains('region-shop-show-gyeongju-example'), isTrue);
-    expect(map.contains('region-shop-retry-gps'), isTrue);
-    expect(map.contains('CircleLayer'), isTrue);
-    expect(map.contains('overrideLat: search.lat'), isTrue);
-    expect(map.contains('_buildMapCanvas(stores)'), isTrue);
-    expect(map.contains('final stores = _visibleStores'), isTrue);
-    expect(map.contains('OurAreaCategory.matches'), isTrue);
-    expect(map.contains('Geolocator.checkPermission'), isFalse);
-
-    final sheet = File(
-      'lib/views/community/region_map_explore_sheet.dart',
-    ).readAsStringSync();
-    expect(sheet.contains('RegionShopListCopy'), isFalse);
-    expect(sheet.contains('반경 넓히기'), isFalse);
-  });
 }

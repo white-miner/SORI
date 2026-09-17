@@ -1,5 +1,0 @@
-package com.example.sori
-
-import io.flutter.embedding.android.FlutterActivity
-
-class MainActivity : FlutterActivity()

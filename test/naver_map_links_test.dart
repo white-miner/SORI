@@ -64,7 +64,7 @@ void main() {
       'lib/views/community/region_nearby_map_section.dart',
     ).readAsStringSync();
     expect(map.contains('interactionOptions: const InteractionOptions('), isTrue);
-    expect(map.contains("child: const Text('지도에서 보기')"), isTrue);
+    expect(map.contains("child: const Text('네이버에서 샵 찾기')"), isTrue);
     expect(map.contains('NaverMapLinks.uri'), isTrue);
     expect(map.contains('RegionMapExploreSheet('), isTrue);
 
@@ -75,3 +75,4 @@ void main() {
     expect(sheet.contains('NaverMapLinks'), isFalse);
   });
 }
+

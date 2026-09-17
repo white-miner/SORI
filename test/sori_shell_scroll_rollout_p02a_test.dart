@@ -165,6 +165,8 @@ void main() {
       ),
     );
     await _pumpFrames(tester);
+    await tester.tap(find.text('추천').first);
+    await _pumpFrames(tester);
 
     final pad = tester.widget<SliverPadding>(
       find.byKey(
@@ -272,3 +274,4 @@ void main() {
     expect(list.padding, const EdgeInsets.fromLTRB(16, 12, 16, 16));
   });
 }
+

@@ -257,6 +257,8 @@ void main() {
       ),
     );
     await _pumpFrames(tester);
+    await tester.tap(find.text('추천').first);
+    await _pumpFrames(tester);
     await _jumpMax(tester, find.byKey(const Key('feed-recommend-scroll')));
 
     final last = _bottomMost(tester, find.byType(UnifiedHomeFeedPage), [
@@ -471,3 +473,4 @@ void main() {
     );
   });
 }
+

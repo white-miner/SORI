@@ -135,6 +135,8 @@ void main() {
       ),
     );
     await _pumpFrames(tester);
+    await tester.tap(find.text('추천').first);
+    await _pumpFrames(tester);
 
     expectNoCustomFeedPhysics(
       tester
@@ -264,3 +266,4 @@ void main() {
     expect(find.byType(RefreshIndicator), findsNothing);
   });
 }
+
