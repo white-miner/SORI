@@ -10,18 +10,15 @@ import '../../services/biz_profile_store.dart';
 import '../../services/region_content_bookmark_store.dart';
 import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
-import '../../services/our_area_shop_snapshot.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/naver_map_links.dart';
 import '../../utils/area_search_center.dart';
 import '../../utils/our_area_category.dart';
-import '../../utils/our_area_radius_insight.dart';
 import '../../utils/region_shop_list_copy.dart';
 import '../../utils/sori_bottom_sheet.dart';
 import '../explore_community_post_page.dart';
 import '../seminar_class_detail_page.dart';
-import '../shop_settings_page.dart';
 import 'region_map_bloom.dart';
 import 'region_map_clusters.dart';
 import 'region_map_content_pins.dart';
@@ -71,11 +68,10 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   ShopMarketStoreItem? _selectedMarket;
   List<RegionMapPin> _contentPins = const [];
   LatLng? _baseCenter;
-  LatLng? _gpsCenter;
   LatLng? _mapCamera;
   _GpsBanner _gpsBanner = _GpsBanner.none;
   String _categoryKey = OurAreaCategory.all;
-  RegionMapTileId _tileId = RegionMapTileCatalog.productionDefault;
+  final RegionMapTileId _tileId = RegionMapTileCatalog.productionDefault;
   RegionMapContentFilter _filter = RegionMapContentFilter.all;
   RegionMapSheetMode _sheetMode = RegionMapSheetMode.hidden;
   RegionMapPin? _peekPin;
@@ -85,15 +81,6 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   List<RegionContentBookmark> _savedPreview = const [];
 
   double get _radiusKm => widget.radiusKm;
-  double? get _nextRadiusKm =>
-      RegionShopListCopy.nextRadiusKm(_radiusKm, steps: _radiiKm);
-
-  void _widenRadius() {
-    final next = _nextRadiusKm;
-    if (next == null) return;
-    widget.onRadiusChanged?.call(next);
-  }
-
   AreaSearchCenter get _searchCenter => _activeSearch ?? AreaSearchCenter.resolve(
     shopLat: widget.store.shop.latitude,
     shopLng: widget.store.shop.longitude,
@@ -163,11 +150,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   void didUpdateWidget(covariant RegionNearbyMapSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.radiusKm != widget.radiusKm) {
-      _reload(keepGps: true);
+      _reload();
     }
   }
 
-  Future<void> _reload({bool keepGps = true, AreaSearchCenter? target, bool force = false}) async {
+  Future<void> _reload({AreaSearchCenter? target, bool force = false}) async {
     final epoch = ++_requestEpoch;
     final radiusM = (_radiusKm * 1000).round();
     setState(() {
@@ -282,18 +269,10 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     try { _mapCamera = _mapController.camera.center; } catch (_) {}
     final point = _mapCamera;
     if (point == null) return;
-    _gpsCenter = null;
     _gpsBanner = _GpsBanner.none;
     await _reload(target: AreaSearchCenter(
       lat: point.latitude, lng: point.longitude, source: AreaSearchSource.mapCamera,
     ), force: true);
-  }
-
-  Future<void> _openAddressSettings() async {
-    await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const ShopSettingsPage()),
-    );
-    if (mounted) { _activeSearch = null; await _reload(); }
   }
 
   Future<void> _onGpsTap() async {
@@ -320,28 +299,9 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     final search = AreaSearchCenter.currentLocation(lat: lat, lng: lng);
     if (search.source != AreaSearchSource.gps) return;
     setState(() {
-      _gpsCenter = LatLng(lat, lng);
       _gpsBanner = _GpsBanner.active;
     });
     await _reload(target: search, force: true);
-  }
-
-  Future<void> _showGyeongjuExample() async {
-    final point = const LatLng(
-      AreaSearchCenter.defaultLat,
-      AreaSearchCenter.defaultLng,
-    );
-    final zoom = RegionShopListCopy.mapZoom(_radiusKm);
-    setState(() {
-      _gpsCenter = null;
-      _gpsBanner = _GpsBanner.none;
-      _mapCamera = point;
-      _zoom = zoom;
-    });
-    try {
-      _mapController.move(point, zoom);
-    } catch (_) {}
-    await _reload(keepGps: false);
   }
 
   Future<void> _openSavedSheet({bool fullList = false}) async {
@@ -715,8 +675,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             if (stores.length > _visibleLimit)
               TextButton(onPressed: () => setState(() => _visibleLimit += 20), child: const Text('샵 더 보기')),
             const SizedBox(height: 8),
-            const Text('출처: 소상공인시장진흥공단 상가(상권)정보
-등록·갱신 시차로 실제 영업 현황과 다를 수 있어요.',
+            const Text('출처: 소상공인시장진흥공단 상가(상권)정보\n등록·갱신 시차로 실제 영업 현황과 다를 수 있어요.',
               style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.5)),
           ],
         ],
@@ -1032,262 +991,6 @@ class _GlassRoundButtonState extends State<_GlassRoundButton> {
   }
 }
 
-class _Cs1TileCompareBar extends StatelessWidget {
-  const _Cs1TileCompareBar({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final RegionMapTileId selected;
-  final ValueChanged<RegionMapTileId> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final specs = RegionMapTileCatalog.compareSet();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          '베이스맵 비교 (debug)',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: SoriTokens.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final s in specs) ...[
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text('${s.code} ${s.label}'),
-                    selected: selected == s.id,
-                    onSelected: (_) => onSelected(s.id),
-                    selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      color: selected == s.id
-                          ? SoriTokens.primary
-                          : SoriTokens.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ShopListSummary extends StatelessWidget {
-  const _ShopListSummary({
-    required this.radiusKm,
-    required this.category,
-    required this.count,
-    required this.searchBasis,
-    required this.insight,
-    this.sources = const [],
-  });
-
-  final double radiusKm;
-  final String? category;
-  final int count;
-  final String searchBasis;
-  final OurAreaRadiusInsight insight;
-  final List<String> sources;
-
-  @override
-  Widget build(BuildContext context) {
-    final mix = RegionShopListCopy.compositionLine(
-      insight.mix.map((row) => (label: row.label, count: row.count)),
-    );
-    final top = RegionShopListCopy.topCategoryLine(insight.top?.label);
-    return Column(
-      key: const Key('region-shop-insight'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          RegionShopListCopy.headline(
-            radiusKm: radiusKm,
-            category: category,
-          ),
-          key: const Key('region-shop-list-summary'),
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          RegionShopListCopy.conditionLine(
-            searchBasis: searchBasis,
-            radiusKm: radiusKm,
-            category: category,
-          ),
-          key: const Key('region-shop-insight-condition'),
-          style: const TextStyle(
-            fontSize: 12,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          RegionShopListCopy.countLine(count),
-          key: const Key('region-shop-list-count'),
-          style: const TextStyle(
-            fontSize: 12,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (mix != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            mix,
-            key: const Key('region-shop-insight-mix'),
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        if (top != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            top,
-            key: const Key('region-shop-insight-top'),
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        const SizedBox(height: 4),
-        Text(
-          RegionShopListCopy.provenanceLine(
-            sources: sources,
-            snapshotDate: OurAreaShopSnapshot.sourceDate,
-          ),
-          key: const Key('region-shop-provenance'),
-          style: const TextStyle(
-            fontSize: 11,
-            color: SoriTokens.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ShopListEmpty extends StatelessWidget {
-  const _ShopListEmpty({
-    required this.kind,
-    this.onWiden,
-    this.onRetryGps,
-    this.onSearchMap,
-    this.onShowGyeongjuExample,
-  });
-
-  final AreaShopEmptyKind kind;
-  final VoidCallback? onWiden;
-  final VoidCallback? onRetryGps;
-  final VoidCallback? onSearchMap;
-  final VoidCallback? onShowGyeongjuExample;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = switch (kind) {
-      AreaShopEmptyKind.locationFailed =>
-        RegionShopListCopy.emptyLocationTitle,
-      AreaShopEmptyKind.snapshotUnready =>
-        RegionShopListCopy.emptySnapshotUnreadyTitle,
-      AreaShopEmptyKind.trueZero => RegionShopListCopy.emptyTrueZeroTitle,
-    };
-    final hint = switch (kind) {
-      AreaShopEmptyKind.locationFailed =>
-        RegionShopListCopy.emptyLocationHint,
-      AreaShopEmptyKind.snapshotUnready =>
-        RegionShopListCopy.emptySnapshotUnreadyHint,
-      AreaShopEmptyKind.trueZero => RegionShopListCopy.emptyTrueZeroHint,
-    };
-    final keyName = switch (kind) {
-      AreaShopEmptyKind.locationFailed => 'region-shop-list-empty-location',
-      AreaShopEmptyKind.snapshotUnready => 'region-shop-list-empty-unready',
-      AreaShopEmptyKind.trueZero => 'region-shop-list-empty',
-    };
-
-    return Padding(
-      key: Key(keyName),
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: SoriTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            hint,
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (kind == AreaShopEmptyKind.locationFailed) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (onRetryGps != null)
-                  OutlinedButton(
-                    key: const Key('region-shop-retry-gps'),
-                    onPressed: onRetryGps,
-                    child: const Text(RegionShopListCopy.retryGpsLabel),
-                  ),
-                if (onSearchMap != null)
-                  FilledButton(
-                    key: const Key('region-shop-search-map-center'),
-                    onPressed: onSearchMap,
-                    child: const Text(RegionShopListCopy.searchFromMapLabel),
-                  ),
-              ],
-            ),
-          ] else if (kind == AreaShopEmptyKind.snapshotUnready) ...[
-            const SizedBox(height: 8),
-            FilledButton(
-              key: const Key('region-shop-show-gyeongju-example'),
-              onPressed: onShowGyeongjuExample,
-              child: const Text(RegionShopListCopy.showGyeongjuExampleLabel),
-            ),
-          ] else if (onWiden != null) ...[
-            const SizedBox(height: 8),
-            OutlinedButton(
-              key: const Key('region-shop-widen-radius'),
-              onPressed: onWiden,
-              child: const Text('반경 넓히기'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _ShopDetailFacts extends StatelessWidget {
   const _ShopDetailFacts({
     required this.item,
@@ -1353,38 +1056,6 @@ class _ShopDetailFacts extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _SelectedCard extends StatelessWidget {
-  const _SelectedCard({required this.item, required this.region});
-
-  final ShopMarketStoreItem item;
-  final String region;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8, bottom: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ShopDetailFacts(item: item, titleSize: 15),
-          _NaverMapCta(
-            buttonKey: const Key('region-selected-map-cta'),
-            item: item,
-            region: region,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1482,4 +1153,3 @@ class _NaverMapCta extends StatelessWidget {
     );
   }
 }
-
