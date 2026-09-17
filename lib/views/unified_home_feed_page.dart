@@ -106,7 +106,8 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: _tabLength, vsync: this);
+    _tabs = TabController(length: _tabLength, vsync: this,
+      initialIndex: _config.showLocalTab ? _tabLength - 1 : 0);
     _tabs.addListener(_onTabIndexChanged);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -592,14 +593,14 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
       );
     }
     if (config.showLocalTab) {
-      labels.add('우리 지역');
+      labels.add('우리지역');
       final localIndex = tabChildren.length;
       tabChildren.add(
         _SimpleFeedTab(
           store: store,
-          title: '우리 지역',
+          title: '우리지역',
           subtitle:
-              '지도 반경 ${_regionRadiusLabel(_regionRadiusKm)} 안 샵·게시물만 보여요.',
+              '가까운 뷰티샵을 찾고, 나에게 맞는 곳을 만나세요.',
           feed: localFeed,
           loading: loading,
           buildCard: _feedCard,
@@ -1115,4 +1116,5 @@ class _LatestPostsStrip extends StatelessWidget {
     );
   }
 }
+
 

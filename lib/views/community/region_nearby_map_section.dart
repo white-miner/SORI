@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -50,13 +51,19 @@ class RegionNearbyMapSection extends StatefulWidget {
 enum _GpsBanner { none, active, denied, failed }
 
 class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
-  static const _radiiKm = RegionShopListCopy.radiusStepsKm;
+  // The deployed upstream radius contract supports at most 2 km.
+  static const _radiiKm = <double>[0.5, 1.0, 2.0];
 
   final MapController _mapController = MapController();
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
 
   bool _loading = true;
+  int _requestEpoch = 0;
+  AreaSearchCenter? _activeSearch;
+  bool _mapMoved = false;
+  String _shopQuery = '';
+  int _visibleLimit = 20;
   bool _gpsBusy = false;
   String? _error;
   String? _marketSoftError;
@@ -87,22 +94,10 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     widget.onRadiusChanged?.call(next);
   }
 
-  AreaSearchCenter get _searchCenter {
-    LatLng? cam = _mapCamera;
-    try {
-      cam = _mapController.camera.center;
-    } catch (_) {}
-    return AreaSearchCenter.resolve(
-      gpsLat: _gpsCenter?.latitude,
-      gpsLng: _gpsCenter?.longitude,
-      mapLat: cam?.latitude ?? _baseCenter?.latitude,
-      mapLng: cam?.longitude ?? _baseCenter?.longitude,
-      insightLat: _insight?.centerLatitude,
-      insightLng: _insight?.centerLongitude,
-      shopLat: widget.store.shop.latitude,
-      shopLng: widget.store.shop.longitude,
-    );
-  }
+  AreaSearchCenter get _searchCenter => _activeSearch ?? AreaSearchCenter.resolve(
+    shopLat: widget.store.shop.latitude,
+    shopLng: widget.store.shop.longitude,
+  );
 
   AreaSearchFilterResult<ShopMarketStoreItem> get _storeFilter {
     return AreaSearchCenter.filter<ShopMarketStoreItem>(
@@ -117,6 +112,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
   List<ShopMarketStoreItem> get _visibleStores {
     return _storeFilter.items
+        .where((s) => s.chipKey != 'other' &&
+            ('${s.name} ${s.address}').toLowerCase().contains(_shopQuery.toLowerCase()))
         .where(
           (s) => OurAreaCategory.matches(
             selected: _categoryKey,
@@ -170,7 +167,9 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     }
   }
 
-  Future<void> _reload({bool keepGps = false}) async {
+  Future<void> _reload({bool keepGps = true, AreaSearchCenter? target, bool force = false}) async {
+    final epoch = ++_requestEpoch;
+    final radiusM = (_radiusKm * 1000).round();
     setState(() {
       _loading = true;
       _error = null;
@@ -178,57 +177,83 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _selectedMarket = null;
       _peekPin = null;
       _sheetMode = RegionMapSheetMode.hidden;
-      if (!keepGps) {
-        _gpsCenter = null;
-        _gpsBanner = _GpsBanner.none;
-      }
     });
-    final shop = widget.store.shop;
-    final biz = await BizProfileStore.load(shop.id);
-    final bizAddr = biz.address.trim();
-    await Future.wait([
-      widget.store.refreshCommunityPosts(force: true),
-      widget.store.refreshCommunityHotCases(),
-    ]);
-    final search = AreaSearchCenter.resolve(
-      gpsLat: keepGps ? _gpsCenter?.latitude : null,
-      gpsLng: keepGps ? _gpsCenter?.longitude : null,
-      mapLat: _mapCamera?.latitude,
-      mapLng: _mapCamera?.longitude,
-      shopLat: shop.latitude,
-      shopLng: shop.longitude,
-    );
-    final insight = await ShopMarketService.instance.fetch(
-      shop: shop,
-      category: '전체',
-      fallbackAddress: bizAddr.isEmpty ? null : bizAddr,
-      radiusM: (_radiusKm * 1000).round(),
-      overrideLat: search.lat,
-      overrideLng: search.lng,
-    );
-    if (!mounted) return;
-    final center = LatLng(search.lat, search.lng);
-    final pins = await RegionMapContentPins.loadNear(
-      store: widget.store,
-      centerLat: search.lat,
-      centerLng: search.lng,
-      radiusKm: _radiusKm,
-    );
+    try {
+      var search = target ?? _activeSearch ?? AreaSearchCenter.resolve(
+        shopLat: widget.store.shop.latitude,
+        shopLng: widget.store.shop.longitude,
+      );
+      if (search.source == AreaSearchSource.defaultRegion && target == null) {
+        var address = widget.store.shop.address?.trim() ?? '';
+        if (address.isEmpty && widget.store.shop.id.trim().isNotEmpty) {
+          try {
+            final biz = await BizProfileStore.load(widget.store.shop.id)
+                .timeout(const Duration(seconds: 3));
+            address = biz.address.trim();
+          } catch (_) { /* Location remains an explicit user choice. */ }
+        }
+        if (address.isNotEmpty) {
+          final resolved = await ShopMarketService.instance
+              .resolveNeighborhoodFromAddress(address)
+              .timeout(const Duration(seconds: 10), onTimeout: () => null);
+          if (resolved != null) search = AreaSearchCenter.resolve(
+            insightLat: resolved.latitude, insightLng: resolved.longitude,
+          );
+        }
+        if (search.source == AreaSearchSource.defaultRegion) {
+          if (!mounted || epoch != _requestEpoch) return;
+          setState(() { _loading = false; _error = 'location_required'; });
+          return;
+        }
+      }
+      if (!mounted || epoch != _requestEpoch) return;
+      final point = LatLng(search.lat, search.lng);
+      setState(() {
+        _activeSearch = search;
+        _baseCenter = point;
+        _insight = null;
+        _contentPins = const [];
+        _mapMoved = false;
+        _visibleLimit = 20;
+        _zoom = RegionShopListCopy.mapZoom(_radiusKm);
+      });
+      try { _mapController.move(point, _zoom); } catch (_) {}
+      widget.onCenterChanged?.call(search.lat, search.lng);
+      // Community content must never block public shop discovery.
+      unawaited(_loadContentPins(search, epoch));
+      final insight = await ShopMarketService.instance.fetchNearby(
+        latitude: search.lat, longitude: search.lng, radiusM: radiusM, force: force,
+      );
+      if (!mounted || epoch != _requestEpoch) return;
+      setState(() {
+        _insight = insight;
+        _loading = false;
+        if (!insight.storesOk) {
+          _error = insight.storesError ?? 'nearby_unavailable';
+          _marketSoftError = '주변 샵을 불러오지 못했어요. 다시 시도해 주세요.';
+        } else if (!insight.storesComplete) {
+          _marketSoftError = '일부 결과만 도착했어요. 표시된 개수는 전체 업소 수가 아닙니다.';
+        }
+      });
+      _debugSearchLog(search);
+    } catch (_) {
+      if (!mounted || epoch != _requestEpoch) return;
+      setState(() {
+        _loading = false;
+        _error = 'nearby_unavailable';
+        _marketSoftError = '주변 샵을 불러오지 못했어요. 다시 시도해 주세요.';
+      });
+    }
+  }
 
-    setState(() {
-      _insight = insight;
-      _baseCenter = center;
-      _contentPins = pins;
-      _loading = false;
-      if (!insight.storesOk) {
-        _error = insight.storesError;
-        _marketSoftError = ShopMarketService.friendlyReason(insight.storesError);
-      } else {
-        _error = null;
-      }
-    });
-    widget.onCenterChanged?.call(search.lat, search.lng);
-    _debugSearchLog(search);
+  Future<void> _loadContentPins(AreaSearchCenter search, int epoch) async {
+    try {
+      final pins = await RegionMapContentPins.loadNear(
+        store: widget.store, centerLat: search.lat, centerLng: search.lng,
+        radiusKm: _radiusKm,
+      ).timeout(const Duration(seconds: 5));
+      if (mounted && epoch == _requestEpoch) setState(() => _contentPins = pins);
+    } catch (_) { /* Public shop results remain usable. */ }
   }
 
   void _debugSearchLog(AreaSearchCenter search) {
@@ -254,17 +279,21 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   }
 
   Future<void> _searchFromMapCenter() async {
-    try {
-      _mapCamera = _mapController.camera.center;
-    } catch (_) {}
-    await _reload(keepGps: false);
+    try { _mapCamera = _mapController.camera.center; } catch (_) {}
+    final point = _mapCamera;
+    if (point == null) return;
+    _gpsCenter = null;
+    _gpsBanner = _GpsBanner.none;
+    await _reload(target: AreaSearchCenter(
+      lat: point.latitude, lng: point.longitude, source: AreaSearchSource.mapCamera,
+    ), force: true);
   }
 
   Future<void> _openAddressSettings() async {
     await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute<void>(builder: (_) => const ShopSettingsPage()),
     );
-    if (mounted) await _reload();
+    if (mounted) { _activeSearch = null; await _reload(); }
   }
 
   Future<void> _onGpsTap() async {
@@ -276,12 +305,10 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
     switch (result.outcome) {
       case RegionMapGpsOutcome.denied:
-        await _reload(keepGps: false);
-        if (mounted) setState(() => _gpsBanner = _GpsBanner.denied);
+        setState(() => _gpsBanner = _GpsBanner.denied);
         return;
       case RegionMapGpsOutcome.failed:
-        await _reload(keepGps: false);
-        if (mounted) setState(() => _gpsBanner = _GpsBanner.failed);
+        setState(() => _gpsBanner = _GpsBanner.failed);
         return;
       case RegionMapGpsOutcome.ok:
         await _applyCurrentLocation(result.lat!, result.lng!);
@@ -292,48 +319,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   Future<void> _applyCurrentLocation(double lat, double lng) async {
     final search = AreaSearchCenter.currentLocation(lat: lat, lng: lng);
     if (search.source != AreaSearchSource.gps) return;
-    final point = LatLng(search.lat, search.lng);
-    final zoom = RegionShopListCopy.mapZoom(_radiusKm);
     setState(() {
-      _gpsCenter = point;
-      _mapCamera = point;
+      _gpsCenter = LatLng(lat, lng);
       _gpsBanner = _GpsBanner.active;
-      _error = null;
-      _zoom = zoom;
     });
-    try {
-      _mapController.move(point, zoom);
-    } catch (_) {}
-    widget.onCenterChanged?.call(search.lat, search.lng);
-
-    final biz = await BizProfileStore.load(widget.store.shop.id);
-    final pinsFuture = RegionMapContentPins.loadNear(
-      store: widget.store,
-      centerLat: search.lat,
-      centerLng: search.lng,
-      radiusKm: _radiusKm,
-    );
-    final insight = await ShopMarketService.instance.fetch(
-      shop: widget.store.shop,
-      category: '전체',
-      fallbackAddress: biz.address.trim().isEmpty ? null : biz.address.trim(),
-      radiusM: (_radiusKm * 1000).round(),
-      overrideLat: search.lat,
-      overrideLng: search.lng,
-    );
-    final pins = await pinsFuture;
-    if (!mounted) return;
-    setState(() {
-      _insight = insight;
-      _contentPins = pins;
-      _peekPin = null;
-      _sheetMode = RegionMapSheetMode.hidden;
-      _baseCenter = point;
-      _marketSoftError = insight.storesOk
-          ? null
-          : ShopMarketService.friendlyReason(insight.storesError);
-    });
-    _debugSearchLog(search);
+    await _reload(target: search, force: true);
   }
 
   Future<void> _showGyeongjuExample() async {
@@ -509,18 +499,19 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   }
 
   void _onMapEvent(MapEvent event) {
-    if (event is MapEventMoveEnd) {
-      try {
-        _zoom = _mapController.camera.zoom;
-        _mapCamera = _mapController.camera.center;
-      } catch (_) {}
-      if (_gpsBanner == _GpsBanner.active &&
-          event.source != MapEventSource.mapController) {
-        setState(() => _gpsBanner = _GpsBanner.none);
-      } else {
-        setState(() {});
-      }
-    }
+    if (event is! MapEventMoveEnd) return;
+    try {
+      final camera = _mapController.camera;
+      final distance = AreaSearchCenter.distanceMeters(
+        centerLat: _searchCenter.lat, centerLng: _searchCenter.lng,
+        pointLat: camera.center.latitude, pointLng: camera.center.longitude,
+      ) ?? 0;
+      setState(() {
+        _zoom = camera.zoom;
+        _mapCamera = camera.center;
+        _mapMoved = distance > 30;
+      });
+    } catch (_) {}
   }
 
   void _closeSheet() {
@@ -582,279 +573,160 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
   @override
   Widget build(BuildContext context) {
-    final screenH = MediaQuery.sizeOf(context).height;
-    final mapH = (screenH * 0.52).clamp(280.0, 520.0);
-    final gpsText = _gpsStatusText;
     final stores = _visibleStores;
-    final search = _searchCenter;
-    final emptyKind = RegionShopListCopy.emptyKind(
-      permissionDeniedOrFailed: _gpsBanner == _GpsBanner.denied ||
-          _gpsBanner == _GpsBanner.failed,
-      usingCurrentLocation: search.source == AreaSearchSource.gps,
-      snapshotCoversCenter: OurAreaShopSnapshot.covers(search.lat, search.lng),
-    );
-    final locationFailed = emptyKind == AreaShopEmptyKind.locationFailed;
-
+    final allStores = _storeFilter.items.where((s) => s.chipKey != 'other').toList();
+    final mapH = (MediaQuery.sizeOf(context).height * 0.53).clamp(320.0, 540.0);
+    final hasLocation = _activeSearch != null;
+    final partial = _insight?.storesOk == true && !_insight!.storesComplete;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        TextField(
+          key: const Key('region-shop-search'),
+          decoration: InputDecoration(
+            hintText: '이 반경에서 샵 이름·주소 찾기',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+          ),
+          onChanged: (value) => setState(() { _shopQuery = value.trim(); _visibleLimit = 20; }),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final key in OurAreaCategory.selectableKeys)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  key: Key('region-shop-category-$key'),
+                  label: Text(_insight?.storesOk == true ? '${OurAreaCategory.labelOf(key)} ${allStores.where((s) => OurAreaCategory.matches(selected: key, chipKey: s.chipKey, categoryLabel: s.categoryLabel)).length}${partial ? '+' : ''}' : OurAreaCategory.labelOf(key)),
+                  selected: _categoryKey == key,
+                  onSelected: (_) => setState(() { _categoryKey = key; _selectedMarket = null; _visibleLimit = 20; }),
+                ),
+              ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        Row(children: [
+          const Icon(Icons.radar_rounded, size: 18, color: SoriTokens.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(hasLocation ? RegionShopListCopy.searchBasis(_searchCenter.source) : '탐색할 위치를 선택하세요', style: const TextStyle(fontSize: 13))),
+          DropdownButton<double>(
+            key: const Key('region-radius'),
+            value: _radiiKm.contains(_radiusKm) ? _radiusKm : 1.0,
+            underline: const SizedBox.shrink(),
+            items: [for (final km in _radiiKm) DropdownMenuItem(value: km, child: Text(RegionShopListCopy.radiusLabel(km)))],
+            onChanged: (km) { if (km != null) widget.onRadiusChanged?.call(km); },
+          ),
+        ]),
+        const SizedBox(height: 8),
         SizedBox(
           height: mapH,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildMapCanvas(stores),
-                _MapGlassControls(
-                  gpsBusy: _gpsBusy,
-                  gpsActive: _gpsBanner == _GpsBanner.active,
-                  onGps: _onGpsTap,
-                  onSaved: () => _openSavedSheet(),
-                ),
-                RegionMapExploreSheet(
-                  sheetController: _sheetController,
-                  mode: _sheetMode,
-                  filter: _filter,
-                  onFilterChanged: (f) {
-                    setState(() {
-                      _filter = f;
-                      // 필터는 중심 유지 · marker만 갱신 (시트 detent 유지)
-                    });
-                  },
-                  onClose: _closeSheet,
-                  selectedPin: _peekPin,
-                  clusterPins: _sheetPins,
-                  clusterTitle: _sheetTitle,
-                  savedPreview: _savedPreview,
-                  titleForBookmark: _bookmarkTitle,
-                  onOpenPin: _openPin,
-                  onOpenSavedAll: () => _openSavedSheet(fullList: true),
-                  onOpenBookmark: _openBookmark,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (gpsText != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            gpsText,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: SoriTokens.textSecondary,
-              height: 1.35,
-            ),
-          ),
-          if (locationFailed) ...[
-            const SizedBox(height: 8),
-            OutlinedButton(
-              key: const Key('region-shop-retry-gps'),
-              onPressed: _onGpsTap,
-              child: const Text(RegionShopListCopy.retryGpsLabel),
-            ),
-          ],
-        ],
-        if (kDebugMode) ...[
-          const SizedBox(height: 8),
-          Text(
-            key: const Key('area-search-diagnostics'),
-            _diagnosticsFor(_searchCenter).report,
-            style: const TextStyle(
-              fontSize: 10,
-              height: 1.35,
-              color: SoriTokens.textSecondary,
-              fontFamily: 'monospace',
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _openAddressSettings,
-              child: const Text('주소로 중심 잡기'),
-            ),
-          ),
-          _Cs1TileCompareBar(
-            selected: _tileId,
-            onSelected: (id) {
-              final next = RegionMapTileCatalog.spec(id);
-              if (!next.canRender) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '${next.label} 키가 없어요. .env에 ${next.keyHint}를 넣으세요.',
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(fit: StackFit.expand, children: [
+              _buildMapCanvas(stores),
+              _MapGlassControls(
+                gpsBusy: _gpsBusy, gpsActive: _gpsBanner == _GpsBanner.active,
+                onGps: _onGpsTap, onSaved: () => _openSavedSheet(),
+              ),
+              if (_loading) const Positioned(top: 0, left: 0, right: 0,
+                child: LinearProgressIndicator(minHeight: 3)),
+              if (_mapMoved || !hasLocation)
+                Positioned(top: 12, left: 12, right: 76,
+                  child: Align(alignment: Alignment.topCenter,
+                    child: FilledButton.icon(
+                      key: const Key('region-search-this-area'),
+                      onPressed: _loading ? null : _searchFromMapCenter,
+                      icon: const Icon(Icons.search_rounded, size: 18),
+                      label: const Text('이 위치에서 검색'),
                     ),
                   ),
-                );
-                return;
-              }
-              setState(() => _tileId = id);
-            },
+                ),
+              RegionMapExploreSheet(
+                sheetController: _sheetController, mode: _sheetMode, filter: _filter,
+                onFilterChanged: (value) => setState(() => _filter = value),
+                onClose: _closeSheet, selectedPin: _peekPin, clusterPins: _sheetPins,
+                clusterTitle: _sheetTitle, savedPreview: _savedPreview,
+                titleForBookmark: _bookmarkTitle, onOpenPin: _openPin,
+                onOpenSavedAll: () => _openSavedSheet(fullList: true),
+                onOpenBookmark: _openBookmark,
+              ),
+              if (_selectedMarket != null)
+                Positioned(left: 12, right: 12, bottom: 30,
+                  child: Material(elevation: 6, borderRadius: BorderRadius.circular(20),
+                    child: Padding(padding: const EdgeInsets.all(16),
+                      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Expanded(child: Text(_selectedMarket!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700))),
+                          IconButton(tooltip: '선택 닫기', onPressed: _closeSheet, icon: const Icon(Icons.close_rounded)),
+                        ]),
+                        Text('${_selectedMarket!.categoryLabel} · ${RegionShopListCopy.distanceLabel(_selectedMarket!.distanceM) ?? '가까운 위치'}'),
+                        Text(_selectedMarket!.address, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        _NaverMapCta(buttonKey: const Key('region-selected-map-cta'), item: _selectedMarket!, region: ''),
+                      ]),
+                    ),
+                  ),
+                ),
+            ]),
           ),
-        ],
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Text(
-              '반경',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: SoriTokens.textSecondary,
-              ),
-            ),
-            const SizedBox(width: 8),
-            for (final km in _radiiKm) ...[
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  label: Text(
-                    km < 1
-                        ? '${(km * 1000).round()}m'
-                        : '${km.toStringAsFixed(km == km.roundToDouble() ? 0 : 1)}km',
-                  ),
-                  selected: _radiusKm == km,
-                  onSelected: (_) {
-                    if (_radiusKm == km) return;
-                    widget.onRadiusChanged?.call(km);
-                  },
-                  selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-                  labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-            const Spacer(),
-            TextButton(
-              onPressed: _loading ? null : () => _reload(),
-              child: const Text('다시 시도'),
-            ),
-          ],
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final key in OurAreaCategory.selectableKeys)
-              ChoiceChip(
-                key: Key('region-shop-category-$key'),
-                label: Text(OurAreaCategory.labelOf(key)),
-                selected: _categoryKey == key,
-                onSelected: (_) {
-                  if (_categoryKey == key) return;
-                  setState(() {
-                    _categoryKey = key;
-                    _selectedMarket = null;
-                  });
-                },
-                selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-          ],
-        ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          )
+        const SizedBox(height: 16),
+        if (_gpsStatusText != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_gpsStatusText!)),
+        if (!hasLocation && !_loading) ...[
+          const Text('내 위치를 사용하거나 지도를 움직여 탐색할 지역을 선택해 주세요.'),
+          Align(alignment: Alignment.centerLeft,
+            child: TextButton.icon(onPressed: _onGpsTap, icon: const Icon(Icons.my_location_rounded), label: const Text('내 위치로 찾기'))),
+        ] else if (_loading)
+          Semantics(liveRegion: true, child: const Text('이 반경의 뷰티샵을 찾고 있어요…'))
         else ...[
-          if (_marketSoftError != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _marketSoftError!,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => _reload(),
-                    child: const Text('다시 시도'),
-                  ),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              '반경 ${_radiusKm < 1 ? '${(_radiusKm * 1000).round()}m' : '${_radiusKm}km'} · '
-              '상권 ${stores.length}곳 · 글/세미나 ${_filteredPins.length}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: SoriTokens.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          if (_marketSoftError != null) Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 20), const SizedBox(width: 8),
+              Expanded(child: Text(_marketSoftError!, style: const TextStyle(fontSize: 13))),
+              TextButton(onPressed: () => _reload(force: true), child: const Text('다시 시도')),
+            ]),
           ),
-          if (_selectedMarket != null)
-            _SelectedCard(
-              item: _selectedMarket!,
-              region: (widget.store.shop.address ?? '').trim(),
-            ),
-          const SizedBox(height: 8),
-          _ShopListSummary(
-            radiusKm: _radiusKm,
-            category: OurAreaCategory.labelOf(_categoryKey),
-            count: stores.length,
-            searchBasis: RegionShopListCopy.searchBasis(_searchCenter.source),
-            insight: OurAreaRadiusInsight.fromMappedKeys(
-              stores.map((s) => s.chipKey),
-            ),
-            sources: _insight?.sources ?? const <String>[],
-          ),
-          if (stores.isEmpty)
-            _ShopListEmpty(
-              kind: emptyKind,
-              onWiden: _nextRadiusKm == null || widget.onRadiusChanged == null
-                  ? null
-                  : _widenRadius,
-              onRetryGps: locationFailed ? null : _onGpsTap,
-              onSearchMap: _searchFromMapCenter,
-              onShowGyeongjuExample: _showGyeongjuExample,
-            )
-          else ...[
-            const SizedBox(height: 6),
-            for (var i = 0; i < stores.length; i++)
-              _MarketStoreRow(
-                item: stores[i],
-                index: i,
-                region: (widget.store.shop.address ?? '').trim(),
-                selected: _selectedMarket?.name == stores[i].name &&
-                    _selectedMarket?.distanceM == stores[i].distanceM,
-                onSelect: () => setState(() => _selectedMarket = stores[i]),
+          if (_insight?.storesOk == true) ...[
+            Semantics(liveRegion: true, child: Text(
+              '${RegionShopListCopy.radiusLabel(_radiusKm)} · ${OurAreaCategory.labelOf(_categoryKey)} ${stores.length}곳${partial ? ' · 일부 결과' : ''}',
+              key: const Key('region-shop-list-count'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            )),
+            const SizedBox(height: 4),
+            const Text('공공데이터 등록 업소 · 거리순', style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary)),
+            const SizedBox(height: 12),
+            if (stores.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(partial ? '아직 이 조건의 샵을 찾지 못했어요. 다시 조회해 주세요.' : '이 조건으로 조회된 샵이 없어요. 업종·검색어·반경을 바꿔보세요.')),
+            for (var i = 0; i < stores.length && i < _visibleLimit; i++)
+              _MarketStoreRow(item: stores[i], index: i, region: '',
+                selected: identical(_selectedMarket, stores[i]) || (_selectedMarket?.name == stores[i].name && _selectedMarket?.address == stores[i].address),
+                onSelect: () {
+                  setState(() { _selectedMarket = stores[i]; _sheetMode = RegionMapSheetMode.hidden; });
+                  try { _mapController.move(LatLng(stores[i].latitude, stores[i].longitude), _zoom); } catch (_) {}
+                },
               ),
+            if (stores.length > _visibleLimit)
+              TextButton(onPressed: () => setState(() => _visibleLimit += 20), child: const Text('샵 더 보기')),
+            const SizedBox(height: 8),
+            const Text('출처: 소상공인시장진흥공단 상가(상권)정보
+등록·갱신 시차로 실제 영업 현황과 다를 수 있어요.',
+              style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.5)),
           ],
         ],
-        const SizedBox(height: 4),
-        const Text(
-          '출처: 소상공인시장진흥공단 상가(상권)정보 · 추정·참고용',
-          style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
-        ),
+        const SizedBox(height: 16),
       ],
     );
   }
 
   Widget _buildMapCanvas(List<ShopMarketStoreItem> stores) {
     final center = _viewCenter;
-    if (_loading) {
-      return const ColoredBox(
-        color: Color(0xFFF3F4F6),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
 
     final overlays = RegionMapClusters.build(
       pins: _filteredPins,
@@ -862,7 +734,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     );
 
     final markers = <Marker>[
-      Marker(
+      if (_activeSearch != null) Marker(
         point: center,
         width: 36,
         height: 36,
@@ -879,22 +751,27 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       for (final s in stores)
         Marker(
           point: LatLng(s.latitude, s.longitude),
-          width: 28,
-          height: 28,
+          width: 48,
+          height: 48,
           child: GestureDetector(
             onTap: () => setState(() {
               _selectedMarket = s;
               _sheetMode = RegionMapSheetMode.hidden;
               _peekPin = null;
             }),
-            child: Icon(
+            child: Tooltip(message: '${s.name} · ${s.categoryLabel}', child: Container(
+              alignment: Alignment.center,
+              margin: const EdgeInsets.all(5),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 3))]),
+              child: Icon(
               Icons.storefront_outlined,
               color: _selectedMarket?.name == s.name &&
                       _selectedMarket?.distanceM == s.distanceM
                   ? SoriTokens.primary
                   : RegionMapBloom.market,
               size: 22,
-            ),
+            ))),
           ),
         ),
       for (final o in overlays)
@@ -941,7 +818,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         ),
         CircleLayer(
           circles: [
-            CircleMarker(
+            if (_activeSearch != null) CircleMarker(
               point: center,
               radius: _radiusKm * 1000,
               useRadiusInMeter: true,
@@ -1581,8 +1458,6 @@ class _NaverMapCta extends StatelessWidget {
     final uri = NaverMapLinks.uri(
       name: item.name,
       address: item.address,
-      latitude: item.latitude,
-      longitude: item.longitude,
       region: region,
     );
     if (uri == null) return const SizedBox.shrink();
@@ -1593,16 +1468,18 @@ class _NaverMapCta extends StatelessWidget {
         child: OutlinedButton(
           key: buttonKey,
           onPressed: () async {
-            final ok = await NaverMapLinks.open(uri);
+            var ok = false;
+            try { ok = await NaverMapLinks.open(uri); } catch (_) {}
             if (!ok && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('지도를 열 수 없어요.')),
               );
             }
           },
-          child: const Text('지도에서 보기'),
+          child: const Text('네이버에서 샵 찾기'),
         ),
       ),
     );
   }
 }
+
