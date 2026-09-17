@@ -25,6 +25,7 @@ class ShopMarketInsight {
     this.storeItems = const [],
     required this.storesError,
     this.storesUpstream,
+    this.storesComplete = false,
     required this.populationOk,
     required this.admCd,
     required this.dongName,
@@ -54,6 +55,8 @@ class ShopMarketInsight {
   final String? storesError;
   /// Edge `stores.upstream`. 없으면 구버전 응답.
   final String? storesUpstream;
+  /// False for legacy, partial, failed, and snapshot responses.
+  final bool storesComplete;
 
   final bool populationOk;
   final String? admCd;
@@ -153,6 +156,7 @@ class ShopMarketInsight {
       ],
       storesError: stores['error']?.toString(),
       storesUpstream: stores['upstream']?.toString(),
+      storesComplete: stores['complete'] == true,
       populationOk: pop['ok'] == true,
       admCd: pop['adm_cd']?.toString(),
       dongName: pop['dong_name']?.toString(),
@@ -283,6 +287,58 @@ class ShopMarketService {
   String? _cacheKey;
 
   static const _ttl = Duration(hours: 6);
+
+  final Map<String, ShopMarketInsight> _nearbyCache = {};
+
+  /// Live shop discovery is independent of population analytics and sample assets.
+  /// Failed/partial responses are never cached as a successful census.
+  Future<ShopMarketInsight> fetchNearby({
+    required double latitude,
+    required double longitude,
+    required int radiusM,
+    bool force = false,
+  }) async {
+    if (!AreaSearchCenter.hasValidPoint(latitude, longitude) ||
+        latitude < 33 || latitude > 39 || longitude < 124 || longitude > 132) {
+      return ShopMarketInsight.unavailable(reason: 'shop_coords_missing');
+    }
+    final key = '$latitude|$longitude|$radiusM';
+    final cached = _nearbyCache[key];
+    if (!force && cached != null && cached.fetchedAt != null &&
+        DateTime.now().toUtc().difference(cached.fetchedAt!) < const Duration(minutes: 5)) {
+      return cached;
+    }
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'get-shop-market',
+        body: {
+          'action': 'stores',
+          'latitude': latitude,
+          'longitude': longitude,
+          'radius_m': radiusM,
+          'category': '전체',
+        },
+      ).timeout(const Duration(seconds: 30));
+      final dynamic data = response.data is String
+          ? jsonDecode(response.data as String) : response.data;
+      if (data is! Map) throw const FormatException('bad_response');
+      final map = Map<String, dynamic>.from(data);
+      map.putIfAbsent('latitude', () => latitude);
+      map.putIfAbsent('longitude', () => longitude);
+      final insight = ShopMarketInsight.fromMap(map);
+      if (insight.storesOk && insight.storesComplete) {
+        if (_nearbyCache.length >= 12) _nearbyCache.remove(_nearbyCache.keys.first);
+        _nearbyCache[key] = insight;
+      }
+      return insight;
+    } catch (_) {
+      return ShopMarketInsight.unavailable(
+        reason: 'nearby_unavailable',
+        centerLatitude: latitude,
+        centerLongitude: longitude,
+      );
+    }
+  }
 
   /// [fallbackAddress]: 샵에 주소/좌표가 없을 때 경영 프로필 주소 등.
   /// 서울 묵시 폴백 없이, 주소 resolve 실패 시 shop_coords_missing.
@@ -539,3 +595,4 @@ class ShopMarketService {
     return ShopGeocodingService.instance.resolveNeighborhood(trimmed);
   }
 }
+
