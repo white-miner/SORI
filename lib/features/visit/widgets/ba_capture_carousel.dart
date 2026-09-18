@@ -170,7 +170,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
         ),
         SizedBox(
           // 고정 높이 — 세로 제약이 캐러셀 밖으로 전파되지 않게 차단한다.
-          height: 128,
+          height: 100 + MediaQuery.textScalerOf(context).scale(28),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -645,27 +645,15 @@ class _Slot extends StatelessWidget {
 
 class _AddGlyph extends StatelessWidget {
   const _AddGlyph({required this.caption});
-
   final String caption;
-
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: HomeVisualTokens.baAddCircle,
-        height: HomeVisualTokens.baAddCircle,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-        ),
-        child: const Icon(
-          Icons.add_rounded,
-          size: 20,
-          color: HomeVisualTokens.dateTextColor,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.add_rounded, size: 26, color: HomeVisualTokens.dateTextColor),
+      const SizedBox(height: 6),
+      Text(caption, style: const TextStyle(fontSize: 12, color: HomeVisualTokens.dateTextColor)),
+    ]),
+  );
 }
 
 class _MiniIconButton extends StatelessWidget {
@@ -730,7 +718,7 @@ class _BindChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: const SizedBox(
           width: double.infinity,
-          height: 22,
+          height: 48,
           child: Center(
             child: Text(
               '차트 작성',

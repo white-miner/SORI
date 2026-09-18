@@ -58,6 +58,21 @@ BoxDecoration _decorationOf(WidgetTester tester, int index) =>
     _fillOf(tester, index).decoration! as BoxDecoration;
 
 void main() {
+  for (final width in [320.0, 430.0, 1024.0]) {
+    testWidgets('휴대폰/태블릿 폭 $width 에서 모든 탭을 선택할 수 있다', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      TabController? controller;
+      await tester.pumpWidget(_Host(onController: (c) => controller = c));
+      for (var i = 0; i < 4; i++) {
+        await tester.tap(find.byKey(Key('sori-stage-tab-$i')));
+        await tester.pumpAndSettle();
+        expect(controller!.index, i);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   testWidgets('모든 스테이지 탭 라벨(Desk/Chart/Programs/Flow)이 보인다', (tester) async {
     await tester.pumpWidget(const _Host());
     await tester.pump();
