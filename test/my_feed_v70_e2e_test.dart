@@ -54,7 +54,7 @@ void main() {
     expect(find.text('지금 처리할 일'), findsNothing);
     expect(find.byType(HomeQuickActionRow), findsOneWidget);
     expect(find.byType(BaCaptureCarousel), findsOneWidget);
-    expect(find.text('관리 케이스'), findsOneWidget);
+    expect(find.text('B&A 피드'), findsOneWidget);
   });
 
   testWidgets('My Feed는 렌더링 붕괴(blank screen) 없이 조립된다', (tester) async {
@@ -82,7 +82,7 @@ void main() {
 
     final store = await _mountHome(tester);
 
-    expect(find.text('B/A 촬영'), findsOneWidget);
+    expect(find.text('NEW'), findsOneWidget);
     expect(find.text('촬영 대기'), findsNothing);
     expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
 
@@ -94,7 +94,7 @@ void main() {
     await tester.pump();
     await _settle(tester);
 
-    expect(find.text('B/A 촬영'), findsOneWidget);
+    expect(find.text('NEW'), findsOneWidget);
     expect(store.baPendingSession, isNull);
     expect(store.baSessions.where((s) => !s.hasPhoto), isEmpty);
     expect(tester.takeException(), isNull);
@@ -116,9 +116,9 @@ void main() {
     await _settle(tester);
 
     // 아직은 고정 슬롯에 머문다 — 카드로 분리되지 않는다.
-    expect(find.text('B/A 촬영'), findsOneWidget);
+    expect(find.text('NEW'), findsOneWidget);
     expect(find.text(customer.name), findsNothing);
-    expect(find.text('고객 연결'), findsOneWidget);
+    expect(find.text('작성 중'), findsOneWidget);
 
     await store.bindBaSessionToChart(
       target: pending,
@@ -128,9 +128,9 @@ void main() {
     await _settle(tester);
 
     // 이제 고객 이름 카드로 분리되고, After가 없으니 🔴다.
-    expect(find.text('B/A 촬영'), findsOneWidget, reason: '고정 슬롯은 그대로 1개');
+    expect(find.text('NEW'), findsOneWidget, reason: '고정 슬롯은 그대로 1개');
     expect(find.text(customer.name), findsWidgets);
-    expect(find.text('After 필요'), findsOneWidget);
+    expect(find.byKey(ValueKey('history-${pending.id}')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

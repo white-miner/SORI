@@ -274,237 +274,34 @@ void main() {
     });
   });
 
-  group('③ B/A 캐러셀 — 신호등 및 이관 애니메이션', () {
-    testWidgets('첫 슬롯은 "B/A 촬영" 고정 슬롯 단 1개다 (헌법 1)', (tester) async {
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: const [],
-            onCapture: (_, _) {},
-            onBind: (_) {},
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      expect(find.text('B/A 등록'), findsOneWidget);
-      expect(find.text('B/A 촬영'), findsOneWidget);
-      expect(find.text('촬영 대기'), findsNothing);
+  group('③ B&A 히스토리 작업대', () {
+    testWidgets('빈 NEW에서 전후 촬영 선택을 연다', (tester) async {
+      String? captured;
+      await tester.pumpWidget(_host(BaCaptureCarousel(
+        sessions: const [], onCapture: (_, kind) => captured = kind,
+        onBind: (_) {}, onDefer: (_) {}, onOpen: (_) {},
+      )));
       expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
-      // 빈 상태에서도 ⊕ 두 개(Before/After)가 즉시 보인다.
-      expect(find.byIcon(Icons.add_rounded), findsNWidgets(2));
-      // 할 일이 없으므로 넛지 배지도 없다.
-      expect(find.text('1'), findsNothing);
-    });
-
-    testWidgets('고정 슬롯의 촬영본은 탭하면 곧장 고객 연결로 간다 (헌법 3)', (tester) async {
-      BaCaptureSession? bound;
-      final pending = _draft(id: 'p', before: 'https://x/b.webp');
-
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: const [],
-            pending: pending,
-            onCapture: (_, _) {},
-            onBind: (s) => bound = s,
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      // 고정 슬롯은 여전히 1개다 — 사진이 들어와도 카드로 분리되지 않는다.
-      expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
-      expect(find.text('B/A 촬영'), findsOneWidget);
-      expect(find.text('1'), findsOneWidget, reason: '연결 대기 1건');
-
-      expect(find.text('고객 연결'), findsOneWidget);
-      await tester.tap(find.text('고객 연결'));
-      await tester.pump();
-      expect(bound?.id, 'p');
-    });
-
-    testWidgets('Before만 찍힌 세션은 🔴와 "After 필요" 배지', (tester) async {
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: [_draft(id: 'a', before: 'https://x/b.webp')],
-            onCapture: (_, _) {},
-            onBind: (_) {},
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      expect(find.text('After 필요'), findsOneWidget);
-      expect(find.text('1'), findsOneWidget, reason: '넛지 배지 카운트');
-    });
-
-    testWidgets('두 장 다 찍혔지만 차트 미연동이면 "고객 연결" 액션이 뜬다', (tester) async {
-      BaCaptureSession? bound;
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: [
-              _draft(
-                id: 'a',
-                before: 'https://x/b.webp',
-                after: 'https://x/a.webp',
-              ),
-            ],
-            onCapture: (_, _) {},
-            onBind: (s) => bound = s,
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      expect(find.text('고객 연결'), findsOneWidget);
-      await tester.tap(find.text('고객 연결'));
-      await tester.pump();
-      expect(bound?.id, 'a');
-    });
-
-    testWidgets('이관 중 카드는 320ms 동안 제자리에서 확정된다 (Q3a)', (tester) async {
-      final session = _draft(
-        id: 'a',
-        before: 'https://x/b.webp',
-        after: 'https://x/a.webp',
-        label: '최진실님',
-      );
-
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: [session],
-            transferringId: 'a',
-            onCapture: (_, _) {},
-            onBind: (_) {},
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      // index 0은 "새 촬영" 카드이므로, 이관 대상은 두 번째 카드다.
-      final scales =
-          tester.widgetList<AnimatedScale>(find.byType(AnimatedScale)).toList();
-      expect(scales.length, 2);
-      expect(scales.first.scale, 1.0, reason: '새 촬영 카드는 정지');
-
-      final transferring = scales[1];
-      expect(transferring.duration, HomeVisualTokens.baTransferDuration);
-      expect(transferring.duration, const Duration(milliseconds: 320));
-      expect(transferring.scale, greaterThan(1.0), reason: '제자리 확정 팝');
-
-      // v7.0.2 — 캐러셀 밖으로 밀어내지 않는다.
-      expect(find.byType(AnimatedSlide), findsNothing);
-
-      // 이관 중에는 고객 연결 액션을 감춘다 (중복 바인딩 방지).
-      expect(find.text('고객 연결'), findsNothing);
+      await tester.tap(find.text('NEW'));
       await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.add_rounded), findsWidgets);
+      await tester.tap(find.byIcon(Icons.add_rounded).at(1));
+      await tester.pumpAndSettle();
+      expect(captured, 'before');
     });
-
-    testWidgets('밀어둔 세션도 넛지 카운트에 남는다', (tester) async {
-      final deferred = BaCaptureSession(
-        id: 'd',
-        shopId: 'shop-1',
-        sessionToken: 'token-d',
-        beforeImageUrl: 'https://x/b.webp',
-        deferredAt: DateTime(2026, 9, 2, 9),
-        createdAt: DateTime(2026, 9, 2, 8),
-      );
-
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: [deferred],
-            onCapture: (_, _) {},
-            onBind: (_) {},
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      expect(find.text('1'), findsOneWidget);
-      expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
-    });
-
-    testWidgets('🟢 완성 카드는 캐러셀에 남고, 탭하면 뷰어로 열린다', (tester) async {
-      BaCaptureSession? opened;
-      final done = BaCaptureSession(
-        id: 'done',
-        shopId: 'shop-1',
-        sessionToken: 'token-done',
-        beforeImageUrl: 'https://x/b.webp',
-        afterImageUrl: 'https://x/a.webp',
-        chartId: 'chart-1',
-        status: BaCaptureStatus.linked,
-        createdAt: DateTime(2026, 9, 2, 8),
-      );
-
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: [done],
-            onCapture: (_, _) => fail('완성 카드는 촬영을 다시 열지 않는다'),
-            onBind: (_) {},
-            onDefer: (_) {},
-            onOpen: (s) => opened = s,
-          ),
-        ),
-      );
-
-      expect(find.text('완료'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
-      // 완성 카드에는 후순위화/연결 액션이 없다.
-      expect(find.byIcon(Icons.check_rounded), findsNothing);
-      expect(find.text('고객 연결'), findsNothing);
-      // 미완성이 없으므로 넛지 배지도 뜨지 않는다.
-      expect(find.text('1'), findsNothing);
-
-      await tester.tap(find.byType(InkWell).last);
-      await tester.pump();
-      expect(opened?.id, 'done');
-    });
-
-    testWidgets('🔴 미완성이 앞, 🟢 완성이 뒤에 배치된다', (tester) async {
-      final done = BaCaptureSession(
-        id: 'done',
-        shopId: 'shop-1',
-        sessionToken: 'token-done',
-        beforeImageUrl: 'https://x/b.webp',
-        afterImageUrl: 'https://x/a.webp',
-        chartId: 'chart-1',
-        status: BaCaptureStatus.linked,
-        createdAt: DateTime(2026, 9, 2, 12),
-      );
-      final todo = _draft(id: 'todo', before: 'https://x/b.webp');
-
-      // 스토어가 넘겨주는 정렬과 동일하게 정렬해 전달한다.
-      final ordered = [done, todo]..sort(BaCaptureSession.carouselOrder);
-
-      await tester.pumpWidget(
-        _host(
-          BaCaptureCarousel(
-            sessions: ordered,
-            onCapture: (_, _) {},
-            onBind: (_) {},
-            onDefer: (_) {},
-            onOpen: (_) {},
-          ),
-        ),
-      );
-
-      final todoX = tester.getTopLeft(find.text('After 필요')).dx;
-      final doneX = tester.getTopLeft(find.text('완료')).dx;
-      expect(todoX, lessThan(doneX), reason: '🔴 → 🟢 순서');
-      expect(find.text('1'), findsOneWidget, reason: '넛지는 미완성 1건만');
+    testWidgets('거치 사진은 명시적으로 차트 연결을 선택해야 전달된다', (tester) async {
+      BaCaptureSession? bound;
+      await tester.pumpWidget(_host(BaCaptureCarousel(
+        sessions: const [], pending: _draft(id: 'pending', before: 'https://x/b.webp'),
+        onCapture: (_, _) {}, onBind: (s) => bound = s,
+        onDefer: (_) {}, onOpen: (_) {},
+      )));
+      expect(bound, isNull);
+      await tester.tap(find.text('NEW'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('고객 연결'));
+      await tester.pumpAndSettle();
+      expect(bound?.id, 'pending');
     });
   });
 

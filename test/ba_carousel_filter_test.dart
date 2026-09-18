@@ -31,54 +31,33 @@ BaCaptureSession _session({
 }
 
 void main() {
-  testWidgets('미완성만 보면 🟢가 빠지고 고정 슬롯은 남는다', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        BaCaptureCarousel(
-          sessions: [
-            _session(id: 'red', label: '수분관리', complete: false),
-            _session(id: 'green', label: '완성케어', complete: true),
-          ],
-          onCapture: (_, _) {},
-          onBind: (_) {},
-          onDefer: (_) {},
-          onOpen: (_) {},
-        ),
-      ),
-    );
-
-    expect(find.text('수분관리'), findsOneWidget);
-    expect(find.text('완성케어'), findsOneWidget);
-    expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('ba-filter-incomplete')));
-    await tester.pump();
-
-    expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
-    expect(find.text('수분관리'), findsOneWidget);
-    expect(find.text('완성케어'), findsNothing);
+  testWidgets('히스토리는 한 줄이며 NEW가 항상 첫 칸이다', (tester) async {
+    BaCaptureSession? opened;
+    await tester.pumpWidget(_host(BaCaptureCarousel(
+      sessions: [_session(id: 'done', label: '완성케어', complete: true)],
+      onCapture: (_, _) {}, onBind: (_) {}, onDefer: (_) {},
+      onOpen: (s) => opened = s,
+    )));
+    expect(find.text('B&A 히스토리'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('NEW')).dx,
+      lessThan(tester.getTopLeft(find.text('완성케어')).dx));
+    await tester.tap(find.text('완성케어'));
+    expect(opened?.id, 'done');
   });
-
-  testWidgets('완성만 보면 🔴가 빠지고 없으면 안내 문구가 뜬다', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        BaCaptureCarousel(
-          sessions: [
-            _session(id: 'red', label: '수분관리', complete: false),
-          ],
-          onCapture: (_, _) {},
-          onBind: (_) {},
-          onDefer: (_) {},
-          onOpen: (_) {},
-        ),
-      ),
-    );
-
-    await tester.tap(find.byKey(const Key('ba-filter-complete')));
-    await tester.pump();
-
-    expect(find.byKey(const Key('ba-fixed-capture-slot')), findsOneWidget);
-    expect(find.text('수분관리'), findsNothing);
-    expect(find.text('완성된 촬영이 없습니다'), findsOneWidget);
+  testWidgets('NEW를 열고 닫아도 촬영·연결이 발생하지 않는다', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(_host(BaCaptureCarousel(
+      sessions: const [], pending: _session(id: 'pending', label: '', complete: false),
+      onCapture: (_, _) => calls++, onBind: (_) => calls++, onDefer: (_) {}, onOpen: (_) {},
+    )));
+    await tester.tap(find.text('NEW'));
+    await tester.pumpAndSettle();
+    expect(find.text('고객 연결'), findsOneWidget);
+    expect(calls, 0);
+    final context = tester.element(find.text('고객 연결'));
+    Navigator.pop(context);
+    await tester.pumpAndSettle();
+    expect(find.text('작성 중'), findsOneWidget);
+    expect(calls, 0);
   });
 }

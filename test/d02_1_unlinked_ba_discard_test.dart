@@ -228,6 +228,8 @@ void main() {
         ),
       );
 
+      await tester.tap(find.text('NEW'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('ba-discard-pending')));
       await tester.pumpAndSettle();
 
