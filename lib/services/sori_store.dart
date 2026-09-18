@@ -5846,7 +5846,7 @@ class SoriStore implements Listenable {
     }
 
     for (final chart in managementCaseCharts()) {
-      if (!_isTodaysCase(chart)) continue;
+
       if (!seenCharts.add(chart.id)) continue;
       out.add(_chartMirrorSession(chart));
     }
@@ -6441,6 +6441,28 @@ class SoriStore implements Listenable {
   /// 🟢 판정 — 세션을 고객 차트에 연결해 관리 케이스 피드로 이관한다.
   ///
   /// 차트가 지정되지 않으면 오늘 회차를 재사용하거나 새로 생성한다.
+  /// 저장된 차트가 사진의 원본이다. 작성 중 교체/삭제한 사진을 되돌리지 않는다.
+  Future<CustomerChart> bindSavedBaSessionToChart({
+    required BaCaptureSession target,
+    required CustomerChart chart,
+  }) async {
+    if (findChartById(chart.id) == null || !chart.visitChecked ||
+        target.shopId != shop.id || chart.shopId != shop.id) {
+      throw StateError('Saved chart from this shop required');
+    }
+    var synced = target.copyWith(
+      beforeImageUrl: chart.beforeImageUrl ?? '',
+      afterImageUrl: chart.afterImageUrl ?? '',
+    );
+    if (baRemoteReady && !isLocalBaSessionId(target.id)) {
+      synced = await _repository.upsertBaCaptureSession(synced);
+      _upsertBaSessionLocal(synced);
+    }
+    return bindBaSessionToChart(
+      target: synced, customerId: chart.customerId, chartId: chart.id,
+    );
+  }
+
   Future<CustomerChart> bindBaSessionToChart({
     required BaCaptureSession target,
     required String customerId,

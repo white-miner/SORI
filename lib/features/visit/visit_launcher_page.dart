@@ -391,9 +391,8 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('상담 시작 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('상담 시작 실패: $e')));
     }
   }
 
@@ -691,24 +690,19 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       if (result == null || !mounted) return;
 
       final photoKind = isBefore ? 'before' : 'after';
-      final saved = session == null
-          ? await store.captureIntoPendingBaSlot(
+      await (session == null
+          ? store.captureIntoPendingBaSlot(
               kind: photoKind,
               imageUrl: result.url,
             )
-          : await store.attachBaPhoto(
+          : store.attachBaPhoto(
               target: session,
               kind: photoKind,
               imageUrl: result.url,
-            );
+            ));
       if (!mounted) return;
 
-      // 헌법 3 — 촬영 직후 곧바로 고객 차트를 연결할 수 있어야 한다.
-      if (!saved.hasCustomer) {
-        setState(() => _baBusy = false);
-        await _bindBaSession(saved);
-        return;
-      }
+      _toast('NEW에 사진을 보관했어요');
     } catch (e) {
       if (!mounted) return;
       _toast('촬영 저장 실패: ${_readableError(e)}', error: true);
@@ -744,30 +738,48 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   /// 두 장이 모두 모여 있었다면 그대로 🟢가 되어 관리 케이스 피드로 간다.
   Future<void> _bindBaSession(BaCaptureSession session) async {
     if (_baBusy) return;
-    final customer = await showVisitCustomerPickerSheet(
-      context,
-      store: widget.store,
-    );
+    final customer = session.hasCustomer
+        ? widget.store.findCustomer(session.customerId!)
+        : await showVisitCustomerPickerSheet(context, store: widget.store);
     if (customer == null || !mounted) return;
-
-    setState(() {
-      _baBusy = true;
-      _baTransferringId = session.id;
-    });
+    setState(() => _baBusy = true);
     try {
-      final chart = await widget.store.bindBaSessionToChart(
-        target: session,
-        customerId: customer.id,
-      );
-      // 확정 애니메이션이 끝나는 시점에 맞춰 피드 최상단에 꽂는다.
-      await Future<void>.delayed(HomeVisualTokens.baTransferDuration);
-      if (!mounted) return;
-      if (chart.hasBeforeImage && chart.hasAfterImage) {
-        _casePager.prepend(chart);
-        _toast('${customer.name} · ${chart.visitNumber}회 케이스로 이관');
-      } else {
-        _toast('${customer.name} 고객에 연결했어요 · 나머지 한 장을 채워주세요');
+      // 차트 저장 후 연결 응답만 실패한 경우 이미 저장된 원본을 재사용한다.
+      CustomerChart? savedChart;
+      for (final chart in widget.store.chartsForCustomer(customer.id)) {
+        if (session.hasPhoto &&
+            chart.beforeImageUrl == session.beforeImageUrl &&
+            chart.afterImageUrl == session.afterImageUrl &&
+            chart.visitChecked) {
+          savedChart = chart;
+          break;
+        }
       }
+      if (savedChart == null) {
+        await Navigator.of(context, rootNavigator: true).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => AdminChartWriterPage(
+              store: widget.store,
+              customerId: customer.id,
+              customer: customer,
+              existingChart: session.hasChart
+                  ? widget.store.findChartById(session.chartId!)
+                  : null,
+              initialBeforeImageUrl: session.beforeImageUrl,
+              initialAfterImageUrl: session.afterImageUrl,
+              onChartSaved: (chart) => savedChart = chart,
+            ),
+          ),
+        );
+      }
+      if (savedChart == null) return; // 취소·실패: NEW 원본을 유지한다.
+      await widget.store.bindSavedBaSessionToChart(target: session, chart: savedChart!);
+      if (!mounted) return;
+      setState(() {
+        _baTransferringId = session.id;
+        _reloadCaseFeed();
+      });
+      _toast('${customer.name} · 차트를 저장하고 히스토리에 담았어요');
     } catch (e) {
       if (!mounted) return;
       _toast('고객 연결 실패: ${_readableError(e)}', error: true);
@@ -964,15 +976,6 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
         ),
         slivers: [
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: HomeQuickActionRow(
-                onNewCustomer: _startNewCustomerFlow,
-                onReturningCustomer: _startReturningCustomerFlow,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
             child: BaCaptureCarousel(
               sessions: drafts,
               pending: widget.store.baPendingSession,
@@ -984,6 +987,15 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
               onDefer: _deferBaSession,
               onOpen: (s) => unawaited(_openBaSession(s)),
               onDiscard: _discardUnlinkedBaSession,
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: HomeQuickActionRow(
+                onNewCustomer: _startNewCustomerFlow,
+                onReturningCustomer: _startReturningCustomerFlow,
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -1146,7 +1158,7 @@ class _CaseFeedHeader extends StatelessWidget {
       child: Row(
         children: [
           const Text(
-            '관리 케이스',
+            'B&A 피드',
             style: TextStyle(
               fontSize: HomeVisualTokens.sectionLabelSize,
               fontWeight: FontWeight.w700,
