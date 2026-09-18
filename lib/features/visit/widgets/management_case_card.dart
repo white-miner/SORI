@@ -39,14 +39,38 @@ class ManagementCaseCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: HomeVisualTokens.caseCardFill,
-        borderRadius:
-            BorderRadius.circular(HomeVisualTokens.caseCardRadius),
+        borderRadius: BorderRadius.circular(HomeVisualTokens.caseCardRadius),
         boxShadow: const [HomeVisualTokens.caseCardShadow],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Stack(
+            children: [
+              // Before/After 코너 태그는 BeforeAfterSlider가 이미 그린다.
+              // 여기서 다시 얹으면 같은 자리에 두 겹으로 겹친다.
+              BeforeAfterSlider(
+                aspectRatio: 1,
+                borderRadius: BorderRadius.zero,
+                before: ChartImagePane(
+                  url: chart.beforeImageUrl,
+                  fallbackLabel: 'Before',
+                  tone: SoriTokens.primary,
+                ),
+                after: ChartImagePane(
+                  url: chart.afterImageUrl,
+                  fallbackLabel: 'After',
+                  tone: SoriTokens.textSecondary,
+                ),
+              ),
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: _ExpandButton(onTap: onExpand),
+              ),
+            ],
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
             child: Row(
@@ -106,31 +130,6 @@ class ManagementCaseCard extends StatelessWidget {
               ],
             ),
           ),
-          Stack(
-            children: [
-              // Before/After 코너 태그는 BeforeAfterSlider가 이미 그린다.
-              // 여기서 다시 얹으면 같은 자리에 두 겹으로 겹친다.
-              BeforeAfterSlider(
-                aspectRatio: 4 / 3,
-                borderRadius: BorderRadius.zero,
-                before: ChartImagePane(
-                  url: chart.beforeImageUrl,
-                  fallbackLabel: 'Before',
-                  tone: SoriTokens.primary,
-                ),
-                after: ChartImagePane(
-                  url: chart.afterImageUrl,
-                  fallbackLabel: 'After',
-                  tone: SoriTokens.textSecondary,
-                ),
-              ),
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: _ExpandButton(onTap: onExpand),
-              ),
-            ],
-          ),
           if (caption.isNotEmpty)
             Container(
               width: double.infinity,
@@ -171,11 +170,11 @@ class _ExpandButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: const SizedBox(
-          width: 28,
-          height: 28,
+          width: 48,
+          height: 48,
           child: Icon(
             Icons.open_in_full_rounded,
-            size: 15,
+            size: 20,
             color: Colors.white,
           ),
         ),
