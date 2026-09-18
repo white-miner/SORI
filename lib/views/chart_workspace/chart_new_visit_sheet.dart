@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/chart_interview_chips.dart';
 import '../../models/customer.dart';
+import '../../models/ba_capture_session.dart';
 import '../../models/customer_chart.dart';
 import '../../models/program_sales.dart';
 import '../../services/sori_store.dart';
@@ -33,6 +34,7 @@ class _ChartNewVisitSheetState extends State<ChartNewVisitSheet> {
 
   var _step = 0;
   var _saving = false;
+  BaCaptureSession? _stagedPhotos;
 
   late final TextEditingController _name;
   late final TextEditingController _phone;
@@ -178,7 +180,17 @@ class _ChartNewVisitSheetState extends State<ChartNewVisitSheet> {
         customerPhone: _phone.text.trim(),
         gender: _gender,
         customerRequests: _buildCustomerRequests(),
+        beforeImageUrl: _stagedPhotos?.beforeImageUrl,
+        afterImageUrl: _stagedPhotos?.afterImageUrl,
       );
+      final photos = _stagedPhotos;
+      if (photos != null) {
+        try {
+          await widget.store.bindSavedBaSessionToChart(target: photos, chart: saved);
+        } catch (_) {
+          if (mounted) _toast('차트는 저장됐어요. NEW에서 사진 연결을 다시 시도해 주세요.');
+        }
+      }
       widget.onSaved(saved);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -404,6 +416,17 @@ class _ChartNewVisitSheetState extends State<ChartNewVisitSheet> {
       key: const Key('chart-new-step-program'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.store.baPendingSession != null || _stagedPhotos != null)
+          CheckboxListTile(
+            key: const Key('chart-new-import-staged'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('NEW에 거치한 사진 가져오기'),
+            subtitle: const Text('이 고객의 사진인지 확인한 뒤 선택해 주세요'),
+            value: _stagedPhotos != null,
+            onChanged: _saving ? null : (selected) => setState(() {
+              _stagedPhotos = selected == true ? widget.store.baPendingSession : null;
+            }),
+          ),
         const Text(
           '오늘 진행할 프로그램을 골라 주세요. Programs 탭에 등록된 패키지가 여기에 보여요.',
           style: TextStyle(

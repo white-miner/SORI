@@ -5846,7 +5846,7 @@ class SoriStore implements Listenable {
     }
 
     for (final chart in managementCaseCharts()) {
-      if (!_isTodaysCase(chart)) continue;
+
       if (!seenCharts.add(chart.id)) continue;
       out.add(_chartMirrorSession(chart));
     }
@@ -6441,6 +6441,50 @@ class SoriStore implements Listenable {
   /// 🟢 판정 — 세션을 고객 차트에 연결해 관리 케이스 피드로 이관한다.
   ///
   /// 차트가 지정되지 않으면 오늘 회차를 재사용하거나 새로 생성한다.
+  String _baSavedChartKey(BaCaptureSession target) =>
+      'sori_ba_saved_${shop.id}_${target.sessionToken}';
+
+  /// 차트 저장과 세션 연결 사이의 재시도는 저장된 차트를 재사용한다.
+  Future<void> rememberSavedBaChart(BaCaptureSession target, CustomerChart chart) async {
+    if (target.shopId != shop.id || chart.shopId != shop.id) {
+      throw StateError('Shop mismatch');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_baSavedChartKey(target), chart.id);
+  }
+
+  Future<CustomerChart?> recoverSavedBaChart(BaCaptureSession target) async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString(_baSavedChartKey(target));
+    return id == null ? null : findChartById(id);
+  }
+
+  /// 저장된 차트가 사진의 원본이다. 작성 중 교체/삭제한 사진을 되돌리지 않는다.
+  Future<CustomerChart> bindSavedBaSessionToChart({
+    required BaCaptureSession target,
+    required CustomerChart chart,
+  }) async {
+    if (findChartById(chart.id) == null || !chart.visitChecked ||
+        target.shopId != shop.id || chart.shopId != shop.id) {
+      throw StateError('Saved chart from this shop required');
+    }
+    await rememberSavedBaChart(target, chart);
+    var synced = target.copyWith(
+      beforeImageUrl: chart.beforeImageUrl ?? '',
+      afterImageUrl: chart.afterImageUrl ?? '',
+    );
+    if (baRemoteReady && !isLocalBaSessionId(target.id)) {
+      synced = await _repository.upsertBaCaptureSession(synced);
+      _upsertBaSessionLocal(synced);
+    }
+    final linked = await bindBaSessionToChart(
+      target: synced, customerId: chart.customerId, chartId: chart.id,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_baSavedChartKey(target));
+    return linked;
+  }
+
   Future<CustomerChart> bindBaSessionToChart({
     required BaCaptureSession target,
     required String customerId,

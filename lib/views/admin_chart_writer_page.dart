@@ -11,6 +11,7 @@ import 'package:signature/signature.dart';
 import '../models/chart_interview_chips.dart';
 import '../models/chart_medical_chips.dart';
 import '../models/customer.dart';
+import '../models/ba_capture_session.dart';
 import '../models/customer_chart.dart';
 import '../models/customer_membership.dart';
 import '../models/home_care_prescriptions.dart';
@@ -80,6 +81,9 @@ class AdminChartWriterPage extends StatefulWidget {
     this.customer,
     this.existingChart,
     this.forceQuickChart = false,
+    this.initialBeforeImageUrl,
+    this.initialAfterImageUrl,
+    this.onChartSaved,
   });
 
   final SoriStore store;
@@ -94,6 +98,9 @@ class AdminChartWriterPage extends StatefulWidget {
   /// CRM '1초 간편 차트' 진입 — 최근 차트 프리필.
   /// 동의/서명 Bypass는 365일 이내 유효 동의에만 적용된다.
   final bool forceQuickChart;
+  final String? initialBeforeImageUrl;
+  final String? initialAfterImageUrl;
+  final Future<void> Function(CustomerChart)? onChartSaved;
 
   @override
   State<AdminChartWriterPage> createState() => _AdminChartWriterPageState();
@@ -103,6 +110,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
     with TickerProviderStateMixin {
   /// URL → widget 순으로 고정된 고객 ID (저장 시 SSOT).
   late String _boundCustomerId;
+  BaCaptureSession? _importedBaSession;
 
   late int _visitNumber;
   late final TabController _tabController;
@@ -558,8 +566,8 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       text: existing?.guardianPhone ?? seed?.guardianPhone ?? '',
     );
     // 사진은 해당 회차 차트에만 귀속 — 신규 작성 시 이전 회차 사진을 끌어오지 않음
-    _beforeUrl = existing?.beforeImageUrl;
-    _afterUrl = existing?.afterImageUrl;
+    _beforeUrl = widget.initialBeforeImageUrl ?? existing?.beforeImageUrl;
+    _afterUrl = widget.initialAfterImageUrl ?? existing?.afterImageUrl;
     _beforePreviewBytes = null;
     _afterPreviewBytes = null;
     _fears.addAll(existing?.firstVisitFearChips ?? const []);
@@ -1507,6 +1515,28 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
       if (!mounted) return;
 
+      try {
+        await widget.onChartSaved?.call(chart);
+      } catch (_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('차트는 저장됐어요. 사진 연결 상태를 확인해 주세요.'),
+        ));
+      }
+      final imported = _importedBaSession;
+      if (imported != null) {
+        try {
+          await widget.store.bindSavedBaSessionToChart(
+            target: imported, chart: chart,
+          );
+        } catch (_) {
+          // 차트 저장은 이미 성공했다. 다시 저장해 결제 부수효과를 반복하지 않는다.
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('차트는 저장됐어요. NEW에서 사진 연결을 다시 시도해 주세요.'),
+          ));
+        }
+      }
+      if (!mounted) return;
+
       // PO 확정: Opt-in 커뮤니티 게시 — 저장 후 확인 시트.
       await showChartPublishOptInSheet(
         context,
@@ -2395,6 +2425,17 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
                         }).toList(),
                       ),
                       const SizedBox(height: 12),
+                      if (widget.store.baPendingSession != null &&
+                          _beforeUrl == null && _afterUrl == null)
+                        TextButton.icon(
+                          icon: const Icon(Icons.photo_library_outlined),
+                          label: const Text('NEW에 거치한 사진 가져오기'),
+                          onPressed: () => setState(() {
+                            _importedBaSession = widget.store.baPendingSession;
+                            _beforeUrl = _importedBaSession?.beforeImageUrl;
+                            _afterUrl = _importedBaSession?.afterImageUrl;
+                          }),
+                        ),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

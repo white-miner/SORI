@@ -556,7 +556,7 @@ void main() {
       expect(card.reason, BaDraftReason.unlinked);
       // 고객 미연결이므로 카드가 아니라 고정 슬롯에 들어간다.
       expect(store.baPendingSession?.id, card.id);
-      expect(store.baCarouselSessions, isEmpty);
+      expect(store.baCarouselSessions.where((s) => s.id == card.id), isEmpty);
     });
 
     test('폴백 구간에서도 촬영이 저장되고 사진이 유실되지 않는다', () async {
@@ -611,8 +611,8 @@ void main() {
 
       // 사진은 차트로 넘어가 큐에서 빠지지만, 🟢 카드는 캐러셀에 남는다.
       expect(await ShootInboxLocal.load(store.shop.id), isEmpty);
-      expect(store.baCarouselSessions, hasLength(1));
-      expect(store.baCarouselSessions.single.isComplete, isTrue);
+      expect(store.baCarouselSessions.where((s) => s.chartId == chart.id), hasLength(1));
+      expect(store.baCarouselSessions.firstWhere((s) => s.chartId == chart.id).isComplete, isTrue);
       expect(store.baIncompleteCount, 0);
     });
 

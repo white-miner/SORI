@@ -58,6 +58,21 @@ BoxDecoration _decorationOf(WidgetTester tester, int index) =>
     _fillOf(tester, index).decoration! as BoxDecoration;
 
 void main() {
+  for (final width in [320.0, 430.0, 1024.0]) {
+    testWidgets('휴대폰/태블릿 폭 $width 에서 모든 탭을 선택할 수 있다', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      TabController? controller;
+      await tester.pumpWidget(_Host(onController: (c) => controller = c));
+      for (var i = 0; i < 4; i++) {
+        await tester.tap(find.byKey(Key('sori-stage-tab-$i')));
+        await tester.pumpAndSettle();
+        expect(controller!.index, i);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   testWidgets('모든 스테이지 탭 라벨(Desk/Chart/Programs/Flow)이 보인다', (tester) async {
     await tester.pumpWidget(const _Host());
     await tester.pump();
@@ -68,39 +83,12 @@ void main() {
     expect(find.byKey(const Key('sori-stage-tabs-hairline')), findsOneWidget);
   });
 
-  testWidgets('선택 탭: 위쪽만 라운드, 테두리 없음, SORI purple 채움', (tester) async {
+  testWidgets('선택 탭은 밑줄로 구분하며 비선택 탭은 투명 밑줄이다', (tester) async {
     await tester.pumpWidget(const _Host());
-    await tester.pump();
-
-    // 기본 선택은 index 0(Desk).
     final selected = _decorationOf(tester, 0);
-    expect(selected.color, SoriTokens.brand);
-    expect(selected.border, isNull);
-    final radius = selected.borderRadius! as BorderRadius;
-    expect(radius.topLeft, isNot(Radius.zero));
-    expect(radius.topRight, isNot(Radius.zero));
-    expect(radius.bottomLeft, Radius.zero);
-    expect(radius.bottomRight, Radius.zero);
-  });
-
-  testWidgets('비선택 탭: 위쪽만 라운드, 위/좌/우 테두리만(아래 테두리 없음), 종이색 채움', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const _Host());
-    await tester.pump();
-
-    // index 1(Chart)은 기본적으로 비선택 상태.
-    final unselected = _decorationOf(tester, 1);
-    expect(unselected.color, SoriTokens.surface);
-    final radius = unselected.borderRadius! as BorderRadius;
-    expect(radius.bottomLeft, Radius.zero);
-    expect(radius.bottomRight, Radius.zero);
-    final border = unselected.border! as Border;
-    expect(border.top.color, SoriTokens.inputBorder);
-    expect(border.left.color, SoriTokens.inputBorder);
-    expect(border.right.color, SoriTokens.inputBorder);
-    // 아래 테두리는 의도적으로 없음 — hairline이 선반 역할을 한다.
-    expect(border.bottom, BorderSide.none);
+    expect(selected.color, SoriTokens.surface);
+    expect((selected.border! as Border).bottom.color, SoriTokens.textCharcoal);
+    expect((_decorationOf(tester, 1).border! as Border).bottom.color, Colors.transparent);
   });
 
   testWidgets('탭을 누르면 controller.index가 바뀌고 채움 색이 함께 이동한다', (tester) async {
@@ -115,7 +103,7 @@ void main() {
     expect(controller!.index, 1);
     // 이제 index 1이 보라색 채움, index 0은 종이색으로 돌아간다 — 선택됐다고
     // 전부 보라로 통일되지 않는다는 요구사항을 동일 계열로 재확인.
-    expect(_decorationOf(tester, 1).color, SoriTokens.brand);
+    expect((_decorationOf(tester, 1).border! as Border).bottom.color, SoriTokens.textCharcoal);
     expect(_decorationOf(tester, 0).color, SoriTokens.surface);
   });
 

@@ -2,16 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
 
-/// 최상단 스테이지 탭(Desk/Chart/Programs/Flow) — 서류철 폴더 탭 문법.
-///
-/// 기본 [TabBar]나 독립된 [Container] 버튼 나열이 아니다. rail 전체에
-/// 1dp 하단 hairline이 있고, 각 탭은 위쪽 두 모서리만 둥근 파일 탭이다.
-/// 비선택 탭은 종이색 배경 + 위/좌/우 테두리만(아래 테두리 없음)으로 조용히
-/// rail 위에 앉아 있고, 선택된 탭만 더 높이·진하게(SORI purple) 떠올라
-/// rail 하단선을 1dp 덮으며 아래 본문과 하나의 면으로 이어진다.
-///
-/// 라우팅·상태는 전달받은 [controller](TabController)를 그대로 따른다 —
-/// 이 위젯은 시각 표현만 담당한다.
+/// 사진 피드 위의 텍스트 내비게이션. 기존 controller 계약을 유지한다.
 class SoriStageFolderTabs extends StatefulWidget {
   const SoriStageFolderTabs({
     super.key,
@@ -35,32 +26,32 @@ class SoriStageFolderTabs extends StatefulWidget {
   final int? dotIndex;
 
   static const double railHeight = 52;
-  static const double _unselectedHeight = 46;
+  static const double _unselectedHeight = 52;
   static const double _selectedHeight = 52;
   static const double _sidePad = 16;
   static const double _hPad = 18;
-  static const double _gap = 2; // 0~2dp — 붙어있는 서류철처럼, 분리된 카드 아님.
+  static const double _gap = 8; // 0~2dp — 붙어있는 서류철처럼, 분리된 카드 아님.
   static const _radius = BorderRadius.only(
-    topLeft: Radius.circular(11),
-    topRight: Radius.circular(11),
+    topLeft: Radius.zero,
+    topRight: Radius.zero,
   );
 
   static const _unselectedFill = SoriTokens.surface; // 밝은 종이색.
   static const _unselectedBorder = SoriTokens.inputBorder;
   static const _unselectedText = SoriTokens.textCharcoal;
-  static const _selectedFill = SoriTokens.brand; // LOCKED SORI purple.
-  static const _selectedText = SoriTokens.onBrand;
+  static const _selectedFill = SoriTokens.surface; // LOCKED SORI purple.
+  static const _selectedText = SoriTokens.textCharcoal;
   static const _hairline = SoriTokens.inputBorder;
 
   static const _unselectedStyle = TextStyle(
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: FontWeight.w600,
     color: _unselectedText,
     height: 1.2,
   );
   static const _selectedStyle = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
+    fontSize: 18,
+    fontWeight: FontWeight.w800,
     color: _selectedText,
     height: 1.2,
   );
@@ -144,12 +135,7 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
         for (var i = 0; i < n; i++) {
           if (i == selectedIndex) continue;
           children.add(
-            _tab(
-              index: i,
-              left: lefts[i],
-              width: widths[i],
-              selected: false,
-            ),
+            _tab(index: i, left: lefts[i], width: widths[i], selected: false),
           );
         }
 
@@ -230,22 +216,17 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
                       )
                     : SoriStageFolderTabs._unselectedFill,
                 borderRadius: SoriStageFolderTabs._radius,
-                border: selected
-                    ? null
-                    : const Border(
-                        top: BorderSide(
-                          color: SoriStageFolderTabs._unselectedBorder,
-                        ),
-                        left: BorderSide(
-                          color: SoriStageFolderTabs._unselectedBorder,
-                        ),
-                        right: BorderSide(
-                          color: SoriStageFolderTabs._unselectedBorder,
-                        ),
-                        // 아래 테두리는 의도적으로 없음 — hairline이 대신한다.
-                      ),
+                border: Border(
+                  bottom: BorderSide(
+                    color: selected
+                        ? SoriTokens.textCharcoal
+                        : Colors.transparent,
+                    width: 3,
+                  ),
+                ),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Flexible(
                     child: Text(

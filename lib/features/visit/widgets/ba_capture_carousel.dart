@@ -25,9 +25,7 @@ Future<bool> showStagingPhotoDeleteDialog(BuildContext context) async {
     builder: (ctx) {
       return AlertDialog(
         title: const Text('사진을 삭제할까요?'),
-        content: const Text(
-          '이 사진은 촬영 목록과 원본 파일에서 삭제돼요. 삭제한 사진은 되돌릴 수 없어요.',
-        ),
+        content: const Text('이 사진은 촬영 목록과 원본 파일에서 삭제돼요. 삭제한 사진은 되돌릴 수 없어요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -35,9 +33,7 @@ Future<bool> showStagingPhotoDeleteDialog(BuildContext context) async {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(
-              foregroundColor: SoriTokens.systemRed,
-            ),
+            style: TextButton.styleFrom(foregroundColor: SoriTokens.systemRed),
             child: const Text('사진 삭제'),
           ),
         ],
@@ -114,28 +110,26 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
     }
   }
 
-  List<BaCaptureSession> get _visible {
-    switch (_filter) {
-      case BaCarouselFilter.all:
-        return widget.sessions;
-      case BaCarouselFilter.incomplete:
-        return widget.sessions.where((s) => !s.isComplete).toList();
-      case BaCarouselFilter.complete:
-        return widget.sessions.where((s) => s.isComplete).toList();
-    }
-  }
+  List<BaCaptureSession> get _workbench => [
+    if (widget.pending != null) widget.pending!,
+    ...widget.sessions.where((s) => !s.isComplete && s.id != widget.pending?.id),
+  ];
+
+  List<BaCaptureSession> get _visible =>
+      widget.sessions.where((s) => s.isComplete).toList();
 
   @override
   Widget build(BuildContext context) {
-    final incomplete = widget.incompleteCount ??
+    final incomplete =
+        widget.incompleteCount ??
         (widget.sessions.where((s) => !s.isComplete).length +
             (widget.pending == null ? 0 : 1));
     final visible = _visible;
     final emptyHint = _filter == BaCarouselFilter.all || visible.isNotEmpty
         ? null
         : (_filter == BaCarouselFilter.incomplete
-            ? '미완성 촬영이 없습니다'
-            : '완성된 촬영이 없습니다');
+              ? '미완성 촬영이 없습니다'
+              : '완성된 촬영이 없습니다');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,14 +137,14 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
         Padding(
           padding: const EdgeInsets.fromLTRB(
             HomeVisualTokens.sectionGutter,
-            0,
+            20,
             HomeVisualTokens.sectionGutter,
-            8,
+            12,
           ),
           child: Row(
             children: [
               const Text(
-                'B/A 등록',
+                'B&A 히스토리',
                 style: TextStyle(
                   fontSize: HomeVisualTokens.sectionLabelSize,
                   fontWeight: FontWeight.w700,
@@ -158,29 +152,6 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                 ),
               ),
               const Spacer(),
-              _FilterChip(
-                key: const Key('ba-filter-all'),
-                label: '전체',
-                selected: _filter == BaCarouselFilter.all,
-                onTap: () => setState(() => _filter = BaCarouselFilter.all),
-              ),
-              const SizedBox(width: 4),
-              _FilterChip(
-                key: const Key('ba-filter-incomplete'),
-                label: '🔴',
-                selected: _filter == BaCarouselFilter.incomplete,
-                onTap: () =>
-                    setState(() => _filter = BaCarouselFilter.incomplete),
-              ),
-              const SizedBox(width: 4),
-              _FilterChip(
-                key: const Key('ba-filter-complete'),
-                label: '🟢',
-                selected: _filter == BaCarouselFilter.complete,
-                onTap: () =>
-                    setState(() => _filter = BaCarouselFilter.complete),
-              ),
-              const SizedBox(width: 8),
               if (widget.offlineDraft)
                 const Padding(
                   padding: EdgeInsets.only(right: 8),
@@ -199,7 +170,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
         ),
         SizedBox(
           // 고정 높이 — 세로 제약이 캐러셀 밖으로 전파되지 않게 차단한다.
-          height: HomeVisualTokens.baCarouselHeight,
+          height: 100 + MediaQuery.textScalerOf(context).scale(28),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -212,43 +183,138 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
               // 헌법 1 — 첫 칸은 언제나 이 고정 슬롯 하나뿐이다. 촬영본이
               // 있어도 고객을 연결하기 전까지 여기 머문다.
               if (index == 0) {
-                final p = widget.pending;
-                return _BaCard(
-                  key: const Key('ba-fixed-capture-slot'),
-                  session: p,
-                  fixedSlot: true,
-                  transferring: false,
-                  discarding: p != null && _discardingId == p.id,
-                  onCapture: (kind) => widget.onCapture(null, kind),
-                  onBind: p == null ? null : () => widget.onBind(p),
-                  onDefer: null,
-                  onOpen: null,
-                  onDiscard: p == null || widget.onDiscard == null
-                      ? null
-                      : () => _confirmDiscard(p),
-                );
+                final p = _workbench.firstOrNull;
+                return _historyCircle(context, p, true);
               }
               if (emptyHint != null && index == 1) {
                 return _FilterEmptyHint(message: emptyHint);
               }
               final session = visible[index - 1];
-              return _BaCard(
-                session: session,
-                fixedSlot: false,
-                transferring: session.id == widget.transferringId,
-                discarding: _discardingId == session.id,
-                onCapture: (kind) => widget.onCapture(session, kind),
-                onBind: () => widget.onBind(session),
-                onDefer: () => widget.onDefer(session),
-                onOpen: () => widget.onOpen(session),
-                onDiscard: widget.onDiscard == null
-                    ? null
-                    : () => _confirmDiscard(session),
-              );
+              return _historyCircle(context, session, false);
             },
           ),
         ),
       ],
+    );
+  }
+
+  Widget _historyCircle(
+    BuildContext context,
+    BaCaptureSession? session,
+    bool isNew,
+  ) {
+    final url = StorageImageUrl.resolve(
+      session?.afterImageUrl ?? session?.beforeImageUrl,
+    );
+    final hasImage = url != null && StorageImageUrl.isNetworkUrl(url);
+    return SizedBox(
+      key: isNew
+          ? const Key('ba-fixed-capture-slot')
+          : ValueKey('history-${session!.id}'),
+      width: 88,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          if (!isNew && session!.isComplete) {
+            widget.onOpen(session);
+            return;
+          }
+          showModalBottomSheet<void>(
+            context: context,
+            showDragHandle: true,
+            builder: (context) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: SizedBox(
+                  height: 260,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _workbench.isEmpty ? 1 : _workbench.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 20),
+                    itemBuilder: (context, index) {
+                      final draft = _workbench.isEmpty ? null : _workbench[index];
+                      return _BaCard(
+                        session: draft, fixedSlot: true, transferring: false,
+                        onCapture: (kind) {
+                          Navigator.pop(context); widget.onCapture(draft, kind);
+                        },
+                        onBind: draft == null ? null : () {
+                          Navigator.pop(context); widget.onBind(draft);
+                        },
+                        onDefer: null, onOpen: null,
+                        onDiscard: draft == null || widget.onDiscard == null ? null : () {
+                          Navigator.pop(context); _confirmDiscard(draft);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        child: Column(
+          children: [
+            Container(
+              width: 82,
+              height: 82,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isNew ? SoriTokens.brand : const Color(0xFFE1E1E6),
+                  width: 2,
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipOval(
+                    child: hasImage
+                        ? Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const ColoredBox(
+                              color: Color(0xFFF2F2F7),
+                              child: Icon(Icons.image_outlined),
+                            ),
+                          )
+                        : const ColoredBox(
+                            color: Color(0xFFF2F2F7),
+                            child: Icon(Icons.add_rounded, size: 30),
+                          ),
+                  ),
+                  if (isNew && session != null)
+                    const Align(
+                      alignment: Alignment.bottomRight,
+                      child: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: SoriTokens.brand,
+                        child: Icon(
+                          Icons.edit_outlined,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isNew ? 'NEW' : (session!.label.isEmpty ? 'B&A' : session.label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            if (isNew && session != null)
+              const Text(
+                '작성 중',
+                style: TextStyle(fontSize: 11, color: SoriTokens.textSecondary),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -380,7 +446,8 @@ class _BaCard extends StatelessWidget {
     final complete = transferring || (s?.isComplete ?? false);
     final hasPhoto = s?.hasPhoto ?? false;
     final label = fixedSlot ? '' : (s?.label.trim() ?? '');
-    final canDiscard = onDiscard != null &&
+    final canDiscard =
+        onDiscard != null &&
         hasPhoto &&
         s != null &&
         s.status == BaCaptureStatus.draft &&
@@ -389,7 +456,7 @@ class _BaCard extends StatelessWidget {
 
     // 고정 슬롯은 항상 '무엇을 하는 자리'인지로 읽혀야 한다.
     final title = fixedSlot
-        ? 'B/A 촬영'
+        ? 'NEW'
         : (label.isNotEmpty ? label : reason.badgeLabel);
 
     // 완성 카드는 촬영 대상이 아니라 참고용 뷰어다.
@@ -473,17 +540,15 @@ class _BaCard extends StatelessWidget {
                       color: complete
                           ? HomeVisualTokens.baDotGreen
                           : (fixedSlot && !hasPhoto
-                              ? HomeVisualTokens.dateTextColor
-                              : HomeVisualTokens.dateIconColor),
+                                ? HomeVisualTokens.dateTextColor
+                                : HomeVisualTokens.dateIconColor),
                     ),
                   ),
                 ),
                 if (canDiscard)
                   _MiniIconButton(
                     key: Key(
-                      fixedSlot
-                          ? 'ba-discard-pending'
-                          : 'ba-discard-${s.id}',
+                      fixedSlot ? 'ba-discard-pending' : 'ba-discard-${s.id}',
                     ),
                     icon: Icons.delete_outline_rounded,
                     onTap: discarding ? () {} : onDiscard!,
@@ -513,9 +578,7 @@ class _BaCard extends StatelessWidget {
                       url: s?.beforeImageUrl,
                       caption: 'Before',
                       radius: const BorderRadius.horizontal(
-                        left: Radius.circular(
-                          HomeVisualTokens.baCardRadius,
-                        ),
+                        left: Radius.circular(HomeVisualTokens.baCardRadius),
                       ),
                       onTap: () => slotTap('before'),
                     ),
@@ -526,9 +589,7 @@ class _BaCard extends StatelessWidget {
                       url: s?.afterImageUrl,
                       caption: 'After',
                       radius: const BorderRadius.horizontal(
-                        right: Radius.circular(
-                          HomeVisualTokens.baCardRadius,
-                        ),
+                        right: Radius.circular(HomeVisualTokens.baCardRadius),
                       ),
                       onTap: () => slotTap('after'),
                     ),
@@ -536,10 +597,7 @@ class _BaCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (footer != null) ...[
-              const SizedBox(height: 4),
-              footer,
-            ],
+            if (footer != null) ...[const SizedBox(height: 4), footer],
           ],
         ),
       ),
@@ -563,8 +621,7 @@ class _Slot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolved = StorageImageUrl.resolve(url);
-    final hasImage =
-        resolved != null && StorageImageUrl.isNetworkUrl(resolved);
+    final hasImage = resolved != null && StorageImageUrl.isNetworkUrl(resolved);
 
     return Material(
       color: HomeVisualTokens.baSlotFill,
@@ -588,35 +645,19 @@ class _Slot extends StatelessWidget {
 
 class _AddGlyph extends StatelessWidget {
   const _AddGlyph({required this.caption});
-
   final String caption;
-
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: HomeVisualTokens.baAddCircle,
-        height: HomeVisualTokens.baAddCircle,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-        ),
-        child: const Icon(
-          Icons.add_rounded,
-          size: 20,
-          color: HomeVisualTokens.dateTextColor,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.add_rounded, size: 26, color: HomeVisualTokens.dateTextColor),
+      const SizedBox(height: 6),
+      Text(caption, style: const TextStyle(fontSize: 12, color: HomeVisualTokens.dateTextColor)),
+    ]),
+  );
 }
 
 class _MiniIconButton extends StatelessWidget {
-  const _MiniIconButton({
-    super.key,
-    required this.icon,
-    required this.onTap,
-  });
+  const _MiniIconButton({super.key, required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -628,11 +669,7 @@ class _MiniIconButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.all(2),
-        child: Icon(
-          icon,
-          size: 14,
-          color: HomeVisualTokens.dateIconColor,
-        ),
+        child: Icon(icon, size: 14, color: HomeVisualTokens.dateIconColor),
       ),
     );
   }
@@ -681,10 +718,10 @@ class _BindChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: const SizedBox(
           width: double.infinity,
-          height: 22,
+          height: 48,
           child: Center(
             child: Text(
-              '고객 연결',
+              '차트 작성',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
