@@ -52,9 +52,9 @@ void main() {
     )));
     await tester.tap(find.text('NEW'));
     await tester.pumpAndSettle();
-    expect(find.text('고객 연결'), findsOneWidget);
+    expect(find.text('차트 작성'), findsOneWidget);
     expect(calls, 0);
-    final context = tester.element(find.text('고객 연결'));
+    final context = tester.element(find.text('차트 작성'));
     Navigator.pop(context);
     await tester.pumpAndSettle();
     expect(find.text('작성 중'), findsOneWidget);

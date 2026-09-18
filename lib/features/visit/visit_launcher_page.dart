@@ -690,7 +690,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
       if (result == null || !mounted) return;
 
       final photoKind = isBefore ? 'before' : 'after';
-      await (session == null
+      final saved = await (session == null
           ? store.captureIntoPendingBaSlot(
               kind: photoKind,
               imageUrl: result.url,
@@ -702,6 +702,13 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
             ));
       if (!mounted) return;
 
+      if (saved.hasChart && saved.hasCustomer) {
+        await store.bindBaSessionToChart(
+          target: saved, customerId: saved.customerId!, chartId: saved.chartId,
+        );
+        if (!mounted) return;
+        setState(_reloadCaseFeed);
+      }
       _toast('NEW에 사진을 보관했어요');
     } catch (e) {
       if (!mounted) return;

@@ -110,16 +110,13 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
     }
   }
 
-  List<BaCaptureSession> get _visible {
-    switch (_filter) {
-      case BaCarouselFilter.all:
-        return widget.sessions;
-      case BaCarouselFilter.incomplete:
-        return widget.sessions.where((s) => !s.isComplete).toList();
-      case BaCarouselFilter.complete:
-        return widget.sessions.where((s) => s.isComplete).toList();
-    }
-  }
+  List<BaCaptureSession> get _workbench => [
+    if (widget.pending != null) widget.pending!,
+    ...widget.sessions.where((s) => !s.isComplete && s.id != widget.pending?.id),
+  ];
+
+  List<BaCaptureSession> get _visible =>
+      widget.sessions.where((s) => s.isComplete).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -140,9 +137,9 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
         Padding(
           padding: const EdgeInsets.fromLTRB(
             HomeVisualTokens.sectionGutter,
-            0,
+            20,
             HomeVisualTokens.sectionGutter,
-            8,
+            12,
           ),
           child: Row(
             children: [
@@ -186,7 +183,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
               // 헌법 1 — 첫 칸은 언제나 이 고정 슬롯 하나뿐이다. 촬영본이
               // 있어도 고객을 연결하기 전까지 여기 머문다.
               if (index == 0) {
-                final p = widget.pending;
+                final p = _workbench.firstOrNull;
                 return _historyCircle(context, p, true);
               }
               if (emptyHint != null && index == 1) {
@@ -230,30 +227,26 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 child: SizedBox(
                   height: 260,
-                  child: Center(
-                    child: _BaCard(
-                      session: session,
-                      fixedSlot: isNew,
-                      transferring: false,
-                      onCapture: (kind) {
-                        Navigator.pop(context);
-                        widget.onCapture(session, kind);
-                      },
-                      onBind: session == null
-                          ? null
-                          : () {
-                              Navigator.pop(context);
-                              widget.onBind(session);
-                            },
-                      onDefer: null,
-                      onOpen: null,
-                      onDiscard: session == null || widget.onDiscard == null
-                          ? null
-                          : () {
-                              Navigator.pop(context);
-                              _confirmDiscard(session);
-                            },
-                    ),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _workbench.isEmpty ? 1 : _workbench.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 20),
+                    itemBuilder: (context, index) {
+                      final draft = _workbench.isEmpty ? null : _workbench[index];
+                      return _BaCard(
+                        session: draft, fixedSlot: true, transferring: false,
+                        onCapture: (kind) {
+                          Navigator.pop(context); widget.onCapture(draft, kind);
+                        },
+                        onBind: draft == null ? null : () {
+                          Navigator.pop(context); widget.onBind(draft);
+                        },
+                        onDefer: null, onOpen: null,
+                        onDiscard: draft == null || widget.onDiscard == null ? null : () {
+                          Navigator.pop(context); _confirmDiscard(draft);
+                        },
+                      );
+                    },
                   ),
                 ),
               ),
@@ -740,7 +733,7 @@ class _BindChip extends StatelessWidget {
           height: 22,
           child: Center(
             child: Text(
-              '고객 연결',
+              '차트 작성',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,

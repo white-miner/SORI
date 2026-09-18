@@ -130,7 +130,8 @@ void main() {
     // 이제 고객 이름 카드로 분리되고, After가 없으니 🔴다.
     expect(find.text('NEW'), findsOneWidget, reason: '고정 슬롯은 그대로 1개');
     expect(find.text(customer.name), findsWidgets);
-    expect(find.byKey(ValueKey('history-${pending.id}')), findsOneWidget);
+    expect(find.byKey(ValueKey('history-${pending.id}')), findsNothing);
+    expect(find.text('작성 중'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

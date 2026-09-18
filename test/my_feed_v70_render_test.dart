@@ -299,7 +299,7 @@ void main() {
       expect(bound, isNull);
       await tester.tap(find.text('NEW'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('고객 연결'));
+      await tester.tap(find.text('차트 작성'));
       await tester.pumpAndSettle();
       expect(bound?.id, 'pending');
     });
