@@ -6477,9 +6477,12 @@ class SoriStore implements Listenable {
       synced = await _repository.upsertBaCaptureSession(synced);
       _upsertBaSessionLocal(synced);
     }
-    return bindBaSessionToChart(
+    final linked = await bindBaSessionToChart(
       target: synced, customerId: chart.customerId, chartId: chart.id,
     );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_baSavedChartKey(target));
+    return linked;
   }
 
   Future<CustomerChart> bindBaSessionToChart({

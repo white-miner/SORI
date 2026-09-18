@@ -754,7 +754,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
           ? widget.store.findCustomer(customerId)
           : await showVisitCustomerPickerSheet(context, store: widget.store);
       if (customer == null || !mounted) return;
-      for (final chart in savedChart == null
+      for (final chart in savedChart == null && !session.hasChart
           ? widget.store.chartsForCustomer(customer.id) : <CustomerChart>[]) {
         if (session.hasPhoto &&
             chart.beforeImageUrl == session.beforeImageUrl &&
