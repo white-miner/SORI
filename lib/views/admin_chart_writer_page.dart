@@ -100,7 +100,7 @@ class AdminChartWriterPage extends StatefulWidget {
   final bool forceQuickChart;
   final String? initialBeforeImageUrl;
   final String? initialAfterImageUrl;
-  final ValueChanged<CustomerChart>? onChartSaved;
+  final Future<void> Function(CustomerChart)? onChartSaved;
 
   @override
   State<AdminChartWriterPage> createState() => _AdminChartWriterPageState();
@@ -1515,7 +1515,13 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
 
       if (!mounted) return;
 
-      widget.onChartSaved?.call(chart);
+      try {
+        await widget.onChartSaved?.call(chart);
+      } catch (_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('차트는 저장됐어요. 사진 연결 상태를 확인해 주세요.'),
+        ));
+      }
       final imported = _importedBaSession;
       if (imported != null) {
         try {

@@ -27,4 +27,24 @@ class ChartInterviewChips {
     '바디 셀룰라이트',
     '부종/순환',
   ];
+
+  /// 신규 작성 Step2 — 방문 목적
+  static const List<String> visitPurposes = [
+    '첫 상담·진단',
+    '피부 고민 케어',
+    '바디·사이즈',
+    '탄력·리프팅',
+    '유지·관리',
+    '이벤트·체험',
+  ];
+
+  /// 신규 작성 Step2 — 원하는 결과
+  static const List<String> desiredResults = [
+    '진정·장벽 회복',
+    '톤·결 개선',
+    '탄력·윤곽',
+    '사이즈 다운',
+    '트러블 완화',
+    '촉촉·광채',
+  ];
 }

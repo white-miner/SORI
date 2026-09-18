@@ -102,13 +102,11 @@ void main() {
     if (items.first.kind == VisitRailKind.newDraft) {
       expect(find.text('신규 작성'), findsWidgets);
       expect(find.byKey(const Key('chart-new-sheet-title')), findsOneWidget);
-      expect(find.text('고객 상태'), findsOneWidget);
-      expect(find.text('니즈'), findsOneWidget);
-      expect(find.text('상담'), findsOneWidget);
-      expect(find.text('제공 서비스'), findsOneWidget);
-      expect(find.text('사진'), findsWidgets);
-      expect(find.text('결제'), findsWidgets);
-      expect(find.text('다음 방문 참고'), findsOneWidget);
+      expect(find.text('기본정보'), findsWidgets);
+      expect(find.text('목적·결과'), findsWidgets);
+      expect(find.text('프로그램'), findsWidgets);
+      expect(find.byKey(const Key('chart-new-step-basic')), findsOneWidget);
+      expect(find.byKey(const Key('chart-new-next')), findsOneWidget);
     } else {
       expect(find.text('Today'), findsWidgets);
     }
@@ -177,10 +175,19 @@ void main() {
     }
 
     expect(find.byKey(const Key('chart-new-sheet-title')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
+    await tester.tap(find.byKey(const Key('chart-new-next')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
+    await tester.tap(find.byKey(const Key('chart-new-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('chart-new-step-program')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('chart-new-service')));
     await tester.enterText(
       find.byKey(const Key('chart-new-service')),
-      '테스트케어\n본문',
+      '테스트케어',
     );
+    await tester.ensureVisible(find.byKey(const Key('chart-new-sheet-save')));
     await tester.tap(find.byKey(const Key('chart-new-sheet-save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -267,10 +274,18 @@ void main() {
       );
       expect(draftLabel.baseColor, kChartIndexNoNumberColor);
 
+      await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
+      await tester.tap(find.byKey(const Key('chart-new-next')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
+      await tester.tap(find.byKey(const Key('chart-new-next')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('chart-new-service')));
       await tester.enterText(
         find.byKey(const Key('chart-new-service')),
-        '테스트케어\n본문',
+        '테스트케어',
       );
+      await tester.ensureVisible(find.byKey(const Key('chart-new-sheet-save')));
       await tester.tap(find.byKey(const Key('chart-new-sheet-save')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));

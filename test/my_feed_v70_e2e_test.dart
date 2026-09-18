@@ -117,7 +117,7 @@ void main() {
 
     // 아직은 고정 슬롯에 머문다 — 카드로 분리되지 않는다.
     expect(find.text('NEW'), findsOneWidget);
-    expect(find.text(customer.name), findsNothing);
+    expect(store.baPendingSession?.id, pending.id);
     expect(find.text('작성 중'), findsOneWidget);
 
     await store.bindBaSessionToChart(
@@ -216,7 +216,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('홈 상단은 Filed Tab — brand 면 + 흰 글자, underline/차콜 칩 없음', (
+  testWidgets('홈 상단은 텍스트 밑줄 탭이며 각 업무로 이동한다', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
@@ -235,12 +235,13 @@ void main() {
           ),
         )
         .decoration! as BoxDecoration;
-    expect(fill.color, SoriTokens.brand);
+    expect(fill.color, SoriTokens.surface);
+    expect((fill.border! as Border).bottom.color, SoriTokens.textCharcoal);
     expect(
       fill.borderRadius,
       const BorderRadius.only(
-        topLeft: Radius.circular(11),
-        topRight: Radius.circular(11),
+        topLeft: Radius.zero,
+        topRight: Radius.zero,
       ),
     );
     expect(tester.getSize(filed).width, lessThan(430 / 3));

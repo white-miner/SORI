@@ -738,15 +738,17 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   /// 두 장이 모두 모여 있었다면 그대로 🟢가 되어 관리 케이스 피드로 간다.
   Future<void> _bindBaSession(BaCaptureSession session) async {
     if (_baBusy) return;
-    final customer = session.hasCustomer
-        ? widget.store.findCustomer(session.customerId!)
-        : await showVisitCustomerPickerSheet(context, store: widget.store);
-    if (customer == null || !mounted) return;
     setState(() => _baBusy = true);
     try {
-      // 차트 저장 후 연결 응답만 실패한 경우 이미 저장된 원본을 재사용한다.
-      CustomerChart? savedChart;
-      for (final chart in widget.store.chartsForCustomer(customer.id)) {
+      CustomerChart? savedChart = await widget.store.recoverSavedBaChart(session);
+      if (!mounted) return;
+      final customerId = savedChart?.customerId ?? session.customerId;
+      final customer = customerId != null
+          ? widget.store.findCustomer(customerId)
+          : await showVisitCustomerPickerSheet(context, store: widget.store);
+      if (customer == null || !mounted) return;
+      for (final chart in savedChart == null
+          ? widget.store.chartsForCustomer(customer.id) : <CustomerChart>[]) {
         if (session.hasPhoto &&
             chart.beforeImageUrl == session.beforeImageUrl &&
             chart.afterImageUrl == session.afterImageUrl &&
@@ -767,7 +769,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
                   : null,
               initialBeforeImageUrl: session.beforeImageUrl,
               initialAfterImageUrl: session.afterImageUrl,
-              onChartSaved: (chart) => savedChart = chart,
+              onChartSaved: (chart) async {
+                savedChart = chart;
+                await widget.store.rememberSavedBaChart(session, chart);
+              },
             ),
           ),
         );
