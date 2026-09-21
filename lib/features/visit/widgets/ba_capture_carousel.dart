@@ -19,12 +19,17 @@ import '../home_visual_tokens.dart';
 enum BaCarouselFilter { all, incomplete, complete }
 
 /// Staging 사진 삭제 확인. true면 삭제 진행.
-Future<bool> showStagingPhotoDeleteDialog(BuildContext context) async {
+Future<bool> showStagingPhotoDeleteDialog(
+  BuildContext context, {
+  String? slotLabel,
+}) async {
+  final slot = (slotLabel ?? '').trim();
+  final title = slot.isEmpty ? '사진을 삭제할까요?' : '$slot 사진을 삭제할까요?';
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        title: const Text('사진을 삭제할까요?'),
+        title: Text(title),
         content: const Text('이 사진은 촬영 목록과 원본 파일에서 삭제돼요. 삭제한 사진은 되돌릴 수 없어요.'),
         actions: [
           TextButton(
@@ -43,6 +48,68 @@ Future<bool> showStagingPhotoDeleteDialog(BuildContext context) async {
   return go == true;
 }
 
+/// 채워진 Before/After 슬롯 작업 메뉴. `replace` | `delete` | `bind`
+Future<String?> showPendingBaSlotActionSheet(
+  BuildContext context, {
+  required String slotLabel,
+  required bool canDelete,
+  required bool canBind,
+}) async {
+  return showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '$slotLabel 사진',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              key: const Key('ba-slot-action-replace'),
+              leading: const Icon(Icons.cameraswitch_outlined),
+              title: const Text('사진 교체'),
+              onTap: () => Navigator.pop(ctx, 'replace'),
+            ),
+            if (canDelete)
+              ListTile(
+                key: const Key('ba-slot-action-delete'),
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: SoriTokens.systemRed,
+                ),
+                title: Text(
+                  '사진 삭제',
+                  style: TextStyle(color: SoriTokens.systemRed),
+                ),
+                onTap: () => Navigator.pop(ctx, 'delete'),
+              ),
+            if (canBind)
+              ListTile(
+                key: const Key('ba-slot-action-bind'),
+                leading: const Icon(Icons.edit_note_rounded),
+                title: const Text('차트 작성'),
+                onTap: () => Navigator.pop(ctx, 'bind'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class BaCaptureCarousel extends StatefulWidget {
   const BaCaptureCarousel({
     super.key,
@@ -53,6 +120,7 @@ class BaCaptureCarousel extends StatefulWidget {
     required this.onDefer,
     required this.onOpen,
     this.onDiscard,
+    this.onDiscardSlot,
     this.incompleteCount,
     this.transferringId,
     this.offlineDraft = false,
@@ -79,6 +147,10 @@ class BaCaptureCarousel extends StatefulWidget {
 
   /// 미연결 draft 폐기. 연결된 카드에는 넘기지 않는다.
   final Future<void> Function(BaCaptureSession session)? onDiscard;
+
+  /// 미연결 draft의 Before/After 슬롯만 삭제. kind는 `before` | `after`.
+  final Future<void> Function(BaCaptureSession session, String kind)?
+      onDiscardSlot;
 
   /// 넛지 배지 숫자. 생략하면 카드 목록에서 계산한다.
   final int? incompleteCount;
@@ -107,6 +179,65 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       await widget.onDiscard!(session);
     } finally {
       if (mounted) setState(() => _discardingId = null);
+    }
+  }
+
+  Future<void> _confirmDiscardSlot(
+    BaCaptureSession session,
+    String kind,
+  ) async {
+    if (widget.onDiscardSlot == null) return;
+    if (_discardingId != null) return;
+    if (session.status != BaCaptureStatus.draft || session.hasChart) return;
+
+    final label = kind == 'after' ? 'After' : 'Before';
+    final go = await showStagingPhotoDeleteDialog(context, slotLabel: label);
+    if (!go || !mounted) return;
+
+    setState(() => _discardingId = '${session.id}:$kind');
+    try {
+      await widget.onDiscardSlot!(session, kind);
+    } finally {
+      if (mounted) setState(() => _discardingId = null);
+    }
+  }
+
+  Future<void> _onFilledSlotTap({
+    required BaCaptureSession session,
+    required String kind,
+    required bool fixedSlot,
+    required VoidCallback? closeWorkbench,
+  }) async {
+    final filled = kind == 'after' ? session.hasAfter : session.hasBefore;
+    if (!filled) {
+      closeWorkbench?.call();
+      widget.onCapture(session, kind);
+      return;
+    }
+
+    final canDelete = widget.onDiscardSlot != null &&
+        session.status == BaCaptureStatus.draft &&
+        !session.hasChart;
+    final canBind = fixedSlot && widget.onBind != null;
+    final label = kind == 'after' ? 'After' : 'Before';
+    final action = await showPendingBaSlotActionSheet(
+      context,
+      slotLabel: label,
+      canDelete: canDelete,
+      canBind: canBind,
+    );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case 'replace':
+        closeWorkbench?.call();
+        widget.onCapture(session, kind);
+      case 'delete':
+        closeWorkbench?.call();
+        await _confirmDiscardSlot(session, kind);
+      case 'bind':
+        closeWorkbench?.call();
+        widget.onBind(session);
     }
   }
 
@@ -245,6 +376,14 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                         onDiscard: draft == null || widget.onDiscard == null ? null : () {
                           Navigator.pop(context); _confirmDiscard(draft);
                         },
+                        onFilledSlot: draft == null
+                            ? null
+                            : (kind) => _onFilledSlotTap(
+                                  session: draft,
+                                  kind: kind,
+                                  fixedSlot: true,
+                                  closeWorkbench: () => Navigator.pop(context),
+                                ),
                       );
                     },
                   ),
@@ -423,6 +562,7 @@ class _BaCard extends StatelessWidget {
     required this.onDefer,
     required this.onOpen,
     this.onDiscard,
+    this.onFilledSlot,
     this.discarding = false,
   });
 
@@ -437,6 +577,9 @@ class _BaCard extends StatelessWidget {
   final VoidCallback? onDefer;
   final VoidCallback? onOpen;
   final VoidCallback? onDiscard;
+
+  /// 채워진 Before/After 탭 — 교체·삭제·차트 작성 메뉴.
+  final Future<void> Function(String kind)? onFilledSlot;
 
   @override
   Widget build(BuildContext context) {
@@ -460,10 +603,19 @@ class _BaCard extends StatelessWidget {
         : (label.isNotEmpty ? label : reason.badgeLabel);
 
     // 완성 카드는 촬영 대상이 아니라 참고용 뷰어다.
-    // 고정 슬롯의 사진을 탭하면 곧장 고객 연결로 간다(헌법 3).
+    // 채워진 미연결 슬롯은 작업 메뉴(교체·삭제·차트 작성)로 간다.
     final void Function(String kind) slotTap;
     if (complete && onOpen != null) {
       slotTap = (_) => onOpen!();
+    } else if (onFilledSlot != null && s != null) {
+      slotTap = (kind) {
+        final filled = kind == 'after' ? s.hasAfter : s.hasBefore;
+        if (filled) {
+          onFilledSlot!(kind);
+        } else {
+          onCapture(kind);
+        }
+      };
     } else if (fixedSlot && hasPhoto && onBind != null) {
       slotTap = (kind) {
         final filled = kind == 'after'

@@ -6255,6 +6255,9 @@ class SoriStore implements Listenable {
   }
 
   /// 촬영본 URL을 세션 슬롯에 부착. 업로드는 카메라가 이미 완료한 상태다.
+  ///
+  /// 같은 슬롯에 이미 URL이 있으면 덮어쓰고, 미연결 staging이면 이전 Storage
+  /// 원본을 정리한다(차트에서 참조 중이면 원본은 남긴다).
   Future<BaCaptureSession> attachBaPhoto({
     required BaCaptureSession target,
     required String kind,
@@ -6264,6 +6267,8 @@ class SoriStore implements Listenable {
     final url = imageUrl.trim();
     if (url.isEmpty) throw StateError('imageUrl required');
 
+    final previousUrl =
+        (isBefore ? target.beforeImageUrl : target.afterImageUrl)?.trim() ?? '';
     final now = DateTime.now();
     final next = target.copyWith(
       beforeImageUrl: isBefore ? url : null,
@@ -6272,20 +6277,28 @@ class SoriStore implements Listenable {
       afterCapturedAt: isBefore ? null : now,
     );
 
+    late final BaCaptureSession saved;
     if (!baRemoteReady || isLocalBaSessionId(target.id)) {
-      return _attachBaPhotoLocally(next, isBefore: isBefore, url: url);
+      saved = await _attachBaPhotoLocally(next, isBefore: isBefore, url: url);
+    } else {
+      try {
+        saved = await _repository.upsertBaCaptureSession(next);
+        _upsertBaSessionLocal(saved);
+        _notify();
+      } catch (e) {
+        if (!isMissingSchemaError(e)) rethrow;
+        baRemoteReady = false;
+        saved = await _attachBaPhotoLocally(next, isBefore: isBefore, url: url);
+      }
     }
 
-    try {
-      final saved = await _repository.upsertBaCaptureSession(next);
-      _upsertBaSessionLocal(saved);
-      _notify();
-      return saved;
-    } catch (e) {
-      if (!isMissingSchemaError(e)) rethrow;
-      baRemoteReady = false;
-      return _attachBaPhotoLocally(next, isBefore: isBefore, url: url);
+    if (previousUrl.isNotEmpty &&
+        previousUrl != url &&
+        _isUnlinkedStagingBaSession(target) &&
+        !_chartReferencesPhotoUrl(previousUrl)) {
+      await ChartPhotoStorage.removeByPublicUrl(previousUrl);
     }
+    return saved;
   }
 
   /// 원격 불가 구간 — 업로드된 URL을 로컬 큐에 적재해 사진을 보존한다.
@@ -6358,6 +6371,107 @@ class SoriStore implements Listenable {
     if (!removed.discarded) return removed;
 
     await _removeBaSessionMeta(target);
+    return StagingPhotoDiscardResult(
+      discarded: true,
+      storageRemoveCount: removed.storageRemoveCount,
+    );
+  }
+
+  /// 미연결 staging의 Before 또는 After 슬롯만 삭제. 다른 쪽은 유지한다.
+  ///
+  /// 두 슬롯이 모두 비면 세션 메타도 제거해 NEW가 다시 빈 촬영 상태로 돌아간다.
+  Future<StagingPhotoDiscardResult> discardUnlinkedBaSlot({
+    required BaCaptureSession target,
+    required String kind,
+  }) async {
+    if (!_isUnlinkedStagingBaSession(target)) {
+      return const StagingPhotoDiscardResult(discarded: false);
+    }
+
+    final isBefore = kind != 'after';
+    final url =
+        (isBefore ? target.beforeImageUrl : target.afterImageUrl)?.trim() ?? '';
+    if (url.isEmpty) {
+      return const StagingPhotoDiscardResult(discarded: false);
+    }
+
+    final removed = await _removeUnlinkedStagingUrls([url]);
+    if (!removed.discarded) return removed;
+
+    final otherRemains = isBefore ? target.hasAfter : target.hasBefore;
+    if (!otherRemains) {
+      await _removeBaSessionMeta(target);
+      return StagingPhotoDiscardResult(
+        discarded: true,
+        storageRemoveCount: removed.storageRemoveCount,
+      );
+    }
+
+    final cleared = BaCaptureSession(
+      id: target.id,
+      shopId: target.shopId,
+      sessionToken: target.sessionToken,
+      authorId: target.authorId,
+      beforeImageUrl: isBefore ? null : target.beforeImageUrl,
+      afterImageUrl: isBefore ? target.afterImageUrl : null,
+      beforeCapturedAt: isBefore ? null : target.beforeCapturedAt,
+      afterCapturedAt: isBefore ? target.afterCapturedAt : null,
+      customerId: target.customerId,
+      chartId: target.chartId,
+      label: target.label,
+      status: target.status,
+      deferredAt: target.deferredAt,
+      linkedAt: target.linkedAt,
+      createdAt: target.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    if (!baRemoteReady || isLocalBaSessionId(target.id)) {
+      shootInbox.removeWhere(
+        (e) =>
+            _localSessionToken(e) == target.sessionToken &&
+            (isBefore ? e.isBefore : e.isAfter),
+      );
+      await _persistShootInbox();
+      _localExtraSessions.removeWhere(
+        (s) => s.sessionToken == target.sessionToken,
+      );
+      if (!isLocalBaSessionId(target.id)) {
+        _localExtraSessions.insert(0, cleared);
+      }
+      await _rebuildLocalBaSessions();
+      if (!isLocalBaSessionId(target.id)) {
+        _upsertBaSessionLocal(cleared);
+      }
+      _notify();
+      return StagingPhotoDiscardResult(
+        discarded: true,
+        storageRemoveCount: removed.storageRemoveCount,
+      );
+    }
+
+    try {
+      final saved = await _repository.upsertBaCaptureSession(cleared);
+      _upsertBaSessionLocal(saved);
+      _notify();
+    } catch (e) {
+      if (!isMissingSchemaError(e)) rethrow;
+      baRemoteReady = false;
+      shootInbox.removeWhere(
+        (e) =>
+            _localSessionToken(e) == target.sessionToken &&
+            (isBefore ? e.isBefore : e.isAfter),
+      );
+      await _persistShootInbox();
+      _localExtraSessions.removeWhere(
+        (s) => s.sessionToken == target.sessionToken,
+      );
+      _localExtraSessions.insert(0, cleared);
+      await _rebuildLocalBaSessions();
+      _upsertBaSessionLocal(cleared);
+      _notify();
+    }
+
     return StagingPhotoDiscardResult(
       discarded: true,
       storageRemoveCount: removed.storageRemoveCount,

@@ -734,9 +734,36 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     if (_baBusy) return;
     final result = await widget.store.discardUnlinkedBaSession(session);
     if (!mounted) return;
-    if (!result.discarded) {
-      _toast('사진을 삭제하지 못했어요. 다시 시도해 주세요.', error: true);
+    if (result.discarded) {
+      _toast('사진을 삭제했어요');
+      return;
     }
+    if (result.blockedByChartRef) {
+      _toast('차트에서 쓰는 사진은 삭제할 수 없어요.', error: true);
+      return;
+    }
+    _toast('사진을 삭제하지 못했어요. 다시 시도해 주세요.', error: true);
+  }
+
+  Future<void> _discardUnlinkedBaSlot(
+    BaCaptureSession session,
+    String kind,
+  ) async {
+    if (_baBusy) return;
+    final result = await widget.store.discardUnlinkedBaSlot(
+      target: session,
+      kind: kind,
+    );
+    if (!mounted) return;
+    if (result.discarded) {
+      _toast('사진을 삭제했어요');
+      return;
+    }
+    if (result.blockedByChartRef) {
+      _toast('차트에서 쓰는 사진은 삭제할 수 없어요.', error: true);
+      return;
+    }
+    _toast('사진을 삭제하지 못했어요. 다시 시도해 주세요.', error: true);
   }
 
   /// 고객 연결 — 고정 슬롯의 촬영본이 고객 이름 카드로 분리되는 순간이다.
@@ -999,6 +1026,7 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
               onDefer: _deferBaSession,
               onOpen: (s) => unawaited(_openBaSession(s)),
               onDiscard: _discardUnlinkedBaSession,
+              onDiscardSlot: _discardUnlinkedBaSlot,
             ),
           ),
           SliverToBoxAdapter(

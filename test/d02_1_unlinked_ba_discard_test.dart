@@ -75,24 +75,105 @@ void main() {
       expect(store.shootInbox.where((e) => e.id == 'inbox-u'), isEmpty);
     });
 
-    test('2. draft BaCaptureSession + chart_id null → remove 1 + session 제거',
-        () async {
+    test('2b. Before만 삭제하면 After는 남고 Storage는 Before만 지운다', () async {
+      final store = SoriStore();
+      const afterUrl =
+          'https://example.supabase.co/storage/v1/object/public/chart_photos/shop1/ba_draft_tok/xyz_1_after.webp';
+      const session = BaCaptureSession(
+        id: 'ba-draft-pair',
+        shopId: 'shop1',
+        sessionToken: 'tok-pair',
+        beforeImageUrl: _draftUrl,
+        afterImageUrl: afterUrl,
+        status: BaCaptureStatus.draft,
+      );
+      store.baSessions.add(session);
+
+      final result = await store.discardUnlinkedBaSlot(
+        target: session,
+        kind: 'before',
+      );
+
+      expect(result.discarded, isTrue);
+      expect(result.storageRemoveCount, 1);
+      expect(removedPaths, ['shop1/ba_draft_tok/xyz_1_before.webp']);
+      final kept = store.baSessions.singleWhere((s) => s.id == 'ba-draft-pair');
+      expect(kept.beforeImageUrl, isNull);
+      expect(kept.afterImageUrl, afterUrl);
+    });
+
+    test('2c. 마지막 슬롯 삭제 시 세션 메타도 제거한다', () async {
       final store = SoriStore();
       const session = BaCaptureSession(
-        id: 'ba-draft-1',
+        id: 'ba-draft-one',
         shopId: 'shop1',
-        sessionToken: 'tok-draft',
+        sessionToken: 'tok-one',
         beforeImageUrl: _draftUrl,
         status: BaCaptureStatus.draft,
       );
       store.baSessions.add(session);
 
-      final result = await store.discardUnlinkedBaSession(session);
+      final result = await store.discardUnlinkedBaSlot(
+        target: session,
+        kind: 'before',
+      );
 
       expect(result.discarded, isTrue);
-      expect(result.storageRemoveCount, 1);
+      expect(store.baSessions.where((s) => s.id == 'ba-draft-one'), isEmpty);
+    });
+
+    test('2d. 교체 attach는 이전 Storage 원본을 정리한다', () async {
+      final store = SoriStore();
+      const session = BaCaptureSession(
+        id: 'ba-draft-replace',
+        shopId: 'shop1',
+        sessionToken: 'tok-replace',
+        beforeImageUrl: _draftUrl,
+        status: BaCaptureStatus.draft,
+      );
+      store.baSessions.add(session);
+      const nextUrl =
+          'https://example.supabase.co/storage/v1/object/public/chart_photos/shop1/ba_draft_tok/new_2_before.webp';
+
+      final saved = await store.attachBaPhoto(
+        target: session,
+        kind: 'before',
+        imageUrl: nextUrl,
+      );
+
+      expect(saved.beforeImageUrl, nextUrl);
       expect(removedPaths, ['shop1/ba_draft_tok/xyz_1_before.webp']);
-      expect(store.baSessions.where((s) => s.id == 'ba-draft-1'), isEmpty);
+    });
+
+    test('2e. 차트 참조 URL 슬롯 삭제는 차단한다', () async {
+      final store = SoriStore();
+      store.charts.add(
+        CustomerChart(
+          id: 'chart-slot-ref',
+          shopId: store.shop.id,
+          customerId: store.customers.first.id,
+          visitNumber: 7,
+          beforeImageUrl: _draftUrl,
+        ),
+      );
+      const session = BaCaptureSession(
+        id: 'ba-draft-blocked',
+        shopId: 'shop1',
+        sessionToken: 'tok-blocked',
+        beforeImageUrl: _draftUrl,
+        status: BaCaptureStatus.draft,
+      );
+      store.baSessions.add(session);
+
+      final result = await store.discardUnlinkedBaSlot(
+        target: session,
+        kind: 'before',
+      );
+
+      expect(result.discarded, isFalse);
+      expect(result.blockedByChartRef, isTrue);
+      expect(removedPaths, isEmpty);
+      expect(store.baSessions.any((s) => s.id == 'ba-draft-blocked'), isTrue);
     });
 
     test('3. 차트 before/after가 같은 URL이면 remove 0 + 메타 유지', () async {
@@ -240,6 +321,71 @@ void main() {
       expect(discarded, 0);
       expect(removedPaths, isEmpty);
       expect(find.text('사진을 삭제할까요?'), findsNothing);
+    });
+
+    testWidgets('채워진 Before 탭 → 교체·삭제·차트 작성 메뉴', (tester) async {
+      String? capturedKind;
+      var discardedKind = '';
+      BaCaptureSession? bound;
+      const pending = BaCaptureSession(
+        id: 'pending-menu',
+        shopId: 'shop1',
+        sessionToken: 'pending-menu-tok',
+        beforeImageUrl: _draftUrl,
+        status: BaCaptureStatus.draft,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            backgroundColor: HomeVisualTokens.canvasBg,
+            body: BaCaptureCarousel(
+              sessions: const [],
+              pending: pending,
+              onCapture: (_, kind) => capturedKind = kind,
+              onBind: (s) => bound = s,
+              onDefer: (_) {},
+              onOpen: (_) {},
+              onDiscard: (_) async {},
+              onDiscardSlot: (_, kind) async {
+                discardedKind = kind;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('NEW'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Before'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('사진 교체'), findsOneWidget);
+      expect(find.text('사진 삭제'), findsWidgets);
+      expect(find.byKey(const Key('ba-slot-action-bind')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('ba-slot-action-replace')));
+      await tester.pumpAndSettle();
+      expect(capturedKind, 'before');
+
+      await tester.tap(find.text('NEW'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Before'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ba-slot-action-delete')));
+      await tester.pumpAndSettle();
+      expect(find.text('Before 사진을 삭제할까요?'), findsOneWidget);
+      await tester.tap(find.text('사진 삭제').last);
+      await tester.pumpAndSettle();
+      expect(discardedKind, 'before');
+
+      await tester.tap(find.text('NEW'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Before'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ba-slot-action-bind')));
+      await tester.pumpAndSettle();
+      expect(bound?.id, 'pending-menu');
     });
 
     testWidgets('연결된 완성 카드에는 삭제 버튼을 노출하지 않는다', (tester) async {
