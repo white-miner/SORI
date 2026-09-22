@@ -32,7 +32,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.text('PROGRAMS'));
     await _settle(tester);
 
     expect(find.text('3,000,000'), findsOneWidget);
@@ -59,7 +59,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.text('PROGRAMS'));
     await _settle(tester);
 
     await tester.tap(find.text('윤곽 관리'));
@@ -80,7 +80,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.text('PROGRAMS'));
     await _settle(tester);
 
     await tester.tap(find.text('윤곽 관리'));
@@ -276,7 +276,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await _mountHome(tester);
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.text('PROGRAMS'));
     await _settle(tester);
     await tester.tap(find.text('윤곽 관리'));
     await tester.pump(HomeVisualTokens.programExpandDuration);

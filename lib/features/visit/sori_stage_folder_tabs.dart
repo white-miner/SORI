@@ -44,16 +44,18 @@ class SoriStageFolderTabs extends StatefulWidget {
   static const _hairline = SoriTokens.inputBorder;
 
   static const _unselectedStyle = TextStyle(
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: FontWeight.w600,
     color: _unselectedText,
     height: 1.2,
+    letterSpacing: 0.6,
   );
   static const _selectedStyle = TextStyle(
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: FontWeight.w800,
     color: _selectedText,
     height: 1.2,
+    letterSpacing: 0.6,
   );
 
   @override

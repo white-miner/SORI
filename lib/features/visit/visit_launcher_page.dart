@@ -56,14 +56,14 @@ import 'widgets/management_case_card.dart';
 import 'widgets/quick_calculator_sheet.dart';
 import '../operation/widgets/care_timer_preset_editor_page.dart';
 
-/// 원장 홈 상단 탭. 노출 라벨은 Desk / Chart / Programs / Flow.
+/// 원장 홈 상단 탭. 노출 라벨은 DESK / CHART / PROGRAMS / FLOW.
 enum HomeTab { myFeed, chart, program, timer }
 
 /// [SoriStageFolderTabs]에 넘기는 라벨/최소폭 — 순서는 [HomeTab]과 짝을 이룬다.
-const _kHomeStageLabels = ['Desk', 'Chart', 'Programs', 'Flow'];
-const _kHomeStageMinWidths = [72.0, 76.0, 100.0, 72.0];
+const _kHomeStageLabels = ['DESK', 'CHART', 'PROGRAMS', 'FLOW'];
+const _kHomeStageMinWidths = [80.0, 88.0, 120.0, 80.0];
 
-/// 원장 GNB 홈: Desk / Chart / Programs / Flow.
+/// 원장 GNB 홈: DESK / CHART / PROGRAMS / FLOW.
 /// enum 값은 호환 유지. Chart만 슬롯 추가(Expand).
 class VisitLauncherPage extends StatefulWidget {
   const VisitLauncherPage({super.key, required this.store});

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/features/visit/sori_stage_folder_tabs.dart';
 import 'package:sori/theme/sori_tokens.dart';
 
-const _labels = ['Desk', 'Chart', 'Programs', 'Flow'];
+const _labels = ['DESK', 'CHART', 'PROGRAMS', 'FLOW'];
 const _minWidths = [80.0, 84.0, 116.0, 80.0];
 
 /// 테스트 전용 host — SoriStageFolderTabs는 자체 TabController를 만들지
@@ -73,7 +73,7 @@ void main() {
     });
   }
 
-  testWidgets('모든 스테이지 탭 라벨(Desk/Chart/Programs/Flow)이 보인다', (tester) async {
+  testWidgets('모든 스테이지 탭 라벨(DESK/CHART/PROGRAMS/FLOW)이 보인다', (tester) async {
     await tester.pumpWidget(const _Host());
     await tester.pump();
 
@@ -97,7 +97,7 @@ void main() {
     await tester.pump();
 
     expect(controller!.index, 0);
-    await tester.tap(find.text('Chart'));
+    await tester.tap(find.text('CHART'));
     await tester.pumpAndSettle();
 
     expect(controller!.index, 1);
