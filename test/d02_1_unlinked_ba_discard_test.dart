@@ -419,6 +419,203 @@ void main() {
       expect(find.byKey(const Key('ba-discard-green-1')), findsNothing);
       expect(find.text('완성케어'), findsOneWidget);
     });
+
+    testWidgets('NEW 길게 누르기 → 삭제 확인 → onDiscard', (tester) async {
+      var discarded = 0;
+      const pending = BaCaptureSession(
+        id: 'pending-lp',
+        shopId: 'shop1',
+        sessionToken: 'pending-lp-tok',
+        beforeImageUrl: _draftUrl,
+        status: BaCaptureStatus.draft,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            backgroundColor: HomeVisualTokens.canvasBg,
+            body: BaCaptureCarousel(
+              sessions: const [],
+              pending: pending,
+              onCapture: (_, _) {},
+              onBind: (_) {},
+              onDefer: (_) {},
+              onOpen: (_) {},
+              onDiscard: (_) async {
+                discarded++;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.longPress(find.byKey(const Key('ba-fixed-capture-slot')));
+      await tester.pumpAndSettle();
+      expect(find.text('사진을 삭제할까요?'), findsOneWidget);
+      await tester.tap(find.text('사진 삭제'));
+      await tester.pumpAndSettle();
+      expect(discarded, 1);
+    });
+
+    testWidgets('미완성 고객원형 미등록 표시 + 길게 누르기 삭제', (tester) async {
+      var discardedId = '';
+      const incomplete = BaCaptureSession(
+        id: 'red-cust',
+        shopId: 'shop1',
+        sessionToken: 'tok-red',
+        beforeImageUrl: _draftUrl,
+        customerId: 'cust-1',
+        label: '김고객',
+        status: BaCaptureStatus.draft,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            backgroundColor: HomeVisualTokens.canvasBg,
+            body: BaCaptureCarousel(
+              sessions: const [incomplete],
+              onCapture: (_, _) {},
+              onBind: (_) {},
+              onDefer: (_) {},
+              onOpen: (_) {},
+              onDiscard: (s) async {
+                discardedId = s.id;
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('김고객'), findsOneWidget);
+      expect(find.text('미등록'), findsOneWidget);
+      await tester.longPress(find.byKey(const ValueKey('history-red-cust')));
+      await tester.pumpAndSettle();
+      expect(find.text('사진을 삭제할까요?'), findsOneWidget);
+      await tester.tap(find.text('사진 삭제'));
+      await tester.pumpAndSettle();
+      expect(discardedId, 'red-cust');
+    });
+  });
+
+  group('chart → B&A history sync', () {
+    test('After clear 시 linked 세션이 완성 히스토리에서 빠진다', () async {
+      final store = SoriStore();
+      final customer = store.customers.first;
+      final chart = CustomerChart(
+        id: 'chart-sync-1',
+        shopId: store.shop.id,
+        customerId: customer.id,
+        visitNumber: 99,
+        beforeImageUrl: _draftUrl,
+        afterImageUrl: _unboundUrl,
+        visitChecked: true,
+        createdAt: DateTime.now(),
+      );
+      store.charts.add(chart);
+      store.baSessions.add(
+        BaCaptureSession(
+          id: 'ba-linked-1',
+          shopId: store.shop.id,
+          sessionToken: 'tok-linked-1',
+          beforeImageUrl: _draftUrl,
+          afterImageUrl: _unboundUrl,
+          customerId: customer.id,
+          chartId: chart.id,
+          status: BaCaptureStatus.linked,
+          label: customer.name,
+        ),
+      );
+
+      expect(
+        store.baCarouselSessions.any((s) => s.chartId == chart.id && s.isComplete),
+        isTrue,
+      );
+
+      await store.updateCustomerChartFields(
+        chartId: chart.id,
+        clearAfterImageUrl: true,
+      );
+
+      final synced = store.baSessions.singleWhere((s) => s.id == 'ba-linked-1');
+      expect(synced.afterImageUrl, isNull);
+      expect(synced.beforeImageUrl, _draftUrl);
+      expect(synced.isComplete, isFalse);
+      expect(
+        store.baCarouselSessions
+            .where((s) => s.chartId == chart.id && s.isComplete),
+        isEmpty,
+      );
+      expect(
+        store.managementCaseCharts().where((c) => c.id == chart.id),
+        isEmpty,
+      );
+    });
+
+    test('B/A 둘 다 없으면 linked 세션 메타를 제거한다', () async {
+      final store = SoriStore();
+      final customer = store.customers.first;
+      final chart = CustomerChart(
+        id: 'chart-sync-2',
+        shopId: store.shop.id,
+        customerId: customer.id,
+        visitNumber: 98,
+        visitChecked: true,
+      );
+      store.charts.add(chart);
+      store.baSessions.add(
+        BaCaptureSession(
+          id: 'ba-linked-2',
+          shopId: store.shop.id,
+          sessionToken: 'tok-linked-2',
+          beforeImageUrl: _draftUrl,
+          afterImageUrl: _unboundUrl,
+          customerId: customer.id,
+          chartId: chart.id,
+          status: BaCaptureStatus.linked,
+        ),
+      );
+
+      await store.syncBaHistoryWithChart(chart);
+
+      expect(store.baSessions.where((s) => s.id == 'ba-linked-2'), isEmpty);
+    });
+
+    test('ShootHub 미등록 삭제 후 로컬 BA 투영도 비운다', () async {
+      final store = SoriStore();
+      store.baRemoteReady = false;
+      await store.enqueueShootInboxItem(
+        ShootInboxItem(
+          id: 'inbox-local',
+          shopId: store.shop.id,
+          kind: 'before',
+          imageUrl: _unboundUrl,
+          label: '미등록',
+          sessionToken: 'sess-local',
+        ),
+      );
+      // 원격 폴백 투영 상태를 흉내낸다 (refresh는 메모리가 살아 baRemoteReady를 다시 켠다).
+      store.baSessions
+        ..clear()
+        ..add(
+          BaCaptureSession(
+            id: SoriStore.localBaSessionId('sess-local'),
+            shopId: store.shop.id,
+            sessionToken: 'sess-local',
+            beforeImageUrl: _unboundUrl,
+            label: '미등록',
+          ),
+        );
+
+      final result =
+          await store.discardUnlinkedShootInboxItems(['inbox-local']);
+      expect(result.discarded, isTrue);
+      expect(store.shootInbox, isEmpty);
+      expect(
+        store.baSessions.where((s) => s.sessionToken == 'sess-local'),
+        isEmpty,
+      );
+    });
   });
 
   test('objectPathFromPublicUrl parses chart_photos public URL', () {

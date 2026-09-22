@@ -246,8 +246,28 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
     ...widget.sessions.where((s) => !s.isComplete && s.id != widget.pending?.id),
   ];
 
-  List<BaCaptureSession> get _visible =>
-      widget.sessions.where((s) => s.isComplete).toList();
+  /// 히스토리 원형: 완성(🟢) + 고객 연결·차트 미완(🔴). pending(NEW)은 제외.
+  List<BaCaptureSession> get _visible {
+    final out = widget.sessions
+        .where(
+          (s) =>
+              s.isComplete ||
+              (!s.isComplete && s.hasCustomer && !s.hasChart && s.hasPhoto),
+        )
+        .toList();
+    out.sort(BaCaptureSession.carouselOrder);
+    return out;
+  }
+
+  bool _canLongPressDiscard(BaCaptureSession? session, bool isNew) {
+    if (widget.onDiscard == null || session == null) return false;
+    if (session.status != BaCaptureStatus.draft || session.hasChart) {
+      return false;
+    }
+    if (!session.hasPhoto) return false;
+    if (isNew) return true;
+    return session.hasCustomer && !session.isComplete;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +377,15 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       session?.afterImageUrl ?? session?.beforeImageUrl,
     );
     final hasImage = url != null && StorageImageUrl.isNetworkUrl(url);
+    final canDiscard = _canLongPressDiscard(session, isNew);
+    final incompleteHistory = !isNew && session != null && !session.isComplete;
+    final label = isNew
+        ? 'NEW'
+        : (session!.label.isNotEmpty
+            ? session.label
+            : (incompleteHistory
+                ? session.reason.badgeLabel
+                : 'B&A'));
     return SizedBox(
       key: isNew
           ? const Key('ba-fixed-capture-slot')
@@ -364,9 +393,17 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       width: 88,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
+        onLongPress: canDiscard
+            ? () => _confirmDiscard(session!)
+            : null,
         onTap: () {
           if (!isNew && session!.isComplete) {
             widget.onOpen(session);
+            return;
+          }
+          if (!isNew && incompleteHistory) {
+            // 미완성 고객원형 — 탭은 차트 연결, 삭제는 길게 누르기.
+            widget.onBind(session!);
             return;
           }
           showModalBottomSheet<void>(
@@ -382,26 +419,38 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                     itemCount: _workbench.isEmpty ? 1 : _workbench.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 20),
                     itemBuilder: (context, index) {
-                      final draft = _workbench.isEmpty ? null : _workbench[index];
+                      final draft =
+                          _workbench.isEmpty ? null : _workbench[index];
                       return _BaCard(
-                        session: draft, fixedSlot: true, transferring: false,
+                        session: draft,
+                        fixedSlot: true,
+                        transferring: false,
                         onCapture: (kind) {
-                          Navigator.pop(context); widget.onCapture(draft, kind);
+                          Navigator.pop(context);
+                          widget.onCapture(draft, kind);
                         },
-                        onBind: draft == null ? null : () {
-                          Navigator.pop(context); widget.onBind(draft);
-                        },
-                        onDefer: null, onOpen: null,
-                        onDiscard: draft == null || widget.onDiscard == null ? null : () {
-                          Navigator.pop(context); _confirmDiscard(draft);
-                        },
+                        onBind: draft == null
+                            ? null
+                            : () {
+                                Navigator.pop(context);
+                                widget.onBind(draft);
+                              },
+                        onDefer: null,
+                        onOpen: null,
+                        onDiscard: draft == null || widget.onDiscard == null
+                            ? null
+                            : () {
+                                Navigator.pop(context);
+                                _confirmDiscard(draft);
+                              },
                         onFilledSlot: draft == null
                             ? null
                             : (kind) => _onFilledSlotTap(
                                   session: draft,
                                   kind: kind,
                                   fixedSlot: true,
-                                  closeWorkbench: () => Navigator.pop(context),
+                                  closeWorkbench: () =>
+                                      Navigator.pop(context),
                                 ),
                       );
                     },
@@ -420,7 +469,11 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: isNew ? const Color(0xFF111111) : const Color(0xFFE1E1E6),
+                  color: isNew
+                      ? const Color(0xFF111111)
+                      : (incompleteHistory
+                          ? HomeVisualTokens.baDotRed
+                          : const Color(0xFFE1E1E6)),
                   width: 2,
                 ),
               ),
@@ -461,7 +514,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
             ),
             const SizedBox(height: 8),
             Text(
-              isNew ? 'NEW' : (session!.label.isEmpty ? 'B&A' : session.label),
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -469,6 +522,11 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
             if (isNew && session != null)
               const Text(
                 '작성 중',
+                style: TextStyle(fontSize: 11, color: SoriTokens.textSecondary),
+              )
+            else if (incompleteHistory)
+              const Text(
+                '미등록',
                 style: TextStyle(fontSize: 11, color: SoriTokens.textSecondary),
               ),
           ],

@@ -965,6 +965,7 @@ class SoriStore implements Listenable {
           signaturePng: signaturePngBytes,
         ),
       );
+      await syncBaHistoryWithChart(chart);
       return chart;
     }
 
@@ -1044,6 +1045,7 @@ class SoriStore implements Listenable {
       if (publishToCommunity) {
         await publishChartCaseToCommunity(result.chart);
       }
+      await syncBaHistoryWithChart(result.chart);
       return result.chart;
     } catch (e, st) {
       debugPrint('saveChartAndConfirmVisitAsync failed: $e\n$st');
@@ -5536,7 +5538,14 @@ class SoriStore implements Listenable {
       );
       _mergeChart(next);
       BaRecallCache.instance.invalidate(existing.customerId);
-      _notify();
+      final photoChanged = beforeImageUrl != null ||
+          afterImageUrl != null ||
+          clearAfterImageUrl;
+      if (photoChanged) {
+        await syncBaHistoryWithChart(next);
+      } else {
+        _notify();
+      }
       return next;
     }
 
@@ -5558,7 +5567,14 @@ class SoriStore implements Listenable {
       _mergeChart(remote);
       BaRecallCache.instance.invalidate(existing.customerId);
       lastError = null;
-      _notify();
+      final photoChanged = beforeImageUrl != null ||
+          afterImageUrl != null ||
+          clearAfterImageUrl;
+      if (photoChanged) {
+        await syncBaHistoryWithChart(findChartById(id) ?? remote);
+      } else {
+        _notify();
+      }
       return findChartById(id) ?? remote;
     } catch (e, st) {
       debugPrint('updateCustomerChartFields failed: $e\n$st');
@@ -5765,6 +5781,10 @@ class SoriStore implements Listenable {
       shootInbox.removeWhere((e) => e.id == item.id);
     }
     await _persistShootInbox();
+    // 로컬 폴백 중이면 캐러셀·히스토리가 shootInbox 투영이므로 즉시 재구성.
+    if (!baRemoteReady) {
+      await _rebuildLocalBaSessions();
+    }
     _notify();
     return StagingPhotoDiscardResult(
       discarded: true,
@@ -6353,6 +6373,82 @@ class SoriStore implements Listenable {
 
   Future<void> discardBaSession(BaCaptureSession target) async {
     await _removeBaSessionMeta(target);
+  }
+
+  /// 차트 사진이 바뀌면 B&A 히스토리 원형(linked 세션)을 차트 URL에 맞춘다.
+  ///
+  /// - B/A 둘 다 없으면 세션 메타 제거 → 히스토리·미러 탈락
+  /// - 한쪽만 남으면 URL 동기화 → isComplete false → 완성 원형 탈락
+  /// Storage blob은 차트 삭제 경로가 담당한다. 여기서는 세션 메타만 맞춘다.
+  Future<void> syncBaHistoryWithChart(CustomerChart chart) async {
+    final chartId = chart.id.trim();
+    if (chartId.isEmpty) return;
+
+    final linked = baSessions
+        .where(
+          (s) =>
+              !isChartMirrorSessionId(s.id) &&
+              (s.chartId?.trim() ?? '') == chartId,
+        )
+        .toList();
+    if (linked.isEmpty) {
+      _notify();
+      return;
+    }
+
+    final before = chart.beforeImageUrl?.trim() ?? '';
+    final after = chart.afterImageUrl?.trim() ?? '';
+
+    for (final session in linked) {
+      if (before.isEmpty && after.isEmpty) {
+        await _removeBaSessionMeta(session);
+        continue;
+      }
+
+      final synced = BaCaptureSession(
+        id: session.id,
+        shopId: session.shopId,
+        sessionToken: session.sessionToken,
+        authorId: session.authorId,
+        beforeImageUrl: before.isEmpty ? null : before,
+        afterImageUrl: after.isEmpty ? null : after,
+        beforeCapturedAt: before.isEmpty ? null : session.beforeCapturedAt,
+        afterCapturedAt: after.isEmpty ? null : session.afterCapturedAt,
+        customerId: session.customerId ?? chart.customerId,
+        chartId: chartId,
+        label: session.label,
+        status: session.status,
+        deferredAt: session.deferredAt,
+        linkedAt: session.linkedAt,
+        createdAt: session.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      if (!baRemoteReady || isLocalBaSessionId(session.id)) {
+        _localExtraSessions.removeWhere(
+          (s) => s.sessionToken == session.sessionToken,
+        );
+        _localExtraSessions.insert(0, synced);
+        await _rebuildLocalBaSessions();
+        _upsertBaSessionLocal(synced);
+        continue;
+      }
+
+      try {
+        final saved = await _repository.upsertBaCaptureSession(synced);
+        _upsertBaSessionLocal(saved);
+      } catch (e) {
+        if (!isMissingSchemaError(e)) rethrow;
+        baRemoteReady = false;
+        _localExtraSessions.removeWhere(
+          (s) => s.sessionToken == session.sessionToken,
+        );
+        _localExtraSessions.insert(0, synced);
+        await _rebuildLocalBaSessions();
+        _upsertBaSessionLocal(synced);
+      }
+    }
+    _notify();
   }
 
   /// 홈 오늘 탭 draft + chart_id 없는 staging 세션을 Storage 원본과 함께 삭제.
