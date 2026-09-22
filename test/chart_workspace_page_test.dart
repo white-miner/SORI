@@ -37,7 +37,7 @@ void main() {
       ),
     );
     await _settle(tester);
-    await tester.tap(find.text('Chart'));
+    await tester.tap(find.text('CHART'));
     await _settle(tester);
 
     expect(find.byType(ChartWorkspacePage), findsOneWidget);

@@ -171,7 +171,7 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
               children: [
                 const Expanded(
                   child: Text(
-                    'Chart',
+                    'CHART',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,

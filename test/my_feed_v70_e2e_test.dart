@@ -42,11 +42,11 @@ void main() {
 
     await _mountHome(tester);
 
-    expect(find.text('Desk'), findsOneWidget);
-    expect(find.text('Chart'), findsOneWidget);
-    expect(find.text('Programs'), findsOneWidget);
+    expect(find.text('DESK'), findsOneWidget);
+    expect(find.text('CHART'), findsOneWidget);
+    expect(find.text('PROGRAMS'), findsOneWidget);
     expect(find.text('My Asset'), findsNothing);
-    expect(find.text('Flow'), findsOneWidget);
+    expect(find.text('FLOW'), findsOneWidget);
 
     // Desk 피드: 히어로·스케줄러·지금 처리할 일 제거 후 퀵액션부터 시작.
     expect(find.byType(HomeHeroCard), findsNothing);
@@ -206,7 +206,7 @@ void main() {
 
     await _mountHome(tester);
 
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.text('PROGRAMS'));
     await _settle(tester);
 
     expect(find.text('윤곽 관리'), findsOneWidget);
