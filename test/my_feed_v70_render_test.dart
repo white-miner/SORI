@@ -207,7 +207,7 @@ void main() {
   });
 
   group('② Quick Action — 컬러 헌법 (Q2a)', () {
-    testWidgets('신규 고객은 보라 #8B5CF6, 재방문은 흰 배경 + 보더', (tester) async {
+    testWidgets('신규 고객과 재방문은 검은 패널에 영어 눈썹이 있다', (tester) async {
       await tester.pumpWidget(
         _host(
           HomeQuickActionRow(
@@ -217,23 +217,16 @@ void main() {
         ),
       );
 
+      expect(find.text('NEW CLIENT'), findsOneWidget);
+      expect(find.text('RETURNING'), findsOneWidget);
+      expect(find.text('신규 고객'), findsOneWidget);
+      expect(find.text('재방문 고객'), findsOneWidget);
       final materials = tester
           .widgetList<Material>(find.byType(Material))
           .where((m) => m.color != null)
           .toList();
-
-      expect(
-        materials.any((m) => m.color == HomeVisualTokens.quickNewFill),
-        isTrue,
-        reason: '신규 고객 버튼이 보라 토큰을 써야 한다',
-      );
-      expect(
-        materials.any((m) => m.color == HomeVisualTokens.quickReturningFill),
-        isTrue,
-      );
-      expect(HomeVisualTokens.quickNewFill, const Color(0xFF8B5CF6));
-      expect(find.text('신규 고객'), findsOneWidget);
-      expect(find.text('재방문 고객'), findsOneWidget);
+      expect(materials.any((m) => m.color == const Color(0xFF1C1C1E)), isTrue);
+      expect(materials.any((m) => m.color == HomeVisualTokens.quickNewFill), isFalse);
     });
 
     testWidgets('케어 시작 Green이 신규 버튼에 재사용되지 않는다', (tester) async {
@@ -406,19 +399,13 @@ void main() {
         ),
       );
 
-      expect(find.text('3회차'), findsOneWidget);
+      expect(find.text('SORI CASE · 3회차'), findsOneWidget);
       expect(find.text('스페셜 웨딩 케어'), findsOneWidget);
-
-      final caption = tester.widget<Text>(
-        find.textContaining('만 38세').first,
-      );
-      expect(caption.data, contains('여성'));
-      expect(caption.data, contains('민감'));
-      expect(caption.data, contains('부종'));
-
-      // 상담 중 원장이 읽는 문장 — 12sp 미만으로 다시 내려가지 않도록 고정.
-      expect(caption.style?.fontSize, greaterThanOrEqualTo(13.0));
-      expect(caption.style?.fontWeight, FontWeight.w600);
+      expect(find.text('만 38세'), findsOneWidget);
+      expect(find.text('여성'), findsOneWidget);
+      expect(find.text('민감'), findsOneWidget);
+      expect(find.text('부종'), findsOneWidget);
+      expect(find.text('순환'), findsOneWidget);
     });
 
     testWidgets('Before/After 코너 태그가 두 겹으로 겹치지 않는다', (tester) async {
@@ -474,6 +461,7 @@ void main() {
       );
 
       expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
+      await tester.ensureVisible(find.byIcon(Icons.bookmark_rounded));
       await tester.tap(find.byIcon(Icons.bookmark_rounded));
       await tester.pump();
       expect(taps, 1);

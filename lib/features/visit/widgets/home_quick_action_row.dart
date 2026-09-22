@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../home_visual_tokens.dart';
 
-/// PRD v7.0 ② — 신규 / 재방문 라우팅 버튼.
-///
-/// Q2(a) 색상 헌법: 보라 = 신규 진입, Green = 케어 실행(Timer 탭 전용).
+/// 신규 / 재방문. 사진 위 캡션과 같은 검은 패널.
 class HomeQuickActionRow extends StatelessWidget {
   const HomeQuickActionRow({
     super.key,
@@ -21,18 +19,18 @@ class HomeQuickActionRow extends StatelessWidget {
       children: [
         Expanded(
           child: _QuickActionButton(
+            eyebrow: 'NEW CLIENT',
             label: '신규 고객',
-            icon: Icons.person_add_alt_1_rounded,
-            filled: true,
+            icon: Icons.add_rounded,
             onTap: onNewCustomer,
           ),
         ),
         const SizedBox(width: HomeVisualTokens.quickActionGap),
         Expanded(
           child: _QuickActionButton(
+            eyebrow: 'RETURNING',
             label: '재방문 고객',
-            icon: Icons.history_rounded,
-            filled: false,
+            icon: Icons.search_rounded,
             onTap: onReturningCustomer,
           ),
         ),
@@ -43,76 +41,79 @@ class HomeQuickActionRow extends StatelessWidget {
 
 class _QuickActionButton extends StatelessWidget {
   const _QuickActionButton({
+    required this.eyebrow,
     required this.label,
     required this.icon,
-    required this.filled,
     required this.onTap,
   });
 
+  final String eyebrow;
   final String label;
   final IconData icon;
-  final bool filled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final fg = filled ? Colors.white : HomeVisualTokens.dateTextColor;
-    final radius =
-        BorderRadius.circular(HomeVisualTokens.quickActionRadius);
-
-    final button = Material(
-      color: filled
-          ? HomeVisualTokens.quickNewFill
-          : HomeVisualTokens.quickReturningFill,
+    final radius = BorderRadius.circular(HomeVisualTokens.quickActionRadius);
+    return Material(
+      color: const Color(0xFF1C1C1E),
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            border: filled
-                ? null
-                : Border.all(
-                    color: HomeVisualTokens.quickReturningBorder,
-                  ),
-          ),
-          child: SizedBox(
-            height: HomeVisualTokens.quickActionHeight,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+        child: SizedBox(
+          height: 112,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  icon,
-                  size: HomeVisualTokens.quickActionIconSize,
-                  color: fg,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: HomeVisualTokens.quickActionTextSize,
-                      fontWeight: FontWeight.w700,
-                      color: fg,
+                Row(
+                  children: [
+                    Icon(icon, size: 14, color: const Color(0xFFC7C7CC)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        eyebrow,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: Color(0xFFC7C7CC),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
       ),
-    );
-
-    if (!filled) return button;
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        boxShadow: [HomeVisualTokens.quickNewShadow],
-      ),
-      child: button,
     );
   }
 }

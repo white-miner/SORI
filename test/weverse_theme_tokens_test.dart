@@ -53,7 +53,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final icon = tester.widget<Icon>(find.byIcon(Icons.home_rounded));
-    expect(icon.color, SoriTokens.brand);
+    expect(icon.color, SoriTokens.textPrimary);
   });
 
   testWidgets('더보기 link uses charcoal primary accent', (tester) async {

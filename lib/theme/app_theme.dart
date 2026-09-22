@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'sori_date_picker.dart';
 import 'sori_tab_indicator.dart';
@@ -7,6 +8,31 @@ import 'sori_tokens.dart';
 
 /// Global light monochrome theme — off-white canvas + charcoal primary.
 abstract final class AppTheme {
+  /// 시안 본문. 한글은 Noto Sans KR로 폴백한다.
+  static final String sansFamily = GoogleFonts.workSans().fontFamily!;
+  static final String sansKrFamily = GoogleFonts.notoSansKr().fontFamily!;
+
+  /// 시안 제목. 한글은 Noto Serif KR로 폴백한다.
+  static final String displayFamily = GoogleFonts.instrumentSerif().fontFamily!;
+  static final String displayKrFamily = GoogleFonts.notoSerifKr().fontFamily!;
+
+  static List<String> get sansFallback => [sansKrFamily];
+  static List<String> get displayFallback => [displayKrFamily, sansKrFamily];
+
+  static TextStyle display({
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    double? height,
+  }) {
+    return GoogleFonts.instrumentSerif(
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      height: height,
+    ).copyWith(fontFamilyFallback: displayFallback);
+  }
+
   static ThemeData get theme {
     final scheme = ColorScheme(
       brightness: Brightness.light,
@@ -23,6 +49,8 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: sansFamily,
+      fontFamilyFallback: sansFallback,
       colorScheme: scheme,
       primaryColor: SoriTokens.primary,
       scaffoldBackgroundColor: SoriTokens.background,
@@ -157,15 +185,21 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: SoriTokens.textPrimary),
-        bodyMedium: TextStyle(color: SoriTokens.textSecondary),
-        bodySmall: TextStyle(color: SoriTokens.textTertiary),
-        titleLarge: TextStyle(color: SoriTokens.textPrimary),
-        titleMedium: TextStyle(color: SoriTokens.textPrimary),
-        titleSmall: TextStyle(color: SoriTokens.textSecondary),
-        labelLarge: TextStyle(color: SoriTokens.textPrimary),
-        labelMedium: TextStyle(color: SoriTokens.textTertiary),
+      textTheme: TextTheme(
+        displayLarge: display(color: SoriTokens.textPrimary),
+        displayMedium: display(color: SoriTokens.textPrimary),
+        displaySmall: display(color: SoriTokens.textPrimary),
+        headlineLarge: display(color: SoriTokens.textPrimary),
+        headlineMedium: display(color: SoriTokens.textPrimary),
+        headlineSmall: display(color: SoriTokens.textPrimary),
+        titleLarge: GoogleFonts.workSans(color: SoriTokens.textPrimary),
+        titleMedium: GoogleFonts.workSans(color: SoriTokens.textPrimary),
+        titleSmall: GoogleFonts.workSans(color: SoriTokens.textSecondary),
+        bodyLarge: GoogleFonts.workSans(color: SoriTokens.textPrimary),
+        bodyMedium: GoogleFonts.workSans(color: SoriTokens.textSecondary),
+        bodySmall: GoogleFonts.workSans(color: SoriTokens.textTertiary),
+        labelLarge: GoogleFonts.workSans(color: SoriTokens.textPrimary),
+        labelMedium: GoogleFonts.workSans(color: SoriTokens.textTertiary),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
