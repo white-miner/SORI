@@ -54,7 +54,7 @@ void main() {
     expect(find.text('지금 처리할 일'), findsNothing);
     expect(find.byType(HomeQuickActionRow), findsOneWidget);
     expect(find.byType(BaCaptureCarousel), findsOneWidget);
-    expect(find.text('B&A 피드'), findsOneWidget);
+    expect(find.text('B&A 게시물'), findsOneWidget);
   });
 
   testWidgets('My Feed는 렌더링 붕괴(blank screen) 없이 조립된다', (tester) async {
@@ -275,7 +275,7 @@ void main() {
     await _settle(tester);
 
     // 즐겨찾기가 하나도 없으므로 필터 켠 직후에는 빈 상태여야 한다.
-    expect(find.text('즐겨찾기만'), findsOneWidget);
+    expect(find.text('전체 보기'), findsOneWidget);
     expect(find.text('즐겨찾기한 케이스가 없습니다'), findsOneWidget);
     expect(find.byType(ManagementCaseCard), findsNothing);
 

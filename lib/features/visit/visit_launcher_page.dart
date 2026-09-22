@@ -1198,37 +1198,38 @@ class _CaseFeedHeader extends StatelessWidget {
       child: Row(
         children: [
           const Text(
-            'B&A 피드',
+            'B&A 게시물',
             style: TextStyle(
-              fontSize: HomeVisualTokens.sectionLabelSize,
-              fontWeight: FontWeight.w700,
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              height: 1.05,
               color: HomeVisualTokens.sectionLabelColor,
             ),
           ),
-          if (bookmarkOnly) ...[
-            const SizedBox(width: 8),
-            const Text(
-              '즐겨찾기만',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: SoriTokens.brand,
-              ),
-            ),
-          ],
           const Spacer(),
-          IconButton(
-            onPressed: onToggleBookmark,
-            visualDensity: VisualDensity.compact,
-            tooltip: bookmarkOnly ? '전체 케이스 보기' : '즐겨찾기한 케이스만 보기',
-            icon: Icon(
-              bookmarkOnly
-                  ? Icons.bookmark_rounded
-                  : Icons.bookmark_border_rounded,
-              size: 20,
-              color: bookmarkOnly
-                  ? SoriTokens.brand
-                  : HomeVisualTokens.dateIconColor,
+          Tooltip(
+            message: bookmarkOnly ? '전체 케이스 보기' : '즐겨찾기한 케이스만 보기',
+            child: TextButton.icon(
+              onPressed: onToggleBookmark,
+              icon: Icon(
+                bookmarkOnly
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
+                size: 16,
+                color: bookmarkOnly
+                    ? HomeVisualTokens.sectionLabelColor
+                    : HomeVisualTokens.dateIconColor,
+              ),
+              label: Text(
+                bookmarkOnly ? '전체 보기' : '즐겨찾기만 보기',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: bookmarkOnly
+                      ? HomeVisualTokens.sectionLabelColor
+                      : HomeVisualTokens.dateTextColor,
+                ),
+              ),
             ),
           ),
         ],

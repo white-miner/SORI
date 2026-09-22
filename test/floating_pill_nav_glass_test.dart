@@ -78,7 +78,7 @@ void main() {
     Color iconColor(IconData icon) =>
         tester.widget<Icon>(find.byIcon(icon)).color!;
 
-    expect(iconColor(Icons.home_rounded), SoriTokens.brand);
+    expect(iconColor(Icons.home_rounded), SoriTokens.textPrimary);
     expect(iconColor(Icons.people_outline), SoriTokens.tabUnselected);
 
     final bar = tester.getRect(find.byType(FloatingPillNav));
@@ -87,7 +87,7 @@ void main() {
     await tester.pump();
 
     expect(index, 1);
-    expect(iconColor(Icons.people_rounded), SoriTokens.brand);
+    expect(iconColor(Icons.people_rounded), SoriTokens.textPrimary);
     expect(iconColor(Icons.home_outlined), SoriTokens.tabUnselected);
 
     await tester.pumpAndSettle();

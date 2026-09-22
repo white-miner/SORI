@@ -272,30 +272,49 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
             HomeVisualTokens.sectionGutter,
             12,
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'B&A 히스토리',
                 style: TextStyle(
-                  fontSize: HomeVisualTokens.sectionLabelSize,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
                   color: HomeVisualTokens.sectionLabelColor,
                 ),
               ),
-              const Spacer(),
-              if (widget.offlineDraft)
-                const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Text(
-                    '이 기기에만 저장 중',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+              if (incomplete > 0) ...[
+                const SizedBox(height: 4),
+                Text.rich(
+                  TextSpan(
+                    style: const TextStyle(
+                      fontSize: 12,
                       color: HomeVisualTokens.dateIconColor,
                     ),
+                    children: [
+                      TextSpan(
+                        text: '$incomplete개',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: HomeVisualTokens.sectionLabelColor,
+                        ),
+                      ),
+                      const TextSpan(text: '의 촬영이 아직 차트에 연결되지 않았어요'),
+                    ],
                   ),
                 ),
-              if (incomplete > 0) _NudgeBadge(count: incomplete),
+              ],
+              if (widget.offlineDraft) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  '이 기기에만 저장 중',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: HomeVisualTokens.dateIconColor,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -399,16 +418,17 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
               height: 82,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: isNew ? SoriTokens.brand : const Color(0xFFE1E1E6),
+                  color: isNew ? const Color(0xFF111111) : const Color(0xFFE1E1E6),
                   width: 2,
                 ),
               ),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ClipOval(
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
                     child: hasImage
                         ? Image.network(
                             url,
@@ -428,7 +448,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                       alignment: Alignment.bottomRight,
                       child: CircleAvatar(
                         radius: 12,
-                        backgroundColor: SoriTokens.brand,
+                        backgroundColor: Color(0xFF111111),
                         child: Icon(
                           Icons.edit_outlined,
                           color: Colors.white,
@@ -515,38 +535,6 @@ class _FilterEmptyHint extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _NudgeBadge extends StatelessWidget {
-  const _NudgeBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: HomeVisualTokens.baDotSize,
-          height: HomeVisualTokens.baDotSize,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: HomeVisualTokens.baDotRed,
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          '$count',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: HomeVisualTokens.baDotRed,
-          ),
-        ),
-      ],
     );
   }
 }
