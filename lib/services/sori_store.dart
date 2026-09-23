@@ -6576,7 +6576,6 @@ class SoriStore implements Listenable {
 
   bool _isUnlinkedStagingBaSession(BaCaptureSession target) {
     if (isChartMirrorSessionId(target.id)) return false;
-    if (target.status != BaCaptureStatus.draft) return false;
     if (target.hasChart) return false;
     return true;
   }
