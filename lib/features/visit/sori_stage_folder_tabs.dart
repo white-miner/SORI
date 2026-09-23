@@ -25,12 +25,12 @@ class SoriStageFolderTabs extends StatefulWidget {
   /// null이면 표시하지 않는다.
   final int? dotIndex;
 
-  static const double railHeight = 52;
-  static const double _unselectedHeight = 52;
-  static const double _selectedHeight = 52;
-  static const double _sidePad = 16;
-  static const double _hPad = 18;
-  static const double _gap = 8; // 0~2dp — 붙어있는 서류철처럼, 분리된 카드 아님.
+  static const double railHeight = 48;
+  static const double _unselectedHeight = 48;
+  static const double _selectedHeight = 48;
+  static const double _sidePad = 12;
+  static const double _hPad = 14;
+  static const double _gap = 4;
   static const _radius = BorderRadius.only(
     topLeft: Radius.zero,
     topRight: Radius.zero,
@@ -41,21 +41,21 @@ class SoriStageFolderTabs extends StatefulWidget {
   static const _unselectedText = SoriTokens.textCharcoal;
   static const _selectedFill = SoriTokens.surface; // LOCKED SORI purple.
   static const _selectedText = SoriTokens.textCharcoal;
-  static const _hairline = SoriTokens.inputBorder;
+  static const _hairline = Colors.transparent;
 
   static const _unselectedStyle = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: _unselectedText,
-    height: 1.2,
-    letterSpacing: 0.6,
+    height: 1.15,
+    letterSpacing: 0.25,
   );
   static const _selectedStyle = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w800,
     color: _selectedText,
-    height: 1.2,
-    letterSpacing: 0.6,
+    height: 1.15,
+    letterSpacing: 0.25,
   );
 
   @override
@@ -206,53 +206,58 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
               curve: Curves.easeOut,
               width: width,
               height: height,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                // 선택 탭은 채움만(테두리 없음) — 아래 본문 면과 색 경계 없이
-                // 바로 이어져 보이도록 한다. 절대 전부 둥근 pill/card로
-                // 만들지 않는다 — 위쪽 모서리만 라운드.
                 color: selected
                     ? SoriStageFolderTabs._selectedFill.withValues(
                         alpha: pressed ? 0.92 : 1,
                       )
                     : SoriStageFolderTabs._unselectedFill,
-                borderRadius: SoriStageFolderTabs._radius,
-                border: Border(
-                  bottom: BorderSide(
-                    color: selected
-                        ? SoriTokens.textCharcoal
-                        : Colors.transparent,
-                    width: 3,
-                  ),
-                ),
               ),
-              child: Row(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Flexible(
-                    child: Text(
-                      widget.labels[index],
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: selected
-                          ? SoriStageFolderTabs._selectedStyle
-                          : SoriStageFolderTabs._unselectedStyle,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.labels[index],
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: selected
+                              ? SoriStageFolderTabs._selectedStyle
+                              : SoriStageFolderTabs._unselectedStyle,
+                        ),
+                      ),
+                      if (widget.dotIndex == index) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: SoriTokens.semanticGreen,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    width: selected ? 34 : 0,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? SoriTokens.textCharcoal
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
-                  if (widget.dotIndex == index) ...[
-                    const SizedBox(width: 5),
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: SoriTokens.semanticGreen,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
