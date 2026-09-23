@@ -169,7 +169,15 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
   Future<void> _confirmDiscard(BaCaptureSession session) async {
     if (widget.onDiscard == null) return;
     if (_discardingId != null) return;
-    if (session.hasChart || !session.hasPhoto) return;
+    if (!session.hasPhoto) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('삭제할 사진이 없어요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     final go = await showStagingPhotoDeleteDialog(context);
     if (!go || !mounted) return;
@@ -199,6 +207,61 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       await widget.onDiscardSlot!(session, kind);
     } finally {
       if (mounted) setState(() => _discardingId = null);
+    }
+  }
+
+  Future<void> _showIncompleteHistoryActions(
+    BaCaptureSession session,
+  ) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '미등록 사진',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              key: const Key('ba-history-action-bind'),
+              leading: const Icon(Icons.edit_note_rounded),
+              title: const Text('차트 작성'),
+              onTap: () => Navigator.pop(ctx, 'bind'),
+            ),
+            if (widget.onDiscard != null)
+              ListTile(
+                key: const Key('ba-history-action-delete'),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: SoriTokens.systemRed,
+                ),
+                title: const Text(
+                  '사진 삭제',
+                  style: TextStyle(color: SoriTokens.systemRed),
+                ),
+                onTap: () => Navigator.pop(ctx, 'delete'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'delete') {
+      await _confirmDiscard(session);
+    } else if (action == 'bind') {
+      widget.onBind(session);
     }
   }
 
@@ -390,9 +453,11 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       width: 88,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onLongPress: canDiscard
-            ? () => _confirmDiscard(session!)
-            : null,
+        onLongPress: !isNew && incompleteHistory && session != null
+            ? () => _showIncompleteHistoryActions(session)
+            : (canDiscard && session != null
+                ? () => _confirmDiscard(session)
+                : null),
         onTap: () {
           if (!isNew && session!.isComplete) {
             widget.onOpen(session);
@@ -508,7 +573,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                     ),
                   // 미등록 히스토리는 길게 누르기를 몰라도 바로 지울 수 있게
                   // 삭제 버튼을 사진 위에 항상 노출한다. 완성/차트 연결 카드는 제외.
-                  if (incompleteHistory && canDiscard)
+                  if (incompleteHistory && widget.onDiscard != null)
                     Positioned(
                       top: 4,
                       right: 4,
