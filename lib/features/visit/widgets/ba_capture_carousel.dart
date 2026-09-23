@@ -165,6 +165,7 @@ class BaCaptureCarousel extends StatefulWidget {
 class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
   BaCarouselFilter _filter = BaCarouselFilter.all;
   String? _discardingId;
+  String? _armedDeleteId;
 
   Future<void> _confirmDiscard(BaCaptureSession session) async {
     if (widget.onDiscard == null) return;
@@ -322,13 +323,6 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
     return out;
   }
 
-  bool _canLongPressDiscard(BaCaptureSession? session, bool isNew) {
-    if (widget.onDiscard == null || session == null) return false;
-    if (session.hasChart || !session.hasPhoto) return false;
-    if (isNew) return true;
-    return session.hasCustomer && !session.isComplete;
-  }
-
   @override
   Widget build(BuildContext context) {
     final incomplete =
@@ -437,8 +431,8 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       session?.afterImageUrl ?? session?.beforeImageUrl,
     );
     final hasImage = url != null && StorageImageUrl.isNetworkUrl(url);
-    final canDiscard = _canLongPressDiscard(session, isNew);
     final incompleteHistory = !isNew && session != null && !session.isComplete;
+    final armed = session != null && _armedDeleteId == session.id;
     final label = isNew
         ? 'NEW'
         : (session!.label.isNotEmpty
@@ -453,11 +447,9 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       width: 88,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onLongPress: !isNew && incompleteHistory && session != null
-            ? () => _showIncompleteHistoryActions(session)
-            : (canDiscard && session != null
-                ? () => _confirmDiscard(session)
-                : null),
+        onLongPress: session != null && session.hasPhoto
+            ? () => setState(() => _armedDeleteId = session.id)
+            : null,
         onTap: () {
           if (!isNew && session!.isComplete) {
             widget.onOpen(session);
@@ -571,27 +563,32 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                         ),
                       ),
                     ),
-                  // 미등록 히스토리는 길게 누르기를 몰라도 바로 지울 수 있게
-                  // 삭제 버튼을 사진 위에 항상 노출한다. 완성/차트 연결 카드는 제외.
-                  if (incompleteHistory && widget.onDiscard != null)
+                  if (armed)
                     Positioned(
-                      top: 4,
-                      right: 4,
+                      top: 0,
+                      right: 0,
                       child: GestureDetector(
-                        key: ValueKey('ba-history-delete-${session!.id}'),
+                        key: ValueKey(
+                          isNew
+                              ? 'ba-history-delete-new-${session.id}'
+                              : 'ba-history-delete-${session.id}',
+                        ),
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _confirmDiscard(session),
                         child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: const Color(0xCC111111),
-                            borderRadius: BorderRadius.circular(13),
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(
+                            color: Color(0xE6111111),
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(15),
+                              bottomLeft: Radius.circular(12),
+                            ),
                           ),
                           alignment: Alignment.center,
                           child: const Icon(
                             Icons.delete_outline_rounded,
-                            size: 16,
+                            size: 18,
                             color: Colors.white,
                           ),
                         ),
