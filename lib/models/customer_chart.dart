@@ -2,6 +2,7 @@ import '../features/operation/models/visit_biometrics.dart';
 import '../utils/db_map.dart';
 import '../utils/storage_image_url.dart';
 import 'chart_db_columns.dart';
+import 'chart_visit_record.dart';
 import 'home_care_prescriptions.dart';
 
 class CustomerChart {
@@ -43,6 +44,7 @@ class CustomerChart {
     this.homeCareMissionChecks = const [false, false, false],
     this.consentPdfUrl,
     this.deviceInfo,
+    this.visitRecord = ChartVisitRecord.empty,
     this.feedAge,
     this.feedGenderLabel,
     this.authorId,
@@ -113,6 +115,9 @@ class CustomerChart {
 
   /// 선택한 서비스 메뉴의 사용 기기 (없으면 null).
   final String? deviceInfo;
+
+  /// 새 CHART 방문 본문. 옛 저장 맵에는 포함하지 않는다.
+  final ChartVisitRecord visitRecord;
 
   /// 공개 피드용 익명 만 나이 (`customers.birth_date` join, 생년월일 미저장).
   final int? feedAge;
@@ -269,6 +274,7 @@ class CustomerChart {
       infoViewConsent: false,
       homeCareMissionChecks: const [false, false, false],
       deviceInfo: deviceInfo,
+      visitRecord: ChartVisitRecord.empty,
       feedAge: feedAge,
       feedGenderLabel: feedGenderLabel,
       authorId: authorId,
@@ -313,6 +319,7 @@ class CustomerChart {
     bool? infoViewConsent,
     List<bool>? homeCareMissionChecks,
     String? deviceInfo,
+    ChartVisitRecord? visitRecord,
     int? feedAge,
     String? feedGenderLabel,
     String? authorId,
@@ -379,6 +386,7 @@ class CustomerChart {
       homeCareMissionChecks:
           homeCareMissionChecks ?? this.homeCareMissionChecks,
       deviceInfo: deviceInfo ?? this.deviceInfo,
+      visitRecord: visitRecord ?? this.visitRecord,
       feedAge: feedAge ?? this.feedAge,
       feedGenderLabel: feedGenderLabel ?? this.feedGenderLabel,
       authorId: authorId ?? this.authorId,
@@ -557,6 +565,7 @@ class CustomerChart {
       homeCareMissionChecks:
           missionChecksFromDynamic(map['home_care_mission_checks']),
       deviceInfo: DbMap.asTextOrNull(map['device_info'] ?? map['deviceInfo']),
+      visitRecord: ChartVisitRecord.fromMap(map),
       feedAge: () {
         final v = map['customer_age'] ?? map['feed_age'];
         if (v == null) return null;

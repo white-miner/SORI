@@ -241,6 +241,26 @@ abstract class SoriRepository {
     required DateTime hiddenAt,
   });
 
+  /// 새 CHART 방문 draft. `visit_checked` 를 true로 만들지 않는다.
+  Future<CustomerChart> insertChartVisitDraft({
+    required String shopId,
+    required String customerId,
+    required int visitNumber,
+    required Map<String, dynamic> patch,
+  });
+
+  /// 새 CHART 방문 본문만 갱신한다. 회원권·피드백 부수효과 없음.
+  Future<CustomerChart> patchChartVisitDraft({
+    required String chartId,
+    required Map<String, dynamic> patch,
+  });
+
+  /// 고객 현재 안전정보만 갱신한다. 다른 방문 스냅샷은 건드리지 않는다.
+  Future<Customer> patchCustomerSafety({
+    required String customerId,
+    required Map<String, dynamic> patch,
+  });
+
   /// 차트 본문/사진 부분 업데이트 (수정 모드·After 패치·관리 계획).
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,

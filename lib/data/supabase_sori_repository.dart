@@ -1487,6 +1487,70 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<CustomerChart> insertChartVisitDraft({
+    required String shopId,
+    required String customerId,
+    required int visitNumber,
+    required Map<String, dynamic> patch,
+  }) async {
+    final payload = <String, dynamic>{
+      ...patch,
+      'shop_id': shopId.trim(),
+      'customer_id': customerId.trim(),
+      'visit_number': visitNumber < 1 ? 1 : visitNumber,
+      'visit_checked': false,
+      'visit_checked_at': null,
+    };
+    payload.remove('feedback_token');
+    payload.remove('feedback_line_opened_at');
+    final row = await _insertChartRow(
+      payload,
+      customerId: customerId.trim(),
+      shopId: shopId.trim(),
+    );
+    return CustomerChart.fromMap(row);
+  }
+
+  @override
+  Future<CustomerChart> patchChartVisitDraft({
+    required String chartId,
+    required Map<String, dynamic> patch,
+  }) async {
+    final payload = Map<String, dynamic>.from(patch)
+      ..remove('visit_checked')
+      ..remove('visit_checked_at')
+      ..remove('feedback_token');
+    final row = await _updateChartRow(chartId: chartId.trim(), payload: payload);
+    return CustomerChart.fromMap(row);
+  }
+
+  @override
+  Future<Customer> patchCustomerSafety({
+    required String customerId,
+    required Map<String, dynamic> patch,
+  }) async {
+    var body = Map<String, dynamic>.from(patch);
+    Object? lastError;
+    for (var attempt = 0; attempt < 12; attempt++) {
+      try {
+        final row = await _db
+            .from('customers')
+            .update(body)
+            .eq('id', customerId.trim())
+            .select()
+            .single();
+        return Customer.fromMap(Map<String, dynamic>.from(row));
+      } catch (e) {
+        lastError = e;
+        final stripped = _stripUnknownColumn(body, e);
+        if (stripped.length == body.length) rethrow;
+        body = stripped;
+      }
+    }
+    throw lastError ?? StateError('customer safety update failed');
+  }
+
+  @override
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,
     String? careName,

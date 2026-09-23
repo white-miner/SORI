@@ -35,6 +35,7 @@ import '../models/community_case_item.dart';
 import '../models/community_post.dart';
 import '../models/home_feed_entry.dart';
 import '../models/customer.dart';
+import '../models/chart_visit_record.dart';
 import '../models/customer_chart.dart';
 import '../utils/consent_publish_gate.dart';
 import '../models/customer_merge_preview.dart';
@@ -1917,6 +1918,138 @@ class SoriStore implements Listenable {
       if (c.visitNumber > maxVn) maxVn = c.visitNumber;
     }
     return maxVn + 1;
+  }
+
+  List<CustomerChart> chartVisitDraftsFor(String customerId) {
+    return chartsForCustomer(customerId)
+        .where((chart) => chart.visitRecord.isDraft)
+        .toList();
+  }
+
+  /// 새 CHART draft. `ensureTodayShootChart` 와 `visit_checked` 를 쓰지 않는다.
+  Future<CustomerChart> createChartVisitDraft({
+    required String customerId,
+    required ChartVisitRecord record,
+  }) async {
+    final customer = findCustomer(customerId);
+    if (customer == null) {
+      throw StateError('Customer not found');
+    }
+    final shopId = customer.shopId.trim().isNotEmpty
+        ? customer.shopId.trim()
+        : shop.id;
+    final visitNumber = nextVisitNumber(customerId);
+    final day = record.visitDate ?? DateTime.now();
+    final patch = record.toPatch(flowStatus: 'draft');
+    patch['visit_date'] = _chartVisitDay(day);
+    if (!_repository.isRemote) {
+      final chart = CustomerChart(
+        id: 'chart-visit-${DateTime.now().microsecondsSinceEpoch}',
+        shopId: shopId,
+        customerId: customerId,
+        visitNumber: visitNumber,
+        createdAt: DateTime.now(),
+        visitRecord: ChartVisitRecord.fromMap(patch),
+      );
+      _mergeChart(chart);
+      _notify();
+      return chart;
+    }
+    final saved = await _repository.insertChartVisitDraft(
+      shopId: shopId,
+      customerId: customerId,
+      visitNumber: visitNumber,
+      patch: patch,
+    );
+    final chart = _keepVisitPatch(saved, patch);
+    _mergeChart(chart);
+    _notify();
+    return chart;
+  }
+
+  /// 현재 draft 본문만 갱신한다. 회원권·피드백은 바꾸지 않는다.
+  Future<CustomerChart> saveChartVisitDraft({
+    required String chartId,
+    required ChartVisitRecord record,
+  }) async {
+    final existing = findChartById(chartId);
+    if (existing == null) {
+      throw StateError('Chart not found');
+    }
+    final patch = record.toPatch(
+      flowStatus: record.flowStatus ?? existing.visitRecord.flowStatus ?? 'draft',
+    );
+    if (record.visitDate != null) {
+      patch['visit_date'] = _chartVisitDay(record.visitDate!);
+    }
+    if (!_repository.isRemote) {
+      final chart = existing.copyWith(
+        visitRecord: ChartVisitRecord.fromMap(patch),
+      );
+      _mergeChart(chart);
+      _notify();
+      return chart;
+    }
+    final saved = await _repository.patchChartVisitDraft(
+      chartId: chartId,
+      patch: patch,
+    );
+    final chart = _keepVisitPatch(saved, patch);
+    _mergeChart(chart);
+    _notify();
+    return chart;
+  }
+
+  /// INFO 수정. 이 고객의 현재 값만 바꾼다.
+  Future<Customer> patchChartVisitCustomerSafety({
+    required String customerId,
+    required Map<String, dynamic> patch,
+  }) async {
+    final current = findCustomer(customerId);
+    if (current == null) {
+      throw StateError('Customer not found');
+    }
+    String keep(String key, String currentValue) {
+      if (!patch.containsKey(key) || patch[key] == null) return currentValue;
+      return patch[key].toString();
+    }
+
+    final next = current.copyWith(
+      allergyNotes: keep('allergy_notes', current.allergyNotes),
+      medicationHistory: keep('medication_history', current.medicationHistory),
+      medicalCondition: keep('medical_condition', current.medicalCondition),
+      pregnancyStatus: keep('pregnancy_status', current.pregnancyStatus),
+      recentProcedure: keep('recent_procedure', current.recentProcedure),
+      activeProduct: keep('active_product', current.activeProduct),
+      skinTrait: keep('skin_trait', current.skinTrait),
+      safetyNote: keep('safety_note', current.safetyNote),
+    );
+    if (_repository.isRemote) {
+      await _repository.patchCustomerSafety(
+        customerId: customerId,
+        patch: patch,
+      );
+    }
+    _mergeCustomer(next);
+    _notify();
+    return next;
+  }
+
+  /// 응답 행에 새 컬럼이 아직 없으면, 방금 보낸 본문을 메모리에 유지한다.
+  CustomerChart _keepVisitPatch(
+    CustomerChart chart,
+    Map<String, dynamic> patch,
+  ) {
+    if (chart.visitRecord.flowStatus != null) return chart;
+    if (patch['chart_flow_status'] == null) return chart;
+    return chart.copyWith(visitRecord: ChartVisitRecord.fromMap(patch));
+  }
+
+  static String _chartVisitDay(DateTime day) {
+    final local = day.toLocal();
+    return '${local.year.toString().padLeft(4, '0')}-'
+        '${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')}';
   }
 
   /// 종이 차트와 맞출 수동 차트 번호 제안값 (기존 숫자 최대 + 1).

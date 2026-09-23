@@ -251,6 +251,10 @@ class _CustomerChartPageState extends State<CustomerChartPage>
 
   void _onOverflow(String value) {
     switch (value) {
+      case 'visitPreview':
+        context.push(
+          '${AppPaths.chartVisitPreview}?customerId=${Uri.encodeComponent(widget.customerId)}',
+        );
       case 'quick':
         _openQuickChart();
       case 'manage':
@@ -342,6 +346,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
             tooltip: '더보기',
             onSelected: _onOverflow,
             itemBuilder: (ctx) => const [
+              PopupMenuItem(value: 'visitPreview', child: Text('오늘 방문')),
               PopupMenuItem(value: 'quick', child: Text('1초 간편 차트')),
               PopupMenuItem(value: 'manage', child: Text('차트 관리')),
               PopupMenuItem(value: 'membership', child: Text('회원권 관리')),
@@ -780,12 +785,22 @@ class _TimelineTab extends StatelessWidget {
         ),
       );
     }
+    final visible =
+        charts.where((chart) => !chart.visitRecord.isDraft).toList();
+    if (visible.isEmpty) {
+      return const Center(
+        child: Text(
+          '아직 방문 기록이 없습니다',
+          style: TextStyle(color: Color(0xFF9CA3AF)),
+        ),
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-      itemCount: charts.length,
+      itemCount: visible.length,
       separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
-        final chart = charts[index];
+        final chart = visible[index];
         return _VisitRoundCard(
           chart: chart,
           onTap: () => onTapChart(chart),
@@ -816,13 +831,22 @@ class _VisitRoundCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = chart.createdAt ?? chart.visitCheckedAt;
+    final visit = chart.visitRecord;
+    final date = visit.visitDate ?? chart.createdAt ?? chart.visitCheckedAt;
     final dateLabel = date == null
         ? '날짜 없음'
         : '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-    final care =
-        chart.careName.trim().isEmpty ? '시술명 없음' : chart.careName.trim();
+    final goal = visit.goalLine.trim();
+    final care = chart.careName.trim().isNotEmpty
+        ? chart.careName.trim()
+        : (goal.isNotEmpty ? goal : '시술명 없음');
     final memo = _memoLine(chart);
+    final concern = visit.concernLine.trim();
+    final change = visit.changeLine.trim();
+    final nextCare = [
+      visit.nextCareTiming.trim(),
+      visit.nextCareNote.trim(),
+    ].where((line) => line.isNotEmpty).join(' · ');
     // 금액: 차트 row에 금액 컬럼 없음 → 줄 자체 숨김 (스펙: 0/null 표기 금지).
 
     return Material(
@@ -880,6 +904,36 @@ class _VisitRoundCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (concern.isNotEmpty)
+                      Text(
+                        concern,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    if (change.isNotEmpty)
+                      Text(
+                        change,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    if (nextCare.isNotEmpty)
+                      Text(
+                        nextCare,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1031,7 +1085,8 @@ class _PhotoTab extends StatelessWidget {
   }
 
   static String _dateLabel(CustomerChart chart) {
-    final date = chart.createdAt ?? chart.visitCheckedAt;
+    final date =
+        chart.visitRecord.visitDate ?? chart.createdAt ?? chart.visitCheckedAt;
     if (date == null) return '날짜 없음';
     return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
@@ -1054,9 +1109,10 @@ class _PhotoTab extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final chart = ordered[index];
-        final care = chart.careName.trim().isEmpty
-            ? '시술명 없음'
-            : chart.careName.trim();
+        final goal = chart.visitRecord.goalLine.trim();
+        final care = chart.careName.trim().isNotEmpty
+            ? chart.careName.trim()
+            : (goal.isNotEmpty ? goal : '시술명 없음');
         final comparable = chart.hasBeforeImage && chart.hasAfterImage;
         return Material(
           key: Key('customer-chart-photo-row-${chart.id}'),

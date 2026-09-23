@@ -510,6 +510,32 @@ class MemorySoriRepository implements SoriRepository {
   }) async {}
 
   @override
+  Future<CustomerChart> insertChartVisitDraft({
+    required String shopId,
+    required String customerId,
+    required int visitNumber,
+    required Map<String, dynamic> patch,
+  }) {
+    throw UnsupportedError('chart visit draft is handled by SoriStore in memory');
+  }
+
+  @override
+  Future<CustomerChart> patchChartVisitDraft({
+    required String chartId,
+    required Map<String, dynamic> patch,
+  }) {
+    throw UnsupportedError('chart visit draft is handled by SoriStore in memory');
+  }
+
+  @override
+  Future<Customer> patchCustomerSafety({
+    required String customerId,
+    required Map<String, dynamic> patch,
+  }) {
+    throw UnsupportedError('chart visit safety is handled by SoriStore in memory');
+  }
+
+  @override
   Future<CustomerChart> updateCustomerChartFields({
     required String chartId,
     String? careName,

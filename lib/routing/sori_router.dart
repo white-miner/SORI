@@ -6,6 +6,9 @@ import '../models/session_user.dart';
 import '../services/pending_review_return.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../features/chart_visit/chart_visit_flow_page.dart';
+import '../features/chart_visit/chart_visit_home_page.dart';
+import '../features/chart_visit/chart_visit_live.dart';
 import '../views/admin_chart_writer_page.dart';
 import '../views/app_shell_page.dart';
 import '../features/crm_today/care_schedule_lead_page.dart';
@@ -54,6 +57,9 @@ abstract final class AppPaths {
   static String careScheduleLead(String shopId) =>
       '$careRequest/${Uri.encodeComponent(shopId.trim())}';
   static const chartCreate = '/chart/create';
+  /// 샘플 CHART 홈. 기존 고객 차트·작성기와 별도.
+  static const chartVisitPreview = '/chart-visit';
+  static const chartVisitWrite = '/chart-visit/write';
 
   static String customerDetail(String customerId) =>
       '$appCustomers/${Uri.encodeComponent(customerId.trim())}';
@@ -195,6 +201,21 @@ GoRouter createSoriGoRouter({String? initialLocation}) {
             forceQuickChart: quick,
           );
         },
+      ),
+      GoRoute(
+        path: AppPaths.chartVisitPreview,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final customerId = state.uri.queryParameters['customerId'] ?? '';
+          bindChartVisitRoute(store, customerId);
+          return const ChartVisitRoutePage();
+        },
+        routes: [
+          GoRoute(
+            path: 'write',
+            builder: (context, state) => const ChartVisitFlowPage(),
+          ),
+        ],
       ),
       GoRoute(
         path: AppPaths.appBizDashboard,

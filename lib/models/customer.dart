@@ -43,6 +43,13 @@ class Customer {
     this.homeCareHabits = '',
     this.lastPromotionSentAt,
     this.createdAt,
+    this.referralSource = '',
+    this.medicalCondition = '',
+    this.pregnancyStatus = '',
+    this.recentProcedure = '',
+    this.activeProduct = '',
+    this.skinTrait = '',
+    this.safetyNote = '',
   });
 
   final String id;
@@ -74,6 +81,14 @@ class Customer {
 
   /// 고객 등록일 (장기 미방문 부채 트리거용).
   final DateTime? createdAt;
+
+  final String referralSource;
+  final String medicalCondition;
+  final String pregnancyStatus;
+  final String recentProcedure;
+  final String activeProduct;
+  final String skinTrait;
+  final String safetyNote;
 
   List<CustomerMembership> get activeMemberships =>
       memberships.where((m) => m.totalVisits > 0).toList();
@@ -194,6 +209,13 @@ class Customer {
     String? homeCareHabits,
     DateTime? lastPromotionSentAt,
     DateTime? createdAt,
+    String? referralSource,
+    String? medicalCondition,
+    String? pregnancyStatus,
+    String? recentProcedure,
+    String? activeProduct,
+    String? skinTrait,
+    String? safetyNote,
     bool clearGender = false,
     bool clearBirthDate = false,
     bool clearLastPromotionSentAt = false,
@@ -224,6 +246,13 @@ class Customer {
           ? null
           : (lastPromotionSentAt ?? this.lastPromotionSentAt),
       createdAt: createdAt ?? this.createdAt,
+      referralSource: referralSource ?? this.referralSource,
+      medicalCondition: medicalCondition ?? this.medicalCondition,
+      pregnancyStatus: pregnancyStatus ?? this.pregnancyStatus,
+      recentProcedure: recentProcedure ?? this.recentProcedure,
+      activeProduct: activeProduct ?? this.activeProduct,
+      skinTrait: skinTrait ?? this.skinTrait,
+      safetyNote: safetyNote ?? this.safetyNote,
     );
   }
 
@@ -330,6 +359,13 @@ class Customer {
       homeCareHabits: DbMap.asText(map['home_care_habits']),
       lastPromotionSentAt: DbMap.asDateTime(map['last_promotion_sent_at']),
       createdAt: DbMap.asDateTime(map['created_at']),
+      referralSource: DbMap.asText(map['referral_source']),
+      medicalCondition: DbMap.asText(map['medical_condition']),
+      pregnancyStatus: DbMap.asText(map['pregnancy_status']),
+      recentProcedure: DbMap.asText(map['recent_procedure']),
+      activeProduct: DbMap.asText(map['active_product']),
+      skinTrait: DbMap.asText(map['skin_trait']),
+      safetyNote: DbMap.asText(map['safety_note']),
     ).withSyncedMembershipMirrors();
   }
 }
