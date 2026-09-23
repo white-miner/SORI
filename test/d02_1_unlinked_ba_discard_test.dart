@@ -209,8 +209,17 @@ void main() {
           _unboundUrl);
     });
 
-    test('3b. chart_id 있는 BA 세션은 Storage/메타를 건드리지 않는다', () async {
+    test('3b. 차트에 연결된 히스토리 사진을 지우면 세션과 차트 URL이 함께 빠진다', () async {
       final store = SoriStore();
+      store.charts.add(
+        CustomerChart(
+          id: 'chart-keep',
+          shopId: store.shop.id,
+          customerId: store.customers.first.id,
+          visitNumber: 3,
+          beforeImageUrl: _draftUrl,
+        ),
+      );
       const session = BaCaptureSession(
         id: 'ba-linked',
         shopId: 'shop1',
@@ -223,9 +232,90 @@ void main() {
 
       final result = await store.discardUnlinkedBaSession(session);
 
-      expect(result.discarded, isFalse);
-      expect(removedPaths, isEmpty);
-      expect(store.baSessions.any((s) => s.id == 'ba-linked'), isTrue);
+      expect(result.discarded, isTrue);
+      expect(removedPaths, ['shop1/ba_draft_tok/xyz_1_before.webp']);
+      expect(store.baSessions.any((s) => s.id == 'ba-linked'), isFalse);
+      expect(
+        store.charts.firstWhere((c) => c.id == 'chart-keep').beforeImageUrl?.trim() ?? '',
+        isEmpty,
+      );
+    });
+
+    test('3d. 같은 URL을 가진 차트 두 곳도 함께 떼고 Storage를 지운다', () async {
+      final store = SoriStore();
+      final customerId = store.customers.first.id;
+      store.charts.add(
+        CustomerChart(
+          id: 'chart-dup-a',
+          shopId: store.shop.id,
+          customerId: customerId,
+          visitNumber: 5,
+          beforeImageUrl: _draftUrl,
+          afterImageUrl: _draftUrl,
+        ),
+      );
+      store.charts.add(
+        CustomerChart(
+          id: 'chart-dup-b',
+          shopId: store.shop.id,
+          customerId: customerId,
+          visitNumber: 6,
+          beforeImageUrl: _draftUrl,
+          afterImageUrl: _draftUrl,
+        ),
+      );
+      const session = BaCaptureSession(
+        id: 'ba-dup',
+        shopId: 'shop1',
+        sessionToken: 'tok-dup',
+        beforeImageUrl: _draftUrl,
+        afterImageUrl: _draftUrl,
+        chartId: 'chart-dup-a',
+        label: '미등록',
+        status: BaCaptureStatus.linked,
+      );
+      store.baSessions.add(session);
+
+      final result = await store.discardUnlinkedBaSession(session);
+
+      expect(result.discarded, isTrue);
+      expect(removedPaths, ['shop1/ba_draft_tok/xyz_1_before.webp']);
+      expect(store.baSessions.any((s) => s.id == 'ba-dup'), isFalse);
+      for (final id in ['chart-dup-a', 'chart-dup-b']) {
+        final chart = store.charts.firstWhere((c) => c.id == id);
+        expect(chart.beforeImageUrl?.trim() ?? '', isEmpty);
+        expect(chart.afterImageUrl?.trim() ?? '', isEmpty);
+      }
+    });
+
+    test('3c. 차트 미러 원형도 차트 URL을 떼고 Storage를 지운다', () async {
+      final store = SoriStore();
+      store.charts.add(
+        CustomerChart(
+          id: 'chart-mirror',
+          shopId: store.shop.id,
+          customerId: store.customers.first.id,
+          visitNumber: 4,
+          beforeImageUrl: _draftUrl,
+        ),
+      );
+      final mirror = BaCaptureSession(
+        id: SoriStore.chartMirrorSessionId('chart-mirror'),
+        shopId: store.shop.id,
+        sessionToken: 'chart-chart-mirror',
+        beforeImageUrl: _draftUrl,
+        chartId: 'chart-mirror',
+        status: BaCaptureStatus.linked,
+      );
+
+      final result = await store.discardUnlinkedBaSession(mirror);
+
+      expect(result.discarded, isTrue);
+      expect(removedPaths, ['shop1/ba_draft_tok/xyz_1_before.webp']);
+      expect(
+        store.charts.firstWhere((c) => c.id == 'chart-mirror').beforeImageUrl?.trim() ?? '',
+        isEmpty,
+      );
     });
 
     test('4. Storage remove 실패 → 메타/큐 유지', () async {

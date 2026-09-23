@@ -6584,26 +6584,64 @@ class SoriStore implements Listenable {
     _notify();
   }
 
-  /// 홈 오늘 탭 draft + chart_id 없는 staging 세션을 Storage 원본과 함께 삭제.
+  /// 히스토리 원형 한 장을 지운다.
+  ///
+  /// 차트에 연결된 세션·차트 미러도 포함한다. 원형이 차트 URL을 보여주고
+  /// 있으면 그 URL을 차트에서 떼어 미러가 같은 사진을 다시 만들지 않게 한 뒤
+  /// Storage 원본과 세션 메타를 제거한다.
   Future<StagingPhotoDiscardResult> discardUnlinkedBaSession(
     BaCaptureSession target,
   ) async {
-    if (!_isUnlinkedStagingBaSession(target)) {
-      return const StagingPhotoDiscardResult(discarded: false);
-    }
-
     final urls = <String>[
       target.beforeImageUrl ?? '',
       target.afterImageUrl ?? '',
     ];
-    final removed = await _removeUnlinkedStagingUrls(urls);
-    if (!removed.discarded) return removed;
+    try {
+      await _clearChartPhotosShownBy(target);
+    } catch (e, st) {
+      debugPrint('discardUnlinkedBaSession chart clear failed: $e\n$st');
+    }
 
-    await _removeBaSessionMeta(target);
+    final removed = await _removeUnlinkedStagingUrls(urls);
+    if (!isChartMirrorSessionId(target.id) &&
+        baSessions.any((s) => s.id == target.id)) {
+      await _removeBaSessionMeta(target);
+    }
     return StagingPhotoDiscardResult(
       discarded: true,
-      storageRemoveCount: removed.storageRemoveCount,
+      storageRemoveCount: removed.discarded ? removed.storageRemoveCount : 0,
     );
+  }
+
+  /// 이 원형의 사진 URL을 가진 차트는 모두 그 URL을 뗀다.
+  /// 같은 파일이 차트 두 곳에 걸려 있으면 한 곳만 지워서 원형이 다시 생긴다.
+  Future<void> _clearChartPhotosShownBy(BaCaptureSession target) async {
+    final before = target.beforeImageUrl?.trim() ?? '';
+    final after = target.afterImageUrl?.trim() ?? '';
+    if (before.isEmpty && after.isEmpty) return;
+
+    final hits = charts.where((chart) {
+      final b = chart.beforeImageUrl?.trim() ?? '';
+      final a = chart.afterImageUrl?.trim() ?? '';
+      return (before.isNotEmpty && (b == before || a == before)) ||
+          (after.isNotEmpty && (b == after || a == after));
+    }).toList();
+
+    for (final chart in hits) {
+      final current = findChartById(chart.id) ?? chart;
+      final b = current.beforeImageUrl?.trim() ?? '';
+      final a = current.afterImageUrl?.trim() ?? '';
+      final clearBefore =
+          (before.isNotEmpty && b == before) || (after.isNotEmpty && b == after);
+      final clearAfter =
+          (before.isNotEmpty && a == before) || (after.isNotEmpty && a == after);
+      if (!clearBefore && !clearAfter) continue;
+      await updateCustomerChartFields(
+        chartId: current.id,
+        beforeImageUrl: clearBefore ? '' : null,
+        clearAfterImageUrl: clearAfter,
+      );
+    }
   }
 
   /// 미연결 staging의 Before 또는 After 슬롯만 삭제. 다른 쪽은 유지한다.
