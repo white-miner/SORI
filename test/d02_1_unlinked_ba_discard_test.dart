@@ -489,9 +489,22 @@ void main() {
 
       expect(find.text('김고객'), findsOneWidget);
       expect(find.text('미등록'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('ba-history-delete-red-cust')),
+        findsOneWidget,
+      );
+
       await tester.longPress(find.byKey(const ValueKey('history-red-cust')));
       await tester.pumpAndSettle();
+
+      // 입구 검증: 길게 누르면 데이터 조건과 무관하게 반드시 액션 UI가 열린다.
+      expect(find.text('미등록 사진'), findsOneWidget);
+      expect(find.byKey(const Key('ba-history-action-delete')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('ba-history-action-delete')));
+      await tester.pumpAndSettle();
       expect(find.text('사진을 삭제할까요?'), findsOneWidget);
+
       await tester.tap(find.text('사진 삭제'));
       await tester.pumpAndSettle();
       expect(discardedId, 'red-cust');
