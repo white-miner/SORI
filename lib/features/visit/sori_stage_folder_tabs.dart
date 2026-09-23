@@ -47,15 +47,15 @@ class SoriStageFolderTabs extends StatefulWidget {
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: _unselectedText,
-    height: 1.15,
-    letterSpacing: 0.25,
+    height: 1.2,
+    letterSpacing: 0.6,
   );
   static const _selectedStyle = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w800,
     color: _selectedText,
-    height: 1.15,
-    letterSpacing: 0.25,
+    height: 1.2,
+    letterSpacing: 0.6,
   );
 
   @override
@@ -208,11 +208,9 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
               height: height,
               padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                color: selected
-                    ? SoriStageFolderTabs._selectedFill.withValues(
-                        alpha: pressed ? 0.92 : 1,
-                      )
-                    : SoriStageFolderTabs._unselectedFill,
+                color: pressed
+                    ? SoriTokens.textCharcoal.withValues(alpha: 0.04)
+                    : Colors.transparent,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
