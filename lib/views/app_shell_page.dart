@@ -7,7 +7,6 @@ import '../models/session_user.dart';
 import '../routing/sori_router.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
-import '../utils/category_presentation_map.dart';
 import '../utils/sori_nav.dart';
 import '../utils/sori_shell_insets.dart';
 import '../widgets/glass/sori_glass_app_bar_cluster.dart';
@@ -36,6 +35,10 @@ class _AppShellPageState extends State<AppShellPage> {
   /// PC push sidebar — YouTube-style expand / collapse (not overlay drawer).
   /// Default collapsed so the main work area stays wide on first load.
   bool _isSidebarExpanded = false;
+
+  /// Mobile global header follows the Weverse pattern: it yields to content
+  /// while scrolling, while the workspace tabs inside the page stay visible.
+  bool _mobileHeaderCollapsed = false;
 
   /// Store 전역 notify마다 셸을 리빌드하지 않도록 셸 관련 스냅샷만 추적.
   bool _lastHydrating = false;
@@ -128,10 +131,26 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   void _selectTab(int index) {
+    if (_mobileHeaderCollapsed) {
+      setState(() => _mobileHeaderCollapsed = false);
+    }
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
     );
+  }
+
+  bool _onMobileShellScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification is! ScrollUpdateNotification &&
+        notification is! OverscrollNotification) {
+      return false;
+    }
+    final next = notification.metrics.pixels > 28;
+    if (next != _mobileHeaderCollapsed && mounted) {
+      setState(() => _mobileHeaderCollapsed = next);
+    }
+    return false;
   }
 
   void _popRootOverlays() {
@@ -216,7 +235,7 @@ class _AppShellPageState extends State<AppShellPage> {
         // My 탭은 셸 AppBar(+ / 알림 / 보관함 / 설정)를 유지한다 (S-A).
         final hideShellAppBar = !wide && _isCustomerDetailRoute(context);
 
-        final appBar = hideShellAppBar
+        final appBar = (hideShellAppBar || (!wide && _mobileHeaderCollapsed))
             ? null
             : _ShellAppBar(
                 showLogo: true,
@@ -249,37 +268,18 @@ class _AppShellPageState extends State<AppShellPage> {
                 },
                 onArchive: _openArchive,
                 onSettings: _openSettings,
-                modeSwitchLabel: session.canToggleMode
-                    ? (isDirector
-                        ? CategoryPresentationMap.viewCustomerMode
-                        : CategoryPresentationMap.viewDirectorDesk)
-                    : null,
-                onModeSwitch: session.canToggleMode
-                    ? () {
-                        final wasDirector =
-                            _store.session?.activeMode == UserRole.director;
-                        _store.toggleActiveMode();
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              wasDirector
-                                  ? CategoryPresentationMap.viewCustomerMode
-                                  : CategoryPresentationMap.viewDirectorDesk,
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    : null,
               );
 
         final isFeedTab = (tab == 0 && !isDirector) || tab == 3;
 
         if (!wide) {
-          final shellBody = isFeedTab
+          final rawShellBody = isFeedTab
               ? FeedWheelMarginSurface(child: widget.navigationShell)
               : widget.navigationShell;
+          final shellBody = NotificationListener<ScrollNotification>(
+            onNotification: _onMobileShellScroll,
+            child: rawShellBody,
+          );
           return Scaffold(
             backgroundColor: SoriTokens.background,
             extendBody: true,
@@ -571,8 +571,6 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSettings,
     this.onLogoTap,
     this.logoRefreshing = false,
-    this.modeSwitchLabel,
-    this.onModeSwitch,
   });
 
   final bool showLogo;
@@ -585,13 +583,43 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSettings;
   final VoidCallback? onLogoTap;
   final bool logoRefreshing;
-  final String? modeSwitchLabel;
-  final VoidCallback? onModeSwitch;
 
-  static const double toolbarHeight = 60;
+  static const double toolbarHeight = 56;
 
   @override
   Size get preferredSize => const Size.fromHeight(toolbarHeight);
+
+  Future<void> _showMoreMenu(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onArchive != null)
+              ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('보관함'),
+                onTap: () => Navigator.pop(ctx, 'archive'),
+              ),
+            if (onSettings != null)
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('설정'),
+                onTap: () => Navigator.pop(ctx, 'settings'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == 'archive') {
+      onArchive?.call();
+    } else if (action == 'settings') {
+      onSettings?.call();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -634,22 +662,6 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ],
-                if (modeSwitchLabel != null && onModeSwitch != null)
-                  TextButton(
-                    onPressed: onModeSwitch,
-                    style: TextButton.styleFrom(
-                      foregroundColor: SoriTokens.brand,
-                      minimumSize: const Size(48, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    child: Text(
-                      modeSwitchLabel!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
                 const Spacer(),
                 SoriGlassAppBarCluster(
                   items: [
@@ -665,17 +677,11 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
                       onPressed: onNotifications,
                       badgeCount: badgeCount,
                     ),
-                    if (onArchive != null)
+                    if (onArchive != null || onSettings != null)
                       SoriGlassAppBarItem(
-                        icon: Icons.inventory_2_rounded,
-                        tooltip: '보관함',
-                        onPressed: onArchive!,
-                      ),
-                    if (onSettings != null)
-                      SoriGlassAppBarItem(
-                        icon: Icons.settings_rounded,
-                        tooltip: '설정',
-                        onPressed: onSettings!,
+                        icon: Icons.more_horiz_rounded,
+                        tooltip: '더보기',
+                        onPressed: () => _showMoreMenu(context),
                       ),
                   ],
                 ),
