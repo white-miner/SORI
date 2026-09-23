@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../widgets/post/post_view_data.dart';
+import '../utils/chart_row_collapse.dart';
 import '../utils/customer_consent_archive.dart';
 import '../utils/post_author.dart';
 import '../utils/sori_uuid.dart';
@@ -751,6 +752,9 @@ class SoriStore implements Listenable {
       _applySnapshot(snapshot);
       bootstrapComplete = true;
       bootstrapFailed = false;
+      if (_repository.isRemote) {
+        unawaited(collapseDuplicateChartRows());
+      }
     } catch (e, st) {
       debugPrint('bootstrap failed: $e\n$st');
       _setError(e, userFacing: false);
@@ -1939,6 +1943,40 @@ class SoriStore implements Listenable {
     final latest = snap.latest;
     if (latest != null && latest.createdAt == null) return latest;
     return null;
+  }
+
+  /// 같은 회차의 중복 행은 하나로 합치고, 1년 안의 동의서 껍질은 최신 1건만 남긴다.
+  Future<void> collapseDuplicateChartRows() async {
+    final protected = reviews
+        .where((review) => review.status == ReviewStatus.published)
+        .map((review) => review.chartId)
+        .toSet();
+    final plan = ChartRowCollapse.plan(charts, protectedIds: protected);
+    if (!plan.hasWork) return;
+    try {
+      if (_repository.isRemote) {
+        await _repository.collapseChartRows(
+          merged: plan.merged,
+          dropIds: plan.dropIds,
+          repoint: plan.repoint,
+        );
+      }
+    } catch (e, st) {
+      debugPrint('collapseChartRows failed: $e\n$st');
+      return;
+    }
+    final drop = plan.dropIds.toSet();
+    for (final chart in plan.merged) {
+      final index = charts.indexWhere((item) => item.id == chart.id);
+      if (index >= 0) charts[index] = chart;
+    }
+    charts.removeWhere((chart) => drop.contains(chart.id));
+    for (var i = 0; i < reviews.length; i++) {
+      final nextId = plan.repoint[reviews[i].chartId];
+      if (nextId == null) continue;
+      reviews[i] = reviews[i].copyWith(chartId: nextId);
+    }
+    _notify();
   }
 
   /// 고객의 그 회차 번호에 해당하는 차트. 없으면 null.

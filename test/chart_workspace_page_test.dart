@@ -91,25 +91,9 @@ void main() {
     expect(find.text('전자 동의서'), findsOneWidget);
     expect(find.byKey(const Key('chart-doc-photo')), findsOneWidget);
     expect(find.byKey(const Key('chart-doc-payment')), findsOneWidget);
-    expect(find.byKey(const Key('chart-visit-rail')), findsOneWidget);
-
-    final items = buildVisitRailItems(store, customer.id);
-    expect(items, isNotEmpty);
-    expect(
-      items.first.kind,
-      anyOf(VisitRailKind.newDraft, VisitRailKind.today),
-    );
-    if (items.first.kind == VisitRailKind.newDraft) {
-      expect(find.text('신규 작성'), findsWidgets);
-      expect(find.byKey(const Key('chart-new-sheet-title')), findsOneWidget);
-      expect(find.text('기본정보'), findsWidgets);
-      expect(find.text('목적·결과'), findsWidgets);
-      expect(find.text('프로그램'), findsWidgets);
-      expect(find.byKey(const Key('chart-new-step-basic')), findsOneWidget);
-      expect(find.byKey(const Key('chart-new-next')), findsOneWidget);
-    } else {
-      expect(find.text('Today'), findsWidgets);
-    }
+    expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
+    expect(find.text('오늘 방문'), findsOneWidget);
+    expect(find.text(customer.name), findsWidgets);
   });
 
   testWidgets('new customer opens add sheet without auto chart writer', (
@@ -168,34 +152,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    if (todayChartForCustomer(store, customer.id) != null) {
-      // Already has Today — skip create path for this seed.
-      expect(find.text('Today'), findsWidgets);
-      return;
-    }
-
-    expect(find.byKey(const Key('chart-new-sheet-title')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
-    await tester.tap(find.byKey(const Key('chart-new-next')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
-    await tester.tap(find.byKey(const Key('chart-new-next')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('chart-new-step-program')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('chart-new-service')));
-    await tester.enterText(
-      find.byKey(const Key('chart-new-service')),
-      '테스트케어',
-    );
-    await tester.ensureVisible(find.byKey(const Key('chart-new-sheet-save')));
-    await tester.tap(find.byKey(const Key('chart-new-sheet-save')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(todayChartForCustomer(store, customer.id), isNotNull);
-    expect(find.text('Today'), findsWidgets);
+    expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
+    expect(find.text(customer.name), findsWidgets);
+    expect(find.text('오늘 방문'), findsOneWidget);
     expect(find.byKey(const Key('chart-new-sheet-title')), findsNothing);
-    expect(find.textContaining('Today ·'), findsOneWidget);
   });
 
   testWidgets(
@@ -253,54 +213,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      final existingToday = todayChartForCustomer(store, customer.id);
-      if (existingToday != null) {
-        // 이미 Today가 있는 시드 — Today 라벨이 실제 vN 끝자리 색을 상속하는지만 확인.
-        final todayLabel = tester.widget<ChartIndexLabel>(
-          find.byKey(Key('chart-visit-visit-today-${existingToday.id}')),
-        );
-        expect(
-          todayLabel.baseColor,
-          ChartIndexPaletteStore.instance.colorForNumber(
-            existingToday.visitNumber,
-          ),
-        );
-        return;
-      }
-
-      // 신규 작성 탭은 번호가 없어 고정(SORI 보라) 색.
-      final draftLabel = tester.widget<ChartIndexLabel>(
-        find.byKey(const Key('chart-visit-visit-new')),
-      );
-      expect(draftLabel.baseColor, kChartIndexNoNumberColor);
-
-      await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
-      await tester.tap(find.byKey(const Key('chart-new-next')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('chart-new-next')));
-      await tester.tap(find.byKey(const Key('chart-new-next')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('chart-new-service')));
-      await tester.enterText(
-        find.byKey(const Key('chart-new-service')),
-        '테스트케어',
-      );
-      await tester.ensureVisible(find.byKey(const Key('chart-new-sheet-save')));
-      await tester.tap(find.byKey(const Key('chart-new-sheet-save')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-
-      final saved = todayChartForCustomer(store, customer.id);
-      expect(saved, isNotNull);
-      // 저장 직후 Today는 "오늘용 별도 색"이 아니라, 방금 저장된 실제
-      // visitNumber의 끝자리 색을 그대로 상속해야 한다.
-      final todayLabelAfterSave = tester.widget<ChartIndexLabel>(
-        find.byKey(Key('chart-visit-visit-today-${saved!.id}')),
-      );
-      expect(
-        todayLabelAfterSave.baseColor,
-        ChartIndexPaletteStore.instance.colorForNumber(saved.visitNumber),
-      );
+      expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
+      expect(find.text('오늘 방문'), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-rail')), findsNothing);
     },
   );
 

@@ -255,6 +255,13 @@ abstract class SoriRepository {
     required Map<String, dynamic> patch,
   });
 
+  /// 중복 회차·동의서 껍질을 합친 뒤 남은 행을 지운다.
+  Future<void> collapseChartRows({
+    required List<CustomerChart> merged,
+    required List<String> dropIds,
+    required Map<String, String> repoint,
+  });
+
   /// 고객 현재 안전정보만 갱신한다. 다른 방문 스냅샷은 건드리지 않는다.
   Future<Customer> patchCustomerSafety({
     required String customerId,

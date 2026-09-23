@@ -460,6 +460,13 @@ class MemorySoriRepository implements SoriRepository {
   }
 
   @override
+  Future<void> collapseChartRows({
+    required List<CustomerChart> merged,
+    required List<String> dropIds,
+    required Map<String, String> repoint,
+  }) async {}
+
+  @override
   Future<CustomerMergeResult> mergeShopCustomers({
     required String primaryId,
     required List<String> sourceIds,

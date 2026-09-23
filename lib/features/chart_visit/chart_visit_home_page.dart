@@ -26,7 +26,10 @@ class _ChartVisitRoutePageState extends State<ChartVisitRoutePage> {
 
 /// 샘플 고객 차트 홈. 기존 [CustomerChartPage] 를 대체하지 않는다.
 class ChartVisitHomePage extends StatelessWidget {
-  const ChartVisitHomePage({super.key});
+  const ChartVisitHomePage({super.key, this.embedded = false});
+
+  /// 홈 CHART 탭 안에 넣을 때 상단 바를 한 번 더 그리지 않는다.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -36,40 +39,7 @@ class ChartVisitHomePage extends StatelessWidget {
       builder: (context, _) {
         final customer = store.customer;
         final recent = store.history.isEmpty ? null : store.history.first;
-        return Scaffold(
-          key: const Key('chart-visit-home'),
-          backgroundColor: SoriTokens.background,
-          appBar: AppBar(
-            backgroundColor: SoriTokens.background,
-            foregroundColor: SoriTokens.textPrimary,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            title: const Text(
-              'CHART',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-              ),
-            ),
-            actions: [
-              if (!store.live)
-                const Padding(
-                  padding: EdgeInsets.only(right: 20),
-                  child: Center(
-                    child: Text(
-                      '샘플',
-                      style: TextStyle(
-                        color: SoriTokens.textTertiary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          body: Align(
+        final body = Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
@@ -248,15 +218,58 @@ class ChartVisitHomePage extends StatelessWidget {
                   const SizedBox(height: 4),
                   for (final visit in store.history.skip(1))
                     _HistoryRow(visit: visit, key: Key('chart-visit-history-${visit.id}')),
-                  const SizedBox(height: 18),
-                  const Text(
-                    '샘플 기록입니다. 서버에 저장되지 않습니다.',
-                    style: TextStyle(fontSize: 13, color: SoriTokens.textTertiary),
-                  ),
+                  if (!store.live) ...[
+                    const SizedBox(height: 18),
+                    const Text(
+                      '샘플 기록입니다. 서버에 저장되지 않습니다.',
+                      style: TextStyle(fontSize: 13, color: SoriTokens.textTertiary),
+                    ),
+                  ],
                 ],
               ),
             ),
+          );
+        if (embedded) {
+          return ColoredBox(
+            key: const Key('chart-visit-home'),
+            color: SoriTokens.background,
+            child: body,
+          );
+        }
+        return Scaffold(
+          key: const Key('chart-visit-home'),
+          backgroundColor: SoriTokens.background,
+          appBar: AppBar(
+            backgroundColor: SoriTokens.background,
+            foregroundColor: SoriTokens.textPrimary,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            title: const Text(
+              'CHART',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
+            ),
+            actions: [
+              if (!store.live)
+                const Padding(
+                  padding: EdgeInsets.only(right: 20),
+                  child: Center(
+                    child: Text(
+                      '샘플',
+                      style: TextStyle(
+                        color: SoriTokens.textTertiary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
+          body: body,
         );
       },
     );

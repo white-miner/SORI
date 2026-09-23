@@ -1584,6 +1584,79 @@ class SupabaseSoriRepository implements SoriRepository {
   }
 
   @override
+  Future<void> collapseChartRows({
+    required List<CustomerChart> merged,
+    required List<String> dropIds,
+    required Map<String, String> repoint,
+  }) async {
+    for (final entry in repoint.entries) {
+      await _repointChartId(fromId: entry.key, toId: entry.value);
+    }
+    for (final chart in merged) {
+      await _updateChartRow(
+        chartId: chart.id,
+        payload: {
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+          'care_name': chart.careName.trim(),
+          'treatment_summary': chart.treatmentSummary.trim(),
+          'director_insight': chart.directorInsight.trim(),
+          'before_image_url': _imageUrlOrNull(chart.beforeImageUrl),
+          'after_image_url': _imageUrlOrNull(chart.afterImageUrl),
+          'signature_url': _textOrNull(chart.signatureUrl),
+          'consent_pdf_url': _textOrNull(chart.consentPdfUrl),
+          'consent_mandatory': chart.consentMandatory,
+          'consent_photo': chart.consentPhoto,
+          'consent_marketing': chart.consentMarketing,
+          'consent_offline_only': chart.consentOfflineOnly,
+          if (chart.concernChips.isNotEmpty)
+            'concern_chips': chart.concernChips,
+        },
+        customerId: chart.customerId,
+        shopId: chart.shopId,
+      );
+    }
+    final keep = merged.map((chart) => chart.id).toSet();
+    for (final id in dropIds) {
+      if (keep.contains(id)) continue;
+      await _deleteChartRow(id);
+    }
+  }
+
+  Future<void> _repointChartId({
+    required String fromId,
+    required String toId,
+  }) async {
+    const tables = [
+      'customer_reviews',
+      'ai_replies',
+      'ba_capture_sessions',
+      'chart_photo_records',
+    ];
+    for (final table in tables) {
+      try {
+        await _db.from(table).update({'chart_id': toId}).eq('chart_id', fromId);
+      } catch (e) {
+        debugPrint('repoint $table $fromId→$toId skipped: $e');
+      }
+    }
+  }
+
+  Future<void> _deleteChartRow(String chartId) async {
+    for (final table in _chartsWriteOrder) {
+      try {
+        await _db.from(table).delete().eq('id', chartId);
+      } catch (e) {
+        debugPrint('delete chart $chartId via $table skipped: $e');
+      }
+    }
+  }
+
+  static String? _textOrNull(String? value) {
+    final text = value?.trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
+  @override
   Future<Customer> patchCustomerSafety({
     required String customerId,
     required Map<String, dynamic> patch,

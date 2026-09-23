@@ -146,12 +146,6 @@ class _CustomerChartPageState extends State<CustomerChartPage>
   }
 
   /// DESIGN LAWS: filled primary 1개 — 새 방문 기록 (간편 차트 아님).
-  void _openChartVisit() {
-    context.push(
-      '${AppPaths.chartVisitPreview}?customerId=${Uri.encodeComponent(widget.customerId)}',
-    );
-  }
-
   Future<void> _openNewVisitRecord() async {
     final customer = _customer;
     if (customer == null) return;
@@ -257,10 +251,6 @@ class _CustomerChartPageState extends State<CustomerChartPage>
 
   void _onOverflow(String value) {
     switch (value) {
-      case 'visitPreview':
-        _openChartVisit();
-      case 'writer':
-        _openNewVisitRecord();
       case 'quick':
         _openQuickChart();
       case 'manage':
@@ -352,8 +342,6 @@ class _CustomerChartPageState extends State<CustomerChartPage>
             tooltip: '더보기',
             onSelected: _onOverflow,
             itemBuilder: (ctx) => const [
-              PopupMenuItem(value: 'visitPreview', child: Text('오늘 방문')),
-              PopupMenuItem(value: 'writer', child: Text('기존 차트 작성')),
               PopupMenuItem(value: 'quick', child: Text('1초 간편 차트')),
               PopupMenuItem(value: 'manage', child: Text('차트 관리')),
               PopupMenuItem(value: 'membership', child: Text('회원권 관리')),
@@ -382,7 +370,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openChartVisit,
+        onPressed: _openNewVisitRecord,
         backgroundColor: SoriTokens.brand,
         foregroundColor: SoriTokens.onBrand,
         icon: const Icon(Icons.add_rounded),

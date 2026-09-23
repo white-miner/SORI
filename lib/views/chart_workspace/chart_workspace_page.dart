@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../features/chart_visit/chart_visit_home_page.dart';
+import '../../features/chart_visit/chart_visit_live.dart';
+import '../../features/chart_visit/chart_visit_mock.dart';
 import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
 import '../../services/sori_store.dart';
@@ -46,6 +49,7 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
   void dispose() {
     widget.store.removeListener(_onStore);
     ChartIndexPaletteStore.instance.removeListener(_onPaletteChanged);
+    ChartVisitPreviewStore.instance.detachIfLive();
     super.dispose();
   }
 
@@ -134,6 +138,7 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
         _selectedVisitId = null;
         _ensureVisitSelection();
       });
+      bindChartVisitRoute(widget.store, item.customer.id);
     }
   }
 
@@ -157,8 +162,6 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
   @override
   Widget build(BuildContext context) {
     final customer = _selectedCustomer;
-    final visit = _selectedVisit;
-    final visitItems = _visitItems;
 
     return ColoredBox(
       color: SoriTokens.background,
@@ -212,12 +215,6 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
               customer: customer,
               fileNumber: fileDisplayNumberFor(widget.store, customer),
             ),
-            const SizedBox(height: 4),
-            ChartVisitRail(
-              items: visitItems,
-              selectedId: visit?.id,
-              onSelected: _selectVisit,
-            ),
           ],
           const SizedBox(height: 8),
           Expanded(
@@ -234,14 +231,7 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
                       ),
                     ),
                   )
-                : SingleChildScrollView(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      child: _buildSheet(customer, visit),
-                    ),
-                  ),
+                : const ChartVisitHomePage(embedded: true),
           ),
         ],
       ),
