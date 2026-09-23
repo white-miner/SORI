@@ -353,7 +353,7 @@ Future<void> _openTodayVisit(
     if (!context.mounted || choice == null) return;
     final opened = choice == 'resume'
         ? await store.openLiveResume()
-        : await store.openLiveFresh();
+        : await store.openLiveFresh(forceNew: true);
     if (!context.mounted || !opened) return;
     context.push(AppPaths.chartVisitWrite);
     return;
@@ -368,7 +368,7 @@ Future<void> _startFreshVisit(
   ChartVisitPreviewStore store,
 ) async {
   if (store.live) {
-    final opened = await store.openLiveFresh();
+    final opened = await store.openLiveFresh(forceNew: true);
     if (!context.mounted || !opened) return;
   } else {
     store.startNewVisit();

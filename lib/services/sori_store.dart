@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../widgets/post/post_view_data.dart';
+import '../utils/customer_consent_archive.dart';
 import '../utils/post_author.dart';
 import '../utils/sori_uuid.dart';
 import '../utils/supabase_schema_error.dart';
@@ -974,15 +975,20 @@ class SoriStore implements Listenable {
     lastError = null;
     _notify();
     try {
-      final wasAlreadyChecked = chartId != null &&
-          charts.any((c) => c.id == chartId && c.visitChecked);
+      final resolvedChartId = chartId ??
+          chartForVisit(
+            boundCustomerId,
+            visitNumber < 1 ? 1 : visitNumber,
+          )?.id;
+      final wasAlreadyChecked = resolvedChartId != null &&
+          charts.any((c) => c.id == resolvedChartId && c.visitChecked);
       final result = await _repository
           .saveChartAndConfirmVisit(
             SaveChartRequest(
               customerId: boundCustomerId,
               visitNumber: visitNumber,
               customChartNo: customChartNo,
-              chartId: chartId,
+              chartId: resolvedChartId,
               careName: careName,
               treatmentSummary: treatmentSummary,
               directorInsight: directorInsight,
@@ -1920,6 +1926,32 @@ class SoriStore implements Listenable {
     return maxVn + 1;
   }
 
+  /// 1년 안에 유효한 전자동의 차트. 날짜가 없는 서명 차트도 그 1건으로 본다.
+  /// 만료됐으면 null — 그때만 새 회차를 만든다.
+  CustomerChart? consentChartToRenew(String customerId, {DateTime? now}) {
+    final snap = CustomerConsentArchive.snapshot(
+      customerId: customerId,
+      charts: charts,
+      now: now,
+    );
+    final valid = snap.latestValid;
+    if (valid != null) return valid;
+    final latest = snap.latest;
+    if (latest != null && latest.createdAt == null) return latest;
+    return null;
+  }
+
+  /// 고객의 그 회차 번호에 해당하는 차트. 없으면 null.
+  CustomerChart? chartForVisit(String customerId, int visitNumber) {
+    final vn = visitNumber < 1 ? 1 : visitNumber;
+    for (final chart in charts) {
+      if (chart.customerId == customerId && chart.visitNumber == vn) {
+        return chart;
+      }
+    }
+    return null;
+  }
+
   List<CustomerChart> chartVisitDraftsFor(String customerId) {
     return chartsForCustomer(customerId)
         .where((chart) => chart.visitRecord.isDraft)
@@ -1927,9 +1959,11 @@ class SoriStore implements Listenable {
   }
 
   /// 새 CHART draft. `ensureTodayShootChart` 와 `visit_checked` 를 쓰지 않는다.
+  /// 작성 중인 draft 가 있으면 그 행을 연다. [forceNew] 는 다음 회차 1행을 만든다.
   Future<CustomerChart> createChartVisitDraft({
     required String customerId,
     required ChartVisitRecord record,
+    bool forceNew = false,
   }) async {
     final customer = findCustomer(customerId);
     if (customer == null) {
@@ -1938,10 +1972,18 @@ class SoriStore implements Listenable {
     final shopId = customer.shopId.trim().isNotEmpty
         ? customer.shopId.trim()
         : shop.id;
+    if (!forceNew) {
+      final drafts = chartVisitDraftsFor(customerId);
+      if (drafts.isNotEmpty) {
+        drafts.sort((a, b) => b.visitNumber.compareTo(a.visitNumber));
+        return drafts.first;
+      }
+    }
     final visitNumber = nextVisitNumber(customerId);
-    final day = record.visitDate ?? DateTime.now();
+    final occupied = chartForVisit(customerId, visitNumber);
+    if (occupied != null) return occupied;
     final patch = record.toPatch(flowStatus: 'draft');
-    patch['visit_date'] = _chartVisitDay(day);
+    patch['visit_date'] = _chartVisitDay(record.visitDate ?? DateTime.now());
     if (!_repository.isRemote) {
       final chart = CustomerChart(
         id: 'chart-visit-${DateTime.now().microsecondsSinceEpoch}',
@@ -1961,7 +2003,9 @@ class SoriStore implements Listenable {
       visitNumber: visitNumber,
       patch: patch,
     );
-    final chart = _keepVisitPatch(saved, patch);
+    final kept = saved.careName.trim().isNotEmpty ||
+        saved.treatmentSummary.trim().isNotEmpty;
+    final chart = kept ? saved : _keepVisitPatch(saved, patch);
     _mergeChart(chart);
     _notify();
     return chart;
@@ -8415,8 +8459,10 @@ class SoriStore implements Listenable {
       throw StateError('Customer not found');
     }
 
-    final wasAlreadyChecked = chartId != null &&
-        charts.any((c) => c.id == chartId && c.visitChecked);
+    final resolvedChartId = chartId ??
+        chartForVisit(customerId, visitNumber < 1 ? 1 : visitNumber)?.id;
+    final wasAlreadyChecked = resolvedChartId != null &&
+        charts.any((c) => c.id == resolvedChartId && c.visitChecked);
 
     final beforeUrl = DbMap.asTextOrNull(beforeImageUrl);
     final afterUrl = DbMap.asTextOrNull(afterImageUrl);
@@ -8432,8 +8478,8 @@ class SoriStore implements Listenable {
         : normalizePhone(customerPhone);
 
     CustomerChart chart;
-    if (chartId != null) {
-      final index = charts.indexWhere((c) => c.id == chartId);
+    if (resolvedChartId != null) {
+      final index = charts.indexWhere((c) => c.id == resolvedChartId);
       if (index < 0) throw StateError('Chart not found');
       chart = charts[index].copyWith(
         visitNumber: visitNumber < 1 ? 1 : visitNumber,
@@ -8467,14 +8513,7 @@ class SoriStore implements Listenable {
       );
       charts[index] = chart;
     } else {
-      var assignedVisit = visitNumber < 1 ? 1 : visitNumber;
-      final used = charts
-          .where((c) => c.customerId == customerId)
-          .map((c) => c.visitNumber)
-          .toSet();
-      while (used.contains(assignedVisit)) {
-        assignedVisit += 1;
-      }
+      final assignedVisit = visitNumber < 1 ? 1 : visitNumber;
       chart = CustomerChart(
         id: 'chart-${DateTime.now().millisecondsSinceEpoch}',
         shopId: shop.id,

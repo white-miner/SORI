@@ -459,7 +459,7 @@ class ChartVisitDraftRef {
 }
 
 abstract class ChartVisitGateway {
-  Future<ChartVisitSession> startFresh();
+  Future<ChartVisitSession> startFresh({bool forceNew = false});
   Future<ChartVisitSession> resumeLatest(ChartVisitDraftRef draft);
   Future<void> saveDraft(ChartVisitSession session);
   Future<void> complete(ChartVisitSession session);
@@ -589,10 +589,10 @@ class ChartVisitPreviewStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> openLiveFresh() async {
+  Future<bool> openLiveFresh({bool forceNew = false}) async {
     final gate = gateway;
     if (gate == null) return false;
-    final session = await gate.startFresh();
+    final session = await gate.startFresh(forceNew: forceNew);
     active = session;
     notifyListeners();
     return true;

@@ -151,16 +151,35 @@ class _QuickConsentSheetState extends State<_QuickConsentSheet> {
       final careName = _careName.text.trim().isEmpty
           ? _suggestCareName()
           : _careName.text.trim();
-      final visit = widget.store.nextVisitNumber(widget.customer.id);
+      final existing = widget.store.consentChartToRenew(widget.customer.id);
+      final renewing = existing != null;
+      final visit = existing?.visitNumber ??
+          widget.store.nextVisitNumber(widget.customer.id);
       final chart = await widget.store.saveChartAndConfirmVisitAsync(
         customerId: widget.customer.id,
         visitNumber: visit,
-        careName: careName.isEmpty ? '관리' : careName,
-        treatmentSummary: '고객 정보 및 관리 동의서 체결',
-        directorInsight: '',
-        concernChips: const [],
-        firstVisitFearChips: const [],
-        revisitFeedbackChips: const [],
+        chartId: existing?.id,
+        careName: renewing && existing.careName.trim().isNotEmpty
+            ? existing.careName
+            : (careName.isEmpty ? '관리' : careName),
+        treatmentSummary: renewing && existing.treatmentSummary.trim().isNotEmpty
+            ? existing.treatmentSummary
+            : '고객 정보 및 관리 동의서 체결',
+        directorInsight: renewing ? existing.directorInsight : '',
+        concernChips: renewing ? existing.concernChips : const [],
+        firstVisitFearChips:
+            renewing ? existing.firstVisitFearChips : const [],
+        revisitFeedbackChips:
+            renewing ? existing.revisitFeedbackChips : const [],
+        beforeImageUrl: renewing ? existing.beforeImageUrl : null,
+        afterImageUrl: renewing ? existing.afterImageUrl : null,
+        allergyNotes: renewing ? existing.allergyNotes : null,
+        skinSensitivity: renewing ? existing.skinSensitivity : null,
+        sideEffectHistory: renewing ? existing.sideEffectHistory : null,
+        customerRequests: renewing ? existing.customerRequests : null,
+        homeCarePrescriptions:
+            renewing ? existing.homeCarePrescriptions : const [],
+        deviceInfo: renewing ? existing.deviceInfo : null,
         customerName: widget.customer.name,
         customerPhone: widget.customer.phone,
         gender: widget.customer.gender,

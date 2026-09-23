@@ -64,22 +64,13 @@ void main() {
     expect(reopened.steps.first.memo, '약하게');
 
     final second = await gate.startFresh();
-    expect(second.id, isNot(session.id));
-    final firstDay = store.findChartById(session.id)!.visitRecord.visitDate!;
-    final secondDay = store.findChartById(second.id)!.visitRecord.visitDate!;
-    expect(firstDay.year, secondDay.year);
-    expect(firstDay.month, secondDay.month);
-    expect(firstDay.day, secondDay.day);
-    expect(
-      store.findChartById(session.id)!.visitNumber,
-      isNot(store.findChartById(second.id)!.visitNumber),
-    );
+    expect(second.id, session.id);
+    expect(second.concerns, ['홍조', '건조']);
 
     await gate.complete(session);
     final done = store.findChartById(session.id)!;
     expect(done.visitRecord.flowStatus, 'completed');
     expect(done.visitChecked, isFalse);
-    expect(store.findChartById(second.id)!.visitRecord.isDraft, isTrue);
 
     final history = store
         .chartsForCustomer(customer.id)

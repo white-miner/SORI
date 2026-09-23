@@ -194,16 +194,73 @@ class SupabaseSoriRepository implements SoriRepository {
         (s.contains('visit_number') && s.contains('unique'));
   }
 
-  /// 차트 insert — chart_records 우선. PGRST204 strip / 회차 유니크 충돌 시 재시도.
+  /// 같은 고객·같은 회차 번호의 기존 차트 id. 없으면 null.
+  Future<String?> _chartIdForCustomerVisit({
+    required String customerId,
+    required int visitNumber,
+  }) async {
+    final vn = visitNumber < 1 ? 1 : visitNumber;
+    for (final table in _chartsWriteOrder) {
+      try {
+        final rows = await _db
+            .from(table)
+            .select('id')
+            .eq('customer_id', customerId)
+            .eq('visit_number', vn)
+            .limit(1);
+        if (rows is! List || rows.isEmpty || rows.first is! Map) continue;
+        final id = (rows.first as Map)['id']?.toString().trim() ?? '';
+        if (id.isNotEmpty) return id;
+      } catch (e) {
+        debugPrint('chart visit lookup $table skipped: $e');
+      }
+    }
+    return null;
+  }
+
+  /// 회차 충돌 시 다음 번호를 만들지 않는다.
+  /// [updateOnVisitConflict] 가 false 면 기존 행을 그대로 돌려준다.
+  Future<Map<String, dynamic>?> _reuseCustomerVisitRow({
+    required Map<String, dynamic> body,
+    required String customerId,
+    required String shopId,
+    required bool updateOnVisitConflict,
+  }) async {
+    final existingId = await _chartIdForCustomerVisit(
+      customerId: customerId,
+      visitNumber: DbMap.asInt(body['visit_number'], 1),
+    );
+    if (existingId == null) return null;
+    if (!updateOnVisitConflict) {
+      return _selectChartById(existingId);
+    }
+    final updateBody = Map<String, dynamic>.from(body)..remove('id');
+    return _updateChartRow(
+      chartId: existingId,
+      payload: updateBody,
+      customerId: customerId,
+      shopId: shopId,
+    );
+  }
+
+  /// 차트 insert — 물리 테이블 우선. PGRST204 strip.
+  /// (customer_id, visit_number) 가 이미 있으면 그 행을 갱신한다.
   Future<Map<String, dynamic>> _insertChartRow(
     Map<String, dynamic> payload, {
     required String customerId,
     required String shopId,
+    bool updateOnVisitConflict = true,
   }) async {
     var body = Map<String, dynamic>.from(payload);
     _ensureChartFkPayload(body, customerId: customerId, shopId: shopId);
+    final reused = await _reuseCustomerVisitRow(
+      body: body,
+      customerId: customerId,
+      shopId: shopId,
+      updateOnVisitConflict: updateOnVisitConflict,
+    );
+    if (reused != null) return reused;
     Object? lastError;
-    var visitBumpBudget = 24;
     for (var attempt = 0; attempt < 40; attempt++) {
       var progressed = false;
       for (final table in _chartsWriteOrder) {
@@ -235,16 +292,17 @@ class SupabaseSoriRepository implements SoriRepository {
             );
             break;
           }
-          if (_isVisitNumberUniqueViolation(e) && visitBumpBudget > 0) {
-            final current = DbMap.asInt(body['visit_number'], 1);
-            final next = current < 1 ? 1 : current + 1;
-            body['visit_number'] = next;
-            visitBumpBudget -= 1;
-            progressed = true;
-            debugPrint(
-              'chart insert unique(visit_number) → bump $current→$next ($table)',
+          if (_isVisitNumberUniqueViolation(e)) {
+            final existing = await _reuseCustomerVisitRow(
+              body: body,
+              customerId: customerId,
+              shopId: shopId,
+              updateOnVisitConflict: updateOnVisitConflict,
             );
-            break;
+            if (existing != null) return existing;
+            debugPrint(
+              'chart insert unique(visit_number) but row not found ($table)',
+            );
           }
           debugPrint('insert chart via $table failed: $e');
         }
@@ -1507,6 +1565,7 @@ class SupabaseSoriRepository implements SoriRepository {
       payload,
       customerId: customerId.trim(),
       shopId: shopId.trim(),
+      updateOnVisitConflict: false,
     );
     return CustomerChart.fromMap(row);
   }

@@ -121,6 +121,17 @@ PastVisit pastVisitFromChart(CustomerChart chart) {
   );
 }
 
+bool _chartVisitAlreadyWritten(CustomerChart chart) {
+  final record = chart.visitRecord;
+  return chart.careName.trim().isNotEmpty ||
+      chart.treatmentSummary.trim().isNotEmpty ||
+      record.concerns.isNotEmpty ||
+      record.careGoals.isNotEmpty ||
+      record.desiredChange.trim().isNotEmpty ||
+      (chart.beforeImageUrl ?? '').trim().isNotEmpty ||
+      (chart.afterImageUrl ?? '').trim().isNotEmpty;
+}
+
 class ChartVisitLiveGateway implements ChartVisitGateway {
   ChartVisitLiveGateway({
     required this.store,
@@ -132,7 +143,7 @@ class ChartVisitLiveGateway implements ChartVisitGateway {
   String? chartId;
 
   @override
-  Future<ChartVisitSession> startFresh() async {
+  Future<ChartVisitSession> startFresh({bool forceNew = false}) async {
     final safety = safetyFromCustomer(customer);
     final record = ChartVisitRecord(
       flowStatus: 'draft',
@@ -150,8 +161,20 @@ class ChartVisitLiveGateway implements ChartVisitGateway {
     final chart = await store.createChartVisitDraft(
       customerId: customer.id,
       record: record,
+      forceNew: forceNew,
     );
     chartId = chart.id;
+    if (_chartVisitAlreadyWritten(chart)) {
+      final session = ChartVisitSession.fromRecord(
+        id: chart.id,
+        startedAt: chart.visitRecord.visitDate ??
+            chart.createdAt ??
+            DateTime.now(),
+        record: chart.visitRecord,
+      );
+      session.skinTraitHint = customer.skinTrait.trim();
+      return session;
+    }
     final session = ChartVisitSession.fresh(
       id: chart.id,
       startedAt: chart.visitRecord.visitDate ?? DateTime.now(),
