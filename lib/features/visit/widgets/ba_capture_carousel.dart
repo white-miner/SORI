@@ -509,6 +509,32 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                         ),
                       ),
                     ),
+                  // 미등록 히스토리는 길게 누르기를 몰라도 바로 지울 수 있게
+                  // 삭제 버튼을 사진 위에 항상 노출한다. 완성/차트 연결 카드는 제외.
+                  if (incompleteHistory && canDiscard)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        key: ValueKey('ba-history-delete-${session!.id}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _confirmDiscard(session),
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: const Color(0xCC111111),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
