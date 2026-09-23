@@ -38,7 +38,7 @@ class SoriStageFolderTabs extends StatefulWidget {
 
   static const _unselectedFill = SoriTokens.surface; // 밝은 종이색.
   static const _unselectedBorder = SoriTokens.inputBorder;
-  static const _unselectedText = SoriTokens.textCharcoal;
+  static const _unselectedText = Color(0xFF6E6E73);
   static const _selectedFill = SoriTokens.surface; // LOCKED SORI purple.
   static const _selectedText = SoriTokens.textCharcoal;
   static const _hairline = Colors.transparent;
@@ -247,7 +247,7 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
                     curve: Curves.easeOut,
-                    width: selected ? 34 : 0,
+                    width: selected ? _max(0, width - 16) : 0,
                     height: 3,
                     decoration: BoxDecoration(
                       color: selected
