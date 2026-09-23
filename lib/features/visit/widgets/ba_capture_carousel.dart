@@ -169,7 +169,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
   Future<void> _confirmDiscard(BaCaptureSession session) async {
     if (widget.onDiscard == null) return;
     if (_discardingId != null) return;
-    if (session.status != BaCaptureStatus.draft || session.hasChart) return;
+    if (session.hasChart || !session.hasPhoto) return;
 
     final go = await showStagingPhotoDeleteDialog(context);
     if (!go || !mounted) return;
@@ -261,10 +261,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
 
   bool _canLongPressDiscard(BaCaptureSession? session, bool isNew) {
     if (widget.onDiscard == null || session == null) return false;
-    if (session.status != BaCaptureStatus.draft || session.hasChart) {
-      return false;
-    }
-    if (!session.hasPhoto) return false;
+    if (session.hasChart || !session.hasPhoto) return false;
     if (isNew) return true;
     return session.hasCustomer && !session.isComplete;
   }
