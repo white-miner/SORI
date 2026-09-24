@@ -32,6 +32,7 @@ import '../widgets/sori_logo.dart';
 import '../widgets/shop_trust_score_card.dart';
 import '../utils/region_feed_filter.dart';
 import 'community/region_nearby_map_section.dart';
+import 'community/community_market_analysis_page.dart';
 import 'home_explore_tab.dart';
 import 'seminar_class_detail_page.dart';
 
@@ -107,7 +108,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
   void initState() {
     super.initState();
     _tabs = TabController(length: _tabLength, vsync: this,
-      initialIndex: _config.showLocalTab ? _tabLength - 1 : 0);
+      initialIndex: _config.showLocalTab ? _tabLength - 1 - (_config.showMarketAnalysisTab ? 1 : 0) : 0);
     _tabs.addListener(_onTabIndexChanged);
     store.addListener(_onStore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -124,6 +125,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
     var n = 1;
     if (_config.showExploreTab) n++;
     if (_config.showLocalTab) n++;
+    if (_config.showMarketAnalysisTab) n++;
     return n;
   }
 
@@ -625,6 +627,11 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           })(),
         ),
       );
+    }
+
+    if (config.showMarketAnalysisTab) {
+      labels.add('상권분석');
+      tabChildren.add(CommunityMarketAnalysisPage(store: store));
     }
 
     final feedPane = TabBarView(
