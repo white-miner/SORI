@@ -9,6 +9,7 @@ import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/our_area_category.dart';
 import 'region_map_tile_candidates.dart';
+import 'region_map_shop_chrome.dart';
 
 /// Community-first market overview. This screen is intentionally limited to
 /// public, area-level indicators; management decisions belong to My Page.
@@ -173,11 +174,11 @@ class _CommunityMarketAnalysisPageState
                 urlTemplate: RegionMapTileCatalog.spec(RegionMapTileCatalog.productionDefault).urlTemplate,
                 userAgentPackageName: 'com.sori.app',
               ),
-              CircleLayer(circles: [CircleMarker(point: center, radius: _radiusM.toDouble(), useRadiusInMeter: true, color: SoriTokens.brand.withValues(alpha: .08), borderColor: SoriTokens.brand.withValues(alpha: .45), borderStrokeWidth: 2)]),
+              CircleLayer(circles: [CircleMarker(point: center, radius: _radiusM.toDouble(), useRadiusInMeter: true, color: SoriTokens.primary.withValues(alpha: .08), borderColor: SoriTokens.primary.withValues(alpha: .45), borderStrokeWidth: 2)]),
               MarkerLayer(markers: [
-                Marker(point: center, width: 44, height: 44, child: const _AnalysisMarker(selected: true)),
+                Marker(point: center, width: 50, height: 50, child: const RegionMapCenterMarker()),
                 for (final item in items.where((s) => s.latitude.abs() > .01 && s.longitude.abs() > .01))
-                  Marker(point: LatLng(item.latitude, item.longitude), width: 28, height: 28, child: const _AnalysisMarker()),
+                  Marker(point: LatLng(item.latitude, item.longitude), width: 36, height: 36, child: RegionMapShopMarker(categoryKey: item.chipKey)),
               ]),
               RichAttributionWidget(
                 attributions: [TextSourceAttribution('OpenStreetMap contributors')],
@@ -207,14 +208,14 @@ class _CommunityMarketAnalysisPageState
         decoration: BoxDecoration(color: const Color(0xDEFFFFFF), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xAFFFFFFF))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [
-            const Icon(Icons.tune_rounded, size: 18, color: SoriTokens.brand),
+            const Icon(Icons.tune_rounded, size: 18, color: SoriTokens.primary),
             const SizedBox(width: 7),
             const Text('분석 범위', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             const Spacer(),
             for (final radius in _radii) Padding(
               padding: const EdgeInsets.only(left: 4),
-              child: _filterPill(
-                radius >= 1000 ? '${radius ~/ 1000}km' : '${radius}m',
+              child: RegionMapCategoryChip(
+                label: radius >= 1000 ? '${radius ~/ 1000}km' : '${radius}m',
                 selected: _radiusM == radius,
                 onTap: () { if (_radiusM == radius) return; setState(() => _radiusM = radius); _load(); },
               ),
@@ -225,7 +226,13 @@ class _CommunityMarketAnalysisPageState
             const SizedBox(width: 12),
             for (final key in const ['skin', 'hair', 'barber', 'nail', 'tattoo']) Padding(
               padding: const EdgeInsets.only(right: 7),
-              child: _filterPill(OurAreaCategory.labelOf(key), selected: _category == key, onTap: () => setState(() => _category = key)),
+              child: RegionMapCategoryChip(
+                label: OurAreaCategory.labelOf(key),
+                categoryKey: key,
+                showIcon: true,
+                selected: _category == key,
+                onTap: () => setState(() => _category = key),
+              ),
             ),
             const SizedBox(width: 5),
           ])),
@@ -234,21 +241,11 @@ class _CommunityMarketAnalysisPageState
     ),
   );
 
-  Widget _filterPill(String label, {required bool selected, required VoidCallback onTap}) => Material(
-    color: selected ? SoriTokens.brand.withValues(alpha: .13) : const Color(0x9FFFFFFF),
-    shape: StadiumBorder(side: BorderSide(color: selected ? SoriTokens.brand : const Color(0x66FFFFFF))),
-    child: InkWell(
-      customBorder: const StadiumBorder(),
-      onTap: onTap,
-      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text(label, style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? SoriTokens.brand : SoriTokens.primary))),
-    ),
-  );
-
   Widget _mapBadge(String text) => DecoratedBox(decoration: BoxDecoration(color: const Color(0xEFFFFFFF), borderRadius: BorderRadius.circular(99), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700))));
 
   Widget _metricCard(String title, String value, String caption) => _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 8), Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]));
 
-  Widget _wideMetric(String title, String value, String caption) => _glassPanel(child: Row(children: [const Icon(Icons.groups_2_outlined, color: SoriTokens.brand, size: 30), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]))]));
+  Widget _wideMetric(String title, String value, String caption) => _glassPanel(child: Row(children: [const Icon(Icons.groups_2_outlined, color: SoriTokens.primary, size: 30), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]))]));
 
   Widget _salesPanel() {
     final sale = _franchiseSales;
@@ -277,7 +274,7 @@ class _CommunityMarketAnalysisPageState
 
   Widget _visualSummary({required int total, required int same}) {
     final ratio = total == 0 ? 0.0 : (same / total).clamp(0.0, 1.0);
-    return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('상권 한눈에 보기', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 16), ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: ratio, minHeight: 12, color: SoriTokens.brand, backgroundColor: const Color(0xFFE8E8F0))), const SizedBox(height: 10), Text('전체 주변 샵 중 선택 업종 비중 ${(ratio * 100).round()}%', style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 18), Text('동종업종 $same곳 · 전체 $total곳', style: const TextStyle(fontWeight: FontWeight.w700))]));
+    return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('상권 한눈에 보기', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 16), ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: ratio, minHeight: 12, color: SoriTokens.primary, backgroundColor: const Color(0xFFE8E8F0))), const SizedBox(height: 10), Text('전체 주변 샵 중 선택 업종 비중 ${(ratio * 100).round()}%', style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 18), Text('동종업종 $same곳 · 전체 $total곳', style: const TextStyle(fontWeight: FontWeight.w700))]));
   }
 
   Widget _sourceNote(ShopMarketInsight? insight) {
@@ -302,15 +299,4 @@ class _CommunityMarketAnalysisPageState
       ),
     );
   }
-}
-
-class _AnalysisMarker extends StatelessWidget {
-  const _AnalysisMarker({this.selected = false});
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? SoriTokens.brand : const Color(0xFF94A3B8), border: Border.all(color: Colors.white, width: 3), boxShadow: [if (selected) BoxShadow(color: SoriTokens.brand.withValues(alpha: .38), blurRadius: 14, spreadRadius: 3)]),
-        child: Icon(selected ? Icons.my_location_rounded : Icons.storefront_rounded, size: selected ? 22 : 15, color: Colors.white),
-      );
 }
