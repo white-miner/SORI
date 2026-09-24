@@ -9,6 +9,7 @@ import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../add_customer_sheet.dart';
 import 'chart_drawer_rail.dart';
+import 'chart_empty_desk.dart';
 import 'chart_file_document_strip.dart';
 import 'chart_file_rail.dart';
 import 'chart_index_palette.dart';
@@ -18,7 +19,8 @@ import 'chart_visit_rail.dart';
 import 'chart_visit_sheet.dart';
 import 'chart_workspace_state.dart';
 
-/// Chart 탭: 서랍 → 신규/파일 → 문서 strip → 신규작성·Today/v → 기록지.
+/// Chart 탭: 기본은 빈 데스크. 선택 시 임베디드 ChartVisitHomePage.
+/// 선택적 「이전 서랍 보기」로 기존 서랍→파일 rail 경로 유지.
 class ChartWorkspacePage extends StatefulWidget {
   const ChartWorkspacePage({super.key, required this.store});
 
@@ -34,6 +36,9 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
   String? _selectedFileId;
   String? _selectedCustomerId;
   String? _selectedVisitId;
+
+  /// true면 Phase 0 서랍/파일 rail(롤백 토글).
+  bool _showLegacyRails = false;
 
   @override
   void initState() {
@@ -132,14 +137,28 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
       return;
     }
     if (item is CustomerFileRailItem) {
-      setState(() {
-        _selectedFileId = item.id;
-        _selectedCustomerId = item.customer.id;
-        _selectedVisitId = null;
-        _ensureVisitSelection();
-      });
-      bindChartVisitRoute(widget.store, item.customer.id);
+      _openCustomer(item.customer);
     }
+  }
+
+
+  void _openCustomer(Customer customer) {
+    setState(() {
+      _selectedFileId = 'file-${customer.id}';
+      _selectedCustomerId = customer.id;
+      _selectedVisitId = null;
+      _ensureVisitSelection();
+    });
+    bindChartVisitRoute(widget.store, customer.id);
+  }
+
+  void _clearCustomerSelection() {
+    setState(() {
+      _selectedFileId = null;
+      _selectedCustomerId = null;
+      _selectedVisitId = null;
+    });
+    ChartVisitPreviewStore.instance.detachIfLive();
   }
 
   void _selectVisit(VisitRailItem item) {
@@ -172,6 +191,18 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
             padding: const EdgeInsets.fromLTRB(18, 10, 8, 6),
             child: Row(
               children: [
+                if (customer != null && !_showLegacyRails)
+                  IconButton(
+                    key: const Key('chart-desk-back'),
+                    onPressed: _clearCustomerSelection,
+                    tooltip: '데스크로',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      size: 22,
+                      color: SoriTokens.textCharcoal,
+                    ),
+                  ),
                 const Expanded(
                   child: Text(
                     'CHART',
@@ -182,6 +213,27 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
                     ),
                   ),
                 ),
+                if (_showLegacyRails)
+                  TextButton(
+                    key: const Key('chart-legacy-back-to-desk'),
+                    onPressed: () {
+                      setState(() {
+                        _showLegacyRails = false;
+                        _selectedFileId = null;
+                        _selectedCustomerId = null;
+                        _selectedVisitId = null;
+                      });
+                      ChartVisitPreviewStore.instance.detachIfLive();
+                    },
+                    child: const Text(
+                      '데스크로',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: SoriTokens.textSecondary,
+                      ),
+                    ),
+                  ),
                 // 조용한 설정 진입점 — 버튼 나열이 아니라 아이콘 하나.
                 IconButton(
                   key: const Key('chart-index-color-settings-entry'),
@@ -197,41 +249,53 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
               ],
             ),
           ),
-          ChartDrawerRail(
-            drawers: _drawers,
-            selectedDrawerId: _selectedDrawerId,
-            onSelected: _selectDrawer,
-          ),
-          const SizedBox(height: 8),
-          ChartFileRail(
-            items: _fileItems,
-            selectedId: _selectedFileId,
-            onSelected: _selectFile,
-          ),
-          if (customer != null) ...[
-            const SizedBox(height: 8),
-            ChartFileDocumentStrip(
-              store: widget.store,
-              customer: customer,
-              fileNumber: fileDisplayNumberFor(widget.store, customer),
+          if (_showLegacyRails) ...[
+            ChartDrawerRail(
+              drawers: _drawers,
+              selectedDrawerId: _selectedDrawerId,
+              onSelected: _selectDrawer,
             ),
+            const SizedBox(height: 8),
+            ChartFileRail(
+              items: _fileItems,
+              selectedId: _selectedFileId,
+              onSelected: _selectFile,
+            ),
+            if (customer != null) ...[
+              const SizedBox(height: 8),
+              ChartFileDocumentStrip(
+                store: widget.store,
+                customer: customer,
+                fileNumber: fileDisplayNumberFor(widget.store, customer),
+              ),
+            ],
+            const SizedBox(height: 8),
           ],
-          const SizedBox(height: 8),
           Expanded(
-            child: customer == null
-                ? Padding(
-                    // 화면 중앙을 채우는 안내 배너 금지 — 조용한 한 줄만.
-                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                    child: Text(
-                      '서랍에서 파일을 선택하세요',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: SoriTokens.textSecondary.withValues(alpha: 0.62),
+            child: customer != null
+                ? const ChartVisitHomePage(embedded: true)
+                : _showLegacyRails
+                    ? Padding(
+                        // 화면 중앙을 채우는 안내 배너 금지 — 조용한 한 줄만.
+                        padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                        child: Text(
+                          '서랍에서 파일을 선택하세요',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: SoriTokens.textSecondary.withValues(
+                              alpha: 0.62,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ChartEmptyDesk(
+                        store: widget.store,
+                        onSelectCustomer: _openCustomer,
+                        onShowLegacyRails: () {
+                          setState(() => _showLegacyRails = true);
+                        },
                       ),
-                    ),
-                  )
-                : const ChartVisitHomePage(embedded: true),
           ),
         ],
       ),

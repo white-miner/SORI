@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sori/features/chart_visit/chart_visit_home_page.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
 import 'package:sori/services/sori_store.dart';
+import 'package:sori/views/chart_workspace/chart_empty_desk.dart';
 import 'package:sori/views/chart_workspace/chart_index_label.dart';
 import 'package:sori/views/chart_workspace/chart_index_palette.dart';
 import 'package:sori/views/chart_workspace/chart_workspace_page.dart';
@@ -22,7 +24,7 @@ void main() {
     ChartIndexPaletteStore.instance.debugResetForTest();
   });
 
-  testWidgets('Chart tab shows drawer and file rails without cabinet UI', (
+  testWidgets('CHART tab defaults to empty desk without No.N file rail', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
@@ -41,62 +43,125 @@ void main() {
     await _settle(tester);
 
     expect(find.byType(ChartWorkspacePage), findsOneWidget);
-    expect(find.byKey(const Key('chart-drawer-rail')), findsOneWidget);
-    expect(find.byKey(const Key('chart-drawer-drawer-a')), findsOneWidget);
-    expect(find.text('서랍 A'), findsOneWidget);
-    expect(find.byKey(const Key('chart-file-rail')), findsOneWidget);
-    expect(find.text('신규'), findsOneWidget);
-    expect(find.text('서랍 B'), findsNothing);
-    expect(find.textContaining('번호 준비 중'), findsNothing);
-    expect(find.byKey(const Key('file-cabinet-drawer-a')), findsNothing);
+    expect(find.byType(ChartEmptyDesk), findsOneWidget);
+    expect(find.byKey(const Key('chart-empty-desk')), findsOneWidget);
+    expect(find.byKey(const Key('chart-empty-desk-search')), findsOneWidget);
+    expect(find.byKey(const Key('chart-empty-desk-new-start')), findsOneWidget);
+    expect(find.text('신규로 시작'), findsOneWidget);
+    expect(find.text('이전 서랍 보기'), findsOneWidget);
 
-    // 파일 rail 주 라벨은 No.N — 등록순 첫 고객은 항상 No.1.
-    expect(find.text('No.1'), findsOneWidget);
-    // 고객 이름이 rail 라벨을 대체하지 않는다.
-    for (final c in store.customers) {
-      expect(find.text(c.name), findsNothing);
-    }
-    // 화면 중앙을 채우던 구 빈 상태 배너는 사라졌다.
-    expect(find.text('파일을 선택하거나 신규로 등록하세요'), findsNothing);
+    expect(find.byKey(const Key('chart-drawer-rail')), findsNothing);
+    expect(find.byKey(const Key('chart-file-rail')), findsNothing);
+    expect(find.text('No.1'), findsNothing);
+    expect(find.byType(ChartVisitHomePage), findsNothing);
+    expect(find.byKey(const Key('chart-visit-start')), findsNothing);
   });
 
-  testWidgets('selecting file shows document strip and visit rail', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(430, 932));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'desk recent select embeds ChartVisitHomePage with chart-visit-start',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final store = SoriStore();
-    final customer = store.customers.first;
+      final store = SoriStore();
+      final recent = List.of(store.customers)
+        ..sort((a, b) => b.lastTreatmentDate.compareTo(a.lastTreatmentDate));
+      final customer = recent.first;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: ChartWorkspacePage(store: store)),
-      ),
-    );
-    await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ChartWorkspacePage(store: store)),
+        ),
+      );
+      await tester.pump();
 
-    await tester.tap(find.byKey(Key('chart-file-file-${customer.id}')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(ChartEmptyDesk), findsOneWidget);
+      await tester.tap(
+        find.byKey(Key('chart-empty-desk-recent-${customer.id}')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.byKey(Key('chart-file-title-${customer.id}')), findsOneWidget);
-    // 헤더는 "No.N · 이름" — No가 이름을 대체하지 않고 함께 존재한다.
-    final fileNumber = fileDisplayNumberFor(store, customer);
-    expect(
-      find.text(fileHeaderLabel(fileNumber, customer)),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('chart-doc-consent')), findsOneWidget);
-    expect(find.text('전자 동의서'), findsOneWidget);
-    expect(find.byKey(const Key('chart-doc-photo')), findsOneWidget);
-    expect(find.byKey(const Key('chart-doc-payment')), findsOneWidget);
-    expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
-    expect(find.text('오늘 방문'), findsOneWidget);
-    expect(find.text(customer.name), findsWidgets);
-  });
+      expect(find.byType(ChartEmptyDesk), findsNothing);
+      expect(find.byType(ChartVisitHomePage), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-start')), findsOneWidget);
+      expect(find.text(customer.name), findsWidgets);
+      expect(find.byKey(const Key('chart-drawer-rail')), findsNothing);
+      expect(find.byKey(const Key('chart-file-rail')), findsNothing);
+      expect(find.byKey(const Key('chart-desk-back')), findsOneWidget);
 
-  testWidgets('new customer opens add sheet without auto chart writer', (
+      final labels = find
+          .descendant(
+            of: find.byKey(const Key('chart-visit-start')),
+            matching: find.byType(Text),
+          )
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .whereType<String>()
+          .toList();
+      expect(
+        labels.any((t) => t == '오늘 방문' || t == '이어서 작성'),
+        isTrue,
+        reason: 'chart-visit-start must show 오늘 방문 or 이어서 작성, got $labels',
+      );
+    },
+  );
+
+  testWidgets(
+    'legacy toggle restores drawer-file-embedded ChartVisitHomePage path',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = SoriStore();
+      final customer = store.customers.first;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ChartWorkspacePage(store: store)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('chart-empty-desk-legacy-toggle')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(ChartEmptyDesk), findsNothing);
+      expect(find.byKey(const Key('chart-drawer-rail')), findsOneWidget);
+      expect(find.byKey(const Key('chart-drawer-drawer-a')), findsOneWidget);
+      expect(find.text('서랍 A'), findsOneWidget);
+      expect(find.byKey(const Key('chart-file-rail')), findsOneWidget);
+      expect(find.text('신규'), findsOneWidget);
+      expect(find.text('No.1'), findsOneWidget);
+      expect(find.text('서랍에서 파일을 선택하세요'), findsOneWidget);
+
+      await tester.tap(find.byKey(Key('chart-file-file-${customer.id}')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byKey(Key('chart-file-title-${customer.id}')), findsOneWidget);
+      final fileNumber = fileDisplayNumberFor(store, customer);
+      expect(
+        find.text(fileHeaderLabel(fileNumber, customer)),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('chart-doc-consent')), findsOneWidget);
+      expect(find.text('전자 동의서'), findsOneWidget);
+      expect(find.byKey(const Key('chart-doc-photo')), findsOneWidget);
+      expect(find.byKey(const Key('chart-doc-payment')), findsOneWidget);
+      expect(find.byType(ChartVisitHomePage), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-start')), findsOneWidget);
+      expect(find.text('오늘 방문'), findsOneWidget);
+      expect(find.text(customer.name), findsWidgets);
+      expect(find.byKey(const Key('chart-drawer-rail')), findsOneWidget);
+      expect(find.byKey(const Key('chart-file-rail')), findsOneWidget);
+    },
+  );
+
+  testWidgets('legacy new customer opens add sheet without auto chart writer', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
@@ -111,6 +176,10 @@ void main() {
       ),
     );
     await tester.pump();
+
+    await tester.tap(find.byKey(const Key('chart-empty-desk-legacy-toggle')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     await tester.tap(find.byKey(const Key('chart-file-file-new')));
     await tester.pump();
@@ -128,49 +197,23 @@ void main() {
     expect(find.byType(CustomerChartPage), findsNothing);
   });
 
-  testWidgets('saving new draft switches rail to Today on same chart', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(430, 932));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final store = SoriStore();
-    // Prefer a customer without today's chart.
-    final customer = store.customers.firstWhere(
-      (c) => todayChartForCustomer(store, c.id) == null,
-      orElse: () => store.customers.first,
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: ChartWorkspacePage(store: store)),
-      ),
-    );
-    await tester.pump();
-
-    await tester.tap(find.byKey(Key('chart-file-file-${customer.id}')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-
-    expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
-    expect(find.text(customer.name), findsWidgets);
-    expect(find.text('오늘 방문'), findsOneWidget);
-    expect(find.byKey(const Key('chart-new-sheet-title')), findsNothing);
-  });
-
   testWidgets(
-    'file rail label colors follow last-digit palette (신규=고정색, No.N=끝자리색)',
+    'legacy file rail label colors follow last-digit palette',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 932));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final store = SoriStore();
-      final customer = store.customers.first; // 등록순 첫 고객 = No.1
+      final customer = store.customers.first;
 
       await tester.pumpWidget(
         MaterialApp(home: Scaffold(body: ChartWorkspacePage(store: store))),
       );
       await tester.pump();
+
+      await tester.tap(find.byKey(const Key('chart-empty-desk-legacy-toggle')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       final newLabel = tester.widget<ChartIndexLabel>(
         find.byKey(const Key('chart-file-file-new')),
@@ -186,14 +229,12 @@ void main() {
           fileDisplayNumberFor(store, customer),
         ),
       );
-      // 선택되지 않았어도 끝자리 색은 이미 반영되어 있다 — 선택은 진하기만
-      // 바꾼다(색 계열 자체를 바꾸지 않는다).
       expect(noOneLabel.baseColor, isNot(kChartIndexNoNumberColor));
     },
   );
 
   testWidgets(
-    'visit rail: 신규 작성은 고정색, Today는 실제 저장된 v의 끝자리 색을 그대로 상속',
+    'legacy visit home after file select has no visit rail',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 932));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -208,6 +249,10 @@ void main() {
         MaterialApp(home: Scaffold(body: ChartWorkspacePage(store: store))),
       );
       await tester.pump();
+
+      await tester.tap(find.byKey(const Key('chart-empty-desk-legacy-toggle')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       await tester.tap(find.byKey(Key('chart-file-file-${customer.id}')));
       await tester.pump();
