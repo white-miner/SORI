@@ -142,21 +142,25 @@ void main() {
     );
     await pumpSection(tester, data: data);
 
-    expect(find.text('지번\n역삼동 1'), findsOneWidget);
-    expect(find.text('행정동\n역삼1동'), findsOneWidget);
-    expect(find.text('출처\n소상공인시장진흥공단 상가(상권)정보'), findsWidgets);
+    expect(find.text('지번 역삼동 1'), findsNothing);
+    expect(find.textContaining('역삼1동'), findsOneWidget);
+    expect(find.textContaining('테헤란로 1'), findsOneWidget);
+    expect(find.textContaining('옛주소'), findsNothing);
+    expect(find.textContaining('소상공인시장진흥공단 상가(상권)정보'), findsOneWidget);
     expect(
-      find.text('조회 시점\n${ShopMarketInsight.formatQueryTime(data.storesRetrievedAt)}'),
-      findsWidgets,
+      find.textContaining(ShopMarketInsight.formatQueryTime(data.storesRetrievedAt)),
+      findsOneWidget,
     );
-    expect(find.text('도로명\n옛주소'), findsNothing);
-    expect(find.text('도로명\n테헤란로 1'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('region-market-store-0')));
     await tester.pump();
 
-    expect(find.text('지번\n역삼동 1'), findsNWidgets(2));
-    expect(find.text('행정동\n역삼1동'), findsNWidgets(2));
+    expect(find.text('지번 역삼동 1'), findsOneWidget);
+    expect(find.textContaining('역삼1동'), findsNWidgets(2));
+    expect(
+      find.textContaining(ShopMarketInsight.formatQueryTime(data.storesRetrievedAt)),
+      findsNWidgets(2),
+    );
     expect(find.text('네이버에서 샵 찾기'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
@@ -175,16 +179,16 @@ void main() {
     );
     await pumpSection(tester, data: data);
 
-    expect(find.text('지번\n현재 제공되지 않음'), findsOneWidget);
-    expect(find.text('행정동\n현재 제공되지 않음'), findsOneWidget);
-    expect(find.text('출처\n현재 제공되지 않음'), findsWidgets);
-    expect(find.text('조회 시점\n현재 제공되지 않음'), findsWidgets);
+    expect(find.text('지번 현재 제공되지 않음'), findsNothing);
+    expect(find.textContaining('현재 제공되지 않음'), findsWidgets);
+    expect(find.textContaining('출처'), findsOneWidget);
+    expect(find.textContaining('조회 시점'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('region-market-store-0')));
     await tester.pump();
 
-    expect(find.text('지번\n현재 제공되지 않음'), findsNWidgets(2));
-    expect(find.text('행정동\n현재 제공되지 않음'), findsNWidgets(2));
+    expect(find.text('지번 현재 제공되지 않음'), findsOneWidget);
+    expect(find.textContaining('조회 시점'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
@@ -262,7 +266,7 @@ void main() {
     await tester.tap(map);
     await tester.pump();
     expect(find.byTooltip('선택 닫기'), findsOneWidget);
-    expect(find.text('지번\n역삼동 1'), findsWidgets);
+    expect(find.text('지번 역삼동 1'), findsOneWidget);
 
     await _scrollToTop(tester);
     final hairChip = find.byKey(const Key('region-shop-category-hair'));
@@ -287,8 +291,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('region-shop-search')), '옛골목');
     await tester.pump();
     expect(find.text('골목샵'), findsWidgets);
-    expect(find.text('도로명\n옛골목 9'), findsNothing);
-    expect(find.text('도로명\n현재 제공되지 않음'), findsOneWidget);
+    expect(find.textContaining('옛골목 9'), findsNothing);
+    expect(find.text('현재 제공되지 않음'), findsOneWidget);
 
     expect(find.text('네이버에서 샵 찾기'), findsWidgets);
     await _scrollToTop(tester);

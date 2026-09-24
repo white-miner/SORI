@@ -551,37 +551,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     final mapH = (MediaQuery.sizeOf(context).height * 0.53).clamp(320.0, 540.0);
     final hasLocation = _activeSearch != null;
     final partial = _insight?.storesOk == true && !_insight!.storesComplete;
+    final sourceText = _insight?.sourceText ?? ShopMarketInsight.fieldUnavailable;
+    final queryTimeText = _insight?.queryTimeText ?? ShopMarketInsight.fieldUnavailable;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          key: const Key('region-shop-search'),
-          decoration: InputDecoration(
-            hintText: '이 반경에서 샵 이름·주소 찾기',
-            prefixIcon: const Icon(Icons.search_rounded),
-            filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
-          ),
-          onChanged: (value) => setState(() { _shopQuery = value.trim(); _visibleLimit = 20; }),
-        ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (final key in OurAreaCategory.selectableKeys)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  key: Key('region-shop-category-$key'),
-                  label: Text(_insight?.storesOk == true ? '${OurAreaCategory.labelOf(key)} ${allStores.where((s) => OurAreaCategory.matches(selected: key, chipKey: s.chipKey, categoryLabel: s.categoryLabel)).length}${partial ? '+' : ''}' : OurAreaCategory.labelOf(key)),
-                  selected: _categoryKey == key,
-                  onSelected: (_) => setState(() { _categoryKey = key; _selectedMarket = null; _visibleLimit = 20; }),
-                ),
-              ),
-          ]),
-        ),
-        const SizedBox(height: 10),
         Row(children: [
           const Icon(Icons.radar_rounded, size: 18, color: SoriTokens.textSecondary),
           const SizedBox(width: 8),
@@ -598,26 +572,96 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         SizedBox(
           height: mapH,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(RegionMapBloom.mapClipRadius),
             child: Stack(fit: StackFit.expand, children: [
               _buildMapCanvas(stores),
+              if (_selectedMarket != null)
+                Positioned(left: 12, right: 12, bottom: 30,
+                  child: _SelectedShopGlass(
+                    item: _selectedMarket!,
+                    sourceText: sourceText,
+                    queryTimeText: queryTimeText,
+                    onClose: _closeSheet,
+                  ),
+                ),
+              Positioned(
+                top: 10,
+                left: 12,
+                right: 68,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _MapFilterPanel(
+                      search: TextField(
+                        key: const Key('region-shop-search'),
+                        decoration: InputDecoration(
+                          hintText: '이 반경에서 샵 이름·주소 찾기',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.72),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onChanged: (value) => setState(() {
+                          _shopQuery = value.trim();
+                          _visibleLimit = 20;
+                        }),
+                      ),
+                      chips: SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            for (final key in OurAreaCategory.selectableKeys)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  key: Key('region-shop-category-$key'),
+                                  label: Text(
+                                    _insight?.storesOk == true
+                                        ? '${OurAreaCategory.labelOf(key)} ${allStores.where((s) => OurAreaCategory.matches(selected: key, chipKey: s.chipKey, categoryLabel: s.categoryLabel)).length}${partial ? '+' : ''}'
+                                        : OurAreaCategory.labelOf(key),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  selected: _categoryKey == key,
+                                  onSelected: (_) => setState(() {
+                                    _categoryKey = key;
+                                    _selectedMarket = null;
+                                    _visibleLimit = 20;
+                                  }),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_mapMoved || !hasLocation) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.icon(
+                          key: const Key('region-search-this-area'),
+                          onPressed: _loading ? null : _searchFromMapCenter,
+                          icon: const Icon(Icons.search_rounded, size: 18),
+                          label: const Text('이 위치에서 검색'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               _MapGlassControls(
                 gpsBusy: _gpsBusy, gpsActive: _gpsBanner == _GpsBanner.active,
                 onGps: _onGpsTap, onSaved: () => _openSavedSheet(),
               ),
               if (_loading) const Positioned(top: 0, left: 0, right: 0,
                 child: LinearProgressIndicator(minHeight: 3)),
-              if (_mapMoved || !hasLocation)
-                Positioned(top: 12, left: 12, right: 76,
-                  child: Align(alignment: Alignment.topCenter,
-                    child: FilledButton.icon(
-                      key: const Key('region-search-this-area'),
-                      onPressed: _loading ? null : _searchFromMapCenter,
-                      icon: const Icon(Icons.search_rounded, size: 18),
-                      label: const Text('이 위치에서 검색'),
-                    ),
-                  ),
-                ),
               RegionMapExploreSheet(
                 sheetController: _sheetController, mode: _sheetMode, filter: _filter,
                 onFilterChanged: (value) => setState(() => _filter = value),
@@ -627,26 +671,6 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                 onOpenSavedAll: () => _openSavedSheet(fullList: true),
                 onOpenBookmark: _openBookmark,
               ),
-              if (_selectedMarket != null)
-                Positioned(left: 12, right: 12, bottom: 30,
-                  child: Material(elevation: 6, borderRadius: BorderRadius.circular(20),
-                    child: Padding(padding: const EdgeInsets.all(16),
-                      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(child: Text(_selectedMarket!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700))),
-                          IconButton(tooltip: '선택 닫기', onPressed: _closeSheet, icon: const Icon(Icons.close_rounded)),
-                        ]),
-                        _PublicShopFacts(
-                          item: _selectedMarket!,
-                          sourceText: _insight?.sourceText ?? ShopMarketInsight.fieldUnavailable,
-                          queryTimeText: _insight?.queryTimeText ?? ShopMarketInsight.fieldUnavailable,
-                        ),
-                        _NaverMapCta(buttonKey: const Key('region-selected-map-cta'), item: _selectedMarket!, region: ''),
-                      ]),
-                    ),
-                  ),
-                ),
             ]),
           ),
         ),
@@ -682,8 +706,6 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               child: Text(partial ? '아직 이 조건의 샵을 찾지 못했어요. 다시 조회해 주세요.' : '이 조건으로 조회된 샵이 없어요. 업종·검색어·반경을 바꿔보세요.')),
             for (var i = 0; i < stores.length && i < _visibleLimit; i++)
               _MarketStoreRow(item: stores[i], index: i, region: '',
-                sourceText: _insight?.sourceText ?? ShopMarketInsight.fieldUnavailable,
-                queryTimeText: _insight?.queryTimeText ?? ShopMarketInsight.fieldUnavailable,
                 selected: identical(_selectedMarket, stores[i]) || (_selectedMarket?.name == stores[i].name && _selectedMarket?.address == stores[i].address && _selectedMarket?.lotAddress == stores[i].lotAddress),
                 onSelect: () {
                   setState(() { _selectedMarket = stores[i]; _sheetMode = RegionMapSheetMode.hidden; });
@@ -736,19 +758,10 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               _sheetMode = RegionMapSheetMode.hidden;
               _peekPin = null;
             }),
-            child: Tooltip(message: '${s.name} · ${s.categoryLabel}', child: Container(
-              alignment: Alignment.center,
-              margin: const EdgeInsets.all(5),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 3))]),
-              child: Icon(
-              Icons.storefront_outlined,
-              color: _selectedMarket?.name == s.name &&
-                      _selectedMarket?.distanceM == s.distanceM
-                  ? SoriTokens.primary
-                  : RegionMapBloom.market,
-              size: 22,
-            ))),
+            child: Tooltip(message: '${s.name} · ${s.categoryLabel}', child: _ShopMarkerFace(
+              selected: _selectedMarket?.name == s.name &&
+                  _selectedMarket?.distanceM == s.distanceM,
+            )),
           ),
         ),
       for (final o in overlays)
@@ -812,6 +825,161 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _MapFilterPanel extends StatelessWidget {
+  const _MapFilterPanel({required this.search, required this.chips});
+
+  final Widget search;
+  final Widget chips;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: RegionMapBloom.panelFill,
+        borderRadius: BorderRadius.circular(RegionMapBloom.shopCardRadius),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+        boxShadow: const [RegionMapBloom.panelShadow],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            search,
+            const SizedBox(height: 8),
+            chips,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShopMarkerFace extends StatelessWidget {
+  const _ShopMarkerFace({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      margin: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        shape: BoxShape.circle,
+        border: selected
+            ? Border.all(color: RegionMapBloom.shopSelectRing, width: 2.5)
+            : null,
+        boxShadow: [
+          if (selected)
+            const BoxShadow(
+              color: RegionMapBloom.shopSelectGlow,
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.storefront_outlined,
+        color: RegionMapBloom.market,
+        size: 22,
+      ),
+    );
+  }
+}
+
+class _SelectedShopGlass extends StatelessWidget {
+  const _SelectedShopGlass({
+    required this.item,
+    required this.sourceText,
+    required this.queryTimeText,
+    required this.onClose,
+  });
+
+  final ShopMarketStoreItem item;
+  final String sourceText;
+  final String queryTimeText;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: RegionMapBloom.panelFill,
+        borderRadius: BorderRadius.circular(RegionMapBloom.shopCardRadius),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+        boxShadow: const [RegionMapBloom.panelShadow],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 4, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: RegionMapBloom.shopTitleSize,
+                      fontWeight: FontWeight.w800,
+                      color: RegionMapBloom.shopTitleColor,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '선택 닫기',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            Text(
+              '${_regionShown(item.industryDisplay)} · ${_regionDistance(item)} · ${_regionShown(item.adongNm)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: RegionMapBloom.shopMetaSize,
+                color: RegionMapBloom.shopMetaColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              _regionShown(item.address),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: RegionMapBloom.shopMetaSize,
+                color: RegionMapBloom.shopTitleColor,
+              ),
+            ),
+            _NaverMapCta(
+              buttonKey: const Key('region-selected-map-cta'),
+              item: item,
+              region: '',
+            ),
+            _PublicShopFacts(
+              item: item,
+              sourceText: sourceText,
+              queryTimeText: queryTimeText,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1022,20 +1190,10 @@ class _PublicShopFacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final distance = AreaSearchCenter.hasValidPoint(
-          item.latitude,
-          item.longitude,
-        )
-        ? RegionShopListCopy.distanceLabel(item.distanceM)
-        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _fact('업종', item.industryDisplay),
-        _fact('도로명', item.address),
         _fact('지번', item.lotAddress),
-        _fact('행정동', item.adongNm),
-        _fact('거리', distance ?? ''),
         _fact('출처', sourceText),
         _fact('조회 시점', queryTimeText),
       ],
@@ -1043,17 +1201,16 @@ class _PublicShopFacts extends StatelessWidget {
   }
 
   Widget _fact(String label, String value) {
-    final shown = value.trim().isEmpty
-        ? ShopMarketInsight.fieldUnavailable
-        : value.trim();
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 2),
       child: Text(
-        '$label\n$shown',
+        '$label ${_regionShown(value)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          fontSize: 12,
-          color: SoriTokens.textSecondary,
-          height: 1.35,
+          fontSize: RegionMapBloom.shopAuxSize,
+          color: RegionMapBloom.shopMetaColor,
+          height: 1.2,
         ),
       ),
     );
@@ -1061,17 +1218,9 @@ class _PublicShopFacts extends StatelessWidget {
 }
 
 class _ShopDetailFacts extends StatelessWidget {
-  const _ShopDetailFacts({
-    required this.item,
-    required this.sourceText,
-    required this.queryTimeText,
-    this.titleSize = 14,
-  });
+  const _ShopDetailFacts({required this.item});
 
   final ShopMarketStoreItem item;
-  final String sourceText;
-  final String queryTimeText;
-  final double titleSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1082,15 +1231,32 @@ class _ShopDetailFacts extends StatelessWidget {
         if (name != null)
           Text(
             name,
-            style: TextStyle(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
               fontWeight: FontWeight.w800,
-              fontSize: titleSize,
+              fontSize: RegionMapBloom.shopTitleSize,
+              color: RegionMapBloom.shopTitleColor,
             ),
           ),
-        _PublicShopFacts(
-          item: item,
-          sourceText: sourceText,
-          queryTimeText: queryTimeText,
+        Text(
+          '${_regionShown(item.industryDisplay)} · ${_regionShown(item.adongNm)} · ${_regionDistance(item)}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: RegionMapBloom.shopMetaSize,
+            color: RegionMapBloom.shopMetaColor,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          _regionShown(item.address),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: RegionMapBloom.shopMetaSize,
+            color: RegionMapBloom.shopTitleColor,
+          ),
         ),
       ],
     );
@@ -1102,8 +1268,6 @@ class _MarketStoreRow extends StatelessWidget {
     required this.item,
     required this.index,
     required this.region,
-    required this.sourceText,
-    required this.queryTimeText,
     required this.selected,
     required this.onSelect,
   });
@@ -1111,8 +1275,6 @@ class _MarketStoreRow extends StatelessWidget {
   final ShopMarketStoreItem item;
   final int index;
   final String region;
-  final String sourceText;
-  final String queryTimeText;
   final bool selected;
   final VoidCallback onSelect;
 
@@ -1122,28 +1284,26 @@ class _MarketStoreRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(RegionMapBloom.shopCardRadius),
         child: InkWell(
           key: Key('region-market-store-$index'),
           onTap: onSelect,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(RegionMapBloom.shopCardRadius),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(RegionMapBloom.shopCardRadius),
               border: Border.all(
-                color: selected ? SoriTokens.primary : const Color(0xFFE5E7EB),
+                color: selected
+                    ? RegionMapBloom.shopSelectRing
+                    : const Color(0xFFE5E7EB),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ShopDetailFacts(
-                  item: item,
-                  sourceText: sourceText,
-                  queryTimeText: queryTimeText,
-                ),
+                _ShopDetailFacts(item: item),
                 _NaverMapCta(
                   buttonKey: Key('region-market-map-cta-$index'),
                   item: item,
@@ -1156,6 +1316,18 @@ class _MarketStoreRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _regionShown(String raw) {
+  final text = raw.trim();
+  return text.isEmpty ? ShopMarketInsight.fieldUnavailable : text;
+}
+
+String _regionDistance(ShopMarketStoreItem item) {
+  if (!AreaSearchCenter.hasValidPoint(item.latitude, item.longitude)) {
+    return ShopMarketInsight.fieldUnavailable;
+  }
+  return _regionShown(RegionShopListCopy.distanceLabel(item.distanceM) ?? '');
 }
 
 class _NaverMapCta extends StatelessWidget {
