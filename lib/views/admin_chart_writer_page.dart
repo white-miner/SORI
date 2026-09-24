@@ -1660,9 +1660,6 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: MyApp.soriPurple,
-          unselectedLabelColor: Colors.grey.shade600,
-          indicatorColor: MyApp.soriPurple,
           onTap: (index) {
             _pageController.animateToPage(
               index,

@@ -13,6 +13,7 @@ import '../../models/shop.dart';
 import '../../services/region_map_gps.dart';
 import '../../services/shop_market_service.dart';
 import '../../services/sori_store.dart';
+import '../../theme/sori_tab_indicator.dart';
 import '../../theme/sori_tokens.dart';
 import '../../widgets/sori_action_buttons.dart';
 import 'diagnosis_engine.dart';
@@ -791,15 +792,9 @@ class _MarketStrategyPageState extends State<MarketStrategyPage>
               children: [
                 Material(
                   color: SoriTokens.surface,
-                  child: TabBar(
+                  child: SoriYoutubeTabBar(
                     controller: _tabs,
-                    isScrollable: true,
-                    tabs: const [
-                      Tab(text: '요약'),
-                      Tab(text: '지도'),
-                      Tab(text: '비교'),
-                      Tab(text: '전략'),
-                    ],
+                    labels: const ['요약', '지도', '비교', '전략'],
                   ),
                 ),
                 Expanded(
