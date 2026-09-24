@@ -660,7 +660,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
           children: [
             if (labels.length > 1)
               Material(
-                color: SoriTokens.background,
+                color: SoriTokens.surface,
                 child: SoriYoutubeTabBar(
                   controller: _tabs,
                   labels: labels,
@@ -668,7 +668,7 @@ class _UnifiedHomeFeedPageState extends State<UnifiedHomeFeedPage>
               )
             else
               Material(
-                color: SoriTokens.background,
+                color: SoriTokens.surface,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: Row(

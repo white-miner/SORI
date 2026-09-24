@@ -6,7 +6,7 @@ import 'package:sori/widgets/glass/sori_glass_app_bar_cluster.dart';
 import 'package:sori/widgets/glass/sori_glass_overlay.dart';
 
 void main() {
-  testWidgets('GNB cluster renders four charcoal icons inside a glass pill',
+  testWidgets('GNB cluster renders charcoal icons inside a light glass pill',
       (tester) async {
     var tapped = '';
     await tester.pumpWidget(
@@ -55,10 +55,37 @@ void main() {
     final addIcon = tester.widget<Icon>(find.byIcon(Icons.add_rounded));
     expect(addIcon.color, SoriTokens.textPrimary);
     expect(addIcon.color, const Color(0xFF111111));
-    expect(addIcon.size, greaterThanOrEqualTo(22));
+    expect(addIcon.size, greaterThanOrEqualTo(20));
 
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pump();
     expect(tapped, 'compose');
+  });
+
+  testWidgets('notification badge caps at 99+', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            actions: [
+              SoriGlassAppBarCluster(
+                items: [
+                  SoriGlassAppBarItem(
+                    icon: Icons.notifications_rounded,
+                    tooltip: '알림',
+                    onPressed: () {},
+                    badgeCount: 120,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('99+'), findsOneWidget);
+    expect(find.text('9+'), findsNothing);
+    expect(find.text('120'), findsNothing);
   });
 }

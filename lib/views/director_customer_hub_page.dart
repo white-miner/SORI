@@ -67,7 +67,7 @@ class _DirectorCustomerHubPageState extends State<DirectorCustomerHubPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Material(
-            color: SoriTokens.background,
+            color: SoriTokens.surface,
             child: SoriYoutubeTabBar(
               controller: _tabs,
               labels: const ['고객', '리뷰'],
