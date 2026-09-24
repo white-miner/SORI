@@ -338,9 +338,11 @@ void main() {
     await tester.tap(find.byKey(const Key('region-search-back')));
     await tester.pump();
     expect(find.text('네이버에서 샵 찾기'), findsWidgets);
-    await _scrollToTop(tester);
+    await tester.drag(find.byKey(const Key('region-shop-list-count')), const Offset(0, -280));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 40));
+    }
     final radiusButton = find.byKey(const Key('region-radius'));
-    await tester.ensureVisible(radiusButton);
     await tester.tap(radiusButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

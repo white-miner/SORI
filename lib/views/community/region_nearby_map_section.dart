@@ -612,7 +612,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _mapController.move(LatLng(item.latitude, item.longitude), nextZoom);
       _zoom = nextZoom;
     } catch (_) {}
-    _snapSheet(0.56);
+    _snapSheet(0.62);
   }
 
   void _snapSheet(double size) {
@@ -961,11 +961,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         DraggableScrollableSheet(
           key: const Key('region-result-sheet'),
           controller: _sheetController,
-          initialChildSize: 0.32,
+          initialChildSize: 0.40,
           minChildSize: 0.16,
           maxChildSize: 0.92,
           snap: true,
-          snapSizes: const [0.32, 0.56],
+          snapSizes: const [0.40, 0.62],
           builder: (context, scrollController) {
             return _ShopResultSheet(
               scrollController: scrollController,
@@ -1288,6 +1288,72 @@ Color _shopCategoryColor(String key) => switch (OurAreaCategory.mapRaw(key)) {
       OurAreaCategory.tattoo || OurAreaCategory.permanent => SoriTokens.brand,
       _ => RegionMapBloom.mapTeal,
     };
+
+class _ShopDiscoverRow extends StatelessWidget {
+  const _ShopDiscoverRow({required this.stores, required this.onSelect});
+
+  final List<ShopMarketStoreItem> stores;
+  final ValueChanged<ShopMarketStoreItem> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = stores.take(8).toList();
+    return SizedBox(
+      height: 104,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: shown.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final item = shown[index];
+          return SizedBox(
+            width: 162,
+            child: Material(
+              color: RegionMapBloom.mapSoft,
+              borderRadius: BorderRadius.circular(18),
+              child: InkWell(
+                onTap: () => onSelect(item),
+                borderRadius: BorderRadius.circular(18),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DecoratedBox(
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: Padding(
+                          padding: const EdgeInsets.all(7),
+                          child: Icon(
+                            Icons.storefront_rounded,
+                            color: _shopCategoryColor(item.chipKey),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk),
+                      ),
+                      Text(
+                        '${OurAreaCategory.chipLabel(item.chipKey)} · ${_regionDistance(item)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 class _ShopClusterFace extends StatelessWidget {
   const _ShopClusterFace({required this.count});
@@ -1910,7 +1976,7 @@ class _ShopResultSheet extends StatelessWidget {
             child: Container(
               width: 44,
               height: 5,
-              margin: const EdgeInsets.only(bottom: 18),
+              margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFD8DBE5),
                 borderRadius: BorderRadius.circular(4),
@@ -1929,7 +1995,11 @@ class _ShopResultSheet extends StatelessWidget {
             key: const Key('region-shop-list-count'),
             style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk),
           ),
-          const SizedBox(height: 5),
+          if (!loading && error == null && hasLocation && shown.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ShopDiscoverRow(stores: shown, onSelect: onSelect),
+          ],
+          const SizedBox(height: 8),
           basis,
           const SizedBox(height: 3),
           const Text(
@@ -1975,58 +2045,6 @@ class _ShopResultSheet extends StatelessWidget {
                 sourceText: sourceText,
                 queryTimeText: queryTimeText,
                 onClose: onClearSelection,
-              ),
-            ],
-            if (shown.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 112,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: shown.length.clamp(0, 8),
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final item = shown[index];
-                    return SizedBox(
-                      width: 162,
-                      child: Material(
-                        color: RegionMapBloom.mapSoft,
-                        borderRadius: BorderRadius.circular(18),
-                        child: InkWell(
-                          onTap: () => onSelect(item),
-                          borderRadius: BorderRadius.circular(18),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                DecoratedBox(
-                                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Icon(
-                                      Icons.storefront_rounded,
-                                      color: _shopCategoryColor(item.chipKey),
-                                      size: 22,
-                                    ),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk)),
-                                Text(
-                                  '${OurAreaCategory.chipLabel(item.chipKey)} · ${_regionDistance(item)}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
               ),
             ],
             const SizedBox(height: 8),
