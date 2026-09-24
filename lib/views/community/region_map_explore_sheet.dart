@@ -4,6 +4,7 @@ import '../../services/region_content_bookmark_store.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/sori_bottom_sheet.dart';
 import '../../widgets/sori_action_buttons.dart';
+import '../../widgets/sori_content_chip.dart';
 import 'region_map_bloom.dart';
 import 'region_map_content_pins.dart';
 
@@ -107,7 +108,7 @@ class RegionMapExploreSheet extends StatelessWidget {
                     ..._listSlivers(
                       context,
                       title: clusterTitle ??
-                          '이 지역의 이야기 ${clusterPins.length}개',
+                          '이 지역 ${clusterPins.length}개',
                       pins: clusterPins,
                     )
                   else if (mode == RegionMapSheetMode.savedHalf)
@@ -235,7 +236,7 @@ class RegionMapExploreSheet extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              '외 ${pins.length - 4}개 · 지도를 확대해 더 볼 수 있어요',
+              '외 ${pins.length - 4}개 · 지도에서 더보기',
               style: const TextStyle(
                 fontSize: 12,
                 color: SoriTokens.textSecondary,
@@ -253,7 +254,7 @@ class RegionMapExploreSheet extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Text(
-            '저장한 지역 콘텐츠',
+            '저장한 콘텐츠',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
           ),
         ),
@@ -263,7 +264,7 @@ class RegionMapExploreSheet extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
             child: Text(
-              '저장한 글과 세미나가 여기에 모여요.',
+              '저장한 콘텐츠가 없어요',
               textAlign: TextAlign.center,
               style: TextStyle(color: SoriTokens.textSecondary),
             ),
@@ -348,19 +349,13 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget chip(RegionMapContentFilter f, String label) {
-      final selected = filter == f;
       return Padding(
         padding: const EdgeInsets.only(right: 6),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (_) => onChanged(f),
-          selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-          labelStyle: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-            color: selected ? SoriTokens.primary : SoriTokens.textSecondary,
-          ),
+        child: SoriContentChip(
+          label: label,
+          selected: filter == f,
+          dense: true,
+          onTap: () => onChanged(f),
         ),
       );
     }

@@ -124,14 +124,14 @@ class _CommunityMarketAnalysisPageState
               const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()))
             else ...[
               if (!available)
-                _glassPanel(child: const Text('상권 데이터를 불러오지 못했습니다. 화면을 아래로 당겨 다시 시도해 주세요.')),
+                _glassPanel(child: const Text('상권 데이터를 불러오지 못했어요. 아래로 당겨 새로고침.')),
               Row(children: [
                 Expanded(child: _metricCard('주변 샵', available ? '$total곳' : '—', '반경 ${_radiusM >= 1000 ? '${_radiusM ~/ 1000}km' : '${_radiusM}m'}')),
                 const SizedBox(width: 10),
-                Expanded(child: _metricCard('동종업종', available ? '$same곳' : '—', '선택 업종 기준')),
+                Expanded(child: _metricCard('동종업종', available ? '$same곳' : '—', '선택 업종')),
               ]),
               const SizedBox(height: 10),
-              _wideMetric('배후인구', population != null ? '$population명' : '현재 제공되지 않음', '공공데이터 기준 · 행정동 단위'),
+              _wideMetric('배후인구', population != null ? '$population명' : '현재 제공되지 않음', '공공데이터 · 행정동'),
               const SizedBox(height: 16),
               if (available) _visualSummary(total: total, same: same),
               const SizedBox(height: 12),
@@ -250,7 +250,7 @@ class _CommunityMarketAnalysisPageState
     final sale = _franchiseSales;
     if (sale == null) return _wideMetric('가맹점 매출 통계', '조회 중', '공정위 지역별 서비스업 통계');
     if (!sale.ok) return _wideMetric('가맹점 매출 통계', '현재 제공되지 않음',
-        '해당 지역의 뷰티 가맹점 통계를 확인할 수 없어요.');
+        '이 지역 뷰티 가맹점 통계 없음');
     return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('가맹점 매출 통계', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       const SizedBox(height: 5),
@@ -266,7 +266,7 @@ class _CommunityMarketAnalysisPageState
               style: const TextStyle(fontWeight: FontWeight.w800)),
         ]),
       ),
-      const Text('면적단위 평균매출금액 · 주변 반경 또는 개별 샵 매출이 아닙니다.',
+      const Text('면적 평균 · 반경/개별 샵 매출 아님',
           style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary)),
     ]));
   }
@@ -286,7 +286,7 @@ class _CommunityMarketAnalysisPageState
     if (insight?.storesOk != true || insight?.storesComplete != true) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text('샵 데이터의 출처와 조회 시점을 확인할 수 없습니다.',
+        child: Text('출처·조회 시점을 확인할 수 없습니다.',
             style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary)),
       );
     }
@@ -297,9 +297,9 @@ class _CommunityMarketAnalysisPageState
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        '샵 출처: 소상공인시장진흥공단 상가(상권)정보 · $date\n'
-        '거주인구는 행정동 기준으로 반경 내 인구와 다릅니다. '
-        '평균매출은 가맹점 기반 통계이며 개별 샵 매출이 아닙니다.',
+        '출처: 소상공인시장진흥공단 상가(상권)정보 · $date\n'
+        '거주인구는 행정동 기준(반경 인구와 다름). '
+        '평균매출은 가맹점 통계 · 개별 샵 매출 아님.',
         style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.45),
       ),
     );

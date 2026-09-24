@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
 import '../../utils/our_area_category.dart';
+import '../../widgets/sori_content_chip.dart';
 
 /// Shared shop controls and marker language for Region and Market screens.
 abstract final class RegionMapShopChrome {
@@ -147,64 +148,21 @@ class RegionMapCategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     // Tag category chips only (showIcon) so radius chips do not collide on keys.
     final tag = showIcon ? categoryKey : null;
-    return Material(
-      key: tag == null ? null : Key('region-category-surface-$tag'),
-      color: selected ? SoriTokens.chipSelectedFill : SoriTokens.surface,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected
-              ? SoriTokens.chipSelectedFill
-              : SoriTokens.chipUnselectedBorder,
-          width: 1,
-        ),
-      ),
-      child: InkWell(
-        key: tag == null ? null : Key('region-shop-category-$tag'),
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showIcon) ...[
-                Icon(
-                  RegionMapShopChrome.categoryIcon(categoryKey),
-                  key: Key('region-category-icon-$categoryKey'),
-                  size: 14,
-                  color: selected
-                      ? SoriTokens.onPrimary
-                      : RegionMapShopChrome.categoryColor(categoryKey),
-                ),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                key: tag == null ? null : Key('region-category-label-$tag'),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? SoriTokens.onPrimary : SoriTokens.textPrimary,
-                ),
-              ),
-              if (count != null) ...[
-                const SizedBox(width: 4),
-                Text(
-                  count!,
-                  key: tag == null ? null : Key('region-category-count-$tag'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: selected
-                        ? SoriTokens.onPrimary.withValues(alpha: 0.85)
-                        : SoriTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return SoriContentChip(
+      label: label,
+      selected: selected,
+      onTap: onTap,
+      dense: true,
+      haptic: false,
+      showIcon: showIcon,
+      icon: showIcon ? RegionMapShopChrome.categoryIcon(categoryKey) : null,
+      iconColor: RegionMapShopChrome.categoryColor(categoryKey),
+      count: count,
+      surfaceKey: tag == null ? null : Key('region-category-surface-$tag'),
+      inkKey: tag == null ? null : Key('region-shop-category-$tag'),
+      iconKey: showIcon ? Key('region-category-icon-$categoryKey') : null,
+      labelKey: tag == null ? null : Key('region-category-label-$tag'),
+      countKey: tag == null ? null : Key('region-category-count-$tag'),
     );
   }
 }

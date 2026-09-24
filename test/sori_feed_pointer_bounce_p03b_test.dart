@@ -17,7 +17,7 @@ void main() {
     expect(explore.contains('soriFeedScrollPhysics'), isFalse);
     expect(explore.contains('RefreshIndicator'), isTrue);
     expect(explore.contains('HomeExploreSearch'), isTrue);
-    expect(explore.contains('ChoiceChip('), isTrue);
+    expect(explore.contains('SoriContentChip(') || explore.contains('ChoiceChip('), isTrue);
     expect(explore.contains('bool get wantKeepAlive => true'), isTrue);
   });
 
