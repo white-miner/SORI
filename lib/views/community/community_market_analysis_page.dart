@@ -200,9 +200,12 @@ class _CommunityMarketAnalysisPageState
               CircleLayer(circles: [CircleMarker(point: center, radius: _radiusM.toDouble(), useRadiusInMeter: true, color: SoriTokens.brand.withValues(alpha: .08), borderColor: SoriTokens.brand.withValues(alpha: .45), borderStrokeWidth: 2)]),
               MarkerLayer(markers: [
                 Marker(point: center, width: 44, height: 44, child: const _AnalysisMarker(selected: true)),
-                for (final item in items.where((s) => s.latitude.abs() > .01 && s.longitude.abs() > .01).take(80))
+                for (final item in items.where((s) => s.latitude.abs() > .01 && s.longitude.abs() > .01))
                   Marker(point: LatLng(item.latitude, item.longitude), width: 28, height: 28, child: const _AnalysisMarker()),
               ]),
+              RichAttributionWidget(
+                attributions: [TextSourceAttribution('OpenStreetMap contributors')],
+              ),
             ],
           ),
           Positioned(top: 14, left: 14, child: _mapBadge('${items.length}곳 분석')), 
