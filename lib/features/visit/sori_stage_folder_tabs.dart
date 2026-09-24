@@ -41,7 +41,7 @@ class SoriStageFolderTabs extends StatefulWidget {
   static const double railHeight = 48;
 
   /// Top breathing room between logo app-bar row and tab rail.
-  static const double topInset = 10;
+  static const double topInset = 0;
 
   /// Total chrome height when [topInset] is applied (e.g. PreferredSize).
   static const double chromeHeight = railHeight + topInset;

@@ -743,80 +743,58 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   }
 
   Widget _buildBrowseHeader() {
-    if (_searchOpen) {
-      final hasText = _searchController.text.trim().isNotEmpty;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-        child: Row(
-          children: [
-            IconButton(
-              key: const Key('region-search-back'),
-              tooltip: '검색 닫기',
-              onPressed: _closeSearch,
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-            Expanded(
-              child: TextField(
-                key: const Key('region-shop-search'),
-                controller: _searchController,
-                focusNode: _searchFocus,
-                textInputAction: TextInputAction.search,
-                onChanged: (_) => setState(() {}),
-                onSubmitted: _runSearch,
-                decoration: InputDecoration(
-                  hintText: '업소, 주소, 업종 검색',
-                  isDense: true,
-                  filled: true,
-                  fillColor: const Color(0xFFF7F8FC),
-                  hintStyle: const TextStyle(color: RegionMapBloom.mapMuted),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: const BorderSide(color: RegionMapBloom.mapBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: const BorderSide(color: SoriTokens.brand, width: 1.5),
-                  ),
-                  suffixIcon: IconButton(
-                    key: const Key('region-search-submit'),
-                    tooltip: '검색',
-                    onPressed: () => _runSearch(_searchController.text),
-                    icon: const Icon(Icons.search_rounded),
-                  ),
+    if (!_searchOpen) {
+      // Closed-search: search icon lives in the radius chip row (_buildMapFilters).
+      return const SizedBox.shrink();
+    }
+    final hasText = _searchController.text.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const Key('region-shop-search'),
+              controller: _searchController,
+              focusNode: _searchFocus,
+              textInputAction: TextInputAction.search,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: _runSearch,
+              decoration: InputDecoration(
+                hintText: '업소, 주소, 업종 검색',
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFF7F8FC),
+                hintStyle: const TextStyle(color: RegionMapBloom.mapMuted),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: const BorderSide(color: RegionMapBloom.mapBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: const BorderSide(color: SoriTokens.brand, width: 1.5),
+                ),
+                suffixIcon: IconButton(
+                  key: const Key('region-search-submit'),
+                  tooltip: '검색',
+                  onPressed: () => _runSearch(_searchController.text),
+                  icon: const Icon(Icons.search_rounded),
                 ),
               ),
             ),
-            IconButton(
-              key: const Key('region-search-close'),
-              tooltip: hasText ? '검색어 지우기' : '검색 닫기',
-              onPressed: _onSearchDismiss,
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-      );
-    }
-    // Tab already names this surface — no duplicate H1; search as icon-only.
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 4, 0),
-        child: IconButton(
-          key: const Key('region-search-open'),
-          tooltip: '업소 검색',
-          onPressed: _openSearch,
-          iconSize: 22,
-          style: IconButton.styleFrom(
-            minimumSize: const Size(40, 40),
-            foregroundColor: SoriTokens.textSecondary,
           ),
-          icon: const Icon(Icons.search_rounded),
-        ),
+          IconButton(
+            key: const Key('region-search-close'),
+            tooltip: hasText ? '검색어 지우기' : '검색 닫기',
+            onPressed: _onSearchDismiss,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
       ),
     );
   }
@@ -1033,19 +1011,39 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           Row(
             key: const Key('region-radius-chips'),
             children: [
-              for (var i = 0; i < _radiiKm.length; i++) ...[
-                if (i > 0) const SizedBox(width: 6),
-                RegionMapCategoryChip(
-                  key: Key('region-radius-${_radiiKm[i]}'),
-                  label: RegionShopListCopy.radiusLabel(_radiiKm[i]),
-                  selected: (_radiusKm - _radiiKm[i]).abs() < 0.01,
-                  onTap: () {
-                    final km = _radiiKm[i];
-                    if ((_radiusKm - km).abs() < 0.01) return;
-                    widget.onRadiusChanged?.call(km);
-                  },
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < _radiiKm.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        RegionMapCategoryChip(
+                          key: Key('region-radius-${_radiiKm[i]}'),
+                          label: RegionShopListCopy.radiusLabel(_radiiKm[i]),
+                          selected: (_radiusKm - _radiiKm[i]).abs() < 0.01,
+                          onTap: () {
+                            final km = _radiiKm[i];
+                            if ((_radiusKm - km).abs() < 0.01) return;
+                            widget.onRadiusChanged?.call(km);
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ],
+              ),
+              IconButton(
+                key: const Key('region-search-open'),
+                tooltip: '업소 검색',
+                onPressed: _openSearch,
+                iconSize: 22,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(40, 40),
+                  foregroundColor: SoriTokens.textSecondary,
+                ),
+                icon: const Icon(Icons.search_rounded),
+              ),
             ],
           ),
           const SizedBox(height: 10),

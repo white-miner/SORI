@@ -626,12 +626,6 @@ class _ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: SoriTokens.surfaceElevated.withValues(alpha: 0.97),
-        border: const Border(
-          bottom: BorderSide(
-            color: SoriTokens.border,
-            width: 1,
-          ),
-        ),
       ),
       child: SafeArea(
         bottom: false,
