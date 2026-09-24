@@ -11,6 +11,7 @@ import '../../models/customer.dart';
 import '../../models/customer_chart.dart';
 import '../../routing/sori_router.dart';
 import '../../services/sori_store.dart';
+import '../../theme/sori_tab_indicator.dart';
 import '../../theme/sori_tokens.dart';
 import '../../utils/customer_consent_archive.dart';
 import '../../utils/storage_image_url.dart';
@@ -352,21 +353,12 @@ class _CustomerChartPageState extends State<CustomerChartPage>
             ],
           ),
         ],
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: SoriTokens.brand,
-          unselectedLabelColor: const Color(0xFF9CA3AF),
-          indicatorColor: SoriTokens.brand,
-          indicatorWeight: 2,
-          labelStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: SoriYoutubeTabBar(
+            controller: _tabs,
+            labels: const ['타임라인', '사진', '결제'],
           ),
-          tabs: const [
-            Tab(text: '타임라인'),
-            Tab(text: '사진'),
-            Tab(text: '결제'),
-          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(

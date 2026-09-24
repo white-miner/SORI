@@ -10,6 +10,7 @@ class SoriStageFolderTabs extends StatefulWidget {
     required this.labels,
     this.minWidths,
     this.dotIndex,
+    this.badges,
   });
 
   final TabController controller;
@@ -24,6 +25,9 @@ class SoriStageFolderTabs extends StatefulWidget {
   /// 이 인덱스의 탭 라벨 옆에 작은 초록 점을 붙인다(예: 진행 중 타이머).
   /// null이면 표시하지 않는다.
   final int? dotIndex;
+
+  /// Optional per-tab badge counts (0 / null entry = hidden). Red count pills.
+  final List<int>? badges;
 
   static const double railHeight = 48;
   static const double _unselectedHeight = 48;
@@ -241,6 +245,29 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
                           ),
                         ),
                       ],
+                      if (_badgeCount(index) > 0) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: SoriTokens.systemRed,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            _badgeCount(index) > 99
+                                ? '99+'
+                                : '${_badgeCount(index)}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: SoriTokens.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 7),
@@ -276,6 +303,11 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
     )..layout();
     var width = painter.size.width;
     if (widget.dotIndex == index) width += 11;
+    final badge = _badgeCount(index);
+    if (badge > 0) {
+      final digits = badge > 99 ? 3 : '$badge'.length;
+      width += 5 + 12 + digits * 6.0;
+    }
     final minWidths = widget.minWidths;
     if (minWidths != null && index < minWidths.length) {
       width = _max(width, minWidths[index] - 16);
@@ -335,6 +367,12 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
       }
     }
     return (widths: widths, gap: gap);
+  }
+
+  int _badgeCount(int index) {
+    final badges = widget.badges;
+    if (badges == null || index >= badges.length) return 0;
+    return badges[index];
   }
 
   static double _max(double a, double b) => a > b ? a : b;
