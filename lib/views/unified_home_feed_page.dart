@@ -958,38 +958,18 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
           controller: widget.scrollController,
           physics: tabPhysics,
           slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: Semantics(
+              label: '${widget.title}. ${widget.subtitle}',
+              child: RegionNearbyMapSection(
+              store: widget.store,
+              radiusKm: widget.regionRadiusKm,
+              onRadiusChanged: widget.onRegionRadiusChanged,
+              onCenterChanged: widget.onRegionCenterChanged,
+              sheetFooter: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: SoriTokens.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: SoriTokens.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  RegionNearbyMapSection(
-                    store: widget.store,
-                    radiusKm: widget.regionRadiusKm,
-                    onRadiusChanged: widget.onRegionRadiusChanged,
-                    onCenterChanged: widget.onRegionCenterChanged,
-                  ),
-                  const SizedBox(height: 16),
                   const Text(
                     '우리 동네 게시물',
                     style: TextStyle(
@@ -1008,52 +988,30 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
                       color: SoriTokens.textSecondary,
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  if (widget.loading)
+                    const Center(
+                      child: CircularProgressIndicator(color: SoriTokens.primary),
+                    )
+                  else if (shown.isEmpty)
+                    Text(
+                      widget.regionCenterReady
+                          ? '이 반경 안에 공유된 B/A가 아직 없어요.\n반경을 넓혀 보거나 나중에 다시 확인해 주세요.'
+                          : '샵 주소(또는 위치)가 있으면\n근처 게시물만 모아 보여 드려요.',
+                      style: const TextStyle(
+                        color: SoriTokens.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    )
+                  else
+                    for (var i = 0; i < shown.length; i++)
+                      widget.buildCard(shown[i], i),
                 ],
               ),
             ),
-          ),
-          if (widget.loading)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: CircularProgressIndicator(color: SoriTokens.primary),
-              ),
-            )
-          else if (shown.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Text(
-                    widget.regionCenterReady
-                        ? '이 반경 안에 공유된 B/A가 아직 없어요.\n반경을 넓혀 보거나 나중에 다시 확인해 주세요.'
-                        : '샵 주소(또는 위치)가 있으면\n근처 게시물만 모아 보여 드려요.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: SoriTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              key: const Key('feed-local-list-padding'),
-              padding: _feedListPadding(context),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => FeedScrollRow(
-                    child: widget.buildCard(shown[index], index),
-                  ),
-                  childCount: shown.length,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: true,
-                ),
-              ),
             ),
+          ),
         ],
       ),
     );

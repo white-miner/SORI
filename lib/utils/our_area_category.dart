@@ -6,11 +6,21 @@ abstract final class OurAreaCategory {
   static const nail = 'nail';
   static const skin = 'skin';
   static const tattoo = 'tattoo';
+  static const permanent = 'permanent';
   static const makeup = 'makeup';
   static const other = 'other';
 
-  /// 선택 칩. `other`는 칩에 올리지 않고 특정 필터에서 제외한다.
-  static const selectableKeys = <String>[all, hair, barber, nail, skin, tattoo];
+  /// 지도 위 업종 칩. 반영구는 원문에 있을 때만 걸리고, 기타는 매핑되지 않은 업소다.
+  static const selectableKeys = <String>[
+    all,
+    hair,
+    skin,
+    nail,
+    tattoo,
+    barber,
+    permanent,
+    other,
+  ];
 
   static const labels = <String, String>{
     all: '전체',
@@ -19,11 +29,15 @@ abstract final class OurAreaCategory {
     nail: '네일',
     skin: '피부',
     tattoo: '타투',
+    permanent: '반영구',
     makeup: '메이크업',
     other: '기타 뷰티',
   };
 
   static String labelOf(String key) => labels[key] ?? labels[other]!;
+
+  /// 칩에 보이는 짧은 이름. 데이터 라벨 `기타 뷰티`는 유지한다.
+  static String chipLabel(String key) => key == other ? '기타' : labelOf(key);
 
   static String mapRaw(String? raw) {
     final blob = (raw ?? '').trim().toLowerCase();
@@ -32,6 +46,7 @@ abstract final class OurAreaCategory {
     if (labels.containsKey(blob)) return blob;
     if (RegExp(r'네일|손톱|nail').hasMatch(blob)) return nail;
     if (RegExp(r'바버|이발|이용|barber').hasMatch(blob)) return barber;
+    if (RegExp(r'반영구').hasMatch(blob)) return permanent;
     if (RegExp(r'타투|문신|tattoo').hasMatch(blob)) return tattoo;
     if (RegExp(r'메이크업|makeup').hasMatch(blob)) return makeup;
     if (RegExp(r'피부|에스테틱|마사지|체형|왁싱|skin').hasMatch(blob)) {
@@ -51,6 +66,7 @@ abstract final class OurAreaCategory {
     if (want == all) return true;
     var got = mapRaw(chipKey);
     if (got == other) got = mapRaw(categoryLabel);
+    if (want == other) return got == other;
     if (got == other) return false;
     return got == want;
   }

@@ -152,6 +152,7 @@ void main() {
       findsOneWidget,
     );
 
+    await _raiseSheet(tester);
     await tester.tap(find.byKey(const Key('region-market-store-0')));
     await tester.pump();
 
@@ -184,6 +185,7 @@ void main() {
     expect(find.textContaining('출처'), findsOneWidget);
     expect(find.textContaining('조회 시점'), findsOneWidget);
 
+    await _raiseSheet(tester);
     await tester.tap(find.byKey(const Key('region-market-store-0')));
     await tester.pump();
 
@@ -280,6 +282,8 @@ void main() {
     final allChip = find.byKey(const Key('region-shop-category-all'));
     await tester.tap(allChip);
     await tester.pump();
+    await tester.tap(find.byKey(const Key('region-search-open')));
+    await tester.pump();
     final search = find.byKey(const Key('region-shop-search'));
     await tester.enterText(search, '옛주소');
     await tester.pump();
@@ -292,8 +296,10 @@ void main() {
     await tester.pump();
     expect(find.text('골목샵'), findsWidgets);
     expect(find.textContaining('옛골목 9'), findsNothing);
-    expect(find.text('현재 제공되지 않음'), findsOneWidget);
+    expect(find.textContaining('현재 제공되지 않음'), findsWidgets);
 
+    await tester.tap(find.byKey(const Key('region-search-back')));
+    await tester.pump();
     expect(find.text('네이버에서 샵 찾기'), findsWidgets);
     await _scrollToTop(tester);
     final radiusButton = find.byKey(const Key('region-radius'));
@@ -310,6 +316,16 @@ void main() {
     expect(radii, contains(2000));
     expect(tester.takeException(), isNull);
   });
+}
+
+Future<void> _raiseSheet(WidgetTester tester) async {
+  final anchor = find.byKey(const Key('region-shop-list-count'));
+  await tester.drag(anchor, const Offset(0, -520));
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.ensureVisible(find.byKey(const Key('region-market-store-0')));
+  await tester.pump();
 }
 
 Future<void> _scrollToTop(WidgetTester tester) async {
