@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../services/sori_store.dart';
 import '../../../theme/sori_tokens.dart';
+import '../../../widgets/sori_section_header.dart';
 import '../../../views/chart_management_page.dart';
 import '../home_visual_tokens.dart';
 import '../my_today_task_queue.dart';
@@ -30,23 +31,16 @@ class MyTodayTaskQueuePanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F6F3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(SoriTokens.radiusHero),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '지금 처리할 일',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1C1E),
-            ),
-          ),
-          const SizedBox(height: 10),
+          const SoriSectionHeader(title: '지금 처리할 일', fontSize: 20),
+          const SizedBox(height: 12),
           if (tasks.isEmpty)
             const Text(
-              '지금 처리할 일이 없어요. 오늘 일정을 확인해 보세요.',
+              '처리할 일이 없어요',
               style: TextStyle(
                 fontSize: 13,
                 color: SoriTokens.textSecondary,
@@ -99,7 +93,7 @@ class _TaskCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: urgent
               ? SoriTokens.semanticYellow.withValues(alpha: 0.55)

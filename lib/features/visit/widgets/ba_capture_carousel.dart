@@ -394,7 +394,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
         ),
         SizedBox(
           // 고정 높이 — 세로 제약이 캐러셀 밖으로 전파되지 않게 차단한다.
-          height: 100 + MediaQuery.textScalerOf(context).scale(28),
+          height: 118 + MediaQuery.textScalerOf(context).scale(28),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -444,9 +444,9 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
       key: isNew
           ? const Key('ba-fixed-capture-slot')
           : ValueKey('history-${session!.id}'),
-      width: 88,
+      width: 96,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         onLongPress: session != null && session.hasPhoto
             ? () => setState(() => _armedDeleteId = session.id)
             : null,
@@ -521,7 +521,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
               height: 82,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isNew
                       ? const Color(0xFF111111)
@@ -535,7 +535,7 @@ class _BaCaptureCarouselState extends State<BaCaptureCarousel> {
                 fit: StackFit.expand,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(18),
                     child: hasImage
                         ? Image.network(
                             url,

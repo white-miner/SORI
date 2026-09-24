@@ -23,6 +23,8 @@ class HomeQuickActionRow extends StatelessWidget {
             label: '신규 고객',
             icon: Icons.add_rounded,
             onTap: onNewCustomer,
+            fill: HomeVisualTokens.quickNewFill,
+            foreground: Colors.white,
           ),
         ),
         const SizedBox(width: HomeVisualTokens.quickActionGap),
@@ -32,6 +34,9 @@ class HomeQuickActionRow extends StatelessWidget {
             label: '재방문 고객',
             icon: Icons.search_rounded,
             onTap: onReturningCustomer,
+            fill: HomeVisualTokens.quickReturningFill,
+            foreground: HomeVisualTokens.tabActiveColor,
+            borderColor: HomeVisualTokens.quickReturningBorder,
           ),
         ),
       ],
@@ -45,43 +50,54 @@ class _QuickActionButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    required this.fill,
+    required this.foreground,
+    this.borderColor,
   });
 
   final String eyebrow;
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final Color fill;
+  final Color foreground;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(HomeVisualTokens.quickActionRadius);
     return Material(
-      color: const Color(0xFF1C1C1E),
-      borderRadius: radius,
+      color: fill,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: borderColor == null
+            ? BorderSide.none
+            : BorderSide(color: borderColor!),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
         child: SizedBox(
-          height: 112,
+          height: 96,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 14, color: const Color(0xFFC7C7CC)),
+                    Icon(icon, size: 14, color: foreground.withValues(alpha: 0.7)),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         eyebrow,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: Color(0xFFC7C7CC),
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.55,
+                          color: foreground.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -95,17 +111,17 @@ class _QuickActionButton extends StatelessWidget {
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: foreground,
                         ),
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.arrow_outward_rounded,
                       size: 16,
-                      color: Colors.white,
+                      color: foreground,
                     ),
                   ],
                 ),

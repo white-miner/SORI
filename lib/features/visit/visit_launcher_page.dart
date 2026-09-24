@@ -33,6 +33,7 @@ import 'ba_recall_cache.dart';
 import 'consultation_track.dart';
 import 'home_dashboard_controller.dart';
 import 'home_visual_tokens.dart';
+import '../../widgets/sori_section_header.dart';
 import 'management_case_paginator.dart';
 import 'sori_stage_folder_tabs.dart';
 import 'today_agenda.dart';
@@ -961,7 +962,10 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: SoriStageFolderTabs.topInset),
+                padding: const EdgeInsets.only(
+                  top: SoriStageFolderTabs.topInset,
+                  bottom: 4,
+                ),
                 child: SoriStageFolderTabs(
                   controller: _tabs,
                   labels: _kHomeStageLabels,
@@ -1200,38 +1204,44 @@ class _CaseFeedHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 22, 8, 10),
       child: Row(
         children: [
-          const Text(
-            'B&A 게시물',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
-              height: 1.05,
-              color: HomeVisualTokens.sectionLabelColor,
-            ),
+          const SoriSectionHeader(
+            title: 'B&A 게시물',
+            fontSize: SoriTokens.typeSection,
           ),
           const Spacer(),
           Tooltip(
             message: bookmarkOnly ? '전체 케이스 보기' : '즐겨찾기한 케이스만 보기',
-            child: TextButton.icon(
+            child: TextButton(
               onPressed: onToggleBookmark,
-              icon: Icon(
-                bookmarkOnly
-                    ? Icons.bookmark_rounded
-                    : Icons.bookmark_border_rounded,
-                size: 16,
-                color: bookmarkOnly
-                    ? HomeVisualTokens.sectionLabelColor
-                    : HomeVisualTokens.dateIconColor,
+              style: TextButton.styleFrom(
+                foregroundColor: HomeVisualTokens.dateIconColor,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
-              label: Text(
-                bookmarkOnly ? '전체 보기' : '즐겨찾기만 보기',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: bookmarkOnly
-                      ? HomeVisualTokens.sectionLabelColor
-                      : HomeVisualTokens.dateTextColor,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    bookmarkOnly
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_border_rounded,
+                    size: 16,
+                    color: bookmarkOnly
+                        ? HomeVisualTokens.sectionLabelColor
+                        : HomeVisualTokens.dateIconColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    bookmarkOnly ? '전체' : '즐겨찾기',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: bookmarkOnly
+                          ? HomeVisualTokens.sectionLabelColor
+                          : HomeVisualTokens.dateIconColor,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

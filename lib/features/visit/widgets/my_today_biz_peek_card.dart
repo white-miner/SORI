@@ -23,7 +23,7 @@ class MyTodayBizPeekCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
         decoration: BoxDecoration(
           color: SoriTokens.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(SoriTokens.radiusHero),
           border: Border.all(color: SoriTokens.inputBorder),
         ),
         child: Row(
@@ -50,8 +50,8 @@ class MyTodayBizPeekCard extends StatelessWidget {
                   Text(
                     '이번 달 흐름',
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                       color: SoriTokens.textPrimary,
                     ),
                   ),
@@ -60,7 +60,7 @@ class MyTodayBizPeekCard extends StatelessWidget {
                     '경영에서 보기',
                     style: TextStyle(
                       fontSize: 12,
-                      color: SoriTokens.textSecondary,
+                      color: SoriTokens.textTertiary,
                     ),
                   ),
                 ],

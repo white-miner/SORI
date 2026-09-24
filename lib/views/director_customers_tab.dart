@@ -383,7 +383,7 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _CrmStickyToolbarDelegate(
-                  height: 118,
+                  height: 108,
                   child: ColoredBox(
                     color: SoriTokens.background,
                     child: Column(
@@ -478,8 +478,10 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                                         : () => _enterSelectingMerge(),
                                     icon: const Icon(
                                       Icons.merge_type_rounded,
+                                      size: 20,
                                     ),
-                                    color: SoriTokens.primary,
+                                    color: SoriTokens.textSecondary,
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                   IconButton(
                                     tooltip: '정렬',
@@ -487,16 +489,20 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                                         isEmptyDb ? null : _pickSort,
                                     icon: const Icon(
                                       Icons.filter_list_rounded,
+                                      size: 20,
                                     ),
-                                    color: SoriTokens.primary,
+                                    color: SoriTokens.textSecondary,
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                   IconButton(
                                     tooltip: '고객 추가',
                                     onPressed: _addCustomer,
                                     icon: const Icon(
                                       Icons.person_add_alt_1_rounded,
+                                      size: 20,
                                     ),
-                                    color: SoriTokens.primary,
+                                    color: SoriTokens.textSecondary,
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                 ],
                               ],
@@ -531,21 +537,19 @@ class _DirectorCustomersTabState extends State<DirectorCustomersTab>
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: const BorderSide(
-                                    color: SoriTokens.outlinePurple,
-                                    width: 1.2,
+                                    color: SoriTokens.chipUnselectedBorder,
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: const BorderSide(
-                                    color: SoriTokens.outlinePurple,
-                                    width: 1.2,
+                                    color: SoriTokens.chipUnselectedBorder,
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: const BorderSide(
-                                    color: SoriTokens.primary,
+                                    color: SoriTokens.textCharcoal,
                                     width: 1.2,
                                   ),
                                 ),
@@ -879,7 +883,10 @@ class _DenseCustomerTile extends StatelessWidget {
     return SoriCard(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
         children: [
           if (selecting) ...[
             Checkbox(
@@ -970,7 +977,7 @@ class _DenseCustomerTile extends StatelessWidget {
                   remainLabel,
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: badgeFg,
                   ),
                 ),
@@ -989,7 +996,7 @@ class _DenseCustomerTile extends StatelessWidget {
                     couponLabel!,
                     style: const TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
                   ),
@@ -1009,33 +1016,38 @@ class _DenseCustomerTile extends StatelessWidget {
                     unpaidLabel!,
                     style: const TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-              if (!selecting) ...[
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: onRequestReview,
-                  style: TextButton.styleFrom(
-                    foregroundColor: SoriTokens.primary,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    '후기 요청',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
               ],
             ],
           ),
+        ],
+          ),
+          if (!selecting && onRequestReview != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onRequestReview,
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.textSecondary,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  '후기 요청',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

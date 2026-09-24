@@ -45,7 +45,7 @@ class RegionMapExploreSheet extends StatelessWidget {
   final VoidCallback? onOpenSavedAll;
   final ValueChanged<RegionContentBookmark>? onOpenBookmark;
 
-  static const peek = 0.22;
+  static const peek = 0.18;
   static const half = 0.50;
   static const expanded = 0.70;
 
@@ -79,7 +79,7 @@ class RegionMapExploreSheet extends StatelessWidget {
                     alpha: mode == RegionMapSheetMode.markerPeek ? 0.90 : 0.94,
                   ),
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(18)),
+                    const BorderRadius.vertical(top: Radius.circular(20)),
                 border: Border.all(color: SoriTokens.border),
                 boxShadow: [
                   BoxShadow(

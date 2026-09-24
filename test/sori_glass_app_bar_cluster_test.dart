@@ -53,9 +53,9 @@ void main() {
     expect(find.byIcon(Icons.settings_rounded), findsOneWidget);
 
     final addIcon = tester.widget<Icon>(find.byIcon(Icons.add_rounded));
-    expect(addIcon.color, SoriTokens.textPrimary);
-    expect(addIcon.color, const Color(0xFF111111));
-    expect(addIcon.size, greaterThanOrEqualTo(20));
+    // Phase 0 ? lighter idle chrome: secondary charcoal, 18dp icons.
+    expect(addIcon.color, SoriTokens.textSecondary);
+    expect(addIcon.size, 18);
 
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pump();
