@@ -24,7 +24,7 @@ TabBarThemeData get soriTabBarTheme => const TabBarThemeData(
       unselectedLabelColor: Color(0xFF6E6E73),
       indicatorColor: SoriTokens.textCharcoal,
       indicator: UnderlineTabIndicator(
-        borderSide: BorderSide(width: 3, color: SoriTokens.textCharcoal),
+        borderSide: BorderSide(width: 2.5, color: SoriTokens.textCharcoal),
         borderRadius: BorderRadius.all(Radius.circular(999)),
         insets: EdgeInsets.zero,
       ),
@@ -34,15 +34,15 @@ TabBarThemeData get soriTabBarTheme => const TabBarThemeData(
       dividerHeight: 0,
       labelStyle: TextStyle(
         fontSize: 15,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         height: 1.2,
-        letterSpacing: 0.6,
+        letterSpacing: 0.1,
       ),
       unselectedLabelStyle: TextStyle(
         fontSize: 15,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         height: 1.2,
-        letterSpacing: 0.6,
+        letterSpacing: 0.15,
       ),
       labelPadding: EdgeInsets.symmetric(horizontal: 12),
     );
@@ -58,6 +58,7 @@ class SoriYoutubeTabBar extends StatelessWidget {
     required this.controller,
     required this.labels,
     this.badges,
+    this.allowScroll = false,
     this.padding = const EdgeInsets.only(top: SoriStageFolderTabs.topInset),
   });
 
@@ -66,6 +67,9 @@ class SoriYoutubeTabBar extends StatelessWidget {
 
   /// Optional per-tab badge counts (0 / null = hidden).
   final List<int>? badges;
+
+  /// Forwarded to [SoriStageFolderTabs.allowScroll] (e.g. My page 6 tabs).
+  final bool allowScroll;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -78,6 +82,7 @@ class SoriYoutubeTabBar extends StatelessWidget {
           controller: controller,
           labels: labels,
           badges: badges,
+          allowScroll: allowScroll,
         ),
       ),
     );

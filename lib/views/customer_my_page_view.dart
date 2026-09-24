@@ -193,6 +193,7 @@ class _CustomerMyPageViewState extends State<CustomerMyPageView>
             const SizedBox(height: 8),
             SoriYoutubeTabBar(
               controller: _tabController,
+              allowScroll: true,
               labels: const [
                 '내 케어 여정',
                 '단골 샵/회원권',

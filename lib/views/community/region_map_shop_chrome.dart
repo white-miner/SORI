@@ -149,11 +149,13 @@ class RegionMapCategoryChip extends StatelessWidget {
     final tag = showIcon ? categoryKey : null;
     return Material(
       key: tag == null ? null : Key('region-category-surface-$tag'),
-      color: const Color(0xEFFFFFFF),
+      color: selected ? SoriTokens.chipSelectedFill : SoriTokens.surface,
       shape: StadiumBorder(
         side: BorderSide(
-          color: selected ? RegionMapShopChrome.selectedBorder : const Color(0x33FFFFFF),
-          width: selected ? 1.4 : 1,
+          color: selected
+              ? SoriTokens.chipSelectedFill
+              : SoriTokens.chipUnselectedBorder,
+          width: 1,
         ),
       ),
       child: InkWell(
@@ -170,7 +172,9 @@ class RegionMapCategoryChip extends StatelessWidget {
                   RegionMapShopChrome.categoryIcon(categoryKey),
                   key: Key('region-category-icon-$categoryKey'),
                   size: 14,
-                  color: RegionMapShopChrome.categoryColor(categoryKey),
+                  color: selected
+                      ? SoriTokens.onPrimary
+                      : RegionMapShopChrome.categoryColor(categoryKey),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -180,7 +184,7 @@ class RegionMapCategoryChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? RegionMapShopChrome.selectedBorder : SoriTokens.primary,
+                  color: selected ? SoriTokens.onPrimary : SoriTokens.textPrimary,
                 ),
               ),
               if (count != null) ...[
@@ -192,7 +196,7 @@ class RegionMapCategoryChip extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: selected
-                        ? RegionMapShopChrome.selectedBorder
+                        ? SoriTokens.onPrimary.withValues(alpha: 0.85)
                         : SoriTokens.textSecondary,
                   ),
                 ),

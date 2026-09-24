@@ -38,9 +38,9 @@ class SoriGlassAppBarCluster extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       tier: SoriGlassTier.l2Control,
       enableBlur: false,
-      fill: Colors.white.withValues(alpha: 0.88),
+      fill: Colors.white.withValues(alpha: 0.72),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -91,23 +91,23 @@ class _ClusterIconButtonState extends State<_ClusterIconButton> {
           onTap: widget.onPressed,
           onHighlightChanged: (v) => setState(() => _pressed = v),
           customBorder: const CircleBorder(),
-          hoverColor: SoriTokens.brand.withValues(alpha: 0.08),
-          splashColor: SoriTokens.brand.withValues(alpha: 0.12),
-          highlightColor: SoriTokens.brand.withValues(alpha: 0.06),
+          hoverColor: SoriTokens.textCharcoal.withValues(alpha: 0.06),
+          splashColor: SoriTokens.textCharcoal.withValues(alpha: 0.08),
+          highlightColor: SoriTokens.textCharcoal.withValues(alpha: 0.04),
           child: AnimatedContainer(
             duration: Duration(milliseconds: SoriTokens.motionReleaseMs),
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: highlight
-                  ? SoriTokens.brand.withValues(alpha: 0.10)
+                  ? SoriTokens.textCharcoal.withValues(alpha: 0.06)
                   : Colors.transparent,
             ),
             child: Icon(
               widget.icon,
-              size: 20,
-              color: highlight ? SoriTokens.brand : SoriTokens.textPrimary,
+              size: 18,
+              color: highlight ? SoriTokens.textCharcoal : SoriTokens.textSecondary,
             ),
           ),
         ),

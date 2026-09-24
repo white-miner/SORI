@@ -11,6 +11,7 @@ import '../models/session_user.dart';
 import '../models/shop.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tab_indicator.dart';
+import '../features/visit/sori_stage_folder_tabs.dart';
 import '../theme/sori_tokens.dart';
 import '../utils/sori_nav.dart';
 import '../utils/storage_image_url.dart';
@@ -541,6 +542,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 delegate: _StickyTabBarDelegate(
                   child: SoriYoutubeTabBar(
                     controller: _tabController,
+                    allowScroll: true,
                     labels: const [
                       '오늘',
                       '경영',
@@ -909,10 +911,10 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
 
   @override
-  double get minExtent => 56;
+  double get minExtent => SoriStageFolderTabs.chromeHeight;
 
   @override
-  double get maxExtent => 56;
+  double get maxExtent => SoriStageFolderTabs.chromeHeight;
 
   @override
   Widget build(
@@ -921,7 +923,7 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: SoriTokens.background,
+      color: SoriTokens.surface,
       child: child,
     );
   }
@@ -947,8 +949,8 @@ class _SquircleCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: SoriTokens.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: SoriTokens.outlinePurple),
+        borderRadius: BorderRadius.circular(SoriTokens.radiusHero),
+        border: Border.all(color: SoriTokens.chipUnselectedBorder),
       ),
       child: child,
     );
@@ -985,7 +987,7 @@ class _HomeTabBody extends StatelessWidget {
 
     // DESIGN LAWS 사장 책상: 1 업무 큐 → 2 경영 Peek ≤1 → 3 일정 · 프로필/피드 아래.
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 140),
       children: [
         ListenableBuilder(
           listenable: store,
