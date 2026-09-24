@@ -1041,30 +1041,46 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
           top: 8,
           left: 0,
           right: 0,
-          child: SizedBox(
-            height: 48,
-            child: ListView(
-              key: const Key('region-category-chips'),
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                for (final key in OurAreaCategory.selectableKeys)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _MapCategoryChip(
-                      chipKey: key,
-                      label: _insight?.storesOk == true
-                          ? '${OurAreaCategory.chipLabel(key)} ${_countFor(key)}${partial ? '+' : ''}'
-                          : OurAreaCategory.chipLabel(key),
-                      selected: _categoryKey == key,
-                      onTap: () => setState(() {
-                        _categoryKey = key;
-                        _selectedMarket = null;
-                        _visibleLimit = 20;
-                      }),
+          child: ClipRect(
+            child: BackdropFilter(
+              key: const Key('region-category-glass-blur'),
+              filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+                child: SizedBox(
+                  height: 56,
+                  child: ListView(
+                    key: const Key('region-category-chips'),
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
                     ),
+                    children: [
+                      for (final key in OurAreaCategory.selectableKeys)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 9),
+                          child: _MapCategoryChip(
+                            chipKey: key,
+                            label: OurAreaCategory.chipLabel(key),
+                            count: _insight?.storesOk == true
+                                ? '${_countFor(key)}${partial ? '+' : ''}'
+                                : null,
+                            selected: _categoryKey == key,
+                            onTap: () => setState(() {
+                              _categoryKey = key;
+                              _selectedMarket = null;
+                              _visibleLimit = 20;
+                            }),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           ),
         ),
@@ -1387,43 +1403,278 @@ class _ShopBunch {
   final List<ShopMarketStoreItem> items;
 }
 
-class _MapCategoryChip extends StatelessWidget {
+class _MapCategoryChip extends StatefulWidget {
   const _MapCategoryChip({
     required this.chipKey,
     required this.label,
+    this.count,
     required this.selected,
     required this.onTap,
   });
 
   final String chipKey;
   final String label;
+  final String? count;
   final bool selected;
   final VoidCallback onTap;
 
   @override
+  State<_MapCategoryChip> createState() => _MapCategoryChipState();
+}
+
+class _MapCategoryChipState extends State<_MapCategoryChip> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? SoriTokens.brand : Colors.white,
-      elevation: selected ? 2 : 1,
-      shadowColor: const Color(0x17000000),
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        key: Key('region-shop-category-$chipKey'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Center(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? Colors.white : RegionMapBloom.mapInk,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
+    final radius = BorderRadius.circular(22);
+    final iconColor = _shopCategoryColor(widget.chipKey);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedScale(
+        key: Key('region-shop-category-scale-${widget.chipKey}'),
+        scale: _hovered || _pressed ? 1.035 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: Key('region-shop-category-${widget.chipKey}'),
+            onTap: widget.onTap,
+            onHover: (value) => setState(() => _hovered = value),
+            onHighlightChanged: (value) => setState(() => _pressed = value),
+            hoverColor: Colors.transparent,
+            splashColor: Colors.black.withValues(alpha: 0.035),
+            borderRadius: radius,
+            child: AnimatedContainer(
+              key: Key('region-category-surface-${widget.chipKey}'),
+              duration: const Duration(milliseconds: 150),
+              constraints: const BoxConstraints(minHeight: 44, minWidth: 84),
+              padding: const EdgeInsets.symmetric(horizontal: 11),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.62),
+                borderRadius: radius,
+                border: Border.all(
+                  color: widget.selected
+                      ? const Color(0xFF22232A)
+                      : Colors.white.withValues(alpha: 0.86),
+                  width: widget.selected ? 1.5 : 1,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x160E1831),
+                    blurRadius: 12,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    key: Key('region-category-icon-${widget.chipKey}'),
+                    width: 19,
+                    height: 19,
+                    child: _MapCategoryIcon(
+                      category: widget.chipKey,
+                      color: iconColor,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.label,
+                    key: Key('region-category-label-${widget.chipKey}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: widget.selected
+                          ? const Color(0xFF17181E)
+                          : RegionMapBloom.mapInk,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (widget.count != null) ...[
+                    const SizedBox(width: 5),
+                    Text(
+                      widget.count!,
+                      key: Key('region-category-count-${widget.chipKey}'),
+                      style: TextStyle(
+                        color: widget.selected
+                            ? const Color(0xFF17181E)
+                            : RegionMapBloom.mapMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MapCategoryIcon extends StatelessWidget {
+  const _MapCategoryIcon({required this.category, required this.color});
+
+  final String category;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (OurAreaCategory.mapRaw(category)) {
+      OurAreaCategory.hair => CustomPaint(painter: _HairToolsPainter(color)),
+      OurAreaCategory.barber => CustomPaint(painter: _BarberPolePainter(color)),
+      OurAreaCategory.permanent => CustomPaint(painter: _LipsPainter(color)),
+      OurAreaCategory.tattoo => CustomPaint(painter: _TattooMachinePainter(color)),
+      OurAreaCategory.skin => Icon(
+          Icons.face_retouching_natural,
+          color: color,
+          size: 19,
+        ),
+      OurAreaCategory.nail => Icon(Icons.back_hand, color: color, size: 19),
+      OurAreaCategory.makeup => Icon(Icons.brush, color: color, size: 18),
+      OurAreaCategory.other => Icon(Icons.category, color: color, size: 18),
+      _ => Icon(Icons.grid_view, color: color, size: 18),
+    };
+  }
+}
+
+class _HairToolsPainter extends CustomPainter {
+  const _HairToolsPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.45
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawCircle(const Offset(4.2, 15.2), 2.6, p);
+    canvas.drawCircle(const Offset(9.2, 15.2), 2.6, p);
+    canvas.drawLine(const Offset(6, 13), const Offset(17, 3), p);
+    canvas.drawLine(const Offset(8, 13), const Offset(16, 17), p);
+    canvas.drawLine(const Offset(13, 5), const Offset(18, 5), p);
+    canvas.drawLine(const Offset(14, 7), const Offset(18, 7), p);
+    canvas.drawLine(const Offset(15, 9), const Offset(18, 9), p);
+  }
+
+  @override
+  bool shouldRepaint(_HairToolsPainter oldDelegate) => oldDelegate.color != color;
+}
+
+class _BarberPolePainter extends CustomPainter {
+  const _BarberPolePainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(6, 2, 8, 15),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(rect, Paint()..color = Colors.white);
+    canvas.save();
+    canvas.clipRRect(rect);
+    final stripe = Paint()..color = color;
+    for (var y = -8.0; y < 22; y += 6) {
+      canvas.drawLine(Offset(5, y), Offset(15, y + 8), stripe..strokeWidth = 2.2);
+    }
+    canvas.restore();
+    final edge = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawRRect(rect, edge);
+    canvas.drawLine(
+      const Offset(4, 2),
+      const Offset(16, 2),
+      edge..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(const Offset(4, 17), const Offset(16, 17), edge);
+  }
+
+  @override
+  bool shouldRepaint(_BarberPolePainter oldDelegate) => oldDelegate.color != color;
+}
+
+class _LipsPainter extends CustomPainter {
+  const _LipsPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(1.5, 9.8)
+      ..cubicTo(4, 6.5, 7, 6.5, 10, 8.8)
+      ..cubicTo(13, 6.5, 16, 6.5, 18.5, 9.8)
+      ..cubicTo(15.5, 13.5, 12.5, 16, 10, 17)
+      ..cubicTo(7.5, 16, 4.5, 13.5, 1.5, 9.8)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.18));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawLine(
+      const Offset(2.5, 10),
+      const Offset(17.5, 10),
+      Paint()
+        ..color = color
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_LipsPainter oldDelegate) => oldDelegate.color != color;
+}
+
+class _TattooMachinePainter extends CustomPainter {
+  const _TattooMachinePainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.45
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(5, 6, 9, 7),
+        const Radius.circular(1.5),
+      ),
+      p,
+    );
+    canvas.drawCircle(const Offset(7, 4), 2, p);
+    canvas.drawCircle(const Offset(12, 4), 2, p);
+    canvas.drawLine(const Offset(14, 9), const Offset(18, 9), p);
+    canvas.drawLine(const Offset(17, 9), const Offset(17, 16), p);
+    canvas.drawLine(const Offset(14, 13), const Offset(17, 13), p);
+    canvas.drawLine(const Offset(17, 16), const Offset(18, 19), p);
+    canvas.drawLine(const Offset(7, 13), const Offset(6, 17), p);
+    canvas.drawLine(const Offset(6, 17), const Offset(13, 17), p);
+  }
+
+  @override
+  bool shouldRepaint(_TattooMachinePainter oldDelegate) => oldDelegate.color != color;
+}
                 ),
               ),
             ),
