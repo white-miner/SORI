@@ -26,6 +26,7 @@ class _CommunityMarketAnalysisPageState
   int _radiusM = 1000;
   String _category = OurAreaCategory.skin;
   ShopMarketInsight? _insight;
+  ShopMarketInsight? _populationInsight;
   bool _loading = true;
   int _request = 0;
 
@@ -40,13 +41,24 @@ class _CommunityMarketAnalysisPageState
     setState(() => _loading = true);
     final shop = widget.store.shop;
     try {
-      final result = await ShopMarketService.instance.fetch(
+      final population = await ShopMarketService.instance.fetch(
         shop: shop,
-        category: _category,
+        category: '전체',
         radiusM: _radiusM,
         fallbackAddress: shop.address,
       );
-      if (mounted && request == _request) setState(() => _insight = result);
+      final latitude = population.centerLatitude ?? shop.latitude;
+      final longitude = population.centerLongitude ?? shop.longitude;
+      final result = latitude != null && longitude != null
+          ? await ShopMarketService.instance.fetchNearby(
+              latitude: latitude,
+              longitude: longitude,
+              radiusM: _radiusM,
+            )
+          : ShopMarketInsight.unavailable(reason: 'shop_coords_missing');
+      if (mounted && request == _request) {
+        setState(() { _insight = result; _populationInsight = population; });
+      }
     } catch (_) {
       if (mounted && request == _request) {
         setState(() => _insight = ShopMarketInsight.unavailable(reason: 'market_unavailable'));
@@ -59,10 +71,11 @@ class _CommunityMarketAnalysisPageState
   @override
   Widget build(BuildContext context) {
     final insight = _insight;
-    final available = insight?.storesOk == true;
-    final total = available ? insight!.totalInRadius : 0;
-    final same = available ? insight!.sameCategoryCount : 0;
-    final population = insight?.populationOk == true ? insight!.popTotal : null;
+    final available = insight?.storesOk == true && insight?.storesComplete == true;
+    final beauty = available ? insight!.storeItems.where((s) => s.chipKey != 'other').toList() : <ShopMarketStoreItem>[];
+    final total = beauty.length;
+    final same = beauty.where((s) => s.chipKey == _category).length;
+    final population = _populationInsight?.populationOk == true ? _populationInsight!.popTotal : null;
     return ColoredBox(
       color: SoriTokens.background,
       child: RefreshIndicator(
@@ -102,7 +115,7 @@ class _CommunityMarketAnalysisPageState
                         child: FilterChip(
                           label: Text(OurAreaCategory.labelOf(key)),
                           selected: _category == key,
-                          onSelected: (_) { setState(() => _category = key); _load(); },
+                          onSelected: (_) => setState(() => _category = key),
                         ),
                       ),
                   ]),
@@ -115,7 +128,7 @@ class _CommunityMarketAnalysisPageState
             else ...[
               if (!available)
                 _glassPanel(child: const Text('상권 데이터를 불러오지 못했습니다. 화면을 아래로 당겨 다시 시도해 주세요.')),
-              _analysisMap(insight),
+              _analysisMap(insight, beauty.where((s) => s.chipKey == _category).toList()),
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(child: _metricCard('주변 샵', available ? '$total곳' : '—', '반경 ${_radiusM >= 1000 ? '${_radiusM ~/ 1000}km' : '${_radiusM}m'}')),
@@ -143,21 +156,21 @@ class _CommunityMarketAnalysisPageState
         child: child,
       );
 
-  Widget _analysisMap(ShopMarketInsight? insight) {
+  Widget _analysisMap(ShopMarketInsight? insight, List<ShopMarketStoreItem> items) {
     final shop = widget.store.shop;
-    final lat = shop.latitude ?? insight?.centerLatitude;
-    final lng = shop.longitude ?? insight?.centerLongitude;
+    final lat = insight?.centerLatitude ?? shop.latitude;
+    final lng = insight?.centerLongitude ?? shop.longitude;
     if (lat == null || lng == null) {
       return _glassPanel(child: const SizedBox(height: 190, child: Center(child: Text('지도 중심 위치를 확인할 수 없습니다.'))));
     }
     final center = LatLng(lat, lng);
-    final items = insight?.storeItems ?? const <ShopMarketStoreItem>[];
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
         height: 300,
         child: Stack(children: [
           FlutterMap(
+            key: ValueKey('analysis-map-$_radiusM'),
             options: MapOptions(initialCenter: center, initialZoom: _radiusM >= 2000 ? 13 : 14),
             children: [
               TileLayer(
