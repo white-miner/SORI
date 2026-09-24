@@ -1318,7 +1318,7 @@ class _ShopDiscoverRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = stores.take(8).toList();
     return SizedBox(
-      height: 104,
+      height: 92,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: shown.length,
@@ -1334,7 +1334,7 @@ class _ShopDiscoverRow extends StatelessWidget {
                 onTap: () => onSelect(item),
                 borderRadius: BorderRadius.circular(18),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1349,7 +1349,7 @@ class _ShopDiscoverRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 4),
                       Text(
                         item.name,
                         maxLines: 1,
