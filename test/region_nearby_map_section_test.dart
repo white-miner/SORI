@@ -377,7 +377,10 @@ void main() {
     expect(find.textContaining('옛골목 9'), findsNothing);
     expect(find.textContaining('현재 제공되지 않음'), findsWidgets);
 
-    await tester.tap(find.byKey(const Key('region-search-back')));
+    // X clears text first, then closes search (back arrow removed).
+    await tester.tap(find.byKey(const Key('region-search-close')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('region-search-close')));
     await tester.pump();
     expect(find.text('네이버에서 샵 찾기'), findsWidgets);
     await tester.drag(find.byKey(const Key('region-shop-list-count')), const Offset(0, -280));

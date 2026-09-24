@@ -132,7 +132,7 @@ abstract final class HomeVisualTokens {
 
   static const caseCardRadius = 20.0;
   static const caseCardFill = Color(0xFFFFFFFF);
-  static const caseCardGap = 12.0;
+  static const caseCardGap = 28.0;
   static const caseCardShadow = BoxShadow(
     color: Color(0x0A000000),
     blurRadius: 30,
