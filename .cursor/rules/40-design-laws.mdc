@@ -1,24 +1,16 @@
 ---
-description: SORI 디자인 절대 규칙 — UI/지도/글래스/색 semantic
+description: SORI UI 필수 기준 — 홈 탭·글꼴, 의미색, 우리지역 지도, 컴팩트 버튼
 globs:
   - "lib/views/**"
   - "lib/widgets/**"
   - "lib/features/**"
-alwaysApply: false
+alwaysApply: true
 ---
 
-# SORI DESIGN LAWS
+# SORI UI 작업 전 필독
 
-전문: `docs/SORI_DESIGN_LAWS.md` — UI 구현 전 필독.
-
-## 즉시 적용
-
-1. 화면 목적 1개 · filled primary CTA 1개
-2. 색: Purple=`SoriTokens.brand`=`#8B5CF6`(홈 「신규 고객」 배경, **변경 금지·다른 보라 hex 금지**) · Blue=GPS/탐색 · Green=완료 · Yellow=확인 · Red/Coral=파괴·세미나 marker
-3. 글래스 = FloatingPillNav · 지도 control · Peek/Half 상단만 (list/form 전체 glass 금지)
-4. press scale 0.97 · map pan/sheet drag/list scroll에 bounce 금지
-5. 우리지역 지도 = Local Bloom · 고객/Visit/매출/경쟁 지표 절대 비노출
-6. 스키마에 없는 상태 UI 발명 금지
-7. sheet drag ≠ tile/marker/API rebuild
-
-구현 전 `docs/SORI_DESIGN_LAWS.md` §13 10문에 답할 것.
+1. `AGENTS.md`와 `docs/SORI_VISUAL_STANDARD.md`를 읽고 실제 화면 소스를 확인한다.
+2. 홈 DESK·CHART·PROGRAMS·FLOW의 상단 탭과 글꼴을 기준으로 한다. 상권분석 지도와 업소 아이콘은 우리지역과 같은 테마를 사용한다.
+3. 브랜드 보라색 기본 사용 금지. 통계의 빨강·노랑·초록은 지표별 좋은 방향과 기준값이 정의된 경우만 사용한다.
+4. 버튼을 불필요하게 키우지 않는다. 지도 업소명 위아래 공간, 360px 화면, 넓은 화면을 렌더링으로 확인한다.
+5. 기존 `docs/SORI_DESIGN_LAWS.md`와 다르면 `docs/SORI_VISUAL_STANDARD.md`가 우선한다.
