@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../features/visit/sori_stage_folder_tabs.dart';
 import 'sori_tokens.dart';
@@ -26,9 +26,10 @@ TabBarThemeData get soriTabBarTheme => const TabBarThemeData(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(width: 3, color: SoriTokens.textCharcoal),
         borderRadius: BorderRadius.all(Radius.circular(999)),
-        insets: EdgeInsets.symmetric(horizontal: 8),
+        insets: EdgeInsets.zero,
       ),
-      indicatorSize: TabBarIndicatorSize.tab,
+      // Label-width underline (Weverse), not full tab slot.
+      indicatorSize: TabBarIndicatorSize.label,
       dividerColor: Colors.transparent,
       dividerHeight: 0,
       labelStyle: TextStyle(
@@ -50,13 +51,14 @@ TabBarThemeData get soriTabBarTheme => const TabBarThemeData(
 ///
 /// Wraps the home component so typography and underline tokens cannot drift.
 /// Optional [badges] are forwarded for red count pills (e.g. director hub).
+/// White rail + mild top inset unify with the logo app-bar row.
 class SoriYoutubeTabBar extends StatelessWidget {
   const SoriYoutubeTabBar({
     super.key,
     required this.controller,
     required this.labels,
     this.badges,
-    this.padding = EdgeInsets.zero,
+    this.padding = const EdgeInsets.only(top: SoriStageFolderTabs.topInset),
   });
 
   final TabController controller;
@@ -68,12 +70,15 @@ class SoriYoutubeTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: padding,
-      child: SoriStageFolderTabs(
-        controller: controller,
-        labels: labels,
-        badges: badges,
+    return ColoredBox(
+      color: SoriTokens.surface,
+      child: Padding(
+        padding: padding,
+        child: SoriStageFolderTabs(
+          controller: controller,
+          labels: labels,
+          badges: badges,
+        ),
       ),
     );
   }

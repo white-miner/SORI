@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../theme/sori_tokens.dart';
 
-/// 사진 피드 위의 텍스트 내비게이션. 기존 controller 계약을 유지한다.
+/// Top-stage text tabs — Weverse-style left-aligned labels + charcoal underline.
+///
+/// Indicator API (ready for real signals only — do not fake):
+/// * [dotIndex] — green live/progress dot (e.g. FLOW care timer).
+/// * [badges] — red unread/new count pills per tab (0/null = hidden). Cap `99+`.
+/// Community 추천/탐색 currently have no unread SSOT; leave [badges] null until
+/// a real source exists. Director hub already wires review badges.
 class SoriStageFolderTabs extends StatefulWidget {
   const SoriStageFolderTabs({
     super.key,
@@ -15,37 +21,42 @@ class SoriStageFolderTabs extends StatefulWidget {
 
   final TabController controller;
 
-  /// 왼쪽부터 순서대로. controller.length와 같은 길이여야 한다.
+  /// Left-to-right labels; length must match [controller.length].
   final List<String> labels;
 
-  /// 라벨별 최소 폭(선택 사항) — 좁은 화면에서도 눌리는 순간 폭이 흔들리지
-  /// 않도록 사전 확보한다. 미지정 시 텍스트 폭 그대로 사용한다.
+  /// Optional per-label minimum widths so press/select does not jitter layout.
   final List<double>? minWidths;
 
-  /// 이 인덱스의 탭 라벨 옆에 작은 초록 점을 붙인다(예: 진행 중 타이머).
-  /// null이면 표시하지 않는다.
+  /// Green live/progress dot on this index (e.g. running FLOW timer). Null = none.
   final int? dotIndex;
 
   /// Optional per-tab badge counts (0 / null entry = hidden). Red count pills.
   final List<int>? badges;
 
   static const double railHeight = 48;
+
+  /// Top breathing room between logo app-bar row and tab rail.
+  static const double topInset = 6;
+
+  /// Total chrome height when [topInset] is applied (e.g. PreferredSize).
+  static const double chromeHeight = railHeight + topInset;
+
   static const double _unselectedHeight = 48;
   static const double _selectedHeight = 48;
-  static const double _sidePad = 12;
-  static const double _hPad = 14;
-  static const double _gap = 4;
-  static const _radius = BorderRadius.only(
-    topLeft: Radius.zero,
-    topRight: Radius.zero,
-  );
 
-  static const _unselectedFill = SoriTokens.surface; // 밝은 종이색.
-  static const _unselectedBorder = SoriTokens.inputBorder;
+  /// Left inset; right side stays open for breathing room (not equal-fit).
+  static const double _sidePad = 16;
+  static const double _hPad = 10;
+
+  /// Gap between intrinsic tabs — Weverse-style breathing, not equal slots.
+  static const double _gap = 18;
+
   static const _unselectedText = Color(0xFF6E6E73);
-  static const _selectedFill = SoriTokens.surface; // LOCKED SORI purple.
   static const _selectedText = SoriTokens.textCharcoal;
   static const _hairline = Colors.transparent;
+
+  /// Labels that get a very light personality tweak (community 우리지역 only).
+  static const _personalityLabels = {'우리지역'};
 
   static const _unselectedStyle = TextStyle(
     fontSize: 15,
@@ -61,6 +72,16 @@ class SoriStageFolderTabs extends StatefulWidget {
     height: 1.2,
     letterSpacing: 0.6,
   );
+
+  /// Subtle local-tab personality — slightly tighter tracking, charcoal kept.
+  static TextStyle _styleFor(String label, {required bool selected}) {
+    final base = selected ? _selectedStyle : _unselectedStyle;
+    if (!_personalityLabels.contains(label)) return base;
+    return base.copyWith(
+      letterSpacing: selected ? 0.15 : 0.25,
+      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+    );
+  }
 
   @override
   State<SoriStageFolderTabs> createState() => _SoriStageFolderTabsState();
@@ -102,7 +123,10 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
     final scaler = MediaQuery.textScalerOf(context);
 
     final textWidths = [
-      for (var i = 0; i < n; i++) _labelWidth(labels[i], scaler, i),
+      for (var i = 0; i < n; i++) _labelTextWidth(labels[i], scaler),
+    ];
+    final contentWidths = [
+      for (var i = 0; i < n; i++) _contentWidth(textWidths[i], i),
     ];
 
     return LayoutBuilder(
@@ -111,10 +135,8 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
         final raw = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : viewW;
-        // 제약이 뷰포트보다 넓게 잡히는 경우(클립 없음 Stack) Flow가
-        // 화면 밖으로 나가 탭이 미스가 난다 — 뷰포트 폭으로 상한을 건다.
         final maxWidth = raw < viewW ? raw : viewW;
-        final layout = _tabWidths(textWidths, maxWidth);
+        final layout = _tabWidths(contentWidths, maxWidth);
         final widths = layout.widths;
         final gap = layout.gap;
 
@@ -126,7 +148,6 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
         }
 
         final children = <Widget>[
-          // 1) rail 전체를 가로지르는 1dp 하단 hairline — 서류철이 놓인 선반.
           const Positioned(
             key: Key('sori-stage-tabs-hairline'),
             left: 0,
@@ -137,29 +158,36 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
           ),
         ];
 
-        // 2) 비선택 탭 먼저 그린다 — rail 위에 조용히 앉아 있는 상태.
         for (var i = 0; i < n; i++) {
           if (i == selectedIndex) continue;
           children.add(
-            _tab(index: i, left: lefts[i], width: widths[i], selected: false),
+            _tab(
+              index: i,
+              left: lefts[i],
+              width: widths[i],
+              underlineWidth: textWidths[i],
+              selected: false,
+            ),
           );
         }
 
-        // 3) 선택된 탭을 맨 마지막(가장 앞 z-order)에 그린다 — rail
-        //    하단선을 1dp 덮으며 튀어 오른 파일 탭.
         children.add(
           _tab(
             index: selectedIndex,
             left: lefts[selectedIndex],
             width: widths[selectedIndex],
+            underlineWidth: textWidths[selectedIndex],
             selected: true,
           ),
         );
 
-        return SizedBox(
-          width: double.infinity,
-          height: SoriStageFolderTabs.railHeight,
-          child: Stack(clipBehavior: Clip.none, children: children),
+        return ColoredBox(
+          color: SoriTokens.surface,
+          child: SizedBox(
+            width: double.infinity,
+            height: SoriStageFolderTabs.railHeight,
+            child: Stack(clipBehavior: Clip.none, children: children),
+          ),
         );
       },
     );
@@ -169,15 +197,16 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
     required int index,
     required double left,
     required double width,
+    required double underlineWidth,
     required bool selected,
   }) {
     final height = selected
         ? SoriStageFolderTabs._selectedHeight
         : SoriStageFolderTabs._unselectedHeight;
-    // 선택 탭만 rail 하단선을 1dp 덮으며 겹친다. 비선택 탭은 선 바로
-    // 위에서 멈춘다(자체 아래 테두리 없음 — hairline이 선반 역할).
     final bottom = selected ? 0.0 : 1.0;
     final pressed = _pressedIndex == index;
+    final label = widget.labels[index];
+    final style = SoriStageFolderTabs._styleFor(label, selected: selected);
 
     return Positioned(
       key: Key('sori-stage-tab-$index'),
@@ -188,7 +217,7 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
       child: Semantics(
         button: true,
         selected: selected,
-        label: widget.labels[index],
+        label: label,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (_) => setState(() => _pressedIndex = index),
@@ -196,7 +225,6 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
           onTapCancel: () => setState(() => _pressedIndex = null),
           onTap: () {
             if (widget.controller.index != index) {
-              // 테스트·좁은 화면에서도 즉시 전환. 애니메이션 중 탭 유실 방지.
               widget.controller.index = index;
             }
           },
@@ -210,7 +238,7 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
               curve: Curves.easeOut,
               width: width,
               height: height,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 color: pressed
                     ? SoriTokens.textCharcoal.withValues(alpha: 0.04)
@@ -220,18 +248,17 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Flexible(
                         child: Text(
-                          widget.labels[index],
+                          label,
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: selected
-                              ? SoriStageFolderTabs._selectedStyle
-                              : SoriStageFolderTabs._unselectedStyle,
+                          style: style,
                         ),
                       ),
                       if (widget.dotIndex == index) ...[
@@ -272,9 +299,10 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
                   ),
                   const SizedBox(height: 7),
                   AnimatedContainer(
+                    key: Key('sori-stage-tab-underline-$index'),
                     duration: const Duration(milliseconds: 160),
                     curve: Curves.easeOut,
-                    width: selected ? _max(0, width - 16) : 0,
+                    width: selected ? underlineWidth : 0,
                     height: 3,
                     decoration: BoxDecoration(
                       color: selected
@@ -292,80 +320,64 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
     );
   }
 
-  double _labelWidth(String label, TextScaler scaler, int index) {
+  /// Pure label glyph width (underline target) — excludes dots/badges.
+  double _labelTextWidth(String label, TextScaler scaler) {
+    final style = SoriStageFolderTabs._styleFor(label, selected: true);
     final painter = TextPainter(
-      // 선택 시 더 크고 굵은 스타일을 쓰므로, 그 폭을 기준으로 레이아웃해야
-      // 선택되는 순간 좁아서 잘리는 일이 없다.
-      text: TextSpan(text: label, style: SoriStageFolderTabs._selectedStyle),
+      text: TextSpan(text: label, style: style),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
       maxLines: 1,
     )..layout();
-    var width = painter.size.width;
+    return painter.size.width;
+  }
+
+  /// Tab slot content width: label + optional dot/badge + horizontal pad.
+  double _contentWidth(double textWidth, int index) {
+    var width = textWidth;
     if (widget.dotIndex == index) width += 11;
     final badge = _badgeCount(index);
     if (badge > 0) {
       final digits = badge > 99 ? 3 : '$badge'.length;
       width += 5 + 12 + digits * 6.0;
     }
+    width += SoriStageFolderTabs._hPad * 2;
     final minWidths = widget.minWidths;
     if (minWidths != null && index < minWidths.length) {
-      width = _max(width, minWidths[index] - 16);
+      width = _max(width, minWidths[index]);
     }
     return width;
   }
 
+  /// Intrinsic left-aligned widths. Grow is NOT distributed across the viewport.
+  /// Only shrink (and tighten gap) when content would overflow.
   ({List<double> widths, double gap}) _tabWidths(
-    List<double> textWidths,
+    List<double> contentMins,
     double maxWidth,
   ) {
-    final n = textWidths.length;
+    final n = contentMins.length;
     var gap = SoriStageFolderTabs._gap;
-    final minWidths = widget.minWidths;
 
-    // 각 탭의 콘텐츠 최소 폭(텍스트 + 좌우 패딩, 또는 전달된 minWidth).
-    final contentMins = [
-      for (var i = 0; i < n; i++)
-        _max(
-          textWidths[i] + 16, // horizontal padding 8*2
-          minWidths != null && i < minWidths.length ? minWidths[i] : 0,
-        ),
-    ];
-
-    // 좌·우 sidePad를 모두 확보한 뒤 남는 폭에 탭을 넣는다.
     double spanFor(double g) =>
         maxWidth - SoriStageFolderTabs._sidePad * 2 - g * (n - 1);
 
     var available = spanFor(gap);
-    while (available < contentMins.fold<double>(0, (a, b) => a + b) &&
-        gap > 0) {
+    final minSum = contentMins.fold<double>(0, (a, b) => a + b);
+
+    while (available < minSum && gap > 6) {
       gap -= 1;
       available = spanFor(gap);
     }
 
-    final minSum = contentMins.fold<double>(0, (a, b) => a + b);
     final widths = List<double>.from(contentMins);
-    if (minSum <= available && minSum > 0) {
-      final grow = available - minSum;
-      for (var i = 0; i < n; i++) {
-        widths[i] += grow * (contentMins[i] / minSum);
-      }
-    } else if (minSum > available && minSum > 0) {
+    if (minSum > available && minSum > 0) {
       final scale = available / minSum;
       for (var i = 0; i < n; i++) {
         widths[i] = contentMins[i] * scale;
       }
     }
+    // else: keep intrinsic widths — left-aligned, right breathing room.
 
-    // 안전: 마지막 탭 오른쪽이 뷰포트 안에 남도록 합을 재클램프.
-    final sum = widths.fold<double>(0, (a, b) => a + b);
-    final limit = spanFor(gap);
-    if (sum > limit && sum > 0) {
-      final scale = limit / sum;
-      for (var i = 0; i < n; i++) {
-        widths[i] *= scale;
-      }
-    }
     return (widths: widths, gap: gap);
   }
 

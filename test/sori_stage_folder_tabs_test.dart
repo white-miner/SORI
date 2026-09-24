@@ -6,13 +6,13 @@ import 'package:sori/theme/sori_tokens.dart';
 const _labels = ['DESK', 'CHART', 'PROGRAMS', 'FLOW'];
 const _minWidths = [80.0, 84.0, 116.0, 80.0];
 
-/// 테스트 전용 host — SoriStageFolderTabs는 자체 TabController를 만들지
-/// 않고 밖에서 받으므로, vsync 제공용 StatefulWidget으로 감싼다.
+/// Test host — SoriStageFolderTabs takes an external TabController.
 class _Host extends StatefulWidget {
-  const _Host({this.dotIndex, this.onController});
+  const _Host({this.dotIndex, this.onController, this.labels = _labels});
 
   final int? dotIndex;
   final ValueChanged<TabController>? onController;
+  final List<String> labels;
 
   @override
   State<_Host> createState() => _HostState();
@@ -24,7 +24,7 @@ class _HostState extends State<_Host> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: _labels.length, vsync: this);
+    _tabs = TabController(length: widget.labels.length, vsync: this);
     widget.onController?.call(_tabs);
   }
 
@@ -40,8 +40,8 @@ class _HostState extends State<_Host> with SingleTickerProviderStateMixin {
       home: Scaffold(
         body: SoriStageFolderTabs(
           controller: _tabs,
-          labels: _labels,
-          minWidths: _minWidths,
+          labels: widget.labels,
+          minWidths: widget.labels == _labels ? _minWidths : null,
           dotIndex: widget.dotIndex,
         ),
       ),
@@ -54,8 +54,10 @@ AnimatedContainer _fillOf(WidgetTester tester, int index) =>
       find.byKey(Key('sori-stage-tab-fill-$index')),
     );
 
-BoxDecoration _decorationOf(WidgetTester tester, int index) =>
-    _fillOf(tester, index).decoration! as BoxDecoration;
+AnimatedContainer _underlineOf(WidgetTester tester, int index) =>
+    tester.widget<AnimatedContainer>(
+      find.byKey(Key('sori-stage-tab-underline-$index')),
+    );
 
 void main() {
   for (final width in [320.0, 430.0, 1024.0]) {
@@ -83,15 +85,27 @@ void main() {
     expect(find.byKey(const Key('sori-stage-tabs-hairline')), findsOneWidget);
   });
 
-  testWidgets('선택 탭은 밑줄로 구분하며 비선택 탭은 투명 밑줄이다', (tester) async {
+  testWidgets('선택 탭 밑줄은 라벨 폭이며 charcoal, 비선택은 폭 0', (tester) async {
     await tester.pumpWidget(const _Host());
-    final selected = _decorationOf(tester, 0);
-    expect(selected.color, SoriTokens.surface);
-    expect((selected.border! as Border).bottom.color, SoriTokens.textCharcoal);
-    expect((_decorationOf(tester, 1).border! as Border).bottom.color, Colors.transparent);
+    await tester.pump();
+
+    final selected = _underlineOf(tester, 0);
+    final unselected = _underlineOf(tester, 1);
+    final selectedDeco = selected.decoration! as BoxDecoration;
+    expect(selectedDeco.color, SoriTokens.textCharcoal);
+    // Selected underline uses intrinsic label width (not full tab slot - 16).
+    final selectedSize =
+        tester.getSize(find.byKey(const Key('sori-stage-tab-underline-0')));
+    final unselectedSize =
+        tester.getSize(find.byKey(const Key('sori-stage-tab-underline-1')));
+    expect(selectedSize.width, greaterThan(20));
+    expect(selectedSize.width, lessThan(80));
+    final unselectedDeco = unselected.decoration! as BoxDecoration;
+    expect(unselectedDeco.color, Colors.transparent);
+    expect(unselectedSize.width, 0);
   });
 
-  testWidgets('탭을 누르면 controller.index가 바뀌고 채움 색이 함께 이동한다', (tester) async {
+  testWidgets('탭을 누르면 controller.index가 바뀌고 밑줄이 함께 이동한다', (tester) async {
     TabController? controller;
     await tester.pumpWidget(_Host(onController: (c) => controller = c));
     await tester.pump();
@@ -101,28 +115,50 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller!.index, 1);
-    // 이제 index 1이 보라색 채움, index 0은 종이색으로 돌아간다 — 선택됐다고
-    // 전부 보라로 통일되지 않는다는 요구사항을 동일 계열로 재확인.
-    expect((_decorationOf(tester, 1).border! as Border).bottom.color, SoriTokens.textCharcoal);
-    expect(_decorationOf(tester, 0).color, SoriTokens.surface);
+    expect(
+      (_underlineOf(tester, 1).decoration! as BoxDecoration).color,
+      SoriTokens.textCharcoal,
+    );
+    expect(
+      (_underlineOf(tester, 0).decoration! as BoxDecoration).color,
+      Colors.transparent,
+    );
   });
 
   testWidgets('dotIndex가 지정된 탭에만 진행 표시 점이 붙는다', (tester) async {
     await tester.pumpWidget(const _Host(dotIndex: 3));
     await tester.pump();
 
-    final flowFill = tester.widget<AnimatedContainer>(
-      find.byKey(const Key('sori-stage-tab-fill-3')),
-    );
-    final flowRow = flowFill.child! as Row;
-    // Flow(3)는 Flexible(라벨) + 간격 SizedBox + 점 Container = 3개 children.
+    final flowFill = _fillOf(tester, 3);
+    final flowColumn = flowFill.child! as Column;
+    final flowRow = flowColumn.children.first as Row;
+    // Flow(3): Flexible(label) + gap + green dot.
     expect(flowRow.children.length, 3);
 
-    final deskFill = tester.widget<AnimatedContainer>(
-      find.byKey(const Key('sori-stage-tab-fill-0')),
-    );
-    final deskRow = deskFill.child! as Row;
-    // Desk(0)는 점 없이 Flexible(라벨)만 = 1개 child.
+    final deskFill = _fillOf(tester, 0);
+    final deskColumn = deskFill.child! as Column;
+    final deskRow = deskColumn.children.first as Row;
     expect(deskRow.children.length, 1);
+  });
+
+  testWidgets('탭은 뷰포트 equal-fit이 아니라 왼쪽 정렬 고유 폭을 쓴다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      const _Host(labels: ['추천', '탐색', '우리지역', '상권분석']),
+    );
+    await tester.pump();
+
+    final first = tester.getRect(find.byKey(const Key('sori-stage-tab-0')));
+    final last = tester.getRect(find.byKey(const Key('sori-stage-tab-3')));
+    // Left-aligned: first tab near side pad; last tab leaves right breathing room.
+    expect(first.left, lessThan(24));
+    expect(last.right, lessThan(800 - 80));
+    // Slots are intrinsic — not equal-fit across the viewport.
+    final widths = [
+      for (var i = 0; i < 4; i++)
+        tester.getRect(find.byKey(Key('sori-stage-tab-$i'))).width,
+    ];
+    expect(widths.toSet().length, greaterThan(1));
   });
 }

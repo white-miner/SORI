@@ -960,11 +960,14 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
         children: [
           Column(
             children: [
-              SoriStageFolderTabs(
-                controller: _tabs,
-                labels: _kHomeStageLabels,
-                minWidths: _kHomeStageMinWidths,
-                dotIndex: careRunning ? HomeTab.timer.index : null,
+              Padding(
+                padding: const EdgeInsets.only(top: SoriStageFolderTabs.topInset),
+                child: SoriStageFolderTabs(
+                  controller: _tabs,
+                  labels: _kHomeStageLabels,
+                  minWidths: _kHomeStageMinWidths,
+                  dotIndex: careRunning ? HomeTab.timer.index : null,
+                ),
               ),
               Expanded(
                 child: _loading

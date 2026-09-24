@@ -354,7 +354,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(54),
           child: SoriYoutubeTabBar(
             controller: _tabs,
             labels: const ['타임라인', '사진', '결제'],

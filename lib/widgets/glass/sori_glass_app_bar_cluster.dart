@@ -21,6 +21,9 @@ class SoriGlassAppBarItem {
 
 /// AppBar action cluster — **blur 없음** (PillNav가 화면당 glass 1개).
 /// 반투명 fill + border만으로 floating tool 인상 유지.
+///
+/// Visual weight is intentionally light: thin padding, 40dp hit targets,
+/// 20dp icons — actions stay, chrome recedes.
 class SoriGlassAppBarCluster extends StatelessWidget {
   const SoriGlassAppBarCluster({
     super.key,
@@ -35,9 +38,9 @@ class SoriGlassAppBarCluster extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       tier: SoriGlassTier.l2Control,
       enableBlur: false,
-      fill: Colors.white.withValues(alpha: 0.92),
+      fill: Colors.white.withValues(alpha: 0.88),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -93,8 +96,8 @@ class _ClusterIconButtonState extends State<_ClusterIconButton> {
           highlightColor: SoriTokens.brand.withValues(alpha: 0.06),
           child: AnimatedContainer(
             duration: Duration(milliseconds: SoriTokens.motionReleaseMs),
-            width: 48,
-            height: 48,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: highlight
@@ -103,7 +106,7 @@ class _ClusterIconButtonState extends State<_ClusterIconButton> {
             ),
             child: Icon(
               widget.icon,
-              size: 22,
+              size: 20,
               color: highlight ? SoriTokens.brand : SoriTokens.textPrimary,
             ),
           ),
@@ -116,7 +119,7 @@ class _ClusterIconButtonState extends State<_ClusterIconButton> {
         backgroundColor: SoriTokens.systemRed,
         offset: const Offset(2, 2),
         label: Text(
-          widget.badgeCount > 9 ? '9+' : '${widget.badgeCount}',
+          widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}',
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,

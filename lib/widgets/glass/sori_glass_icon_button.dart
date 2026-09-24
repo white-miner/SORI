@@ -44,7 +44,7 @@ class SoriGlassIconButton extends StatelessWidget {
         backgroundColor: SoriTokens.systemRed,
         offset: const Offset(6, -4),
         label: Text(
-          badgeCount > 9 ? '9+' : '$badgeCount',
+          badgeCount > 99 ? '99+' : '$badgeCount',
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
