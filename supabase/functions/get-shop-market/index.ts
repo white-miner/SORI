@@ -798,9 +798,33 @@ async function resolveAddressWithKakao(address: string): Promise<{
     const searchRes = await fetch(searchUrl, {
       headers: { Authorization: `KakaoAK ${key}` },
     });
-    const searchJson = await searchRes.json();
-    const doc = searchJson?.documents?.[0];
-    if (!doc) return { ok: false, error: "address_not_found" };
+    const searchText = await searchRes.text();
+    let searchJson: Record<string, unknown> = {};
+    try { searchJson = JSON.parse(searchText); } catch {
+      return {
+        ok: false,
+        error: "kakao_non_json",
+        debug: { http_status: searchRes.status, body_prefix: searchText.slice(0, 120) },
+      };
+    }
+    if (!searchRes.ok) {
+      return {
+        ok: false,
+        error: "kakao_http_" + searchRes.status,
+        debug: {
+          http_status: searchRes.status,
+          msg: String((searchJson as {message?: unknown}).message ?? (searchJson as {error?: unknown}).error ?? "").slice(0, 200),
+          error_type: String((searchJson as {errorType?: unknown}).errorType ?? "").slice(0, 80),
+        },
+      };
+    }
+    const docs = (searchJson as {documents?: unknown[]}).documents ?? [];
+    const doc = docs[0] as Record<string, unknown> | undefined;
+    if (!doc) return {
+      ok: false,
+      error: "address_not_found",
+      debug: { http_status: searchRes.status, document_count: docs.length },
+    };
 
     const lat = Number(doc.y);
     const lng = Number(doc.x);
@@ -808,8 +832,11 @@ async function resolveAddressWithKakao(address: string): Promise<{
       return { ok: false, error: "bad_coords" };
     }
 
-    let admCd = String(doc.address?.h_code ?? "").trim();
-    let dongName = String(doc.address?.region_3depth_name ?? "").trim();
+    const addrMap = (doc.address && typeof doc.address === "object")
+      ? doc.address as Record<string, unknown>
+      : null;
+    let admCd = String(addrMap?.h_code ?? "").trim();
+    let dongName = String(addrMap?.region_3depth_name ?? "").trim();
 
     if (!admCd) {
       const regionUrl =
@@ -862,23 +889,160 @@ function regionOf(text: string): string {
   const first = text.trim().split(/\s+/)[0] ?? "";
   return regionAliases[first] ?? (/^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)$/.test(first) ? first : "");
 }
+// data.go.kr 서비스들은 성공 시 스키마가 제각각이다(최상위 평면형 /
+// {header,body} 평면형 / {response:{header,body}} 중첩형). 이 파일의
+// stores API(headerResultCode·readTotalCount)도 이미 top-level과
+// response.* 두 형태를 모두 받아들이도록 되어 있다 — 같은 패턴을
+// franchise_sales에도 동일하게 적용한다. 이 함수는 "무엇을 성공으로
+// 볼지"를 넓히는 것이 아니라 "성공 코드가 어디에 있는지"만 넓게 찾는다.
+function franchiseResultInfo(
+  payload: unknown,
+): { code: string; msg: string; headerAt: string } {
+  if (!payload || typeof payload !== "object") {
+    return { code: "", msg: "", headerAt: "none" };
+  }
+  const root = payload as Record<string, unknown>;
+  const nestedHeader = (root.response as Record<string, unknown> | undefined)
+    ?.header as Record<string, unknown> | undefined;
+  const topHeader = root.header as Record<string, unknown> | undefined;
+  const cmmHeader = root.cmmMsgHeader as Record<string, unknown> | undefined;
+  // data.go.kr의 구형 게이트웨이 오류 포맷: 인증/키/요청 파라미터 문제일 때
+  // HTTP 403과 함께 { OpenAPI_ServiceResponse: { cmmMsgHeader: {...} } }를
+  // 반환한다 (returnReasonCode/errMsg/returnAuthMsg). resultCode라는 키
+  // 자체가 없으므로 별도로 찾아야 한다.
+  const gatewayHeader = (
+    root.OpenAPI_ServiceResponse as Record<string, unknown> | undefined
+  )?.cmmMsgHeader as Record<string, unknown> | undefined;
+  let headerAt = "none";
+  if (root.resultCode !== undefined) headerAt = "top";
+  else if (topHeader?.resultCode !== undefined) headerAt = "header";
+  else if (nestedHeader?.resultCode !== undefined) headerAt = "response.header";
+  else if (cmmHeader?.resultCode !== undefined) headerAt = "cmmMsgHeader";
+  else if (gatewayHeader?.returnReasonCode !== undefined) {
+    headerAt = "OpenAPI_ServiceResponse.cmmMsgHeader";
+  }
+  const code = String(
+    root.resultCode ??
+      topHeader?.resultCode ??
+      nestedHeader?.resultCode ??
+      cmmHeader?.resultCode ??
+      gatewayHeader?.returnReasonCode ??
+      "",
+  ).trim();
+  const msg = String(
+    root.resultMsg ??
+      topHeader?.resultMsg ??
+      nestedHeader?.resultMsg ??
+      cmmHeader?.resultMsg ??
+      gatewayHeader?.errMsg ??
+      gatewayHeader?.returnAuthMsg ??
+      "",
+  ).trim();
+  return { code, msg, headerAt };
+}
+// 성공 판정에는 쓰지 않는다 — 이미 실패로 확정된 결과를 data.go.kr
+// 공통 오류코드/메시지로 분류하는 라벨링 전용 함수.
+function classifyFranchiseError(code: string, msg: string): string {
+  const m = msg.toUpperCase();
+  if (
+    ["20", "22", "30", "31", "32"].includes(code) ||
+    /ACCESS_DENIED|SERVICE_KEY_IS_NOT_REGISTERED|UNREGISTERED|DEADLINE_HAS_EXPIRED|LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS/
+      .test(m)
+  ) {
+    return "auth_or_permission";
+  }
+  if (
+    ["10", "11", "12", "99"].includes(code) ||
+    /INVALID_REQUEST_PARAMETER|NO_MANDATORY_REQUEST_PARAMETERS|NO_OPENAPI_SERVICE/
+      .test(m)
+  ) {
+    return "invalid_request";
+  }
+  return "unexpected_shape";
+}
+// 안전한 진단 정보만 — 서비스키·매출 원본 금액은 절대 담지 않는다.
+type FranchiseDiag = {
+  year: string;
+  http_status: number;
+  top_level_keys: string[];
+  result_code: string;
+  result_code_at: string;
+  result_msg: string;
+  items_found_at: string;
+  raw_item_count: number;
+};
 async function franchiseSales(address: string) {
   const source = "공정거래위원회 가맹정보 지역별 서비스업 평균매출";
   const region = regionOf(address);
-  const key = Deno.env.get("FTC_FRANCHISE_SALES_SERVICE_KEY")?.trim() ?? "";
+  // data.go.kr issues both encoded and decoded keys; encode exactly once via URLSearchParams.
+  let key = Deno.env.get("FTC_FRANCHISE_SALES_SERVICE_KEY")?.trim() ?? "";
+  try { key = decodeURIComponent(key); } catch { /* already decoded */ }
   if (!region) return { ok:false, error:"region_required", source, rows:[] as FranchiseSale[] };
   if (!key) return { ok:false, error:"missing_FTC_FRANCHISE_SALES_SERVICE_KEY", source, rows:[] as FranchiseSale[] };
   let error = "no_matching_data";
+  let lastDiag: FranchiseDiag | null = null;
   for (let year = new Date().getUTCFullYear() - 1; year >= new Date().getUTCFullYear() - 5; year--) {
     const url = new URL("https://apis.data.go.kr/1130000/FftcAreaIndutyAvrStatsService/getAreaIndutyAvrSrvcStats");
     for (const [k,v] of Object.entries({ serviceKey:key, pageNo:"1", numOfRows:"1000", resultType:"json", yr:String(year) })) url.searchParams.set(k,v);
     try {
       const res = await fetch(url, { signal:AbortSignal.timeout(8000) });
-      const payload = await res.json();
-      if (!res.ok || !["00","0","NORMAL_SERVICE"].includes(String(payload?.resultCode ?? ""))) { error = "upstream_error"; continue; }
-      const raw = payload?.items?.item ?? payload?.items ?? [];
+      const text = await res.text();
+      // deno-lint-ignore no-explicit-any
+      let payload: any;
+      try { payload = JSON.parse(text); } catch {
+        error = "unexpected_shape";
+        lastDiag = {
+          year: String(year), http_status: res.status, top_level_keys: [],
+          result_code: "", result_code_at: "none", result_msg: "",
+          items_found_at: "none", raw_item_count: 0,
+        };
+        continue;
+      }
+      const root: Record<string, unknown> =
+        payload && typeof payload === "object" ? payload : {};
+      const { code, msg, headerAt } = franchiseResultInfo(payload);
+      const isSuccess = res.ok && ["00", "0", "NORMAL_SERVICE"].includes(code);
+
+      const topBody = root.body as Record<string, unknown> | undefined;
+      const nestedBody = (root.response as Record<string, unknown> | undefined)?.body as
+        | Record<string, unknown>
+        | undefined;
+      let itemsFoundAt = "none";
+      // deno-lint-ignore no-explicit-any
+      let raw: any = [];
+      if ((topBody?.items as Record<string, unknown> | undefined)?.item !== undefined) {
+        raw = (topBody!.items as Record<string, unknown>).item; itemsFoundAt = "body.items.item";
+      } else if (topBody?.items !== undefined) {
+        raw = topBody!.items; itemsFoundAt = "body.items";
+      } else if ((nestedBody?.items as Record<string, unknown> | undefined)?.item !== undefined) {
+        raw = (nestedBody!.items as Record<string, unknown>).item; itemsFoundAt = "response.body.items.item";
+      } else if (nestedBody?.items !== undefined) {
+        raw = nestedBody!.items; itemsFoundAt = "response.body.items";
+      } else if ((root.items as Record<string, unknown> | undefined)?.item !== undefined) {
+        raw = (root.items as Record<string, unknown>).item; itemsFoundAt = "items.item";
+      } else if (root.items !== undefined) {
+        raw = root.items; itemsFoundAt = "items";
+      }
+      const rawArr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+
+      lastDiag = {
+        year: String(year), http_status: res.status,
+        top_level_keys: Object.keys(root).slice(0, 20),
+        result_code: code, result_code_at: headerAt, result_msg: msg.slice(0, 200),
+        items_found_at: itemsFoundAt, raw_item_count: rawArr.length,
+      };
+
+      if (!isSuccess) {
+        // 코드를 찾았다면(HTTP 상태와 무관하게) 원인을 분류한다. data.go.kr
+        // 게이트웨이는 인증/파라미터 오류를 HTTP 403 + 오류 바디로 함께
+        // 내려주므로, res.ok만으로 "그냥 서버 문제"로 뭉뜥그려지 않는다.
+        error = code
+          ? classifyFranchiseError(code, msg)
+          : (res.ok ? "unexpected_shape" : "upstream_unavailable");
+        continue;
+      }
       const rows: FranchiseSale[] = [];
-      for (const item of (Array.isArray(raw) ? raw : [raw])) {
+      for (const item of rawArr) {
         if (!item || typeof item !== "object") continue;
         const industry = String(item.indutyMlsfcNm ?? "").trim();
         const amount = Number(String(item.arUnitAvrgSlsAmt ?? "").replace(/,/g,""));
@@ -893,7 +1057,7 @@ async function franchiseSales(address: string) {
       error = "no_matching_beauty_rows";
     } catch { error = "upstream_unavailable"; }
   }
-  return { ok:false, source, region, error, rows:[] as FranchiseSale[] };
+  return { ok:false, source, region, error, rows:[] as FranchiseSale[], debug: lastDiag };
 }
 
 Deno.serve(async (req) => {
@@ -1036,4 +1200,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
