@@ -615,13 +615,15 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     _snapSheet(0.62);
   }
 
-  void _snapSheet(double size) {
-    if (!_sheetController.isAttached) return;
-    _sheetController.animateTo(
-      size,
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOut,
-    );
+  void _snapSheet(double size, {bool retry = true}) {
+    if (!_sheetController.isAttached) {
+      if (!retry || !mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _snapSheet(size, retry: false);
+      });
+      return;
+    }
+    _sheetController.jumpTo(size);
   }
 
   void _openSearch() {
@@ -1995,6 +1997,15 @@ class _ShopResultSheet extends StatelessWidget {
             key: const Key('region-shop-list-count'),
             style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk),
           ),
+          if (selected != null && !loading && error == null && hasLocation) ...[
+            const SizedBox(height: 8),
+            _SelectedShopGlass(
+              item: selected!,
+              sourceText: sourceText,
+              queryTimeText: queryTimeText,
+              onClose: onClearSelection,
+            ),
+          ],
           if (!loading && error == null && hasLocation && shown.isNotEmpty) ...[
             const SizedBox(height: 12),
             _ShopDiscoverRow(stores: shown, onSelect: onSelect),
@@ -2037,15 +2048,6 @@ class _ShopResultSheet extends StatelessWidget {
             if (softError != null) ...[
               const SizedBox(height: 8),
               Text(softError!, style: const TextStyle(fontSize: 13)),
-            ],
-            if (selected != null) ...[
-              const SizedBox(height: 8),
-              _SelectedShopGlass(
-                item: selected!,
-                sourceText: sourceText,
-                queryTimeText: queryTimeText,
-                onClose: onClearSelection,
-              ),
             ],
             const SizedBox(height: 8),
             if (shown.isEmpty)

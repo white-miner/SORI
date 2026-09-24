@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/services/shop_market_service.dart';
 import 'package:sori/services/sori_store.dart';
@@ -10,6 +11,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('phone layout keeps chips, search, sheet, and nav apart', (tester) async {
+    final semantics = tester.ensureSemantics();
     const centerLat = 35.856;
     const centerLng = 129.224;
     ShopMarketStoreItem shop({
@@ -80,7 +82,11 @@ void main() {
       MaterialApp(
         home: Scaffold(
           extendBody: true,
-          body: RegionNearbyMapSection(
+          body: Semantics(
+            label: '우리지역. 가까운 뷰티샵을 찾고, 나에게 맞는 곳을 만나세요.',
+            container: true,
+            explicitChildNodes: true,
+            child: RegionNearbyMapSection(
               store: store,
               radiusKm: 1,
               nearbyLoader: ({
@@ -90,6 +96,7 @@ void main() {
                 bool force = false,
               }) async => data,
             ),
+          ),
           bottomNavigationBar: FloatingPillNav(
             currentIndex: 3,
             isDirector: true,
@@ -139,10 +146,34 @@ void main() {
     await tester.pump();
     expect(find.text('밝은피부'), findsWidgets);
 
+    SemanticsNode? fieldNode;
+    void walk(SemanticsNode node) {
+      final data = node.getSemanticsData();
+      if (node.rect.height > 0 && node.rect.height < 120 && data.label.contains('업종')) {
+        fieldNode = node;
+      }
+      node.visitChildren((child) {
+        walk(child);
+        return true;
+      });
+    }
+
+    walk(tester.getSemantics(find.byKey(const Key('region-shop-search'))));
+    expect(fieldNode, isNotNull);
+    expect(fieldNode!.rect.height, lessThan(120));
+
     await tester.tap(find.byKey(const Key('region-search-hit-밝은피부')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.byTooltip('선택 닫기'), findsOneWidget);
-    expect(find.text('지번 황오동 1'), findsOneWidget);
+    final facts = tester.getRect(find.text('지번 황오동 1'));
+    final count = tester.getRect(find.byKey(const Key('region-shop-list-count')));
+    expect(
+      facts.bottom,
+      lessThan(nav.top),
+      reason: 'facts=$facts count=$count navTop=${nav.top}',
+    );
+    expect(facts.top, greaterThan(chips.bottom));
+    semantics.dispose();
   });
 }

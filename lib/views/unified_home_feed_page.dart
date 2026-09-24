@@ -962,6 +962,8 @@ class _SimpleFeedTabState extends State<_SimpleFeedTab>
             hasScrollBody: true,
             child: Semantics(
               label: '${widget.title}. ${widget.subtitle}',
+              container: true,
+              explicitChildNodes: true,
               child: RegionNearbyMapSection(
               store: widget.store,
               radiusKm: widget.regionRadiusKm,
