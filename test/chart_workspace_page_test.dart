@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sori/features/chart_visit/chart_visit_home_page.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/views/chart_workspace/chart_index_label.dart';
@@ -58,6 +59,10 @@ void main() {
     }
     // 화면 중앙을 채우던 구 빈 상태 배너는 사라졌다.
     expect(find.text('파일을 선택하거나 신규로 등록하세요'), findsNothing);
+    // 미선택 시 조용한 안내만 — 임베디드 방문 홈은 아직 없다.
+    expect(find.text('서랍에서 파일을 선택하세요'), findsOneWidget);
+    expect(find.byType(ChartVisitHomePage), findsNothing);
+    expect(find.byKey(const Key('chart-visit-start')), findsNothing);
   });
 
   testWidgets('selecting file shows document strip and visit rail', (
@@ -95,6 +100,56 @@ void main() {
     expect(find.text('오늘 방문'), findsOneWidget);
     expect(find.text(customer.name), findsWidgets);
   });
+
+  // Characterization: drawer → file → embedded ChartVisitHomePage + CTA key.
+  // Locks current bind path before empty-desk default (Phase 1).
+  testWidgets(
+    'file select embeds ChartVisitHomePage with chart-visit-start CTA',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = SoriStore();
+      final customer = store.customers.first;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ChartWorkspacePage(store: store)),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(ChartVisitHomePage), findsNothing);
+
+      await tester.tap(find.byKey(Key('chart-file-file-${customer.id}')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(ChartVisitHomePage), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-home')), findsOneWidget);
+      expect(find.byKey(const Key('chart-visit-start')), findsOneWidget);
+      expect(find.text(customer.name), findsWidgets);
+      // 서랍/파일 rail은 선택 후에도 유지 (현재 기본 경로).
+      expect(find.byKey(const Key('chart-drawer-rail')), findsOneWidget);
+      expect(find.byKey(const Key('chart-file-rail')), findsOneWidget);
+      // 방문 CTA 문구는 초안 유무에 따라 "오늘 방문" 또는 "이어서 작성".
+      final startLabel = find.descendant(
+        of: find.byKey(const Key('chart-visit-start')),
+        matching: find.byType(Text),
+      );
+      expect(startLabel, findsWidgets);
+      final labels = startLabel
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .whereType<String>()
+          .toList();
+      expect(
+        labels.any((t) => t == '오늘 방문' || t == '이어서 작성'),
+        isTrue,
+        reason: 'chart-visit-start must show 오늘 방문 or 이어서 작성, got $labels',
+      );
+    },
+  );
 
   testWidgets('new customer opens add sheet without auto chart writer', (
     tester,
@@ -193,7 +248,7 @@ void main() {
   );
 
   testWidgets(
-    'visit rail: 신규 작성은 고정색, Today는 실제 저장된 v의 끝자리 색을 그대로 상속',
+    'visit rail: 신규 작성은 고정색, Today는 실제 저장된 v번호 끝자리 색을 그대로 상속',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 932));
       addTearDown(() => tester.binding.setSurfaceSize(null));
