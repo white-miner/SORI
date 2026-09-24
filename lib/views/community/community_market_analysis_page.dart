@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -106,50 +108,16 @@ class _CommunityMarketAnalysisPageState
             const Text('상권분석', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
             Text('내 주변 뷰티 상권을 한눈에 비교하세요.', style: TextStyle(color: SoriTokens.textSecondary)),
-            const SizedBox(height: 18),
-            _glassPanel(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('분석 범위', style: TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    for (final radius in _radii)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text('${radius >= 1000 ? '${radius ~/ 1000}km' : '${radius}m'}'),
-                          selected: _radiusM == radius,
-                          onSelected: (_) { setState(() => _radiusM = radius); _load(); },
-                        ),
-                      ),
-                  ]),
-                ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    for (final key in const ['skin', 'hair', 'barber', 'nail', 'tattoo'])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(OurAreaCategory.labelOf(key)),
-                          selected: _category == key,
-                          onSelected: (_) => setState(() => _category = key),
-                        ),
-                      ),
-                  ]),
-                ),
-              ]),
-            ),
             const SizedBox(height: 16),
+            _analysisMap(insight, beauty.where((s) => s.chipKey == _category).toList()),
+            const SizedBox(height: 18),
+            const Text('이 지역의 흐름', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
             if (_loading)
               const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()))
             else ...[
               if (!available)
                 _glassPanel(child: const Text('상권 데이터를 불러오지 못했습니다. 화면을 아래로 당겨 다시 시도해 주세요.')),
-              _analysisMap(insight, beauty.where((s) => s.chipKey == _category).toList()),
-              const SizedBox(height: 16),
               Row(children: [
                 Expanded(child: _metricCard('주변 샵', available ? '$total곳' : '—', '반경 ${_radiusM >= 1000 ? '${_radiusM ~/ 1000}km' : '${_radiusM}m'}')),
                 const SizedBox(width: 10),
@@ -194,7 +162,7 @@ class _CommunityMarketAnalysisPageState
             options: MapOptions(initialCenter: center, initialZoom: _radiusM >= 2000 ? 13 : 14),
             children: [
               TileLayer(
-                urlTemplate: RegionMapTileCatalog.spec(RegionMapTileId.osmBaseline).urlTemplate,
+                urlTemplate: RegionMapTileCatalog.spec(RegionMapTileCatalog.productionDefault).urlTemplate,
                 userAgentPackageName: 'com.sori.app',
               ),
               CircleLayer(circles: [CircleMarker(point: center, radius: _radiusM.toDouble(), useRadiusInMeter: true, color: SoriTokens.brand.withValues(alpha: .08), borderColor: SoriTokens.brand.withValues(alpha: .45), borderStrokeWidth: 2)]),
@@ -208,16 +176,65 @@ class _CommunityMarketAnalysisPageState
               ),
             ],
           ),
-          Positioned(top: 14, left: 14, child: _mapBadge(
+          Positioned(top: 12, left: 12, right: 12, child: _mapFilters()),
+          if (_loading)
+            const Positioned.fill(child: Center(child: CircularProgressIndicator())),
+          Positioned(bottom: 14, left: 14, child: _mapBadge(
             insight?.storesOk == true && insight?.storesComplete == true
-                ? '${items.length}곳 분석'
-                : '조회 실패',
+                ? '${OurAreaCategory.labelOf(_category)} ${items.length}곳'
+                : '조회 대기',
           )),
           Positioned(bottom: 14, right: 14, child: _mapBadge('반경 ${_radiusM >= 1000 ? '${_radiusM ~/ 1000}km' : '${_radiusM}m'}')),
         ]),
       ),
     );
   }
+
+  Widget _mapFilters() => ClipRRect(
+    borderRadius: BorderRadius.circular(22),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(color: const Color(0xDEFFFFFF), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xAFFFFFFF))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [
+            const Icon(Icons.tune_rounded, size: 18, color: SoriTokens.brand),
+            const SizedBox(width: 7),
+            const Text('분석 범위', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            for (final radius in _radii) Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: _filterPill(
+                radius >= 1000 ? '${radius ~/ 1000}km' : '${radius}m',
+                selected: _radiusM == radius,
+                onTap: () { if (_radiusM == radius) return; setState(() => _radiusM = radius); _load(); },
+              ),
+            ),
+          ])),
+          const SizedBox(height: 9),
+          SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+            const SizedBox(width: 12),
+            for (final key in const ['skin', 'hair', 'barber', 'nail', 'tattoo']) Padding(
+              padding: const EdgeInsets.only(right: 7),
+              child: _filterPill(OurAreaCategory.labelOf(key), selected: _category == key, onTap: () => setState(() => _category = key)),
+            ),
+            const SizedBox(width: 5),
+          ])),
+        ]),
+      ),
+    ),
+  );
+
+  Widget _filterPill(String label, {required bool selected, required VoidCallback onTap}) => Material(
+    color: selected ? SoriTokens.brand.withValues(alpha: .13) : const Color(0x9FFFFFFF),
+    shape: StadiumBorder(side: BorderSide(color: selected ? SoriTokens.brand : const Color(0x66FFFFFF))),
+    child: InkWell(
+      customBorder: const StadiumBorder(),
+      onTap: onTap,
+      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text(label, style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? SoriTokens.brand : SoriTokens.primary))),
+    ),
+  );
 
   Widget _mapBadge(String text) => DecoratedBox(decoration: BoxDecoration(color: const Color(0xEFFFFFFF), borderRadius: BorderRadius.circular(99), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700))));
 
