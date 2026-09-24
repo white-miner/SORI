@@ -208,7 +208,11 @@ class _CommunityMarketAnalysisPageState
               ),
             ],
           ),
-          Positioned(top: 14, left: 14, child: _mapBadge('${items.length}곳 분석')), 
+          Positioned(top: 14, left: 14, child: _mapBadge(
+            insight?.storesOk == true && insight?.storesComplete == true
+                ? '${items.length}곳 분석'
+                : '조회 실패',
+          )),
           Positioned(bottom: 14, right: 14, child: _mapBadge('반경 ${_radiusM >= 1000 ? '${_radiusM ~/ 1000}km' : '${_radiusM}m'}')),
         ]),
       ),
