@@ -140,7 +140,27 @@ type StoreItemOut = {
   lng: number;
   distance_m: number;
   address: string;
+  bizes_id: string;
+  inds_lcls_cd: string;
+  inds_lcls_nm: string;
+  inds_mcls_cd: string;
+  inds_mcls_nm: string;
+  inds_scls_cd: string;
+  inds_scls_nm: string;
+  lot_address: string;
+  addr: string;
+  ctprvn_cd: string;
+  ctprvn_nm: string;
+  signgu_cd: string;
+  signgu_nm: string;
+  adong_cd: string;
+  adong_nm: string;
 };
+
+function rawText(row: Record<string, unknown>, key: string): string {
+  if (!(key in row) || row[key] == null) return "";
+  return String(row[key]).trim();
+}
 
 function readTotalCount(payload: unknown): number | null {
   if (!payload || typeof payload !== "object") return null;
@@ -250,9 +270,19 @@ function extractXmlItemMaps(xml: string): Record<string, unknown>[] {
       lng: xmlTag(body, "lng"),
       rdnmAdr: xmlTag(body, "rdnmAdr"),
       lnoAdr: xmlTag(body, "lnoAdr"),
+      addr: xmlTag(body, "addr"),
+      indsLclsCd: xmlTag(body, "indsLclsCd"),
       indsLclsNm: xmlTag(body, "indsLclsNm"),
+      indsMclsCd: xmlTag(body, "indsMclsCd"),
       indsMclsNm: xmlTag(body, "indsMclsNm"),
+      indsSclsCd: xmlTag(body, "indsSclsCd"),
       indsSclsNm: xmlTag(body, "indsSclsNm"),
+      ctprvnCd: xmlTag(body, "ctprvnCd"),
+      ctprvnNm: xmlTag(body, "ctprvnNm"),
+      signguCd: xmlTag(body, "signguCd"),
+      signguNm: xmlTag(body, "signguNm"),
+      adongCd: xmlTag(body, "adongCd"),
+      adongNm: xmlTag(body, "adongNm"),
     });
   }
   return out;
@@ -436,7 +466,22 @@ async function fetchStores(opts: {
         lat: ll.lat,
         lng: ll.lng,
         distance_m: haversineM(opts.lat, opts.lng, ll.lat, ll.lng),
-        address: String(it.rdnmAdr ?? it.lnoAdr ?? it.addr ?? "").trim(),
+        address: rawText(it, "rdnmAdr"),
+        addr: rawText(it, "addr"),
+        bizes_id: rawText(it, "bizesId"),
+        inds_lcls_cd: rawText(it, "indsLclsCd"),
+        inds_lcls_nm: rawText(it, "indsLclsNm"),
+        inds_mcls_cd: rawText(it, "indsMclsCd"),
+        inds_mcls_nm: rawText(it, "indsMclsNm"),
+        inds_scls_cd: rawText(it, "indsSclsCd"),
+        inds_scls_nm: rawText(it, "indsSclsNm"),
+        lot_address: rawText(it, "lnoAdr"),
+        ctprvn_cd: rawText(it, "ctprvnCd"),
+        ctprvn_nm: rawText(it, "ctprvnNm"),
+        signgu_cd: rawText(it, "signguCd"),
+        signgu_nm: rawText(it, "signguNm"),
+        adong_cd: rawText(it, "adongCd"),
+        adong_nm: rawText(it, "adongNm"),
       });
     }
     mapped.sort((a, b) => a.distance_m - b.distance_m);
@@ -855,15 +900,7 @@ Deno.serve(async (req) => {
         totalInRadius: 0,
         sameCategoryCount: 0,
         sampleNames: [] as string[],
-        items: [] as {
-          name: string;
-          category_label: string;
-          chip_key: string;
-          lat: number;
-          lng: number;
-          distance_m: number;
-          address: string;
-        }[],
+        items: [] as StoreItemOut[],
         error: "missing_SBIZ_STORE_SERVICE_KEY",
         upstream: "missing_key" as const,
       };

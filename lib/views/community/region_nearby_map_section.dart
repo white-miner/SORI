@@ -25,6 +25,13 @@ import 'region_map_content_pins.dart';
 import 'region_map_explore_sheet.dart';
 import 'region_map_tile_candidates.dart';
 
+typedef RegionNearbyLoader = Future<ShopMarketInsight> Function({
+  required double latitude,
+  required double longitude,
+  required int radiusM,
+  bool force,
+});
+
 /// 우리지역 커뮤니티 탐색 지도 — Local Bloom · glass controls · Peek/Half sheet.
 /// Timer / Payment / Visit / 고객 좌표 비노출.
 class RegionNearbyMapSection extends StatefulWidget {
@@ -34,12 +41,15 @@ class RegionNearbyMapSection extends StatefulWidget {
     this.radiusKm = 1.0,
     this.onRadiusChanged,
     this.onCenterChanged,
+    this.nearbyLoader,
   });
 
   final SoriStore store;
   final double radiusKm;
   final ValueChanged<double>? onRadiusChanged;
   final void Function(double? lat, double? lng)? onCenterChanged;
+  /// 테스트가 공공 API 없이 같은 목록 경로를 열 때 쓴다. 없으면 Edge 조회.
+  final RegionNearbyLoader? nearbyLoader;
 
   @override
   State<RegionNearbyMapSection> createState() => _RegionNearbyMapSectionState();
@@ -100,7 +110,9 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   List<ShopMarketStoreItem> get _visibleStores {
     return _storeFilter.items
         .where((s) => s.chipKey != 'other' &&
-            ('${s.name} ${s.address}').toLowerCase().contains(_shopQuery.toLowerCase()))
+            ('${s.name} ${s.searchPlace}')
+                .toLowerCase()
+                .contains(_shopQuery.toLowerCase()))
         .where(
           (s) => OurAreaCategory.matches(
             selected: _categoryKey,
@@ -208,7 +220,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       widget.onCenterChanged?.call(search.lat, search.lng);
       // Community content must never block public shop discovery.
       unawaited(_loadContentPins(search, epoch));
-      final insight = await ShopMarketService.instance.fetchNearby(
+      final loader = widget.nearbyLoader ?? ShopMarketService.instance.fetchNearby;
+      final insight = await loader(
         latitude: search.lat, longitude: search.lng, radiusM: radiusM, force: force,
       );
       if (!mounted || epoch != _requestEpoch) return;
@@ -624,8 +637,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700))),
                           IconButton(tooltip: '선택 닫기', onPressed: _closeSheet, icon: const Icon(Icons.close_rounded)),
                         ]),
-                        Text('${_selectedMarket!.categoryLabel} · ${RegionShopListCopy.distanceLabel(_selectedMarket!.distanceM) ?? '가까운 위치'}'),
-                        Text(_selectedMarket!.address, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        _PublicShopFacts(
+                          item: _selectedMarket!,
+                          sourceText: _insight?.sourceText ?? ShopMarketInsight.fieldUnavailable,
+                          queryTimeText: _insight?.queryTimeText ?? ShopMarketInsight.fieldUnavailable,
+                        ),
                         _NaverMapCta(buttonKey: const Key('region-selected-map-cta'), item: _selectedMarket!, region: ''),
                       ]),
                     ),
@@ -666,7 +682,9 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               child: Text(partial ? '아직 이 조건의 샵을 찾지 못했어요. 다시 조회해 주세요.' : '이 조건으로 조회된 샵이 없어요. 업종·검색어·반경을 바꿔보세요.')),
             for (var i = 0; i < stores.length && i < _visibleLimit; i++)
               _MarketStoreRow(item: stores[i], index: i, region: '',
-                selected: identical(_selectedMarket, stores[i]) || (_selectedMarket?.name == stores[i].name && _selectedMarket?.address == stores[i].address),
+                sourceText: _insight?.sourceText ?? ShopMarketInsight.fieldUnavailable,
+                queryTimeText: _insight?.queryTimeText ?? ShopMarketInsight.fieldUnavailable,
+                selected: identical(_selectedMarket, stores[i]) || (_selectedMarket?.name == stores[i].name && _selectedMarket?.address == stores[i].address && _selectedMarket?.lotAddress == stores[i].lotAddress),
                 onSelect: () {
                   setState(() { _selectedMarket = stores[i]; _sheetMode = RegionMapSheetMode.hidden; });
                   try { _mapController.move(LatLng(stores[i].latitude, stores[i].longitude), _zoom); } catch (_) {}
@@ -675,8 +693,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             if (stores.length > _visibleLimit)
               TextButton(onPressed: () => setState(() => _visibleLimit += 20), child: const Text('샵 더 보기')),
             const SizedBox(height: 8),
-            const Text('출처: 소상공인시장진흥공단 상가(상권)정보\n등록·갱신 시차로 실제 영업 현황과 다를 수 있어요.',
-              style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.5)),
+            Text('출처\n${_insight?.sourceText ?? ShopMarketInsight.fieldUnavailable}\n조회 시점\n${_insight?.queryTimeText ?? ShopMarketInsight.fieldUnavailable}\n등록·갱신 시차로 실제 영업 현황과 다를 수 있어요.',
+              style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.5)),
           ],
         ],
         const SizedBox(height: 16),
@@ -991,26 +1009,73 @@ class _GlassRoundButtonState extends State<_GlassRoundButton> {
   }
 }
 
-class _ShopDetailFacts extends StatelessWidget {
-  const _ShopDetailFacts({
+class _PublicShopFacts extends StatelessWidget {
+  const _PublicShopFacts({
     required this.item,
-    this.titleSize = 14,
+    required this.sourceText,
+    required this.queryTimeText,
   });
 
   final ShopMarketStoreItem item;
-  final double titleSize;
+  final String sourceText;
+  final String queryTimeText;
 
   @override
   Widget build(BuildContext context) {
-    final name = RegionShopListCopy.visibleText(item.name);
-    final category = RegionShopListCopy.visibleText(item.categoryLabel);
     final distance = AreaSearchCenter.hasValidPoint(
           item.latitude,
           item.longitude,
         )
         ? RegionShopListCopy.distanceLabel(item.distanceM)
         : null;
-    final address = RegionShopListCopy.visibleText(item.address);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _fact('업종', item.industryDisplay),
+        _fact('도로명', item.address),
+        _fact('지번', item.lotAddress),
+        _fact('행정동', item.adongNm),
+        _fact('거리', distance ?? ''),
+        _fact('출처', sourceText),
+        _fact('조회 시점', queryTimeText),
+      ],
+    );
+  }
+
+  Widget _fact(String label, String value) {
+    final shown = value.trim().isEmpty
+        ? ShopMarketInsight.fieldUnavailable
+        : value.trim();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '$label\n$shown',
+        style: const TextStyle(
+          fontSize: 12,
+          color: SoriTokens.textSecondary,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+}
+
+class _ShopDetailFacts extends StatelessWidget {
+  const _ShopDetailFacts({
+    required this.item,
+    required this.sourceText,
+    required this.queryTimeText,
+    this.titleSize = 14,
+  });
+
+  final ShopMarketStoreItem item;
+  final String sourceText;
+  final String queryTimeText;
+  final double titleSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = RegionShopListCopy.visibleText(item.name);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1022,39 +1087,11 @@ class _ShopDetailFacts extends StatelessWidget {
               fontSize: titleSize,
             ),
           ),
-        if (category != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            category,
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-        ],
-        if (distance != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            distance,
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        if (address != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            address,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              color: SoriTokens.textSecondary,
-            ),
-          ),
-        ],
+        _PublicShopFacts(
+          item: item,
+          sourceText: sourceText,
+          queryTimeText: queryTimeText,
+        ),
       ],
     );
   }
@@ -1065,6 +1102,8 @@ class _MarketStoreRow extends StatelessWidget {
     required this.item,
     required this.index,
     required this.region,
+    required this.sourceText,
+    required this.queryTimeText,
     required this.selected,
     required this.onSelect,
   });
@@ -1072,6 +1111,8 @@ class _MarketStoreRow extends StatelessWidget {
   final ShopMarketStoreItem item;
   final int index;
   final String region;
+  final String sourceText;
+  final String queryTimeText;
   final bool selected;
   final VoidCallback onSelect;
 
@@ -1098,7 +1139,11 @@ class _MarketStoreRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ShopDetailFacts(item: item),
+                _ShopDetailFacts(
+                  item: item,
+                  sourceText: sourceText,
+                  queryTimeText: queryTimeText,
+                ),
                 _NaverMapCta(
                   buttonKey: Key('region-market-map-cta-$index'),
                   item: item,
@@ -1126,9 +1171,10 @@ class _NaverMapCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final place = item.searchPlace;
     final uri = NaverMapLinks.uri(
       name: item.name,
-      address: item.address,
+      address: place.isEmpty ? null : place,
       region: region,
     );
     if (uri == null) return const SizedBox.shrink();

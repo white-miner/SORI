@@ -26,6 +26,8 @@ class ShopMarketInsight {
     required this.storesError,
     this.storesUpstream,
     this.storesComplete = false,
+    this.storesSource = '',
+    this.storesRetrievedAt = '',
     required this.populationOk,
     required this.admCd,
     required this.dongName,
@@ -57,6 +59,55 @@ class ShopMarketInsight {
   final String? storesUpstream;
   /// False for legacy, partial, failed, and snapshot responses.
   final bool storesComplete;
+  /// Edge `stores.source`. 없으면 빈 문자열.
+  final String storesSource;
+  /// Edge `stores.retrieved_at` 원문. 파싱하지 못한 값도 그대로 둔다.
+  final String storesRetrievedAt;
+
+  static const fieldUnavailable = '현재 제공되지 않음';
+
+  /// 화면용 출처. 비어 있으면 [fieldUnavailable].
+  String get sourceText {
+    final raw = storesSource.trim();
+    return raw.isEmpty ? fieldUnavailable : raw;
+  }
+
+  /// 화면용 조회 시점. [statsYm]으로 대체하지 않는다.
+  String get queryTimeText => formatQueryTime(storesRetrievedAt);
+
+  static final RegExp _queryTimePattern = RegExp(
+    r'^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])'
+    r'(?:[T ]([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.\d+)?)?'
+    r'(Z|[+-](?:[01]\d|2[0-3]):?[0-5]\d)?)?$',
+  );
+
+  static String formatQueryTime(String raw) {
+    final trimmed = raw.trim();
+    final match = _queryTimePattern.firstMatch(trimmed);
+    if (match == null) return fieldUnavailable;
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    final hour = int.parse(match.group(4) ?? '0');
+    final minute = int.parse(match.group(5) ?? '0');
+    final second = int.parse(match.group(6) ?? '0');
+    final wall = DateTime.utc(year, month, day, hour, minute, second);
+    if (wall.year != year ||
+        wall.month != month ||
+        wall.day != day ||
+        wall.hour != hour ||
+        wall.minute != minute ||
+        wall.second != second) {
+      return fieldUnavailable;
+    }
+    final parsed = DateTime.tryParse(trimmed);
+    if (parsed == null) return fieldUnavailable;
+    final local = parsed.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year.toString().padLeft(4, '0')}-'
+        '${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
 
   final bool populationOk;
   final String? admCd;
@@ -91,6 +142,8 @@ class ShopMarketInsight {
       sampleNames: const [],
       storeItems: const [],
       storesError: reason,
+      storesSource: '',
+      storesRetrievedAt: '',
       populationOk: false,
       admCd: null,
       dongName: null,
@@ -157,6 +210,8 @@ class ShopMarketInsight {
       storesError: stores['error']?.toString(),
       storesUpstream: stores['upstream']?.toString(),
       storesComplete: stores['complete'] == true,
+      storesSource: _text(stores['source']),
+      storesRetrievedAt: _text(stores['retrieved_at']),
       populationOk: pop['ok'] == true,
       admCd: pop['adm_cd']?.toString(),
       dongName: pop['dong_name']?.toString(),
@@ -197,6 +252,8 @@ class ShopMarketInsight {
       sampleNames: names,
       storeItems: items,
       storesError: null,
+      storesSource: storesSource,
+      storesRetrievedAt: storesRetrievedAt,
       populationOk: populationOk,
       admCd: admCd,
       dongName: dongName,
@@ -216,6 +273,11 @@ class ShopMarketInsight {
     if (v is num) return v.round();
     return int.tryParse('$v') ?? fallback;
   }
+
+  static String _text(dynamic v) {
+    if (v == null) return '';
+    return '$v'.trim();
+  }
 }
 
 class ShopMarketStoreItem {
@@ -227,6 +289,21 @@ class ShopMarketStoreItem {
     required this.longitude,
     required this.distanceM,
     required this.address,
+    this.bizesId = '',
+    this.indsLclsCd = '',
+    this.indsLclsNm = '',
+    this.indsMclsCd = '',
+    this.indsMclsNm = '',
+    this.indsSclsCd = '',
+    this.indsSclsNm = '',
+    this.lotAddress = '',
+    this.sourceAddr = '',
+    this.ctprvnCd = '',
+    this.ctprvnNm = '',
+    this.signguCd = '',
+    this.signguNm = '',
+    this.adongCd = '',
+    this.adongNm = '',
   });
 
   final String name;
@@ -236,17 +313,75 @@ class ShopMarketStoreItem {
   final double longitude;
   final int distanceM;
   final String address;
+  final String bizesId;
+  final String indsLclsCd;
+  final String indsLclsNm;
+  final String indsMclsCd;
+  final String indsMclsNm;
+  final String indsSclsCd;
+  final String indsSclsNm;
+  final String lotAddress;
+  /// 상가 원본 `addr`. 화면 [address]에는 넣지 않고 검색 fallback에만 쓴다.
+  final String sourceAddr;
+  final String ctprvnCd;
+  final String ctprvnNm;
+  final String signguCd;
+  final String signguNm;
+  final String adongCd;
+  final String adongNm;
+
+  /// 소분류·중분류·대분류 이름. 코드는 넣지 않는다.
+  String get industryDisplay {
+    final names = <String>[];
+    void add(String raw) {
+      final text = raw.trim();
+      if (text.isEmpty || names.contains(text)) return;
+      names.add(text);
+    }
+
+    add(indsSclsNm);
+    if (indsSclsNm.trim().isEmpty) add(categoryLabel);
+    add(indsMclsNm);
+    add(indsLclsNm);
+    return names.join(' · ');
+  }
+
+  /// 네이버·내부 검색어. 도로명 → 지번 → 원본 addr. 셋 다 없으면 빈 문자열.
+  String get searchPlace {
+    final road = address.trim();
+    if (road.isNotEmpty) return road;
+    final lot = lotAddress.trim();
+    if (lot.isNotEmpty) return lot;
+    return sourceAddr.trim();
+  }
 
   factory ShopMarketStoreItem.fromMap(Map<String, dynamic> map) {
     final point = AreaSearchCenter.pointFromMap(map);
     return ShopMarketStoreItem(
-      name: '${map['name'] ?? ''}'.trim(),
-      categoryLabel: '${map['category_label'] ?? ''}'.trim(),
-      chipKey: '${map['chip_key'] ?? 'other'}'.trim(),
+      name: ShopMarketInsight._text(map['name']),
+      categoryLabel: ShopMarketInsight._text(map['category_label']),
+      chipKey: ShopMarketInsight._text(map['chip_key']).isEmpty
+          ? 'other'
+          : ShopMarketInsight._text(map['chip_key']),
       latitude: point?.lat ?? 0,
       longitude: point?.lng ?? 0,
       distanceM: ShopMarketInsight._asInt(map['distance_m']),
-      address: '${map['address'] ?? ''}'.trim(),
+      address: ShopMarketInsight._text(map['address']),
+      bizesId: ShopMarketInsight._text(map['bizes_id']),
+      indsLclsCd: ShopMarketInsight._text(map['inds_lcls_cd']),
+      indsLclsNm: ShopMarketInsight._text(map['inds_lcls_nm']),
+      indsMclsCd: ShopMarketInsight._text(map['inds_mcls_cd']),
+      indsMclsNm: ShopMarketInsight._text(map['inds_mcls_nm']),
+      indsSclsCd: ShopMarketInsight._text(map['inds_scls_cd']),
+      indsSclsNm: ShopMarketInsight._text(map['inds_scls_nm']),
+      lotAddress: ShopMarketInsight._text(map['lot_address']),
+      sourceAddr: ShopMarketInsight._text(map['addr']),
+      ctprvnCd: ShopMarketInsight._text(map['ctprvn_cd']),
+      ctprvnNm: ShopMarketInsight._text(map['ctprvn_nm']),
+      signguCd: ShopMarketInsight._text(map['signgu_cd']),
+      signguNm: ShopMarketInsight._text(map['signgu_nm']),
+      adongCd: ShopMarketInsight._text(map['adong_cd']),
+      adongNm: ShopMarketInsight._text(map['adong_nm']),
     );
   }
 
@@ -259,6 +394,21 @@ class ShopMarketStoreItem {
       longitude: longitude,
       distanceM: distanceM ?? this.distanceM,
       address: address,
+      bizesId: bizesId,
+      indsLclsCd: indsLclsCd,
+      indsLclsNm: indsLclsNm,
+      indsMclsCd: indsMclsCd,
+      indsMclsNm: indsMclsNm,
+      indsSclsCd: indsSclsCd,
+      indsSclsNm: indsSclsNm,
+      lotAddress: lotAddress,
+      sourceAddr: sourceAddr,
+      ctprvnCd: ctprvnCd,
+      ctprvnNm: ctprvnNm,
+      signguCd: signguCd,
+      signguNm: signguNm,
+      adongCd: adongCd,
+      adongNm: adongNm,
     );
   }
 }
