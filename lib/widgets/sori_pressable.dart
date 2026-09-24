@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/sori_tokens.dart';
 
-/// DESIGN LAWS press: scale 0.97 · press ~90ms · release ~180ms.
+/// Shared button/image response: hover or press scale 1.02 · release ~180ms.
 /// map pan / sheet drag / list scroll에는 쓰지 않는다.
 class SoriPressable extends StatefulWidget {
   const SoriPressable({
@@ -24,11 +24,12 @@ class SoriPressable extends StatefulWidget {
 
 class _SoriPressableState extends State<SoriPressable> {
   bool _pressed = false;
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final child = AnimatedScale(
-      scale: _pressed && widget.enabled ? 0.97 : 1.0,
+      scale: (_pressed || _hovered) && widget.enabled ? 1.02 : 1.0,
       duration: Duration(
         milliseconds: _pressed
             ? SoriTokens.motionPressMs
@@ -42,19 +43,27 @@ class _SoriPressableState extends State<SoriPressable> {
       button: widget.onTap != null,
       enabled: widget.enabled,
       label: widget.semanticLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: widget.enabled && widget.onTap != null
-            ? (_) => setState(() => _pressed = true)
+      child: MouseRegion(
+        onEnter: widget.enabled && widget.onTap != null
+            ? (_) => setState(() => _hovered = true)
             : null,
-        onTapUp: widget.enabled && widget.onTap != null
-            ? (_) {
-                setState(() => _pressed = false);
-                widget.onTap?.call();
-              }
+        onExit: widget.enabled && widget.onTap != null
+            ? (_) => setState(() => _hovered = false)
             : null,
-        onTapCancel: () => setState(() => _pressed = false),
-        child: child,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: widget.enabled && widget.onTap != null
+              ? (_) => setState(() => _pressed = true)
+              : null,
+          onTapUp: widget.enabled && widget.onTap != null
+              ? (_) {
+                  setState(() => _pressed = false);
+                  widget.onTap?.call();
+                }
+              : null,
+          onTapCancel: () => setState(() => _pressed = false),
+          child: child,
+        ),
       ),
     );
   }

@@ -9,9 +9,9 @@
 ```text
 Glass = 기능 레이어 (floating only)
 Blur = 정적 · 애니메이션 금지
-한 화면 BackdropFilter ≤ 1~3개 · 면적 ≤ 35%
+한 화면 BackdropFilter ≤ 1~3개 · 면적 ≤ 35% (지역 업종 칩은 하나의 공유 filter rail)
 중첩 blur / full-screen blur / list-row blur 금지
-지도 위: GPS·저장함·Peek 정도만
+지도 위: GPS·저장함·Peek·지역 업종 칩 rail
 Half↑ = opacity 강화 · Expanded = opaque
 Opacity 위젯 대신 Color.withValues(alpha:)
 RepaintBoundary = profile 증거 후에만
@@ -19,9 +19,9 @@ RepaintBoundary = profile 증거 후에만
 
 ## Flutter
 
-- `BackdropFilter`는 **최소 `ClipRRect` bounds** 안만.
+- `BackdropFilter`는 **최소 `ClipRect`/`ClipRRect` bounds** 안만.
 - blur sigma 기본 **8–12**, 최대 **16**(예외 승인).
-- press: `Transform.scale(0.97)` · 80–110ms / release 160–220ms · blur/shadow animate 금지.
+- hover/press: `Transform.scale(1.02)` · 120ms / release 160–220ms · blur/shadow animate 금지.
 - sheet drag ≠ MapCanvas / tile / marker / API rebuild.
 
 ## 우리지역 지도 예산
@@ -33,6 +33,7 @@ RepaintBoundary = profile 증거 후에만
 | Half | 0~8px | 88–94% |
 | Expanded | **0** | opaque 90%+ |
 | map overlay / marker | **0** | — |
+| category chip rail | 9px, one shared clipped filter across the row | translucent white rail; individual glass capsules |
 
 ## GPU 한 줄
 
@@ -43,8 +44,8 @@ RepaintBoundary = profile 증거 후에만
 ```md
 # SORI Glass Performance + GPU
 - BackdropFilter ≤1–3 / screen, clipped small, static, sigma 8–12 (max 16)
-- No full-screen / nested / list-row / animated blur
+- No full-screen / nested / list-row / animated blur; one clipped blur rail is allowed for map category chips
 - Color alpha > Opacity widget; borderRadius > unnecessary Clip
-- Map: GPS+saved+Peek may glass; Half opaque↑; Expanded solid
+- Map: GPS+saved+Peek and the category-chip rail may glass; Half opaque↑; Expanded solid
 - Sheet drag ≠ map repaint/refetch; RepaintBoundary only after profile
 ```

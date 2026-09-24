@@ -39,6 +39,12 @@ class SoriGlassChip extends StatefulWidget {
 
 class _SoriGlassChipState extends State<SoriGlassChip> {
   bool _pressed = false;
+  bool _hovered = false;
+
+  bool get _respondsToInput =>
+      widget.enabled &&
+      !widget.loading &&
+      (widget.onTap != null || widget.onLongPress != null);
 
   void _handleTap() {
     if (widget.loading || widget.onTap == null) return;
@@ -64,7 +70,7 @@ class _SoriGlassChipState extends State<SoriGlassChip> {
     Widget chip = Opacity(
       opacity: widget.enabled ? 1 : 0.45,
       child: AnimatedScale(
-        scale: _pressed ? 0.94 : 1,
+        scale: (_pressed || _hovered) && _respondsToInput ? 1.02 : 1,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
         child: AnimatedContainer(
@@ -102,6 +108,11 @@ class _SoriGlassChipState extends State<SoriGlassChip> {
           onTap: widget.loading ? null : _handleTap,
           onLongPress: widget.loading ? null : _handleLongPress,
           onHighlightChanged: (v) => setState(() => _pressed = v),
+          onHover: (v) {
+            if (_respondsToInput) {
+              setState(() => _hovered = v);
+            }
+          },
           customBorder: const CircleBorder(),
           child: chip,
         ),

@@ -64,7 +64,7 @@ SORI의 목표는 “예쁜 카드 모음”이 아니다. **1인 샵 원장이 
 
 | 색 | 고정 의미 | 허용 | 금지 |
 |---|---|---|---|
-| **Purple** | 브랜드·주요 행동·자산·선택 | primary CTA, B/A, AI, 선택 tab, **커뮤니티 글 marker** | 모든 제목/아이콘 |
+| **Purple** | 브랜드·주요 행동·자산·선택 | primary CTA, B/A, AI, 선택 tab, **커뮤니티 글 marker** | 업종 필터 칩 선택 배경 |
 | **Blue** | 위치·탐색·정보 | GPS, 지도, 정보 보기 | 완료, 삭제 |
 | **Green** | 완료·정상·성공 | 기록 완료, 저장 성공 | 기본 CTA 장식 |
 | **Yellow** | 확인 필요·보류 | 기록 미완료, 주소 확인 | 보통 버튼·성공 |
@@ -78,7 +78,7 @@ SORI의 목표는 “예쁜 카드 모음”이 아니다. **1인 샵 원장이 
 
 ## 제4칙. 글래스는 떠 있는 도구에만 쓴다
 
-허용: FloatingPillNav, 지도 GPS/저장함, Peek/Half 상단, 선택 floating control.  
+허용: FloatingPillNav, 지도 GPS/저장함, 우리지역 업종 칩 rail, Peek/Half 상단, 선택 floating control.
 금지: 모든 list row, 타임라인 전체, 방문 입력 폼, 긴 리포트, 삭제 modal, 카드 중첩 glass.
 
 ---
@@ -87,13 +87,13 @@ SORI의 목표는 “예쁜 카드 모음”이 아니다. **1인 샵 원장이 
 
 | 상호작용 | Press | Release |
 |---|---|---|
-| 글래스 버튼 | scale 0.97 | 160~220ms ease-out |
-| Primary CTA | 0.97 + 밝기 | 상태 갱신 |
-| 북마크 | outline→filled + 0.92~0.95 | 160~220ms |
+| 글래스 버튼 | hover/press scale 1.02 | 120~180ms ease-out |
+| Primary CTA | hover/press scale 1.02 | 상태 갱신 |
+| 북마크 | outline→filled + scale 1.02 | 160~220ms |
 | 지도 marker | 1.05~1.10 + ring | Peek 동기화 |
 | GPS | blue tint + pulse 1회 | 이동 후 안정 |
 
-금지 bounce: map pan, sheet drag, list scroll, tile/network loading.
+금지 bounce: map pan, sheet drag, list scroll, tile/network loading. 모든 버튼과 탭 가능한 이미지는 공용 `SoriPressable` 또는 `SoriGlassChip` 반응을 사용한다. hover/press 동안 1.02배로 미세 확대하고, 손을 떼거나 포인터가 벗어나면 원래 크기로 돌아온다. 업종 칩의 선택 표시는 브랜드 면 채우기 대신 검정 테두리와 검정 텍스트로 표현한다.
 
 ---
 

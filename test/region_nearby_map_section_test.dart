@@ -1,9 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/services/shop_market_service.dart';
 import 'package:sori/services/sori_store.dart';
-import 'package:sori/theme/sori_tokens.dart';
 import 'package:sori/utils/our_area_category.dart';
 import 'package:sori/views/community/region_nearby_map_section.dart';
 import 'package:sori/views/community/region_map_bloom.dart';
@@ -212,13 +212,80 @@ void main() {
     );
 
     expect(find.byKey(const Key('region-category-chips')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-glass-blur')), findsOneWidget);
     expect(find.text('내 주변에서 발견한 뷰티샵'), findsOneWidget);
     expect(find.byKey(const Key('region-shop-list-count')), findsOneWidget);
-    final allChip = find.byKey(const Key('region-shop-category-all'));
-    final selectedMaterial = tester.widget<Material>(
-      find.ancestor(of: allChip, matching: find.byType(Material)).first,
+    final selectedSurface = tester.widget<AnimatedContainer>(
+      find.byKey(const Key('region-category-surface-all')),
     );
-    expect(selectedMaterial.color, SoriTokens.brand);
+    final selectedDecoration = selectedSurface.decoration! as BoxDecoration;
+    expect(selectedDecoration.color, Colors.white.withValues(alpha: 0.62));
+    expect(
+      (selectedDecoration.border! as Border).top.color,
+      const Color(0xFF22232A),
+    );
+    expect(find.byKey(const Key('region-category-icon-hair')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-icon-skin')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-icon-nail')), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const Key('region-category-chips')),
+      const Offset(-520, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('region-category-icon-tattoo')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-icon-barber')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-icon-permanent')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-icon-other')), findsOneWidget);
+    await tester.drag(
+      find.byKey(const Key('region-category-chips')),
+      const Offset(520, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final hairChip = find.byKey(const Key('region-shop-category-hair'));
+    final touch = await tester.startGesture(tester.getCenter(hairChip));
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(
+      tester.widget<AnimatedScale>(
+        find.byKey(const Key('region-shop-category-scale-hair')),
+      ).scale,
+      1.035,
+    );
+    await touch.up();
+    await tester.pump(const Duration(milliseconds: 170));
+    final hairDecoration = tester
+        .widget<AnimatedContainer>(
+          find.byKey(const Key('region-category-surface-hair')),
+        )
+        .decoration! as BoxDecoration;
+    expect(
+      (hairDecoration.border! as Border).top.color,
+      const Color(0xFF22232A),
+    );
+    expect(hairDecoration.color, Colors.white.withValues(alpha: 0.62));
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const Key('region-category-label-hair')),
+          )
+          .style!
+          .color,
+      const Color(0xFF17181E),
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    final hairCenter = tester.getCenter(hairChip);
+    await mouse.addPointer(location: hairCenter);
+    await mouse.moveTo(hairCenter);
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(
+      tester.widget<AnimatedScale>(
+        find.byKey(const Key('region-shop-category-scale-hair')),
+      ).scale,
+      1.035,
+    );
+    await mouse.removePointer();
 
     await tester.tap(find.byKey(const Key('region-search-open')));
     await tester.pump();
