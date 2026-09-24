@@ -215,7 +215,7 @@ void main() {
     expect(find.byKey(const Key('region-category-chips')), findsOneWidget);
     expect(find.byKey(const Key('region-category-glass-blur')), findsNothing);
     expect(find.byKey(const Key('region-radius-chips')), findsOneWidget);
-    expect(find.text('내 주변에서 발견한 뷰티샵'), findsOneWidget);
+    expect(find.text('내 주변 뷰티샵'), findsOneWidget);
     expect(find.byKey(const Key('region-shop-list-count')), findsOneWidget);
     final selectedSurface = tester.widget<Material>(
       find.byKey(const Key('region-category-surface-all')),

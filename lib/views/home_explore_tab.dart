@@ -9,6 +9,7 @@ import '../models/unified_feed_item.dart';
 import '../services/sori_store.dart';
 import '../services/unified_feed_engine.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/sori_content_chip.dart';
 import '../utils/post_navigation.dart';
 import '../utils/home_explore_search.dart';
 import '../utils/sori_shell_insets.dart';
@@ -265,37 +266,23 @@ class _HomeExploreTabState extends State<HomeExploreTab>
               children: [
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: const Text('전체'),
+                  child: SoriContentChip(
+                    label: '전체',
                     selected: _categoryFilter == null,
-                    onSelected: (_) => setState(() => _categoryFilter = null),
-                    selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: _categoryFilter == null
-                          ? SoriTokens.primary
-                          : SoriTokens.textSecondary,
-                    ),
+                    dense: true,
+                    onTap: () => setState(() => _categoryFilter = null),
                   ),
                 ),
                 for (final c in RecommendFeedCategory.exploreCategories)
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      label: Text(c.label),
+                    child: SoriContentChip(
+                      label: c.label,
                       selected: _categoryFilter == c,
-                      onSelected: (_) => setState(() {
+                      dense: true,
+                      onTap: () => setState(() {
                         _categoryFilter = _categoryFilter == c ? null : c;
                       }),
-                      selectedColor: SoriTokens.primary.withValues(alpha: 0.18),
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: _categoryFilter == c
-                            ? SoriTokens.primary
-                            : SoriTokens.textSecondary,
-                      ),
                     ),
                   ),
               ],
@@ -595,23 +582,11 @@ class _SegmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return SoriContentChip(
+      label: label,
+      selected: active,
+      dense: true,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: SoriGlassTokens.pseudoChipDecoration(
-          radius: 20,
-          active: active,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: active ? SoriTokens.primary : SoriTokens.textSecondary,
-          ),
-        ),
-      ),
     );
   }
 }

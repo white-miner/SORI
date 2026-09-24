@@ -378,7 +378,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  '저장한 지역 콘텐츠',
+                  '저장한 콘텐츠',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 12),
@@ -386,7 +386,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 28),
                     child: Text(
-                      '저장한 글과 세미나가 여기에 모여요.',
+                      '저장한 콘텐츠가 없어요',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: SoriTokens.textSecondary),
                     ),
@@ -540,7 +540,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       setState(() {
         _sheetMode = RegionMapSheetMode.clusterHalf;
         _sheetPins = overlay.pins;
-        _sheetTitle = '이 지역의 이야기 ${overlay.pins.length}개';
+        _sheetTitle = '이 지역 ${overlay.pins.length}개';
         _peekPin = null;
         _selectedMarket = null;
       });
@@ -550,7 +550,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       setState(() {
         _sheetMode = RegionMapSheetMode.clusterHalf;
         _sheetPins = overlay.pins;
-        _sheetTitle = '이 위치의 이야기 ${overlay.pins.length}개';
+        _sheetTitle = '이 위치 ${overlay.pins.length}개';
         _peekPin = null;
         _selectedMarket = null;
       });
@@ -568,7 +568,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   String? get _gpsStatusText {
     switch (_gpsBanner) {
       case _GpsBanner.active:
-        return '현재 위치 주변을 보고 있어요.';
+        return '현재 위치 기준';
       case _GpsBanner.denied:
       case _GpsBanner.failed:
         return RegionShopListCopy.locationUnavailableBanner(_searchCenter.source);
@@ -1568,7 +1568,7 @@ class _MapGlassControls extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _GlassRoundButton(
-            label: '저장한 지역 콘텐츠 보기',
+            label: '저장한 콘텐츠',
             busy: false,
             active: false,
             activeColor: SoriTokens.primary,
@@ -1945,7 +1945,7 @@ class _ShopResultSheet extends StatelessWidget {
           ),
           if (hasLocation && shown.isNotEmpty) ...[
             const Text(
-              '내 주변에서 발견한 뷰티샵',
+              '내 주변 뷰티샵',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: RegionMapBloom.mapMuted),
             ),
             const SizedBox(height: 6),
@@ -1972,7 +1972,7 @@ class _ShopResultSheet extends StatelessWidget {
           basis,
           const SizedBox(height: 3),
           const Text(
-            '공공데이터 등록 업소 · 거리순',
+            '공공데이터 · 거리순',
             style: TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted),
           ),
           if (gpsStatus != null) ...[

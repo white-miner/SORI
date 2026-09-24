@@ -10,6 +10,7 @@ import '../models/post_engagement_bindings.dart';
 import '../services/engagement_service.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_tokens.dart';
+import '../widgets/sori_content_chip.dart';
 import '../utils/category_presentation_map.dart';
 import '../utils/sori_bottom_sheet.dart';
 import '../widgets/community_hotspot_image.dart';
@@ -495,10 +496,11 @@ class _CommunityFilterChipsDelegate extends SliverPersistentHeaderDelegate {
           itemBuilder: (context, index) {
             final f = CommunityFeedFilter.exploreFilters[index];
             final selected = filter == f;
-            return _CommunityFilterChip(
+            return SoriContentChip(
               key: ValueKey('community_filter_${f.name}'),
               label: f.label,
               selected: selected,
+              dense: true,
               onTap: () => onSelected(f),
             );
           },
@@ -510,47 +512,6 @@ class _CommunityFilterChipsDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _CommunityFilterChipsDelegate oldDelegate) {
     return oldDelegate.filter != filter;
-  }
-}
-
-class _CommunityFilterChip extends StatelessWidget {
-  const _CommunityFilterChip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? SoriTokens.primary : SoriTokens.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? SoriTokens.primary : SoriTokens.border,
-          ),
-        ),
-        child: Text(
-          label,
-          softWrap: false,
-          overflow: TextOverflow.visible,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-            color: selected ? SoriTokens.onPrimary : SoriTokens.textSecondary,
-          ),
-        ),
-      ),
-    );
   }
 }
 
