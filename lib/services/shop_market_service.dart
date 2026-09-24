@@ -280,6 +280,30 @@ class ShopMarketInsight {
   }
 }
 
+class FranchiseSalesSummary {
+  const FranchiseSalesSummary({required this.rows, required this.source, required this.region, required this.year, required this.error});
+  final List<FranchiseSalesRow> rows;
+  final String source, region, year;
+  final String? error;
+  bool get ok => rows.isNotEmpty;
+  factory FranchiseSalesSummary.fromMap(Map<String,dynamic> map) => FranchiseSalesSummary(
+    rows: [for (final row in (map['rows'] as List? ?? const []))
+      if (row is Map) FranchiseSalesRow.fromMap(Map<String,dynamic>.from(row))],
+    source: '${map['source'] ?? ''}', region: '${map['region'] ?? ''}',
+    year: '${map['year'] ?? ''}', error: map['error']?.toString());
+}
+class FranchiseSalesRow {
+  const FranchiseSalesRow({required this.industry, required this.amount, required this.unit, required this.year, required this.area, required this.count});
+  final String industry, unit, year, area;
+  final double amount;
+  final int count;
+  factory FranchiseSalesRow.fromMap(Map<String,dynamic> map) => FranchiseSalesRow(
+    industry: '${map['industry_name'] ?? ''}', unit: '${map['currency_unit'] ?? ''}',
+    year: '${map['year'] ?? ''}', area: '${map['area_name'] ?? ''}',
+    amount: (map['area_unit_average_sales'] as num?)?.toDouble() ?? 0,
+    count: (map['franchise_count'] as num?)?.toInt() ?? 0);
+}
+
 class ShopMarketStoreItem {
   const ShopMarketStoreItem({
     required this.name,
@@ -431,6 +455,28 @@ class ShopMarketAgeBucket {
 class ShopMarketService {
   ShopMarketService._();
   static final ShopMarketService instance = ShopMarketService._();
+
+  final Map<String, ({DateTime at, FranchiseSalesSummary result})> _franchiseCache = {};
+
+  Future<FranchiseSalesSummary> fetchFranchiseSales(String address) async {
+    final region = address.trim().split(RegExp(r'\\s+')).first;
+    if (region.isEmpty) return const FranchiseSalesSummary(rows: [], source: '', region: '', year: '', error: 'region_required');
+    final cached = _franchiseCache[region];
+    if (cached != null && DateTime.now().difference(cached.at) < const Duration(hours: 24)) return cached.result;
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'get-shop-market', body: {'action': 'franchise_sales', 'address': address},
+      ).timeout(const Duration(seconds: 45));
+      final dynamic data = response.data is String ? jsonDecode(response.data as String) : response.data;
+      if (data is! Map) throw const FormatException('bad_response');
+      final result = FranchiseSalesSummary.fromMap(Map<String,dynamic>.from(data));
+      if (result.ok) _franchiseCache[region] = (at: DateTime.now(), result: result);
+      return result;
+    } catch (e) {
+      debugPrint('franchise_sales failed: $e');
+      return const FranchiseSalesSummary(rows: [], source: '', region: '', year: '', error: 'request_failed');
+    }
+  }
 
   ShopMarketInsight? _cache;
   DateTime? _cacheAt;
