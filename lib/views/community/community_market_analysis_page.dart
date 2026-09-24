@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -118,6 +116,8 @@ class _CommunityMarketAnalysisPageState
             const SizedBox(height: 6),
             Text('내 주변 뷰티 상권을 한눈에 비교하세요.', style: TextStyle(color: SoriTokens.textSecondary)),
             const SizedBox(height: 16),
+            _mapFilters(),
+            const SizedBox(height: 12),
             _analysisMap(insight, beauty.where((s) => s.chipKey == _category).toList()),
             const SizedBox(height: 18),
             const Text('이 지역의 흐름', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
@@ -164,7 +164,7 @@ class _CommunityMarketAnalysisPageState
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
-        height: 300,
+        height: 360,
         child: Stack(children: [
           FlutterMap(
             key: ValueKey('analysis-map-$_radiusM'),
@@ -185,7 +185,6 @@ class _CommunityMarketAnalysisPageState
               ),
             ],
           ),
-          Positioned(top: 12, left: 12, right: 12, child: _mapFilters()),
           if (_loading)
             const Positioned.fill(child: Center(child: CircularProgressIndicator())),
           Positioned(bottom: 14, left: 14, child: _mapBadge(
@@ -199,46 +198,44 @@ class _CommunityMarketAnalysisPageState
     );
   }
 
-  Widget _mapFilters() => ClipRRect(
-    borderRadius: BorderRadius.circular(22),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(color: const Color(0xDEFFFFFF), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xAFFFFFFF))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [
-            const Icon(Icons.tune_rounded, size: 18, color: SoriTokens.primary),
-            const SizedBox(width: 7),
-            const Text('분석 범위', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            for (final radius in _radii) Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: RegionMapCategoryChip(
-                label: radius >= 1000 ? '${radius ~/ 1000}km' : '${radius}m',
-                selected: _radiusM == radius,
-                onTap: () { if (_radiusM == radius) return; setState(() => _radiusM = radius); _load(); },
-              ),
+  /// Radius + category controls sit above the map (not overlaid on it).
+  Widget _mapFilters() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('분석 범위', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      Row(children: [
+        for (var i = 0; i < _radii.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          RegionMapCategoryChip(
+            label: _radii[i] >= 1000 ? '${_radii[i] ~/ 1000}km' : '${_radii[i]}m',
+            selected: _radiusM == _radii[i],
+            onTap: () {
+              final radius = _radii[i];
+              if (_radiusM == radius) return;
+              setState(() => _radiusM = radius);
+              _load();
+            },
+          ),
+        ],
+      ]),
+      const SizedBox(height: 10),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          for (final key in const ['skin', 'hair', 'barber', 'nail', 'tattoo']) Padding(
+            padding: const EdgeInsets.only(right: 7),
+            child: RegionMapCategoryChip(
+              label: OurAreaCategory.labelOf(key),
+              categoryKey: key,
+              showIcon: true,
+              selected: _category == key,
+              onTap: () => setState(() => _category = key),
             ),
-          ])),
-          const SizedBox(height: 9),
-          SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
-            const SizedBox(width: 12),
-            for (final key in const ['skin', 'hair', 'barber', 'nail', 'tattoo']) Padding(
-              padding: const EdgeInsets.only(right: 7),
-              child: RegionMapCategoryChip(
-                label: OurAreaCategory.labelOf(key),
-                categoryKey: key,
-                showIcon: true,
-                selected: _category == key,
-                onTap: () => setState(() => _category = key),
-              ),
-            ),
-            const SizedBox(width: 5),
-          ])),
+          ),
         ]),
       ),
-    ),
+    ],
   );
 
   Widget _mapBadge(String text) => DecoratedBox(decoration: BoxDecoration(color: const Color(0xEFFFFFFF), borderRadius: BorderRadius.circular(99), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700))));
