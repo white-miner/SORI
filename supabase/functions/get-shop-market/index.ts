@@ -555,6 +555,17 @@ function extractPopRows(payload: unknown): Record<string, unknown>[] {
   const root = payload as Record<string, unknown>;
   // 흔한 래핑: response.body.items.item | data | row
   const candidates: unknown[] = [];
+  const looksLikePopRow = (row: object): boolean =>
+    "totPpltn" in row ||
+    "totNmprCnt" in row ||
+    "malePpltnCnt" in row ||
+    "남자인구수" in row ||
+    "totPopulation" in row ||
+    "총인구수" in row ||
+    "male0To9AgePpltnCnt" in row ||
+    "만0~9세남자" in row ||
+    "female0To9AgePpltnCnt" in row ||
+    "만0~9세여자" in row;
   const walk = (node: unknown, depth: number) => {
     if (depth > 6 || node == null) return;
     if (Array.isArray(node)) {
@@ -562,11 +573,7 @@ function extractPopRows(payload: unknown): Record<string, unknown>[] {
         node.length > 0 &&
         typeof node[0] === "object" &&
         node[0] !== null &&
-        ("totPpltn" in (node[0] as object) ||
-          "totNmprCnt" in (node[0] as object) ||
-          "malePpltnCnt" in (node[0] as object) ||
-          "남자인구수" in (node[0] as object) ||
-          "totPopulation" in (node[0] as object))
+        looksLikePopRow(node[0] as object)
       ) {
         candidates.push(node);
       }
@@ -588,6 +595,36 @@ function extractPopRows(payload: unknown): Record<string, unknown>[] {
   return [];
 }
 
+function moisGatewayError(payload: unknown): { code: string; msg: string } {
+  if (!payload || typeof payload !== "object") return { code: "", msg: "" };
+  const root = payload as Record<string, unknown>;
+  const nestedHeader = (root.response as Record<string, unknown> | undefined)
+    ?.header as Record<string, unknown> | undefined;
+  const topHeader = root.header as Record<string, unknown> | undefined;
+  const cmmHeader = root.cmmMsgHeader as Record<string, unknown> | undefined;
+  const gatewayHeader = (
+    root.OpenAPI_ServiceResponse as Record<string, unknown> | undefined
+  )?.cmmMsgHeader as Record<string, unknown> | undefined;
+  const code = String(
+    root.resultCode ??
+      topHeader?.resultCode ??
+      nestedHeader?.resultCode ??
+      cmmHeader?.resultCode ??
+      gatewayHeader?.returnReasonCode ??
+      "",
+  ).trim();
+  const msg = String(
+    root.resultMsg ??
+      topHeader?.resultMsg ??
+      nestedHeader?.resultMsg ??
+      cmmHeader?.resultMsg ??
+      gatewayHeader?.errMsg ??
+      gatewayHeader?.returnAuthMsg ??
+      "",
+  ).trim();
+  return { code, msg };
+}
+
 function aggregatePopulation(rows: Record<string, unknown>[]): {
   total: number;
   male: number;
@@ -600,30 +637,51 @@ function aggregatePopulation(rows: Record<string, unknown>[]): {
   let female = 0;
   let dongName = "";
 
+  // 15108072 selectAdmmSexdAgePpltn 실응답 키: male0AgeNmprCnt / feml0AgeNmprCnt …
   const ageDefs: { label: string; mKeys: string[]; fKeys: string[] }[] = [
     {
       label: "0-19",
-      mKeys: ["male0To9AgePpltnCnt", "male10To19AgePpltnCnt", "만0~9세남자", "만10~19세남자"],
-      fKeys: ["female0To9AgePpltnCnt", "female10To19AgePpltnCnt", "만0~9세여자", "만10~19세여자"],
+      mKeys: [
+        "male0AgeNmprCnt",
+        "male10AgeNmprCnt",
+        "male0To9AgePpltnCnt",
+        "male10To19AgePpltnCnt",
+        "만0~9세남자",
+        "만10~19세남자",
+      ],
+      fKeys: [
+        "feml0AgeNmprCnt",
+        "feml10AgeNmprCnt",
+        "female0To9AgePpltnCnt",
+        "female10To19AgePpltnCnt",
+        "만0~9세여자",
+        "만10~19세여자",
+      ],
     },
     {
       label: "20-29",
-      mKeys: ["male20To29AgePpltnCnt", "만20~29세남자"],
-      fKeys: ["female20To29AgePpltnCnt", "만20~29세여자"],
+      mKeys: ["male20AgeNmprCnt", "male20To29AgePpltnCnt", "만20~29세남자"],
+      fKeys: ["feml20AgeNmprCnt", "female20To29AgePpltnCnt", "만20~29세여자"],
     },
     {
       label: "30-39",
-      mKeys: ["male30To39AgePpltnCnt", "만30~39세남자"],
-      fKeys: ["female30To39AgePpltnCnt", "만30~39세여자"],
+      mKeys: ["male30AgeNmprCnt", "male30To39AgePpltnCnt", "만30~39세남자"],
+      fKeys: ["feml30AgeNmprCnt", "female30To39AgePpltnCnt", "만30~39세여자"],
     },
     {
       label: "40-49",
-      mKeys: ["male40To49AgePpltnCnt", "만40~49세남자"],
-      fKeys: ["female40To49AgePpltnCnt", "만40~49세여자"],
+      mKeys: ["male40AgeNmprCnt", "male40To49AgePpltnCnt", "만40~49세남자"],
+      fKeys: ["feml40AgeNmprCnt", "female40To49AgePpltnCnt", "만40~49세여자"],
     },
     {
       label: "50+",
       mKeys: [
+        "male50AgeNmprCnt",
+        "male60AgeNmprCnt",
+        "male70AgeNmprCnt",
+        "male80AgeNmprCnt",
+        "male90AgeNmprCnt",
+        "male100AgeNmprCnt",
         "male50To59AgePpltnCnt",
         "male60To69AgePpltnCnt",
         "male70To79AgePpltnCnt",
@@ -638,6 +696,12 @@ function aggregatePopulation(rows: Record<string, unknown>[]): {
         "만100세이상남자",
       ],
       fKeys: [
+        "feml50AgeNmprCnt",
+        "feml60AgeNmprCnt",
+        "feml70AgeNmprCnt",
+        "feml80AgeNmprCnt",
+        "feml90AgeNmprCnt",
+        "feml100AgeNmprCnt",
         "female50To59AgePpltnCnt",
         "female60To69AgePpltnCnt",
         "female70To79AgePpltnCnt",
@@ -674,7 +738,7 @@ function aggregatePopulation(rows: Record<string, unknown>[]): {
       row.maleNmprCnt ?? row.malePpltnCnt ?? row.남자인구수,
     );
     female += num(
-      row.femaleNmprCnt ?? row.femalePpltnCnt ?? row.여자인구수,
+      row.femlNmprCnt ?? row.femaleNmprCnt ?? row.femalePpltnCnt ?? row.여자인구수,
     );
 
     ageDefs.forEach((def, i) => {
@@ -716,39 +780,128 @@ async function fetchPopulation(opts: {
     };
   }
 
-  // 행안부 주민등록 OpenAPI — 엔드포인트는 기관 스펙 변경에 대비해 2경로 시도
-  const bases = [
-    Deno.env.get("MOIS_POP_API_URL")?.trim(),
-    "https://apis.data.go.kr/1741000/stdgPpltnInfoService/getStdgPpltnInfo",
-    "https://apis.data.go.kr/1741000/admmPpltnInfoService/getAdmmPpltnInfo",
-  ].filter((x): x is string => !!x && x.length > 0);
+  // data.go.kr 15108072 — 행정동별(통반단위) 성/연령별 주민등록 인구수
+  // https://apis.data.go.kr/1741000/admmSexdAgePpltn/selectAdmmSexdAgePpltn
+  // 필수: serviceKey, admmCd, srchFrYm, srchToYm / numOfRows 최대 100
+  const base =
+    Deno.env.get("MOIS_POP_API_URL")?.trim() ||
+    "https://apis.data.go.kr/1741000/admmSexdAgePpltn/selectAdmmSexdAgePpltn";
 
+  // data.go.kr keys may arrive URL-encoded; encode exactly once (same as SBIZ/FTC).
+  let serviceKey = opts.key.trim();
+  try {
+    serviceKey = decodeURIComponent(serviceKey);
+  } catch {
+    /* raw key */
+  }
+
+  const describePayload = (payload: unknown): string => {
+    if (!payload || typeof payload !== "object") return "shape=non_object";
+    const root = payload as Record<string, unknown>;
+    const topKeys = Object.keys(root).slice(0, 12).join(",");
+    const gw = moisGatewayError(payload);
+    const bits = [`top=${topKeys || "-"}`];
+    if (gw.code) bits.push(`code=${gw.code}`);
+    if (gw.msg) bits.push(`msg=${gw.msg}`);
+    // first array-of-objects field names for schema mismatch diagnosis
+    const walk = (node: unknown, depth: number): string | null => {
+      if (depth > 5 || node == null) return null;
+      if (Array.isArray(node)) {
+        if (node.length > 0 && typeof node[0] === "object" && node[0]) {
+          return Object.keys(node[0] as object).slice(0, 16).join(",");
+        }
+        return `empty_array`;
+      }
+      if (typeof node === "object") {
+        for (const v of Object.values(node as Record<string, unknown>)) {
+          const hit = walk(v, depth + 1);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    const fields = walk(root, 0);
+    if (fields) bits.push(`itemFields=${fields}`);
+    return bits.join(" ");
+  };
+
+  // lv=7 단일 읍면동, lv=4 통반단위(기본). 둘 다 시도.
+  const lvCandidates = ["4", "7"];
   let lastErr = "no_endpoint";
-  for (const base of bases) {
-    const url =
-      `${base}?serviceKey=${encodeURIComponent(opts.key)}` +
-      `&pageNo=1&numOfRows=300&resultType=json&type=json` +
-      `&stdgCd=${encodeURIComponent(adm)}` +
-      `&admmCd=${encodeURIComponent(adm)}` +
-      `&srchFrYm=${opts.statsYm}&srchToYm=${opts.statsYm}` +
-      `&statsYm=${opts.statsYm}&statsYearMonth=${opts.statsYm}`;
 
-    try {
-      const res = await fetch(url);
-      const text = await res.text();
-      let payload: unknown;
+  for (const lv of lvCandidates) {
+    const allRows: Record<string, unknown>[] = [];
+    let pageNo = 1;
+    const pageSize = 100;
+    let lastStatus = 0;
+    let lastPayload: unknown = null;
+
+    while (pageNo <= 20) {
+      const params = new URLSearchParams({
+        serviceKey,
+        admmCd: adm,
+        srchFrYm: opts.statsYm,
+        srchToYm: opts.statsYm,
+        lv,
+        regSeCd: "1",
+        type: "json",
+        numOfRows: String(pageSize),
+        pageNo: String(pageNo),
+      });
+      const url = `${base}?${params.toString()}`;
       try {
-        payload = JSON.parse(text);
-      } catch {
-        lastErr = `pop_non_json status=${res.status}`;
-        continue;
+        const res = await fetch(url);
+        lastStatus = res.status;
+        const text = await res.text();
+        let payload: unknown;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          lastErr = `pop_non_json status=${res.status} lv=${lv}`;
+          break;
+        }
+        lastPayload = payload;
+        const gw = moisGatewayError(payload);
+        // 실패 코드면 다음 lv로
+        if (gw.code && !["00", "0", "INFO-0", "NORMAL", "NORMAL SERVICE"].includes(gw.code.toUpperCase()) &&
+            !/^00/.test(gw.code) && gw.code !== "03") {
+          // 03 sometimes means NODATA — treat as empty for this lv
+          if (gw.code === "03" || /NO_DATA|NODATA|데이터가 없습니다/i.test(gw.msg)) {
+            lastErr = `pop_empty status=${res.status} lv=${lv} code=${gw.code} msg=${gw.msg}`;
+            break;
+          }
+          // hard errors (10,12,20...) — keep trying next lv only for empty-ish; else record
+          if (["10", "11", "12", "20", "22", "30", "31", "32"].includes(gw.code)) {
+            lastErr = `pop_gw status=${res.status} lv=${lv} code=${gw.code} msg=${gw.msg}`;
+            break;
+          }
+        }
+
+        const rows = extractPopRows(payload);
+        if (rows.length === 0) {
+          lastErr = `pop_empty status=${res.status} lv=${lv} ${describePayload(payload)}`;
+          break;
+        }
+        allRows.push(...rows);
+        const root = payload as Record<string, unknown>;
+        const body = (root.response as Record<string, unknown> | undefined)?.body ??
+          root.body ??
+          root;
+        const totalCount = Number(
+          (body as Record<string, unknown>)?.totalCount ?? root.totalCount ?? 0,
+        );
+        if (!totalCount || allRows.length >= totalCount || rows.length < pageSize) {
+          break;
+        }
+        pageNo += 1;
+      } catch (e) {
+        lastErr = `lv=${lv} ${String(e)}`;
+        break;
       }
-      const rows = extractPopRows(payload);
-      if (rows.length === 0) {
-        lastErr = `pop_empty status=${res.status}`;
-        continue;
-      }
-      const agg = aggregatePopulation(rows);
+    }
+
+    if (allRows.length > 0) {
+      const agg = aggregatePopulation(allRows);
       return {
         ok: true,
         total: agg.total,
@@ -758,8 +911,10 @@ async function fetchPopulation(opts: {
         dongName: agg.dongName,
         statsYm: opts.statsYm,
       };
-    } catch (e) {
-      lastErr = String(e);
+    }
+    if (lastPayload && lastErr.startsWith("pop_empty")) {
+      // keep richest empty diagnostic; try next lv
+      continue;
     }
   }
 
