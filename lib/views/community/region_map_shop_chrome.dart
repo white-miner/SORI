@@ -21,8 +21,35 @@ abstract final class RegionMapShopChrome {
         return const Color(0xFF64748B);
       case OurAreaCategory.makeup:
         return const Color(0xFFD7A45B);
+      case OurAreaCategory.permanent:
+        return const Color(0xFF9B7EBD);
+      case OurAreaCategory.all:
+        return SoriTokens.primary;
       default:
         return neutral;
+    }
+  }
+
+  static IconData categoryIcon(String key) {
+    switch (OurAreaCategory.mapRaw(key)) {
+      case OurAreaCategory.skin:
+        return Icons.face_retouching_natural;
+      case OurAreaCategory.hair:
+        return Icons.content_cut_rounded;
+      case OurAreaCategory.nail:
+        return Icons.back_hand_outlined;
+      case OurAreaCategory.barber:
+        return Icons.content_cut;
+      case OurAreaCategory.tattoo:
+        return Icons.brush_outlined;
+      case OurAreaCategory.permanent:
+        return Icons.spa_outlined;
+      case OurAreaCategory.makeup:
+        return Icons.brush;
+      case OurAreaCategory.all:
+        return Icons.grid_view_rounded;
+      default:
+        return Icons.storefront_outlined;
     }
   }
 
@@ -106,6 +133,7 @@ class RegionMapCategoryChip extends StatelessWidget {
     required this.onTap,
     this.categoryKey = OurAreaCategory.other,
     this.showIcon = false,
+    this.count,
   });
 
   final String label;
@@ -113,10 +141,14 @@ class RegionMapCategoryChip extends StatelessWidget {
   final VoidCallback onTap;
   final String categoryKey;
   final bool showIcon;
+  final String? count;
 
   @override
   Widget build(BuildContext context) {
+    // Tag category chips only (showIcon) so radius chips do not collide on keys.
+    final tag = showIcon ? categoryKey : null;
     return Material(
+      key: tag == null ? null : Key('region-category-surface-$tag'),
       color: const Color(0xEFFFFFFF),
       shape: StadiumBorder(
         side: BorderSide(
@@ -125,6 +157,7 @@ class RegionMapCategoryChip extends StatelessWidget {
         ),
       ),
       child: InkWell(
+        key: tag == null ? null : Key('region-shop-category-$tag'),
         customBorder: const StadiumBorder(),
         onTap: onTap,
         child: Padding(
@@ -133,17 +166,37 @@ class RegionMapCategoryChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (showIcon) ...[
-                Icon(Icons.storefront_outlined, size: 14, color: RegionMapShopChrome.categoryColor(categoryKey)),
+                Icon(
+                  RegionMapShopChrome.categoryIcon(categoryKey),
+                  key: Key('region-category-icon-$categoryKey'),
+                  size: 14,
+                  color: RegionMapShopChrome.categoryColor(categoryKey),
+                ),
                 const SizedBox(width: 4),
               ],
               Text(
                 label,
+                key: tag == null ? null : Key('region-category-label-$tag'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected ? RegionMapShopChrome.selectedBorder : SoriTokens.primary,
                 ),
               ),
+              if (count != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  count!,
+                  key: tag == null ? null : Key('region-category-count-$tag'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: selected
+                        ? RegionMapShopChrome.selectedBorder
+                        : SoriTokens.textSecondary,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

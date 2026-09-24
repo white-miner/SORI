@@ -196,7 +196,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('bright map keeps overlay chips, discoverable peek, and airy search', (
+  testWidgets('bright map keeps above-map chrome chips, discoverable peek, and airy search', (
     tester,
   ) async {
     await pumpSection(
@@ -212,18 +212,17 @@ void main() {
     );
 
     expect(find.byKey(const Key('region-category-chips')), findsOneWidget);
-    expect(find.byKey(const Key('region-category-glass-blur')), findsOneWidget);
+    expect(find.byKey(const Key('region-category-glass-blur')), findsNothing);
+    expect(find.byKey(const Key('region-radius-chips')), findsOneWidget);
     expect(find.text('내 주변에서 발견한 뷰티샵'), findsOneWidget);
     expect(find.byKey(const Key('region-shop-list-count')), findsOneWidget);
-    final selectedSurface = tester.widget<AnimatedContainer>(
+    final selectedSurface = tester.widget<Material>(
       find.byKey(const Key('region-category-surface-all')),
     );
-    final selectedDecoration = selectedSurface.decoration! as BoxDecoration;
-    expect(selectedDecoration.color, Colors.white.withValues(alpha: 0.62));
-    expect(
-      (selectedDecoration.border! as Border).top.color,
-      const Color(0xFF22232A),
-    );
+    expect(selectedSurface.color, const Color(0xEFFFFFFF));
+    expect(selectedSurface.shape, isA<StadiumBorder>());
+    final selectedSide = (selectedSurface.shape! as StadiumBorder).side;
+    expect(selectedSide.color, const Color(0xFF22232A));
     expect(find.byKey(const Key('region-category-icon-hair')), findsOneWidget);
     expect(find.byKey(const Key('region-category-icon-skin')), findsOneWidget);
     expect(find.byKey(const Key('region-category-icon-nail')), findsOneWidget);
@@ -244,26 +243,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     final hairChip = find.byKey(const Key('region-shop-category-hair'));
-    final touch = await tester.startGesture(tester.getCenter(hairChip));
-    await tester.pump(const Duration(milliseconds: 130));
-    expect(
-      tester.widget<AnimatedScale>(
-        find.byKey(const Key('region-shop-category-scale-hair')),
-      ).scale,
-      1.035,
+    await tester.tap(hairChip);
+    await tester.pump();
+    final hairSurface = tester.widget<Material>(
+      find.byKey(const Key('region-category-surface-hair')),
     );
-    await touch.up();
-    await tester.pump(const Duration(milliseconds: 170));
-    final hairDecoration = tester
-        .widget<AnimatedContainer>(
-          find.byKey(const Key('region-category-surface-hair')),
-        )
-        .decoration! as BoxDecoration;
-    expect(
-      (hairDecoration.border! as Border).top.color,
-      const Color(0xFF22232A),
-    );
-    expect(hairDecoration.color, Colors.white.withValues(alpha: 0.62));
+    final hairSide = (hairSurface.shape! as StadiumBorder).side;
+    expect(hairSide.color, const Color(0xFF22232A));
     expect(
       tester
           .widget<Text>(
@@ -271,21 +257,8 @@ void main() {
           )
           .style!
           .color,
-      const Color(0xFF17181E),
+      const Color(0xFF22232A),
     );
-
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    final hairCenter = tester.getCenter(hairChip);
-    await mouse.addPointer(location: hairCenter);
-    await mouse.moveTo(hairCenter);
-    await tester.pump(const Duration(milliseconds: 130));
-    expect(
-      tester.widget<AnimatedScale>(
-        find.byKey(const Key('region-shop-category-scale-hair')),
-      ).scale,
-      1.035,
-    );
-    await mouse.removePointer();
 
     await tester.tap(find.byKey(const Key('region-search-open')));
     await tester.pump();
@@ -409,11 +382,9 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 40));
     }
-    final radiusButton = find.byKey(const Key('region-radius'));
+    final radiusButton = find.byKey(const Key('region-radius-2.0'));
+    await tester.ensureVisible(radiusButton);
     await tester.tap(radiusButton);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('2km').last);
     await tester.pump();
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 50));
