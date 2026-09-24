@@ -15,6 +15,7 @@ class FeedQueryConfig {
     required this.maxRecommendItems,
     required this.showExploreTab,
     required this.showLocalTab,
+    required this.showMarketAnalysisTab,
   });
 
   final FeedSurface surface;
@@ -27,6 +28,7 @@ class FeedQueryConfig {
 
   final bool showExploreTab;
   final bool showLocalTab;
+  final bool showMarketAnalysisTab;
 
   static const FeedQueryConfig home = FeedQueryConfig(
     surface: FeedSurface.home,
@@ -34,6 +36,7 @@ class FeedQueryConfig {
     maxRecommendItems: 3,
     showExploreTab: false,
     showLocalTab: false,
+    showMarketAnalysisTab: false,
   );
 
   /// Byte-preserving default for existing UnifiedHomeFeed mounts.
@@ -43,6 +46,7 @@ class FeedQueryConfig {
     maxRecommendItems: null,
     showExploreTab: true,
     showLocalTab: true,
+    showMarketAnalysisTab: true,
   );
 
   static FeedQueryConfig forSurface(FeedSurface surface) {
