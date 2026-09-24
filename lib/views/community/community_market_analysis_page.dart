@@ -71,7 +71,9 @@ class _CommunityMarketAnalysisPageState
           _loading = false;
         });
       }
-      final address = (shop.address ?? '').trim();
+      final address = (shop.address ?? '').trim().isNotEmpty
+          ? shop.address!.trim()
+          : (result.storeItems.isNotEmpty ? result.storeItems.first.address.trim() : '');
       if (address.isNotEmpty) {
         final sale = await ShopMarketService.instance.fetchFranchiseSales(address);
         if (mounted && request == _request) setState(() => _franchiseSales = sale);
