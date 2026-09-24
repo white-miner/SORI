@@ -227,6 +227,13 @@ class _CommunityMarketAnalysisPageState
   }
 
   Widget _sourceNote(ShopMarketInsight? insight) {
+    if (insight?.storesOk != true || insight?.storesComplete != true) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text('샵 데이터의 출처와 조회 시점을 확인할 수 없습니다.',
+            style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary)),
+      );
+    }
     final checked = insight?.fetchedAt?.toLocal();
     final date = checked == null
         ? '조회 시점 확인 불가'
