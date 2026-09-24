@@ -459,7 +459,7 @@ class ShopMarketService {
   final Map<String, ({DateTime at, FranchiseSalesSummary result})> _franchiseCache = {};
 
   Future<FranchiseSalesSummary> fetchFranchiseSales(String address) async {
-    final region = address.trim().split(RegExp(r'\\s+')).first;
+    final region = address.trim().split(RegExp(r'\s+')).first;
     if (region.isEmpty) return const FranchiseSalesSummary(rows: [], source: '', region: '', year: '', error: 'region_required');
     final cached = _franchiseCache[region];
     if (cached != null && DateTime.now().difference(cached.at) < const Duration(hours: 24)) return cached.result;
