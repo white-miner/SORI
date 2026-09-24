@@ -29,6 +29,7 @@ class _CommunityMarketAnalysisPageState
   String _category = OurAreaCategory.skin;
   ShopMarketInsight? _insight;
   ShopMarketInsight? _populationInsight;
+  FranchiseSalesSummary? _franchiseSales;
   bool _loading = true;
   int _request = 0;
 
@@ -40,7 +41,7 @@ class _CommunityMarketAnalysisPageState
 
   Future<void> _load() async {
     final request = ++_request;
-    setState(() => _loading = true);
+    setState(() { _loading = true; _franchiseSales = null; });
     final shop = widget.store.shop;
     try {
       ShopMarketInsight? population;
@@ -69,6 +70,11 @@ class _CommunityMarketAnalysisPageState
           _populationInsight = population;
           _loading = false;
         });
+      }
+      final address = (shop.address ?? '').trim();
+      if (address.isNotEmpty) {
+        final sale = await ShopMarketService.instance.fetchFranchiseSales(address);
+        if (mounted && request == _request) setState(() => _franchiseSales = sale);
       }
       if (population == null) {
         final nextPopulation = await ShopMarketService.instance.fetch(
@@ -128,7 +134,7 @@ class _CommunityMarketAnalysisPageState
               const SizedBox(height: 16),
               if (available) _visualSummary(total: total, same: same),
               const SizedBox(height: 12),
-              _wideMetric('지역·업종 평균매출', '현재 제공되지 않음', '공정위 가맹점 데이터 연동 전'),
+              _salesPanel(),
               const SizedBox(height: 18),
               _sourceNote(insight),
             ],
@@ -241,6 +247,31 @@ class _CommunityMarketAnalysisPageState
   Widget _metricCard(String title, String value, String caption) => _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 8), Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]));
 
   Widget _wideMetric(String title, String value, String caption) => _glassPanel(child: Row(children: [const Icon(Icons.groups_2_outlined, color: SoriTokens.brand, size: 30), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]))]));
+
+  Widget _salesPanel() {
+    final sale = _franchiseSales;
+    if (sale == null) return _wideMetric('가맹점 매출 통계', '조회 중', '공정위 지역별 서비스업 통계');
+    if (!sale.ok) return _wideMetric('가맹점 매출 통계', '현재 제공되지 않음',
+        '해당 지역의 뷰티 가맹점 통계를 확인할 수 없어요.');
+    return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('가맹점 매출 통계', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 5),
+      Text('${sale.region} · ${sale.year}년 · 서비스업 가맹점',
+          style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary)),
+      const SizedBox(height: 12),
+      for (final row in sale.rows) if (row.amount > 0) Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Expanded(child: Text(row.industry, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700))),
+          Text('${row.amount.toStringAsFixed(row.amount == row.amount.roundToDouble() ? 0 : 1)} ${row.unit}',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+        ]),
+      ),
+      const Text('면적단위 평균매출금액 · 주변 반경 또는 개별 샵 매출이 아닙니다.',
+          style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary)),
+    ]));
+  }
 
   Widget _visualSummary({required int total, required int same}) {
     final ratio = total == 0 ? 0.0 : (same / total).clamp(0.0, 1.0);
