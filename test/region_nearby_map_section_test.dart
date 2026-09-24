@@ -3,8 +3,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/services/shop_market_service.dart';
 import 'package:sori/services/sori_store.dart';
+import 'package:sori/theme/sori_tokens.dart';
 import 'package:sori/utils/our_area_category.dart';
 import 'package:sori/views/community/region_nearby_map_section.dart';
+import 'package:sori/views/community/region_map_bloom.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -191,6 +193,41 @@ void main() {
 
     expect(find.text('지번 현재 제공되지 않음'), findsOneWidget);
     expect(find.textContaining('조회 시점'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('bright map keeps overlay chips, discoverable peek, and airy search', (
+    tester,
+  ) async {
+    await pumpSection(
+      tester,
+      data: insight(items: [
+        shop(
+          name: '밝은 피부샵',
+          chipKey: OurAreaCategory.skin,
+          lat: 37.501,
+          address: '테헤란로 1',
+        ),
+      ]),
+    );
+
+    expect(find.byKey(const Key('region-category-chips')), findsOneWidget);
+    expect(find.text('내 주변에서 발견한 뷰티샵'), findsOneWidget);
+    expect(find.byKey(const Key('region-shop-list-count')), findsOneWidget);
+    final allChip = find.byKey(const Key('region-shop-category-all'));
+    final selectedMaterial = tester.widget<Material>(
+      find.ancestor(of: allChip, matching: find.byType(Material)).first,
+    );
+    expect(selectedMaterial.color, SoriTokens.brand);
+
+    await tester.tap(find.byKey(const Key('region-search-open')));
+    await tester.pump();
+    final popular = tester.widget<ActionChip>(
+      find.byKey(const Key('region-popular-피부관리')),
+    );
+    expect(popular.backgroundColor, Colors.white);
+    expect(popular.side?.color, RegionMapBloom.mapBorder);
+    expect(find.byKey(const Key('region-shop-search')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

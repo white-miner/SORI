@@ -612,7 +612,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _mapController.move(LatLng(item.latitude, item.longitude), nextZoom);
       _zoom = nextZoom;
     } catch (_) {}
-    _snapSheet(0.52);
+    _snapSheet(0.56);
   }
 
   void _snapSheet(double size) {
@@ -689,14 +689,14 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         pool.add(shop);
       }
     }
-    final showEach = _zoom >= 15.2 || pool.length <= 8;
+    final showEach = _zoom >= 16.2 || pool.length <= 8;
     final bunches = <_ShopBunch>[];
     if (showEach) {
       for (final shop in pool) {
         bunches.add(_ShopBunch(point: LatLng(shop.latitude, shop.longitude), items: [shop]));
       }
     } else {
-      final cell = _zoom >= 13.4 ? 0.0045 : 0.012;
+      final cell = _zoom >= 15.2 ? 0.0045 : (_zoom >= 13.4 ? 0.0075 : 0.012);
       final buckets = <String, List<ShopMarketStoreItem>>{};
       for (final shop in pool) {
         final key = '${(shop.latitude / cell).floor()}|${(shop.longitude / cell).floor()}';
@@ -730,7 +730,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             ? constraints.maxHeight
             : MediaQuery.sizeOf(context).height * 0.78;
         return Material(
-          color: SoriTokens.background,
+          color: Colors.white,
           child: SizedBox(
           height: height,
           child: Column(
@@ -775,11 +775,20 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                   hintText: '업소, 주소, 업종 검색',
                   isDense: true,
                   filled: true,
-                  fillColor: const Color(0xFFF3F4F6),
+                  fillColor: const Color(0xFFF7F8FC),
+                  hintStyle: const TextStyle(color: RegionMapBloom.mapMuted),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: RegionMapBloom.mapBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: SoriTokens.brand, width: 1.5),
                   ),
                   suffixIcon: IconButton(
                     key: const Key('region-search-submit'),
@@ -801,7 +810,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       );
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+      padding: const EdgeInsets.fromLTRB(16, 2, 8, 2),
       child: Row(
         children: [
           const Expanded(
@@ -828,28 +837,33 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     final hits = _searchHits(query);
     return ListView(
       key: const Key('region-search-body'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         if (query.isEmpty) ...[
-          const Text('인기 검색어', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
+          const Text('인기 검색어', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk)),
+          const SizedBox(height: 18),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10,
+            runSpacing: 10,
             children: [
               for (final word in _popularSearches)
                 ActionChip(
                   key: Key('region-popular-$word'),
                   label: Text(word),
+                  labelStyle: const TextStyle(color: RegionMapBloom.mapMuted, fontSize: 14, fontWeight: FontWeight.w600),
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: RegionMapBloom.mapBorder),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   onPressed: () => _runSearch(word),
                 ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 38),
           Row(
             children: [
               const Expanded(
-                child: Text('최근 검색어', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                child: Text('최근 검색어', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk)),
               ),
               if (_recentSearches.isNotEmpty)
                 TextButton(
@@ -860,7 +874,10 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
             ],
           ),
           if (_recentSearches.isEmpty)
-            const Text('최근 검색어가 없어요.', style: TextStyle(color: SoriTokens.textSecondary))
+            const Padding(
+              padding: EdgeInsets.only(top: 18),
+              child: Text('최근 검색어가 없어요.', style: TextStyle(color: RegionMapBloom.mapMuted)),
+            )
           else
             for (final word in _recentSearches)
               ListTile(
@@ -916,12 +933,19 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         ),
         if (_mapMoved || !hasLocation)
           Positioned(
-            top: 64,
+            top: 68,
             left: 12,
-            child: FilledButton.icon(
+            child: OutlinedButton.icon(
               key: const Key('region-search-this-area'),
               onPressed: _loading ? null : _searchFromMapCenter,
-              icon: const Icon(Icons.search_rounded, size: 18),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: RegionMapBloom.mapInk,
+                side: const BorderSide(color: RegionMapBloom.mapBorder),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                shape: const StadiumBorder(),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 18, color: SoriTokens.brand),
               label: const Text('이 위치에서 검색'),
             ),
           ),
@@ -937,11 +961,11 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         DraggableScrollableSheet(
           key: const Key('region-result-sheet'),
           controller: _sheetController,
-          initialChildSize: 0.22,
+          initialChildSize: 0.32,
           minChildSize: 0.16,
           maxChildSize: 0.92,
           snap: true,
-          snapSizes: const [0.22, 0.52],
+          snapSizes: const [0.32, 0.56],
           builder: (context, scrollController) {
             return _ShopResultSheet(
               scrollController: scrollController,
@@ -954,7 +978,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                       _basisLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF3A3A3C), fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted, fontWeight: FontWeight.w600),
                     ),
                   ),
                   DropdownButton<double>(
@@ -1082,6 +1106,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                 message: '${bunch.items.first.name} · ${bunch.items.first.categoryLabel}',
                 child: _ShopMarkerFace(
                   selected: _sameShop(_selectedMarket, bunch.items.first),
+                  categoryKey: bunch.items.first.chipKey,
                   label: _zoom >= 15.2 ? bunch.items.first.name : null,
                 ),
               ),
@@ -1137,7 +1162,14 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         ),
       ),
       children: [
-        TileLayer(
+        ColorFiltered(
+          colorFilter: const ColorFilter.matrix(<double>[
+            1.16, -0.11, -0.05, 0, 5,
+            -0.06, 1.12, -0.06, 0, 5,
+            -0.05, -0.08, 1.13, 0, 5,
+            0, 0, 0, 1, 0,
+          ]),
+          child: TileLayer(
           key: ValueKey('tiles-${_tile.code}'),
           urlTemplate: _tile.canRender
               ? _tile.urlTemplate
@@ -1145,6 +1177,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                   .urlTemplate,
           subdomains: _tile.canRender ? _tile.subdomains : const <String>[],
           userAgentPackageName: 'com.sori.app',
+          ),
         ),
         CircleLayer(
           circles: [
@@ -1152,8 +1185,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
               point: center,
               radius: _radiusKm * 1000,
               useRadiusInMeter: true,
-              color: SoriTokens.primary.withValues(alpha: 0.08),
-              borderColor: SoriTokens.primary.withValues(alpha: 0.35),
+              color: SoriTokens.primary.withValues(alpha: 0.035),
+              borderColor: SoriTokens.primary.withValues(alpha: 0.24),
               borderStrokeWidth: 1,
             ),
           ],
@@ -1202,10 +1235,13 @@ class _MapFilterPanel extends StatelessWidget {
 }
 
 class _ShopMarkerFace extends StatelessWidget {
-  const _ShopMarkerFace({required this.selected, this.label});
+  const _ShopMarkerFace({required this.selected, required this.categoryKey, this.label});
 
   final bool selected;
+  final String categoryKey;
   final String? label;
+
+  Color get _color => _shopCategoryColor(categoryKey);
 
   @override
   Widget build(BuildContext context) {
@@ -1215,11 +1251,12 @@ class _ShopMarkerFace extends StatelessWidget {
       alignment: Alignment.center,
       margin: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         shape: BoxShape.circle,
-        border: selected
-            ? Border.all(color: RegionMapBloom.shopSelectRing, width: 2.5)
-            : null,
+        border: Border.all(
+          color: selected ? RegionMapBloom.shopSelectRing : Colors.white,
+          width: selected ? 2.5 : 1.5,
+        ),
         boxShadow: [
           if (selected)
             const BoxShadow(
@@ -1228,21 +1265,29 @@ class _ShopMarkerFace extends StatelessWidget {
               spreadRadius: 1,
             ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 8,
+            color: _color.withValues(alpha: 0.22),
+            blurRadius: 9,
             offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Icon(
         Icons.storefront_outlined,
-        color: selected ? RegionMapBloom.shopSelectRing : RegionMapBloom.market,
+        color: _color,
         size: 22,
       ),
     ),
     );
   }
 }
+
+Color _shopCategoryColor(String key) => switch (OurAreaCategory.mapRaw(key)) {
+      OurAreaCategory.hair || OurAreaCategory.barber => RegionMapBloom.mapCoral,
+      OurAreaCategory.skin => RegionMapBloom.mapBlue,
+      OurAreaCategory.nail => RegionMapBloom.mapPink,
+      OurAreaCategory.tattoo || OurAreaCategory.permanent => SoriTokens.brand,
+      _ => RegionMapBloom.mapTeal,
+    };
 
 class _ShopClusterFace extends StatelessWidget {
   const _ShopClusterFace({required this.count});
@@ -1255,14 +1300,14 @@ class _ShopClusterFace extends StatelessWidget {
     return Container(
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFF3A3A3C),
+        color: Colors.white,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
+        border: Border.all(color: RegionMapBloom.mapBlue, width: 2),
         boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 2)),
+          BoxShadow(color: Color(0x225D90F5), blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+      child: Text(label, style: const TextStyle(color: RegionMapBloom.mapBlue, fontWeight: FontWeight.w800, fontSize: 13)),
     );
   }
 }
@@ -1291,8 +1336,8 @@ class _MapCategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected ? SoriTokens.brand : Colors.white,
-      elevation: selected ? 0 : 1,
-      shadowColor: const Color(0x14000000),
+      elevation: selected ? 2 : 1,
+      shadowColor: const Color(0x17000000),
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         key: Key('region-shop-category-$chipKey'),
@@ -1301,16 +1346,16 @@ class _MapCategoryChip extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Center(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? Colors.white : const Color(0xFF3A3A3C),
+                  color: selected ? Colors.white : RegionMapBloom.mapInk,
                   fontWeight: FontWeight.w700,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             ),
@@ -1482,7 +1527,7 @@ class _MapGlassControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: 10,
+      top: 70,
       right: 12,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1538,9 +1583,9 @@ class _GlassRoundButtonState extends State<_GlassRoundButton> {
   Widget build(BuildContext context) {
     final fill = widget.active
         ? widget.activeColor.withValues(alpha: 0.22)
-        : Colors.white.withValues(alpha: 0.86);
+        : Colors.white.withValues(alpha: 0.96);
     final iconColor =
-        widget.active ? widget.activeColor : const Color(0xFF5E5862);
+        widget.active ? widget.activeColor : RegionMapBloom.mapInk;
 
     return Semantics(
       button: true,
@@ -1856,33 +1901,40 @@ class _ShopResultSheet extends StatelessWidget {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: ListView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 96),
         children: [
           Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
           Center(
             child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 12),
+              width: 44,
+              height: 5,
+              margin: const EdgeInsets.only(bottom: 18),
               decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
+                color: const Color(0xFFD8DBE5),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
           ),
-          basis,
-          const SizedBox(height: 4),
+          if (hasLocation && shown.isNotEmpty) ...[
+            const Text(
+              '내 주변에서 발견한 뷰티샵',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: RegionMapBloom.mapMuted),
+            ),
+            const SizedBox(height: 6),
+          ],
           Text(
             countLabel,
             key: const Key('region-shop-list-count'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 5),
+          basis,
+          const SizedBox(height: 3),
           const Text(
             '공공데이터 등록 업소 · 거리순',
-            style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
+            style: TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted),
           ),
           if (gpsStatus != null) ...[
             const SizedBox(height: 8),
@@ -1926,9 +1978,9 @@ class _ShopResultSheet extends StatelessWidget {
               ),
             ],
             if (shown.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               SizedBox(
-                height: 92,
+                height: 112,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: shown.length.clamp(0, 8),
@@ -1936,26 +1988,36 @@ class _ShopResultSheet extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final item = shown[index];
                     return SizedBox(
-                      width: 148,
+                      width: 162,
                       child: Material(
-                        color: const Color(0xFFF7F7F8),
-                        borderRadius: BorderRadius.circular(14),
+                        color: RegionMapBloom.mapSoft,
+                        borderRadius: BorderRadius.circular(18),
                         child: InkWell(
                           onTap: () => onSelect(item),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(18),
                           child: Padding(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.storefront_outlined, color: RegionMapBloom.market),
+                                DecoratedBox(
+                                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Icon(
+                                      Icons.storefront_rounded,
+                                      color: _shopCategoryColor(item.chipKey),
+                                      size: 22,
+                                    ),
+                                  ),
+                                ),
                                 const Spacer(),
-                                Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk)),
                                 Text(
                                   '${OurAreaCategory.chipLabel(item.chipKey)} · ${_regionDistance(item)}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12, color: SoriTokens.textSecondary),
+                                  style: const TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted),
                                 ),
                               ],
                             ),
