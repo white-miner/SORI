@@ -27,18 +27,15 @@ class ShopNeighborhood {
   bool get isLinked => admCd.trim().isNotEmpty;
 }
 
-/// 매장 주소 → 좌표 (카카오 REST 우선, 실패 시 서울 시청 폴백).
+/// 매장 주소 → 좌표 (카카오 REST). 실패 시 null — 가짜 서울 좌표를 쓰지 않는다.
 class ShopGeocodingService {
   ShopGeocodingService._();
   static final ShopGeocodingService instance = ShopGeocodingService._();
 
-  static const _seoulLat = 37.5665;
-  static const _seoulLng = 126.9780;
-
-  Future<({double lat, double lng})> geocodeAddress(String address) async {
+  Future<({double lat, double lng})?> geocodeAddress(String address) async {
     final n = await resolveNeighborhood(address);
     if (n != null) return (lat: n.latitude, lng: n.longitude);
-    return (lat: _seoulLat, lng: _seoulLng);
+    return null;
   }
 
   /// 주소만으로 행정동 코드·동 이름을 찾는다. 키 없거나 실패 시 null.
@@ -154,6 +151,7 @@ class ShopGeocodingService {
     final addr = shop.address?.trim() ?? '';
     if (addr.isEmpty) return shop;
     final coords = await geocodeAddress(addr);
+    if (coords == null) return shop;
     return shop.copyWith(
       latitude: coords.lat,
       longitude: coords.lng,
