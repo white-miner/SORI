@@ -4,6 +4,7 @@ import '../models/customer_chart.dart';
 import '../services/sori_store.dart';
 import '../theme/sori_date_picker.dart';
 import '../theme/sori_tokens.dart';
+import 'sori_section_header.dart';
 import '../features/operation/widgets/volume_glass_theme.dart';
 import '../widgets/sori_card.dart';
 import '../views/admin_chart_writer_page.dart';
@@ -106,35 +107,29 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
         children: [
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+              padding: const EdgeInsets.fromLTRB(14, 12, 4, 8),
               child: Row(
                 children: [
                   const Expanded(
-                    child: Text(
-                      '날짜별 케어 기록',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: SoriTokens.textPrimary,
-                      ),
+                    child: SoriSectionHeader(
+                      title: '날짜별 케어 기록',
+                      fontSize: 18,
                     ),
                   ),
-                  TextButton.icon(
+                  IconButton(
+                    tooltip: '전체 캘린더',
                     onPressed: _openMonthlyCalendar,
-                    icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                    label: const Text('전체 캘린더'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: SoriTokens.primary,
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    icon: const Icon(Icons.calendar_month_outlined, size: 20),
+                    color: SoriTokens.textTertiary,
+                    visualDensity: VisualDensity.compact,
                   ),
                   Icon(
                     _expanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: SoriTokens.primary,
+                    color: SoriTokens.textTertiary,
                   ),
                 ],
               ),
@@ -161,9 +156,14 @@ class _TodayCareSchedulePanelState extends State<TodayCareSchedulePanel> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: selected
-                            ? SoriTokens.primary
-                            : SoriTokens.chipIdleBg,
+                            ? SoriTokens.chipSelectedFill
+                            : SoriTokens.surface,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selected
+                              ? SoriTokens.chipSelectedFill
+                              : SoriTokens.chipUnselectedBorder,
+                        ),
                       ),
                       child: Column(
                         children: [

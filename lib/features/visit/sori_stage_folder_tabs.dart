@@ -17,6 +17,7 @@ class SoriStageFolderTabs extends StatefulWidget {
     this.minWidths,
     this.dotIndex,
     this.badges,
+    this.allowScroll = false,
   });
 
   final TabController controller;
@@ -33,10 +34,14 @@ class SoriStageFolderTabs extends StatefulWidget {
   /// Optional per-tab badge counts (0 / null entry = hidden). Red count pills.
   final List<int>? badges;
 
+  /// When true and labels overflow, scroll horizontally instead of shrinking
+  /// (My page 6 tabs). Keeps left-align + label-width underline.
+  final bool allowScroll;
+
   static const double railHeight = 48;
 
   /// Top breathing room between logo app-bar row and tab rail.
-  static const double topInset = 6;
+  static const double topInset = 10;
 
   /// Total chrome height when [topInset] is applied (e.g. PreferredSize).
   static const double chromeHeight = railHeight + topInset;
@@ -60,27 +65,38 @@ class SoriStageFolderTabs extends StatefulWidget {
 
   static const _unselectedStyle = TextStyle(
     fontSize: 15,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     color: _unselectedText,
     height: 1.2,
-    letterSpacing: 0.6,
+    letterSpacing: 0.15,
   );
   static const _selectedStyle = TextStyle(
     fontSize: 15,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
     color: _selectedText,
     height: 1.2,
-    letterSpacing: 0.6,
+    letterSpacing: 0.1,
   );
 
-  /// Subtle local-tab personality — slightly tighter tracking, charcoal kept.
+  static final _allCaps = RegExp(r'^[A-Z][A-Z0-9 &/+.-]*$');
+
+  /// Soften pressure; ALL-CAPS visit labels ease tracking without changing keys.
   static TextStyle _styleFor(String label, {required bool selected}) {
     final base = selected ? _selectedStyle : _unselectedStyle;
-    if (!_personalityLabels.contains(label)) return base;
-    return base.copyWith(
-      letterSpacing: selected ? 0.15 : 0.25,
-      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-    );
+    if (_personalityLabels.contains(label)) {
+      return base.copyWith(
+        letterSpacing: selected ? 0.05 : 0.12,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+      );
+    }
+    if (_allCaps.hasMatch(label)) {
+      return base.copyWith(
+        letterSpacing: selected ? 0.4 : 0.55,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        fontSize: 14,
+      );
+    }
+    return base;
   }
 
   @override
@@ -181,13 +197,25 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
           ),
         );
 
+        final contentSpan = SoriStageFolderTabs._sidePad * 2 +
+            widths.fold<double>(0, (a, b) => a + b) +
+            gap * (n - 1);
+        final needsScroll =
+            widget.allowScroll && contentSpan > maxWidth + 0.5;
+        final rail = SizedBox(
+          width: needsScroll ? contentSpan : double.infinity,
+          height: SoriStageFolderTabs.railHeight,
+          child: Stack(clipBehavior: Clip.none, children: children),
+        );
         return ColoredBox(
           color: SoriTokens.surface,
-          child: SizedBox(
-            width: double.infinity,
-            height: SoriStageFolderTabs.railHeight,
-            child: Stack(clipBehavior: Clip.none, children: children),
-          ),
+          child: needsScroll
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: rail,
+                )
+              : rail,
         );
       },
     );
@@ -297,13 +325,13 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   AnimatedContainer(
                     key: Key('sori-stage-tab-underline-$index'),
                     duration: const Duration(milliseconds: 160),
                     curve: Curves.easeOut,
                     width: selected ? underlineWidth : 0,
-                    height: 3,
+                    height: 2.5,
                     decoration: BoxDecoration(
                       color: selected
                           ? SoriTokens.textCharcoal
@@ -370,13 +398,15 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
     }
 
     final widths = List<double>.from(contentMins);
-    if (minSum > available && minSum > 0) {
+    final canScroll = widget.allowScroll;
+    if (!canScroll && minSum > available && minSum > 0) {
       final scale = available / minSum;
       for (var i = 0; i < n; i++) {
         widths[i] = contentMins[i] * scale;
       }
     }
-    // else: keep intrinsic widths — left-aligned, right breathing room.
+    // else: keep intrinsic widths — left-aligned, right breathing room
+    // (or horizontal scroll when [allowScroll]).
 
     return (widths: widths, gap: gap);
   }

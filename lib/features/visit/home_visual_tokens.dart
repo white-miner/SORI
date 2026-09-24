@@ -102,8 +102,8 @@ abstract final class HomeVisualTokens {
   static const Color quickNewFill = SoriTokens.brand;
   static const quickReturningFill = Color(0xFFFFFFFF);
   static const quickReturningBorder = Color(0xFFE5E5EA);
-  static const quickActionHeight = 52.0;
-  static const quickActionRadius = 16.0;
+  static const quickActionHeight = 56.0;
+  static const quickActionRadius = 20.0;
   static const quickActionGap = 10.0;
   static const quickActionTextSize = 14.0;
   static const quickActionIconSize = 18.0;
@@ -113,10 +113,10 @@ abstract final class HomeVisualTokens {
     offset: Offset(0, 6),
   );
 
-  static const baCarouselHeight = 132.0;
-  static const baCardW = 148.0;
-  static const baCardH = 112.0;
-  static const baCardRadius = 16.0;
+  static const baCarouselHeight = 148.0;
+  static const baCardW = 156.0;
+  static const baCardH = 124.0;
+  static const baCardRadius = 20.0;
   static const baCardGap = 10.0;
   static const baSlotGap = 2.0;
   static const baDotSize = 8.0;

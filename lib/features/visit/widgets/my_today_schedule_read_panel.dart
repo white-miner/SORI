@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../services/sori_store.dart';
 import '../../../theme/sori_tokens.dart';
+import '../../../widgets/sori_section_header.dart';
 import '../../../visit_kernel/models/care_schedule_entry.dart';
 import '../care_schedule_read_density.dart';
 import '../care_start_from_schedule.dart';
@@ -42,7 +43,7 @@ class MyTodayScheduleReadPanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F6F3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(SoriTokens.radiusHero),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,36 +51,22 @@ class MyTodayScheduleReadPanel extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text(
-                  '오늘 일정',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
-                  ),
-                ),
+                child: SoriSectionHeader(title: '오늘 일정', fontSize: 20),
               ),
               TextButton(
                 onPressed: () => _openAddSheet(context),
                 style: TextButton.styleFrom(
-                  foregroundColor: SoriTokens.primary,
+                  foregroundColor: SoriTokens.textSecondary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: const Size(0, 36),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: const Text(
-                  '일정 추가',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  '추가',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
-          ),
-          Text(
-            '메모 수정은 여기에서 · 홈에는 미리보기만',
-            style: TextStyle(
-              fontSize: 11,
-              color: HomeVisualTokens.dateIconColor,
-            ),
           ),
           const SizedBox(height: 12),
           if (list.isEmpty)

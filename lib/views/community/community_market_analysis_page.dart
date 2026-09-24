@@ -8,6 +8,7 @@ import '../../theme/sori_tokens.dart';
 import '../../utils/our_area_category.dart';
 import 'region_map_tile_candidates.dart';
 import 'region_map_shop_chrome.dart';
+import '../../widgets/sori_section_header.dart';
 
 /// Community-first market overview. This screen is intentionally limited to
 /// public, area-level indicators; management decisions belong to My Page.
@@ -112,16 +113,13 @@ class _CommunityMarketAnalysisPageState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
           children: [
-            const Text('상권분석', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text('내 주변 뷰티 상권을 한눈에 비교하세요.', style: TextStyle(color: SoriTokens.textSecondary)),
-            const SizedBox(height: 16),
+            // Tab already says 상권분석 — no duplicate page title.
             _mapFilters(),
             const SizedBox(height: 12),
             _analysisMap(insight, beauty.where((s) => s.chipKey == _category).toList()),
-            const SizedBox(height: 18),
-            const Text('이 지역의 흐름', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 22),
+            const SoriSectionHeader(title: '이 지역의 흐름'),
+            const SizedBox(height: 14),
             if (_loading)
               const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()))
             else ...[
@@ -149,7 +147,12 @@ class _CommunityMarketAnalysisPageState
 
   Widget _glassPanel({required Widget child}) => Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xF2FFFFFF), borderRadius: BorderRadius.circular(24), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 24, offset: Offset(0, 8))]),
+        decoration: BoxDecoration(
+          color: SoriTokens.surface,
+          borderRadius: BorderRadius.circular(SoriTokens.radiusHero),
+          border: Border.all(color: SoriTokens.chipUnselectedBorder),
+          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 20, offset: Offset(0, 6))],
+        ),
         child: child,
       );
 
@@ -162,7 +165,7 @@ class _CommunityMarketAnalysisPageState
     }
     final center = LatLng(lat, lng);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(SoriTokens.radiusHero),
       child: SizedBox(
         height: 360,
         child: Stack(children: [
@@ -202,8 +205,7 @@ class _CommunityMarketAnalysisPageState
   Widget _mapFilters() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text('분석 범위', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 8),
+      const SizedBox(height: 2),
       Row(children: [
         for (var i = 0; i < _radii.length; i++) ...[
           if (i > 0) const SizedBox(width: 6),
@@ -240,9 +242,9 @@ class _CommunityMarketAnalysisPageState
 
   Widget _mapBadge(String text) => DecoratedBox(decoration: BoxDecoration(color: const Color(0xEFFFFFFF), borderRadius: BorderRadius.circular(99), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700))));
 
-  Widget _metricCard(String title, String value, String caption) => _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 8), Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]));
+  Widget _metricCard(String title, String value, String caption) => _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary, fontSize: 13)), const SizedBox(height: 10), Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)), const SizedBox(height: 2), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textTertiary))]));
 
-  Widget _wideMetric(String title, String value, String caption) => _glassPanel(child: Row(children: [const Icon(Icons.groups_2_outlined, color: SoriTokens.primary, size: 30), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary)), Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary))]))]));
+  Widget _wideMetric(String title, String value, String caption) => _glassPanel(child: Row(children: [const Icon(Icons.groups_2_outlined, color: SoriTokens.textCharcoal, size: 28), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(color: SoriTokens.textSecondary, fontSize: 13)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)), Text(caption, style: TextStyle(fontSize: 12, color: SoriTokens.textTertiary))]))]));
 
   Widget _salesPanel() {
     final sale = _franchiseSales;
@@ -271,7 +273,13 @@ class _CommunityMarketAnalysisPageState
 
   Widget _visualSummary({required int total, required int same}) {
     final ratio = total == 0 ? 0.0 : (same / total).clamp(0.0, 1.0);
-    return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('상권 한눈에 보기', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 16), ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: ratio, minHeight: 12, color: SoriTokens.primary, backgroundColor: const Color(0xFFE8E8F0))), const SizedBox(height: 10), Text('전체 주변 샵 중 선택 업종 비중 ${(ratio * 100).round()}%', style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 18), Text('동종업종 $same곳 · 전체 $total곳', style: const TextStyle(fontWeight: FontWeight.w700))]));
+    return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('선택 업종 비중', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 14),
+      ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: ratio, minHeight: 10, color: SoriTokens.textCharcoal, backgroundColor: const Color(0xFFE8E8F0))),
+      const SizedBox(height: 10),
+      Text('동종 $same · 전체 $total · ${(ratio * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w600, color: SoriTokens.textSecondary)),
+    ]));
   }
 
   Widget _sourceNote(ShopMarketInsight? insight) {

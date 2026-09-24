@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:sori/theme/sori_tokens.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sori/services/shop_market_service.dart';
@@ -219,10 +220,10 @@ void main() {
     final selectedSurface = tester.widget<Material>(
       find.byKey(const Key('region-category-surface-all')),
     );
-    expect(selectedSurface.color, const Color(0xEFFFFFFF));
+    expect(selectedSurface.color, SoriTokens.chipSelectedFill);
     expect(selectedSurface.shape, isA<StadiumBorder>());
     final selectedSide = (selectedSurface.shape! as StadiumBorder).side;
-    expect(selectedSide.color, const Color(0xFF22232A));
+    expect(selectedSide.color, SoriTokens.chipSelectedFill);
     expect(find.byKey(const Key('region-category-icon-hair')), findsOneWidget);
     expect(find.byKey(const Key('region-category-icon-skin')), findsOneWidget);
     expect(find.byKey(const Key('region-category-icon-nail')), findsOneWidget);
@@ -249,7 +250,8 @@ void main() {
       find.byKey(const Key('region-category-surface-hair')),
     );
     final hairSide = (hairSurface.shape! as StadiumBorder).side;
-    expect(hairSide.color, const Color(0xFF22232A));
+    expect(hairSide.color, SoriTokens.chipSelectedFill);
+    expect(hairSurface.color, SoriTokens.chipSelectedFill);
     expect(
       tester
           .widget<Text>(
@@ -257,7 +259,7 @@ void main() {
           )
           .style!
           .color,
-      const Color(0xFF22232A),
+      SoriTokens.onPrimary,
     );
 
     await tester.tap(find.byKey(const Key('region-search-open')));

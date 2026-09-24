@@ -801,25 +801,22 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 8, 2),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Text(
-              '우리지역',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SoriTokens.textPrimary),
-            ),
+    // Tab already names this surface — no duplicate H1; search as icon-only.
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 4, 0),
+        child: IconButton(
+          key: const Key('region-search-open'),
+          tooltip: '업소 검색',
+          onPressed: _openSearch,
+          iconSize: 22,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(40, 40),
+            foregroundColor: SoriTokens.textSecondary,
           ),
-          IconButton(
-            key: const Key('region-search-open'),
-            tooltip: '업소 검색',
-            onPressed: _openSearch,
-            iconSize: 26,
-            style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
-            icon: const Icon(Icons.search_rounded),
-          ),
-        ],
+          icon: const Icon(Icons.search_rounded),
+        ),
       ),
     );
   }
@@ -1031,8 +1028,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('탐색 범위', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
+          // Thin chip block (radius + category) — no glass overlay on map.
           Row(
             key: const Key('region-radius-chips'),
             children: [

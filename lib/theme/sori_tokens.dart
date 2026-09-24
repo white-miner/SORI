@@ -99,6 +99,12 @@ abstract final class SoriTokens {
   /// Idle chip / unselected control fill.
   static const Color chipIdleBg = Color(0xFFF1F1F1);
 
+  /// Content chip — selected fill (charcoal; not brand purple).
+  static const Color chipSelectedFill = Color(0xFF111111);
+
+  /// Content chip — unselected thin border.
+  static const Color chipUnselectedBorder = Color(0xFFE5E5EA);
+
   /// Deep charcoal — default body text on white backgrounds
   static const Color textCharcoal = Color(0xFF111111);
 
@@ -131,9 +137,16 @@ abstract final class SoriTokens {
 
   static const double glassBlurSigma = 10;
 
-  static const double radiusLg = 18;
+  static const double radiusLg = 20;
   static const double radiusXl = 24;
   static const double radiusMd = 14;
+
+  /// Hero / content card radius (Weverse fields).
+  static const double radiusHero = 20;
+
+  /// Section header title size (T5).
+  static const double typeSection = 22;
+
   static const double outlineWidth = 1;
 
   static List<BoxShadow> get cardShadow => [
