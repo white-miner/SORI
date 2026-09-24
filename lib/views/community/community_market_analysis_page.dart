@@ -41,14 +41,19 @@ class _CommunityMarketAnalysisPageState
     setState(() => _loading = true);
     final shop = widget.store.shop;
     try {
-      final population = await ShopMarketService.instance.fetch(
-        shop: shop,
-        category: '전체',
-        radiusM: _radiusM,
-        fallbackAddress: shop.address,
-      );
-      final latitude = population.centerLatitude ?? shop.latitude;
-      final longitude = population.centerLongitude ?? shop.longitude;
+      ShopMarketInsight? population;
+      var latitude = shop.latitude;
+      var longitude = shop.longitude;
+      if (latitude == null || longitude == null) {
+        population = await ShopMarketService.instance.fetch(
+          shop: shop,
+          category: '전체',
+          radiusM: _radiusM,
+          fallbackAddress: shop.address,
+        );
+        latitude = population.centerLatitude;
+        longitude = population.centerLongitude;
+      }
       final result = latitude != null && longitude != null
           ? await ShopMarketService.instance.fetchNearby(
               latitude: latitude,
@@ -57,7 +62,22 @@ class _CommunityMarketAnalysisPageState
             )
           : ShopMarketInsight.unavailable(reason: 'shop_coords_missing');
       if (mounted && request == _request) {
-        setState(() { _insight = result; _populationInsight = population; });
+        setState(() {
+          _insight = result;
+          _populationInsight = population;
+          _loading = false;
+        });
+      }
+      if (population == null) {
+        final nextPopulation = await ShopMarketService.instance.fetch(
+          shop: shop,
+          category: '전체',
+          radiusM: _radiusM,
+          fallbackAddress: shop.address,
+        );
+        if (mounted && request == _request) {
+          setState(() => _populationInsight = nextPopulation);
+        }
       }
     } catch (_) {
       if (mounted && request == _request) {
