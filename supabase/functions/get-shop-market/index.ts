@@ -848,6 +848,54 @@ async function resolveAddressWithKakao(address: string): Promise<{
   }
 }
 
+
+type FranchiseSale = { area_name: string; industry_name: string; year: string; area_unit_average_sales: number; currency_unit: string; franchise_count: number };
+const regionAliases: Record<string,string> = {
+  서울특별시:"서울", 부산광역시:"부산", 대구광역시:"대구", 인천광역시:"인천",
+  광주광역시:"광주", 대전광역시:"대전", 울산광역시:"울산",
+  세종특별자치시:"세종", 경기도:"경기", 강원특별자치도:"강원",
+  충청북도:"충북", 충청남도:"충남", 전북특별자치도:"전북",
+  전라북도:"전북", 전라남도:"전남", 경상북도:"경북",
+  경상남도:"경남", 제주특별자치도:"제주",
+};
+function regionOf(text: string): string {
+  const first = text.trim().split(/\s+/)[0] ?? "";
+  return regionAliases[first] ?? (/^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)$/.test(first) ? first : "");
+}
+async function franchiseSales(address: string) {
+  const source = "공정거래위원회 가맹정보 지역별 서비스업 평균매출";
+  const region = regionOf(address);
+  const key = Deno.env.get("FTC_FRANCHISE_SALES_SERVICE_KEY")?.trim() ?? "";
+  if (!region) return { ok:false, error:"region_required", source, rows:[] as FranchiseSale[] };
+  if (!key) return { ok:false, error:"missing_FTC_FRANCHISE_SALES_SERVICE_KEY", source, rows:[] as FranchiseSale[] };
+  let error = "no_matching_data";
+  for (let year = new Date().getUTCFullYear() - 1; year >= new Date().getUTCFullYear() - 5; year--) {
+    const url = new URL("https://apis.data.go.kr/1130000/FftcAreaIndutyAvrStatsService/getAreaIndutyAvrSrvcStats");
+    for (const [k,v] of Object.entries({ serviceKey:key, pageNo:"1", numOfRows:"1000", resultType:"json", yr:String(year) })) url.searchParams.set(k,v);
+    try {
+      const res = await fetch(url, { signal:AbortSignal.timeout(8000) });
+      const payload = await res.json();
+      if (!res.ok || !["00","0","NORMAL_SERVICE"].includes(String(payload?.resultCode ?? ""))) { error = "upstream_error"; continue; }
+      const raw = payload?.items?.item ?? payload?.items ?? [];
+      const rows: FranchiseSale[] = [];
+      for (const item of (Array.isArray(raw) ? raw : [raw])) {
+        if (!item || typeof item !== "object") continue;
+        const industry = String(item.indutyMlsfcNm ?? "").trim();
+        const amount = Number(String(item.arUnitAvrgSlsAmt ?? "").replace(/,/g,""));
+        if (regionOf(String(item.areaNm ?? "")) !== region ||
+            !/미용|헤어|피부|네일|이용/.test(industry) ||
+            !Number.isFinite(amount) || amount <= 0) continue;
+        rows.push({ area_name:String(item.areaNm), industry_name:industry, year:String(item.yr ?? year),
+          area_unit_average_sales:amount, currency_unit:String(item.crrncyUnitCdNm ?? "").trim(),
+          franchise_count:num(item.frcsCnt) });
+      }
+      if (rows.length) return { ok:true, source, region, year:String(year), scope:"province_franchise_service_area_unit", rows };
+      error = "no_matching_beauty_rows";
+    } catch { error = "upstream_unavailable"; }
+  }
+  return { ok:false, source, region, error, rows:[] as FranchiseSale[] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -864,6 +912,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (body.action === "franchise_sales") return jsonResponse(await franchiseSales(body.address ?? ""));
     const lat = body.latitude;
     const lng = body.longitude;
     if (typeof lat !== "number" || typeof lng !== "number" ||
