@@ -13,8 +13,17 @@ abstract final class RegionMapBloom {
   /// 세미나 marker · Coral
   static const Color seminar = Color(0xFFD96462);
 
-  /// 상권 · low-emphasis neutral
-  static const Color market = Color(0xFF94A3B8);
+  /// 업소 마커는 지도 위에서 읽히되, 선택 강조보다 앞서지 않는다.
+  static const Color market = Color(0xFF6480B5);
+
+  static const Color mapInk = Color(0xFF252638);
+  static const Color mapMuted = Color(0xFF777C90);
+  static const Color mapBorder = Color(0xFFE8EAF3);
+  static const Color mapSoft = Color(0xFFF3F5FF);
+  static const Color mapBlue = Color(0xFF5D90F5);
+  static const Color mapCoral = Color(0xFFF5755D);
+  static const Color mapPink = Color(0xFFE875AA);
+  static const Color mapTeal = Color(0xFF36AAA7);
 
   /// GPS active · Blue
   static const Color gpsActive = Color(0xFF2563EB);
@@ -22,8 +31,8 @@ abstract final class RegionMapBloom {
   /// 선택 ring · cream. 글·세미나 핀 전용.
   static const Color selectRing = Color(0xFFFCF9F5);
 
-  /// Peek/Half sheet cream
-  static const Color sheetCream = Color(0xFFFCF9F5);
+  /// 결과는 지도와 분리되는 깨끗한 흰 종이 레이어.
+  static const Color sheetCream = Colors.white;
 
   /// 지도 위 검색 패널·선택 카드. Desk 히어로와 같은 반투명 흰색.
   static const Color panelFill = HomeVisualTokens.heroCardFill;
