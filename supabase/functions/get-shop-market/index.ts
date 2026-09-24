@@ -859,7 +859,7 @@ const regionAliases: Record<string,string> = {
   경상남도:"경남", 제주특별자치도:"제주",
 };
 function regionOf(text: string): string {
-  const first = text.trim().split(/\\s+/)[0] ?? "";
+  const first = text.trim().split(/\s+/)[0] ?? "";
   return regionAliases[first] ?? (/^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)$/.test(first) ? first : "");
 }
 async function franchiseSales(address: string) {
