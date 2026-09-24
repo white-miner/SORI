@@ -223,7 +223,21 @@ class _CommunityMarketAnalysisPageState
     return _glassPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('상권 한눈에 보기', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 16), ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: ratio, minHeight: 12, color: SoriTokens.brand, backgroundColor: const Color(0xFFE8E8F0))), const SizedBox(height: 10), Text('전체 주변 샵 중 선택 업종 비중 ${(ratio * 100).round()}%', style: TextStyle(color: SoriTokens.textSecondary)), const SizedBox(height: 18), Text('동종업종 $same곳 · 전체 $total곳', style: const TextStyle(fontWeight: FontWeight.w700))]));
   }
 
-  Widget _sourceNote(ShopMarketInsight? insight) => Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text('출처: ${insight?.sources.isNotEmpty == true ? insight!.sources.join(' · ') : '공공데이터'}\n개별 샵 매출이 아닌 지역·업종 참고 지표입니다.', style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.45)));
+  Widget _sourceNote(ShopMarketInsight? insight) {
+    final checked = insight?.fetchedAt?.toLocal();
+    final date = checked == null
+        ? '조회 시점 확인 불가'
+        : '${checked.year}.${checked.month.toString().padLeft(2, '0')}.${checked.day.toString().padLeft(2, '0')} 조회';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        '샵 출처: 소상공인시장진흥공단 상가(상권)정보 · $date\n'
+        '거주인구는 행정동 기준으로 반경 내 인구와 다릅니다. '
+        '평균매출은 가맹점 기반 통계이며 개별 샵 매출이 아닙니다.',
+        style: TextStyle(fontSize: 12, color: SoriTokens.textSecondary, height: 1.45),
+      ),
+    );
+  }
 }
 
 class _AnalysisMarker extends StatelessWidget {
