@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1613,7 +1614,7 @@ class _LipsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
+    final path = ui.Path()
       ..moveTo(1.5, 9.8)
       ..cubicTo(4, 6.5, 7, 6.5, 10, 8.8)
       ..cubicTo(13, 6.5, 16, 6.5, 18.5, 9.8)
@@ -1674,15 +1675,6 @@ class _TattooMachinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TattooMachinePainter oldDelegate) => oldDelegate.color != color;
-}
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _SelectedShopGlass extends StatelessWidget {
