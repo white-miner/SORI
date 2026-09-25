@@ -248,6 +248,8 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
     merged.safetyDirty = session.safetyDirty;
     merged.consult = session.consult;
     merged.consultSeconds = session.consultSeconds;
+    // fromRecord 는 빈 단계 목록이면 기본 단계를 다시 채우므로, 모두 삭제한 상태를 지킨다.
+    if (session.steps.isEmpty) merged.steps.clear();
     for (var i = 0; i < merged.steps.length && i < session.steps.length; i++) {
       merged.steps[i].expanded = session.steps[i].expanded;
       merged.steps[i].detailsOpen = session.steps[i].detailsOpen;
@@ -422,16 +424,19 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
     return parts.isEmpty ? '미입력' : parts.join(' · ');
   }
 
+  /// 단계 제목(템플릿 이름) 외에 입력한 기록이 하나라도 있는지.
+  static bool _stepHasContent(CareStepDraft step) {
+    return step.memo.trim().isNotEmpty ||
+        step.product.trim().isNotEmpty ||
+        step.device.trim().isNotEmpty ||
+        step.intensity.trim().isNotEmpty ||
+        step.minutes.trim().isNotEmpty ||
+        step.area.trim().isNotEmpty;
+  }
+
   String _careSummary(ChartVisitSession s) {
     if (s.steps.isEmpty) return '미입력';
-    final written = s.steps.where((step) {
-      return step.memo.trim().isNotEmpty ||
-          step.product.trim().isNotEmpty ||
-          step.device.trim().isNotEmpty ||
-          step.intensity.trim().isNotEmpty ||
-          step.minutes.trim().isNotEmpty ||
-          step.area.trim().isNotEmpty;
-    }).length;
+    final written = s.steps.where(_stepHasContent).length;
     final base = '${s.steps.length}단계';
     return written > 0 ? '$base · 기록 $written' : base;
   }
@@ -1021,10 +1026,32 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
         for (var i = 0; i < session.steps.length; i++)
           KeyedSubtree(
             key: ValueKey<String>('chart-visit-workspace-step-$i'),
-            child: ChartVisitCareStepTile(
-              index: i + 1,
-              step: session.steps[i],
-              onChanged: _touch,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  // 삭제 후 앞당겨진 단계가 이전 단계의 입력칸 상태를 물려받지 않게 한다.
+                  child: KeyedSubtree(
+                    key: ObjectKey(session.steps[i]),
+                    child: ChartVisitCareStepTile(
+                      index: i + 1,
+                      step: session.steps[i],
+                      onChanged: _touch,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: IconButton(
+                    key: Key('chart-ws-care-step-delete-$i'),
+                    tooltip: '시술 삭제',
+                    onPressed: () => _deleteStep(session, session.steps[i]),
+                    visualDensity: VisualDensity.compact,
+                    color: SoriTokens.textSecondary,
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  ),
+                ),
+              ],
             ),
           ),
         Align(
@@ -1048,6 +1075,46 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
         ),
       ],
     );
+  }
+
+  /// 빈 단계는 바로, 기록이 있는 단계는 확인 후 삭제한다. 저장은 기존 draft 경로를 탄다.
+  Future<void> _deleteStep(
+    ChartVisitSession session,
+    CareStepDraft step,
+  ) async {
+    if (_stepHasContent(step)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            key: const Key('chart-ws-care-step-delete-confirm'),
+            title: const Text('이 시술을 삭제할까요?'),
+            actions: [
+              TextButton(
+                key: const Key('chart-ws-care-step-delete-cancel'),
+                onPressed: () => Navigator.pop(dialogContext, false),
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.textSecondary,
+                ),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                key: const Key('chart-ws-care-step-delete-ok'),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                style: TextButton.styleFrom(
+                  foregroundColor: SoriTokens.textCharcoal,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          );
+        },
+      );
+      if (ok != true || !mounted) return;
+    }
+    if (!identical(_session, session)) return;
+    if (!session.steps.remove(step)) return;
+    _touch();
   }
 
   // --- 4. 반응 ---------------------------------------------------------------
