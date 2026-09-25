@@ -6,8 +6,9 @@ import 'package:flutter/material.dart';
 /// content, edge highlights, a surface sheen and a two-layer shadow.
 ///
 /// The block itself is pure decoration (no [BackdropFilter]) so it stays cheap
-/// in long scrolling lists on web. Only [SoriFrostedPanel] blurs, and only
-/// inside its own clip.
+/// in long scrolling lists on web. Blur lives only where it is needed:
+/// [SoriGlassFade] (progressive blur + smoked tint at the bottom of a photo,
+/// no backdrop read) and [SoriFrostedPanel] (small boxed panel).
 ///
 /// First used by HOME ▸ DESK B&A 게시물 cards (`ManagementCaseCard(glass: true)`).
 /// Other surfaces can opt in later by wrapping content in [SoriGlassBlock].
@@ -109,6 +110,40 @@ abstract final class SoriGlassStyle {
   static const List<Shadow> textShadow = [
     Shadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(0, 1)),
   ];
+
+  // ── Progressive blur fade (text straight on the photo, no box) ───────────
+
+  /// Share of the photo height covered by [SoriGlassFade], from the bottom.
+  static const double fadeHeightFactor = 0.5;
+
+  /// Smoked tint reached at the very bottom — same as the panel's bottom
+  /// ([panelFill] 26% black).
+  static const Color fadeTint = Color(0x42000000);
+
+  /// Smoothstep ramp (3t² − 2t³) sampled at 8 stops: starts flat at the top so
+  /// the blur has no visible starting edge, lands flat at full strength.
+  static const List<double> fadeStops = [0, .15, .3, .45, .6, .75, .9, 1];
+  static const List<double> fadeRamp = [
+    0,
+    .061,
+    .216,
+    .425,
+    .648,
+    .844,
+    .972,
+    1,
+  ];
+
+  /// Top → bottom gradient from transparent to [color] along [fadeRamp].
+  static LinearGradient fadeGradient(Color color) {
+    final a = color.a;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [for (final t in fadeRamp) color.withValues(alpha: a * t)],
+      stops: fadeStops,
+    );
+  }
 }
 
 /// Thick translucent glass frame with edge highlights, sheen and shadow.
@@ -310,6 +345,93 @@ class SoriFrostedPanel extends StatelessWidget {
           child: Padding(padding: padding, child: child),
         ),
       ),
+    );
+  }
+}
+
+/// Progressive "frosted smoke" fade over the bottom of a photo: fully clear at
+/// the top of the zone, full [blurSigma] blur + full [tint] at the bottom edge.
+///
+/// No [BackdropFilter]: a blurred copy of [child] (the same photo, so the image
+/// cache shares one decode) is masked with a smooth alpha ramp, then a smoked
+/// tint uses the same ramp. Only the bottom zone is painted, so the blur is
+/// clipped to it. Everything added here ignores pointers and semantics.
+///
+/// Wrap each photo pane individually (e.g. both halves of a
+/// [BeforeAfterSlider]) so the fade follows any clipping applied to the pane.
+class SoriGlassFade extends StatelessWidget {
+  const SoriGlassFade({
+    super.key,
+    required this.child,
+    this.heightFactor = SoriGlassStyle.fadeHeightFactor,
+    this.blurSigma = SoriGlassStyle.panelBlurSigma,
+    this.tint = SoriGlassStyle.fadeTint,
+  });
+
+  final Widget child;
+  final double heightFactor;
+  final double blurSigma;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        final h = c.maxHeight;
+        if (!w.isFinite || !h.isFinite || h <= 0) return child;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            child,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: h * heightFactor,
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Stack(
+                    key: const Key('sori-glass-fade'),
+                    fit: StackFit.expand,
+                    children: [
+                      ShaderMask(
+                        key: const Key('sori-glass-fade-blur'),
+                        blendMode: BlendMode.dstIn,
+                        shaderCallback: (rect) => SoriGlassStyle.fadeGradient(
+                          const Color(0xFF000000),
+                        ).createShader(rect),
+                        child: ClipRect(
+                          child: OverflowBox(
+                            alignment: Alignment.bottomCenter,
+                            minWidth: w,
+                            maxWidth: w,
+                            minHeight: h,
+                            maxHeight: h,
+                            child: ImageFiltered(
+                              imageFilter: ui.ImageFilter.blur(
+                                sigmaX: blurSigma,
+                                sigmaY: blurSigma,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DecoratedBox(
+                        key: const Key('sori-glass-fade-tint'),
+                        decoration: BoxDecoration(
+                          gradient: SoriGlassStyle.fadeGradient(tint),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

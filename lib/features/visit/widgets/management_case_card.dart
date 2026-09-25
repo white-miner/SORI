@@ -179,15 +179,20 @@ class ManagementCaseCard extends StatelessWidget {
             maxHeight: 720,
             borderRadius: BorderRadius.zero,
             showCornerTags: false,
-            before: ChartImagePane(
-              url: chart.beforeImageUrl,
-              fallbackLabel: 'Before',
-              tone: SoriTokens.primary,
+            // 각 절반에 같은 페이드를 넣어 슬라이더 분할을 그대로 따라간다.
+            before: SoriGlassFade(
+              child: ChartImagePane(
+                url: chart.beforeImageUrl,
+                fallbackLabel: 'Before',
+                tone: SoriTokens.primary,
+              ),
             ),
-            after: ChartImagePane(
-              url: chart.afterImageUrl,
-              fallbackLabel: 'After',
-              tone: SoriTokens.textSecondary,
+            after: SoriGlassFade(
+              child: ChartImagePane(
+                url: chart.afterImageUrl,
+                fallbackLabel: 'After',
+                tone: SoriTokens.textSecondary,
+              ),
             ),
           ),
           const Positioned(
@@ -201,53 +206,52 @@ class ManagementCaseCard extends StatelessWidget {
             child: IgnorePointer(child: _GlassCornerTag(label: 'After')),
           ),
           Positioned(
-            left: 10,
-            right: 10,
-            bottom: 10,
+            left: 16,
+            right: 16,
+            bottom: 16,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: IgnorePointer(
-                    child: SoriFrostedPanel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'SORI CASE · ${chart.visitNumber}회차',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                              color: Color(0xE6FFFFFF),
-                              shadows: SoriGlassStyle.textShadow,
-                            ),
+                    child: Column(
+                      key: const Key('management-case-card-glass-text'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'SORI CASE · ${chart.visitNumber}회차',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: Color(0xE6FFFFFF),
+                            shadows: SoriGlassStyle.textShadow,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            chart.serviceMenuLabel,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTheme.display(
-                              color: Colors.white,
-                              fontSize: 28,
-                              height: 1.05,
-                            ).copyWith(shadows: SoriGlassStyle.textShadow),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          chart.serviceMenuLabel,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.display(
+                            color: Colors.white,
+                            fontSize: 28,
+                            height: 1.05,
+                          ).copyWith(shadows: SoriGlassStyle.textShadow),
+                        ),
+                        if (chips.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (final chip in chips)
+                                _KeywordChip(label: chip, glass: true),
+                            ],
                           ),
-                          if (chips.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                for (final chip in chips)
-                                  _KeywordChip(label: chip, glass: true),
-                              ],
-                            ),
-                          ],
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -427,10 +431,7 @@ class _MoreOnPhoto extends StatelessWidget {
           if (value == 'hide_home') onHideFromHome();
         },
         itemBuilder: (context) => const [
-          PopupMenuItem<String>(
-            value: 'hide_home',
-            child: Text('홈에서 숨기기'),
-          ),
+          PopupMenuItem<String>(value: 'hide_home', child: Text('홈에서 숨기기')),
         ],
       ),
     );
