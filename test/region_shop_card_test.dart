@@ -17,6 +17,7 @@ const _centerLat = 35.8562;
 const _centerLng = 129.2247;
 final _captureKey = GlobalKey();
 bool _previewFontLoaded = false;
+class _PreviewHttpOverrides extends HttpOverrides {}
 
 ShopMarketStoreItem _pieona({String flrNo = '2', String chipKey = 'skin'}) {
   return ShopMarketStoreItem(
@@ -193,7 +194,7 @@ void main() {
                   if (response.statusCode != 200) throw StateError('Preview font unavailable');
                   return await consolidateHttpClientResponseBytes(response);
                 } finally { client.close(force: true); }
-              }, null);
+              }, _PreviewHttpOverrides()).timeout(const Duration(seconds: 30));
           loader.addFont(Future.value(ByteData.sublistView(bytes)));
           await loader.load();
           _previewFontLoaded = true;
