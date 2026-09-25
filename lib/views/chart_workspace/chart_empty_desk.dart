@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../features/visit/visit_new_customer_form_page.dart';
 import '../../models/customer.dart';
@@ -13,12 +13,10 @@ class ChartEmptyDesk extends StatefulWidget {
     super.key,
     required this.store,
     required this.onSelectCustomer,
-    required this.onShowLegacyRails,
   });
 
   final SoriStore store;
   final ValueChanged<Customer> onSelectCustomer;
-  final VoidCallback onShowLegacyRails;
 
   @override
   State<ChartEmptyDesk> createState() => _ChartEmptyDeskState();
@@ -139,12 +137,12 @@ class _ChartEmptyDeskState extends State<ChartEmptyDesk> {
             if (today.isNotEmpty) ...[
               const _SectionLabel(label: '오늘'),
               const SizedBox(height: 8),
-              _CustomerCardList(
+              _CustomerCarousel(
                 customers: today,
                 keyPrefix: 'chart-empty-desk-today',
                 onTap: widget.onSelectCustomer,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
             ],
             const _SectionLabel(label: '최근'),
             const SizedBox(height: 8),
@@ -160,7 +158,7 @@ class _ChartEmptyDeskState extends State<ChartEmptyDesk> {
                 ),
               )
             else
-              _CustomerCardList(
+              _CustomerCarousel(
                 customers: recent,
                 keyPrefix: 'chart-empty-desk-recent',
                 onTap: widget.onSelectCustomer,
@@ -184,21 +182,6 @@ class _ChartEmptyDeskState extends State<ChartEmptyDesk> {
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: TextButton(
-              key: const Key('chart-empty-desk-legacy-toggle'),
-              onPressed: widget.onShowLegacyRails,
-              child: const Text(
-                '이전 서랍 보기',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: SoriTokens.textSecondary,
                 ),
               ),
             ),
@@ -228,6 +211,108 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+/// Horizontal compact-card carousel for 오늘 / 최근.
+class _CustomerCarousel extends StatelessWidget {
+  const _CustomerCarousel({
+    required this.customers,
+    required this.keyPrefix,
+    required this.onTap,
+  });
+
+  final List<Customer> customers;
+  final String keyPrefix;
+  final ValueChanged<Customer> onTap;
+
+  static const double _cardWidth = 150;
+  static const double _rowHeight = 88;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _rowHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: customers.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final c = customers[index];
+          return SizedBox(
+            width: _cardWidth,
+            child: _CompactCustomerCard(
+              key: Key('$keyPrefix-${c.id}'),
+              customer: c,
+              onTap: () => onTap(c),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CompactCustomerCard extends StatelessWidget {
+  const _CompactCustomerCard({
+    super.key,
+    required this.customer,
+    required this.onTap,
+  });
+
+  final Customer customer;
+  final VoidCallback onTap;
+
+  String get _subtitle {
+    final phone = customer.phone.trim();
+    if (phone.isNotEmpty) {
+      return phone.length > 13 ? '${phone.substring(0, 13)}…' : phone;
+    }
+    final d = customer.lastTreatmentDate;
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return '${d.year}.$mm.$dd';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: SoriTokens.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                customer.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: SoriTokens.textCharcoal,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: SoriTokens.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Vertical list — kept for temporary 검색 결과.
 class _CustomerCardList extends StatelessWidget {
   const _CustomerCardList({
     required this.customers,
