@@ -65,7 +65,7 @@ class _SeminarFeedbackDetailPageState extends State<SeminarFeedbackDetailPage> {
           'AI 피드백 리포트',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

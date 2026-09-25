@@ -96,7 +96,7 @@ class _ExploreCommunityPostPageState extends State<ExploreCommunityPostPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: Text(post.postType.label),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         actions: [
           SoriPressable(
             semanticLabel: _bookmarked ? '저장 해제' : '지역 콘텐츠 저장',

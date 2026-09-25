@@ -283,7 +283,7 @@ class _ChartCustomerPickerBodyState extends State<ChartCustomerPickerBody> {
               hintText: '이름 · 전화번호 검색',
               prefixIcon: const Icon(Icons.search_rounded),
               filled: true,
-              fillColor: SoriTokens.background,
+              fillColor: SoriTokens.fillMuted,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,

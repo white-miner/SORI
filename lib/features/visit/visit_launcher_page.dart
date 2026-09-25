@@ -956,11 +956,9 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   Widget build(BuildContext context) {
     final careRunning = VisitTimerStore.instance.isCareRunning;
 
-    // DESK만 웜 화이트 캔버스. 탭 레일 아래 여백도 같은 색으로 맞춘다.
-    final deskActive = _tabs.index == HomeTab.myFeed.index;
-
+    // 웜 화이트 캔버스(SoriTokens.canvas)는 이제 앱 기본값 — 모든 탭이 같은 색.
     return ColoredBox(
-      color: deskActive ? SoriGlassStyle.warmCanvas : _groupedBg,
+      color: _groupedBg,
       child: Stack(
         children: [
           Column(

@@ -17,7 +17,7 @@ class DirectorProfileEditPage extends StatelessWidget {
           '프로필 편집',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

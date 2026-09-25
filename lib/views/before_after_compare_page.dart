@@ -17,6 +17,7 @@ import '../routing/sori_router.dart';
 import '../services/customer_crm_status_resolver.dart';
 import '../services/instagram_quick_post.dart';
 import '../services/sori_store.dart';
+import '../theme/sori_glass_theme.dart';
 import '../theme/sori_tokens.dart';
 import '../views/smart_guide_camera_page.dart';
 import '../widgets/before_after_slider.dart';
@@ -532,11 +533,12 @@ class _BeforeAfterComparePageState extends State<BeforeAfterComparePage>
                 key: Key(
                   'ba-compare-content-candidate-${_activeCompareChart?.id ?? ''}',
                 ),
+                // 어두운 사진 뷰어 위 — 전역 글래스 채움 대신 기존 투명 외곽선 유지.
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Colors.white70),
                   visualDensity: VisualDensity.compact,
-                ),
+                ).merge(SoriGlassTheme.flatOnDark),
                 onPressed: _enqueueContentCandidate,
                 child: const Text('콘텐츠 후보로 만들기'),
               ),

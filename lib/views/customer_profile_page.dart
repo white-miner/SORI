@@ -250,7 +250,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('고객 상세 정보'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

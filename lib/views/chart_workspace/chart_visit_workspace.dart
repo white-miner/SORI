@@ -1556,7 +1556,7 @@ class _WorkspaceSection extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: SoriTokens.background,
+                  color: SoriTokens.fillMuted,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Padding(

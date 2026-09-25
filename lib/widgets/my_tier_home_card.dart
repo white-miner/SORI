@@ -137,7 +137,7 @@ Future<void> showFullTierGuideSheet(
                         decoration: BoxDecoration(
                           color: isCurrent
                               ? SoriTokens.primarySoft
-                              : SoriTokens.background,
+                              : SoriTokens.fillMuted,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isCurrent

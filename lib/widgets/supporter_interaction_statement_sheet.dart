@@ -170,7 +170,7 @@ class _SupporterInteractionStatementSheetState
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: SoriTokens.background,
+                                color: SoriTokens.fillMuted,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: SoriTokens.border),
                               ),

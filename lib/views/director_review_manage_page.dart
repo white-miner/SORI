@@ -1062,7 +1062,7 @@ class _DirectorReviewManagePageState extends State<DirectorReviewManagePage>
               decoration: InputDecoration(
                 hintText: '고객 후기에 답글을 남겨 주세요',
                 filled: true,
-                fillColor: SoriTokens.background,
+                fillColor: SoriTokens.fillMuted,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,

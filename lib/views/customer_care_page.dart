@@ -300,7 +300,7 @@ class _CustomerCareTabState extends State<CustomerCareTab> {
                           backgroundColor: SoriTokens.background,
                           appBar: AppBar(
                             title: const Text('리뷰 작성'),
-                            backgroundColor: SoriTokens.surface,
+                            backgroundColor: SoriTokens.canvas,
                             foregroundColor: SoriTokens.textPrimary,
                             elevation: 0,
                           ),
@@ -750,7 +750,7 @@ class _AiReportDetailPage extends StatelessWidget {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('AI 리포트 상세'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

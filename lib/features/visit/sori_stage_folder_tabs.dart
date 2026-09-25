@@ -208,7 +208,7 @@ class _SoriStageFolderTabsState extends State<SoriStageFolderTabs> {
           child: Stack(clipBehavior: Clip.none, children: children),
         );
         return ColoredBox(
-          color: SoriTokens.surface,
+          color: SoriTokens.canvas,
           child: needsScroll
               ? SingleChildScrollView(
                   scrollDirection: Axis.horizontal,

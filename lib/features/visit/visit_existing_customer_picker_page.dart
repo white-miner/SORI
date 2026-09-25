@@ -55,7 +55,7 @@ class _VisitExistingCustomerPickerPageState
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('기존 고객 선택'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

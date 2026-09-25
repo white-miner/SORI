@@ -438,7 +438,7 @@ class _CommentBubble extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
         color: isReply
-            ? SoriTokens.background
+            ? SoriTokens.fillMuted
             : SoriTokens.primarySoft.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: SoriTokens.outlinePurple.withValues(alpha: 0.4)),

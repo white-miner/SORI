@@ -177,7 +177,7 @@ class _AppShellPageState extends State<AppShellPage> {
         backgroundColor: SoriTokens.background,
         appBar: AppBar(
           title: const Text('알림'),
-          backgroundColor: SoriTokens.surface,
+          backgroundColor: SoriTokens.canvas,
           foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
         ),

@@ -7,7 +7,7 @@ import 'package:sori/theme/sori_tokens.dart';
 void main() {
   group('PRD v4.7 VolumeGlassTheme', () {
     test('canvas and card tokens match PO §9', () {
-      expect(VolumeGlassTheme.canvasBg, const Color(0xFFF4F6F9));
+      expect(VolumeGlassTheme.canvasBg, const Color(0xFFFBF9F6));
       expect(SoriTokens.background, VolumeGlassTheme.canvasBg);
       expect(VolumeGlassTheme.cardRadius, 24.0);
       expect(VolumeGlassTheme.cardPadding, const EdgeInsets.all(20));

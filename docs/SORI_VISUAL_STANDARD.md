@@ -40,6 +40,7 @@
 - 글래스는 하단 플로팅 내비게이션, 지도 도구, 짧게 뜬 검색·필터 패널, 지도 위 선택 카드처럼 **떠 있는 층**에만 사용한다. 지도와 글자를 읽을 수 있는 밝은 반투명 표면, 미세한 경계선, 약한 그림자를 기준으로 한다.
 - 지도 위 패널에 실제 블러가 필요한 경우 해당 패널 범위만 `BackdropFilter`와 클립을 적용한다. 수치가 정해지지 않은 블러를 임의로 크게 올리지 않는다. 가독성이 떨어지면 불투명도를 높이고 블러를 줄인다. 긴 목록·차트·폼·화면 전체를 글래스로 덮지 않는다.
 - 기존 투명 카드가 블러를 쓰지 않는다면 이를 실제 글래스 블러라고 보고하지 않는다. 스크롤·지도 이동 시 프레임과 글자 대비를 확인한다.
+- **2026-09-26 개정 (제품 소유자 승인):** No-blur 글래스 룩(반투명 채움 + 헤어라인 + 하이라이트 + 그림자)은 컨트롤·버튼·칩에 앱 전역으로 허용한다. 실제 블러(`BackdropFilter`/블러 사본)는 떠 있는 층과 사진·지도 위 컨트롤에만, 화면당 1–3개, 목록 행에는 절대 쓰지 않는다. (No-blur glass look (translucent fill + hairline + highlight + shadow) is allowed on controls/buttons/chips globally; real blur (BackdropFilter/blurred copy) stays limited to floating layers and controls over photos/maps, max 1–3 per screen, never in list rows.) 기본 바탕은 웜 화이트 `SoriTokens.canvas`(#FBF9F6), 카드·시트·다이얼로그·입력칸은 흰색, 흰 카드 안의 묶음 채움은 `SoriTokens.fillMuted`. 토큰은 `lib/theme/sori_glass_theme.dart`.
 
 ## 5. 버튼과 간격
 

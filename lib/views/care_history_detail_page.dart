@@ -35,7 +35,7 @@ class _CareHistoryDetailPageState extends State<CareHistoryDetailPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('케어 내역'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [

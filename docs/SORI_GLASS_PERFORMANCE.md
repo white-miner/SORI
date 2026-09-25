@@ -4,6 +4,12 @@
 **작성:** 2026-09-11 · PO  
 **연관:** `docs/SORI_DESIGN_LAWS.md` (언제 glass) · 본 문서 (어떻게 싸게)
 
+## 2026-09-26 개정 (제품 소유자 승인)
+
+- No-blur 글래스 룩(반투명 채움 + 헤어라인 + 하이라이트 + 그림자)은 컨트롤·버튼·칩에 앱 전역으로 허용한다. 실제 블러(`BackdropFilter`/블러 사본)는 떠 있는 층과 사진·지도 위 컨트롤에만, 화면당 1–3개, 목록 행에는 절대 쓰지 않는다.
+- No-blur glass look (translucent fill + hairline + highlight + shadow) is allowed on controls/buttons/chips globally; real blur (BackdropFilter/blurred copy) stays limited to floating layers and controls over photos/maps, max 1–3 per screen, never in list rows.
+- 구현: `lib/theme/sori_glass_theme.dart`(`SoriGlassTheme` ThemeExtension) + `AppTheme.theme`의 outlined/text/chip/segmented/FAB 테마. 테마에는 블러가 없다. 캔버스는 웜 화이트 `SoriTokens.canvas`(#FBF9F6).
+
 ## 절대 원칙
 
 ```text

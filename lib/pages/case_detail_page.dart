@@ -422,7 +422,7 @@ class _CaseDetailPageState extends State<CaseDetailPage> {
     return Scaffold(
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0.5,

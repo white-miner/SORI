@@ -10,9 +10,11 @@ import 'package:sori/models/customer_chart.dart';
 import 'package:sori/models/shop.dart';
 
 void main() {
-  test('Soft UI tokens: off-white canvas, white surface, charcoal + brand purple',
+  test('Soft UI tokens: warm-white canvas, white surface, charcoal + brand purple',
       () {
-    expect(SoriTokens.background, const Color(0xFFF4F6F9));
+    expect(SoriTokens.canvas, const Color(0xFFFBF9F6));
+    expect(SoriTokens.background, SoriTokens.canvas);
+    expect(SoriTokens.fillMuted, const Color(0xFFF2F0EC));
     expect(SoriTokens.surface, const Color(0xFFFFFFFF));
     expect(SoriTokens.surfaceElevated, const Color(0xFFFFFFFF));
     expect(SoriTokens.primary, const Color(0xFF18181B));

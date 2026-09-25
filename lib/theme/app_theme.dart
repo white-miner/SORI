@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'sori_date_picker.dart';
+import 'sori_glass_theme.dart';
 import 'sori_tab_indicator.dart';
 import 'sori_tokens.dart';
 
-/// Global light monochrome theme — off-white canvas + charcoal primary.
+/// Global light monochrome theme — warm-white canvas ([SoriTokens.canvas])
+/// + charcoal primary + no-blur glass controls ([SoriGlassTheme]).
 abstract final class AppTheme {
   /// 시안 본문. 한글은 Noto Sans KR로 폴백한다.
   static final String sansFamily = GoogleFonts.workSans().fontFamily!;
@@ -34,6 +36,7 @@ abstract final class AppTheme {
   }
 
   static ThemeData get theme {
+    const glass = SoriGlassTheme.standard;
     final scheme = ColorScheme(
       brightness: Brightness.light,
       primary: SoriTokens.primary,
@@ -53,8 +56,9 @@ abstract final class AppTheme {
       fontFamilyFallback: sansFallback,
       colorScheme: scheme,
       primaryColor: SoriTokens.primary,
-      scaffoldBackgroundColor: SoriTokens.background,
-      canvasColor: SoriTokens.background,
+      scaffoldBackgroundColor: SoriTokens.canvas,
+      canvasColor: SoriTokens.canvas,
+      extensions: const <ThemeExtension<dynamic>>[glass],
       cardColor: SoriTokens.surface,
       dividerColor: SoriTokens.border,
       splashColor: Colors.transparent,
@@ -72,7 +76,7 @@ abstract final class AppTheme {
         ),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: SoriTokens.background,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -121,15 +125,77 @@ abstract final class AppTheme {
           ),
         ),
       ),
+      // Glass look without blur: translucent white + hairline + top sheen
+      // (backgroundBuilder, clipped to the shape) + soft shadow.
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return glass.fillDisabled;
+            }
+            if (states.contains(WidgetState.pressed)) return glass.fillPressed;
+            return glass.fill;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return SoriTokens.textTertiary;
+            }
+            return glass.foreground;
+          }),
+          iconColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return SoriTokens.textTertiary;
+            }
+            return glass.foreground;
+          }),
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) return glass.pressOverlay;
+            return Colors.transparent;
+          }),
+          side: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return BorderSide(color: glass.border.withValues(alpha: 0.05));
+            }
+            return BorderSide(color: glass.border);
+          }),
+          // Constant per state: no shadow animation on press.
+          elevation: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) return 0;
+            return glass.elevation;
+          }),
+          shadowColor: WidgetStatePropertyAll<Color>(glass.shadowColor),
+          surfaceTintColor:
+              const WidgetStatePropertyAll<Color>(Colors.transparent),
+          shape: WidgetStatePropertyAll<OutlinedBorder>(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(glass.radius),
+            ),
+          ),
+          // No textStyle override: keep the theme's labelLarge (Work Sans +
+          // Korean fallback) so labels don't drop to the engine default font.
+          backgroundBuilder: glass.highlightBackground,
+        ),
+      ),
+      // Text buttons stay flat — only a light glass-tinted press overlay.
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: SoriTokens.textPrimary,
+        ).copyWith(
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) return glass.pressOverlay;
+            return Colors.transparent;
+          }),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: SoriTokens.glassFill,
-        foregroundColor: SoriTokens.textPrimary,
-        elevation: 0,
+        backgroundColor: glass.fill,
+        foregroundColor: glass.foreground,
+        elevation: 2,
+        focusElevation: 2,
+        hoverElevation: 2,
+        highlightElevation: 2,
+        disabledElevation: 0,
+        shape: StadiumBorder(side: BorderSide(color: glass.border)),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -157,7 +223,7 @@ abstract final class AppTheme {
             if (states.contains(WidgetState.selected)) {
               return SoriTokens.primary;
             }
-            return SoriTokens.chipIdleBg;
+            return glass.fill;
           }),
           foregroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
@@ -180,9 +246,7 @@ abstract final class AppTheme {
                   : SoriTokens.tabUnselected,
             );
           }),
-          side: const WidgetStatePropertyAll(
-            BorderSide(color: SoriTokens.inputBorder),
-          ),
+          side: WidgetStatePropertyAll(BorderSide(color: glass.border)),
         ),
       ),
       textTheme: TextTheme(
@@ -278,9 +342,10 @@ abstract final class AppTheme {
         behavior: SnackBarBehavior.floating,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: SoriTokens.chipIdleBg,
+        // Idle = translucent white glass + hairline; selected stays charcoal.
+        backgroundColor: glass.fill,
         selectedColor: SoriTokens.primary,
-        disabledColor: SoriTokens.chipIdleBg,
+        disabledColor: glass.fillDisabled,
         checkmarkColor: SoriTokens.onPrimary,
         deleteIconColor: SoriTokens.tabUnselected,
         labelStyle: const TextStyle(
@@ -292,7 +357,10 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w700,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        side: BorderSide.none,
+        side: WidgetStateBorderSide.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return BorderSide.none;
+          return BorderSide(color: glass.border);
+        }),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),

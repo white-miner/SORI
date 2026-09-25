@@ -874,7 +874,7 @@ class _CommentSheetState extends State<_CommentSheet> {
                       decoration: InputDecoration(
                         hintText: '댓글을 입력하세요',
                         filled: true,
-                        fillColor: SoriTokens.background,
+                        fillColor: SoriTokens.fillMuted,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,

@@ -221,7 +221,7 @@ class _ShopAssetTabBodyState extends State<ShopAssetTabBody> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: SoriTokens.background,
+              color: SoriTokens.fillMuted,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: SoriTokens.border),
             ),
@@ -240,7 +240,7 @@ class _ShopAssetTabBodyState extends State<ShopAssetTabBody> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
-                color: SoriTokens.background,
+                color: SoriTokens.fillMuted,
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -356,7 +356,7 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
       decoration: BoxDecoration(
-        color: SoriTokens.background,
+        color: SoriTokens.fillMuted,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: SoriTokens.border),
       ),
@@ -401,7 +401,7 @@ class _ChipMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: SoriTokens.background,
+      color: SoriTokens.fillMuted,
       borderRadius: BorderRadius.circular(99),
       child: InkWell(
         onTap: onTap,

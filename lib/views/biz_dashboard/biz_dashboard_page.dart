@@ -543,7 +543,7 @@ class _BizDashboardPageState extends State<BizDashboardPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('경영 대시보드'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

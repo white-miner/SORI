@@ -59,7 +59,7 @@ class _SeminarFeedbackInboxPageState extends State<SeminarFeedbackInboxPage> {
           '세미나 인사이트 보관함',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/sori_tokens.dart';
 import 'semantic_signal_theme.dart';
 
 /// PRD v4.7 — Soft UI & Volume Glassmorphism SSOT.
 abstract final class VolumeGlassTheme {
-  /// PO §9 — global canvas off-white.
-  static const canvasBg = Color(0xFFF4F6F9);
+  /// PO §9 — global canvas (warm white, follows [SoriTokens.canvas]).
+  static const canvasBg = SoriTokens.canvas;
 
   /// Pure white glass card fill.
   static const cardFill = Color(0xFFFFFFFF);

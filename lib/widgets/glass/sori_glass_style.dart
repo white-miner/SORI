@@ -2,6 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/sori_tokens.dart';
+
 /// Bright "thick glass" material: a translucent white frame around inset
 /// content, edge highlights, a surface sheen and a two-layer shadow.
 ///
@@ -14,7 +16,8 @@ import 'package:flutter/material.dart';
 /// Other surfaces can opt in later by wrapping content in [SoriGlassBlock].
 abstract final class SoriGlassStyle {
   /// Warm white canvas behind glass blocks — reads white, not beige or gray.
-  static const Color warmCanvas = Color(0xFFFBF9F6);
+  /// Same as the app-wide [SoriTokens.canvas].
+  static const Color warmCanvas = SoriTokens.canvas;
 
   static const double blockRadius = 24;
 

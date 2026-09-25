@@ -189,7 +189,7 @@ class _ServiceMenuPageState extends State<ServiceMenuPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('서비스 메뉴 관리'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

@@ -319,7 +319,7 @@ class _SeminarCreatePageState extends State<SeminarCreatePage> {
           widget.existing == null ? '세미나 개설' : '세미나 수정',
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

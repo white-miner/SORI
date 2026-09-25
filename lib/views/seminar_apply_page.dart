@@ -203,7 +203,7 @@ class _SeminarApplyPageState extends State<SeminarApplyPage> {
           '세미나 신청',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

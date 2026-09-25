@@ -557,7 +557,7 @@ class _MemoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F9),
+        color: SoriTokens.fillMuted,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
