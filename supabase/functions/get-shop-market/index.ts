@@ -1420,6 +1420,7 @@ async function fetchLicenseRows(
     if (text.startsWith("<")) {
       const code = xmlResultCode(text);
       if (code && !isSuccessCode(code)) return { ok: false, rows: [], error: "api_" + code };
+      if (!/<body[\s>]/i.test(text)) return { ok: false, rows: [], error: "unexpected_shape" };
       const rows: Record<string, unknown>[] = [];
       const re = /<item>([\s\S]*?)<\/item>/gi;
       let m: RegExpExecArray | null;
@@ -1441,6 +1442,11 @@ async function fetchLicenseRows(
       return { ok: false, rows: [], error: "api_" + code.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 24) };
     }
     if (!res.ok) return { ok: false, rows: [], error: "http_" + res.status };
+    const root = payload as Record<string, unknown> | null;
+    const body = ((root?.response as Record<string, unknown> | undefined)?.body ?? root?.body ?? root) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || !("items" in body)) {
+      return { ok: false, rows: [], error: "unexpected_shape" };
+    }
     const rows = licenseRowsFromPayload(payload);
     if (rows.length >= 100) return { ok: false, rows: [], error: "too_many_candidates" };
     return { ok: true, rows };

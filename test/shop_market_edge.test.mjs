@@ -238,6 +238,15 @@ test('a full candidate page cannot assert a unique license match', async () => {
   assert.equal(result.reason, 'too_many_candidates');
 });
 
+test('malformed upstream responses are retryable failures, not cached no-match results', async () => {
+  for (const body of ['{}', '<html>maintenance</html>']) {
+    const e = edge(async () => new Response(body), {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'});
+    const result = await e.call(`licenseStatus({name:'피어나스킨엔바디', address:'경북 경주시 원화로 234'})`);
+    assert.equal(result.reason, 'unexpected_shape');
+    assert.equal(result.matched, false);
+  }
+});
+
 test('license_status queries the official endpoint once-encoded and matches name + road address', async () => {
   const urls = [];
   const e = edge(async url => {
