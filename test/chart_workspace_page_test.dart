@@ -446,6 +446,39 @@ void main() {
     expect(_summary(tester, 'care'), '미입력');
   });
 
+  testWidgets('saved empty step list reopens empty; new visit keeps defaults', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    final customer = _recentFirst(store);
+    await openCare(tester, store);
+    // 새 방문은 기본 5단계로 시작한다.
+    expect(_summary(tester, 'care'), '5단계');
+
+    for (var i = 0; i < 5; i++) {
+      await tapDelete(tester, 0);
+    }
+    await tester.tap(find.byKey(const Key('chart-visit-workspace-save-draft')));
+    await _settle(tester);
+    expect(store.chartVisitDraftsFor(customer.id).single.visitRecord.treatmentSteps,
+        isEmpty);
+
+    await tester.tap(find.byKey(const Key('chart-desk-back')));
+    await _settle(tester);
+    expect(ChartVisitPreviewStore.instance.active, isNull);
+
+    await _openRecent(tester, customer.id);
+    expect(
+      find.byKey(const Key('chart-visit-workspace-resumed')),
+      findsOneWidget,
+    );
+    await _tapVisible(tester, const Key('chart-visit-section-care-header'));
+    expect(_summary(tester, 'care'), '미입력');
+    expect(find.byTooltip('시술 삭제'), findsNothing);
+    expect(find.text('클렌징'), findsNothing);
+    expect(store.chartVisitDraftsFor(customer.id), hasLength(1));
+  });
+
   testWidgets('autosave writes one draft ~2.5s after an edit', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));

@@ -191,7 +191,9 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
   }
 
   Future<void> _resume(ChartVisitGateway gate, ChartVisitDraftRef draft) async {
-    final session = await gate.resumeLatest(draft);
+    // 이미 있는 행은 저장된 단계 목록을 그대로 연다(모두 삭제했으면 0단계).
+    // 새 방문([_pendingSession])만 기본 5단계로 시작한다.
+    final session = await gate.resumeLatest(draft, refillDefaultSteps: false);
     if (!mounted) return;
     _preview.active = session;
     _preview.touch();
@@ -282,6 +284,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
       id: created.id,
       startedAt: created.startedAt,
       record: session.toRecord(flowStatus: 'draft'),
+      refillDefaultSteps: false,
     );
     merged.skinTraitHint = session.skinTraitHint;
     merged.safetyDirty = session.safetyDirty;

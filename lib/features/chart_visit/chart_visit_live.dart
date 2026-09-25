@@ -185,12 +185,16 @@ class ChartVisitLiveGateway implements ChartVisitGateway {
   }
 
   @override
-  Future<ChartVisitSession> resumeLatest(ChartVisitDraftRef draft) async {
+  Future<ChartVisitSession> resumeLatest(
+    ChartVisitDraftRef draft, {
+    bool refillDefaultSteps = true,
+  }) async {
     chartId = draft.chartId;
     final session = ChartVisitSession.fromRecord(
       id: draft.chartId,
       startedAt: draft.record.visitDate ?? DateTime.now(),
       record: draft.record,
+      refillDefaultSteps: refillDefaultSteps,
     );
     session.skinTraitHint =
         draft.record.safety['skin_trait'] ?? customer.skinTrait.trim();

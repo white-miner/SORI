@@ -80,4 +80,43 @@ void main() {
     expect(history.first.visitRecord.goalLine, '진정');
     expect(history.first.visitRecord.concernLine, '홍조 · 건조');
   });
+
+  test('empty saved steps: wizard refills defaults, opt-out keeps empty', () async {
+    final store = SoriStore();
+    final customer = store.customers.first;
+    final gate = ChartVisitLiveGateway(store: store, customer: customer);
+
+    final session = await gate.startFresh(forceNew: true);
+    expect(session.steps, hasLength(5));
+    session.steps.clear();
+    await gate.saveDraft(session);
+
+    final saved = store.findChartById(session.id)!;
+    expect(saved.visitRecord.treatmentSteps, isEmpty);
+    final draft = ChartVisitDraftRef(chartId: saved.id, record: saved.visitRecord);
+
+    // 위저드(기본값): 지금처럼 기본 5단계를 다시 채운다.
+    final wizard = await gate.resumeLatest(draft);
+    expect(wizard.steps.map((s) => s.title).toList(),
+        ['클렌징', '효소 각질관리', '진정 앰플', '초음파', '진정팩']);
+    final reopened = ChartVisitSession.fromRecord(
+      id: saved.id,
+      startedAt: session.startedAt,
+      record: saved.visitRecord,
+    );
+    expect(reopened.steps, hasLength(5));
+
+    // 작성 데스크: 저장된 빈 목록을 그대로 둔다.
+    final desk = await gate.resumeLatest(draft, refillDefaultSteps: false);
+    expect(desk.steps, isEmpty);
+    expect(
+      ChartVisitSession.fromRecord(
+        id: saved.id,
+        startedAt: session.startedAt,
+        record: saved.visitRecord,
+        refillDefaultSteps: false,
+      ).steps,
+      isEmpty,
+    );
+  });
 }
