@@ -19,7 +19,10 @@ void main() {
       isFalse,
     );
 
-    final src = File('lib/services/region_map_gps.dart').readAsStringSync();
+    // This contract applies to the explicit GPS button, not the new
+    // permission-preserving card distance lookup.
+    final src = File('lib/services/region_map_gps.dart').readAsStringSync()
+        .split('static Future<({double lat, double lng})?> grantedPositionOrNull()').first;
     expect(src.contains('requestPermission()'), isTrue);
     expect(src.contains('getCurrentPosition('), isTrue);
     expect(src.contains('Geolocator.checkPermission'), isFalse);

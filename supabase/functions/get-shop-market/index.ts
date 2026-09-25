@@ -1262,40 +1262,21 @@ type LicenseResult = {
   candidate_count?: number;
 };
 
-/** 공백·문장부호·괄호 속 법인표기·대소문자를 지운 상호. */
+/** 공백·문장부호·법인표기·대소문자를 지운 상호. 지점명은 유지한다. */
 function normalizeShopName(raw: string): string {
   return String(raw ?? "")
     .normalize("NFKC")
-    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
+    .replace(/\((?:주|유|주식회사|유한회사)\)/g, " ")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "");
-}
-
-/** "소리헤어 황오점", "소리헤어(황오점)", "소리헤어 본점" → "소리헤어". */
-function shopNameCore(raw: string): string {
-  const text = String(raw ?? "").normalize("NFKC")
-    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ").trim();
-  const tokens = text.split(/\s+/).filter(Boolean);
-  if (tokens.length >= 2 && /점$/.test(tokens[tokens.length - 1])) tokens.pop();
-  const core = normalizeShopName(tokens.join(" "));
-  const stripped = core.replace(/(본점|직영점)$/, "");
-  return stripped.length >= 2 ? stripped : core;
 }
 
 function shopNamesMatch(a: string, b: string): boolean {
   const na = normalizeShopName(a);
   const nb = normalizeShopName(b);
   if (na.length < 2 || nb.length < 2) return false;
-  if (na === nb) return true;
-  const ca = shopNameCore(a);
-  const cb = shopNameCore(b);
-  if (ca.length >= 2 && ca === cb) return true;
-  // 붙여 쓴 지점명: "소리헤어황오점" ↔ "소리헤어"
-  const [short, long] = ca.length <= cb.length ? [ca, cb] : [cb, ca];
-  if (short.length >= 2 && long.startsWith(short)) {
-    return /^[\p{L}\p{N}]{1,6}?(지점|점)$/u.test(long.slice(short.length));
-  }
-  return false;
+  // 지점명도 식별 정보다. 같은 건물의 다른 지점을 합치지 않는다.
+  return na === nb;
 }
 
 const sidoAbbrev: Record<string, string> = { ...regionAliases, 강원도: "강원", 제주도: "제주" };
@@ -1328,7 +1309,8 @@ function normalizeRoadAddress(raw: string): RoadAddressKey | null {
   }
   let sigungu = "";
   for (const t of tokens.slice(sido ? 1 : 0)) {
-    if (/(시|군|구)$/.test(t) && !/(로|길)$/.test(t)) { sigungu = t; break; }
+    if (/(로|길)$/.test(t) || /^\d/.test(t)) break;
+    if (/(시|군|구)$/.test(t)) sigungu += (sigungu ? " " : "") + t;
   }
   const re = /([가-힣A-Za-z·][가-힣A-Za-z0-9·]*?(?:로|길))\s*(\d+)(?:-(\d+))?(?![\d-]|번?길|로)/g;
   let m: RegExpExecArray | null;
@@ -1341,14 +1323,15 @@ function normalizeRoadAddress(raw: string): RoadAddressKey | null {
   return { sido, sigungu, road, bldg, bldgMain };
 }
 
-/** 도로명+건물번호가 같아야 한다. 시도·시군구는 양쪽에 있을 때만 비교한다. */
+/** 시도·시군구·도로명·건물번호가 모두 같아야 한다. */
 function roadAddressesMatch(a: string, b: string): boolean {
   const x = normalizeRoadAddress(a);
   const y = normalizeRoadAddress(b);
   if (!x || !y) return false;
   if (x.road !== y.road || x.bldg !== y.bldg) return false;
-  if (x.sido && y.sido && x.sido !== y.sido) return false;
-  if (x.sigungu && y.sigungu && x.sigungu !== y.sigungu) return false;
+  if (!x.sido || !y.sido || x.sido !== y.sido) return false;
+  if (x.sigungu !== y.sigungu) return false;
+  if (!x.sigungu && x.sido !== "세종") return false;
   return true;
 }
 
@@ -1360,7 +1343,7 @@ function licenseField(row: Record<string, unknown>, key: string): string {
 function licenseStatusOf(code: string, label: string): LicenseStatus {
   const c = code.trim();
   const n = label.replace(/\s+/g, "");
-  if (c === "01" || (!c && /영업|정상/.test(n))) return "open";
+  if (c === "01" || (!c && /^(영업|정상|영업\/정상)$/.test(n))) return "open";
   if (c === "02" || (!c && /휴업/.test(n))) return "suspended";
   if (c === "03" || c === "04" || (!c && /폐업|취소|말소|만료|정지|중지/.test(n))) return "closed";
   return null;
@@ -1380,7 +1363,7 @@ function licenseYmd(raw: string): string | null {
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 }
 
-/** 상호·도로명주소가 모두 맞는 행만. 여럿이면 영업 중 → 최근 인허가일 순. */
+/** 상호·도로명주소가 모두 맞고, 상태·인허가일이 하나로 확정되는 경우만. */
 function pickLicenseMatch(
   rows: Record<string, unknown>[],
   name: string,
@@ -1391,12 +1374,12 @@ function pickLicenseMatch(
     roadAddressesMatch(address, licenseField(r, "ROAD_NM_ADDR"))
   );
   if (!hits.length) return null;
-  const rank = (r: Record<string, unknown>) =>
-    licenseStatusOf(licenseField(r, "SALS_STTS_CD"), licenseField(r, "SALS_STTS_NM")) === "open" ? 1 : 0;
-  hits.sort((a, b) =>
-    rank(b) - rank(a) ||
-    (licenseYmd(licenseField(b, "LCPMT_YMD")) ?? "").localeCompare(licenseYmd(licenseField(a, "LCPMT_YMD")) ?? "")
-  );
+  const identities = new Set(hits.map((r) => JSON.stringify([
+    licenseStatusOf(licenseField(r, "SALS_STTS_CD"), licenseField(r, "SALS_STTS_NM")),
+    licenseYmd(licenseField(r, "LCPMT_YMD")),
+    licenseYmd(licenseField(r, "CLSBIZ_YMD")),
+  ])));
+  if (identities.size > 1) return null;
   return hits[0];
 }
 
@@ -1446,6 +1429,7 @@ async function fetchLicenseRows(
         rows.push(row);
       }
       if (!res.ok && !rows.length) return { ok: false, rows: [], error: "http_" + res.status };
+      if (rows.length >= 100) return { ok: false, rows: [], error: "too_many_candidates" };
       return { ok: true, rows };
     }
     let payload: unknown;
@@ -1457,7 +1441,9 @@ async function fetchLicenseRows(
       return { ok: false, rows: [], error: "api_" + code.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 24) };
     }
     if (!res.ok) return { ok: false, rows: [], error: "http_" + res.status };
-    return { ok: true, rows: licenseRowsFromPayload(payload) };
+    const rows = licenseRowsFromPayload(payload);
+    if (rows.length >= 100) return { ok: false, rows: [], error: "too_many_candidates" };
+    return { ok: true, rows };
   } catch {
     // 업스트림 URL(서비스키 포함)은 절대 되돌려주지 않는다.
     return { ok: false, rows: [], error: "upstream_unavailable" };
@@ -1495,6 +1481,11 @@ async function licenseStatus(input: { name?: string; address?: string }): Promis
     if (!res.ok) { lastError = res.error; continue; }
     seen += res.rows.length;
     const hit = pickLicenseMatch(res.rows, name, address);
+    if (!hit && res.rows.some((r) =>
+      shopNamesMatch(name, licenseField(r, "BPLC_NM")) &&
+      roadAddressesMatch(address, licenseField(r, "ROAD_NM_ADDR")))) {
+      return { ...base, reason: "ambiguous_match", candidate_count: seen };
+    }
     if (!hit) continue;
     const label = licenseField(hit, "SALS_STTS_NM") || licenseField(hit, "DTL_SALS_STTS_NM");
     return {
