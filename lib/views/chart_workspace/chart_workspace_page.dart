@@ -1,6 +1,5 @@
 ﻿import 'package:flutter/material.dart';
 
-import '../../features/chart_visit/chart_visit_home_page.dart';
 import '../../features/chart_visit/chart_visit_live.dart';
 import '../../features/chart_visit/chart_visit_mock.dart';
 import '../../models/customer.dart';
@@ -9,8 +8,11 @@ import '../../theme/sori_tokens.dart';
 import 'chart_empty_desk.dart';
 import 'chart_index_palette.dart';
 import 'chart_index_palette_sheet.dart';
+import 'chart_visit_workspace.dart';
 
-/// Chart 탭: 기본은 빈 데스크. 선택 시 임베디드 ChartVisitHomePage.
+/// Chart 탭: 기본은 빈 데스크. 고객을 고르면 오늘 방문 작성 데스크
+/// ([ChartVisitWorkspace])가 바로 열린다. 이력(ChartVisitHomePage)은
+/// 작성 데스크 헤더의 '이력' 링크로 연다.
 class ChartWorkspacePage extends StatefulWidget {
   const ChartWorkspacePage({super.key, required this.store});
 
@@ -77,6 +79,19 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
     ChartVisitPreviewStore.instance.detachIfLive();
   }
 
+  /// 방문 완료 저장 뒤 — 데스크를 비우고 알린다.
+  void _onVisitCompleted(Customer customer) {
+    _clearCustomerSelection();
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${customer.name} 방문 기록을 저장했어요'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final customer = _selectedCustomer;
@@ -129,7 +144,12 @@ class _ChartWorkspacePageState extends State<ChartWorkspacePage> {
           ),
           Expanded(
             child: customer != null
-                ? const ChartVisitHomePage(embedded: true)
+                ? ChartVisitWorkspace(
+                    key: ValueKey<String>('chart-visit-workspace-${customer.id}'),
+                    store: widget.store,
+                    customer: customer,
+                    onCompleted: () => _onVisitCompleted(customer),
+                  )
                 : ChartEmptyDesk(
                     store: widget.store,
                     onSelectCustomer: _openCustomer,
