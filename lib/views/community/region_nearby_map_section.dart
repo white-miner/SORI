@@ -200,6 +200,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     super.initState();
     RegionMapTileCatalog.debugLogKeyPresence();
     _reload();
+    unawaited(_ensureDevicePosition());
   }
 
   @override
@@ -350,10 +351,16 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
 
     switch (result.outcome) {
       case RegionMapGpsOutcome.denied:
-        setState(() => _gpsBanner = _GpsBanner.denied);
+        setState(() {
+          _gpsBanner = _GpsBanner.denied;
+          _devicePosition = null;
+        });
         return;
       case RegionMapGpsOutcome.failed:
-        setState(() => _gpsBanner = _GpsBanner.failed);
+        setState(() {
+          _gpsBanner = _GpsBanner.failed;
+          _devicePosition = null;
+        });
         return;
       case RegionMapGpsOutcome.ok:
         _devicePosition = (lat: result.lat!, lng: result.lng!);
@@ -629,7 +636,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   }
 
   /// 거리 칩용 기기 위치. GPS 버튼으로 받은 값이 있으면 재사용하고, 없으면
-  /// 첫 선택 때 한 번만 이미 허용된 권한에서 조용히 읽는다(권한 창 없음).
+  /// 화면 진입 때 한 번만 이미 허용된 권한에서 조용히 읽는다(권한 창 없음).
   Future<void> _ensureDevicePosition() async {
     if (_devicePosition != null || _devicePositionAsked) return;
     _devicePositionAsked = true;
@@ -658,7 +665,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
     setState(() {
       if (result.matched || result.reason == 'no_match') {
         _licenses[key] = result;
-        _licenseTimes[key] = DateTime.now();
+        _licenseTimes[key] = result.fetchedAt ?? DateTime.now();
       } else {
         _licenses.remove(key);
         _licenseTimes.remove(key);
