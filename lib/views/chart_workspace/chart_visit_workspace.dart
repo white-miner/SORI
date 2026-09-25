@@ -15,6 +15,9 @@ import '../smart_guide_camera_page.dart';
 /// 위저드 CARE 단계와 같은 반응 선택지.
 const List<String> _kReactionChoices = ['홍조', '따가움', '가려움', '열감', '부종', '통증'];
 
+/// 자동저장 상태(헤더의 작은 회색 문구).
+enum _SaveStatus { idle, saving, saved, failed }
+
 /// 오늘 방문 작성 데스크의 아코디언 섹션.
 enum ChartVisitWorkspaceSection {
   safety('safety', '안전확인'),
@@ -35,7 +38,7 @@ enum ChartVisitWorkspaceSection {
 /// 데이터는 기존 CHART 위저드와 같은 [ChartVisitSession] / [ChartVisitGateway]
 /// (`saveDraft` · `complete` · `resumeLatest` · `startFresh`)를 그대로 쓴다.
 /// 새 저장 경로나 스키마는 없다. 고객만 열어 보고 나가면 행을 만들지 않고,
-/// 처음 저장(임시저장·방문 완료·사진·편집 후 나가기)할 때 draft 행을 만든다.
+/// 처음 저장(임시저장·자동저장·방문 완료·사진·편집 후 나가기)할 때 draft 행을 만든다.
 class ChartVisitWorkspace extends StatefulWidget {
   const ChartVisitWorkspace({
     super.key,
@@ -50,11 +53,15 @@ class ChartVisitWorkspace extends StatefulWidget {
   /// 방문 완료 저장이 끝난 뒤 호출된다. 빈 데스크로 돌아가는 건 부모 몫.
   final VoidCallback onCompleted;
 
+  /// 마지막 편집 뒤 이만큼 조용하면 임시저장과 같은 경로로 draft 를 저장한다.
+  static const Duration autosaveDelay = Duration(milliseconds: 2500);
+
   @override
   State<ChartVisitWorkspace> createState() => _ChartVisitWorkspaceState();
 }
 
-class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
+class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
+    with WidgetsBindingObserver {
   final ChartVisitPreviewStore _preview = ChartVisitPreviewStore.instance;
 
   ChartVisitSession? _session;
@@ -71,6 +78,17 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
   bool _loading = true;
   String _error = '';
 
+  // 자동저장: 편집 후 [ChartVisitWorkspace.autosaveDelay] 뒤 한 번. 저장은 한 번에 하나만.
+  Timer? _autosaveTimer;
+  bool _saving = false;
+  bool _savePending = false;
+  Future<void>? _saveLoop;
+  Future<ChartVisitSession>? _persisting;
+  bool _completing = false;
+  int _editSeq = 0;
+  int _safetySeq = 0;
+  _SaveStatus _saveStatus = _SaveStatus.idle;
+
   bool _editingSafety = false;
   bool _openScoreDetails = false;
   final Set<String> _safetyOpen = {};
@@ -84,6 +102,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_bootstrap());
     });
@@ -91,12 +110,25 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autosaveTimer?.cancel();
+    _autosaveTimer = null;
     // 편집 후 데스크로 돌아가면 조용히 draft 로 남긴다(위저드 자동저장과 같은 의도).
     // 트리 정리 중에는 스토어 알림을 보낼 수 없으므로 다음 마이크로태스크로 미룬다.
-    if (_dirty && !_completed) {
+    if (_dirty && !_completed && !_completing) {
       unawaited(Future<void>.microtask(_flushOnLeave));
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 웹 탭 전환·앱 백그라운드 때 남은 편집을 바로 저장한다(best effort).
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (_dirty && _canAutosave) unawaited(_flushDraft());
+    }
   }
 
   Customer get _customer =>
@@ -234,10 +266,17 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
   }
 
   /// 처음 저장할 때만 기존 게이트웨이로 draft 행을 만든다.
-  Future<ChartVisitSession> _ensurePersisted() async {
+  /// 자동저장·사진·완료가 겹쳐도 행은 한 번만 만든다.
+  Future<ChartVisitSession> _ensurePersisted() {
+    if (_persisted) return Future<ChartVisitSession>.value(_session!);
+    return _persisting ??= _createDraftRow().whenComplete(() {
+      _persisting = null;
+    });
+  }
+
+  Future<ChartVisitSession> _createDraftRow() async {
     final session = _session!;
     final gate = _gateway!;
-    if (_persisted) return session;
     final created = await gate.startFresh(forceNew: _forceNewOnPersist);
     final merged = ChartVisitSession.fromRecord(
       id: created.id,
@@ -248,12 +287,11 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
     merged.safetyDirty = session.safetyDirty;
     merged.consult = session.consult;
     merged.consultSeconds = session.consultSeconds;
-    // fromRecord 는 빈 단계 목록이면 기본 단계를 다시 채우므로, 모두 삭제한 상태를 지킨다.
-    if (session.steps.isEmpty) merged.steps.clear();
-    for (var i = 0; i < merged.steps.length && i < session.steps.length; i++) {
-      merged.steps[i].expanded = session.steps[i].expanded;
-      merged.steps[i].detailsOpen = session.steps[i].detailsOpen;
-    }
+    // 같은 단계 객체를 그대로 옮긴다. 모두 삭제한 상태를 지키고, 자동저장 중에
+    // 입력 중인 단계 칸(ObjectKey)이 다시 만들어져 포커스를 잃지 않게 한다.
+    merged.steps
+      ..clear()
+      ..addAll(session.steps);
     _session = merged;
     _persisted = true;
     _forceNewOnPersist = false;
@@ -264,20 +302,86 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
     return merged;
   }
 
-  Future<void> _flushOnLeave() async {
-    final gate = _gateway;
-    if (gate == null || _session == null) return;
-    try {
-      final session = await _ensurePersisted();
-      await gate.saveDraft(session);
-    } catch (e) {
-      debugPrint('ChartVisitWorkspace leave-save failed: $e');
-    }
-  }
+  Future<void> _flushOnLeave() => _flushDraft();
 
   void _touch() {
     if (!mounted) return;
+    _editSeq++;
     setState(() => _dirty = true);
+    _scheduleAutosave();
+  }
+
+  bool get _canAutosave =>
+      !_completed && !_completing && _gateway != null && _session != null;
+
+  /// 마지막 편집 뒤 [ChartVisitWorkspace.autosaveDelay] 에 한 번 저장한다(디바운스).
+  void _scheduleAutosave() {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = null;
+    if (!_canAutosave) return;
+    _autosaveTimer = Timer(ChartVisitWorkspace.autosaveDelay, () {
+      _autosaveTimer = null;
+      if (!mounted || !_dirty) return;
+      // 촬영 중에는 같은 행을 동시에 쓰지 않도록 조금 미룬다.
+      if (_photoBusy) {
+        _scheduleAutosave();
+        return;
+      }
+      unawaited(_flushDraft());
+    });
+  }
+
+  /// 임시저장·자동저장·나가기 저장의 공통 경로. 한 번에 하나만 저장하고,
+  /// 저장 중에 다시 요청되면 끝난 뒤 한 번 더 저장한다.
+  Future<void> _flushDraft() {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = null;
+    if (_saving) {
+      _savePending = true;
+      return _saveLoop ?? Future<void>.value();
+    }
+    _saving = true;
+    final loop = _drainSaves();
+    _saveLoop = loop;
+    return loop;
+  }
+
+  Future<void> _drainSaves() async {
+    try {
+      do {
+        _savePending = false;
+        // 방문 완료가 시작되면 draft 로 덮어쓰지 않는다.
+        if (_completing || _completed) break;
+        await _saveOnce();
+      } while (_savePending);
+    } finally {
+      _saving = false;
+    }
+  }
+
+  /// 기존 임시저장 경로 그대로: 처음이면 draft 행을 만들고 `saveDraft` 로 쓴다.
+  Future<void> _saveOnce() async {
+    final gate = _gateway;
+    if (gate == null || _session == null) return;
+    final seq = _editSeq;
+    final safetySeq = _safetySeq;
+    _setSaveStatus(_SaveStatus.saving);
+    try {
+      final session = await _ensurePersisted();
+      await gate.saveDraft(session);
+      // 저장 도중 들어온 안전정보 편집은 다음 저장에서 고객에도 반영한다.
+      if (_safetySeq != safetySeq) session.safetyDirty = true;
+      if (_editSeq == seq) _dirty = false;
+      _setSaveStatus(_SaveStatus.saved);
+    } catch (e) {
+      debugPrint('ChartVisitWorkspace saveDraft failed: $e');
+      _setSaveStatus(_SaveStatus.failed);
+    }
+  }
+
+  void _setSaveStatus(_SaveStatus next) {
+    _saveStatus = next;
+    if (mounted) setState(() {});
   }
 
   void _snack(String message, {SnackBarAction? action}) {
@@ -295,27 +399,29 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
   }
 
   Future<void> _saveDraft({bool quiet = false}) async {
-    final gate = _gateway;
-    if (_busy || gate == null || _session == null) return;
+    if (_busy || _gateway == null || _session == null) return;
     setState(() => _busy = true);
-    try {
-      final session = await _ensurePersisted();
-      await gate.saveDraft(session);
-      _dirty = false;
-      if (!quiet && mounted) _snack('임시저장했어요');
-    } catch (e) {
-      debugPrint('ChartVisitWorkspace saveDraft failed: $e');
-      if (mounted) _snack('저장 실패');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    await _flushDraft();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (_saveStatus == _SaveStatus.failed) {
+      _snack('저장 실패');
+    } else if (!quiet) {
+      _snack('임시저장했어요');
     }
   }
 
   Future<void> _complete() async {
     final gate = _gateway;
     if (_busy || gate == null || _session == null) return;
+    _autosaveTimer?.cancel();
+    _autosaveTimer = null;
+    _completing = true;
     setState(() => _busy = true);
     try {
+      // 진행 중인 자동저장이 끝난 뒤에 완료로 쓴다(동시에 두 번 쓰지 않는다).
+      final running = _saving ? _saveLoop : null;
+      if (running != null) await running;
       final session = await _ensurePersisted();
       await gate.complete(session);
       if (_preview.active == session) _preview.active = null;
@@ -323,8 +429,10 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
       _completed = true;
     } catch (e) {
       debugPrint('ChartVisitWorkspace complete failed: $e');
+      _completing = false;
       if (!mounted) return;
       setState(() => _busy = false);
+      if (_dirty) _scheduleAutosave();
       _snack(
         '저장 실패',
         action: SnackBarAction(label: '다시 시도', onPressed: _complete),
@@ -520,7 +628,12 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
               label: '이어서 작성',
             ),
           ],
-          const Spacer(),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _saveStatusLabel(),
+            ),
+          ),
           TextButton.icon(
             key: const Key('chart-visit-workspace-history'),
             onPressed: _openHistory,
@@ -536,6 +649,43 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _saveStatusLabel() {
+    final failed = _saveStatus == _SaveStatus.failed;
+    final String text;
+    switch (_saveStatus) {
+      case _SaveStatus.idle:
+        return const SizedBox.shrink();
+      case _SaveStatus.saving:
+        text = '저장 중…';
+      case _SaveStatus.saved:
+        text = '저장됨';
+      case _SaveStatus.failed:
+        text = '저장 실패 · 다시 시도';
+    }
+    final label = Text(
+      text,
+      key: const Key('chart-visit-workspace-save-status'),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.right,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        color: failed ? SoriTokens.textSecondary : SoriTokens.textTertiary,
+      ),
+    );
+    if (!failed) return label;
+    return InkWell(
+      key: const Key('chart-visit-workspace-save-retry'),
+      onTap: _busy ? null : () => unawaited(_flushDraft()),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: label,
       ),
     );
   }
@@ -816,6 +966,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
   void _updateSafety(ChartVisitSession session, SafetySnapshot next) {
     session.safety = next;
     session.safetyDirty = true;
+    _safetySeq++;
     _touch();
   }
 
@@ -1112,8 +1263,10 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace> {
       );
       if (ok != true || !mounted) return;
     }
-    if (!identical(_session, session)) return;
-    if (!session.steps.remove(step)) return;
+    // 확인 중에 자동저장이 첫 draft 행을 만들면 세션 객체는 바뀌지만 단계 객체는 같다.
+    // 다른 방문으로 바뀌었으면 그 단계가 없으므로 아무것도 지우지 않는다.
+    final current = _session;
+    if (current == null || !current.steps.remove(step)) return;
     _touch();
   }
 

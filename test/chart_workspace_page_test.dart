@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sori/features/chart_visit/chart_visit_home_page.dart';
 import 'package:sori/features/chart_visit/chart_visit_mock.dart';
 import 'package:sori/features/visit/visit_launcher_page.dart';
+import 'package:sori/models/chart_visit_record.dart';
 import 'package:sori/models/customer.dart';
+import 'package:sori/models/customer_chart.dart';
 import 'package:sori/services/sori_store.dart';
 import 'package:sori/views/chart_workspace/chart_empty_desk.dart';
 import 'package:sori/views/chart_workspace/chart_index_palette.dart';
@@ -50,6 +55,46 @@ String? _summary(WidgetTester tester, String id) {
   return tester
       .widget<Text>(find.byKey(Key('chart-visit-section-$id-summary')))
       .data;
+}
+
+/// draft 저장 횟수·동시 실행을 세고, 필요하면 저장을 붙잡거나 실패시킨다.
+class _SaveProbeStore extends SoriStore {
+  int draftSaves = 0;
+  int inFlight = 0;
+  int maxInFlight = 0;
+  bool fail = false;
+  Completer<void>? hold;
+
+  @override
+  Future<CustomerChart> saveChartVisitDraft({
+    required String chartId,
+    required ChartVisitRecord record,
+  }) async {
+    if (record.flowStatus == 'draft') draftSaves++;
+    inFlight++;
+    maxInFlight = math.max(maxInFlight, inFlight);
+    try {
+      final gate = hold;
+      if (gate != null) await gate.future;
+      if (fail) throw StateError('offline');
+      return await super.saveChartVisitDraft(chartId: chartId, record: record);
+    } finally {
+      inFlight--;
+    }
+  }
+}
+
+String? _saveStatus(WidgetTester tester) {
+  final finder = find.byKey(const Key('chart-visit-workspace-save-status'));
+  if (finder.evaluate().isEmpty) return null;
+  return tester.widget<Text>(finder).data;
+}
+
+Future<void> _editConcern(WidgetTester tester, String label) async {
+  if (find.byKey(const Key('chart-visit-section-concern-body')).evaluate().isEmpty) {
+    await _tapVisible(tester, const Key('chart-visit-section-concern-header'));
+  }
+  await _tapVisible(tester, Key('chart-visit-workspace-concern-$label'));
 }
 
 void main() {
@@ -399,6 +444,206 @@ void main() {
     expect(drafts, hasLength(1));
     expect(drafts.single.visitRecord.treatmentSteps, isEmpty);
     expect(_summary(tester, 'care'), '미입력');
+  });
+
+  testWidgets('autosave writes one draft ~2.5s after an edit', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore();
+    final customer = _recentFirst(store);
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    await _editConcern(tester, '건조');
+    expect(_saveStatus(tester), isNull);
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(store.draftSaves, 0);
+    expect(store.chartVisitDraftsFor(customer.id), isEmpty);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(store.draftSaves, 1);
+    final drafts = store.chartVisitDraftsFor(customer.id);
+    expect(drafts, hasLength(1));
+    expect(drafts.single.visitRecord.concerns, ['건조']);
+    expect(_saveStatus(tester), '저장됨');
+
+    await tester.pump(const Duration(seconds: 5));
+    expect(store.draftSaves, 1);
+  });
+
+  testWidgets('rapid edits are debounced into a single autosave', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore();
+    final customer = _recentFirst(store);
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    await _editConcern(tester, '건조');
+    await tester.pump(const Duration(seconds: 1));
+    await _editConcern(tester, '모공');
+    await tester.pump(const Duration(seconds: 1));
+    await _tapVisible(tester, const Key('chart-visit-workspace-goal-진정'));
+    await tester.pump(const Duration(seconds: 2));
+    expect(store.draftSaves, 0);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(store.draftSaves, 1);
+    final record = store.chartVisitDraftsFor(customer.id).single.visitRecord;
+    expect(record.concerns, ['건조', '모공']);
+    expect(record.careGoals, ['진정']);
+  });
+
+  testWidgets('no autosave when nothing changed', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore();
+    final customer = _recentFirst(store);
+    final chartsBefore = store.chartsForCustomer(customer.id).length;
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    // 섹션을 펼치고 접기만 하는 건 편집이 아니다.
+    await _tapVisible(tester, const Key('chart-visit-section-concern-header'));
+    await _tapVisible(tester, const Key('chart-visit-section-care-header'));
+    await tester.pump(const Duration(seconds: 6));
+
+    expect(store.draftSaves, 0);
+    expect(store.chartsForCustomer(customer.id).length, chartsBefore);
+    expect(_saveStatus(tester), isNull);
+  });
+
+  testWidgets('no autosave after 방문 완료', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore();
+    final customer = _recentFirst(store);
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    await _editConcern(tester, '건조');
+    await tester.tap(find.byKey(const Key('chart-visit-workspace-complete')));
+    await _settle(tester);
+    await tester.pump(const Duration(seconds: 6));
+
+    expect(store.draftSaves, 0);
+    expect(store.chartVisitDraftsFor(customer.id), isEmpty);
+    final completed = store
+        .chartsForCustomer(customer.id)
+        .where((c) => c.visitRecord.flowStatus == 'completed')
+        .toList();
+    expect(completed, hasLength(1));
+    expect(completed.single.visitRecord.concerns, ['건조']);
+  });
+
+  testWidgets('방문 완료 waits for an in-flight autosave and never overlaps', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore();
+    final customer = _recentFirst(store);
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    store.hold = Completer<void>();
+    await _editConcern(tester, '건조');
+    await tester.pump(const Duration(seconds: 3));
+    expect(store.draftSaves, 1);
+    expect(store.inFlight, 1);
+
+    await tester.tap(find.byKey(const Key('chart-visit-workspace-complete')));
+    await tester.pump();
+    expect(
+      store
+          .chartsForCustomer(customer.id)
+          .where((c) => c.visitRecord.flowStatus == 'completed'),
+      isEmpty,
+    );
+
+    store.hold!.complete();
+    store.hold = null;
+    await _settle(tester);
+    await tester.pump(const Duration(seconds: 6));
+
+    expect(store.maxInFlight, 1);
+    expect(store.draftSaves, 1);
+    expect(store.chartVisitDraftsFor(customer.id), isEmpty);
+    final completed = store
+        .chartsForCustomer(customer.id)
+        .where((c) => c.visitRecord.flowStatus == 'completed')
+        .toList();
+    expect(completed, hasLength(1));
+    expect(find.byType(ChartEmptyDesk), findsOneWidget);
+  });
+
+  testWidgets('edits during an in-flight save queue exactly one more save', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore();
+    final customer = _recentFirst(store);
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    store.hold = Completer<void>();
+    await _editConcern(tester, '건조');
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(store.draftSaves, 1);
+    expect(_saveStatus(tester), '저장 중…');
+
+    await _editConcern(tester, '모공');
+    await tester.pump(const Duration(seconds: 3));
+    // 첫 저장이 끝나기 전에는 두 번째 저장을 시작하지 않는다.
+    expect(store.draftSaves, 1);
+
+    store.hold!.complete();
+    store.hold = null;
+    await _settle(tester);
+
+    expect(store.draftSaves, 2);
+    expect(store.maxInFlight, 1);
+    expect(store.chartVisitDraftsFor(customer.id), hasLength(1));
+    expect(
+      store.chartVisitDraftsFor(customer.id).single.visitRecord.concerns,
+      ['건조', '모공'],
+    );
+    expect(_saveStatus(tester), '저장됨');
+    await tester.pump(const Duration(seconds: 6));
+    expect(store.draftSaves, 2);
+  });
+
+  testWidgets('autosave failure shows retry and tapping it saves', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _SaveProbeStore()..fail = true;
+    final customer = _recentFirst(store);
+
+    await _pumpPage(tester, store);
+    await _openRecent(tester, customer.id);
+    await _editConcern(tester, '건조');
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(_saveStatus(tester), '저장 실패 · 다시 시도');
+    expect(tester.takeException(), isNull);
+
+    store.fail = false;
+    await tester.tap(find.byKey(const Key('chart-visit-workspace-save-retry')));
+    await _settle(tester);
+    expect(_saveStatus(tester), '저장됨');
+    expect(
+      store.chartVisitDraftsFor(customer.id).single.visitRecord.concerns,
+      ['건조'],
+    );
   });
 
   testWidgets('workspace fits a 360px phone without overflow', (tester) async {
