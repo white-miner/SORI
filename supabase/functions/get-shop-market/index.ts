@@ -1,6 +1,8 @@
 // PRD v7.6 Phase 3a — 상가정보 + 행정동 인구 → 경영 ZONE 3
-// Secrets: SBIZ_STORE_SERVICE_KEY, MOIS_POP_SERVICE_KEY, KAKAO_REST_API_KEY
+// Secrets: SBIZ_STORE_SERVICE_KEY, MOIS_POP_SERVICE_KEY, KAKAO_REST_API_KEY,
+//          MOIS_BEAUTY_LICENSE_SERVICE_KEY (action=license_status)
 // action=resolve_address → 주소만으로 행정동 코드 자동 연결
+// action=license_status → 선택한 샵 1곳의 미용업 인허가 영업상태 (행정안전부)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -24,6 +26,8 @@ interface MarketBody {
   /** 반경 m (기본 500) */
   radius_m?: number;
   location_label?: string;
+  /** action=license_status — 상호명 */
+  name?: string;
 }
 
 type AgeBucket = {
@@ -155,6 +159,12 @@ type StoreItemOut = {
   signgu_nm: string;
   adong_cd: string;
   adong_nm: string;
+  /** 층 원문 (예: "2", "B1", "지"). 없으면 빈 문자열. */
+  flr_no: string;
+  bld_nm: string;
+  ksic_nm: string;
+  bld_mng_no: string;
+  brch_nm: string;
 };
 
 function rawText(row: Record<string, unknown>, key: string): string {
@@ -283,6 +293,11 @@ function extractXmlItemMaps(xml: string): Record<string, unknown>[] {
       signguNm: xmlTag(body, "signguNm"),
       adongCd: xmlTag(body, "adongCd"),
       adongNm: xmlTag(body, "adongNm"),
+      flrNo: xmlTag(body, "flrNo"),
+      bldNm: xmlTag(body, "bldNm"),
+      ksicNm: xmlTag(body, "ksicNm"),
+      bldMngNo: xmlTag(body, "bldMngNo"),
+      brchNm: xmlTag(body, "brchNm"),
     });
   }
   return out;
@@ -482,6 +497,11 @@ async function fetchStores(opts: {
         signgu_nm: rawText(it, "signguNm"),
         adong_cd: rawText(it, "adongCd"),
         adong_nm: rawText(it, "adongNm"),
+        flr_no: rawText(it, "flrNo"),
+        bld_nm: rawText(it, "bldNm"),
+        ksic_nm: rawText(it, "ksicNm"),
+        bld_mng_no: rawText(it, "bldMngNo"),
+        brch_nm: rawText(it, "brchNm"),
       });
     }
     mapped.sort((a, b) => a.distance_m - b.distance_m);
@@ -1215,6 +1235,281 @@ async function franchiseSales(address: string) {
   return { ok:false, source, region, error, rows:[] as FranchiseSale[], debug: lastDiag };
 }
 
+// ── action=license_status ───────────────────────────────────────────────
+// 행정안전부_생활_미용업 조회서비스 (data.go.kr 15154918, LOCALDATA → 2026-04-16 이관)
+// GET https://apis.data.go.kr/1741000/beauty_salons/info (공식 swagger 기준)
+//   요청: serviceKey, pageNo, numOfRows(max 100), returnType=json,
+//         cond[ROAD_NM_ADDR::LIKE], cond[BPLC_NM::LIKE]
+//   응답: response.header.resultCode · response.body.items.item[]
+//         BPLC_NM, ROAD_NM_ADDR, SALS_STTS_CD/SALS_STTS_NM, LCPMT_YMD, CLSBIZ_YMD
+//   영업상태코드: 01 영업/정상 · 02 휴업 · 03 폐업 · 04 취소/말소/만료/정지/중지
+//                 05 제외/삭제/전출 · 06 기타
+// 반경 검색이 없어 도로명+건물번호 LIKE로 후보를 좁히고, 상호와 도로명주소가
+// 모두 맞을 때만 matched. "못 찾음"은 폐업이 아니다(상태를 추측하지 않는다).
+const LICENSE_SOURCE = "행정안전부 생활_미용업 인허가 정보";
+const LICENSE_ENDPOINT = "https://apis.data.go.kr/1741000/beauty_salons/info";
+
+type LicenseStatus = "open" | "suspended" | "closed" | null;
+type LicenseResult = {
+  matched: boolean;
+  status: LicenseStatus;
+  status_label: string | null;
+  licensed_on: string | null;
+  closed_on: string | null;
+  source: string;
+  fetched_at: string;
+  reason?: string;
+  candidate_count?: number;
+};
+
+/** 공백·문장부호·괄호 속 법인표기·대소문자를 지운 상호. */
+function normalizeShopName(raw: string): string {
+  return String(raw ?? "")
+    .normalize("NFKC")
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+/** "소리헤어 황오점", "소리헤어(황오점)", "소리헤어 본점" → "소리헤어". */
+function shopNameCore(raw: string): string {
+  const text = String(raw ?? "").normalize("NFKC")
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ").trim();
+  const tokens = text.split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2 && /점$/.test(tokens[tokens.length - 1])) tokens.pop();
+  const core = normalizeShopName(tokens.join(" "));
+  const stripped = core.replace(/(본점|직영점)$/, "");
+  return stripped.length >= 2 ? stripped : core;
+}
+
+function shopNamesMatch(a: string, b: string): boolean {
+  const na = normalizeShopName(a);
+  const nb = normalizeShopName(b);
+  if (na.length < 2 || nb.length < 2) return false;
+  if (na === nb) return true;
+  const ca = shopNameCore(a);
+  const cb = shopNameCore(b);
+  if (ca.length >= 2 && ca === cb) return true;
+  // 붙여 쓴 지점명: "소리헤어황오점" ↔ "소리헤어"
+  const [short, long] = ca.length <= cb.length ? [ca, cb] : [cb, ca];
+  if (short.length >= 2 && long.startsWith(short)) {
+    return /^[\p{L}\p{N}]{1,6}?(지점|점)$/u.test(long.slice(short.length));
+  }
+  return false;
+}
+
+const sidoAbbrev: Record<string, string> = { ...regionAliases, 강원도: "강원", 제주도: "제주" };
+
+type RoadAddressKey = {
+  sido: string;
+  sigungu: string;
+  road: string;
+  bldg: string;
+  bldgMain: string;
+};
+
+/** 도로명주소 → 시도(약칭)·시군구·도로명·건물번호. 층/호/괄호/쉼표 뒤는 버린다. */
+function normalizeRoadAddress(raw: string): RoadAddressKey | null {
+  let text = String(raw ?? "").normalize("NFKC")
+    .split(",")[0]
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  text = text
+    .replace(/\s+(지하\s*)?[Bb]?\d+\s*(층|호)(\s.*)?$/, "")
+    .replace(/\s+지하\s*\d+\s*층.*$/, "")
+    .replace(/(대로|로)\s+(\d+(?:번)?길)/g, "$1$2");
+  const tokens = text.split(" ").filter(Boolean);
+  let sido = "";
+  if (tokens.length) {
+    const first = tokens[0];
+    if (sidoAbbrev[first]) sido = sidoAbbrev[first];
+    else if (/^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)$/.test(first)) sido = first;
+  }
+  let sigungu = "";
+  for (const t of tokens.slice(sido ? 1 : 0)) {
+    if (/(시|군|구)$/.test(t) && !/(로|길)$/.test(t)) { sigungu = t; break; }
+  }
+  const re = /([가-힣A-Za-z·][가-힣A-Za-z0-9·]*?(?:로|길))\s*(\d+)(?:-(\d+))?(?![\d-]|번?길|로)/g;
+  let m: RegExpExecArray | null;
+  let last: RegExpExecArray | null = null;
+  while ((m = re.exec(text)) !== null) last = m;
+  if (!last) return null;
+  const road = last[1];
+  const bldgMain = String(Number(last[2]));
+  const bldg = last[3] ? `${bldgMain}-${Number(last[3])}` : bldgMain;
+  return { sido, sigungu, road, bldg, bldgMain };
+}
+
+/** 도로명+건물번호가 같아야 한다. 시도·시군구는 양쪽에 있을 때만 비교한다. */
+function roadAddressesMatch(a: string, b: string): boolean {
+  const x = normalizeRoadAddress(a);
+  const y = normalizeRoadAddress(b);
+  if (!x || !y) return false;
+  if (x.road !== y.road || x.bldg !== y.bldg) return false;
+  if (x.sido && y.sido && x.sido !== y.sido) return false;
+  if (x.sigungu && y.sigungu && x.sigungu !== y.sigungu) return false;
+  return true;
+}
+
+function licenseField(row: Record<string, unknown>, key: string): string {
+  const v = row[key] ?? row[key.toLowerCase()];
+  return v == null ? "" : String(v).trim();
+}
+
+function licenseStatusOf(code: string, label: string): LicenseStatus {
+  const c = code.trim();
+  const n = label.replace(/\s+/g, "");
+  if (c === "01" || (!c && /영업|정상/.test(n))) return "open";
+  if (c === "02" || (!c && /휴업/.test(n))) return "suspended";
+  if (c === "03" || c === "04" || (!c && /폐업|취소|말소|만료|정지|중지/.test(n))) return "closed";
+  return null;
+}
+
+/** YYYYMMDD / YYYY-MM-DD → YYYY-MM-DD. 날짜가 아니면 null. */
+function licenseYmd(raw: string): string | null {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (!/^\d{8}/.test(digits)) return null;
+  const y = Number(digits.slice(0, 4));
+  const mo = Number(digits.slice(4, 6));
+  const d = Number(digits.slice(6, 8));
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (y < 1900 || dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
+/** 상호·도로명주소가 모두 맞는 행만. 여럿이면 영업 중 → 최근 인허가일 순. */
+function pickLicenseMatch(
+  rows: Record<string, unknown>[],
+  name: string,
+  address: string,
+): Record<string, unknown> | null {
+  const hits = rows.filter((r) =>
+    shopNamesMatch(name, licenseField(r, "BPLC_NM")) &&
+    roadAddressesMatch(address, licenseField(r, "ROAD_NM_ADDR"))
+  );
+  if (!hits.length) return null;
+  const rank = (r: Record<string, unknown>) =>
+    licenseStatusOf(licenseField(r, "SALS_STTS_CD"), licenseField(r, "SALS_STTS_NM")) === "open" ? 1 : 0;
+  hits.sort((a, b) =>
+    rank(b) - rank(a) ||
+    (licenseYmd(licenseField(b, "LCPMT_YMD")) ?? "").localeCompare(licenseYmd(licenseField(a, "LCPMT_YMD")) ?? "")
+  );
+  return hits[0];
+}
+
+function licenseRowsFromPayload(payload: unknown): Record<string, unknown>[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  const body = ((root.response as Record<string, unknown> | undefined)?.body ?? root.body ?? root) as
+    | Record<string, unknown>
+    | undefined;
+  const items = body?.items as unknown;
+  const raw = (items && typeof items === "object" && !Array.isArray(items))
+    ? (items as Record<string, unknown>).item
+    : items;
+  const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  return list.filter((x) => x && typeof x === "object") as Record<string, unknown>[];
+}
+
+const LICENSE_XML_FIELDS = [
+  "BPLC_NM", "ROAD_NM_ADDR", "SALS_STTS_CD", "SALS_STTS_NM",
+  "DTL_SALS_STTS_NM", "LCPMT_YMD", "CLSBIZ_YMD",
+];
+
+async function fetchLicenseRows(
+  key: string,
+  cond: Record<string, string>,
+): Promise<{ ok: boolean; rows: Record<string, unknown>[]; error?: string }> {
+  // cond[...] 이름은 그대로, 값과 serviceKey는 한 번만 인코딩한다.
+  const query = [
+    `serviceKey=${encodeURIComponent(key)}`,
+    "pageNo=1",
+    "numOfRows=100",
+    "returnType=json",
+    ...Object.entries(cond).map(([k, v]) => `${k}=${encodeURIComponent(v)}`),
+  ].join("&");
+  try {
+    const res = await fetch(`${LICENSE_ENDPOINT}?${query}`, { signal: AbortSignal.timeout(6000) });
+    const text = (await res.text()).trim();
+    if (text.startsWith("<")) {
+      const code = xmlResultCode(text);
+      if (code && !isSuccessCode(code)) return { ok: false, rows: [], error: "api_" + code };
+      const rows: Record<string, unknown>[] = [];
+      const re = /<item>([\s\S]*?)<\/item>/gi;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        const row: Record<string, unknown> = {};
+        for (const f of LICENSE_XML_FIELDS) row[f] = xmlTag(m[1], f);
+        rows.push(row);
+      }
+      if (!res.ok && !rows.length) return { ok: false, rows: [], error: "http_" + res.status };
+      return { ok: true, rows };
+    }
+    let payload: unknown;
+    try { payload = JSON.parse(text); } catch {
+      return { ok: false, rows: [], error: res.ok ? "unexpected_shape" : "http_" + res.status };
+    }
+    const { code } = franchiseResultInfo(payload);
+    if (code && !["00", "0", "000", "INFO-000", "NORMAL_SERVICE"].includes(code)) {
+      return { ok: false, rows: [], error: "api_" + code.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 24) };
+    }
+    if (!res.ok) return { ok: false, rows: [], error: "http_" + res.status };
+    return { ok: true, rows: licenseRowsFromPayload(payload) };
+  } catch {
+    // 업스트림 URL(서비스키 포함)은 절대 되돌려주지 않는다.
+    return { ok: false, rows: [], error: "upstream_unavailable" };
+  }
+}
+
+async function licenseStatus(input: { name?: string; address?: string }): Promise<LicenseResult> {
+  const base: LicenseResult = {
+    matched: false,
+    status: null,
+    status_label: null,
+    licensed_on: null,
+    closed_on: null,
+    source: LICENSE_SOURCE,
+    fetched_at: new Date().toISOString(),
+  };
+  const name = String(input.name ?? "").trim();
+  const address = String(input.address ?? "").trim();
+  if (!name || !address) return { ...base, reason: "name_and_address_required" };
+  const target = normalizeRoadAddress(address);
+  if (!target) return { ...base, reason: "road_address_unparsed" };
+  // data.go.kr은 인코딩/디코딩 키를 둘 다 준다. 디코딩한 뒤 한 번만 인코딩한다.
+  let key = Deno.env.get("MOIS_BEAUTY_LICENSE_SERVICE_KEY")?.trim() ?? "";
+  try { key = decodeURIComponent(key); } catch { /* raw key */ }
+  if (!key) return { ...base, reason: "missing_MOIS_BEAUTY_LICENSE_SERVICE_KEY" };
+
+  const queries: Record<string, string>[] = [
+    { "cond[ROAD_NM_ADDR::LIKE]": `${target.road} ${target.bldgMain}` },
+    { "cond[BPLC_NM::LIKE]": name.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim() },
+  ];
+  let lastError: string | undefined;
+  let seen = 0;
+  for (const cond of queries) {
+    const res = await fetchLicenseRows(key, cond);
+    if (!res.ok) { lastError = res.error; continue; }
+    seen += res.rows.length;
+    const hit = pickLicenseMatch(res.rows, name, address);
+    if (!hit) continue;
+    const label = licenseField(hit, "SALS_STTS_NM") || licenseField(hit, "DTL_SALS_STTS_NM");
+    return {
+      ...base,
+      matched: true,
+      status: licenseStatusOf(licenseField(hit, "SALS_STTS_CD"), label),
+      status_label: label || null,
+      licensed_on: licenseYmd(licenseField(hit, "LCPMT_YMD")),
+      closed_on: licenseYmd(licenseField(hit, "CLSBIZ_YMD")),
+      candidate_count: seen,
+    };
+  }
+  return { ...base, reason: seen > 0 || !lastError ? "no_match" : lastError, candidate_count: seen };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1232,6 +1527,9 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === "franchise_sales") return jsonResponse(await franchiseSales(body.address ?? ""));
+    if (body.action === "license_status") {
+      return jsonResponse(await licenseStatus({ name: body.name, address: body.address }));
+    }
     const lat = body.latitude;
     const lng = body.longitude;
     if (typeof lat !== "number" || typeof lng !== "number" ||

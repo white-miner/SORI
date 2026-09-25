@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/shop.dart';
 import '../features/operation/shop_geocoding_service.dart';
 import '../utils/area_search_center.dart';
+import '../utils/our_area_category.dart';
 import 'our_area_shop_snapshot.dart';
 
 /// ZONE 3 — Edge `get-shop-market` 응답 (상가 + 인구).
@@ -328,6 +329,11 @@ class ShopMarketStoreItem {
     this.signguNm = '',
     this.adongCd = '',
     this.adongNm = '',
+    this.flrNo = '',
+    this.bldNm = '',
+    this.ksicNm = '',
+    this.bldMngNo = '',
+    this.brchNm = '',
   });
 
   final String name;
@@ -353,6 +359,71 @@ class ShopMarketStoreItem {
   final String signguNm;
   final String adongCd;
   final String adongNm;
+  /// 상가 원본 `flrNo` (예: "2", "B1", "지"). 구버전 응답은 빈 문자열.
+  final String flrNo;
+  /// 상가 원본 `bldNm`.
+  final String bldNm;
+  /// 상가 원본 `ksicNm` (표준산업분류명).
+  final String ksicNm;
+  /// 상가 원본 `bldMngNo`.
+  final String bldMngNo;
+  /// 상가 원본 `brchNm` (지점명).
+  final String brchNm;
+
+  static final RegExp _basementFloor =
+      RegExp(r'^(?:B|지하|지)(\d{1,3})(?:층|F)?$');
+  static final RegExp _groundFloor = RegExp(r'^(\d{1,3})(?:층|F)?$');
+
+  /// 화면용 층. "2"→"2층", "B1"/"지하1"→"지하 1층", "지"/"지하"→"지하".
+  /// 비어 있거나 읽을 수 없는 값은 null (추측하지 않는다).
+  String? get floorLabel {
+    final raw = flrNo.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    if (raw.isEmpty) return null;
+    if (raw == '지' || raw == '지하') return '지하';
+    final basement = _basementFloor.firstMatch(raw);
+    if (basement != null) {
+      final n = int.parse(basement.group(1)!);
+      return n > 0 ? '지하 $n층' : null;
+    }
+    final ground = _groundFloor.firstMatch(raw);
+    if (ground != null) {
+      final n = int.parse(ground.group(1)!);
+      return n > 0 ? '$n층' : null;
+    }
+    return null;
+  }
+
+  /// 도로명주소 + ", 2층". 도로명이 없으면 지번주소. 원본 `addr`는 쓰지 않는다.
+  String get addressWithFloor {
+    final road = address.trim();
+    final base = road.isNotEmpty ? road : lotAddress.trim();
+    if (base.isEmpty) return '';
+    final floor = floorLabel;
+    return floor == null ? base : '$base, $floor';
+  }
+
+  /// 칩에 쓰는 쉬운 업종 한 단어 (피부관리 · 네일 · 헤어 …). 모르면 null.
+  /// 중분류·대분류(이용·미용, 수리·개인)는 쓰지 않는다.
+  String? get plainCategoryLabel {
+    final blob = '$indsSclsNm $ksicNm $categoryLabel'.replaceAll(RegExp(r'\s+'), '');
+    if (blob.contains('속눈썹')) return '속눈썹';
+    if (blob.contains('왁싱')) return '왁싱';
+    if (blob.contains('반영구')) return '반영구';
+    switch (chipKey.trim()) {
+      case 'skin':
+        return '피부관리';
+      case 'semi_permanent':
+      case OurAreaCategory.permanent:
+        return OurAreaCategory.labelOf(OurAreaCategory.permanent);
+      case OurAreaCategory.hair:
+      case OurAreaCategory.barber:
+      case OurAreaCategory.nail:
+      case OurAreaCategory.tattoo:
+      case OurAreaCategory.makeup:
+        return OurAreaCategory.labelOf(chipKey.trim());
+    }
+    return null;
+  }
 
   /// 소분류·중분류·대분류 이름. 코드는 넣지 않는다.
   String get industryDisplay {
@@ -406,6 +477,11 @@ class ShopMarketStoreItem {
       signguNm: ShopMarketInsight._text(map['signgu_nm']),
       adongCd: ShopMarketInsight._text(map['adong_cd']),
       adongNm: ShopMarketInsight._text(map['adong_nm']),
+      flrNo: ShopMarketInsight._text(map['flr_no']),
+      bldNm: ShopMarketInsight._text(map['bld_nm']),
+      ksicNm: ShopMarketInsight._text(map['ksic_nm']),
+      bldMngNo: ShopMarketInsight._text(map['bld_mng_no']),
+      brchNm: ShopMarketInsight._text(map['brch_nm']),
     );
   }
 
@@ -433,6 +509,77 @@ class ShopMarketStoreItem {
       signguNm: signguNm,
       adongCd: adongCd,
       adongNm: adongNm,
+      flrNo: flrNo,
+      bldNm: bldNm,
+      ksicNm: ksicNm,
+      bldMngNo: bldMngNo,
+      brchNm: brchNm,
+    );
+  }
+}
+
+/// Edge `get-shop-market` action=license_status 응답 (행정안전부 미용업 인허가).
+/// 못 찾음(matched=false)은 폐업이 아니다. 화면은 상태를 추측하지 않는다.
+class ShopLicenseStatus {
+  const ShopLicenseStatus({
+    required this.matched,
+    this.status,
+    this.statusLabel,
+    this.licensedOn,
+    this.closedOn,
+    this.source = '',
+    this.fetchedAt,
+    this.reason,
+  });
+
+  static const unmatched = ShopLicenseStatus(matched: false);
+
+  final bool matched;
+  /// open | suspended | closed | null
+  final String? status;
+  final String? statusLabel;
+  final DateTime? licensedOn;
+  final DateTime? closedOn;
+  final String source;
+  final DateTime? fetchedAt;
+  /// 조회 실패·키 없음·후보 없음 등. null이면 확정 응답.
+  final String? reason;
+
+  bool get isOpen => matched && status == 'open';
+
+  /// [N년째 영업]: (올해 − 인허가 연도) + 1.
+  int? yearsInBusiness(DateTime now) {
+    final since = licensedOn;
+    if (!matched || since == null) return null;
+    final today = DateTime(now.year, now.month, now.day);
+    if (since.isAfter(today)) return null;
+    return now.year - since.year + 1;
+  }
+
+  static DateTime? _ymd(dynamic raw) {
+    final text = raw?.toString().trim() ?? '';
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(text);
+    if (m == null) return null;
+    final y = int.parse(m.group(1)!);
+    final mo = int.parse(m.group(2)!);
+    final d = int.parse(m.group(3)!);
+    final date = DateTime(y, mo, d);
+    if (date.year != y || date.month != mo || date.day != d) return null;
+    return date;
+  }
+
+  factory ShopLicenseStatus.fromMap(Map<String, dynamic> map) {
+    final status = map['status']?.toString().trim();
+    final label = map['status_label']?.toString().trim();
+    return ShopLicenseStatus(
+      matched: map['matched'] == true,
+      status: (status == null || status.isEmpty) ? null : status,
+      statusLabel: (label == null || label.isEmpty) ? null : label,
+      licensedOn: _ymd(map['licensed_on']),
+      closedOn: _ymd(map['closed_on']),
+      source: ShopMarketInsight._text(map['source']),
+      fetchedAt: DateTime.tryParse('${map['fetched_at'] ?? ''}'),
+      reason: map['reason']?.toString(),
     );
   }
 }
@@ -457,6 +604,55 @@ class ShopMarketService {
   static final ShopMarketService instance = ShopMarketService._();
 
   final Map<String, ({DateTime at, FranchiseSalesSummary result})> _franchiseCache = {};
+
+  final Map<String, ({DateTime at, ShopLicenseStatus result})> _licenseCache = {};
+
+  /// 인허가 캐시 키. 상가 업소번호가 있으면 그것, 없으면 상호+주소.
+  static String licenseCacheKey(ShopMarketStoreItem item) {
+    final id = item.bizesId.trim();
+    if (id.isNotEmpty) return 'id:$id';
+    return 'na:${item.name.trim()}|${item.searchPlace}';
+  }
+
+  /// 선택한 샵 1곳의 인허가 영업상태. 앱 세션 메모리에 24시간 캐시(DB 저장 없음).
+  /// 도로명주소가 없으면 조회하지 않는다. 실패는 unmatched로 돌려 카드를 깨지 않는다.
+  Future<ShopLicenseStatus> fetchLicenseStatus(ShopMarketStoreItem item) async {
+    final name = item.name.trim();
+    final road = item.address.trim();
+    if (name.isEmpty || road.isEmpty) return ShopLicenseStatus.unmatched;
+    final key = licenseCacheKey(item);
+    final cached = _licenseCache[key];
+    if (cached != null &&
+        DateTime.now().difference(cached.at) < const Duration(hours: 24)) {
+      return cached.result;
+    }
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'get-shop-market',
+        body: {
+          'action': 'license_status',
+          'name': name,
+          'address': road,
+          if (AreaSearchCenter.hasValidPoint(item.latitude, item.longitude)) ...{
+            'latitude': item.latitude,
+            'longitude': item.longitude,
+          },
+        },
+      ).timeout(const Duration(seconds: 15));
+      final dynamic data = response.data is String
+          ? jsonDecode(response.data as String) : response.data;
+      if (data is! Map) throw const FormatException('bad_response');
+      final result = ShopLicenseStatus.fromMap(Map<String, dynamic>.from(data));
+      if (result.matched || result.reason == 'no_match') {
+        if (_licenseCache.length >= 200) _licenseCache.remove(_licenseCache.keys.first);
+        _licenseCache[key] = (at: DateTime.now(), result: result);
+      }
+      return result;
+    } catch (e) {
+      debugPrint('license_status failed: $e');
+      return const ShopLicenseStatus(matched: false, reason: 'request_failed');
+    }
+  }
 
   Future<FranchiseSalesSummary> fetchFranchiseSales(String address) async {
     final region = address.trim().split(RegExp(r'\s+')).first;
