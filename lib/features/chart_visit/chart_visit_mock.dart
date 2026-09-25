@@ -252,10 +252,13 @@ class ChartVisitSession {
     nextNote = '';
   }
 
+  /// [refillDefaultSteps] 가 true(기본)면 저장된 시술 단계가 비어 있을 때 기본 5단계를 쓴다
+  /// (위저드 동작). false 면 저장된 빈 목록을 그대로 지킨다(오늘 방문 작성 데스크).
   factory ChartVisitSession.fromRecord({
     required String id,
     required DateTime startedAt,
     required ChartVisitRecord record,
+    bool refillDefaultSteps = true,
   }) {
     final session = ChartVisitSession.fresh(
       id: id,
@@ -299,7 +302,7 @@ class ChartVisitSession {
     session.goals
       ..clear()
       ..addAll(record.careGoals);
-    if (record.treatmentSteps.isNotEmpty) {
+    if (record.treatmentSteps.isNotEmpty || !refillDefaultSteps) {
       session.steps
         ..clear()
         ..addAll(record.treatmentSteps.map(_stepFromMap));
@@ -460,7 +463,11 @@ class ChartVisitDraftRef {
 
 abstract class ChartVisitGateway {
   Future<ChartVisitSession> startFresh({bool forceNew = false});
-  Future<ChartVisitSession> resumeLatest(ChartVisitDraftRef draft);
+  /// [refillDefaultSteps] 는 [ChartVisitSession.fromRecord] 와 같다(기본 true = 위저드 동작).
+  Future<ChartVisitSession> resumeLatest(
+    ChartVisitDraftRef draft, {
+    bool refillDefaultSteps = true,
+  });
   Future<void> saveDraft(ChartVisitSession session);
   Future<void> complete(ChartVisitSession session);
 }

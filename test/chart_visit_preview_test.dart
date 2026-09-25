@@ -166,6 +166,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('INFO 있음 opens the detail field and keeps typed text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const MaterialApp(home: ChartVisitFlowPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('chart-visit-safety-edit')));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    final before = fields.evaluate().length;
+
+    // 첫 '있음' = 알레르기.
+    final yes = find.text('있음').first;
+    await tester.ensureVisible(yes);
+    await tester.tap(yes);
+    await tester.pumpAndSettle();
+    expect(fields, findsNWidgets(before + 1));
+
+    final allergyField = fields.first;
+    await tester.enterText(allergyField, '견과류');
+    await tester.pumpAndSettle();
+    expect(ChartVisitPreviewStore.instance.active!.safety.allergy, '견과류');
+    expect(fields, findsNWidgets(before + 1));
+
+    final row = find.ancestor(of: allergyField, matching: find.byType(Column)).first;
+    final no = find.descendant(of: row, matching: find.text('없음'));
+    await tester.ensureVisible(no);
+    await tester.tap(no);
+    await tester.pumpAndSettle();
+    expect(fields, findsNWidgets(before));
+    expect(ChartVisitPreviewStore.instance.active!.safety.allergy, '없음');
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('bottom next stays above the keyboard inset', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
