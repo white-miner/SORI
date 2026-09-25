@@ -28,6 +28,8 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
   bool _openNext = false;
   bool _editingNext = false;
   String _saveLabel = '저장됨';
+  /// INFO 에서 '있음'을 눌러 입력칸을 연 항목(값이 아직 비어 있어도 열어 둔다).
+  final Set<String> _safetyOpen = {};
   Timer? _saveTimer;
   Timer? _clock;
 
@@ -1208,7 +1210,8 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     required String value,
     required ValueChanged<String> onChanged,
   }) {
-    final none = value.trim().isEmpty || value.trim() == '없음';
+    final none = !_safetyOpen.contains(label) &&
+        (value.trim().isEmpty || value.trim() == '없음');
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -1222,6 +1225,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
                 label: '없음',
                 selected: none,
                 onTap: () {
+                  _safetyOpen.remove(label);
                   onChanged('없음');
                   _flash();
                 },
@@ -1231,7 +1235,10 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
                 label: '있음',
                 selected: !none,
                 onTap: () {
-                  if (none) onChanged('');
+                  if (none) {
+                    _safetyOpen.add(label);
+                    onChanged('');
+                  }
                   _flash();
                 },
               ),
