@@ -33,6 +33,7 @@ import 'ba_recall_cache.dart';
 import 'consultation_track.dart';
 import 'home_dashboard_controller.dart';
 import 'home_visual_tokens.dart';
+import '../../widgets/glass/sori_glass_style.dart';
 import '../../widgets/sori_section_header.dart';
 import 'management_case_paginator.dart';
 import 'sori_stage_folder_tabs.dart';
@@ -955,8 +956,11 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
   Widget build(BuildContext context) {
     final careRunning = VisitTimerStore.instance.isCareRunning;
 
+    // DESK만 웜 화이트 캔버스. 탭 레일 아래 여백도 같은 색으로 맞춘다.
+    final deskActive = _tabs.index == HomeTab.myFeed.index;
+
     return ColoredBox(
-      color: _groupedBg,
+      color: deskActive ? SoriGlassStyle.warmCanvas : _groupedBg,
       child: Stack(
         children: [
           Column(
@@ -1012,66 +1016,71 @@ class _VisitLauncherPageState extends State<VisitLauncherPage>
     final drafts = widget.store.baCarouselSessions;
     final cases = _casePager.items;
 
-    return RefreshIndicator(
-      color: SoriTokens.primary,
-      onRefresh: () => _load(force: true),
-      child: CustomScrollView(
-        controller: _feedScroll,
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: ClampingScrollPhysics(),
-        ),
-        slivers: [
-          SliverToBoxAdapter(
-            child: BaCaptureCarousel(
-              sessions: drafts,
-              pending: widget.store.baPendingSession,
-              incompleteCount: widget.store.baIncompleteCount,
-              transferringId: _baTransferringId,
-              offlineDraft: !widget.store.baRemoteReady,
-              onCapture: _captureBaPhoto,
-              onBind: _bindBaSession,
-              onDefer: _deferBaSession,
-              onOpen: (s) => unawaited(_openBaSession(s)),
-              onDiscard: _discardUnlinkedBaSession,
-              onDiscardSlot: _discardUnlinkedBaSlot,
-            ),
+    return ColoredBox(
+      key: const Key('home-desk-canvas'),
+      color: SoriGlassStyle.warmCanvas,
+      child: RefreshIndicator(
+        color: SoriTokens.primary,
+        onRefresh: () => _load(force: true),
+        child: CustomScrollView(
+          controller: _feedScroll,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: HomeQuickActionRow(
-                onNewCustomer: _startNewCustomerFlow,
-                onReturningCustomer: _startReturningCustomerFlow,
+          slivers: [
+            SliverToBoxAdapter(
+              child: BaCaptureCarousel(
+                sessions: drafts,
+                pending: widget.store.baPendingSession,
+                incompleteCount: widget.store.baIncompleteCount,
+                transferringId: _baTransferringId,
+                offlineDraft: !widget.store.baRemoteReady,
+                onCapture: _captureBaPhoto,
+                onBind: _bindBaSession,
+                onDefer: _deferBaSession,
+                onOpen: (s) => unawaited(_openBaSession(s)),
+                onDiscard: _discardUnlinkedBaSession,
+                onDiscardSlot: _discardUnlinkedBaSlot,
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: _CaseFeedHeader(
-              bookmarkOnly: _caseBookmarkOnly,
-              onToggleBookmark: _toggleCaseBookmarkFilter,
-            ),
-          ),
-          if (cases.isEmpty)
             SliverToBoxAdapter(
-              child: _EmptyCaseFeed(bookmarkOnly: _caseBookmarkOnly),
-            )
-          else
-            SliverList.builder(
-              itemCount: cases.length,
-              itemBuilder: (context, index) {
-                final chart = cases[index];
-                return ManagementCaseCard(
-                  key: ValueKey(chart.id),
-                  chart: chart,
-                  bookmarked: widget.store.isChartBookmarked(chart.id),
-                  onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
-                  onExpand: () => unawaited(_openCaseCompare(chart)),
-                  onHideFromHome: () => unawaited(_hideCaseFromHome(chart)),
-                );
-              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                child: HomeQuickActionRow(
+                  onNewCustomer: _startNewCustomerFlow,
+                  onReturningCustomer: _startReturningCustomerFlow,
+                ),
+              ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 48)),
-        ],
+            SliverToBoxAdapter(
+              child: _CaseFeedHeader(
+                bookmarkOnly: _caseBookmarkOnly,
+                onToggleBookmark: _toggleCaseBookmarkFilter,
+              ),
+            ),
+            if (cases.isEmpty)
+              SliverToBoxAdapter(
+                child: _EmptyCaseFeed(bookmarkOnly: _caseBookmarkOnly),
+              )
+            else
+              SliverList.builder(
+                itemCount: cases.length,
+                itemBuilder: (context, index) {
+                  final chart = cases[index];
+                  return ManagementCaseCard(
+                    key: ValueKey(chart.id),
+                    chart: chart,
+                    bookmarked: widget.store.isChartBookmarked(chart.id),
+                    onBookmark: () => unawaited(_toggleCaseBookmark(chart)),
+                    onExpand: () => unawaited(_openCaseCompare(chart)),
+                    onHideFromHome: () => unawaited(_hideCaseFromHome(chart)),
+                    glass: true,
+                  );
+                },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 48)),
+          ],
+        ),
       ),
     );
   }
