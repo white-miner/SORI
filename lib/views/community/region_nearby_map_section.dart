@@ -33,6 +33,14 @@ typedef RegionNearbyLoader = Future<ShopMarketInsight> Function({
   bool force,
 });
 
+/// 기기 위치(거리 칩용). 권한 창을 띄우지 않는다. 없으면 null.
+typedef RegionDevicePositionLoader = Future<({double lat, double lng})?> Function();
+
+/// 선택한 샵 1곳의 인허가 영업상태.
+typedef RegionLicenseLoader = Future<ShopLicenseStatus> Function(
+  ShopMarketStoreItem item,
+);
+
 /// 우리지역 커뮤니티 탐색 지도 — Local Bloom · glass controls · Peek/Half sheet.
 /// Timer / Payment / Visit / 고객 좌표 비노출.
 class RegionNearbyMapSection extends StatefulWidget {
@@ -44,6 +52,8 @@ class RegionNearbyMapSection extends StatefulWidget {
     this.onCenterChanged,
     this.sheetFooter,
     this.nearbyLoader,
+    this.devicePositionLoader,
+    this.licenseLoader,
   });
 
   final SoriStore store;
@@ -54,6 +64,10 @@ class RegionNearbyMapSection extends StatefulWidget {
   final Widget? sheetFooter;
   /// 테스트가 공공 API 없이 같은 목록 경로를 열 때 쓴다. 없으면 Edge 조회.
   final RegionNearbyLoader? nearbyLoader;
+  /// 테스트용 기기 위치. 없으면 이미 허용된 권한에서만 조용히 읽는다.
+  final RegionDevicePositionLoader? devicePositionLoader;
+  /// 테스트용 인허가 조회. 없으면 Edge `license_status`.
+  final RegionLicenseLoader? licenseLoader;
 
   @override
   State<RegionNearbyMapSection> createState() => _RegionNearbyMapSectionState();
@@ -106,6 +120,12 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
   String? _sheetTitle;
   double _zoom = 14.2;
   List<RegionContentBookmark> _savedPreview = const [];
+  /// 거리 칩 전용 기기 위치. 검색 중심·반경·정렬(distanceM)과 분리한다.
+  ({double lat, double lng})? _devicePosition;
+  bool _devicePositionAsked = false;
+  final Map<String, ShopLicenseStatus> _licenses = <String, ShopLicenseStatus>{};
+  final Map<String, DateTime> _licenseTimes = <String, DateTime>{};
+  final Set<String> _licensePending = <String>{};
 
   double get _radiusKm => widget.radiusKm;
   AreaSearchCenter get _searchCenter => _activeSearch ?? AreaSearchCenter.resolve(
@@ -336,6 +356,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
         setState(() => _gpsBanner = _GpsBanner.failed);
         return;
       case RegionMapGpsOutcome.ok:
+        _devicePosition = (lat: result.lat!, lng: result.lng!);
         await _applyCurrentLocation(result.lat!, result.lng!);
     }
   }
@@ -603,7 +624,59 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       _zoom = nextZoom;
     } catch (_) {}
     _snapSheet(0.62);
+    unawaited(_ensureDevicePosition());
+    unawaited(_ensureLicense(item));
   }
+
+  /// 거리 칩용 기기 위치. GPS 버튼으로 받은 값이 있으면 재사용하고, 없으면
+  /// 첫 선택 때 한 번만 이미 허용된 권한에서 조용히 읽는다(권한 창 없음).
+  Future<void> _ensureDevicePosition() async {
+    if (_devicePosition != null || _devicePositionAsked) return;
+    _devicePositionAsked = true;
+    final loader = widget.devicePositionLoader ?? RegionMapGps.grantedPositionOrNull;
+    try {
+      final pos = await loader();
+      if (!mounted || pos == null) return;
+      if (!AreaSearchCenter.hasValidPoint(pos.lat, pos.lng)) return;
+      setState(() => _devicePosition = pos);
+    } catch (_) {/* 거리 칩만 숨긴다. */}
+  }
+
+  /// 선택한 샵만 인허가 상태를 조회한다(목록 전체 조회 없음).
+  Future<void> _ensureLicense(ShopMarketStoreItem item) async {
+    final key = ShopMarketService.licenseCacheKey(item);
+    if (_licenseFor(item) != null || !_licensePending.add(key)) return;
+    final loader = widget.licenseLoader ?? ShopMarketService.instance.fetchLicenseStatus;
+    ShopLicenseStatus result;
+    try {
+      result = await loader(item);
+    } catch (_) {
+      result = const ShopLicenseStatus(matched: false, reason: 'request_failed');
+    }
+    _licensePending.remove(key);
+    if (!mounted) return;
+    setState(() {
+      if (result.matched || result.reason == 'no_match') {
+        _licenses[key] = result;
+        _licenseTimes[key] = DateTime.now();
+      } else {
+        _licenses.remove(key);
+        _licenseTimes.remove(key);
+      }
+    });
+  }
+
+  ShopLicenseStatus? _licenseFor(ShopMarketStoreItem item) {
+    final key = ShopMarketService.licenseCacheKey(item);
+    final at = _licenseTimes[key];
+    if (at == null || DateTime.now().difference(at) >= const Duration(hours: 24)) {
+      return null;
+    }
+    return _licenses[key];
+  }
+
+  String? _gpsDistanceFor(ShopMarketStoreItem item) =>
+      _deviceDistanceLabel(_devicePosition, item);
 
   void _snapSheet(double size, {bool retry = true}) {
     if (!_sheetController.isAttached) {
@@ -659,7 +732,7 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
       case AreaSearchSource.mapCamera:
         return '지도에서 고른 위치';
       case AreaSearchSource.shopOrInsight:
-        return address.isEmpty ? '내 샵' : '내 샵 · $address';
+        return address.isEmpty ? '저장된 주소' : '저장된 주소 · $address';
       case AreaSearchSource.defaultRegion:
         return address.isEmpty ? '검색 기준 위치가 필요합니다' : address;
     }
@@ -971,6 +1044,8 @@ class _RegionNearbyMapSectionState extends State<RegionNearbyMapSection> {
                   : () => widget.onRadiusChanged?.call(_widerRadius!),
               onMore: () => setState(() => _visibleLimit += 20),
               footer: widget.sheetFooter,
+              distanceFor: _gpsDistanceFor,
+              licenseFor: _licenseFor,
             );
           },
         )
@@ -1295,10 +1370,15 @@ Color _shopCategoryColor(String key) => switch (OurAreaCategory.mapRaw(key)) {
     };
 
 class _ShopDiscoverRow extends StatelessWidget {
-  const _ShopDiscoverRow({required this.stores, required this.onSelect});
+  const _ShopDiscoverRow({
+    required this.stores,
+    required this.onSelect,
+    required this.distanceFor,
+  });
 
   final List<ShopMarketStoreItem> stores;
   final ValueChanged<ShopMarketStoreItem> onSelect;
+  final String? Function(ShopMarketStoreItem) distanceFor;
 
   @override
   Widget build(BuildContext context) {
@@ -1343,7 +1423,10 @@ class _ShopDiscoverRow extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w800, color: RegionMapBloom.mapInk),
                       ),
                       Text(
-                        '${OurAreaCategory.chipLabel(item.chipKey)} · ${_regionDistance(item)}',
+                        [
+                          item.plainCategoryLabel ?? OurAreaCategory.chipLabel(item.chipKey),
+                          if (distanceFor(item) != null) distanceFor(item)!,
+                        ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, color: RegionMapBloom.mapMuted),
@@ -1396,15 +1479,27 @@ class _SelectedShopGlass extends StatelessWidget {
     required this.sourceText,
     required this.queryTimeText,
     required this.onClose,
+    this.distanceLabel,
+    this.license,
   });
 
   final ShopMarketStoreItem item;
   final String sourceText;
   final String queryTimeText;
   final VoidCallback onClose;
+  /// 기기 GPS 기준 거리. 없으면 거리 칩을 숨긴다.
+  final String? distanceLabel;
+  /// 인허가 조회 결과. 로딩 중·못 찾음이면 null/unmatched → 상태 칩 숨김.
+  final ShopLicenseStatus? license;
 
   @override
   Widget build(BuildContext context) {
+    final open = license?.isOpen == true;
+    // TODO(region-card): 휴업/폐업(suspended/closed)은 회색 [휴업]/[폐업] 칩을
+    // 보일지 사용자가 정한다. 지금은 칩 없음. 못 찾음을 폐업으로 보지 않는다.
+    final years = open ? license!.yearsInBusiness(DateTime.now()) : null;
+    final industry = item.plainCategoryLabel;
+    final addressLine = _shopAddressLine(item);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: RegionMapBloom.panelFill,
@@ -1419,16 +1514,41 @@ class _SelectedShopGlass extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: RegionMapBloom.shopTitleSize,
-                      fontWeight: FontWeight.w800,
-                      color: RegionMapBloom.shopTitleColor,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          item.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: RegionMapBloom.shopTitleSize,
+                            fontWeight: FontWeight.w800,
+                            color: RegionMapBloom.shopTitleColor,
+                          ),
+                        ),
+                        if (open)
+                          const _ShopInfoChip(
+                            key: Key('region-selected-chip-open'),
+                            label: '정상 영업',
+                            foreground: SoriTokens.shopChipOpenText,
+                            background: SoriTokens.shopChipOpenBg,
+                          ),
+                        if (distanceLabel != null)
+                          _ShopInfoChip(
+                            key: const Key('region-selected-chip-distance'),
+                            label: distanceLabel!,
+                            foreground: SoriTokens.shopChipNeutralText,
+                            background: SoriTokens.shopChipNeutralBg,
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -1440,40 +1560,144 @@ class _SelectedShopGlass extends StatelessWidget {
                 ),
               ],
             ),
-            Text(
-              '${_regionShown(item.industryDisplay)} · ${_regionDistance(item)} · ${_regionShown(item.adongNm)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: RegionMapBloom.shopMetaSize,
-                color: RegionMapBloom.shopMetaColor,
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (years != null || industry != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (years != null)
+                            _ShopInfoChip(
+                              key: const Key('region-selected-chip-years'),
+                              label: '$years년째 영업',
+                              foreground: SoriTokens.shopChipYearsText,
+                              background: SoriTokens.shopChipYearsBg,
+                            ),
+                          if (industry != null)
+                            _ShopInfoChip(
+                              key: const Key('region-selected-chip-industry'),
+                              label: industry,
+                              foreground: SoriTokens.shopChipIndustryText,
+                              background: SoriTokens.shopChipIndustryBg,
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (addressLine != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        addressLine,
+                        key: const Key('region-selected-address'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: RegionMapBloom.shopMetaSize,
+                          color: RegionMapBloom.shopTitleColor,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  _NaverMapCta(
+                    buttonKey: const Key('region-selected-map-cta'),
+                    item: item,
+                    region: '',
+                    expand: true,
+                  ),
+                  _PublicShopFacts(
+                    item: item,
+                    sourceText: sourceText,
+                    queryTimeText: queryTimeText,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              _regionShown(item.address),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: RegionMapBloom.shopMetaSize,
-                color: RegionMapBloom.shopTitleColor,
-              ),
-            ),
-            _NaverMapCta(
-              buttonKey: const Key('region-selected-map-cta'),
-              item: item,
-              region: '',
-            ),
-            _PublicShopFacts(
-              item: item,
-              sourceText: sourceText,
-              queryTimeText: queryTimeText,
             ),
           ],
         ),
       ),
     );
   }
+}
+
+/// 이름 옆·아래 작은 알약 칩. 색은 [SoriTokens] shopChip*.
+class _ShopInfoChip extends StatelessWidget {
+  const _ShopInfoChip({
+    super.key,
+    required this.label,
+    required this.foreground,
+    required this.background,
+    this.compact = false,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 7 : 9,
+          vertical: compact ? 2 : 3,
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: compact ? 11 : 12,
+            fontWeight: FontWeight.w700,
+            color: foreground,
+            height: 1.25,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 주소 한 줄: 도로명(+층) · 행정동. 빈 값은 빼고, 둘 다 없으면 null.
+String? _shopAddressLine(ShopMarketStoreItem item) {
+  final parts = [
+    for (final raw in [item.addressWithFloor, item.adongNm])
+      if (raw.trim().isNotEmpty) raw.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// "2026-09-26 02:54" → "26.09.26 02:54". 읽을 수 없으면 null.
+String? _shortQueryTime(String formatted) {
+  final m = RegExp(r'^\d{2}(\d{2})-(\d{2})-(\d{2}) (\d{2}:\d{2})$')
+      .firstMatch(formatted.trim());
+  if (m == null) return null;
+  return '${m.group(1)}.${m.group(2)}.${m.group(3)} ${m.group(4)}';
+}
+
+String? _deviceDistanceLabel(
+  ({double lat, double lng})? device,
+  ShopMarketStoreItem item,
+) {
+  if (device == null) return null;
+  final meters = AreaSearchCenter.distanceMeters(
+    centerLat: device.lat,
+    centerLng: device.lng,
+    pointLat: item.latitude,
+    pointLng: item.longitude,
+  );
+  if (meters == null) return null;
+  return RegionShopListCopy.distanceLabel(meters);
 }
 
 class _OverlayMarker extends StatelessWidget {
@@ -1669,6 +1893,7 @@ class _GlassRoundButtonState extends State<_GlassRoundButton> {
   }
 }
 
+/// 카드 맨 아래 작은 회색 한 줄: 지번 · 출처 · 조회 시점. 빈 값은 뺀다.
 class _PublicShopFacts extends StatelessWidget {
   const _PublicShopFacts({
     required this.item,
@@ -1682,74 +1907,130 @@ class _PublicShopFacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _fact('지번', item.lotAddress),
-        _fact('출처', sourceText),
-        _fact('조회 시점', queryTimeText),
-      ],
-    );
-  }
-
-  Widget _fact(String label, String value) {
+    final lot = item.lotAddress.trim();
+    final source = sourceText.trim();
+    final time = _shortQueryTime(queryTimeText);
+    final parts = [
+      // 도로명이 없으면 주소 줄이 이미 지번이다.
+      if (lot.isNotEmpty && item.address.trim().isNotEmpty) '지번 $lot',
+      if (source.isNotEmpty && source != ShopMarketInsight.fieldUnavailable)
+        '출처 $source',
+      if (time != null) '조회 $time',
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.only(top: 8),
       child: Text(
-        '$label ${_regionShown(value)}',
-        maxLines: 1,
+        parts.join(' · '),
+        key: const Key('region-selected-footer'),
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          fontSize: RegionMapBloom.shopAuxSize,
+          fontSize: RegionMapBloom.shopAuxSize - 1,
           color: RegionMapBloom.shopMetaColor,
-          height: 1.2,
+          height: 1.3,
         ),
       ),
     );
   }
 }
 
+/// 목록 행: 이름 + [정상 영업] [거리] / [N년째 영업] [업종] / 주소 · 행정동.
 class _ShopDetailFacts extends StatelessWidget {
-  const _ShopDetailFacts({required this.item});
+  const _ShopDetailFacts({
+    required this.item,
+    this.index = 0,
+    this.distanceLabel,
+    this.license,
+  });
 
   final ShopMarketStoreItem item;
+  final int index;
+  final String? distanceLabel;
+  /// 이미 선택해서 조회된 샵만 값이 있다. 목록 전체를 조회하지 않는다.
+  final ShopLicenseStatus? license;
 
   @override
   Widget build(BuildContext context) {
     final name = RegionShopListCopy.visibleText(item.name);
+    final open = license?.isOpen == true;
+    final years = open ? license!.yearsInBusiness(DateTime.now()) : null;
+    final industry = item.plainCategoryLabel;
+    final addressLine = _shopAddressLine(item);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (name != null)
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: RegionMapBloom.shopTitleSize,
-              color: RegionMapBloom.shopTitleColor,
+        Wrap(
+          spacing: 5,
+          runSpacing: 3,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (name != null)
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: RegionMapBloom.shopTitleSize,
+                  color: RegionMapBloom.shopTitleColor,
+                ),
+              ),
+            if (open)
+              const _ShopInfoChip(
+                label: '정상 영업',
+                foreground: SoriTokens.shopChipOpenText,
+                background: SoriTokens.shopChipOpenBg,
+                compact: true,
+              ),
+            if (distanceLabel != null)
+              _ShopInfoChip(
+                key: Key('region-market-chip-distance-$index'),
+                label: distanceLabel!,
+                foreground: SoriTokens.shopChipNeutralText,
+                background: SoriTokens.shopChipNeutralBg,
+                compact: true,
+              ),
+          ],
+        ),
+        if (years != null || industry != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Wrap(
+              spacing: 5,
+              runSpacing: 3,
+              children: [
+                if (years != null)
+                  _ShopInfoChip(
+                    label: '$years년째 영업',
+                    foreground: SoriTokens.shopChipYearsText,
+                    background: SoriTokens.shopChipYearsBg,
+                    compact: true,
+                  ),
+                if (industry != null)
+                  _ShopInfoChip(
+                    key: Key('region-market-chip-industry-$index'),
+                    label: industry,
+                    foreground: SoriTokens.shopChipIndustryText,
+                    background: SoriTokens.shopChipIndustryBg,
+                    compact: true,
+                  ),
+              ],
             ),
           ),
-        Text(
-          '${_regionShown(item.industryDisplay)} · ${_regionShown(item.adongNm)} · ${_regionDistance(item)}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: RegionMapBloom.shopMetaSize,
-            color: RegionMapBloom.shopMetaColor,
+        if (addressLine != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              addressLine,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: RegionMapBloom.shopMetaSize,
+                color: RegionMapBloom.shopTitleColor,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          _regionShown(item.address),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: RegionMapBloom.shopMetaSize,
-            color: RegionMapBloom.shopTitleColor,
-          ),
-        ),
       ],
     );
   }
@@ -1762,6 +2043,8 @@ class _MarketStoreRow extends StatelessWidget {
     required this.region,
     required this.selected,
     required this.onSelect,
+    this.distanceLabel,
+    this.license,
   });
 
   final ShopMarketStoreItem item;
@@ -1769,6 +2052,8 @@ class _MarketStoreRow extends StatelessWidget {
   final String region;
   final bool selected;
   final VoidCallback onSelect;
+  final String? distanceLabel;
+  final ShopLicenseStatus? license;
 
   @override
   Widget build(BuildContext context) {
@@ -1795,7 +2080,12 @@ class _MarketStoreRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ShopDetailFacts(item: item),
+                _ShopDetailFacts(
+                  item: item,
+                  index: index,
+                  distanceLabel: distanceLabel,
+                  license: license,
+                ),
                 _NaverMapCta(
                   buttonKey: Key('region-market-map-cta-$index'),
                   item: item,
@@ -1815,23 +2105,19 @@ String _regionShown(String raw) {
   return text.isEmpty ? ShopMarketInsight.fieldUnavailable : text;
 }
 
-String _regionDistance(ShopMarketStoreItem item) {
-  if (!AreaSearchCenter.hasValidPoint(item.latitude, item.longitude)) {
-    return ShopMarketInsight.fieldUnavailable;
-  }
-  return _regionShown(RegionShopListCopy.distanceLabel(item.distanceM) ?? '');
-}
-
 class _NaverMapCta extends StatelessWidget {
   const _NaverMapCta({
     required this.buttonKey,
     required this.item,
     required this.region,
+    this.expand = false,
   });
 
   final Key buttonKey;
   final ShopMarketStoreItem item;
   final String region;
+  /// 선택 카드는 가로 전체, 목록 행은 오른쪽 작은 버튼.
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
@@ -1842,24 +2128,35 @@ class _NaverMapCta extends StatelessWidget {
       region: region,
     );
     if (uri == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: OutlinedButton(
-          key: buttonKey,
-          onPressed: () async {
-            var ok = false;
-            try { ok = await NaverMapLinks.open(uri); } catch (_) {}
-            if (!ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('지도를 열 수 없어요.')),
-              );
-            }
-          },
-          child: const Text('네이버에서 샵 찾기'),
-        ),
+    final button = OutlinedButton(
+      key: buttonKey,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: SoriTokens.naverGreen,
+        foregroundColor: SoriTokens.onNaverGreen,
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
+        // Keep the theme font; only bump the weight.
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: expand ? 12 : 8),
       ),
+      onPressed: () async {
+        var ok = false;
+        try { ok = await NaverMapLinks.open(uri); } catch (_) {}
+        if (!ok && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('지도를 열 수 없어요.')),
+          );
+        }
+      },
+      child: const Text('네이버에서 샵 찾기'),
+    );
+    return Padding(
+      padding: EdgeInsets.only(top: expand ? 10 : 8),
+      child: expand
+          ? SizedBox(width: double.infinity, child: button)
+          : Align(alignment: Alignment.centerRight, child: button),
     );
   }
 }
@@ -1889,6 +2186,8 @@ class _ShopResultSheet extends StatelessWidget {
     required this.onWiden,
     required this.onMore,
     required this.footer,
+    required this.distanceFor,
+    required this.licenseFor,
   });
 
   final ScrollController scrollController;
@@ -1914,6 +2213,9 @@ class _ShopResultSheet extends StatelessWidget {
   final VoidCallback? onWiden;
   final VoidCallback onMore;
   final Widget? footer;
+  /// 기기 GPS 기준 거리 라벨. 위치가 없으면 null(칩 숨김).
+  final String? Function(ShopMarketStoreItem) distanceFor;
+  final ShopLicenseStatus? Function(ShopMarketStoreItem) licenseFor;
 
   @override
   Widget build(BuildContext context) {
@@ -1960,11 +2262,17 @@ class _ShopResultSheet extends StatelessWidget {
               sourceText: sourceText,
               queryTimeText: queryTimeText,
               onClose: onClearSelection,
+              distanceLabel: distanceFor(selected!),
+              license: licenseFor(selected!),
             ),
           ],
           if (!loading && error == null && hasLocation && shown.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _ShopDiscoverRow(stores: shown, onSelect: onSelect),
+            _ShopDiscoverRow(
+              stores: shown,
+              onSelect: onSelect,
+              distanceFor: distanceFor,
+            ),
           ],
           const SizedBox(height: 8),
           basis,
@@ -2037,6 +2345,8 @@ class _ShopResultSheet extends StatelessWidget {
                       region: '',
                       selected: sameShop(selected, shown[i]),
                       onSelect: () => onSelect(shown[i]),
+                      distanceLabel: distanceFor(shown[i]),
+                      license: licenseFor(shown[i]),
                     ),
                   if (stores.length > visibleLimit)
                     TextButton(onPressed: onMore, child: const Text('샵 더 보기')),

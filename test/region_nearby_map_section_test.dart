@@ -159,17 +159,18 @@ void main() {
     await tester.tap(find.byKey(const Key('region-market-store-0')));
     await tester.pump();
 
-    expect(find.text('지번 역삼동 1'), findsOneWidget);
+    // Card footer is one small line: 지번 · 출처 · 조회(yy.MM.dd HH:mm).
+    final full = ShopMarketInsight.formatQueryTime(data.storesRetrievedAt);
+    final short = full.substring(2).replaceAll('-', '.');
+    expect(find.textContaining('지번 역삼동 1'), findsOneWidget);
     expect(find.textContaining('역삼1동'), findsNWidgets(2));
-    expect(
-      find.textContaining(ShopMarketInsight.formatQueryTime(data.storesRetrievedAt)),
-      findsNWidgets(2),
-    );
+    expect(find.textContaining(full), findsOneWidget);
+    expect(find.textContaining('조회 $short'), findsOneWidget);
     expect(find.text('네이버에서 샵 찾기'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('empty public fields show 현재 제공되지 않음 at 360px', (tester) async {
+  testWidgets('empty public fields stay off the card at 360px (sheet footer keeps 현재 제공되지 않음)', (tester) async {
     final data = insight(
       source: '',
       retrievedAt: 'not-a-date',
@@ -184,7 +185,7 @@ void main() {
     await pumpSection(tester, data: data);
 
     expect(find.text('지번 현재 제공되지 않음'), findsNothing);
-    expect(find.textContaining('현재 제공되지 않음'), findsWidgets);
+    expect(find.textContaining('현재 제공되지 않음'), findsOneWidget);
     expect(find.textContaining('출처'), findsOneWidget);
     expect(find.textContaining('조회 시점'), findsOneWidget);
 
@@ -192,8 +193,11 @@ void main() {
     await tester.tap(find.byKey(const Key('region-market-store-0')));
     await tester.pump();
 
-    expect(find.text('지번 현재 제공되지 않음'), findsOneWidget);
-    expect(find.textContaining('조회 시점'), findsNWidgets(2));
+    expect(find.byTooltip('선택 닫기'), findsOneWidget);
+    expect(find.textContaining('지번'), findsNothing);
+    expect(find.byKey(const Key('region-selected-footer')), findsNothing);
+    expect(find.textContaining('현재 제공되지 않음'), findsOneWidget);
+    expect(find.textContaining('조회 시점'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -347,7 +351,7 @@ void main() {
     await tester.tap(map);
     await tester.pump();
     expect(find.byTooltip('선택 닫기'), findsOneWidget);
-    expect(find.text('지번 역삼동 1'), findsOneWidget);
+    expect(find.textContaining('지번 역삼동 1'), findsOneWidget);
 
     await _scrollToTop(tester);
     final hairChip = find.byKey(const Key('region-shop-category-hair'));

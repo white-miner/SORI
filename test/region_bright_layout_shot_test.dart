@@ -166,7 +166,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byTooltip('선택 닫기'), findsOneWidget);
-    final facts = tester.getRect(find.text('지번 황오동 1'));
+    final facts = tester.getRect(find.textContaining('지번 황오동 1'));
     final count = tester.getRect(find.byKey(const Key('region-shop-list-count')));
     expect(
       facts.bottom,
