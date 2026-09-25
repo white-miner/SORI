@@ -286,6 +286,121 @@ void main() {
     expect(find.byType(ChartVisitWorkspace), findsOneWidget);
   });
 
+  Future<void> openCare(WidgetTester tester, SoriStore store) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpPage(tester, store);
+    await _openRecent(tester, _recentFirst(store).id);
+    await _tapVisible(tester, const Key('chart-visit-section-care-header'));
+  }
+
+  Future<void> tapDelete(WidgetTester tester, int index) async {
+    await _tapVisible(tester, Key('chart-ws-care-step-delete-$index'));
+    await _settle(tester);
+  }
+
+  testWidgets('care step delete removes an empty step immediately', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    await openCare(tester, store);
+    expect(_summary(tester, 'care'), '5단계');
+    expect(find.text('클렌징'), findsOneWidget);
+    expect(find.byTooltip('시술 삭제'), findsNWidgets(5));
+
+    await tapDelete(tester, 0);
+
+    expect(find.byKey(const Key('chart-ws-care-step-delete-confirm')),
+        findsNothing);
+    expect(find.text('클렌징'), findsNothing);
+    expect(_summary(tester, 'care'), '4단계');
+    expect(find.byKey(const Key('chart-ws-care-step-delete-4')), findsNothing);
+    // 번호가 다시 매겨진다: 첫 줄이 01 효소 각질관리.
+    final first = find.byKey(const ValueKey<String>('chart-visit-workspace-step-0'));
+    expect(
+      find.descendant(of: first, matching: find.text('효소 각질관리')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: first, matching: find.text('01')), findsOneWidget);
+  });
+
+  testWidgets('care step delete asks before removing a filled step', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    await openCare(tester, store);
+
+    await tester.tap(find.text('클렌징'));
+    await tester.pump();
+    final first = find.byKey(const ValueKey<String>('chart-visit-workspace-step-0'));
+    await tester.enterText(
+      find.descendant(of: first, matching: find.byType(TextField)).first,
+      '딥 클렌징',
+    );
+    await tester.pump();
+    expect(_summary(tester, 'care'), '5단계 · 기록 1');
+
+    await tapDelete(tester, 0);
+    expect(find.byKey(const Key('chart-ws-care-step-delete-confirm')),
+        findsOneWidget);
+    expect(find.text('이 시술을 삭제할까요?'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await _settle(tester);
+    expect(find.byKey(const Key('chart-ws-care-step-delete-confirm')),
+        findsNothing);
+    expect(find.text('클렌징'), findsOneWidget);
+    expect(_summary(tester, 'care'), '5단계 · 기록 1');
+
+    await tapDelete(tester, 0);
+    await tester.tap(find.text('삭제'));
+    await _settle(tester);
+    expect(find.text('클렌징'), findsNothing);
+    expect(find.text('딥 클렌징'), findsNothing);
+    expect(_summary(tester, 'care'), '4단계');
+  });
+
+  testWidgets('임시저장 after care step delete saves the reduced step list', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    final customer = _recentFirst(store);
+    await openCare(tester, store);
+
+    await tapDelete(tester, 1);
+    expect(_summary(tester, 'care'), '4단계');
+    await tester.tap(find.byKey(const Key('chart-visit-workspace-save-draft')));
+    await _settle(tester);
+
+    final drafts = store.chartVisitDraftsFor(customer.id);
+    expect(drafts, hasLength(1));
+    final steps = drafts.single.visitRecord.treatmentSteps;
+    expect(
+      steps.map((s) => s['title']).toList(),
+      ['클렌징', '진정 앰플', '초음파', '진정팩'],
+    );
+    expect(steps.map((s) => s['sort']).toList(), [1, 2, 3, 4]);
+  });
+
+  testWidgets('deleting every care step saves an empty step list', (
+    tester,
+  ) async {
+    final store = SoriStore();
+    final customer = _recentFirst(store);
+    await openCare(tester, store);
+
+    for (var i = 0; i < 5; i++) {
+      await tapDelete(tester, 0);
+    }
+    expect(_summary(tester, 'care'), '미입력');
+    await tester.tap(find.byKey(const Key('chart-visit-workspace-save-draft')));
+    await _settle(tester);
+
+    final drafts = store.chartVisitDraftsFor(customer.id);
+    expect(drafts, hasLength(1));
+    expect(drafts.single.visitRecord.treatmentSteps, isEmpty);
+    expect(_summary(tester, 'care'), '미입력');
+  });
+
   testWidgets('workspace fits a 360px phone without overflow', (tester) async {
     await tester.binding.setSurfaceSize(const Size(360, 740));
     addTearDown(() => tester.binding.setSurfaceSize(null));
