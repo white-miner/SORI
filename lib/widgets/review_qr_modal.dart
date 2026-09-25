@@ -63,7 +63,7 @@ Future<void> showShopReviewQrModal(
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: SoriTokens.background,
+                color: SoriTokens.fillMuted,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: SoriTokens.border),
               ),

@@ -75,7 +75,7 @@ class SoriYoutubeTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: SoriTokens.surface,
+      color: SoriTokens.canvas,
       child: Padding(
         padding: padding,
         child: SoriStageFolderTabs(

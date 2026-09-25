@@ -235,7 +235,7 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
       return Scaffold(
         backgroundColor: SoriTokens.background,
         appBar: AppBar(
-          backgroundColor: SoriTokens.surface,
+          backgroundColor: SoriTokens.canvas,
           foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
         ),
@@ -289,7 +289,7 @@ class _SeminarClassDetailPageState extends State<SeminarClassDetailPage> {
             pinned: true,
             floating: false,
             stretch: false,
-            backgroundColor: SoriTokens.surface,
+            backgroundColor: SoriTokens.canvas,
             foregroundColor: SoriTokens.textPrimary,
             surfaceTintColor: Colors.transparent,
             elevation: 0.5,

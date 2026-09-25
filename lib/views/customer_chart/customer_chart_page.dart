@@ -295,7 +295,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
         backgroundColor: SoriTokens.background,
         appBar: AppBar(
           title: const Text('고객 차트'),
-          backgroundColor: SoriTokens.surface,
+          backgroundColor: SoriTokens.canvas,
           foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
@@ -324,7 +324,7 @@ class _CustomerChartPageState extends State<CustomerChartPage>
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: Text(customer.name),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../theme/sori_tokens.dart';
 import '../../../visit_kernel/models/care_program_template.dart';
 import '../../../visit_kernel/models/preset_slot_tint.dart';
 import 'volume_glass_theme.dart';
@@ -65,7 +66,7 @@ class _PresetExpandPanelState extends State<PresetExpandPanel>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: const Color(0xFFF4F6F9),
+          color: SoriTokens.fillMuted,
           borderRadius: BorderRadius.circular(VolumeGlassTheme.cardRadius * 0.58),
           child: InkWell(
             onTap: _toggle,

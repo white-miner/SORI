@@ -403,7 +403,7 @@ class _WhisperPostsPane extends StatelessWidget {
       itemBuilder: (context, i) {
         final p = posts[i];
         return ListTile(
-          tileColor: SoriTokens.background,
+          tileColor: SoriTokens.fillMuted,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: SoriTokens.border),
@@ -447,7 +447,7 @@ class _ContentCandidateCardTile extends StatelessWidget {
       key: Key('content-candidate-card-${card.chartId}'),
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: SoriTokens.background,
+        color: SoriTokens.fillMuted,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -670,7 +670,7 @@ class _ChartRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: SoriTokens.background,
+        color: SoriTokens.fillMuted,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,

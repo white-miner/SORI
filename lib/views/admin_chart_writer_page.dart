@@ -1622,7 +1622,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
         backgroundColor: SoriTokens.background,
         appBar: AppBar(
           title: const Text('차트 작성'),
-          backgroundColor: SoriTokens.surface,
+          backgroundColor: SoriTokens.canvas,
           foregroundColor: SoriTokens.textPrimary,
           elevation: 0,
         ),
@@ -1655,7 +1655,7 @@ class _AdminChartWriterPageState extends State<AdminChartWriterPage>
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('차트 작성'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         bottom: TabBar(

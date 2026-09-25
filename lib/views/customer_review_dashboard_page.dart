@@ -219,7 +219,7 @@ class _CustomerReviewDashboardPageState
             title: Text(
               chart.careName.isNotEmpty ? '${chart.careName} 리뷰' : 'AI 리뷰 작성',
             ),
-            backgroundColor: SoriTokens.surface,
+            backgroundColor: SoriTokens.canvas,
             foregroundColor: SoriTokens.textPrimary,
             elevation: 0,
           ),

@@ -25,7 +25,7 @@ class MembershipProgressView extends StatelessWidget {
           vertical: compact ? 4 : 6,
         ),
         decoration: BoxDecoration(
-          color: SoriTokens.background,
+          color: SoriTokens.fillMuted,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: SoriTokens.border),
         ),

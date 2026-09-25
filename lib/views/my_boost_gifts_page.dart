@@ -46,7 +46,7 @@ class _MyBoostGiftsPageState extends State<MyBoostGiftsPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('내가 후원한 케이스'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
       ),
       body: _loading
           ? const Center(

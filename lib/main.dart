@@ -62,11 +62,14 @@ Future<void> main() async {
     if (!kIsWeb) {
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
       SystemChrome.setSystemUIOverlayStyle(
+        // 밝은 웜 화이트 캔버스 → 어두운 상태바 아이콘 (SystemUiOverlayStyle.dark 의미).
+        // Android: *IconBrightness.dark, iOS: statusBarBrightness.light.
         const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
           systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarIconBrightness: Brightness.dark,
           systemNavigationBarContrastEnforced: false,
         ),
       );

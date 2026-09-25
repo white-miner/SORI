@@ -490,7 +490,7 @@ class _DirectorMyPageViewState extends State<DirectorMyPageView>
                 scrolledUnderElevation: 0,
                 surfaceTintColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                backgroundColor: SoriTokens.surface,
+                backgroundColor: SoriTokens.canvas,
                 foregroundColor: SoriTokens.textPrimary,
                 automaticallyImplyLeading: false,
                 toolbarHeight: 0,

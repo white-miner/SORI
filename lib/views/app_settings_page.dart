@@ -42,7 +42,7 @@ class AppSettingsPage extends StatelessWidget {
               '설정',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
-            backgroundColor: SoriTokens.surface,
+            backgroundColor: SoriTokens.canvas,
             foregroundColor: SoriTokens.textPrimary,
             elevation: 0,
           ),
@@ -151,7 +151,7 @@ class AppSettingsPage extends StatelessWidget {
                         backgroundColor: SoriTokens.background,
                         appBar: AppBar(
                           title: const Text('알림'),
-                          backgroundColor: SoriTokens.surface,
+                          backgroundColor: SoriTokens.canvas,
                           foregroundColor: SoriTokens.textPrimary,
                           elevation: 0,
                         ),

@@ -90,7 +90,7 @@ class _AiShopReportPageState extends State<AiShopReportPage> {
           hell ? const Color(0xFF1A0A0A) : SoriTokens.background,
       appBar: AppBar(
         title: Text(hell ? '🚨 Hell-Zone · AI 샵 경영 리포트' : 'AI 샵 경영 리포트'),
-        backgroundColor: hell ? const Color(0xFF2A1212) : SoriTokens.surface,
+        backgroundColor: hell ? const Color(0xFF2A1212) : SoriTokens.canvas,
         foregroundColor: hell ? SoriTokens.systemRed.withValues(alpha: 0.45) : SoriTokens.textPrimary,
         elevation: 0,
       ),

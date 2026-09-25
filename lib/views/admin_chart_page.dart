@@ -151,7 +151,7 @@ class _AdminChartPageState extends State<AdminChartPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: Text(customer.name),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

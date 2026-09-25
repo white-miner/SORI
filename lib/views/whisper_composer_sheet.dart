@@ -571,7 +571,7 @@ class _WhisperComposerSheetState extends State<WhisperComposerSheet> {
               hintText: '타겟에게만 보일 게시물을 작성하세요…',
               hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
               filled: true,
-              fillColor: SoriTokens.background,
+              fillColor: SoriTokens.fillMuted,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
@@ -1025,7 +1025,7 @@ class _AccountSearchSheetState extends State<_AccountSearchSheet> {
               hintStyle: const TextStyle(color: SoriTokens.textQuaternary),
               prefixIcon: const Icon(Icons.search, size: 20),
               filled: true,
-              fillColor: SoriTokens.background,
+              fillColor: SoriTokens.fillMuted,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,

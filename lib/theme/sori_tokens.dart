@@ -4,8 +4,18 @@ import 'package:flutter/material.dart';
 
 /// SORI — iOS-style White Minimal + System Accent (Red alerts, Camera Yellow).
 abstract final class SoriTokens {
-  /// App canvas — PO Soft UI off-white (#F4F6F9)
-  static const Color background = Color(0xFFF4F6F9);
+  /// App canvas — warm white (#FBF9F6). 2026-09-26 app default (was #F4F6F9).
+  /// Reads white, not beige or gray. Cards, sheets, dialogs and text fields
+  /// stay [surface] white on top of it.
+  static const Color canvas = Color(0xFFFBF9F6);
+
+  /// Legacy name for [canvas]. Kept so existing screens follow the new canvas.
+  static const Color background = canvas;
+
+  /// Warm muted fill for grouped rows, inset tiles and text fields that sit
+  /// inside white cards/sheets (#F2F0EC). Visibly distinct from [surface]
+  /// white (1.14:1) and from [canvas] (1.08:1).
+  static const Color fillMuted = Color(0xFFF2F0EC);
 
   /// Inline link / read-more accent
   static const Color accentLink = Color(0xFF007AFF);

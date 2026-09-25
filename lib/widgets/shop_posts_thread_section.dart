@@ -527,7 +527,7 @@ class _ShopPostComposerSheetState extends State<_ShopPostComposerSheet> {
             decoration: InputDecoration(
               hintText: '팔로워에게 전할 팁이나 프로모션을 적어주세요',
               filled: true,
-              fillColor: SoriTokens.background,
+              fillColor: SoriTokens.fillMuted,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
               ),

@@ -106,7 +106,7 @@ class _SeminarManagementPageState extends State<SeminarManagementPage> {
           '세미나 센터',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0.5,

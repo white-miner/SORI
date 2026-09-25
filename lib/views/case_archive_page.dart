@@ -191,7 +191,7 @@ class _CaseArchivePageState extends State<CaseArchivePage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('보관함'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         actions: [

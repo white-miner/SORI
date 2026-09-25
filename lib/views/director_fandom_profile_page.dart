@@ -166,7 +166,7 @@ class _DirectorFandomProfilePageState extends State<DirectorFandomProfilePage> {
           '원장 프로필',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

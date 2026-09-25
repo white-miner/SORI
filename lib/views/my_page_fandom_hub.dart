@@ -45,7 +45,7 @@ class _MyPageFandomHubPageState extends State<MyPageFandomHubPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('팔로워 · 구독'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         actions: [
           TextButton(
             onPressed: _openHomeExplore,

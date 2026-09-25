@@ -96,7 +96,7 @@ class _VisitNewCustomerFormPageState extends State<VisitNewCustomerFormPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('신규 고객 등록'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

@@ -19,7 +19,7 @@ class SponsorshipImpactSummaryCard extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: SoriTokens.background,
+          color: SoriTokens.fillMuted,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: SoriTokens.border),
         ),
@@ -39,7 +39,7 @@ class SponsorshipImpactSummaryCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: SoriTokens.background,
+        color: SoriTokens.fillMuted,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: SoriTokens.border),
       ),

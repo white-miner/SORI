@@ -125,7 +125,7 @@ class _MentoringRequestSheetBodyState extends State<_MentoringRequestSheetBody> 
               hintText: '임상 포인트, 장비 세팅, 홈케어 연계 등 (20자 이상)',
               hintStyle: const TextStyle(color: SoriTokens.textSecondary),
               filled: true,
-              fillColor: SoriTokens.background,
+              fillColor: SoriTokens.fillMuted,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,

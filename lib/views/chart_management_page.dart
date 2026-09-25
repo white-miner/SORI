@@ -456,7 +456,7 @@ class _ChartManagementPageState extends State<ChartManagementPage> {
               ? '$name · ${selected.visitNumber}회차'
               : '$name · 차트 관리',
         ),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
         leading: IconButton(

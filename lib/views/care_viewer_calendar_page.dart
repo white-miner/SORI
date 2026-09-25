@@ -177,7 +177,7 @@ class _CareViewerCalendarPageState extends State<CareViewerCalendarPage> {
       backgroundColor: SoriTokens.background,
       appBar: AppBar(
         title: const Text('케어 히스토리 캘린더'),
-        backgroundColor: SoriTokens.surface,
+        backgroundColor: SoriTokens.canvas,
         foregroundColor: SoriTokens.textPrimary,
         elevation: 0,
       ),

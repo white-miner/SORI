@@ -4,7 +4,7 @@ import '../../theme/sori_tokens.dart';
 
 /// PRD v5.4 — Home dashboard visual constitution (CDG SSOT).
 abstract final class HomeVisualTokens {
-  static const canvasBg = Color(0xFFF4F6F9);
+  static const canvasBg = SoriTokens.canvas;
   static const heroCardFill = Color(0xF2FFFFFF);
   static const heroCardRadius = 24.0;
   static const heroCardPaddingH = 16.0;

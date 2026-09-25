@@ -425,7 +425,7 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
                       decoration: InputDecoration(
                         hintText: '관찰 메모 (선택)',
                         filled: true,
-                        fillColor: SoriTokens.background,
+                        fillColor: SoriTokens.fillMuted,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -858,14 +858,14 @@ class _VisitSessionPageState extends State<VisitSessionPage> {
     final prior = _lastPriorChart;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: SoriTokens.canvas,
       appBar: AppBar(
         title: Text(
           _isReturningFlow
               ? '${customer.name}님 · 재방문 상담'
               : '${customer.name}님 · 첫 상담',
         ),
-        backgroundColor: const Color(0xFFF2F2F7),
+        backgroundColor: SoriTokens.canvas,
         elevation: 0,
         actions: [
           if (showBaPill)
@@ -1134,7 +1134,7 @@ class _CareSummaryHeroState extends State<_CareSummaryHero> {
               decoration: InputDecoration(
                 hintText: '한 문장으로 오늘 케어를 남겨 주세요',
                 filled: true,
-                fillColor: SoriTokens.background,
+                fillColor: SoriTokens.fillMuted,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,

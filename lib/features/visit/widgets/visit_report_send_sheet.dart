@@ -87,7 +87,7 @@ class VisitReportSendSheet extends StatelessWidget {
                 constraints: const BoxConstraints(maxHeight: 220),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F6F9),
+                  color: SoriTokens.fillMuted,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: SingleChildScrollView(
