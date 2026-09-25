@@ -113,7 +113,7 @@ void main() {
     final chips = tester.getRect(find.byKey(const Key('region-category-chips')));
     final search = tester.getRect(find.byKey(const Key('region-search-open')));
     final nav = tester.getRect(find.byType(FloatingPillNav));
-    final title = tester.getRect(find.text('내 주변에서 발견한 뷰티샵'));
+    final title = tester.getRect(find.text('내 주변 뷰티샵'));
     expect(chips.bottom, lessThan(title.top));
     expect(search.right, lessThanOrEqualTo(390));
     expect(search.top, greaterThanOrEqualTo(0));

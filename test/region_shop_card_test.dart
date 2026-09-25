@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +16,7 @@ import 'package:sori/views/community/region_nearby_map_section.dart';
 const _centerLat = 35.8562;
 const _centerLng = 129.2247;
 final _captureKey = GlobalKey();
+bool _previewFontLoaded = false;
 
 ShopMarketStoreItem _pieona({String flrNo = '2', String chipKey = 'skin'}) {
   return ShopMarketStoreItem(
@@ -176,12 +179,24 @@ void main() {
 
   for (final width in [360.0, 1024.0]) {
     testWidgets('card preview at ${width.toInt()}px', (tester) async {
+      final ciCapture = Platform.environment['GITHUB_ACTIONS'] == 'true';
       final fontPath = Platform.environment['REGION_PREVIEW_FONT'];
-      if (fontPath != null) {
+      if (!_previewFontLoaded && (fontPath != null || ciCapture)) {
         await tester.runAsync(() async {
           final loader = FontLoader('RegionPreview');
-          loader.addFont(Future.value(ByteData.sublistView(await File(fontPath).readAsBytes())));
+          final bytes = fontPath != null ? await File(fontPath).readAsBytes()
+            : await HttpOverrides.runWithHttpOverrides(() async {
+                final client = HttpClient();
+                try {
+                  final request = await client.getUrl(Uri.parse('https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/Korean/NotoSansCJKkr-Regular.otf'));
+                  final response = await request.close();
+                  if (response.statusCode != 200) throw StateError('Preview font unavailable');
+                  return await consolidateHttpClientResponseBytes(response);
+                } finally { client.close(force: true); }
+              }, null);
+          loader.addFont(Future.value(ByteData.sublistView(bytes)));
           await loader.load();
+          _previewFontLoaded = true;
         });
       }
       await _pump(tester, items: [_pieona()], size: Size(width, 1100),
@@ -191,13 +206,21 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('region-selected-address')));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      if (Platform.environment['REGION_CAPTURE'] == '1') {
+      if (Platform.environment['REGION_CAPTURE'] == '1' || ciCapture) {
         await tester.runAsync(() async {
           final boundary = _captureKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
           final image = await boundary.toImage(pixelRatio: 1);
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
           final dir = Directory('build/region-previews')..createSync(recursive: true);
           await File('${dir.path}/region-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());
+          // Allow retrieval from CI logs when artifact upload is unavailable.
+          if (ciCapture) {
+            final encoded = base64Encode(bytes.buffer.asUint8List());
+            for (var start = 0; start < encoded.length; start += 1000) {
+              final end = (start + 1000).clamp(0, encoded.length);
+              print('REGION_PREVIEW_${width.toInt()}: ${encoded.substring(start, end)}');
+            }
+          }
           image.dispose();
         });
       }
