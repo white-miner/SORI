@@ -1961,3 +1961,22 @@ class _FoldRow extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// 공유 별칭 — 홈 CHART 오늘 방문 작성 데스크(`chart_visit_workspace.dart`)가
+// 이 파일의 필드 위젯을 그대로 재사용하도록 공개 이름만 덧붙인다.
+// 기존 private 클래스와 위저드 동작은 바꾸지 않는다.
+// ---------------------------------------------------------------------------
+
+// ignore: library_private_types_in_public_api
+typedef ChartVisitChoiceChip = _ChoiceChip;
+// ignore: library_private_types_in_public_api
+typedef ChartVisitScoreDots = _ScoreDots;
+// ignore: library_private_types_in_public_api
+typedef ChartVisitAxisRow = _AxisRow;
+// ignore: library_private_types_in_public_api
+typedef ChartVisitCareStepTile = _CareStepTile;
+// ignore: library_private_types_in_public_api
+typedef ChartVisitLineField = _LineField;
+// ignore: library_private_types_in_public_api
+typedef ChartVisitFoldRow = _FoldRow;
