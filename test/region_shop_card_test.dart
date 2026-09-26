@@ -208,6 +208,27 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
       if (Platform.environment['REGION_CAPTURE'] == '1' || ciCapture) {
+        // Render the actual selected-card widget in isolation so the map sheet's
+        // scroll offset cannot clip the title or status chips in the preview.
+        final card = tester.widget<Widget>(find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == '_SelectedShopGlass',
+        ));
+        await tester.runAsync(() async {
+          final icons = FontLoader('MaterialIcons');
+          icons.addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+          await icons.load();
+        });
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(fontFamily: 'RegionPreview', scaffoldBackgroundColor: SoriTokens.canvas),
+          home: Scaffold(body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Align(alignment: Alignment.topCenter,
+              child: RepaintBoundary(key: _captureKey, child: card)),
+          )),
+        ));
+        await tester.pump();
         await tester.runAsync(() async {
           final boundary = _captureKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
           final image = await boundary.toImage(pixelRatio: 1);
