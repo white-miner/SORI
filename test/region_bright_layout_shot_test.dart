@@ -113,7 +113,7 @@ void main() {
     final chips = tester.getRect(find.byKey(const Key('region-category-chips')));
     final search = tester.getRect(find.byKey(const Key('region-search-open')));
     final nav = tester.getRect(find.byType(FloatingPillNav));
-    final title = tester.getRect(find.text('내 주변에서 발견한 뷰티샵'));
+    final title = tester.getRect(find.text('내 주변 뷰티샵'));
     expect(chips.bottom, lessThan(title.top));
     expect(search.right, lessThanOrEqualTo(390));
     expect(search.top, greaterThanOrEqualTo(0));
@@ -166,7 +166,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byTooltip('선택 닫기'), findsOneWidget);
-    final facts = tester.getRect(find.text('지번 황오동 1'));
+    final facts = tester.getRect(find.textContaining('지번 황오동 1'));
     final count = tester.getRect(find.byKey(const Key('region-shop-list-count')));
     expect(
       facts.bottom,

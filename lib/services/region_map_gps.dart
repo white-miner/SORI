@@ -58,4 +58,38 @@ abstract final class RegionMapGps {
       return const RegionMapGpsResult.failed();
     }
   }
+
+  /// 이미 허용된 권한일 때만 현재 위치를 조용히 읽는다. 권한 창은 띄우지 않는다.
+  /// 샵 카드 거리 칩 표시용 · 저장하지 않는다. 권한 없음/실패는 null.
+  static Future<({double lat, double lng})?> grantedPositionOrNull() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return null;
+      }
+      if (!kIsWeb) {
+        if (!await Geolocator.isLocationServiceEnabled()) return null;
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null &&
+            RegionMapCenter.isValidLatLng(last.latitude, last.longitude) &&
+            DateTime.now().difference(last.timestamp) <
+                const Duration(minutes: 10)) {
+          return (lat: last.latitude, lng: last.longitude);
+        }
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      if (!RegionMapCenter.isValidLatLng(pos.latitude, pos.longitude)) {
+        return null;
+      }
+      return (lat: pos.latitude, lng: pos.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
 }

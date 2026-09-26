@@ -116,3 +116,201 @@ test('real public classifications exclude clinics, schools and similarly named b
   assert.equal(e.call(`chipKeyForStore({bizesNm:'정본에스테틱',indsSclsNm:'피부 관리실'})`), 'skin');
   assert.equal(e.call(`matchesCategory({indsSclsNm:'피부 관리실'}, categoryKeywords('에스테틱'))`), true);
 });
+
+test('store rows keep floor, building, and KSIC names additively (JSON and XML)', async () => {
+  const row = {...shop(1, '피부 관리실'), flrNo:'2', bldNm:'황오빌딩', ksicNm:'피부 미용업', bldMngNo:'4713011200101150018000001', brchNm:'황오점'};
+  const result = await edge(async () => page([row], 1)).call(`fetchStores(${opts})`);
+  const item = result.items[0];
+  assert.equal(item.flr_no, '2');
+  assert.equal(item.bld_nm, '황오빌딩');
+  assert.equal(item.ksic_nm, '피부 미용업');
+  assert.equal(item.bld_mng_no, '4713011200101150018000001');
+  assert.equal(item.brch_nm, '황오점');
+  assert.equal(item.address, '서울 테스트로');
+  assert.equal(item.chip_key, 'skin');
+  const legacy = (await edge(async () => page([shop(2, '피부 관리실')], 1)).call(`fetchStores(${opts})`)).items[0];
+  assert.equal(legacy.flr_no, '');
+  assert.equal(legacy.bld_nm, '');
+  assert.equal(legacy.ksic_nm, '');
+  assert.equal(legacy.bizes_id, '2');
+  const xml = edge().call(`extractXmlItemMaps('<items><item><bizesNm>샵</bizesNm><flrNo>B1</flrNo><bldNm>빌딩</bldNm><ksicNm>피부 미용업</ksicNm><bldMngNo>9</bldMngNo></item></items>')[0]`);
+  assert.equal(xml.flrNo, 'B1');
+  assert.equal(xml.bldNm, '빌딩');
+  assert.equal(xml.ksicNm, '피부 미용업');
+  assert.equal(xml.bldMngNo, '9');
+});
+
+test('license names ignore punctuation but preserve branch identity', () => {
+  const e = edge();
+  assert.equal(e.call(`normalizeShopName('  피어나-스킨 엔 바디 (주) ')`), '피어나스킨엔바디');
+  assert.equal(e.call(`normalizeShopName('Nail·Lab')`), 'naillab');
+  for (const [a, b] of [
+    ['피어나스킨엔바디', '피어나 스킨엔바디'],
+    ['소리헤어 황오점', '소리헤어(황오점)'],
+    ['NAIL LAB', 'nail-lab'],
+  ]) assert.equal(e.call(`shopNamesMatch(${JSON.stringify(a)}, ${JSON.stringify(b)})`), true, `${a} ~ ${b}`);
+  for (const [a, b] of [
+    ['소리헤어', '소리네일'],
+    ['소리헤어 황오점', '소리헤어'],
+    ['소리헤어(황오점)', '소리헤어(성건점)'],
+    ['피어나스킨엔바디', '피어나'],
+    ['A', 'A'],
+    ['', ''],
+  ]) assert.equal(e.call(`shopNamesMatch(${JSON.stringify(a)}, ${JSON.stringify(b)})`), false, `${a} !~ ${b}`);
+});
+
+test('license road address normalization keeps road + building number and drops floor/호', () => {
+  const e = edge();
+  const key = e.call(`normalizeRoadAddress('경상북도 경주시 원화로 234, 2층 (황오동)')`);
+  assert.equal(key.sido, '경북');
+  assert.equal(key.sigungu, '경주시');
+  assert.equal(key.road, '원화로');
+  assert.equal(key.bldg, '234');
+  assert.equal(e.call(`normalizeRoadAddress('서울 강남구 테헤란로 123길 45 3층 301호').road`), '테헤란로123길');
+  assert.equal(e.call(`normalizeRoadAddress('경북 경주시 원화로234번길 5-1').bldg`), '5-1');
+  assert.equal(e.call(`normalizeRoadAddress('경북 경주시 원화로234번길 5-1').road`), '원화로234번길');
+  assert.equal(e.call(`normalizeRoadAddress('서울 종로구 종로 1').road`), '종로');
+  assert.equal(e.call(`normalizeRoadAddress('황오동 115-18')`), null);
+  for (const [a, b] of [
+    ['경북 경주시 원화로 234', '경상북도 경주시 원화로 234, 2층 (황오동)'],
+    ['서울 강남구 테헤란로 123길 45', '서울특별시 강남구 테헤란로123길 45, 3층'],
+    ['경북 경주시 원화로 234 2층', '경상북도 경주시 원화로 234'],
+  ]) assert.equal(e.call(`roadAddressesMatch(${JSON.stringify(a)}, ${JSON.stringify(b)})`), true, `${a} ~ ${b}`);
+  for (const [a, b] of [
+    ['경북 경주시 원화로 234', '경상북도 경주시 원화로 236'],
+    ['경북 경주시 원화로 234', '경상남도 김해시 원화로 234'],
+    ['경북 경주시 원화로 234', '경상북도 경주시 원화로234번길 5'],
+    ['경북 경주시 원화로 234', ''],
+    ['경기 성남시 분당구 중앙로 1', '경기 성남시 수정구 중앙로 1'],
+    ['경북 경주시 원화로 234', '원화로 234'],
+  ]) assert.equal(e.call(`roadAddressesMatch(${JSON.stringify(a)}, ${JSON.stringify(b)})`), false, `${a} !~ ${b}`);
+});
+
+test('license status codes, dates, and ambiguous candidates', () => {
+  const e = edge();
+  assert.equal(e.call(`licenseStatusOf('01', '영업/정상')`), 'open');
+  assert.equal(e.call(`licenseStatusOf('02', '휴업')`), 'suspended');
+  assert.equal(e.call(`licenseStatusOf('03', '폐업')`), 'closed');
+  assert.equal(e.call(`licenseStatusOf('', '영업/정상')`), 'open');
+  assert.equal(e.call(`licenseStatusOf('', '정상영업아님')`), null);
+  assert.equal(e.call(`licenseStatusOf('05', '제외/삭제/전출')`), null);
+  assert.equal(e.call(`licenseYmd('20190510')`), '2019-05-10');
+  assert.equal(e.call(`licenseYmd('2019-05-10')`), '2019-05-10');
+  assert.equal(e.call(`licenseYmd('20190231')`), null);
+  assert.equal(e.call(`licenseYmd('')`), null);
+  const rows = JSON.stringify([
+    {BPLC_NM:'피어나스킨엔바디', ROAD_NM_ADDR:'경상북도 경주시 원화로 234, 2층', SALS_STTS_CD:'03', LCPMT_YMD:'20210101'},
+    {BPLC_NM:'피어나 스킨엔바디', ROAD_NM_ADDR:'경상북도 경주시 원화로 234', SALS_STTS_CD:'01', LCPMT_YMD:'20190510'},
+    {BPLC_NM:'피어나스킨엔바디', ROAD_NM_ADDR:'경상북도 경주시 원화로 234', SALS_STTS_CD:'01', LCPMT_YMD:'20150101'},
+    {BPLC_NM:'다른샵', ROAD_NM_ADDR:'경상북도 경주시 원화로 234', SALS_STTS_CD:'01', LCPMT_YMD:'20240101'},
+  ]);
+  assert.equal(e.call(`pickLicenseMatch(${rows}, '피어나스킨엔바디', '경북 경주시 원화로 234')`), null);
+  assert.equal(e.call(`pickLicenseMatch([${rows}[1]], '피어나스킨엔바디', '경북 경주시 원화로 234').LCPMT_YMD`), '20190510');
+  assert.equal(e.call(`pickLicenseMatch(${rows}, '피어나스킨엔바디', '경북 경주시 원화로 999')`), null);
+  assert.equal(e.call(`pickLicenseMatch(${rows}, '없는샵', '경북 경주시 원화로 234')`), null);
+});
+
+const licensePage = (items, code = '00') => new Response(JSON.stringify({
+  response: {header:{resultCode:code, resultMsg:'NORMAL SERVICE'}, body:{dataType:'JSON', pageNo:1, numOfRows:100, totalCount:items.length, items:{item:items}}},
+}));
+
+test('ambiguous licenses stay hidden and never fall back to a narrower name search', async () => {
+  let calls = 0;
+  const e = edge(async () => {
+    calls++;
+    return licensePage([
+      {BPLC_NM:'피어나스킨엔바디', ROAD_NM_ADDR:'경북 경주시 원화로 234', SALS_STTS_CD:'01', LCPMT_YMD:'20190101'},
+      {BPLC_NM:'피어나스킨엔바디', ROAD_NM_ADDR:'경북 경주시 원화로 234', SALS_STTS_CD:'03', LCPMT_YMD:'20210101'},
+    ]);
+  }, {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'});
+  const result = await e.call(`licenseStatus({name:'피어나스킨엔바디', address:'경북 경주시 원화로 234'})`);
+  assert.equal(result.matched, false);
+  assert.equal(result.reason, 'ambiguous_match');
+  assert.equal(calls, 1);
+});
+
+test('a full candidate page cannot assert a unique license match', async () => {
+  const e = edge(async () => licensePage(Array.from({length:100}, () => ({
+    BPLC_NM:'피어나스킨엔바디', ROAD_NM_ADDR:'경북 경주시 원화로 234', SALS_STTS_CD:'01', LCPMT_YMD:'20190101',
+  }))), {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'});
+  const result = await e.call(`licenseStatus({name:'피어나스킨엔바디', address:'경북 경주시 원화로 234'})`);
+  assert.equal(result.matched, false);
+  assert.equal(result.reason, 'too_many_candidates');
+});
+
+test('malformed upstream responses are retryable failures, not cached no-match results', async () => {
+  for (const body of ['{}', '<html>maintenance</html>']) {
+    const e = edge(async () => new Response(body), {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'});
+    const result = await e.call(`licenseStatus({name:'피어나스킨엔바디', address:'경북 경주시 원화로 234'})`);
+    assert.equal(result.reason, 'unexpected_shape');
+    assert.equal(result.matched, false);
+  }
+});
+
+test('license_status queries the official endpoint once-encoded and matches name + road address', async () => {
+  const urls = [];
+  const e = edge(async url => {
+    urls.push(String(url));
+    return licensePage([
+      {BPLC_NM:'피어나스킨엔바디', ROAD_NM_ADDR:'경상북도 경주시 원화로 234, 2층 (황오동)', SALS_STTS_CD:'01', SALS_STTS_NM:'영업/정상', LCPMT_YMD:'20190510', CLSBIZ_YMD:''},
+      {BPLC_NM:'옆집네일', ROAD_NM_ADDR:'경상북도 경주시 원화로 234, 1층', SALS_STTS_CD:'01', SALS_STTS_NM:'영업/정상', LCPMT_YMD:'20220101'},
+    ]);
+  }, {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'abc%2Bdef%3D'});
+  const response = await e.handler(new Request('https://example.test', {method:'POST', body:JSON.stringify({
+    action:'license_status', name:'피어나스킨엔바디', address:'경북 경주시 원화로 234', latitude:35.85, longitude:129.22,
+  })}));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(urls.length, 1);
+  const url = new URL(urls[0]);
+  assert.equal(url.origin + url.pathname, 'https://apis.data.go.kr/1741000/beauty_salons/info');
+  assert.equal(url.searchParams.get('serviceKey'), 'abc+def=');
+  assert.ok(urls[0].includes('serviceKey=abc%2Bdef%3D&'));
+  assert.equal(url.searchParams.get('returnType'), 'json');
+  assert.equal(url.searchParams.get('numOfRows'), '100');
+  assert.equal(url.searchParams.get('pageNo'), '1');
+  assert.equal(url.searchParams.get('cond[ROAD_NM_ADDR::LIKE]'), '원화로 234');
+  assert.equal(body.matched, true);
+  assert.equal(body.status, 'open');
+  assert.equal(body.status_label, '영업/정상');
+  assert.equal(body.licensed_on, '2019-05-10');
+  assert.equal(body.closed_on, null);
+  assert.equal(body.source, '행정안전부 생활_미용업 인허가 정보');
+  assert.ok(body.fetched_at);
+  assert.ok(!JSON.stringify(body).includes('abc'));
+});
+
+test('license_status never infers closure from no match, missing key, or upstream failure', async () => {
+  const urls = [];
+  const none = await edge(async url => { urls.push(String(url)); return licensePage([]); }, {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'})
+    .call(`licenseStatus({name:'피어나스킨엔바디', address:'경북 경주시 원화로 234'})`);
+  assert.equal(none.matched, false);
+  assert.equal(none.status, null);
+  assert.equal(none.reason, 'no_match');
+  assert.equal(urls.length, 2);
+  assert.equal(new URL(urls[1]).searchParams.get('cond[BPLC_NM::LIKE]'), '피어나스킨엔바디');
+
+  const missing = await edge().handler(new Request('https://example.test', {method:'POST', body:JSON.stringify({action:'license_status', name:'샵', address:'경북 경주시 원화로 234'})}));
+  assert.equal(missing.status, 200);
+  const missingBody = await missing.json();
+  assert.equal(missingBody.matched, false);
+  assert.equal(missingBody.status, null);
+  assert.equal(missingBody.reason, 'missing_MOIS_BEAUTY_LICENSE_SERVICE_KEY');
+
+  const down = await edge(async () => { throw new Error('https://apis.data.go.kr/?serviceKey=secret'); }, {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'secret'})
+    .call(`licenseStatus({name:'샵샵', address:'경북 경주시 원화로 234'})`);
+  assert.equal(down.matched, false);
+  assert.equal(down.status, null);
+  assert.equal(down.reason, 'upstream_unavailable');
+  assert.ok(!JSON.stringify(down).includes('secret'));
+
+  const auth = await edge(async () => licensePage([], '30'), {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'})
+    .call(`licenseStatus({name:'샵샵', address:'경북 경주시 원화로 234'})`);
+  assert.equal(auth.matched, false);
+  assert.equal(auth.reason, 'api_30');
+
+  const unparsed = await edge(undefined, {MOIS_BEAUTY_LICENSE_SERVICE_KEY:'k'})
+    .call(`licenseStatus({name:'샵샵', address:'황오동 115-18'})`);
+  assert.equal(unparsed.matched, false);
+  assert.equal(unparsed.reason, 'road_address_unparsed');
+});

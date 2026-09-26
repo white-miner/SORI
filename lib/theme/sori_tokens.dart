@@ -60,6 +60,22 @@ abstract final class SoriTokens {
   /// Map select ring (Local Bloom)
   static const Color mapSelectRing = Color(0xFFFCF9F5);
 
+  /// 우리지역 샵 카드 정보 칩 — 글자색 + 아주 옅은 같은 색 배경(알약).
+  /// 글자/배경 대비 WCAG AA 4.5:1 이상. [정상 영업] 파랑 · [N년째 영업] 초록 ·
+  /// [업종] 핑크 · [거리] 중립.
+  static const Color shopChipOpenText = Color(0xFF2563EB);
+  static const Color shopChipOpenBg = Color(0xFFEEF3FE);
+  static const Color shopChipYearsText = Color(0xFF157A45);
+  static const Color shopChipYearsBg = Color(0xFFEAF6EF);
+  static const Color shopChipIndustryText = Color(0xFFC23A62);
+  static const Color shopChipIndustryBg = Color(0xFFFDEEF3);
+  static const Color shopChipNeutralText = Color(0xFF5E6272);
+  static const Color shopChipNeutralBg = fillMuted;
+
+  /// 네이버 브랜드 그린 — 「네이버에서 샵 찾기」 버튼 전용.
+  static const Color naverGreen = Color(0xFF03C75A);
+  static const Color onNaverGreen = Color(0xFFFFFFFF);
+
   /// Motion budgets (ms) — DESIGN LAWS §5
   static const int motionPressMs = 90;
   static const int motionReleaseMs = 180;
