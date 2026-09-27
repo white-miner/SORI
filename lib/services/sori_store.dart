@@ -3204,14 +3204,12 @@ class SoriStore implements Listenable {
       openSeminarClassesForFeed
         ..clear()
         ..addAll(await seminarsFuture);
-      final boosts = await _repository.loadActiveBoostPlacements();
-      final overlays = await _repository.loadActivePremiumOverlays();
-      activeBoostPlacements
-        ..clear()
-        ..addAll(boosts);
-      activePremiumOverlays
-        ..clear()
-        ..addAll(overlays);
+      // Paid promotion/support metadata is disabled for the community feed.
+      // Clear stale session state so it cannot affect ordering or badges.
+      final boosts = const <BoostPlacement>[];
+      final overlays = const <PremiumOverlay>[];
+      activeBoostPlacements.clear();
+      activePremiumOverlays.clear();
       final overlayByChart = <String, PremiumOverlay>{};
       for (final o in overlays) {
         final key = o.pinKey?.trim() ?? '';
@@ -3244,21 +3242,8 @@ class SoriStore implements Listenable {
         }
       }
 
-      final fanChartIds = boostByChart.entries
-          .where((e) => e.value.isFanBoost)
-          .map((e) => e.key)
-          .toList();
+      // Fan supporter lookups are disabled with paid feed metadata.
       Map<String, List<FanSupporterEntry>> supportersByChart = const {};
-      if (fanChartIds.isNotEmpty) {
-        try {
-          supportersByChart = await _repository.loadFanBoostSupportersBatch(
-            targetIds: fanChartIds,
-            targetType: 'chart',
-          );
-        } catch (e, st) {
-          debugPrint('fan supporters batch failed: $e\n$st');
-        }
-      }
 
       final annotated = items
           .map((item) {
