@@ -18,7 +18,7 @@
 - 브랜치: fix/market-key-encoding
 - 시작 HEAD: 3a4624c9d3f55536de220105d4683b5c9e1879b0
 - 기존 untracked: docs/SORI-market-fix-deploy-2026-09-25.md, supabase/.temp/, 앞서 작성한 기획 문서 2개. 보존한다.
-- 사용자 승인: 최종 계획 실행. 범위 내 개발 진행 가능. 이번 실행에서 커밋·운영 배포는 별도 수행하지 않는다.
+- 사용자 승인: 최종 계획 실행 및 후속 지시로 완료분 커밋·운영 배포 승인.
 - 단계별 코드/테스트 변경을 5파일 이하로 분할한다. 기준 문서 자체의 중단/승인 지점을 존중한다.
 
 ## 단계 상태
@@ -44,7 +44,7 @@
 - 실제 렌더링: 로컬 `http://127.0.0.1:8136/#/chart-visit`에서 390×844와 1024×900을 확인했다. 문진 원문, 직접 상담 작성, 적용 전 상태, 하단 `차트에 적용` CTA가 표시되며 넓은 화면도 좌측 고객·단계/우측 작성 영역으로 유지된다.
 - 웹 빌드: `flutter build web --no-pub` → `build/web` 생성 성공. 기존 `flutter_tts` WebAssembly dry-run 경고 3건은 의존성 코드에서 발생했으며 일반 Web 빌드를 막지 않았다.
 - 제한: 실제 인증 고객과 Supabase 저장 왕복은 이번 단계 범위가 아니며 검증하지 않았다. 샘플 모드의 `샘플 상담 시작`은 기존 미리보기용으로만 남아 있다.
-- 커밋·배포: 이 체크포인트 갱신 후 실행한다.
+- 커밋·배포: Stage 1~2 코드 `431cb79`를 main에 push했고 Pages #552 배포 성공. 아래 배포 검증 참고.
 
 ## 검증 및 변경 이력
 
@@ -69,6 +69,15 @@
 - `ChartVisitSession` 복원·직렬화와 `ChartVisitRecord` 패치를 연결했다. 새 테이블·컬럼·마이그레이션은 추가하지 않았고 기존 저장 계약을 유지했다.
 - 검증: `flutter test --no-pub test/chart_visit_preview_test.dart test/chart_visit_consult_context_test.dart test/chart_visit_record_test.dart test/chart_workspace_page_test.dart` → **19 PASS**. `flutter analyze --no-pub` 관련 파일 → **No issues found**. `flutter build web --no-pub` → **Built build/web**.
 - Stage 2 완료 조건: 지난 방문을 선택해 참고하고, 오늘 고객 반응을 별도로 기록·복원하며, 상담 적용 여부를 구분한다. 실제 인증 고객의 Supabase 왕복은 별도 통합 검증이 필요하다.
+
+### 2026-09-30 main 통합·배포 검증
+
+- 로컬 변경을 stash로 보존한 뒤 origin/main을 rebase하고 재적용했다. 충돌 시 최신 main의 시장 인허가 조회 구현을 유지했다. 무관한 untracked 문서와 CLI 임시 파일은 보존하고 커밋에서 제외했다.
+- main 통합 후 관련 4개 테스트 파일 **35 PASS** (`+35: All tests passed!`), 관련 7개 Dart 파일 분석 **No issues found**, 웹 빌드 성공. 앞선 진행 메시지의 36개 표기는 정정한다.
+- 코드 커밋: `431cb7931fae41a679dfdd0a6a50c6a969b6b872`. Pages Run `36661514066` / #552 build·deploy 성공. 실제 서비스 HTTP 200, HTML sori-build=552 및 flutter_bootstrap.js?v=552 확인.
+- 전체 CI: 800 PASS / 9 FAIL. 직전 main `0f60c2b`의 Run `36294430781`에서도 동일 9개 피드·홈·boost·golden 테스트 실패(792 PASS / 9 FAIL). 이번 CHART 추가로 신규 실패한 테스트는 확인되지 않았다. 전체 CI 통과로 보고하지 않는다.
+- 운영 /#/chart-visit의 샘플 모드에서 390×844 상담 화면의 문진·지난 방문·고객 반응 입력 UI를 확인했다. 반응 입력 후 CARE 왕복에서 값 유지도 확인했다. 이 경로는 서버에 저장하지 않는 샘플이며 실제 인증 고객 DB 왕복 검증을 대체하지 않는다.
+- 다음 구현: 최종 제품 기획서 Stage 3(상담→관리→변화 연결). Stage 3~7은 아직 완료되지 않았다.
 
 - 초기 체크포인트 생성. 코드 완료나 배포 완료를 의미하지 않는다.
 - 2026-09-29: 구현/검증 에이전트가 사용량 한도로 중단. flow·문진 context 위젯·테스트 2개 파일이 작업 중인 상태로 보존됨. 검증 완료로 취급하지 않는다.
