@@ -53,6 +53,9 @@ class PastVisit {
     this.changeLine = '',
     this.hasPhotos = false,
     this.first = false,
+    this.record = ChartVisitRecord.empty,
+    this.performedCare = '',
+    this.hasKnownDate = true,
   });
 
   final String id;
@@ -63,6 +66,9 @@ class PastVisit {
   final bool hasPhotos;
   final bool first;
   final SafetySnapshot safety;
+  final ChartVisitRecord record;
+  final String performedCare;
+  final bool hasKnownDate;
 }
 
 class CareStepDraft {
@@ -130,13 +136,7 @@ const List<String> kConcernChoices = [
   '기타',
 ];
 
-const List<String> kSinceChoices = [
-  '최근',
-  '1~3개월',
-  '3~6개월',
-  '6~12개월',
-  '1년 이상',
-];
+const List<String> kSinceChoices = ['최근', '1~3개월', '3~6개월', '6~12개월', '1년 이상'];
 
 const List<String> kCareGoals = [
   '진정',
@@ -170,6 +170,11 @@ class ChartVisitSession {
   final String id;
   final DateTime startedAt;
   SafetySnapshot safety;
+
+  // 상담 중 읽는 과거 기록 선택. 오늘 방문의 저장 본문에는 복사하지 않는다.
+  String? consultationPastVisitId;
+  bool consultationPastExpanded = false;
+  final Map<String, String> revisitFeedback = {};
 
   final List<String> concerns = [];
   String since = '최근';
@@ -216,11 +221,7 @@ class ChartVisitSession {
     ScoreChange(axis: '홍조', from: 4, to: 2),
     ScoreChange(axis: '수분', from: 2, to: 4),
   ];
-  final Set<String> aftercare = {
-    '강한 세안 피하기',
-    '자외선 차단',
-    '충분한 보습',
-  };
+  final Set<String> aftercare = {'강한 세안 피하기', '자외선 차단', '충분한 보습'};
   String homeAm = '순한 세안 · 진정 크림 · 자외선 차단';
   String homePm = '순한 세안 · 보습. 레티놀은 오늘 쉬기';
   String nextTiming = '2주';
@@ -276,6 +277,7 @@ class ChartVisitSession {
     session.since = record.duration;
     session.discomfort = record.discomfortScore ?? 0;
     session.desiredChange = record.desiredChange;
+    session.revisitFeedback.addAll(record.revisitFeedback);
     for (final entry in record.scores.entries) {
       session.scores[entry.key] = entry.value;
     }
@@ -349,6 +351,7 @@ class ChartVisitSession {
       concerns: List<String>.from(concerns),
       duration: since,
       desiredChange: desiredChange,
+      revisitFeedback: Map<String, String>.from(revisitFeedback),
       safety: {
         'allergy': safety.allergy,
         'medication': safety.medication,
@@ -382,11 +385,7 @@ class ChartVisitSession {
       homePm: homePm,
       scoreChanges: [
         for (final change in changes)
-          (
-            axis: _axisId(change.axis),
-            from: change.from,
-            to: change.to,
-          ),
+          (axis: _axisId(change.axis), from: change.from, to: change.to),
       ],
       nextCareNote: nextNote,
       nextCareTiming: nextTiming,
@@ -452,10 +451,7 @@ class ChartVisitCustomer {
 }
 
 class ChartVisitDraftRef {
-  const ChartVisitDraftRef({
-    required this.chartId,
-    required this.record,
-  });
+  const ChartVisitDraftRef({required this.chartId, required this.record});
 
   final String chartId;
   final ChartVisitRecord record;
@@ -649,8 +645,8 @@ class ChartVisitPreviewStore extends ChangeNotifier {
       changeLine: session.changes
           .map((c) => '${c.axis} ${c.from} → ${c.to}')
           .join(' · '),
-      hasPhotos: session.beforeCaptured.isNotEmpty ||
-          session.afterCaptured.isNotEmpty,
+      hasPhotos:
+          session.beforeCaptured.isNotEmpty || session.afterCaptured.isNotEmpty,
       safety: session.safety.copyWith(),
     );
     history = [visit, ...history];

@@ -24,10 +24,8 @@ void bindChartVisitRoute(SoriStore store, String customerId) {
   final drafts = charts
       .where((chart) => chart.visitRecord.isDraft)
       .map(
-        (chart) => ChartVisitDraftRef(
-          chartId: chart.id,
-          record: chart.visitRecord,
-        ),
+        (chart) =>
+            ChartVisitDraftRef(chartId: chart.id, record: chart.visitRecord),
       )
       .toList();
   final history = [
@@ -51,7 +49,8 @@ ChartVisitCustomer chartVisitCustomerFrom(
   DateTime? first;
   DateTime? last;
   for (final chart in finished) {
-    final day = chart.visitRecord.visitDate ?? chart.createdAt ?? chart.visitCheckedAt;
+    final day =
+        chart.visitRecord.visitDate ?? chart.createdAt ?? chart.visitCheckedAt;
     if (day == null) continue;
     if (first == null || day.isBefore(first)) first = day;
     if (last == null || day.isAfter(last)) last = day;
@@ -109,11 +108,26 @@ PastVisit pastVisitFromChart(CustomerChart chart) {
       : (chart.careName.trim().isEmpty ? '방문' : chart.careName.trim());
   return PastVisit(
     id: chart.id,
-    date: record.visitDate ?? chart.createdAt ?? chart.visitCheckedAt ?? DateTime.now(),
+    record: record,
+    performedCare: chart.careName.trim().isNotEmpty
+        ? chart.careName.trim()
+        : chart.treatmentSummary.trim(),
+    hasKnownDate:
+        record.visitDate != null ||
+        chart.createdAt != null ||
+        chart.visitCheckedAt != null,
+    date:
+        record.visitDate ??
+        chart.createdAt ??
+        chart.visitCheckedAt ??
+        DateTime.now(),
     title: title,
-    note: record.concernLine.isNotEmpty ? record.concernLine : record.desiredChange,
+    note: record.concernLine.isNotEmpty
+        ? record.concernLine
+        : record.desiredChange,
     changeLine: record.changeLine,
-    hasPhotos: (chart.beforeImageUrl ?? '').trim().isNotEmpty ||
+    hasPhotos:
+        (chart.beforeImageUrl ?? '').trim().isNotEmpty ||
         (chart.afterImageUrl ?? '').trim().isNotEmpty,
     safety: record.safety.isEmpty
         ? const SafetySnapshot()
@@ -133,10 +147,7 @@ bool _chartVisitAlreadyWritten(CustomerChart chart) {
 }
 
 class ChartVisitLiveGateway implements ChartVisitGateway {
-  ChartVisitLiveGateway({
-    required this.store,
-    required this.customer,
-  });
+  ChartVisitLiveGateway({required this.store, required this.customer});
 
   final SoriStore store;
   final Customer customer;
@@ -155,7 +166,8 @@ class ChartVisitLiveGateway implements ChartVisitGateway {
         'pregnancy': safety.pregnancy,
         'recent_procedure': safety.recentProcedure,
         'active_product': safety.activeProduct,
-        if (customer.skinTrait.trim().isNotEmpty) 'skin_trait': customer.skinTrait.trim(),
+        if (customer.skinTrait.trim().isNotEmpty)
+          'skin_trait': customer.skinTrait.trim(),
       },
     );
     final chart = await store.createChartVisitDraft(
@@ -167,9 +179,8 @@ class ChartVisitLiveGateway implements ChartVisitGateway {
     if (_chartVisitAlreadyWritten(chart)) {
       final session = ChartVisitSession.fromRecord(
         id: chart.id,
-        startedAt: chart.visitRecord.visitDate ??
-            chart.createdAt ??
-            DateTime.now(),
+        startedAt:
+            chart.visitRecord.visitDate ?? chart.createdAt ?? DateTime.now(),
         record: chart.visitRecord,
       );
       session.skinTraitHint = customer.skinTrait.trim();

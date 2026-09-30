@@ -11,6 +11,7 @@ class ChartVisitRecord {
     this.concerns = const [],
     this.duration = '',
     this.desiredChange = '',
+    this.revisitFeedback = const {},
     this.safety = const {},
     this.consultGenerated = const {},
     this.consultApproved = const {},
@@ -63,6 +64,9 @@ class ChartVisitRecord {
   final List<String> concerns;
   final String duration;
   final String desiredChange;
+
+  /// 오늘 확인한 고객 반응. key는 참고한 과거 customer_charts.id.
+  final Map<String, String> revisitFeedback;
   final Map<String, String> safety;
   final Map<String, String> consultGenerated;
   final Map<String, String> consultApproved;
@@ -125,8 +129,9 @@ class ChartVisitRecord {
     final intake = map['visit_intake'];
     final intakeMap = intake is Map ? Map<String, dynamic>.from(intake) : null;
     final consult = map['consult_record'];
-    final consultMap =
-        consult is Map ? Map<String, dynamic>.from(consult) : null;
+    final consultMap = consult is Map
+        ? Map<String, dynamic>.from(consult)
+        : null;
     final generated = consultMap?['generated'];
     final approved = consultMap?['approved'];
     final goals = DbMap.asStringList(map['care_goals']);
@@ -134,8 +139,9 @@ class ChartVisitRecord {
     final home = map['home_care_plan'];
     final homeMap = home is Map ? Map<String, dynamic>.from(home) : null;
     final reactions = map['care_reactions'];
-    final reactionMap =
-        reactions is Map ? Map<String, dynamic>.from(reactions) : null;
+    final reactionMap = reactions is Map
+        ? Map<String, dynamic>.from(reactions)
+        : null;
     final stepsRaw = map['treatment_steps'];
     final steps = <Map<String, dynamic>>[];
     if (stepsRaw is List) {
@@ -166,6 +172,7 @@ class ChartVisitRecord {
       concerns: DbMap.asStringList(intakeMap?['concerns']),
       duration: DbMap.asText(intakeMap?['duration']),
       desiredChange: DbMap.asText(intakeMap?['desired_change']),
+      revisitFeedback: _stringMap(intakeMap?['revisit_feedback']),
       safety: safety,
       consultGenerated: _stringMap(generated),
       consultApproved: _stringMap(approved),
@@ -197,6 +204,7 @@ class ChartVisitRecord {
         'concerns': concerns,
         'duration': duration,
         'desired_change': desiredChange,
+        'revisit_feedback': revisitFeedback,
       },
       'safety_snapshot': safety,
       'consult_record': {
