@@ -27,14 +27,20 @@
 |---|---|---|
 | 1 | 완료 | 문진→상담 근거 표시, 실제 고객의 직접 상담 입력, 문진 변경 후 재승인 |
 | 2 | 완료 | 지난 방문 맥락 확인과 오늘 확인한 재방문 반응 작성·복원 |
-| 3 | 대기 | 상담→관리→변화 연결 |
+| 3 | 구현·관련 테스트·로컬 UI 검수 완료 | 상담→관리→변화 연결, 실제 서버 왕복 미확인 |
 | 4 | 대기 | 미확인·샘플 기본값·피부/체형 공통 표현 |
 | 5 | 대기 | 저장 순서·완료·재조회·복구 |
 | 6 | 대기 | 실제 촬영·부위별 사진·리포트 |
 | 7 | 대기 | 최소 기록 동선·복사·선택 상세 |
 | 후속 | 별도 승인 | 음성 공급자·정책, 체형 실측 저장 확장 |
 
-## 현재 작업: 단계 2 완료
+## 현재 작업: 단계 3 로컬 검증 완료 · 다음 단계 4
+
+- 홈 CHART의 실제 진입점은 `ChartVisitWorkspace`다. 아래 Stage 3에서 이 진입점에도 문진을 보며 직접 상담하고 적용하는 UI를 연결했다.
+- 다음 구현은 Stage 4다. 새 방문 샘플 관리 기본값, 빈 안전정보를 '없음'으로 변환하는 경로, 피부/체형 공통 표현을 다룬다. Stage 3을 전체 디지털 차트 완성으로 취급하지 않는다.
+- 아래 '단계 1~2 완료 기록'과 Stage 3 최신 이력을 구분해서 읽는다.
+
+### 단계 1~2 완료 기록
 
 - 수정 범위: `lib/features/chart_visit/chart_visit_flow_page.dart`, `lib/features/chart_visit/consultation_intake_context.dart`, `test/chart_visit_preview_test.dart`, `test/chart_visit_consult_context_test.dart`. 모델/DB/기존 저장 함수 변경 금지.
 - 변경 전 기준: `flutter test test/chart_visit_preview_test.dart test/chart_visit_record_test.dart test/chart_workspace_page_test.dart` → 11개 PASS. Supabase 미초기화 및 샘플 사진 HTTP400 로그는 있었으나 테스트 실패 없음.
@@ -47,6 +53,22 @@
 - 커밋·배포: Stage 1~2 코드 `431cb79`를 main에 push했고 Pages #552 배포 성공. 아래 배포 검증 참고.
 
 ## 검증 및 변경 이력
+
+### 2026-10-01 Stage 3
+
+- 변경 파일 5개: `lib/features/chart_visit/visit_record_context.dart`, `lib/features/chart_visit/chart_visit_flow_page.dart`, `lib/views/chart_workspace/chart_visit_workspace.dart`, `test/chart_visit_stage_link_test.dart`, 이 체크포인트.
+- 홈 CHART에 상담 아코디언을 연결했다. 오늘 문진·지난 방문을 보며 직접 상담 작성→명시적 적용이 가능하다. 문진 변경 시 재확인이 필요하며 실제 관리 내용은 자동 변경하지 않는다.
+- 관리에 승인된 상담 판단·원하는 변화를 표시한다. 변화 기록에는 실제 입력된 관리 단계·부위·특이 반응을 표시하고 각 원문으로 돌아가는 버튼을 연결했다. 목표를 실제 관리로 대신 표시하지 않는다.
+- 전후 변화의 사전 점수는 오늘 문진에서 읽는다. 사전 점수가 없으면 비교 저장을 막고 미기록으로 안내한다. 기준 변경 시 기존 비교를 자동 덮어쓰지 않고 재확인 표시 및 명시적 편집을 제공한다.
+- 변경 대화상자 중 최초 자동저장으로 session이 바뀌는 경우에도 결과 변경만 현재 session에 적용한다. 기존 저장 함수·DB·라우트·B&A·전자동의는 변경하지 않았다.
+- 관련 테스트 재실행: `flutter test --no-pub test/chart_visit_stage_link_test.dart test/chart_visit_preview_test.dart test/chart_visit_consult_context_test.dart test/chart_visit_record_test.dart test/chart_workspace_page_test.dart` → **40 PASS**, exit 0. 360×800·1024×900에서 글자 1.3배, 홈 진입·상담 적용·관리·변화·재진입, 기준 누락/변경/취소를 검증했다.
+- 관련 4개 Dart 파일 `flutter analyze --no-pub` → **No issues found**. `flutter build web --no-pub` → **Built build/web**. 기존 flutter_tts Wasm dry-run 경고는 일반 JS 빌드를 막지 않았다.
+- 실제 브라우저: 로컬 메모리 저장소 검수 앱에서 홈 CHART→고객 선택→상담 직접 작성→적용→관리에서 같은 판단 확인→변화 기록에서 관리 내용·특이 반응 확인→홍조 4→2 저장을 조작했다. 360×800과 1024×900 실제 렌더링에서 내용·고정 하단 행동의 겹침은 관찰되지 않았다. 검수 앱은 실제 `ChartWorkspacePage`와 `AppTheme`를 사용하지만 운영 인증/서버 검증을 대체하지 않는다.
+- 캡처: `%TEMP%/sori-stage3-captures/01-care-mobile.png`, `02-result-mobile.png`, `03-result-tablet.png`. 임시 검수 소스와 빌드는 저장소 밖 `%TEMP%/sori-stage3-preview.dart`, `sori-stage3-preview-web`에 보존했다.
+- 미확인: 실제 인증 고객 Supabase 저장·새로고침 왕복, 실기기 키보드/카메라, Stage 4~7 배포 조건. 빈 안전정보와 샘플 기본값 문제가 남으므로 이번 중간 단계를 운영 완성으로 배포하지 않는다(최종 기획서 18~19절).
+- 전체 테스트: `flutter test --no-pub --reporter expanded` → **805 PASS / 9 FAIL**, exit 1. 실패 테스트명은 앞서 main에서 확인한 동일 9건(피드·홈·boost·golden)이며 이번 CHART 관련 신규 실패는 없다. 전체 통과로 보고하지 않는다. 로그는 `%TEMP%/sori-stage3-full-test.log`.
+- 이 묶음은 로컬 커밋으로 보존하며 운영 push·배포는 하지 않는다. 승인된 전체 제품의 완료 조건은 아직 미충족이다.
+- 다음 재개: Stage 3 커밋 상태 확인 → Stage 4 관련 모델/변환/표시·호출부 조사 → 5파일 이하 묶음으로 구현. 무관한 시장 문서 및 `supabase/.temp/`를 포함하지 않는다.
 
 ### 2026-09-30 Stage 2A
 

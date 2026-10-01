@@ -8,6 +8,7 @@ import '../../routing/sori_router.dart';
 import '../../theme/sori_tokens.dart';
 import 'chart_visit_mock.dart';
 import 'consultation_intake_context.dart';
+import 'visit_record_context.dart';
 
 const _steps = ['INFO', 'SKIN', 'CONSULT', 'CARE', 'RESULT'];
 
@@ -896,6 +897,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ConsultationCareContext(session: session, onEdit: () => _go(2)),
         const _Kicker('오늘의 관리 목표'),
         const SizedBox(height: 12),
         Wrap(
@@ -975,6 +977,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        PerformedCareContext(session: session, onEdit: () => _go(3)),
         const Text(
           '오늘의 변화',
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
@@ -1012,14 +1015,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         const SizedBox(height: 8),
         const _CompareWell(),
         const SizedBox(height: 8),
-        for (final change in session.changes)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              '${change.axis}   ${change.from} → ${change.to}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-          ),
+        VisitChangeRecords(session: session, onChanged: _flash),
         TextButton(
           key: const Key('chart-visit-add-change'),
           onPressed: () => _addChange(session),
@@ -1158,71 +1154,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
   }
 
   Future<void> _addChange(ChartVisitSession session) async {
-    var axis = '홍조';
-    var from = 3;
-    var to = 2;
-    final added = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: SoriTokens.surface,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheet) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '변화 추가',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final item in kSkinAxes)
-                          _ChoiceChip(
-                            label: item.$2,
-                            selected: axis == item.$2,
-                            onTap: () => setSheet(() => axis = item.$2),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('이전'),
-                    _ScoreDots(
-                      value: from,
-                      onChanged: (v) => setSheet(() => from = v),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('이후'),
-                    _ScoreDots(
-                      value: to,
-                      onChanged: (v) => setSheet(() => to = v),
-                    ),
-                    const SizedBox(height: 16),
-                    _DarkButton(
-                      label: '기록',
-                      onPressed: () => Navigator.pop(context, true),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-    if (added == true) {
-      session.changes.add(ScoreChange(axis: axis, from: from, to: to));
-      _flash();
-    }
+    if (await showVisitScoreChange(context, session) && mounted) _flash();
   }
 
   Widget _completeBody(ChartVisitSession session) {
@@ -1251,10 +1183,14 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
-        const _Kicker('오늘의 관리'),
+        const _Kicker('오늘 기록한 관리'),
         const SizedBox(height: 4),
         Text(
-          session.goalLine,
+          session.steps.isEmpty
+              ? '관리 내용 기록 없음'
+              : session.steps.map((step) => [step.title.trim(), step.area.trim()]
+                  .where((text) => text.isNotEmpty).join(' · '))
+                  .where((text) => text.isNotEmpty).join('\n'),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
@@ -1288,7 +1224,8 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              '${change.axis}   ${change.from} → ${change.to}',
+              '${change.axis}   ${change.from} → ${change.to}'
+              '${visitBaseline(session, change.axis) != change.from ? ' · 기준 재확인 필요' : ''}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),

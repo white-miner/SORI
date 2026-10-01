@@ -6,6 +6,8 @@ import '../../features/chart_visit/chart_visit_flow_page.dart';
 import '../../features/chart_visit/chart_visit_home_page.dart';
 import '../../features/chart_visit/chart_visit_live.dart';
 import '../../features/chart_visit/chart_visit_mock.dart';
+import '../../features/chart_visit/consultation_intake_context.dart';
+import '../../features/chart_visit/visit_record_context.dart';
 import '../../models/customer.dart';
 import '../../services/sori_store.dart';
 import '../../theme/sori_tokens.dart';
@@ -22,6 +24,7 @@ enum _SaveStatus { idle, saving, saved, failed }
 enum ChartVisitWorkspaceSection {
   safety('safety', '안전확인'),
   concern('concern', '고민·목표'),
+  consultation('consultation', '상담 기록'),
   care('care', '시술 단계'),
   reaction('reaction', '반응'),
   photo('photo', '전후사진'),
@@ -90,6 +93,10 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
   _SaveStatus _saveStatus = _SaveStatus.idle;
 
   bool _editingSafety = false;
+  String? _appliedIntake;
+  final _sectionKeys = {
+    for (final section in ChartVisitWorkspaceSection.values) section: GlobalKey(),
+  };
   bool _openScoreDetails = false;
   final Set<String> _safetyOpen = {};
   final Set<ChartVisitWorkspaceSection> _open = {
@@ -208,6 +215,8 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
     if (!mounted) return;
     setState(() {
       _session = session;
+      _appliedIntake = session.consultApplied
+          ? visitConsultationInputSignature(session) : null;
       _persisted = persisted;
       _resumed = resumed;
       _loading = false;
@@ -309,6 +318,11 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
 
   void _touch() {
     if (!mounted) return;
+    final session = _session;
+    if (session != null && session.consultApplied &&
+        _appliedIntake != visitConsultationInputSignature(session)) {
+      session.consultApplied = false;
+    }
     _editSeq++;
     setState(() => _dirty = true);
     _scheduleAutosave();
@@ -728,6 +742,12 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
         child: _concernBody(session),
       ),
       _section(
+        ChartVisitWorkspaceSection.consultation,
+        summary: session.consultApplied ? '차트에 적용됨'
+            : session.consult == ConsultPhase.summarized ? '확인·적용 필요' : '미입력',
+        child: _consultationBody(session),
+      ),
+      _section(
         ChartVisitWorkspaceSection.care,
         summary: _careSummary(session),
         child: _careBody(session),
@@ -780,7 +800,9 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
     bool filled = false,
   }) {
     final open = _open.contains(section);
-    return _WorkspaceSection(
+    return KeyedSubtree(
+      key: _sectionKeys[section],
+      child: _WorkspaceSection(
       id: section.id,
       index: section.index + 1,
       title: section.title,
@@ -795,6 +817,77 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
         }
       }),
       child: child,
+      ),
+    );
+  }
+
+  void _openContextSection(ChartVisitWorkspaceSection section) {
+    setState(() => _open.add(section));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _sectionKeys[section]?.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 180));
+      }
+    });
+  }
+
+  Widget _consultationBody(ChartVisitSession session) {
+    void update(ValueChanged<ChartVisitSession> edit) {
+      final current = _session!;
+      edit(current);
+      current.consultApplied = false;
+      _touch();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ConsultationIntakeContext(
+          session: session,
+          onEdit: () => _openContextSection(ChartVisitWorkspaceSection.concern),
+          onEditSafety: () => _openContextSection(ChartVisitWorkspaceSection.safety),
+          onFeedbackChanged: _touch,
+        ),
+        const SizedBox(height: 16),
+        if (session.consult != ConsultPhase.summarized)
+          TextButton(
+            key: const Key('workspace-consult-start'),
+            style: TextButton.styleFrom(foregroundColor: SoriTokens.textPrimary),
+            onPressed: () => update((s) => s.consult = ConsultPhase.summarized),
+            child: const Text('직접 상담 작성'),
+          )
+        else ...[
+          Text(session.consultApplied ? '차트에 적용됨' : '아직 차트에 적용되지 않았습니다.'),
+          const SizedBox(height: 12),
+          _subLabel('주요 고민'),
+          ChartVisitLineField(initial: session.summaryConcerns, hint: '상담에서 확인한 고민',
+              maxLines: 3, onChanged: (v) => update((s) => s.summaryConcerns = v)),
+          const SizedBox(height: 12),
+          _subLabel('생활 / 홈케어'),
+          ChartVisitLineField(initial: session.summaryLife, hint: '고객이 이야기한 생활 / 홈케어',
+              maxLines: 3, onChanged: (v) => update((s) => s.summaryLife = v)),
+          const SizedBox(height: 12),
+          _subLabel('관리사 판단 · 함께 정한 방향'),
+          ChartVisitLineField(initial: session.summaryJudgement, hint: '관리 부위·방향·주의사항',
+              maxLines: 3, onChanged: (v) => update((s) => s.summaryJudgement = v)),
+          const SizedBox(height: 12),
+          _subLabel('고객이 원하는 변화'),
+          ChartVisitLineField(initial: session.summaryWish, hint: '상담에서 확인한 원하는 변화',
+              maxLines: 3, onChanged: (v) => update((s) => s.summaryWish = v)),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            key: const Key('workspace-consult-apply'),
+            style: OutlinedButton.styleFrom(foregroundColor: SoriTokens.textPrimary),
+            onPressed: session.consultApplied ? null : () {
+              final current = _session!;
+              current.consultApplied = true;
+              _appliedIntake = visitConsultationInputSignature(current);
+              _touch();
+            },
+            child: Text(session.consultApplied ? '적용됨' : '차트에 적용'),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1177,6 +1270,8 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ConsultationCareContext(session: session,
+            onEdit: () => _openContextSection(ChartVisitWorkspaceSection.consultation)),
         for (var i = 0; i < session.steps.length; i++)
           KeyedSubtree(
             key: ValueKey<String>('chart-visit-workspace-step-$i'),
@@ -1353,6 +1448,20 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        PerformedCareContext(session: session,
+            onEdit: () => _openContextSection(ChartVisitWorkspaceSection.care)),
+        _subLabel('변화 기록 · 선택'),
+        VisitChangeRecords(session: session, onChanged: () => _recordChangesTouched(session)),
+        TextButton(
+          key: const Key('workspace-add-change'),
+          style: TextButton.styleFrom(foregroundColor: SoriTokens.textPrimary),
+          onPressed: () async {
+            if (await showVisitScoreChange(context, session) && mounted) {
+              _recordChangesTouched(session);
+            }
+          },
+          child: const Text('변화 추가'),
+        ),
         _subLabel('관리 후 안내'),
         for (final item in kAftercare)
           InkWell(
@@ -1454,6 +1563,15 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
         ),
       ),
     );
+  }
+
+  void _recordChangesTouched(ChartVisitSession source) {
+    if (!mounted || _session == null) return;
+    // The first autosave can replace the pending session while the sheet is open.
+    if (!identical(source, _session)) {
+      _session!.changes..clear()..addAll(source.changes);
+    }
+    _touch();
   }
 }
 
