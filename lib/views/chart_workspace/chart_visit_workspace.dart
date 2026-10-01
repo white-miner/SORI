@@ -525,20 +525,20 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
 
   static bool _isNone(String value) {
     final t = value.trim();
-    return t.isEmpty || t == '없음' || t == '해당 없음';
+    return t == '없음' || t == '해당 없음';
   }
 
   String _safetySummary(ChartVisitSession s) {
-    final flagged = <String>[
-      if (!_isNone(s.safety.allergy)) '알레르기',
-      if (!_isNone(s.safety.medication)) '복용약',
-      if (!_isNone(s.safety.condition)) '질환',
-      if (!_isNone(s.safety.pregnancy)) '임신/수유',
-      if (!_isNone(s.safety.recentProcedure)) '최근 시술',
-      if (!_isNone(s.safety.activeProduct)) '기능성 제품',
-    ];
-    if (flagged.isEmpty) return '특이사항 없음';
-    return '확인 ${flagged.join(' · ')}';
+    final values = {
+      '알레르기': s.safety.allergy, '복용약': s.safety.medication,
+      '질환': s.safety.condition, '임신/수유': s.safety.pregnancy,
+      '최근 시술': s.safety.recentProcedure, '기능성 제품': s.safety.activeProduct,
+    };
+    final missing = values.values.where((v) => v.trim().isEmpty).length;
+    final flagged = values.entries.where((e) => e.value.trim().isNotEmpty && !_isNone(e.value)).map((e) => e.key);
+    return [if (missing > 0) '미확인 $missing항목',
+      if (flagged.isNotEmpty) '확인 ${flagged.join(' · ')}',
+      if (missing == 0 && flagged.isEmpty) '기록된 특이사항 없음'].join(' · ');
   }
 
   String _concernSummary(ChartVisitSession s) {
@@ -567,7 +567,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
   }
 
   String _reactionSummary(ChartVisitSession s) {
-    if (s.reactionNone || s.reactions.isEmpty) return '없음';
+    if (s.reactions.isEmpty) return s.reactionNone ? '없음' : '미확인';
     return s.reactions.join(' · ');
   }
 
@@ -1029,13 +1029,13 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final option in const ['해당 없음', '임신 중', '수유 중'])
+              for (final option in const ['미확인', '해당 없음', '임신 중', '수유 중'])
                 ChartVisitChoiceChip(
                   label: option,
-                  selected: safety.pregnancy == option,
+                  selected: (safety.pregnancy.isEmpty ? '미확인' : safety.pregnancy) == option,
                   onTap: () => _updateSafety(
                     session,
-                    safety.copyWith(pregnancy: option),
+                    safety.copyWith(pregnancy: option == '미확인' ? '' : option),
                   ),
                 ),
             ],
@@ -1087,7 +1087,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
           Expanded(
             flex: 5,
             child: Text(
-              value.trim().isEmpty ? '없음' : value.trim(),
+              value.trim().isEmpty ? '미확인' : value.trim(),
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 14,
@@ -1108,14 +1108,24 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
     ValueChanged<String> onChanged,
   ) {
     final none = !_safetyOpen.contains(key) && _isNone(value);
+    final hasValue = _safetyOpen.contains(key) || (value.trim().isNotEmpty && !none);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _subLabel(label),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
+              ChartVisitChoiceChip(
+                label: '미확인', selected: !none && !hasValue,
+                onTap: () {
+                  _safetyOpen.remove(key);
+                  onChanged('');
+                },
+              ),
               ChartVisitChoiceChip(
                 label: '없음',
                 selected: none,
@@ -1127,16 +1137,16 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
               const SizedBox(width: 8),
               ChartVisitChoiceChip(
                 label: '있음',
-                selected: !none,
+                selected: hasValue,
                 onTap: () {
-                  if (!none) return;
+                  if (hasValue) return;
                   _safetyOpen.add(key);
                   onChanged('');
                 },
               ),
             ],
           ),
-          if (!none) ...[
+          if (hasValue) ...[
             const SizedBox(height: 8),
             ChartVisitLineField(
               initial: _isNone(value) ? '' : value,
@@ -1160,7 +1170,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final label in kConcernChoices)
+            for (final label in kVisitConcernChoices)
               KeyedSubtree(
                 key: Key('chart-visit-workspace-concern-$label'),
                 child: ChartVisitChoiceChip(
@@ -1185,7 +1195,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final goal in kCareGoals)
+            for (final goal in kVisitCareGoals)
               KeyedSubtree(
                 key: Key('chart-visit-workspace-goal-$goal'),
                 child: ChartVisitChoiceChip(
@@ -1215,7 +1225,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
         ),
         const SizedBox(height: 4),
         ChartVisitFoldRow(
-          title: '상세 · 피부 점수',
+          title: '기간·불편 정도 / 피부 점수 (선택)',
           open: _openScoreDetails,
           onTap: () => setState(() => _openScoreDetails = !_openScoreDetails),
         ),
@@ -1376,8 +1386,17 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
       runSpacing: 8,
       children: [
         ChartVisitChoiceChip(
+          label: '미확인',
+          selected: !session.reactionNone && session.reactions.isEmpty,
+          onTap: () {
+            session.reactionNone = false;
+            session.reactions.clear();
+            _touch();
+          },
+        ),
+        ChartVisitChoiceChip(
           label: '없음',
-          selected: session.reactionNone || session.reactions.isEmpty,
+          selected: session.reactionNone && session.reactions.isEmpty,
           onTap: () {
             session.reactionNone = true;
             session.reactions.clear();
@@ -1395,7 +1414,7 @@ class _ChartVisitWorkspaceState extends State<ChartVisitWorkspace>
               } else {
                 session.reactions.add(label);
               }
-              if (session.reactions.isEmpty) session.reactionNone = true;
+
               _touch();
             },
           ),

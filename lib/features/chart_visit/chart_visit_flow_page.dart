@@ -10,6 +10,9 @@ import 'chart_visit_mock.dart';
 import 'consultation_intake_context.dart';
 import 'visit_record_context.dart';
 
+const kVisitConcernChoices = [...kConcernChoices, '어깨·목 불편', '등 불편', '하체 불편', '붓기', '체형'];
+const kVisitCareGoals = [...kCareGoals, '이완', '순환', '체형'];
+
 const _steps = ['INFO', 'SKIN', 'CONSULT', 'CARE', 'RESULT'];
 
 /// 집중 작성. 하단 탭 밖에 둔다. 샘플 세션만 수정한다.
@@ -28,6 +31,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
   bool _editingSummary = false;
   String? _appliedIntake;
   bool _openGuide = false;
+  bool _openSkinScores = false;
   bool _openHomeCare = false;
   bool _openNext = false;
   bool _editingNext = false;
@@ -405,7 +409,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         ),
         if (_editingSafety) ...[
           const Text(
-            '오늘 방문에만 이 내용이 남습니다. 지난 방문 문장은 바뀌지 않습니다.',
+            '오늘 방문과 고객의 현재 정보에 반영됩니다. 지난 방문 기록은 바뀌지 않습니다.',
             style: TextStyle(
               fontSize: 13,
               height: 1.4,
@@ -430,9 +434,9 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           ),
           _choice(
             label: '임신 / 수유',
-            value: safety.pregnancy,
-            options: const ['해당 없음', '임신 중', '수유 중'],
-            onChanged: (v) => updateSafety(safety.copyWith(pregnancy: v)),
+            value: safety.pregnancy.isEmpty ? '미확인' : safety.pregnancy,
+            options: const ['미확인', '해당 없음', '임신 중', '수유 중'],
+            onChanged: (v) => updateSafety(safety.copyWith(pregnancy: v == '미확인' ? '' : v)),
           ),
           _yesNo(
             label: '최근 시술',
@@ -467,7 +471,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '오늘 피부에서\n가장 신경 쓰이는 건 무엇인가요?',
+          '오늘 가장 신경 쓰이는\n고민은 무엇인가요?',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w700,
@@ -484,7 +488,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final label in kConcernChoices)
+            for (final label in kVisitConcernChoices)
               _ChoiceChip(
                 label: label,
                 order: session.concerns.indexOf(label),
@@ -571,19 +575,16 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
               _intakeChanged(session);
             },
           ),
-          const SizedBox(height: 28),
-          const Divider(height: 1, color: Color(0x14000000)),
-          const SizedBox(height: 28),
-          const Text(
-            '관리사 피부 체크',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            '현재 피부 상태를 기록합니다.',
-            style: TextStyle(fontSize: 14, color: SoriTokens.textSecondary),
-          ),
-          const SizedBox(height: 16),
+        ],
+        const Divider(height: 32),
+        _FoldRow(
+          title: '관리사 피부 체크',
+          open: _openSkinScores,
+          onTap: () => setState(() => _openSkinScores = !_openSkinScores),
+        ),
+        const Text('피부 관리에 필요한 경우만 기록해 주세요.',
+            style: TextStyle(fontSize: 14, color: SoriTokens.textSecondary)),
+        if (_openSkinScores) ...[
           for (final axis in kSkinAxes) ...[
             _AxisRow(
               label: axis.$2,
@@ -595,14 +596,15 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
             ),
             const SizedBox(height: 18),
           ],
+        ],
           const SizedBox(height: 12),
           const Text(
-            '현재 피부를 남겨둘게요',
+            '현재 상태를 남겨둘게요',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           const Text(
-            '오늘 관리 전 피부 상태를 기록합니다.',
+            '고민 선택 없이도 관리 전 사진을 남길 수 있어요.',
             style: TextStyle(fontSize: 14, color: SoriTokens.textSecondary),
           ),
           const SizedBox(height: 14),
@@ -631,7 +633,6 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
               ),
             ],
           ),
-        ],
       ],
     );
   }
@@ -904,7 +905,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final goal in kCareGoals)
+            for (final goal in kVisitCareGoals)
               _ChoiceChip(
                 label: goal,
                 selected: session.goals.contains(goal),
@@ -939,6 +940,15 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         const _Kicker('관리 중 반응'),
         const SizedBox(height: 8),
         _ChoiceChip(
+          label: '미확인',
+          selected: !session.reactionNone && session.reactions.isEmpty,
+          onTap: () {
+            session.reactionNone = false;
+            session.reactions.clear();
+            _flash();
+          },
+        ),
+        _ChoiceChip(
           label: '없음',
           selected: session.reactionNone,
           onTap: () {
@@ -963,7 +973,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
                   } else {
                     session.reactions.add(label);
                   }
-                  if (session.reactions.isEmpty) session.reactionNone = true;
+
                   _flash();
                 },
               ),
@@ -984,7 +994,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         ),
         const SizedBox(height: 18),
         const Text(
-          '오늘 관리 후 피부를 남겨둘게요.',
+          '오늘 관리 후 상태를 남겨둘게요.',
           style: TextStyle(fontSize: 15, color: SoriTokens.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -1264,7 +1274,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           Expanded(
             flex: 4,
             child: Text(
-              value,
+              value.trim().isEmpty ? '미확인' : value,
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
@@ -1279,8 +1289,8 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     required String value,
     required ValueChanged<String> onChanged,
   }) {
-    final none = !_safetyOpen.contains(label) &&
-        (value.trim().isEmpty || value.trim() == '없음');
+    final none = !_safetyOpen.contains(label) && value.trim() == '없음';
+    final hasValue = _safetyOpen.contains(label) || (value.trim().isNotEmpty && !none);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -1291,8 +1301,18 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
+              _ChoiceChip(
+                label: '미확인',
+                selected: !none && !hasValue,
+                onTap: () {
+                  _safetyOpen.remove(label);
+                  onChanged('');
+                },
+              ),
               _ChoiceChip(
                 label: '없음',
                 selected: none,
@@ -1305,9 +1325,9 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
               const SizedBox(width: 8),
               _ChoiceChip(
                 label: '있음',
-                selected: !none,
+                selected: hasValue,
                 onTap: () {
-                  if (none) {
+                  if (!hasValue) {
                     _safetyOpen.add(label);
                     onChanged('');
                   }
@@ -1316,7 +1336,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
               ),
             ],
           ),
-          if (!none) ...[
+          if (hasValue) ...[
             const SizedBox(height: 8),
             _LineField(
               initial: value,

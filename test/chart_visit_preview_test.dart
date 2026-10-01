@@ -14,6 +14,41 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final store = ChartVisitPreviewStore.instance;
+  testWidgets('wizard distinguishes unknown safety and permits body-only intake', (tester) async {
+    store.debugResetForTest();
+    final session = ChartVisitSession.fresh(id: 'body', startedAt: DateTime(2026, 10, 1),
+        safety: const SafetySnapshot());
+    store.active = session;
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(const MaterialApp(home: ChartVisitFlowPage()));
+    await tester.pumpAndSettle();
+    expect(find.text('미확인'), findsNWidgets(6));
+    await tester.tap(find.byKey(const Key('chart-visit-safety-edit')));
+    await tester.pumpAndSettle();
+    final no = find.text('없음').first;
+    await tester.ensureVisible(no);
+    await tester.tap(no);
+    await tester.pumpAndSettle();
+    expect(session.safety.allergy, '없음');
+    expect(session.safety.medication, isEmpty);
+    await tester.tap(find.byKey(const Key('chart-visit-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('현재 상태를 남겨둘게요'), findsOneWidget);
+    expect(find.text('수분'), findsNothing);
+    final body = find.text('등 불편');
+    await tester.ensureVisible(body);
+    await tester.tap(body);
+    await tester.pumpAndSettle();
+    expect(session.concerns, ['등 불편']);
+    expect(find.text('언제부터 신경 쓰였나요?'), findsOneWidget);
+    expect(session.scores.values.every((v) => v == 0), isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    store.debugResetForTest();
+  });
+
   testWidgets('missing history does not infer a first visit or normal state', (
     tester,
   ) async {

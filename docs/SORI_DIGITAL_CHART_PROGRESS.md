@@ -28,16 +28,19 @@
 | 1 | 완료 | 문진→상담 근거 표시, 실제 고객의 직접 상담 입력, 문진 변경 후 재승인 |
 | 2 | 완료 | 지난 방문 맥락 확인과 오늘 확인한 재방문 반응 작성·복원 |
 | 3 | 구현·관련 테스트·로컬 UI 검수 완료 | 상담→관리→변화 연결, 실제 서버 왕복 미확인 |
-| 4 | 4A 완료 · 4B 진행 | 미확인·샘플 기본값·피부/체형 공통 표현 |
+| 4 | 4A·4B 로컬 구현·검증 완료 | 미확인·샘플 기본값·피부/체형 공통 표현 |
 | 5 | 대기 | 저장 순서·완료·재조회·복구 |
 | 6 | 대기 | 실제 촬영·부위별 사진·리포트 |
 | 7 | 대기 | 최소 기록 동선·복사·선택 상세 |
 | 후속 | 별도 승인 | 음성 공급자·정책, 체형 실측 저장 확장 |
 
-## 현재 작업: 단계 4A 완료 · 4B 진행
+## 현재 작업: 단계 4A·4B 완료 · 배포 차단 원인 재현
+
+- 다음 우선 작업은 Stage 5의 단계형 작성기 저장 순서다. 지연된 draft 요청을 붙잡고 완료한 뒤 해제하면 `completed → draft` 순서로 쓰인다. 아래 4B의 배포 검증 기록을 먼저 읽는다.
+- 홈 CHART의 자동저장 직렬화 회귀 테스트는 통과하지만, 별도 `ChartVisitFlowPage`는 같은 보호가 없다. 두 경로를 구분한다.
 
 - 홈 CHART의 실제 진입점은 `ChartVisitWorkspace`다. 아래 Stage 3에서 이 진입점에도 문진을 보며 직접 상담하고 적용하는 UI를 연결했다.
-- 다음 구현은 Stage 4다. 새 방문 샘플 관리 기본값, 빈 안전정보를 '없음'으로 변환하는 경로, 피부/체형 공통 표현을 다룬다. Stage 3을 전체 디지털 차트 완성으로 취급하지 않는다.
+- Stage 4A·4B를 완료했다. Stage 5~7 및 실제 인증 고객 서버 왕복은 아직 완료되지 않았으며 전체 디지털 차트 완성으로 취급하지 않는다.
 - 아래 '단계 1~2 완료 기록'과 Stage 3 최신 이력을 구분해서 읽는다.
 
 ### 단계 1~2 완료 기록
@@ -53,6 +56,19 @@
 - 커밋·배포: Stage 1~2 코드 `431cb79`를 main에 push했고 Pages #552 배포 성공. 아래 배포 검증 참고.
 
 ## 검증 및 변경 이력
+
+### 2026-10-01 Stage 4B
+
+- 변경 파일 5개: chart_visit_flow_page.dart, chart_visit_workspace.dart, test/chart_visit_preview_test.dart, test/chart_workspace_page_test.dart, 이 체크포인트.
+- 두 작성 화면 모두 빈 안전정보를 '미확인'으로 표시하고 편집에 미확인/없음/있음을 구분했다. 반응은 비어 있다는 이유만으로 없음이 선택되지 않는다. 마지막 반응 칩 해제도 미확인으로 돌아간다.
+- 체형·등/하체/어깨·목 불편·붓기 고민과 이완/순환/체형 목표를 기존 선택 목록에 확장했다. 피부 점수는 선택 영역으로 접고 단계형 작성기에서 고민 선택 없이도 피부 체크·사진 구간에 접근 가능하게 했다. 실제 체형 실측과 사진 촬영 연결 확대는 Stage 6 범위로 남는다.
+- 관련 테스트 46 PASS. 기존 관리 삭제 테스트는 자동 삽입된 샘플에 의존하지 않고 명시적 관리 fixture를 준비하도록 변경하여 삭제·번호 재정렬·재열기 검증을 유지했다. 관련 UI 2개 파일 분석 No issues found.
+- 전체 `flutter test --no-pub --reporter expanded`: 811 PASS / 기존 동일 9 FAIL(피드·홈·boost·golden). 이번 관련 신규 실패 없음. 로그 `%TEMP%/sori-4b-full-test.log`.
+- 앱 `flutter build web --no-pub --release --base-href /SORI/` 성공(Built build/web, exit 0), 로컬 검수 앱 release 빌드도 성공. 기존 flutter_tts Wasm 경고 유지. 360×800에서 실제 홈 고객 선택→미확인 6항목→알레르기 없음 선택→등 불편/이완 선택→임시저장→재열기 조작 확인. 재열기 시 알레르기 없음과 나머지 미확인, 빈 관리 단계가 보존됐다. 1024×900 재열기 렌더링 확인. 단계형 작성기에서 고민 미선택 상태에도 피부 체크/사진 영역 노출, 체형 고민 선택 후 상세 질문 노출 확인. 서버/실기기 검증을 대체하지 않는 메모리 저장소 검수다.
+- 캡처: `%TEMP%/sori-stage4-captures/01-unknown-mobile.png`, `02-body-mobile.png`, `03-reopened-tablet.png`, `04-optional-skin-mobile.png`. 검수 앱 소스 `%TEMP%/sori-stage4-preview.dart`, 빌드 `sori-stage4-preview-web`, 로컬 포트 8138.
+- **배포 차단 재현**: `%TEMP%/sori-deployment-order-test.dart`를 `flutter test --no-pub`로 실행. fake ChartVisitGateway.saveDraft를 Completer로 지연시킨 뒤 실제 UI의 마지막 완료/고객 CHART를 누르고 draft를 해제했다. 기대 `['draft', 'completed']`, 실제 `['completed', 'draft']`로 실패했다. 첫 시도는 탭이 화면 밖이어서 무효였고, 390×844 및 ensureVisible 후 pumpAndSettle로 고쳐 두 번째 시도에서 요청 순서 역전을 재현했다. 로그 `%TEMP%/sori-deployment-order.log`.
+- 원인: ChartVisitFlowPage._finishVisit가 debounce 타이머 및 이미 진행 중인 _persistDraft를 대기하지 않고 gateway.complete를 호출한다. 별도 화면에서 마지막에 도착한 draft patch가 완료 상태를 덮을 수 있다. 실제 운영 DB 변조는 하지 않았다.
+- 다음 Stage 5에서 재현 테스트를 정식 회귀 테스트에 편입하고 저장 직렬화·완료 중 중복 탭 방지·실패 재시도·진행 중 편집/이탈을 검증한다. live 위저드의 사진 토글/완료 화면과 실제 저장 시점도 미해결이므로 운영 완성으로 배포하지 않는다. 원격 push·배포 없음.
 
 ### 2026-10-01 Stage 4A
 

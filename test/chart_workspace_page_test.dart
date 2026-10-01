@@ -105,6 +105,44 @@ void main() {
     ChartVisitPreviewStore.instance.debugResetForTest();
   });
 
+  for (final size in [const Size(360, 800), const Size(1024, 900)]) {
+    testWidgets('unknown safety and body concern survive home entry at $size', (tester) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = SoriStore();
+      final customer = _recentFirst(store);
+      await _pumpPage(tester, store);
+      await _openRecent(tester, customer.id);
+      expect(_summary(tester, 'safety'), contains('미확인'));
+      expect(_summary(tester, 'care'), '미입력');
+      expect(_summary(tester, 'reaction'), '미확인');
+      await _tapVisible(tester, const Key('chart-visit-workspace-safety-edit'));
+      final none = find.descendant(of: find.byKey(const Key('chart-visit-section-safety-body')),
+          matching: find.text('없음')).first;
+      await tester.ensureVisible(none);
+      await tester.tap(none);
+      await _settle(tester);
+      await _editConcern(tester, '등 불편');
+      await _tapVisible(tester, const Key('chart-visit-workspace-save-draft'));
+      await _settle(tester);
+      final draft = store.chartVisitDraftsFor(customer.id).single;
+      expect(draft.visitRecord.concerns, ['등 불편']);
+      expect(draft.visitRecord.safety['allergy'], '없음');
+      expect(draft.visitRecord.safety['medication'] ?? '', isEmpty);
+      expect(draft.visitRecord.scores, isEmpty);
+      expect(draft.visitRecord.treatmentSteps, isEmpty);
+      expect(draft.visitRecord.reactionNone, isFalse);
+      await _tapVisible(tester, const Key('chart-desk-back'));
+      await _openRecent(tester, customer.id);
+      expect(_summary(tester, 'safety'), contains('미확인'));
+      expect(_summary(tester, 'care'), '미입력');
+      expect(_summary(tester, 'reaction'), '미확인');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _settle(tester);
+    });
+  }
+
   testWidgets('CHART tab defaults to empty desk without No.N file rail', (
     tester,
   ) async {
@@ -186,7 +224,7 @@ void main() {
       }
       expect(_summary(tester, 'concern'), '미입력');
       expect(_summary(tester, 'photo'), '미입력');
-      expect(_summary(tester, 'reaction'), '없음');
+      expect(_summary(tester, 'reaction'), '미확인');
       // 안전확인만 기본으로 펼쳐져 있다.
       expect(find.byKey(const Key('chart-visit-section-safety-body')),
           findsOneWidget);
@@ -332,6 +370,12 @@ void main() {
   });
 
   Future<void> openCare(WidgetTester tester, SoriStore store) async {
+    // 삭제 회귀 검증용으로 명시적으로 기록된 관리 5개를 준비한다.
+    await store.createChartVisitDraft(customerId: _recentFirst(store).id,
+        record: ChartVisitRecord(flowStatus: 'draft', treatmentSteps: [
+          for (final title in ['클렌징', '효소 각질관리', '진정 앰플', '초음파', '진정팩'])
+            {'title': title},
+        ]));
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpPage(tester, store);
@@ -446,13 +490,13 @@ void main() {
     expect(_summary(tester, 'care'), '미입력');
   });
 
-  testWidgets('saved empty step list reopens empty; new visit keeps defaults', (
+  testWidgets('saved empty step list reopens without reintroducing removed steps', (
     tester,
   ) async {
     final store = SoriStore();
     final customer = _recentFirst(store);
     await openCare(tester, store);
-    // 새 방문은 기본 5단계로 시작한다.
+    // 명시적으로 기록한 5단계를 모두 제거한 후 다시 열어도 복원되지 않는다.
     expect(_summary(tester, 'care'), '5단계');
 
     for (var i = 0; i < 5; i++) {
