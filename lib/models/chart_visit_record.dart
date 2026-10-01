@@ -18,7 +18,7 @@ class ChartVisitRecord {
     this.consultApplied = false,
     this.careGoals = const [],
     this.treatmentSteps = const [],
-    this.reactionNone = true,
+    this.reactionNone = false,
     this.reactionTypes = const [],
     this.aftercare = const [],
     this.homeAm = '',
@@ -179,9 +179,7 @@ class ChartVisitRecord {
       consultApplied: consultMap?['applied'] == true,
       careGoals: goals,
       treatmentSteps: steps,
-      reactionNone: reactionMap == null
-          ? true
-          : reactionMap['has_reaction'] != true,
+      reactionNone: reactionMap?['has_reaction'] == false,
       reactionTypes: DbMap.asStringList(reactionMap?['types']),
       aftercare: aftercare,
       homeAm: DbMap.asText(homeMap?['am']),
@@ -225,7 +223,8 @@ class ChartVisitRecord {
       'care_goals': careGoals,
       'treatment_steps': treatmentSteps,
       'care_reactions': {
-        'has_reaction': !reactionNone && reactionTypes.isNotEmpty,
+        // null = 미확인, false = 사용자가 명시한 없음, true = 반응 기록.
+        'has_reaction': reactionTypes.isNotEmpty ? true : (reactionNone ? false : null),
         'types': reactionTypes,
         'memo': '',
       },

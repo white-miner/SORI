@@ -70,7 +70,7 @@ ChartVisitCustomer chartVisitCustomerFrom(
 }
 
 SafetySnapshot safetyFromCustomer(Customer customer) {
-  String orNone(String value, [String empty = '없음']) {
+  String orNone(String value, [String empty = '']) {
     final text = value.trim();
     return text.isEmpty ? empty : text;
   }
@@ -79,14 +79,14 @@ SafetySnapshot safetyFromCustomer(Customer customer) {
     allergy: orNone(customer.allergyNotes),
     medication: orNone(customer.medicationHistory),
     condition: orNone(customer.medicalCondition),
-    pregnancy: orNone(customer.pregnancyStatus, '해당 없음'),
+    pregnancy: orNone(customer.pregnancyStatus),
     recentProcedure: orNone(customer.recentProcedure),
     activeProduct: orNone(customer.activeProduct),
   );
 }
 
 SafetySnapshot safetyFromRecord(ChartVisitRecord record) {
-  String pick(String key, [String empty = '없음']) {
+  String pick(String key, [String empty = '']) {
     final text = record.safety[key]?.trim() ?? '';
     return text.isEmpty ? empty : text;
   }
@@ -95,7 +95,7 @@ SafetySnapshot safetyFromRecord(ChartVisitRecord record) {
     allergy: pick('allergy'),
     medication: pick('medication'),
     condition: pick('condition'),
-    pregnancy: pick('pregnancy', '해당 없음'),
+    pregnancy: pick('pregnancy'),
     recentProcedure: pick('recent_procedure'),
     activeProduct: pick('active_product'),
   );
@@ -176,14 +176,14 @@ class ChartVisitLiveGateway implements ChartVisitGateway {
       forceNew: forceNew,
     );
     chartId = chart.id;
-    if (_chartVisitAlreadyWritten(chart)) {
+    if (_chartVisitAlreadyWritten(chart) || chart.visitRecord.hasChartVisitBody) {
       final session = ChartVisitSession.fromRecord(
         id: chart.id,
         startedAt:
             chart.visitRecord.visitDate ?? chart.createdAt ?? DateTime.now(),
         record: chart.visitRecord,
       );
-      session.skinTraitHint = customer.skinTrait.trim();
+      session.skinTraitHint = chart.visitRecord.safety['skin_trait'] ?? '';
       return session;
     }
     final session = ChartVisitSession.fresh(

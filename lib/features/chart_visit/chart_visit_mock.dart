@@ -9,12 +9,12 @@ import '../../models/chart_visit_record.dart';
 
 class SafetySnapshot {
   const SafetySnapshot({
-    this.allergy = '없음',
-    this.medication = '없음',
-    this.condition = '없음',
-    this.pregnancy = '해당 없음',
-    this.recentProcedure = '없음',
-    this.activeProduct = '없음',
+    this.allergy = '',
+    this.medication = '',
+    this.condition = '',
+    this.pregnancy = '',
+    this.recentProcedure = '',
+    this.activeProduct = '',
   });
 
   final String allergy;
@@ -235,6 +235,8 @@ class ChartVisitSession {
     required this.safety,
   }) {
     scores.updateAll((key, value) => 0);
+    steps.clear();
+    reactionNone = false;
     since = '';
     discomfort = 0;
     desiredChange = '';
@@ -253,8 +255,7 @@ class ChartVisitSession {
     nextNote = '';
   }
 
-  /// [refillDefaultSteps] 가 true(기본)면 저장된 시술 단계가 비어 있을 때 기본 5단계를 쓴다
-  /// (위저드 동작). false 면 저장된 빈 목록을 그대로 지킨다(오늘 방문 작성 데스크).
+  /// [refillDefaultSteps]는 호출 호환용이다. 빈 방문에 샘플 관리를 채우지 않는다.
   factory ChartVisitSession.fromRecord({
     required String id,
     required DateTime startedAt,
@@ -265,12 +266,12 @@ class ChartVisitSession {
       id: id,
       startedAt: startedAt,
       safety: SafetySnapshot(
-        allergy: record.safety['allergy'] ?? '없음',
-        medication: record.safety['medication'] ?? '없음',
-        condition: record.safety['condition'] ?? '없음',
-        pregnancy: record.safety['pregnancy'] ?? '해당 없음',
-        recentProcedure: record.safety['recent_procedure'] ?? '없음',
-        activeProduct: record.safety['active_product'] ?? '없음',
+        allergy: record.safety['allergy'] ?? '',
+        medication: record.safety['medication'] ?? '',
+        condition: record.safety['condition'] ?? '',
+        pregnancy: record.safety['pregnancy'] ?? '',
+        recentProcedure: record.safety['recent_procedure'] ?? '',
+        activeProduct: record.safety['active_product'] ?? '',
       ),
     );
     session.concerns.addAll(record.concerns);
@@ -378,7 +379,7 @@ class ChartVisitSession {
             'memo': steps[i].memo,
           },
       ],
-      reactionNone: reactionNone || reactions.isEmpty,
+      reactionNone: reactionNone && reactions.isEmpty,
       reactionTypes: reactions.toList(),
       aftercare: aftercare.toList(),
       homeAm: homeAm,
@@ -434,7 +435,7 @@ class ChartVisitCustomer {
       lines.add(safety.activeProduct.trim());
     }
     final allergy = safety.allergy.trim();
-    lines.add(allergy.isEmpty || allergy == '없음' ? '알레르기 없음' : '알레르기 $allergy');
+    lines.add(allergy.isEmpty ? '알레르기 미확인' : '알레르기 $allergy');
     return lines;
   }
 
@@ -459,7 +460,7 @@ class ChartVisitDraftRef {
 
 abstract class ChartVisitGateway {
   Future<ChartVisitSession> startFresh({bool forceNew = false});
-  /// [refillDefaultSteps] 는 [ChartVisitSession.fromRecord] 와 같다(기본 true = 위저드 동작).
+  /// [refillDefaultSteps]는 호출 호환용이며 샘플 관리는 자동 삽입하지 않는다.
   Future<ChartVisitSession> resumeLatest(
     ChartVisitDraftRef draft, {
     bool refillDefaultSteps = true,
