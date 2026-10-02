@@ -143,7 +143,8 @@ void main() {
         await tester.pump();
         expect(find.text('저장 중...'), findsOneWidget);
         await tester.pump(const Duration(milliseconds: 700));
-        expect(find.text('저장됨'), findsOneWidget);
+        // This live UI fixture has no gateway: never claim a server save.
+        expect(find.text('저장 실패'), findsOneWidget);
         await tap(tester, 'chart-visit-next');
         await tap(tester, 'chart-visit-next');
         expect(find.text('알레르기: 금속과 접착제 접촉 주의'), findsOneWidget);

@@ -29,7 +29,7 @@
 | 2 | 완료 | 지난 방문 맥락 확인과 오늘 확인한 재방문 반응 작성·복원 |
 | 3 | 구현·관련 테스트·로컬 UI 검수 완료 | 상담→관리→변화 연결, 실제 서버 왕복 미확인 |
 | 4 | 4A·4B 로컬 구현·검증 완료 | 미확인·샘플 기본값·피부/체형 공통 표현 |
-| 5 | 대기 | 저장 순서·완료·재조회·복구 |
+| 5 | 5A 로컬 구현·검증 완료 | 재조회·이탈/복구는 다음 묶음 |
 | 6 | 대기 | 실제 촬영·부위별 사진·리포트 |
 | 7 | 대기 | 최소 기록 동선·복사·선택 상세 |
 | 후속 | 별도 승인 | 음성 공급자·정책, 체형 실측 저장 확장 |
@@ -132,3 +132,21 @@
 - 2026-09-29: 구현/검증 에이전트가 사용량 한도로 중단. flow·문진 context 위젯·테스트 2개 파일이 작업 중인 상태로 보존됨. 검증 완료로 취급하지 않는다.
 - 2026-09-30 재개: 기존 diff를 유지하고 단계1 구현·검증을 완료했다. 상담 승인 이후 문진 변경 시 `consultApplied`를 해제하고, 같은 세션에서는 재확인 문구를 표시하며, 재진입 후에도 `아직 차트에 적용되지 않았습니다.` 상태가 유지된다.
 - 로컬 시각 검수: `flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8136 --no-pub`로 실행한 화면에서 390×844 및 1024×900 렌더링을 확인했다. 초기 DDC 로딩 후 정상 표시되었고 콘솔 오류 없이 상담 원문·직접 상담·적용 CTA를 확인했다.
+
+
+### 2026-10-02 Stage 5A — 자동저장과 완료 저장 직렬화
+
+- 변경 파일: `chart_visit_flow_page.dart`, `chart_visit_save_order_test.dart`(신규), `chart_visit_consult_context_test.dart`, 이 체크포인트. 4파일 묶음.
+- 기존 동작 특성화: 지연 draft 요청 도중 완료하면 쓰기가 `[completed, draft]`가 되는 재현 테스트를 먼저 통과시켜 결함을 확인했다.
+- 수정: 자동저장을 단일 진행 요청으로 직렬화하고, 요청별 세션 복사본을 저장한다. 저장 중 편집은 최신 버전까지 후속 저장한다. 완료는 debounce를 취소·flush하고 진행 중 저장을 기다린다. 연속 완료 탭 차단, 실패 시 입력 보존과 재시도 제공.
+- 실제 고객 작성기의 완료 리포트는 `gateway.complete` 성공 후에만 표시한다. 리포트의 고객 CHART는 재저장 없이 복귀한다. 저장 연결이 없는 live 상태를 샘플 저장 성공으로 취급하지 않는다.
+- 시각 검수에서 발견한 완료 요청 중 상단 저장됨 표시를 저장 중으로 통일했다. 비어 있는 다음 권장 시점은 단독 '후' 대신 '권장 시점 미기록'으로 표시한다.
+- 보호 계약: DB/마이그레이션/API/라우트/게이트웨이 시그니처, 사진 저장, 회원권·결제·동의 경로 변경 없음. 기존 샘플 프리뷰 완료 동선 유지.
+- 검증 로그: `%TEMP%/sori-save-regression-final.log`, `%TEMP%/sori-save-analyze-final.log`, `%TEMP%/sori-save-build.log`. 최종 결과 아래에 기록.
+- 로컬 검수 harness: `%TEMP%/sori-stage5-preview.dart`, `http://127.0.0.1:8139/`. 지연·첫 완료 실패를 의도한 메모리 Gateway만 사용하며 실제 고객/Supabase에 쓰지 않는다.
+- 다음 Stage 5B: debounce 직후 뒤로가기/이탈의 flush, draft 재진입·오프라인 복구, 실제 인증 고객 왕복 검증. 현재 dispose는 pending timer를 취소하므로 브라우저 종료·이탈 시 기록 보장을 완료로 취급하지 않는다.
+- 배포 보류: Stage 5B 및 Stage 6의 실제 고객 작성기 사진 샘플 토글 제거/기존 촬영 연결이 남아 있다. 운영 검증을 로컬 가짜 Gateway 성공으로 대체하지 않는다. 롤백은 이 논리적 커밋만 revert하며 기존 작업을 reset하지 않는다.
+
+- 최종 검증: 관련 6개 파일 `flutter test --no-pub ...` **51 PASS**. 신규 저장 회귀 5개 포함. 분석 3파일 **No issues found**. 최종 `flutter build web --no-pub --release --base-href /SORI/` **Built build/web**, 118.4초. 기존 flutter_tts Wasm dry-run 경고는 일반 JS 빌드를 막지 않았다.
+- 실제 브라우저: 360×800에서 고민 입력→결과→완료 실패→재시도→완료 리포트→고객 경로 복귀 확인. 1024×900 완료 렌더링 확인. 캡처 `%TEMP%/sori-stage5-captures/{saving-mobile,failed-mobile,complete-mobile,complete-wide}.png`. 실제 Supabase 왕복은 미확인.
+- 전체 테스트는 이번 묶음에서 미재실행. 직전 4B의 811 PASS / 기존 9 FAIL 상태와 구분한다. 무관한 untracked 문서와 supabase/.temp 보존.

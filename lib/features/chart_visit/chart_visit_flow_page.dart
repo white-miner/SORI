@@ -40,6 +40,11 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
   final Set<String> _safetyOpen = {};
   Timer? _saveTimer;
   Timer? _clock;
+  Future<void>? _saveInFlight;
+  int _editVersion = 0;
+  int _savedVersion = 0;
+  bool _finishing = false;
+  bool _completedPersisted = false;
 
   @override
   void initState() {
@@ -64,6 +69,8 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
   }
 
   void _flash() {
+    if (_finishing || _completedPersisted) return;
+    _editVersion++;
     _saveTimer?.cancel();
     setState(() => _saveLabel = '저장 중...');
     _saveTimer = Timer(const Duration(milliseconds: 600), () {
@@ -71,30 +78,50 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     });
   }
 
+  // Completion and autosave share one ordered writer. Never let a late draft
+  // request restore a completed visit to draft.
   Future<void> _finishVisit() async {
+    if (_finishing) return;
+    if (_completedPersisted || !_store.live) {
+      _returnToChart();
+      return;
+    }
     final session = _store.active;
     final gate = _store.gateway;
-    if (_store.live && gate != null && session != null) {
-      try {
-        await gate.complete(session);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('저장 실패'),
-            action: SnackBarAction(
-              label: '다시 시도',
-              onPressed: () {
-                _finishVisit();
-              },
-            ),
-          ),
-        );
-        return;
+    _saveTimer?.cancel();
+    setState(() => _finishing = true);
+    try {
+      if (session == null || gate == null) throw StateError('Missing live visit');
+      await _persistDraft();
+      if (_savedVersion != _editVersion || _saveLabel == '저장 실패') {
+        throw StateError('Draft save failed');
       }
-      final customerId = _store.liveCustomerId;
-      _store.active = null;
+      if (!identical(_store.active, session)) throw StateError('Visit changed');
+      await gate.complete(_saveSnapshot(session));
+      if (!mounted || !identical(_store.active, session)) return;
+      session.safetyDirty = false;
+      setState(() {
+        _completedPersisted = true;
+        _complete = true;
+        _saveLabel = '저장됨';
+      });
+    } catch (_) {
       if (!mounted) return;
+      setState(() => _saveLabel = '저장 실패');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('기록을 완료하지 못했습니다. 입력은 유지됩니다.'),
+        action: SnackBarAction(label: '다시 시도', onPressed: _finishVisit),
+      ));
+    } finally {
+      if (mounted) setState(() => _finishing = false);
+    }
+  }
+
+  void _returnToChart() {
+    final customerId = _store.liveCustomerId;
+    if (_store.live) {
+      if (!_completedPersisted) return;
+      _store.active = null;
       if (customerId != null && customerId.isNotEmpty) {
         context.go(AppPaths.customerDetail(customerId));
         return;
@@ -102,7 +129,6 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     } else {
       _store.commitActiveVisit();
     }
-    if (!mounted) return;
     if (context.canPop()) {
       context.pop();
     } else {
@@ -110,22 +136,51 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     }
   }
 
+  ChartVisitSession _saveSnapshot(ChartVisitSession session) =>
+      ChartVisitSession.fromRecord(
+        id: session.id,
+        startedAt: session.startedAt,
+        record: session.toRecord(),
+        refillDefaultSteps: false,
+      )
+        ..skinTraitHint = session.skinTraitHint
+        ..safetyDirty = session.safetyDirty;
+
   Future<void> _persistDraft() async {
-    final session = _store.active;
-    final gate = _store.gateway;
-    if (!_store.live || gate == null || session == null) {
-      if (!mounted) return;
-      setState(() => _saveLabel = '저장됨');
-      _store.touch();
+    if (_completedPersisted) return;
+    final pending = _saveInFlight;
+    if (pending != null) {
+      await pending;
       return;
     }
+    final operation = _drainDrafts();
+    _saveInFlight = operation;
     try {
-      await gate.saveDraft(session);
-      if (!mounted) return;
-      setState(() => _saveLabel = '저장됨');
+      await operation;
+    } finally {
+      _saveInFlight = null;
+    }
+  }
+
+  Future<void> _drainDrafts() async {
+    final session = _store.active;
+    final gate = _store.gateway;
+    try {
+      if (_store.live && (gate == null || session == null)) {
+        throw StateError('Missing live visit');
+      }
+      while (_savedVersion < _editVersion) {
+        final version = _editVersion;
+        if (_store.live) {
+          await gate!.saveDraft(_saveSnapshot(session!));
+        }
+        if (!identical(_store.active, session)) return;
+        _savedVersion = version;
+        if (version == _editVersion) session?.safetyDirty = false;
+      }
+      if (mounted) setState(() => _saveLabel = '저장됨');
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _saveLabel = '저장 실패');
+      if (mounted) setState(() => _saveLabel = '저장 실패');
     }
   }
 
@@ -165,7 +220,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
       );
     }
     final wide = MediaQuery.sizeOf(context).width >= 900;
-    return Scaffold(
+    final page = Scaffold(
       key: const Key('chart-visit-flow'),
       backgroundColor: SoriTokens.background,
       resizeToAvoidBottomInset: true,
@@ -177,6 +232,10 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () {
+            if (_completedPersisted) {
+              _returnToChart();
+              return;
+            }
             if (_complete) {
               setState(() => _complete = false);
               return;
@@ -205,7 +264,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
                 child: GestureDetector(
                   onTap: _saveLabel == '저장 실패' ? _flash : null,
                   child: Text(
-                    _saveLabel,
+                    _finishing ? '저장 중...' : _saveLabel,
                     key: const Key('chart-visit-save'),
                     style: const TextStyle(
                       fontSize: 13,
@@ -270,6 +329,10 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           if (!_complete) _bottomBar(session) else _completeBar(),
         ],
       ),
+    );
+    return PopScope(
+      canPop: !_finishing,
+      child: AbsorbPointer(absorbing: _finishing, child: page),
     );
   }
 
@@ -341,13 +404,17 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
                 key: const Key('chart-visit-next'),
                 onPressed: () {
                   if (_step >= _steps.length - 1) {
-                    setState(() => _complete = true);
+                    if (_store.live) {
+                      _finishVisit();
+                    } else {
+                      setState(() => _complete = true);
+                    }
                   } else {
                     _go(_step + 1);
                   }
                 },
                 child: Text(
-                  _step >= _steps.length - 1 ? '완료' : '다음',
+                  _finishing ? '저장 중...' : (_step >= _steps.length - 1 ? '완료' : '다음'),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -1122,7 +1189,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${session.nextTiming} 후',
+            session.nextTiming.trim().isEmpty ? '권장 시점 미기록' : '${session.nextTiming} 후',
             style: const TextStyle(
               fontSize: 16,
               color: SoriTokens.textSecondary,
@@ -1243,7 +1310,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         const _Kicker('NEXT'),
         const SizedBox(height: 4),
         Text(
-          '${session.nextTiming} 후',
+          session.nextTiming.trim().isEmpty ? '권장 시점 미기록' : '${session.nextTiming} 후',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         Text(
