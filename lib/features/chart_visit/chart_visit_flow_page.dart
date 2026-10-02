@@ -45,6 +45,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
   int _savedVersion = 0;
   bool _finishing = false;
   bool _completedPersisted = false;
+  bool _allowPop = false;
 
   @override
   void initState() {
@@ -129,10 +130,54 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
     } else {
       _store.commitActiveVisit();
     }
+    unawaited(_navigateBack());
+  }
+
+  Future<void> _navigateBack() async {
+    if (_store.live && (_store.liveCustomerId?.isNotEmpty ?? false)) {
+      context.go(AppPaths.customerDetail(_store.liveCustomerId!));
+      return;
+    }
+    setState(() => _allowPop = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     if (context.canPop()) {
       context.pop();
     } else {
       context.go(AppPaths.chartVisitPreview);
+    }
+  }
+
+  Future<void> _leaveVisit() async {
+    if (_finishing) return;
+    if (_completedPersisted) {
+      _returnToChart();
+      return;
+    }
+    if (_complete) {
+      setState(() => _complete = false);
+      return;
+    }
+    final session = _store.active;
+    _saveTimer?.cancel();
+    setState(() => _finishing = true);
+    try {
+      await _persistDraft();
+      if (!mounted) return;
+      if (_savedVersion != _editVersion || _saveLabel == '저장 실패' ||
+          !identical(_store.active, session)) {
+        throw StateError('Draft not saved');
+      }
+      await _navigateBack();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saveLabel = '저장 실패');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('아직 저장되지 않았습니다. 입력을 유지하고 있어요.'),
+        action: SnackBarAction(label: '다시 시도', onPressed: _leaveVisit),
+      ));
+    } finally {
+      if (mounted) setState(() => _finishing = false);
     }
   }
 
@@ -231,21 +276,7 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () {
-            if (_completedPersisted) {
-              _returnToChart();
-              return;
-            }
-            if (_complete) {
-              setState(() => _complete = false);
-              return;
-            }
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppPaths.chartVisitPreview);
-            }
-          },
+          onPressed: _leaveVisit,
         ),
         title: _complete
             ? const SizedBox.shrink()
@@ -331,7 +362,10 @@ class _ChartVisitFlowPageState extends State<ChartVisitFlowPage> {
       ),
     );
     return PopScope(
-      canPop: !_finishing,
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(_leaveVisit());
+      },
       child: AbsorbPointer(absorbing: _finishing, child: page),
     );
   }

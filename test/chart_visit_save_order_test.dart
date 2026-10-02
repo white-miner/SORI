@@ -147,6 +147,52 @@ void main() {
     await close(t);
   });
 
+  for (final systemBack in [false, true]) {
+    testWidgets('leaving flushes pending input: systemBack=$systemBack', (t) async {
+      final gate = Probe()..hold = Completer<void>();
+      await open(t, gate);
+      await t.tap(find.byKey(const Key('chart-visit-safety-edit')));
+      await t.pumpAndSettle();
+      final no = find.text('없음').first;
+      await t.ensureVisible(no);
+      await t.pumpAndSettle();
+      await t.tap(no);
+      await t.pump();
+      expect(gate.started, isFalse);
+      if (systemBack) {
+        unawaited(t.state<NavigatorState>(find.byType(Navigator).last).maybePop());
+      } else {
+        await t.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+      }
+      await t.pump();
+      expect(gate.started, isTrue);
+      expect(find.byKey(const Key('chart-visit-flow')), findsOneWidget);
+      gate.hold!.complete();
+      await t.pumpAndSettle();
+      expect(gate.writes, ['draft']);
+      expect(gate.completionCalls, 0);
+      expect(find.text('returned'), findsOneWidget);
+      await close(t);
+    });
+  }
+
+  testWidgets('failed exit save keeps the form and retries before leaving', (t) async {
+    final gate = Probe()..failDraft = true;
+    await open(t, gate);
+    await edit(t);
+    await t.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('chart-visit-flow')), findsOneWidget);
+    expect(store.active!.safety.allergy, '없음');
+    expect(find.text('returned'), findsNothing);
+    gate.failDraft = false;
+    await t.tap(find.text('다시 시도'));
+    await t.pumpAndSettle();
+    expect(gate.writes, ['draft']);
+    expect(find.text('returned'), findsOneWidget);
+    await close(t);
+  });
+
   testWidgets(
     'edits during a delayed save are drained from separate snapshots',
     (t) async {
