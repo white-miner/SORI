@@ -164,3 +164,13 @@
 - 5B 최종 웹 빌드 **Built build/web**, 125.7초. 로컬 전용 검수 빌드 101.9초 성공. 360×800에서 등 불편 선택 직후 뒤로가기→저장 실패→입력 유지→재시도→고객 차트 경로 복귀 확인. 1024×900에서도 실패 안내와 선택값 유지 확인. 캡처 `%TEMP%/sori-stage5-captures/exit-failed-{mobile,wide}.png`.
 - 넓은 화면의 안전정보 요약은 현재 Customer를 참조한다. 검수 fixture의 Customer와 오늘 snapshot이 다른 경우 서로 다른 값이 노출되므로, 후속 맥락 정리에서 오늘 snapshot 기준/현재 고객정보 구분을 점검한다. 검수 fixture 자체는 샘플 Customer이며 운영 자료가 아니다.
 - 원격 확인: fetch 후 origin/main=`fc35f42`, 새 원격 커밋 없음. 이번 두 묶음은 로컬 커밋만 보존하고 push/배포하지 않는다. 개발 완료를 전체 Stage 5~7 또는 운영 배포 완료로 표시하지 않는다.
+
+
+### 2026-10-03 배포 완료 재확인 — 앞선 배포 보류 기록 갱신
+
+- 사용자의 명시적 배포 지시에 따라 2026-10-02에 Stage 3·4A·4B·5A·5B의 5개 커밋을 origin/main에 fast-forward push했다. 적용 소스는 `e138bddadab9a737a14d4042c175eecf395321dd`이며 2026-10-03 재확인 시 로컬/원격 차이는 0/0이었다.
+- GitHub Pages #553 / Run `36958905826` build·deploy **success**. 서비스 `https://white-miner.github.io/SORI/` HTTP 200, `sori-build=553`, `flutter_bootstrap.js?v=553` 확인.
+- 실제 서비스 `main.dart.js?v=553`와 해당 Actions github-pages artifact의 main.dart.js SHA256 일치: `BE48D0A991C5FBBC91E88CC1A627B381ED723DB227453F34BA94ACCB63EF5785`. 소스→배포 산출물→실서비스 파일 연결 확인.
+- 전체 CI Run `36958905767`: **819 PASS / 9 FAIL**. 실패 목록은 이전에 확인한 feed/boost/golden 9건과 동일하다: sori_feed_reachability_p03b, my_feed_v70_e2e(2), point_shop_boost, feed_interleave, my_feed_v70_render, fan_boost_supporters, fan_boost_b2c, my_feed_v70_golden. 전체 CI 성공으로 표현하지 않는다. CHART 관련 로컬 회귀 54 PASS 및 웹 빌드 성공은 별도 결과다.
+- 이 배포는 구현된 묶음의 운영 반영이며 전체 제품 기획 완료가 아니다. 기기 임시보관/강제 종료 복구, 실제 인증 고객 서버 왕복, 다중 기기 충돌, Stage 6 실제 사진 연결, Stage 7 최소 기록 동선은 남아 있다. 이번 확인에서 운영 고객 데이터를 작성하거나 DB를 변경하지 않았다.
+- 다음 개발 재개 지점: Stage 5의 기기 보관·복구 묶음. 기존 코드와 개인정보 보관 정책을 조사한 뒤 5파일 이하 묶음으로 구현·검증한다. 앞선 'push/배포 미실행' 문장은 당시 기록이며 현재 배포 상태는 본 항목을 따른다.
