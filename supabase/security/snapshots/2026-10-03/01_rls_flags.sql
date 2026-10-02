@@ -1,0 +1,107 @@
+-- SORI security snapshot: RLS enabled / forced flags (public tables + storage.objects/buckets)
+-- project: tieojdbzmqcmlwyqltrk / captured at 2026-10-02 22:30:45.429761+00 (UTC) = 2026-10-03 KST
+-- server: PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit
+-- Generated read-only from catalog queries (pg_policies, pg_class.relacl, pg_proc, pg_views, storage.buckets).
+-- See README.md in this folder before running anything.
+
+-- Restores relrowsecurity / relforcerowsecurity exactly as captured.
+begin;
+alter table public.admin_audit_log enable row level security; alter table public.admin_audit_log no force row level security;
+alter table public.affiliate_clicks enable row level security; alter table public.affiliate_clicks no force row level security;
+alter table public.affiliate_commissions enable row level security; alter table public.affiliate_commissions no force row level security;
+alter table public.affiliate_conversions enable row level security; alter table public.affiliate_conversions no force row level security;
+alter table public.affiliate_links enable row level security; alter table public.affiliate_links no force row level security;
+alter table public.ai_replies enable row level security; alter table public.ai_replies no force row level security;
+alter table public.ai_tool_jobs enable row level security; alter table public.ai_tool_jobs no force row level security;
+alter table public.ai_tool_quota enable row level security; alter table public.ai_tool_quota no force row level security;
+alter table public.b2b_partners enable row level security; alter table public.b2b_partners no force row level security;
+alter table public.ba_capture_sessions enable row level security; alter table public.ba_capture_sessions no force row level security;
+alter table public.boost_placements enable row level security; alter table public.boost_placements no force row level security;
+alter table public.boost_premium_overlays enable row level security; alter table public.boost_premium_overlays no force row level security;
+alter table public.care_diary_notes enable row level security; alter table public.care_diary_notes no force row level security;
+alter table public.care_program_templates enable row level security; alter table public.care_program_templates no force row level security;
+alter table public.care_schedule_entries enable row level security; alter table public.care_schedule_entries no force row level security;
+alter table public.case_bookmarks enable row level security; alter table public.case_bookmarks no force row level security;
+alter table public.chart_likes enable row level security; alter table public.chart_likes no force row level security;
+alter table public.chart_photo_records enable row level security; alter table public.chart_photo_records no force row level security;
+alter table public.chart_records enable row level security; alter table public.chart_records no force row level security;
+alter table public.chart_view_events enable row level security; alter table public.chart_view_events no force row level security;
+alter table public.clinical_environment_rules enable row level security; alter table public.clinical_environment_rules no force row level security;
+alter table public.clinical_trend_keywords enable row level security; alter table public.clinical_trend_keywords no force row level security;
+alter table public.clinical_trend_scripts enable row level security; alter table public.clinical_trend_scripts no force row level security;
+alter table public.community_comments enable row level security; alter table public.community_comments no force row level security;
+alter table public.community_posts enable row level security; alter table public.community_posts no force row level security;
+alter table public.community_whisper_recipients enable row level security; alter table public.community_whisper_recipients no force row level security;
+alter table public.customer_charts enable row level security; alter table public.customer_charts no force row level security;
+alter table public.customer_diaries enable row level security; alter table public.customer_diaries no force row level security;
+alter table public.customer_merge_events enable row level security; alter table public.customer_merge_events no force row level security;
+alter table public.customer_reviews enable row level security; alter table public.customer_reviews no force row level security;
+alter table public.customers enable row level security; alter table public.customers no force row level security;
+alter table public.device_reviews enable row level security; alter table public.device_reviews no force row level security;
+alter table public.echo_earn_quota enable row level security; alter table public.echo_earn_quota no force row level security;
+alter table public.echo_earn_quota_customer enable row level security; alter table public.echo_earn_quota_customer no force row level security;
+alter table public.fan_gifts enable row level security; alter table public.fan_gifts no force row level security;
+alter table public.kakao_msg_logs enable row level security; alter table public.kakao_msg_logs no force row level security;
+alter table public.listing_inquiries enable row level security; alter table public.listing_inquiries no force row level security;
+alter table public.market_escrow_holds enable row level security; alter table public.market_escrow_holds no force row level security;
+alter table public.market_listings enable row level security; alter table public.market_listings no force row level security;
+alter table public.market_strategy_states enable row level security; alter table public.market_strategy_states no force row level security;
+alter table public.membership_tickets enable row level security; alter table public.membership_tickets no force row level security;
+alter table public.mentoring_feedback enable row level security; alter table public.mentoring_feedback no force row level security;
+alter table public.mentoring_posts enable row level security; alter table public.mentoring_posts no force row level security;
+alter table public.mentoring_purchases enable row level security; alter table public.mentoring_purchases no force row level security;
+alter table public.mentoring_requests enable row level security; alter table public.mentoring_requests no force row level security;
+alter table public.photo_sets enable row level security; alter table public.photo_sets no force row level security;
+alter table public.point_shop_items enable row level security; alter table public.point_shop_items no force row level security;
+alter table public.point_transactions enable row level security; alter table public.point_transactions no force row level security;
+alter table public.post_media enable row level security; alter table public.post_media no force row level security;
+alter table public.post_tags enable row level security; alter table public.post_tags no force row level security;
+alter table public.post_unlocks enable row level security; alter table public.post_unlocks no force row level security;
+alter table public.profiles enable row level security; alter table public.profiles no force row level security;
+alter table public.program_categories enable row level security; alter table public.program_categories no force row level security;
+alter table public.program_customer_coupons enable row level security; alter table public.program_customer_coupons no force row level security;
+alter table public.program_memberships enable row level security; alter table public.program_memberships no force row level security;
+alter table public.program_package_lines enable row level security; alter table public.program_package_lines no force row level security;
+alter table public.program_packages enable row level security; alter table public.program_packages no force row level security;
+alter table public.program_promotions enable row level security; alter table public.program_promotions no force row level security;
+alter table public.program_quote_payments enable row level security; alter table public.program_quote_payments no force row level security;
+alter table public.program_quote_promos enable row level security; alter table public.program_quote_promos no force row level security;
+alter table public.program_quotes enable row level security; alter table public.program_quotes no force row level security;
+alter table public.region_content_bookmarks enable row level security; alter table public.region_content_bookmarks no force row level security;
+alter table public.review_replies enable row level security; alter table public.review_replies no force row level security;
+alter table public.review_request_events enable row level security; alter table public.review_request_events no force row level security;
+alter table public.seminar_applications enable row level security; alter table public.seminar_applications no force row level security;
+alter table public.seminar_classes enable row level security; alter table public.seminar_classes no force row level security;
+alter table public.seminar_enrollment_reviews enable row level security; alter table public.seminar_enrollment_reviews no force row level security;
+alter table public.seminar_enrollments enable row level security; alter table public.seminar_enrollments no force row level security;
+alter table public.seminar_feedback_reports enable row level security; alter table public.seminar_feedback_reports no force row level security;
+alter table public.seminar_requests enable row level security; alter table public.seminar_requests no force row level security;
+alter table public.settlement_transactions enable row level security; alter table public.settlement_transactions no force row level security;
+alter table public.shop_clinical_trend_snapshots enable row level security; alter table public.shop_clinical_trend_snapshots no force row level security;
+alter table public.shop_daily_context enable row level security; alter table public.shop_daily_context no force row level security;
+alter table public.shop_entitlements enable row level security; alter table public.shop_entitlements no force row level security;
+alter table public.shop_followers enable row level security; alter table public.shop_followers no force row level security;
+alter table public.shop_gallery_items enable row level security; alter table public.shop_gallery_items no force row level security;
+alter table public.shop_highlights enable row level security; alter table public.shop_highlights no force row level security;
+alter table public.shop_hourly_climate enable row level security; alter table public.shop_hourly_climate no force row level security;
+alter table public.shop_memberships enable row level security; alter table public.shop_memberships no force row level security;
+alter table public.shop_menus enable row level security; alter table public.shop_menus no force row level security;
+alter table public.shop_notifications enable row level security; alter table public.shop_notifications no force row level security;
+alter table public.shop_posts enable row level security; alter table public.shop_posts no force row level security;
+alter table public.shop_promo_credits enable row level security; alter table public.shop_promo_credits no force row level security;
+alter table public.shop_verifications enable row level security; alter table public.shop_verifications no force row level security;
+alter table public.shops enable row level security; alter table public.shops no force row level security;
+alter table public.sos_keyword_rules enable row level security; alter table public.sos_keyword_rules no force row level security;
+alter table public.staff_roles enable row level security; alter table public.staff_roles no force row level security;
+alter table public.subscriptions enable row level security; alter table public.subscriptions no force row level security;
+alter table public.tier_upgrade_rewards_log enable row level security; alter table public.tier_upgrade_rewards_log no force row level security;
+alter table public.visit_operation_events enable row level security; alter table public.visit_operation_events no force row level security;
+alter table public.visit_operation_timers enable row level security; alter table public.visit_operation_timers no force row level security;
+alter table public.visit_sessions enable row level security; alter table public.visit_sessions no force row level security;
+alter table public.wallets enable row level security; alter table public.wallets no force row level security;
+alter table public.whisper_audience_presets enable row level security; alter table public.whisper_audience_presets no force row level security;
+alter table public.whisper_recipients enable row level security; alter table public.whisper_recipients no force row level security;
+alter table public.whispers enable row level security; alter table public.whispers no force row level security;
+-- storage.buckets: rls=True force=False (owned by supabase_storage_admin; normally never changed)
+-- storage.objects: rls=True force=False (owned by supabase_storage_admin; normally never changed)
+commit;
