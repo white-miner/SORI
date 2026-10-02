@@ -1,5 +1,5 @@
 -- =============================================================================
--- SORI P0 M1 tests (supabase/migrations/20261003090000_sec_m1_tokens_rpcs.sql)
+-- SORI P0 M1 tests (supabase/migrations/20261002225112_sec_m1_tokens_rpcs.sql)
 -- -----------------------------------------------------------------------------
 -- * Runs in ONE transaction and ends with ROLLBACK: fixtures (test users/shops/
 --   charts with ids e1../e2../e3../e4..) and every write are discarded.

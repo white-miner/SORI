@@ -1,7 +1,11 @@
 -- =============================================================================
 -- SORI P0 security - M1 (step S1): customer link tokens + safe RPCs + guard triggers
 -- -----------------------------------------------------------------------------
--- STATUS: NOT APPLIED. Apply only after explicit approval (see PR description).
+-- STATUS: APPLIED to production (tieojdbzmqcmlwyqltrk) on 2026-10-03 07:51 KST with MCP apply_migration
+--         (name sec_m1_tokens_rpcs). supabase_migrations.schema_migrations recorded version
+--         20261002225112 (= apply time in UTC), so this file was renamed from
+--         20261003090000_sec_m1_tokens_rpcs.sql to match the recorded version. Do NOT re-apply.
+--         Only comments changed after apply; the SQL below is byte-identical to what was applied.
 -- Plan:   SORI P0 security plan (kept outside the repo), step S1 / migration M1; approved defaults Q1-Q14.
 --
 -- ADDITIVE ONLY:
@@ -28,7 +32,7 @@
 --   PT404 token_not_found / shop_not_found, PT410 token_expired (expired or revoked),
 --   PT409 already_submitted, PT429 too_many_requests, 22023 invalid input,
 --   42501 login_required / forbidden.
--- Rollback: supabase/security/rollback/20261003090000_sec_m1_tokens_rpcs.rollback.sql
+-- Rollback: supabase/security/rollback/20261002225112_sec_m1_tokens_rpcs.rollback.sql
 -- Tests:    supabase/security/tests/m1_test.sql (all in one transaction, rolled back)
 -- =============================================================================
 

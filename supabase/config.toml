@@ -1,0 +1,16 @@
+# Supabase CLI config — Edge Function settings only (SORI P0 S2).
+# The CLI fills every other section with its defaults. DB changes in this project are applied with
+# MCP apply_migration (see supabase/migrations/20261002225112_sec_m1_tokens_rpcs.sql), not `supabase db push`.
+project_id = "SORI"
+
+# Customers open care report links without logging in; the function validates the token itself.
+[functions.care-report]
+verify_jwt = false
+
+# Verifies the caller's user JWT itself (auth.getUser) for `refs`; `case_chart_ids` is public (decision Q1).
+[functions.media-sign]
+verify_jwt = false
+
+# Already deployed (v24) with verify_jwt = true; listed so a redeploy keeps that setting.
+[functions.get-shop-market]
+verify_jwt = true

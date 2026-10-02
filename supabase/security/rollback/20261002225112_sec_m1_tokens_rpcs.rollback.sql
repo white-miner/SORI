@@ -1,5 +1,5 @@
 -- =============================================================================
--- ROLLBACK for supabase/migrations/20261003090000_sec_m1_tokens_rpcs.sql (SORI P0 M1 / S1)
+-- ROLLBACK for supabase/migrations/20261002225112_sec_m1_tokens_rpcs.sql (SORI P0 M1 / S1)
 -- -----------------------------------------------------------------------------
 -- Drops ONLY the objects created by M1, in dependency order. Nothing that existed
 -- before M1 is touched, so no snapshot restore is needed for this step.
