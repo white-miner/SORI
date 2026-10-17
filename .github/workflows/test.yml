@@ -35,3 +35,10 @@ jobs:
         run: |
           flutter test test/home_dashboard_v54_golden_test.dart
           flutter test test/my_feed_v70_golden_test.dart
+
+      - name: Run design goldens (D0-1, non-blocking)
+        # 날짜 의존 화면이 있어 기준선 날짜 이후에는 차이가 날 수 있음 — test/design_goldens/README.md
+        continue-on-error: true
+        env:
+          SORI_DESIGN_GOLDENS: '1'
+        run: flutter test --tags golden test/design_goldens
